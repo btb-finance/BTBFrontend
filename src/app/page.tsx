@@ -11,6 +11,7 @@ import { StatsSection } from '@/components/home/StatsSection';
 import { PartnersSection } from '@/components/home/PartnersSection';
 import { RoadmapSection } from '@/components/home/RoadmapSection';
 import { FaqSection } from '@/components/home/FaqSection';
+import { TokenDetails } from '@/components/home/TokenDetails';
 
 export default function Home() {
   return (
@@ -93,6 +94,9 @@ export default function Home() {
 
       {/* Stats Section */}
       <StatsSection />
+
+      {/* Token Details Section */}
+      <TokenDetails />
 
       {/* Protocols Section */}
       <section className="py-20 px-6">

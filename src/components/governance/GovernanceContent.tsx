@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { StakeModal } from './StakeModal';
 import { UserStats } from './UserStats';
 import { useWallet, useVoting } from '@/hooks/useWeb3';
+import { Icons } from '@/components/ui/Icons';
 
 export function GovernanceContent() {
   const [activeTab, setActiveTab] = useState<'active' | 'past'>('active');
@@ -68,8 +69,17 @@ export function GovernanceContent() {
       <main className="min-h-screen bg-[var(--background-dark)]">
         <Header />
         
-        {/* Hero Section */}
-        <AnimatedSection className="relative pt-32 pb-20 px-6 overflow-hidden">
+        {/* Demo Notice Banner */}
+        <div className="fixed top-20 left-0 right-0 z-40 bg-red-600 py-2 px-4 text-center">
+          <div className="container mx-auto max-w-6xl flex items-center justify-center gap-2">
+            <Icons.ChartBar className="w-5 h-5 text-white" />
+            <p className="text-sm font-medium text-white">
+              Demo Version: Features and content may change during development
+            </p>
+          </div>
+        </div>
+
+        <AnimatedSection className="relative pt-40 pb-20 px-6 overflow-hidden">
           <div className="container mx-auto max-w-6xl relative z-10">
             <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight">
               Shape the Future of{' '}
