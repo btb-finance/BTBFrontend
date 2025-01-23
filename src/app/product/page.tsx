@@ -1,10 +1,12 @@
 'use client';
 
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { Header } from '@/components/layout/Header';
 import { FeatureCard } from '@/components/ui/FeatureCard';
-import { JsonLd, generateProductSchema, generateFAQSchema } from '@/components/shared/JsonLd';
-import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { Icons } from '@/components/ui/Icons';
+import { generateProductSchema, generateFAQSchema } from '@/lib/schema';
+import { JsonLd } from '@/components/shared/JsonLd';
+import { motion } from 'framer-motion';
 
 const faqs = [
   {
@@ -54,8 +56,13 @@ export default function ProductPage() {
           
           {/* Hero Section */}
           <section className="relative pt-32 pb-20 px-6 overflow-hidden">
-            <div className="container mx-auto max-w-6xl relative z-10">
-              <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="container mx-auto max-w-6xl relative z-10"
+            >
+              <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight text-center">
                 Maximize Your{' '}
                 <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] bg-clip-text text-transparent">
                   DeFi
@@ -63,15 +70,33 @@ export default function ProductPage() {
                 <br />
                 Returns
               </h1>
-              <p className="text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mb-12 leading-relaxed">
+              <p className="text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-12 leading-relaxed text-center">
                 Stake VELO without 4-year locks, protect your Uniswap V3 positions from IL, and earn protocol fees with stBTB.
               </p>
-              <button className="gradient-border glow px-8 py-4 bg-[var(--background-light)] text-lg font-medium hover:bg-[var(--background-dark)] transition-colors">
-                Start Staking Now
-              </button>
-            </div>
+              <div className="flex justify-center gap-4">
+                <motion.button 
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="gradient-border glow px-8 py-4 bg-[var(--background-light)] text-lg font-medium hover:bg-[var(--background-dark)] transition-colors flex items-center"
+                >
+                  Start Staking Now
+                  <Icons.ChevronRight className="ml-2 w-5 h-5" />
+                </motion.button>
+                <motion.a
+                  href="https://docs.btb.finance"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="px-8 py-4 bg-white/10 text-lg font-medium hover:bg-white/20 transition-colors rounded-lg flex items-center"
+                >
+                  Documentation
+                  <Icons.ExternalLink className="ml-2 w-5 h-5" />
+                </motion.a>
+              </div>
+            </motion.div>
 
-            {/* Background Gradient */}
+            {/* Enhanced Background Gradient */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-30">
               <div className="absolute inset-0 rotate-45 translate-y-[-60%] blur-3xl">
                 <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-br from-[var(--primary)] to-transparent" />
@@ -80,13 +105,27 @@ export default function ProductPage() {
           </section>
 
           {/* Features Section */}
-          <section className="py-20 px-6">
+          <section className="py-20 px-6 bg-[var(--background-light)]">
             <div className="container mx-auto max-w-6xl">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {features.map((feature) => (
-                  <FeatureCard key={feature.title} {...feature} />
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                viewport={{ once: true }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-6"
+              >
+                {features.map((feature, index) => (
+                  <motion.div
+                    key={feature.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.2 }}
+                    viewport={{ once: true }}
+                  >
+                    <FeatureCard {...feature} />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           </section>
 
@@ -97,82 +136,84 @@ export default function ProductPage() {
               
               {/* Velodrome Liquid Staking */}
               <div className="mb-16">
-                <h3 className="text-2xl md:text-3xl font-bold mb-6">Velodrome Liquid Staking</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="gradient-border p-6 bg-[var(--background-light)]">
-                    <h4 className="text-xl font-semibold mb-4">How It Works</h4>
-                    <ul className="space-y-3 text-[var(--text-secondary)]">
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Stake VELO tokens and receive btbVELO instantly
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        No 4-year lock requirement
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Earn 90% of voting rewards
-                      </li>
-                    </ul>
+                <div className="flex items-center justify-center mb-8">
+                  <div className="relative w-16 h-16 mr-4">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary-dark)] rounded-full opacity-20 blur-lg" />
+                    <Icons.Lock className="w-16 h-16 text-[var(--primary)] relative z-10" />
                   </div>
-                  <div className="gradient-border p-6 bg-[var(--background-light)]">
-                    <h4 className="text-xl font-semibold mb-4">Benefits</h4>
-                    <ul className="space-y-3 text-[var(--text-secondary)]">
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Trade or use btbVELO while earning rewards
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Protocol maintains optimal lock duration
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Participate in governance or delegate voting
-                      </li>
-                    </ul>
+                  <h3 className="text-2xl md:text-3xl font-bold">Velodrome Liquid Staking</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="gradient-border p-6 bg-[var(--background-light)] flex flex-col items-center text-center">
+                    <Icons.ArrowTrend className="w-12 h-12 mb-4 text-[var(--primary)]" />
+                    <h4 className="text-xl font-semibold mb-4">Step 1: Stake</h4>
+                    <p className="text-[var(--text-secondary)]">Stake your VELO tokens and receive btbVELO instantly, with no 4-year lock</p>
+                  </div>
+                  <div className="gradient-border p-6 bg-[var(--background-light)] flex flex-col items-center text-center">
+                    <Icons.Repeat className="w-12 h-12 mb-4 text-[var(--primary)]" />
+                    <h4 className="text-xl font-semibold mb-4">Step 2: Optimize</h4>
+                    <p className="text-[var(--text-secondary)]">Protocol automatically maintains optimal lock duration for maximum rewards</p>
+                  </div>
+                  <div className="gradient-border p-6 bg-[var(--background-light)] flex flex-col items-center text-center">
+                    <Icons.ChartBar className="w-12 h-12 mb-4 text-[var(--primary)]" />
+                    <h4 className="text-xl font-semibold mb-4">Step 3: Earn</h4>
+                    <p className="text-[var(--text-secondary)]">Earn 90% of voting rewards while maintaining full liquidity flexibility</p>
                   </div>
                 </div>
               </div>
 
-              {/* Uniswap V3 Refunds */}
+              {/* Uniswap V3 IL Protection */}
               <div className="mb-16">
-                <h3 className="text-2xl md:text-3xl font-bold mb-6">Uniswap V3 IL Protection</h3>
+                <div className="flex items-center justify-center mb-8">
+                  <div className="relative w-16 h-16 mr-4">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)] to-[var(--primary-dark)] rounded-full opacity-20 blur-lg" />
+                    <Icons.ShieldCheck className="w-16 h-16 text-[var(--primary)] relative z-10" />
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-bold">Uniswap V3 IL Protection</h3>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <div className="gradient-border p-6 bg-[var(--background-light)]">
-                    <h4 className="text-xl font-semibold mb-4">How Refunds Work</h4>
-                    <ul className="space-y-3 text-[var(--text-secondary)]">
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Provide liquidity to approved Uniswap V3 pairs
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Smart contract monitors IL in real-time
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        Receive compensation for any impermanent loss
-                      </li>
-                    </ul>
+                    <div className="flex items-center mb-6">
+                      <Icons.Activity className="w-8 h-8 text-[var(--primary)] mr-3" />
+                      <h4 className="text-xl font-semibold">Protection Process</h4>
+                    </div>
+                    <div className="relative pl-8 border-l-2 border-[var(--primary)] space-y-6">
+                      <div className="relative">
+                        <div className="absolute -left-[41px] w-5 h-5 rounded-full bg-[var(--primary)]" />
+                        <h5 className="font-medium mb-2">Provide Liquidity</h5>
+                        <p className="text-[var(--text-secondary)]">Add liquidity to approved Uniswap V3 pairs</p>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute -left-[41px] w-5 h-5 rounded-full bg-[var(--primary)]" />
+                        <h5 className="font-medium mb-2">Real-time Monitoring</h5>
+                        <p className="text-[var(--text-secondary)]">Smart contract continuously tracks IL exposure</p>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute -left-[41px] w-5 h-5 rounded-full bg-[var(--primary)]" />
+                        <h5 className="font-medium mb-2">Automatic Compensation</h5>
+                        <p className="text-[var(--text-secondary)]">Receive immediate compensation for any IL</p>
+                      </div>
+                    </div>
                   </div>
                   <div className="gradient-border p-6 bg-[var(--background-light)]">
-                    <h4 className="text-xl font-semibold mb-4">Fee Structure</h4>
-                    <ul className="space-y-3 text-[var(--text-secondary)]">
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        80% of fees go to LPs
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        10% to stBTB holders for governance
-                      </li>
-                      <li className="flex items-center">
-                        <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
-                        10% to treasury for IL protection
-                      </li>
-                    </ul>
+                    <div className="flex items-center mb-6">
+                      <Icons.PieChart className="w-8 h-8 text-[var(--primary)] mr-3" />
+                      <h4 className="text-xl font-semibold">Fee Distribution</h4>
+                    </div>
+                    <div className="relative aspect-square">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-full h-full bg-[var(--background-dark)] rounded-full overflow-hidden">
+                          <div className="h-full w-[80%] bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] relative">
+                            <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-white font-bold">80%</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-0 left-0 w-full text-center space-y-2">
+                        <p className="text-sm text-[var(--text-secondary)]">80% to LPs</p>
+                        <p className="text-sm text-[var(--text-secondary)]">10% to Governance</p>
+                        <p className="text-sm text-[var(--text-secondary)]">10% to Treasury</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

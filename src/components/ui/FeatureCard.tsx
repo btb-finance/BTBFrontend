@@ -5,12 +5,13 @@ import { Icons, type IconName } from '@/components/ui/Icons';
 import React from 'react';
 
 interface FeatureCardProps {
+  icon: keyof typeof Icons;
   title: string;
   description: string;
-  icon: IconName;
+  className?: string;
 }
 
-export const FeatureCard = ({ title, description, icon }: FeatureCardProps) => {
+export const FeatureCard = ({ title, description, icon, className = '' }: FeatureCardProps) => {
   const IconComponent = Icons[icon];
   
   if (!IconComponent) {
@@ -21,21 +22,15 @@ export const FeatureCard = ({ title, description, icon }: FeatureCardProps) => {
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="gradient-border p-6 bg-[var(--background-light)] group hover:bg-[var(--background-dark)] transition-all duration-300"
+      className={`gradient-border p-6 bg-[var(--background-light)] group hover:shadow-lg transition-shadow duration-300 ${className}`}
     >
-      <motion.div
-        initial={{ scale: 1 }}
-        whileHover={{ scale: 1.1, rotate: 5 }}
-        className="text-3xl mb-6 group-hover:text-[var(--primary)] transition-colors"
-      >
-        <IconComponent className="w-8 h-8" />
-      </motion.div>
-      <h3 className="text-xl font-semibold mb-3 group-hover:text-[var(--primary)] transition-colors">
-        {title}
-      </h3>
-      <p className="text-[var(--text-secondary)] leading-relaxed">
-        {description}
-      </p>
+      <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+        <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+          <IconComponent className="w-4 h-4 text-white" />
+        </div>
+      </div>
+      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      <p className="text-[var(--text-secondary)]">{description}</p>
     </motion.div>
   );
 };

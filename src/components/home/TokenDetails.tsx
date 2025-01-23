@@ -73,41 +73,109 @@ export function TokenDetails() {
         </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <TokenInfoCard
-            title="Total Supply"
-            value="1,000,000,000 BTB"
-            icon={Icons.CurrencyDollar}
-          />
-          <TokenInfoCard
-            title="Initial Supply Available"
-            value="20% (200M BTB)"
-            icon={Icons.ChartBar}
-          />
-          <TokenInfoCard
-            title="Liquidity Pool"
-            value="10% (100M BTB)"
-            icon={Icons.Ethereum}
-          />
-          <TokenInfoCard
-            title="Team & Development"
-            value="70% (700M BTB)"
-            icon={Icons.UserGroup}
-          />
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-[var(--background-light)] to-[var(--background-dark)] p-6 rounded-2xl flex flex-col items-center text-center group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+                <Icons.CurrencyDollar className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="font-bold mb-2">Total Supply</h3>
+            <p className="text-[var(--text-secondary)]">1,000,000,000 BTB</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-[var(--background-light)] to-[var(--background-dark)] p-6 rounded-2xl flex flex-col items-center text-center group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+                <Icons.ChartBar className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="font-bold mb-2">Initial Supply Available</h3>
+            <p className="text-[var(--text-secondary)]">20% (200M BTB)</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-[var(--background-light)] to-[var(--background-dark)] p-6 rounded-2xl flex flex-col items-center text-center group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+                <Icons.Ethereum className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="font-bold mb-2">Liquidity Pool</h3>
+            <p className="text-[var(--text-secondary)]">10% (100M BTB)</p>
+          </motion.div>
+
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-[var(--background-light)] to-[var(--background-dark)] p-6 rounded-2xl flex flex-col items-center text-center group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+                <Icons.UserGroup className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="font-bold mb-2">Team & Development</h3>
+            <p className="text-[var(--text-secondary)]">70% (700M BTB)</p>
+          </motion.div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
-          <PriceOption
-            title="Standard Purchase"
-            price="$0.01 per BTB"
-            description="Buy BTB tokens at the standard price with immediate access to your tokens."
-            icon={Icons.ShieldCheck}
-          />
-          <PriceOption
-            title="1-Year Vesting (50% Discount)"
-            price="$0.005 per BTB"
-            description="Get a 50% discount with 1-year linear vesting. Tokens unlock continuously over the vesting period."
-            icon={Icons.ArrowTrend}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-[var(--background-light)] to-[var(--background-dark)] p-6 rounded-2xl flex flex-col items-center text-center group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+                <Icons.ShieldCheck className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold mb-2">Standard Purchase</h3>
+            <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] bg-clip-text text-transparent mb-2">
+              $0.01 per BTB
+            </div>
+            <p className="text-[var(--text-secondary)]">Buy BTB tokens at the standard price with immediate access to your tokens.</p>
+          </motion.div>
+          
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="bg-gradient-to-br from-[var(--background-light)] to-[var(--background-dark)] p-6 rounded-2xl flex flex-col items-center text-center group hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="w-12 h-12 rounded-full bg-[var(--primary)] bg-opacity-20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <div className="w-8 h-8 rounded-full bg-[var(--primary)] flex items-center justify-center">
+                <Icons.ArrowTrend className="w-4 h-4 text-white" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold mb-2">1-Year Vesting (50% Discount)</h3>
+            <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] bg-clip-text text-transparent mb-2">
+              $0.005 per BTB
+            </div>
+            <p className="text-[var(--text-secondary)]">Get a 50% discount with 1-year linear vesting. Tokens unlock continuously over the vesting period.</p>
+          </motion.div>
         </div>
 
         <motion.div

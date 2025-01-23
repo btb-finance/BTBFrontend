@@ -26,13 +26,13 @@ export function Header() {
       style={{ backgroundColor }}
       className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm border-b border-[var(--border-color)] border-opacity-50"
     >
-      <div className="container mx-auto px-6 h-20 flex items-center justify-between">
-        <Link href="/" className="text-2xl font-bold">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <Link href="/" className="text-xl font-bold">
           BTB Finance
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
+        <nav className="hidden md:flex items-center space-x-6">
           <Link
             href="/product"
             className="text-[var(--text-secondary)] hover:text-white transition-colors"
@@ -53,9 +53,6 @@ export function Header() {
           >
             Docs
           </a>
-          <Button asChild>
-            <Link href="/product">Launch App</Link>
-          </Button>
         </nav>
 
         {/* Mobile Menu */}
