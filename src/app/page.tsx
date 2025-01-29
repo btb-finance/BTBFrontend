@@ -19,37 +19,67 @@ export default function Home() {
       <Header />
 
       {/* Hero Section */}
-      <AnimatedSection className="relative pt-32 pb-20 px-6 overflow-hidden">
+      <AnimatedSection className="relative min-h-[90vh] flex items-center justify-center pt-32 pb-20 px-6 overflow-hidden">
         <div className="container mx-auto max-w-6xl relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center"
+            className="text-center glass p-8 rounded-2xl backdrop-blur-xl"
           >
             <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight">
               Earn More in DeFi with{' '}
-              <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] bg-clip-text text-transparent">
+              <motion.span
+                className="bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] bg-clip-text text-transparent inline-block"
+                animate={{
+                  y: [0, -10, 0],
+                  scale: [1, 1.02, 1]
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              >
                 BTB Finance
-              </span>
+              </motion.span>
             </h1>
-            <p className="text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-12 leading-relaxed">
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-12 leading-relaxed"
+            >
               Unlock multiple revenue streams through liquid staking, IL protection, and protocol governance.
-            </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              <Button size="lg" asChild>
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="flex flex-wrap gap-4 justify-center"
+            >
+              <Button
+                size="lg"
+                asChild
+                className="hover:scale-105 transition-transform duration-300"
+              >
                 <Link href="/product">
                   Get Started
                   <Icons.ChevronRight className="ml-2 w-5 h-5" />
                 </Link>
               </Button>
-              <Button variant="secondary" size="lg" asChild>
+              <Button
+                variant="secondary"
+                size="lg"
+                asChild
+                className="hover:scale-105 transition-transform duration-300"
+              >
                 <a href="https://docs.btb.finance" target="_blank" rel="noopener noreferrer">
                   Documentation
                   <Icons.ExternalLink className="ml-2 w-5 h-5" />
                 </a>
               </Button>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
 

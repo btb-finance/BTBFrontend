@@ -52,14 +52,14 @@ const PriceOption = ({ title, price, description, icon: Icon }: { title: string;
 
 export function TokenDetails() {
   return (
-    <section className="py-24 px-6">
+    <section className="py-24 px-6 bg-gradient-to-b from-background-dark to-background-light">
       <div className="container mx-auto max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
           viewport={{ once: true }}
-          className="text-center mb-16 relative"
+          className="text-center mb-16 relative glass p-8 rounded-2xl"
         >
           <div className="flex justify-center items-center gap-3 mb-4">
             <Icons.Optimism className="w-8 h-8 text-[var(--primary)]" />
