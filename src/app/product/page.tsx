@@ -56,15 +56,15 @@ export default function ProductPage() {
           <Header />
           
           {/* Hero Section */}
-          <AnimatedSection className="relative pt-32 pb-20 px-6 overflow-hidden">
+          <AnimatedSection className="relative pt-20 md:pt-32 pb-16 md:pb-20 px-4 md:px-6 overflow-hidden">
             <div className="container mx-auto max-w-6xl relative z-10">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="text-center glass p-8 rounded-2xl backdrop-blur-xl"
+                className="text-center glass p-4 sm:p-6 md:p-8 rounded-xl md:rounded-2xl backdrop-blur-xl"
               >
-                <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight">
+                <h1 className="text-4xl sm:text-5xl md:text-7xl font-bold mb-6 md:mb-8 tracking-tight">
                   Maximize Your{' '}
                   <motion.span
                     className="bg-gradient-to-r from-[var(--primary)] to-[var(--primary-dark)] bg-clip-text text-transparent inline-block"
@@ -87,7 +87,7 @@ export default function ProductPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.2 }}
-                  className="text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-12 leading-relaxed"
+                  className="text-lg sm:text-xl md:text-2xl text-[var(--text-secondary)] max-w-2xl mx-auto mb-8 md:mb-12 leading-relaxed"
                 >
                   Stake VELO without 4-year locks, protect your Uniswap V3 positions from IL, and earn protocol fees with stBTB.
                 </motion.p>
@@ -113,17 +113,17 @@ export default function ProductPage() {
           </AnimatedSection>
 
           {/* Features Section */}
-          <section className="py-20 px-6 bg-[var(--background-light)]">
+          <section className="py-12 md:py-20 px-4 md:px-6 bg-[var(--background-light)]">
             <div className="container mx-auto max-w-6xl">
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="text-3xl md:text-4xl font-bold text-center mb-12"
+                className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 md:mb-12"
               >
                 Our Innovative Solutions
               </motion.h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
                 {features.map((feature, index) => (
                   <motion.div
                     key={feature.title}
@@ -139,13 +139,13 @@ export default function ProductPage() {
           </section>
 
           {/* Products Section */}
-          <section className="py-20 px-6">
+          <section className="py-12 md:py-20 px-4 md:px-6">
             <div className="container mx-auto max-w-6xl">
               <motion.h2
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
-                className="text-3xl md:text-4xl font-bold text-center mb-12"
+                className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 md:mb-12"
               >
                 Our Products
               </motion.h2>
@@ -156,7 +156,7 @@ export default function ProductPage() {
                   initial={{ opacity: 0, x: -20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5 }}
-                  className="text-2xl md:text-3xl font-bold mb-6"
+                  className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 md:mb-6"
                 >
                   Velodrome Liquid Staking
                 </motion.h3>
@@ -250,10 +250,10 @@ export default function ProductPage() {
 
               {/* Uniswap V3 Refunds */}
               <div className="mb-16">
-                <h3 className="text-2xl md:text-3xl font-bold mb-6">Uniswap V3 IL Protection</h3>
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 md:mb-6">Uniswap V3 IL Protection</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="gradient-border p-6 bg-[var(--background-light)]">
-                    <h4 className="text-xl font-semibold mb-4">How Refunds Work</h4>
+                  <div className="gradient-border p-4 sm:p-5 md:p-6 bg-[var(--background-light)]">
+                    <h4 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">How Refunds Work</h4>
                     <ul className="space-y-3 text-[var(--text-secondary)]">
                       <li className="flex items-center">
                         <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
@@ -269,8 +269,8 @@ export default function ProductPage() {
                       </li>
                     </ul>
                   </div>
-                  <div className="gradient-border p-6 bg-[var(--background-light)]">
-                    <h4 className="text-xl font-semibold mb-4">Fee Structure</h4>
+                  <div className="gradient-border p-4 sm:p-5 md:p-6 bg-[var(--background-light)]">
+                    <h4 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">Fee Structure</h4>
                     <ul className="space-y-3 text-[var(--text-secondary)]">
                       <li className="flex items-center">
                         <Icons.Check className="w-5 h-5 mr-2 text-[var(--primary)]" />
@@ -291,11 +291,11 @@ export default function ProductPage() {
 
               {/* Example Section */}
               <div>
-                <h3 className="text-2xl md:text-3xl font-bold mb-6">Protection Example</h3>
-                <div className="gradient-border p-6 bg-[var(--background-light)]">
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 md:mb-6">Protection Example</h3>
+                <div className="gradient-border p-4 sm:p-5 md:p-6 bg-[var(--background-light)]">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <h4 className="text-xl font-semibold mb-4">ETH/USDC Pool Example</h4>
+                      <h4 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">ETH/USDC Pool Example</h4>
                       <ul className="space-y-3 text-[var(--text-secondary)]">
                         <li>• Initial Position: $10,000</li>
                         <li>• After Price Change: $9,000</li>
@@ -306,7 +306,7 @@ export default function ProductPage() {
                       </ul>
                     </div>
                     <div>
-                      <h4 className="text-xl font-semibold mb-4">How Protection Works</h4>
+                      <h4 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">How Protection Works</h4>
                       <ul className="space-y-3 text-[var(--text-secondary)]">
                         <li>1. Position monitored by smart contract</li>
                         <li>2. IL calculated at withdrawal</li>
@@ -321,19 +321,19 @@ export default function ProductPage() {
           </section>
 
           {/* How It Works Section */}
-          <section className="py-20 px-6 bg-[var(--background-light)]">
+          <section className="py-12 md:py-20 px-4 md:px-6 bg-[var(--background-light)]">
             <div className="container mx-auto max-w-6xl">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">How It Works</h2>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-center mb-8 md:mb-12">How It Works</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                 <div className="space-y-8">
                   <div className="gradient-border p-6 bg-[var(--background-dark)]">
-                    <h3 className="text-xl font-semibold mb-4">Liquid Staking</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">Liquid Staking</h3>
                     <p className="text-[var(--text-secondary)] leading-relaxed">
                       Stake your VELO tokens and receive liquid btbVELO tokens, maintaining flexibility while earning rewards. Trade or use your btbVELO tokens while your stake remains locked.
                     </p>
                   </div>
                   <div className="gradient-border p-6 bg-[var(--background-dark)]">
-                    <h3 className="text-xl font-semibold mb-4">Perpetual Lock System</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">Perpetual Lock System</h3>
                     <p className="text-[var(--text-secondary)] leading-relaxed">
                       Our innovative perpetual lock system ensures sustainable growth through continuous buybacks and strategic voting, maximizing rewards for all participants.
                     </p>
@@ -341,13 +341,13 @@ export default function ProductPage() {
                 </div>
                 <div className="space-y-8">
                   <div className="gradient-border p-6 bg-[var(--background-dark)]">
-                    <h3 className="text-xl font-semibold mb-4">Rewards Distribution</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">Rewards Distribution</h3>
                     <p className="text-[var(--text-secondary)] leading-relaxed">
                       90% of voting rewards go to btbVELO holders, while 10% supports the buyback pool, ensuring continuous liquidity and system sustainability.
                     </p>
                   </div>
                   <div className="gradient-border p-6 bg-[var(--background-dark)]">
-                    <h3 className="text-xl font-semibold mb-4">Strategic Voting</h3>
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 md:mb-4">Strategic Voting</h3>
                     <p className="text-[var(--text-secondary)] leading-relaxed">
                       Participate in governance with your btbVELO tokens or let our team optimize voting strategies for maximum rewards on high-performing pools.
                     </p>
@@ -358,7 +358,7 @@ export default function ProductPage() {
           </section>
 
           {/* Example Section */}
-          <section className="py-20 px-6">
+          <section className="py-12 md:py-20 px-4 md:px-6">
             <div className="container mx-auto max-w-6xl">
               <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center">
                 Liquid Staking Example

@@ -92,21 +92,21 @@ export default function AboutPage() {
     <main className="min-h-screen bg-gradient-to-b from-black to-gray-900 text-white">
       <Header />
       
-      <section className="pt-32 pb-16 px-4">
+      <section className="pt-20 md:pt-32 pb-12 md:pb-16 px-4 md:px-6">
         <div className="container mx-auto max-w-4xl">
           <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 md:mb-6">
               About BTB Finance
             </h1>
-            <p className="text-xl text-gray-300">
+            <p className="text-lg sm:text-xl text-gray-300">
               Learn how we&apos;re revolutionizing DeFi by protecting liquidity providers
               from impermanent loss.
             </p>
           </div>
 
           {/* Mission Statement */}
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 mb-16">
-            <h2 className="text-2xl font-bold mb-4">Our Mission</h2>
+          <div className="bg-white/5 backdrop-blur-sm rounded-xl md:rounded-2xl p-6 md:p-8 mb-12 md:mb-16">
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 md:mb-4">Our Mission</h2>
             <div className="prose prose-invert max-w-none">
               <p>
                 BTB Finance aims to solve one of DeFi&apos;s biggest challenges: impermanent loss.
@@ -131,8 +131,8 @@ export default function AboutPage() {
           </div>
 
           {/* FAQ Section */}
-          <div className="mb-16">
-            <h2 className="text-2xl font-bold mb-8">Frequently Asked Questions</h2>
+          <div className="mb-12 md:mb-16">
+            <h2 className="text-xl sm:text-2xl font-bold mb-6 md:mb-8">Frequently Asked Questions</h2>
             <div className="space-y-2">
               {faqs.map((faq) => (
                 <FaqItem
@@ -146,7 +146,7 @@ export default function AboutPage() {
 
           {/* Join Community Section */}
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4">Join Our Community</h2>
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 md:mb-4">Join Our Community</h2>
             <p className="text-gray-400 mb-8">
               Be part of the future of DeFi. Join our community and help shape the
               future of liquidity provision.
@@ -156,7 +156,7 @@ export default function AboutPage() {
                 href="https://discord.gg/bqFEPA56Tc"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="gradient-border glow px-8 py-4 bg-[var(--background-light)] text-lg font-medium hover:bg-[var(--background-dark)] transition-colors flex items-center"
+                className="gradient-border glow px-6 sm:px-8 py-3 sm:py-4 bg-[var(--background-light)] text-lg font-medium hover:bg-[var(--background-dark)] transition-colors flex items-center"
               >
                 <Icons.Discord className="w-6 h-6 mr-2" />
                 Join Discord
@@ -165,7 +165,7 @@ export default function AboutPage() {
                 href="https://twitter.com/btb_finance"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="gradient-border glow px-8 py-4 bg-[var(--background-light)] text-lg font-medium hover:bg-[var(--background-dark)] transition-colors flex items-center"
+                className="gradient-border glow px-6 sm:px-8 py-3 sm:py-4 bg-[var(--background-light)] text-lg font-medium hover:bg-[var(--background-dark)] transition-colors flex items-center"
               >
                 <Icons.Twitter className="w-6 h-6 mr-2" />
                 Follow Twitter
