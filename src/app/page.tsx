@@ -25,7 +25,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
-            className="text-center glass p-8 rounded-2xl backdrop-blur-xl"
+            className="text-center p-8 rounded-xl bg-background-light/80 shadow-lg"
           >
             <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight">
               Earn More in DeFi with{' '}

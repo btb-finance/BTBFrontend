@@ -21,14 +21,14 @@ export const FeatureCard = ({ title, description, icon }: FeatureCardProps) => {
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="gradient-border p-6 bg-[var(--background-light)] group hover:bg-[var(--background-dark)] transition-all duration-300"
+      className="gradient-border p-6 bg-[var(--background-light)] group hover:bg-[var(--background-dark)] transition-all duration-300 flex flex-col items-center text-center"
     >
       <motion.div
         initial={{ scale: 1 }}
         whileHover={{ scale: 1.1, rotate: 5 }}
-        className="text-3xl mb-6 group-hover:text-[var(--primary)] transition-colors"
+        className="text-4xl mb-4 group-hover:text-[var(--primary)] transition-colors"
       >
-        <IconComponent className="w-8 h-8" />
+        <IconComponent className="w-10 h-10" />
       </motion.div>
       <h3 className="text-xl font-semibold mb-3 group-hover:text-[var(--primary)] transition-colors">
         {title}

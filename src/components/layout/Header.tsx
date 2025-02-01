@@ -23,8 +23,7 @@ export function Header() {
 
   return (
     <motion.header
-      style={{ backgroundColor }}
-      className="fixed top-0 left-0 right-0 z-50 backdrop-blur-sm border-b border-[var(--border-color)] border-opacity-50"
+      className="sticky top-0 z-50 bg-background-dark/90 backdrop-blur-md shadow-lg"
     >
       <div className="container mx-auto px-6 h-20 flex items-center justify-between">
         <Link href="/" className="text-2xl font-bold">

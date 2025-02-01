@@ -61,11 +61,8 @@ export function TokenDetails() {
           viewport={{ once: true }}
           className="text-center mb-16 relative glass p-8 rounded-2xl"
         >
-          <div className="flex justify-center items-center gap-3 mb-4">
-            <Icons.Optimism className="w-8 h-8 text-[var(--primary)]" />
-            <h2 className="text-4xl md:text-5xl font-bold">
-              BTB Token Details
-            </h2>
+          <div className="text-center mb-8">
+            <h2 className="text-4xl md:text-5xl font-bold">BTB Token Details</h2>
           </div>
           <p className="text-lg text-[var(--text-secondary)] max-w-2xl mx-auto">
             BTB Finance (BTB) is the governance token of the protocol, with a total supply of 1 billion tokens on Optimism
