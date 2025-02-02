@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BTBFinance - Next Generation DeFi Platform
+
+BTBFinance is a comprehensive DeFi platform that helps users navigate the complex world of decentralized finance with confidence and precision.
+
+## Features
+
+- **Impermanent Loss Calculator**: Understand and mitigate your risks with our sophisticated tool
+- **Yield Farming Dashboard**: Monitor your investments across platforms with real-time updates
+- **Educational Hub**: Dive deep into DeFi with our expert-led content
+- **Community Forum**: Engage, learn, and grow with the DeFi community
+
+## Tech Stack
+
+- **Frontend**: Next.js 14 (App Router)
+- **Styling**: Tailwind CSS with custom design system
+- **State Management**: React Context API
+- **Web3**: ethers.js for blockchain interaction
+- **Data Fetching**: SWR
+- **Testing**: Jest + React Testing Library
 
 ## Getting Started
 
-First, run the development server:
+1. Clone the repository:
+```bash
+git clone https://github.com/btb-finance/btb-finance-v2.git
+cd btb-finance-v2
+```
 
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Run the development server:
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file in the root directory with the following variables:
+```
+NEXT_PUBLIC_ALCHEMY_ID=your_alchemy_id
+NEXT_PUBLIC_WALLET_CONNECT_ID=your_wallet_connect_id
+```
 
-## Learn More
+## Contributing
 
-To learn more about Next.js, take a look at the following resources:
+We welcome contributions! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## License
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Deploy on Vercel
+## Contact
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Website: [btb.finance](https://btb.finance)
+- Twitter: [@BTBFinance](https://twitter.com/BTBFinance)
+- Discord: [Join our community](https://discord.gg/btbfinance)
