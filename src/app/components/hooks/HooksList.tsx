@@ -4,8 +4,9 @@ import React from 'react';
 import { Hook } from '../../types/hooks';
 import { mockHooks } from '../../data/hooksData';
 import { FaGlobe, FaTwitter, FaDiscord, FaTelegram, FaGithub } from 'react-icons/fa';
+import { IconType } from 'react-icons';
 
-const SocialLink = ({ href, icon: Icon, label }: { href?: string; icon: any; label: string }) => {
+const SocialLink = ({ href, icon: Icon, label }: { href?: string; icon: IconType; label: string }) => {
   if (!href) return null;
   return (
     <a
@@ -90,7 +91,12 @@ const HookCard = ({ hook }: { hook: Hook }) => (
 );
 
 export default function HooksList() {
-  const [sortBy, setSortBy] = React.useState('tvl');
+  const [sortBy, setSortBy] = React.useState<'tvl' | 'volume' | 'apy'>('tvl');
+  
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortBy(e.target.value as 'tvl' | 'volume' | 'apy');
+  };
+
   const [sortedHooks, setSortedHooks] = React.useState(mockHooks);
 
   React.useEffect(() => {
@@ -117,7 +123,7 @@ export default function HooksList() {
           <select 
             className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={handleSortChange}
           >
             <option value="tvl">Sort by TVL</option>
             <option value="volume">Sort by Volume</option>

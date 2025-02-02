@@ -24,7 +24,7 @@ export default function HooksStats() {
         <div className="flex items-center gap-2 mb-4">
           <span className="text-yellow-400">⚠️</span>
           <p className="text-sm text-gray-300">
-            All TVL and volume data are estimates. For accurate data, please visit each protocol's official website.
+            All TVL and volume data are estimates. For accurate data, please visit each protocol&apos;s official website.
           </p>
         </div>
         
