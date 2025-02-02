@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChatBubbleLeftIcon, FireIcon, ClockIcon, UserGroupIcon, TrophyIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleLeftIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 
 const categories = [
   {
@@ -16,7 +16,7 @@ const categories = [
     id: 'strategies',
     name: 'Strategy Sharing',
     description: 'How I Turned $1k into $10k in a Month - Share your success stories',
-    icon: TrophyIcon,
+    icon: null,
     topics: 156,
     posts: 892
   },
@@ -24,7 +24,7 @@ const categories = [
     id: 'protocols',
     name: 'Protocol Reviews',
     description: 'Deep dive into the latest DeFi protocols and their potential',
-    icon: ShieldCheckIcon,
+    icon: null,
     topics: 89,
     posts: 445
   },
@@ -114,7 +114,7 @@ export default function CommunityPage() {
                       }`}
                     >
                       <div className="flex items-start">
-                        <Icon className="h-8 w-8 mr-4 text-[#FFD700]" />
+                        {Icon && <Icon className="h-8 w-8 mr-4 text-[#FFD700]" />}
                         <div className="flex-1">
                           <h3 className="text-lg font-montserrat font-semibold mb-2">{category.name}</h3>
                           <p className="text-sm font-roboto text-blue-100 mb-4">{category.description}</p>

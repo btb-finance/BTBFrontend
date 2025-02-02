@@ -2,12 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
+import { useTheme } from 'next-themes';
 
 Chart.register(...registerables);
 
 export default function PriceChart() {
   const chartRef = useRef<HTMLCanvasElement>(null);
   const chartInstance = useRef<Chart | null>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -26,6 +28,10 @@ export default function PriceChart() {
     if (chartInstance.current) {
       chartInstance.current.destroy();
     }
+
+    const isDark = theme === 'dark';
+    const textColor = isDark ? '#9CA3AF' : '#4B5563';
+    const gridColor = isDark ? 'rgba(156, 163, 175, 0.1)' : 'rgba(107, 114, 128, 0.1)';
 
     chartInstance.current = new Chart(ctx, {
       type: 'line',
@@ -48,13 +54,21 @@ export default function PriceChart() {
           legend: {
             position: 'top' as const,
             labels: {
-              color: 'rgb(156, 163, 175)',
+              color: textColor,
+              font: {
+                family: "'Roboto', sans-serif",
+              },
             },
           },
           title: {
             display: true,
             text: 'Impermanent Loss vs Price Ratio Change',
-            color: 'rgb(156, 163, 175)',
+            color: textColor,
+            font: {
+              family: "'Montserrat', sans-serif",
+              size: 16,
+              weight: 600,
+            },
           },
         },
         scales: {
@@ -62,26 +76,38 @@ export default function PriceChart() {
             title: {
               display: true,
               text: 'Price Ratio Change',
-              color: 'rgb(156, 163, 175)',
+              color: textColor,
+              font: {
+                family: "'Roboto', sans-serif",
+              },
             },
             grid: {
-              color: 'rgba(156, 163, 175, 0.1)',
+              color: gridColor,
             },
             ticks: {
-              color: 'rgb(156, 163, 175)',
+              color: textColor,
+              font: {
+                family: "'Roboto', sans-serif",
+              },
             },
           },
           y: {
             title: {
               display: true,
               text: 'Impermanent Loss (%)',
-              color: 'rgb(156, 163, 175)',
+              color: textColor,
+              font: {
+                family: "'Roboto', sans-serif",
+              },
             },
             grid: {
-              color: 'rgba(156, 163, 175, 0.1)',
+              color: gridColor,
             },
             ticks: {
-              color: 'rgb(156, 163, 175)',
+              color: textColor,
+              font: {
+                family: "'Roboto', sans-serif",
+              },
             },
           },
         },
@@ -93,7 +119,7 @@ export default function PriceChart() {
         chartInstance.current.destroy();
       }
     };
-  }, []);
+  }, [theme]);
 
   return (
     <div className="w-full h-full min-h-[400px] flex flex-col">

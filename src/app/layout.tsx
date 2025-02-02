@@ -19,11 +19,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-white dark:bg-gray-900`}>
         <Providers>
           <ThemeScript />
-          <div className="min-h-screen bg-white dark:bg-gray-900">
+          <div className="min-h-screen">
             <Navbar />
             <main className="pt-16 text-gray-900 dark:text-white">
               {children}

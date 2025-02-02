@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import PortfolioOverview from '../components/dashboard/PortfolioOverview';
 import PositionsList from '../components/dashboard/PositionsList';
 import MarketOverview from '../components/dashboard/MarketOverview';

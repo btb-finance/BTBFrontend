@@ -60,7 +60,7 @@ export default function Testimonials() {
               >
                 <figure className="text-center">
                   <blockquote className="text-xl font-semibold leading-8 text-gray-900 dark:text-white sm:text-2xl sm:leading-9">
-                    <p>"{testimonial.content}"</p>
+                    <p>&ldquo;{testimonial.content}&rdquo;</p>
                   </blockquote>
                   <figcaption className="mt-8">
                     <div className="mt-4">

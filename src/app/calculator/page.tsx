@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import ILCalculator from '../components/calculator/ILCalculator';
 import PriceChart from '../components/calculator/PriceChart';
 
