@@ -3,12 +3,19 @@ import {
   CalculatorIcon, 
   ChartBarIcon, 
   AcademicCapIcon, 
-  UserGroupIcon 
+  UserGroupIcon,
+  BeakerIcon 
 } from '@heroicons/react/24/outline';
 import Testimonials from './components/home/Testimonials';
 import Stats from './components/home/Stats';
 
 const features = [
+  {
+    name: 'Uniswap V4 Hooks',
+    description: 'Discover and explore the latest Uniswap V4 hooks for enhanced DeFi functionality.',
+    icon: BeakerIcon,
+    href: '/hooks'
+  },
   {
     name: 'Impermanent Loss Calculator',
     description: 'Understand and mitigate your risks with our sophisticated tool.',
@@ -26,12 +33,6 @@ const features = [
     description: 'Dive deep into DeFi with our expert-led content.',
     icon: AcademicCapIcon,
     href: '/education'
-  },
-  {
-    name: 'Community Forum',
-    description: 'Engage, learn, and grow with the DeFi community.',
-    icon: UserGroupIcon,
-    href: '/community'
   }
 ];
 
@@ -55,10 +56,10 @@ export default function Home() {
               </p>
               <div className="mt-10 flex items-center justify-center gap-x-6">
                 <Link
-                  href="/calculator"
+                  href="/hooks"
                   className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                 >
-                  Calculate Now
+                  Discover Hooks
                 </Link>
                 <Link
                   href="/dashboard"
