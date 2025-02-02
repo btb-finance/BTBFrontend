@@ -58,4 +58,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Website: [btb.finance](https://btb.finance)
 - Twitter: [@BTB_Finance](https://twitter.com/BTB_Finance)
-- Discord: [Join our community]([https://discord.gg/btbfinance](https://discord.gg/bqFEPA56Tc))
+- Discord: [Join our community](https://discord.gg/bqFEPA56Tc)
