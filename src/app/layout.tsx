@@ -2,12 +2,13 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
+import { ThemeScript } from './theme-script';
 import Navbar from './components/layout/Navbar';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'DeFi Yield Companion',
+  title: 'BTB Finance',
   description: 'Navigate the complex world of yield farming with confidence and precision.',
 };
 
@@ -18,12 +19,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-white dark:bg-gray-900`}>
+      <head />
+      <body className={inter.className}>
         <Providers>
-          <Navbar />
-          <main className="pt-16">
-            {children}
-          </main>
+          <ThemeScript />
+          <div className="min-h-screen bg-white dark:bg-gray-900">
+            <Navbar />
+            <main className="pt-16 text-gray-900 dark:text-white">
+              {children}
+            </main>
+          </div>
         </Providers>
       </body>
     </html>
