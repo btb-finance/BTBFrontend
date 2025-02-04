@@ -3,7 +3,6 @@ import {
   CalculatorIcon, 
   ChartBarIcon, 
   AcademicCapIcon, 
-  UserGroupIcon,
   BeakerIcon 
 } from '@heroicons/react/24/outline';
 import Testimonials from './components/home/Testimonials';
