@@ -1,0 +1,7 @@
+ curl -X GET "https://api.hookrank.io/api/public/v1/uniswap/hooks/currencies?hookAddress={address}"      -H "X-API-Key: b87e9ee22c7d1b23c7dc69062db0e90681fefcc56571235dc907f68207060951"
+
+
+
+//to get all pools
+ curl -X GET "https://api.hookrank.io/api/public/v1/uniswap/hooks/currencies"      -H "X-API-Key:
+b87e9ee22c7d1b23c7dc69062db0e90681fefcc56571235dc907f68207060951"

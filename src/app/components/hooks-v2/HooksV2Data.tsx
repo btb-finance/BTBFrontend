@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { ExternalLink, Copy, Check, Search, ArrowUpDown, ChevronDown } from "lucide-react"
+import Link from "next/link"
 
 const HooksDashboard = () => {
   const [hooks, setHooks] = useState([])
@@ -312,9 +313,11 @@ const HooksDashboard = () => {
           {filteredHooks.map((hook, index) => (
             <div key={index} className="bg-gray-800 rounded-lg p-6 text-gray-300">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-white truncate">
-                  {hook.name || (hook.address ? hook.address.slice(0, 8) : "Unknown")}
-                </h2>
+              <Link href={`/hooks-v2/${hook.network.chainId}/${hook.address}`} className="hover:text-blue-400 transition-colors">
+                  <h2 className="text-xl font-semibold text-white truncate">
+                    {hook.name || (hook.address ? hook.address.slice(0, 8) : "Unknown")}
+                  </h2>
+                </Link>
                 <div className="flex items-center gap-2">
                   {hook.isVerified && (
                     <span className="px-2 py-1 text-xs bg-green-900 text-green-300 rounded">Verified</span>
