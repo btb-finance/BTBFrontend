@@ -47,7 +47,7 @@ export default function EducationPage() {
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-4xl font-bold text-gradient mb-4">
             DeFi Education Hub
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
@@ -68,14 +68,18 @@ export default function EducationPage() {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`p-6 rounded-lg text-left transition-all ${
+                className={`card transition-all ${
                   selectedCategory === category.id
-                    ? 'bg-primary text-white'
-                    : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    ? 'bg-btb-gradient text-white'
+                    : 'hover:shadow-btb-hover'
                 }`}
               >
                 <div className="flex items-center mb-4">
-                  {Icon && <Icon className="h-6 w-6 mr-2" />}
+                  {Icon && <Icon className={`h-6 w-6 mr-2 ${
+                    selectedCategory === category.id
+                      ? 'text-white'
+                      : 'text-[#FF0420]'
+                  }`} />}
                   <h3 className="text-lg font-semibold">{category.name}</h3>
                 </div>
                 <p className={`text-sm ${
@@ -91,7 +95,9 @@ export default function EducationPage() {
         </div>
 
         {/* Article List */}
-        <ArticleList category={selectedCategory} searchQuery={searchQuery} />
+        <div className="card">
+          <ArticleList category={selectedCategory} searchQuery={searchQuery} />
+        </div>
       </div>
     </div>
   );

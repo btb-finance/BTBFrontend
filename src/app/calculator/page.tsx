@@ -9,7 +9,7 @@ export default function CalculatorPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-4xl font-bold text-gradient mb-4">
             Impermanent Loss Calculator
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
@@ -20,19 +20,19 @@ export default function CalculatorPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Calculator Form */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <div className="card">
             <ILCalculator />
           </div>
 
           {/* Results and Visualization */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <div className="card">
             <PriceChart />
           </div>
         </div>
 
         {/* Educational Section */}
-        <div className="mt-16 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        <div className="mt-16 card">
+          <h2 className="text-2xl font-bold text-[#FF0420] dark:text-[#FF0420] mb-4">
             Understanding Impermanent Loss
           </h2>
           <div className="prose dark:prose-invert max-w-none">

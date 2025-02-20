@@ -41,8 +41,8 @@ export default function PriceChart() {
           {
             label: 'Impermanent Loss %',
             data: ilValues,
-            borderColor: '#1976D2',
-            backgroundColor: 'rgba(25, 118, 210, 0.1)',
+            borderColor: '#FF0420',
+            backgroundColor: 'rgba(255, 4, 32, 0.1)',
             fill: true,
             tension: 0.4,
           },
@@ -63,7 +63,7 @@ export default function PriceChart() {
           title: {
             display: true,
             text: 'Impermanent Loss vs Price Ratio Change',
-            color: textColor,
+            color: '#FF0420',
             font: {
               family: "'Montserrat', sans-serif",
               size: 16,
@@ -76,7 +76,7 @@ export default function PriceChart() {
             title: {
               display: true,
               text: 'Price Ratio Change',
-              color: textColor,
+              color: '#FF0420',
               font: {
                 family: "'Roboto', sans-serif",
               },
@@ -95,7 +95,7 @@ export default function PriceChart() {
             title: {
               display: true,
               text: 'Impermanent Loss (%)',
-              color: textColor,
+              color: '#FF0420',
               font: {
                 family: "'Roboto', sans-serif",
               },

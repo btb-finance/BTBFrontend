@@ -105,8 +105,8 @@ export default function BuyToken() {
         const provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) {
-          setAccount(accounts[0].address); // Get the address property
-          await getTokenBalance(accounts[0].address);
+          setAccount(accounts[0] ? (typeof accounts[0] === 'string' ? accounts[0] : (accounts[0] as { address: string }).address) : '');
+          await getTokenBalance(accounts[0] ? (typeof accounts[0] === 'string' ? accounts[0] : (accounts[0] as { address: string }).address) : '');
           await getTokenRate();
         }
       }
@@ -254,13 +254,13 @@ export default function BuyToken() {
         
         // Verify the switch was successful
         const updatedNetwork = await provider.getNetwork();
-        if (updatedNetwork.chainId !== OPTIMISM_SEPOLIA_CHAIN_ID) {
+        if (Number(updatedNetwork.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
           throw new Error('Failed to switch to Optimistic Sepolia network');
         }
       }
 
       // Set account and get balances
-      const address = typeof accounts[0] === 'string' ? accounts[0] : accounts[0].address;
+      const address = accounts[0] ? (typeof accounts[0] === 'string' ? accounts[0] : (accounts[0] as { address: string }).address) : '';
       setAccount(address);
       
       try {
@@ -314,7 +314,7 @@ export default function BuyToken() {
       setTokenBalance('0');
       setError('Please connect your wallet');
     } else {
-      const address = typeof accounts[0] === 'string' ? accounts[0] : accounts[0].address;
+      const address = accounts[0] ? (typeof accounts[0] === 'string' ? accounts[0] : (accounts[0] as { address: string }).address) : '';
       setAccount(address);
       getTokenBalance(address);
     }
@@ -335,7 +335,7 @@ export default function BuyToken() {
       const network = await provider.getNetwork();
       console.log('Current network:', network);
 
-      if (network.chainId !== BigInt(OPTIMISM_SEPOLIA_CHAIN_ID)) {
+      if (Number(network.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
         console.log('Not on Optimistic Sepolia, attempting to switch...');
         try {
           await window.ethereum.request({
@@ -369,7 +369,7 @@ export default function BuyToken() {
         
         // Verify the switch was successful
         const updatedNetwork = await provider.getNetwork();
-        if (updatedNetwork.chainId !== OPTIMISM_SEPOLIA_CHAIN_ID) {
+        if (Number(updatedNetwork.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
           throw new Error('Failed to switch to Optimistic Sepolia network');
         }
       }
@@ -661,6 +661,7 @@ export default function BuyToken() {
         withVesting
       });
 
+      let gasEstimate: bigint | undefined;
       try {
         // First check if sale is active
         try {
@@ -673,11 +674,11 @@ export default function BuyToken() {
         }
 
         // Estimate gas before sending transaction
-        const options = { 
-          value: weiAmount
+        const options: ethers.TransactionRequest = {
+          value: weiAmount,
+          gasLimit: gasEstimate ? (gasEstimate * BigInt(120)) / BigInt(100) : undefined
         };
 
-        let gasEstimate;
         try {
           if (withVesting) {
             gasEstimate = await saleContract.buyTokensVesting.estimateGas(options);
@@ -687,7 +688,7 @@ export default function BuyToken() {
           console.log('Estimated gas:', gasEstimate.toString());
           
           // Add 20% buffer to gas estimate
-          options.gasLimit = gasEstimate * BigInt(120) / BigInt(100);
+          options.gasLimit = gasEstimate ? (gasEstimate * BigInt(120)) / BigInt(100) : undefined;
         } catch (gasError: any) {
           console.error('Gas estimation failed:', gasError);
           // If gas estimation fails, set a high gas limit
@@ -769,16 +770,19 @@ export default function BuyToken() {
   }, [ethAmount]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1976D2] via-blue-800 to-[#1976D2] py-12 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#FF0420] via-[#FF0420]/80 to-[#FF0420] py-12 px-4">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold text-white text-center mb-12">Buy BTB Tokens</h1>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-white mb-4">Buy BTB Tokens</h1>
+          <p className="text-lg text-white/80">Join the BTB Finance ecosystem and be part of the future of DeFi</p>
+        </div>
 
         {/* Wallet Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 mb-8">
+        <div className="bg-black/20 backdrop-blur-lg rounded-xl p-6 mb-8 border border-white/10">
           <h2 className="text-2xl font-bold text-white mb-4">Your Wallet</h2>
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
-              <p className="text-blue-100">
+              <p className="text-white/80">
                 {account && typeof account === 'string' ? 
                   `Connected: ${account.slice(0, 6)}...${account.slice(-4)}` : 
                   'Not Connected'}
@@ -789,7 +793,11 @@ export default function BuyToken() {
               <button
                 onClick={connectWallet}
                 disabled={isConnecting}
-                className={`px-6 py-3 ${isConnecting ? 'bg-gray-500' : 'bg-[#1976D2] hover:bg-blue-600'} text-white rounded-lg font-semibold transition-colors`}
+                className={`px-6 py-3 ${
+                  isConnecting 
+                    ? 'bg-gray-500' 
+                    : 'bg-white text-[#FF0420] hover:bg-white/90'
+                } rounded-lg font-semibold transition-colors`}
               >
                 {isConnecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
@@ -798,16 +806,16 @@ export default function BuyToken() {
         </div>
 
         {/* Buy Tokens Section */}
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
+        <div className="bg-black/20 backdrop-blur-lg rounded-xl p-6 border border-white/10">
           <h2 className="text-2xl font-bold text-white mb-6">Buy Tokens</h2>
           <div className="space-y-6">
-            <div className="bg-white/5 rounded-lg p-4 border border-blue-300/20">
-              <p className="text-blue-100 text-sm">Current Rate</p>
+            <div className="bg-black/30 rounded-lg p-4 border border-white/10 text-white">
+              <p className="text-white/80 text-sm">Current Rate</p>
               <p className="text-xl font-bold text-white">{rate} BTB per ETH</p>
             </div>
 
             <div>
-              <label className="block text-blue-100 mb-2">ETH Amount</label>
+              <label className="block text-white/80 mb-2">ETH Amount</label>
               <input
                 type="number"
                 value={ethAmount}
@@ -815,7 +823,7 @@ export default function BuyToken() {
                   setEthAmount(e.target.value);
                   setTokenAmount(calculateTokenAmount(e.target.value, false).toString());
                 }}
-                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-blue-300/20 text-white focus:outline-none focus:border-blue-400"
+                className="w-full px-4 py-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-white/50 focus:outline-none focus:border-white/30"
                 placeholder="0.0"
                 min="0"
                 step="0.01"
@@ -823,19 +831,19 @@ export default function BuyToken() {
             </div>
 
             <div>
-              <label className="block text-blue-100 mb-2">You Will Receive</label>
-              <div className="w-full px-4 py-3 rounded-lg bg-white/5 border border-blue-300/20 text-white">
+              <label className="block text-white/80 mb-2">You Will Receive</label>
+              <div className="w-full px-4 py-3 rounded-lg bg-black/30 border border-white/10 text-white">
                 {tokenAmount} BTB
               </div>
             </div>
 
             <div>
-              <label className="block text-blue-100 mb-2">Vesting Duration (days)</label>
+              <label className="block text-white/80 mb-2">Vesting Duration (days)</label>
               <input
                 type="number"
                 value={vestingDuration}
                 onChange={(e) => setVestingDuration(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-blue-300/20 text-white focus:outline-none focus:border-blue-400"
+                className="w-full px-4 py-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-white/50 focus:outline-none focus:border-white/30"
                 placeholder="Enter vesting duration in days"
                 min="0"
               />
@@ -848,7 +856,7 @@ export default function BuyToken() {
                 className={`w-full px-6 py-4 rounded-lg font-semibold text-lg transition-colors ${
                   loading || !account || !ethAmount
                     ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-[#1976D2] hover:bg-blue-600 text-white'
+                    : 'bg-white text-[#FF0420] hover:bg-white/90'
                 }`}
               >
                 Buy Tokens
@@ -859,7 +867,7 @@ export default function BuyToken() {
                 className={`w-full px-6 py-4 rounded-lg font-semibold text-lg transition-colors ${
                   loading || !account || !ethAmount || !vestingDuration
                     ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-[#1976D2] hover:bg-blue-600 text-white'
+                    : 'bg-white text-[#FF0420] hover:bg-white/90'
                 }`}
               >
                 Buy with Vesting
@@ -869,17 +877,21 @@ export default function BuyToken() {
             {vestingInfo && (
               <div className="mt-8">
                 <h2 className="text-2xl font-bold text-white mb-4">Vesting Information</h2>
-                <div className="bg-white/5 rounded-lg p-4 border border-blue-300/20 text-white">
-                  <p>Total Vested Amount: {vestingInfo.totalAmount} BTB</p>
-                  <p>Released Amount: {vestingInfo.releasedAmount} BTB</p>
-                  <p>Start Time: {new Date(vestingInfo.startTime * 1000).toLocaleString()}</p>
-                  <p>Duration: {vestingInfo.duration / (24 * 60 * 60)} days</p>
-                  <p>Releasable Amount: {releasableAmount} BTB</p>
+                <div className="bg-black/30 rounded-lg p-4 border border-white/10 text-white">
+                  <p className="mb-2">Total Vested Amount: {vestingInfo.totalAmount} BTB</p>
+                  <p className="mb-2">Released Amount: {vestingInfo.releasedAmount} BTB</p>
+                  <p className="mb-2">Start Time: {new Date(vestingInfo.startTime * 1000).toLocaleString()}</p>
+                  <p className="mb-2">Duration: {vestingInfo.duration / (24 * 60 * 60)} days</p>
+                  <p className="mb-4">Releasable Amount: {releasableAmount} BTB</p>
                   
                   <button
                     onClick={releaseTokens}
                     disabled={loading || parseFloat(releasableAmount) <= 0}
-                    className="mt-4 bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
+                    className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
+                      loading || parseFloat(releasableAmount) <= 0
+                        ? 'bg-gray-500 cursor-not-allowed'
+                        : 'bg-white text-[#FF0420] hover:bg-white/90'
+                    }`}
                   >
                     Release Available Tokens
                   </button>
@@ -888,12 +900,12 @@ export default function BuyToken() {
             )}
             
             {error && (
-              <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-100">
+              <div className="p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200">
                 {error}
               </div>
             )}
             {success && (
-              <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-100">
+              <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg text-green-200">
                 {success}
               </div>
             )}

@@ -13,7 +13,7 @@ const SocialLink = ({ href, icon: Icon, label }: { href?: string; icon: IconType
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-gray-400 hover:text-primary transition-colors"
+      className="text-gray-400 hover:text-[#FF0420] transition-colors"
       aria-label={label}
     >
       <Icon className="w-5 h-5" />
@@ -22,40 +22,40 @@ const SocialLink = ({ href, icon: Icon, label }: { href?: string; icon: IconType
 };
 
 const HookCard = ({ hook }: { hook: Hook }) => (
-  <div className="bg-gray-800 rounded-xl p-6 hover:bg-gray-750 transition-colors">
+  <div className="card hover:shadow-lg transition-all duration-300">
     <div className="flex items-center justify-between mb-4">
       <h3 className="text-xl font-semibold flex items-center gap-2">
         {hook.name}
         {hook.verified && (
-          <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-5 h-5 text-[#FF0420]" fill="currentColor" viewBox="0 0 20 20">
             <path d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
           </svg>
         )}
       </h3>
-      <span className="text-sm text-blue-400">{hook.protocol}</span>
+      <span className="text-sm text-[#FF0420]">{hook.protocol}</span>
     </div>
-    <p className="text-gray-400 mb-4">{hook.description}</p>
+    <p className="text-gray-600 dark:text-gray-300 mb-4">{hook.description}</p>
     
     <div className="grid grid-cols-3 gap-4 mb-4">
       <div>
-        <div className="text-sm text-gray-400">TVL</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">TVL</div>
         <div className="font-semibold">{hook.tvl}</div>
       </div>
       <div>
-        <div className="text-sm text-gray-400">24h Volume</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">24h Volume</div>
         <div className="font-semibold">{hook.volume24h}</div>
       </div>
       <div>
-        <div className="text-sm text-gray-400">APY</div>
-        <div className="font-semibold text-green-500">{hook.apy}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">APY</div>
+        <div className="font-semibold text-green-600 dark:text-green-400">{hook.apy}</div>
       </div>
     </div>
 
     <div className="mb-4">
-      <div className="text-sm text-gray-400 mb-2">Deployed On</div>
+      <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Deployed On</div>
       <div className="flex flex-wrap gap-2">
         {hook.deployedOn.map((chain) => (
-          <span key={chain} className="px-2 py-1 bg-gray-700 rounded-full text-xs">
+          <span key={chain} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-xs">
             {chain}
           </span>
         ))}
@@ -72,16 +72,16 @@ const HookCard = ({ hook }: { hook: Hook }) => (
       </div>
       <div className="flex items-center gap-2">
         <span className={`px-2 py-1 rounded text-xs ${
-          hook.riskLevel === 'Low' ? 'bg-green-900 text-green-300' :
-          hook.riskLevel === 'Medium' ? 'bg-yellow-900 text-yellow-300' :
-          'bg-red-900 text-red-300'
+          hook.riskLevel === 'Low' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
+          hook.riskLevel === 'Medium' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+          'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
         }`}>
           {hook.riskLevel} Risk
         </span>
         <span className={`px-2 py-1 rounded text-xs ${
-          hook.auditStatus === 'Audited' ? 'bg-green-900 text-green-300' :
-          hook.auditStatus === 'In Progress' ? 'bg-yellow-900 text-yellow-300' :
-          'bg-red-900 text-red-300'
+          hook.auditStatus === 'Audited' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' :
+          hook.auditStatus === 'In Progress' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300' :
+          'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300'
         }`}>
           {hook.auditStatus}
         </span>
@@ -116,12 +116,12 @@ export default function HooksList() {
   }, [sortBy]);
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <div className="max-w-7xl mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold font-montserrat">Popular Hooks</h2>
+        <h2 className="text-2xl font-bold text-gradient">Popular Hooks</h2>
         <div className="flex gap-4">
           <select 
-            className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary"
+            className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:border-[#FF0420] focus:ring-1 focus:ring-[#FF0420]"
             value={sortBy}
             onChange={handleSortChange}
           >
@@ -130,7 +130,7 @@ export default function HooksList() {
             <option value="apy">Sort by APY</option>
           </select>
           <select 
-            className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary"
+            className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:border-[#FF0420] focus:ring-1 focus:ring-[#FF0420]"
           >
             <option value="">Risk Level</option>
             <option value="low">Low Risk</option>
@@ -138,7 +138,7 @@ export default function HooksList() {
             <option value="high">High Risk</option>
           </select>
           <select 
-            className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-primary focus:ring-1 focus:ring-primary"
+            className="px-4 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus:border-[#FF0420] focus:ring-1 focus:ring-[#FF0420]"
           >
             <option value="">Audit Status</option>
             <option value="audited">Audited</option>
