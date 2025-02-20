@@ -5,19 +5,19 @@ import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 const testimonials = [
   {
-    content: "DeFi Yield Companion has transformed how I manage my yield farming strategy. The IL calculator saved me from potential losses multiple times.",
-    author: "Alex Chen",
-    role: "DeFi Investor"
+    content: "BTB Finance's innovative approach to DeFi has revolutionized how I manage my crypto portfolio. Their yield farming solutions are unmatched.",
+    author: "David Chang",
+    role: "Crypto Fund Manager"
   },
   {
-    content: "The dashboard's real-time monitoring capabilities have given me unprecedented control over my DeFi investments.",
-    author: "Sarah Williams",
-    role: "Crypto Analyst"
+    content: "The BTB Token ecosystem provides incredible opportunities for passive income. The community support is phenomenal.",
+    author: "Elena Martinez",
+    role: "BTB Token Holder"
   },
   {
-    content: "As a newcomer to DeFi, the educational resources here have been invaluable. Clear, comprehensive, and practical.",
-    author: "Michael Rodriguez",
-    role: "New to DeFi"
+    content: "As an early adopter of BTBT Tax Token, I've seen remarkable returns. The platform's security and transparency are outstanding.",
+    author: "James Wilson",
+    role: "DeFi Strategist"
   }
 ];
 
@@ -37,14 +37,14 @@ export default function Testimonials() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 py-16">
+    <div className="bg-[#FF0420] bg-opacity-5 dark:bg-opacity-10 py-16">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-            Trusted by DeFi Enthusiasts
+          <h2 className="text-3xl font-bold tracking-tight text-[#FF0420] dark:text-[#FF0420] sm:text-4xl">
+            Community Success Stories
           </h2>
           <p className="mt-4 text-lg leading-8 text-gray-600 dark:text-gray-300">
-            See what our community has to say about their experience
+            Discover how BTB Finance is transforming the DeFi landscape
           </p>
         </div>
         <div className="relative mt-16">
@@ -64,7 +64,7 @@ export default function Testimonials() {
                   </blockquote>
                   <figcaption className="mt-8">
                     <div className="mt-4">
-                      <div className="font-semibold text-gray-900 dark:text-white">{testimonial.author}</div>
+                      <div className="font-semibold text-[#FF0420]">{testimonial.author}</div>
                       <div className="text-gray-600 dark:text-gray-400">{testimonial.role}</div>
                     </div>
                   </figcaption>
@@ -76,13 +76,13 @@ export default function Testimonials() {
             onClick={prev}
             className="absolute left-0 top-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 p-2 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            <ChevronLeftIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+            <ChevronLeftIcon className="h-6 w-6 text-[#FF0420]" />
           </button>
           <button
             onClick={next}
             className="absolute right-0 top-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 p-2 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            <ChevronRightIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+            <ChevronRightIcon className="h-6 w-6 text-[#FF0420]" />
           </button>
         </div>
       </div>

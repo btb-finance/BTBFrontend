@@ -11,7 +11,7 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-gradient">
             Your DeFi Investment Control Center
           </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-300">
@@ -23,22 +23,30 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Portfolio Overview */}
           <div className="lg:col-span-2">
-            <PortfolioOverview />
+            <div className="card">
+              <PortfolioOverview />
+            </div>
           </div>
 
           {/* Right Column - Alerts */}
           <div className="lg:col-span-1">
-            <AlertsPanel />
+            <div className="card">
+              <AlertsPanel />
+            </div>
           </div>
 
           {/* Market Overview */}
           <div className="lg:col-span-3">
-            <MarketOverview />
+            <div className="card">
+              <MarketOverview />
+            </div>
           </div>
 
           {/* Active Positions */}
           <div className="lg:col-span-3">
-            <PositionsList />
+            <div className="card">
+              <PositionsList />
+            </div>
           </div>
         </div>
       </div>
