@@ -108,6 +108,15 @@ export default function Navbar() {
             </li>
             <li>
               <Link 
+                href="/hooks-v2" 
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Hooks v2
+              </Link>
+            </li>
+            <li>
+              <Link 
                 href="/token" 
                 className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
