@@ -27,10 +27,10 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed w-full z-20 top-0 left-0 bg-white border-b border-gray-200 dark:bg-gray-900 dark:border-gray-700">
+    <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-[#FF0420] via-[#FF0420]/90 to-[#FF0420] backdrop-blur-lg border-b border-white/10">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
         <Link href="/" className="flex items-center">
-          <span className="self-center text-xl md:text-2xl font-semibold whitespace-nowrap text-primary">
+          <span className="self-center text-xl md:text-2xl font-semibold whitespace-nowrap text-white">
             BTBFinance
           </span>
         </Link>
@@ -38,7 +38,7 @@ export default function Navbar() {
         <div className="flex items-center md:order-2">
           <button
             onClick={toggleTheme}
-            className="p-2 text-gray-500 rounded-lg hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+            className="p-2 text-white/80 rounded-lg hover:bg-white/10 transition-colors"
             aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
@@ -51,7 +51,7 @@ export default function Navbar() {
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             type="button"
-            className="inline-flex items-center p-2 ml-1 text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+            className="inline-flex items-center p-2 ml-1 text-sm text-white/80 rounded-lg md:hidden hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
             aria-controls="mobile-menu"
             aria-expanded={isMenuOpen}
           >
@@ -69,11 +69,11 @@ export default function Navbar() {
           } items-center justify-between w-full md:flex md:w-auto md:order-1`}
           id="mobile-menu"
         >
-          <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-100 rounded-lg bg-gray-50 md:flex-row md:space-x-8 md:mt-0 md:border-0 md:bg-transparent dark:bg-gray-800 dark:border-gray-700 md:dark:bg-transparent">
+          <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium rounded-lg bg-black/20 md:flex-row md:space-x-8 md:mt-0 md:border-0 md:bg-transparent">
             <li>
               <Link 
                 href="/calculator" 
-                className="block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-primary md:p-0 dark:text-white dark:hover:bg-gray-700 md:dark:hover:bg-transparent dark:hover:text-primary"
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Calculator
@@ -82,7 +82,7 @@ export default function Navbar() {
             <li>
               <Link 
                 href="/dashboard" 
-                className="block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-primary md:p-0 dark:text-white dark:hover:bg-gray-700 md:dark:hover:bg-transparent dark:hover:text-primary"
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Dashboard
@@ -91,7 +91,7 @@ export default function Navbar() {
             <li>
               <Link 
                 href="/education" 
-                className="block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-primary md:p-0 dark:text-white dark:hover:bg-gray-700 md:dark:hover:bg-transparent dark:hover:text-primary"
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Learn
@@ -100,7 +100,7 @@ export default function Navbar() {
             <li>
               <Link 
                 href="/hooks" 
-                className="block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-primary md:p-0 dark:text-white dark:hover:bg-gray-700 md:dark:hover:bg-transparent dark:hover:text-primary"
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Hooks
@@ -109,16 +109,27 @@ export default function Navbar() {
             <li>
               <Link 
                 href="/token" 
-                className="block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-primary md:p-0 dark:text-white dark:hover:bg-gray-700 md:dark:hover:bg-transparent dark:hover:text-primary"
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Token
               </Link>
             </li>
+
+            <li>
+              <Link 
+                href="/buy-token" 
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                BuyToken
+              </Link>
+            </li>
+
             <li>
               <Link 
                 href="/community" 
-                className="block py-2 pl-3 pr-4 text-gray-900 rounded hover:bg-gray-100 md:hover:bg-transparent md:hover:text-primary md:p-0 dark:text-white dark:hover:bg-gray-700 md:dark:hover:bg-transparent dark:hover:text-primary"
+                className="block py-2 pl-3 pr-4 text-white rounded hover:bg-white/10 md:hover:bg-transparent md:hover:text-white md:p-0"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Community

@@ -4,12 +4,12 @@ import React from 'react';
 import { hookStats } from '@/app/data/hooksData';
 
 const StatCard = ({ title, value, change }: { title: string; value: string; change?: string }) => (
-  <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-    <h3 className="text-gray-400 font-roboto mb-2">{title}</h3>
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+    <h3 className="text-white/80 font-roboto mb-2">{title}</h3>
     <div className="flex items-baseline gap-3">
-      <p className="text-2xl font-semibold font-montserrat">{value}</p>
+      <p className="text-2xl font-semibold font-montserrat text-white">{value}</p>
       {change && (
-        <span className={`text-sm ${change.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+        <span className={`text-sm ${change.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
           {change}
         </span>
       )}
@@ -19,11 +19,11 @@ const StatCard = ({ title, value, change }: { title: string; value: string; chan
 
 export default function HooksStats() {
   return (
-    <div className="max-w-7xl mx-auto px-4 -mt-8">
-      <div className="bg-gray-800/30 rounded-xl p-6 border border-gray-700">
+    <div className="max-w-7xl mx-auto">
+      <div className="rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
           <span className="text-yellow-400">⚠️</span>
-          <p className="text-sm text-gray-300">
+          <p className="text-sm text-white/80">
             All TVL and volume data are estimates. For accurate data, please visit each protocol&apos;s official website.
           </p>
         </div>

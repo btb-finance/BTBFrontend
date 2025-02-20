@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChatBubbleLeftIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import Link from 'next/link';
 
 const categories = [
   {
@@ -72,16 +73,16 @@ export default function CommunityPage() {
   const [activeCategory, setActiveCategory] = useState('general');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1976D2] via-blue-800 to-[#1976D2]">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Hero Section */}
       <div className="relative">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
         <div className="relative max-w-7xl mx-auto pt-24 pb-20 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold font-montserrat text-white sm:text-5xl md:text-6xl">
+            <h1 className="text-4xl font-bold text-gradient sm:text-5xl md:text-6xl mb-6">
               Where DeFi Minds Meet
             </h1>
-            <p className="mt-6 text-xl text-blue-100 max-w-3xl mx-auto font-roboto">
+            <p className="mt-6 text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               Join a community where every question is an opportunity to learn and every answer is a step towards mastery.
             </p>
           </div>
@@ -89,14 +90,14 @@ export default function CommunityPage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Categories */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
+            <div className="card">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-montserrat font-bold text-white">Discussion Categories</h2>
-                <button className="px-4 py-2 bg-[#4CAF50] text-white rounded-lg font-medium hover:bg-[#45a049] transition-colors">
+                <h2 className="text-2xl font-bold text-gradient">Discussion Categories</h2>
+                <button className="btn-primary">
                   New Topic
                 </button>
               </div>
@@ -109,16 +110,16 @@ export default function CommunityPage() {
                       onClick={() => setActiveCategory(category.id)}
                       className={`p-6 rounded-xl transition-all duration-300 text-left ${
                         activeCategory === category.id
-                          ? 'bg-[#1976D2] text-white ring-2 ring-blue-400'
-                          : 'bg-white/5 text-white hover:bg-white/10'
+                          ? 'bg-btb-gradient text-white'
+                          : 'bg-white dark:bg-gray-800 hover:shadow-lg'
                       }`}
                     >
                       <div className="flex items-start">
-                        {Icon && <Icon className="h-8 w-8 mr-4 text-[#FFD700]" />}
+                        {Icon && <Icon className="h-8 w-8 mr-4 text-[#FF0420]" />}
                         <div className="flex-1">
-                          <h3 className="text-lg font-montserrat font-semibold mb-2">{category.name}</h3>
-                          <p className="text-sm font-roboto text-blue-100 mb-4">{category.description}</p>
-                          <div className="flex items-center text-sm text-blue-200 space-x-4">
+                          <h3 className="text-lg font-semibold mb-2">{category.name}</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{category.description}</p>
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 space-x-4">
                             <span>{category.topics} topics</span>
                             <span>{category.posts} posts</span>
                           </div>
@@ -134,22 +135,18 @@ export default function CommunityPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Recent Activity */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-              <h2 className="text-xl font-montserrat font-bold text-white mb-4">Trending Discussions</h2>
+            <div className="card bg-btb-gradient text-white">
+              <h2 className="text-xl font-bold mb-4">Trending Discussions</h2>
               <div className="space-y-4">
                 {recentTopics.map((topic) => (
-                  <div key={topic.id} className="p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-colors">
-                    <h3 className="text-white font-medium mb-2">{topic.title}</h3>
-                    <div className="flex items-center justify-between text-sm text-blue-200">
+                  <div key={topic.id} className="p-4 bg-white/10 rounded-lg hover:bg-white/20 transition-colors">
+                    <h3 className="font-medium mb-2">{topic.title}</h3>
+                    <div className="flex items-center justify-between text-sm text-white/80">
                       <span className="flex items-center">
-                        <span className="w-2 h-2 bg-[#4CAF50] rounded-full mr-2"></span>
+                        <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
                         {topic.author}
                       </span>
                       <span>{topic.lastActivity}</span>
-                    </div>
-                    <div className="flex items-center mt-2 text-sm text-blue-300 space-x-4">
-                      <span>{topic.replies} replies</span>
-                      <span>{topic.views} views</span>
                     </div>
                   </div>
                 ))}
@@ -157,36 +154,29 @@ export default function CommunityPage() {
             </div>
 
             {/* Community Stats */}
-            <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6">
-              <h2 className="text-xl font-montserrat font-bold text-white mb-4">Community Stats</h2>
+            <div className="card">
+              <h2 className="text-xl font-bold text-gradient mb-4">Community Stats</h2>
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-white/5 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-[#FFD700]">2.5K</div>
-                  <div className="text-sm text-blue-200">Members</div>
+                <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-lg">
+                  <div className="text-2xl font-bold text-[#FF0420]">12.5K+</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Members</div>
                 </div>
-                <div className="p-4 bg-white/5 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-[#4CAF50]">150</div>
-                  <div className="text-sm text-blue-200">Online</div>
-                </div>
-                <div className="p-4 bg-white/5 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-[#FFD700]">5.2K</div>
-                  <div className="text-sm text-blue-200">Topics</div>
-                </div>
-                <div className="p-4 bg-white/5 rounded-lg text-center">
-                  <div className="text-2xl font-bold text-[#4CAF50]">25.6K</div>
-                  <div className="text-sm text-blue-200">Posts</div>
+                <div className="text-center p-4 bg-white dark:bg-gray-800 rounded-lg">
+                  <div className="text-2xl font-bold text-[#FF0420]">45K+</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Posts</div>
                 </div>
               </div>
             </div>
 
             {/* Join Discord */}
-            <div className="bg-gradient-to-br from-[#1976D2] to-blue-700 rounded-xl p-6">
-              <h2 className="text-xl font-montserrat font-bold text-white mb-4">Join Our Discord</h2>
-              <p className="text-blue-100 mb-6 font-roboto">Stay connected, stay informed, stay ahead with our vibrant Discord community</p>
-              <button className="w-full bg-white text-[#1976D2] rounded-lg px-4 py-3 font-medium hover:bg-blue-50 transition-colors">
-                Join Discord Server
-              </button>
-            </div>
+            <Link 
+              href="https://discord.gg/btbfinance" 
+              target="_blank"
+              className="card bg-[#5865F2] text-white hover:bg-[#4752C4] transition-colors block text-center"
+            >
+              <h2 className="text-xl font-bold mb-2">Join Our Discord</h2>
+              <p className="text-white/80">Get real-time updates and chat with the community</p>
+            </Link>
           </div>
         </div>
       </div>
