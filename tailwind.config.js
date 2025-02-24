@@ -10,11 +10,11 @@ module.exports = {
     extend: {
       colors: {
         btb: {
-          primary: '#FF0420',
-          'primary-dark': '#E6031D',
-          'primary-light': '#FF3651',
-          secondary: '#1A1B1F',
-          accent: '#00A3FF',
+          primary: '#3B82F6',
+          'primary-dark': '#2563EB',
+          'primary-light': '#60A5FA',
+          secondary: '#1F2937',
+          accent: '#10B981',
         },
       },
       fontFamily: {
@@ -22,8 +22,8 @@ module.exports = {
         body: ['Roboto', 'sans-serif'],
       },
       backgroundImage: {
-        'btb-gradient': 'linear-gradient(to right, #FF0420, #FF3651)',
-        'btb-gradient-dark': 'linear-gradient(to right, #E6031D, #FF0420)',
+        'btb-gradient': 'linear-gradient(to right, #3B82F6, #60A5FA)',
+        'btb-gradient-dark': 'linear-gradient(to right, #2563EB, #3B82F6)',
       },
       animation: {
         float: 'float 3s ease-in-out infinite',

@@ -27,7 +27,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-[#FF0420] via-[#FF0420]/90 to-[#FF0420] backdrop-blur-lg border-b border-white/10">
+    <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-primary via-primary/90 to-primary-light backdrop-blur-lg border-b border-white/10">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
         <Link href="/" className="flex items-center">
           <span className="self-center text-xl md:text-2xl font-semibold whitespace-nowrap text-white">

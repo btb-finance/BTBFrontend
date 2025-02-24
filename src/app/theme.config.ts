@@ -1,8 +1,9 @@
 export const themeConfig = {
+
   colors: {
     primary: '#FF0420',
-    primaryDark: '#E6031D',
-    primaryLight: '#FF3651',
+    primaryDark: '#E50019',
+    primaryLight: '#FF3B52',
     secondary: '#1A1B1F',
     accent: '#00A3FF',
   },
@@ -11,8 +12,8 @@ export const themeConfig = {
     body: 'Roboto, sans-serif',
   },
   gradients: {
-    primary: 'linear-gradient(to right, #FF0420, #FF3651)',
-    dark: 'linear-gradient(to right, #E6031D, #FF0420)',
+    primary: 'linear-gradient(to right, #FF0420, #FF3B52)',
+    dark: 'linear-gradient(to right, #E50019, #FF0420)',
   },
   borderRadius: {
     small: '0.375rem',
