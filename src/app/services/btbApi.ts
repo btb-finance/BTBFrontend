@@ -5,35 +5,25 @@ const BASE_URL = 'https://btb.finance/api';
 
 export interface Portfolio {
   totalValue: number;
-  totalEarnings: number;
-  averageApy: number;
-  activePositions: number;
-  performanceHistory: {
-    date: string;
-    value: number;
-  }[];
+  change24h: number;
+  changePercentage24h: number;
+  assets: {
+    active: number;
+    total: number;
+  };
+  positions: Position[];
 }
 
 export interface Position {
   id: string;
   protocol: string;
   pair: string;
-  tvl: number | string;
-  apy: number | string;
-  rewards: number | any[];
-  risk: 'Low' | 'Medium' | 'High';
-  health: 'Healthy' | 'Warning' | 'Alert';
-  chain?: string;
-  details?: {
-    startDate: string;
-    totalRewards: number;
-    recentTransactions: {
-      date: string;
-      action: string;
-      amount: number;
-      token: string;
-    }[];
-  };
+  tvl: string;
+  apy: string;
+  rewards: any[];
+  risk: "Low" | "Medium" | "High";
+  health: "Healthy" | "Warning" | "Alert";
+  chain: string;
 }
 
 export interface MarketData {
@@ -227,16 +217,57 @@ class BTBApi {
   async mockPortfolioOverview(): Promise<Portfolio> {
     return {
       totalValue: 124592,
-      totalEarnings: 12789,
-      averageApy: 24.5,
-      activePositions: 8,
-      performanceHistory: [
-        { date: '2023-01-01', value: 95000 },
-        { date: '2023-02-01', value: 102000 },
-        { date: '2023-03-01', value: 98000 },
-        { date: '2023-04-01', value: 115000 },
-        { date: '2023-05-01', value: 124000 },
-        { date: '2023-06-01', value: 124592 }
+      change24h: 12789,
+      changePercentage24h: 24.5,
+      assets: {
+        active: 8,
+        total: 10
+      },
+      positions: [
+        {
+          id: '1',
+          protocol: 'Uniswap V3',
+          pair: 'ETH/USDC',
+          tvl: '45230',
+          apy: '28.4',
+          rewards: [234.12],
+          risk: 'Medium',
+          health: 'Healthy',
+          chain: 'Ethereum'
+        },
+        {
+          id: '2',
+          protocol: 'Curve Finance',
+          pair: 'stETH/ETH',
+          tvl: '32180',
+          apy: '12.8',
+          rewards: [89.45],
+          risk: 'Low',
+          health: 'Healthy',
+          chain: 'Ethereum'
+        },
+        {
+          id: '3',
+          protocol: 'Balancer',
+          pair: 'BTC/ETH/USDC',
+          tvl: '28940',
+          apy: '18.2',
+          rewards: [142.30],
+          risk: 'Medium',
+          health: 'Warning',
+          chain: 'Ethereum'
+        },
+        {
+          id: '4',
+          protocol: 'Aave V3',
+          pair: 'ETH Supply',
+          tvl: '18242',
+          apy: '4.2',
+          rewards: [21.15],
+          risk: 'Low',
+          health: 'Healthy',
+          chain: 'Ethereum'
+        }
       ]
     };
   }
@@ -247,41 +278,45 @@ class BTBApi {
         id: '1',
         protocol: 'Uniswap V3',
         pair: 'ETH/USDC',
-        tvl: 45230,
-        apy: 28.4,
-        rewards: 234.12,
+        tvl: '45230',
+        apy: '28.4',
+        rewards: [234.12],
         risk: 'Medium',
-        health: 'Healthy'
+        health: 'Healthy',
+        chain: 'Ethereum'
       },
       {
         id: '2',
         protocol: 'Curve Finance',
         pair: 'stETH/ETH',
-        tvl: 32180,
-        apy: 12.8,
-        rewards: 89.45,
+        tvl: '32180',
+        apy: '12.8',
+        rewards: [89.45],
         risk: 'Low',
-        health: 'Healthy'
+        health: 'Healthy',
+        chain: 'Ethereum'
       },
       {
         id: '3',
         protocol: 'Balancer',
         pair: 'BTC/ETH/USDC',
-        tvl: 28940,
-        apy: 18.2,
-        rewards: 142.30,
+        tvl: '28940',
+        apy: '18.2',
+        rewards: [142.30],
         risk: 'Medium',
-        health: 'Warning'
+        health: 'Warning',
+        chain: 'Ethereum'
       },
       {
         id: '4',
         protocol: 'Aave V3',
         pair: 'ETH Supply',
-        tvl: 18242,
-        apy: 4.2,
-        rewards: 21.15,
+        tvl: '18242',
+        apy: '4.2',
+        rewards: [21.15],
         risk: 'Low',
-        health: 'Healthy'
+        health: 'Healthy',
+        chain: 'Ethereum'
       }
     ];
   }

@@ -3,55 +3,61 @@
 import { useState } from "react"
 import Link from "next/link"
 import { ExternalLink, Copy, Check } from "lucide-react"
+import { Hook } from "./HooksDashboard"
 
-const HooksList = ({ hooks }) => {
-  const [copiedAddresses, setCopiedAddresses] = useState({})
+interface CopiedAddresses {
+  [key: string]: boolean;
+}
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString()
+interface ExtendedHook extends Hook {
+  isNoOp?: boolean;
+  successRate?: number;
+}
+
+const HooksList = ({ hooks }: { hooks: ExtendedHook[] }) => {
+  const [copiedAddresses, setCopiedAddresses] = useState<CopiedAddresses>({})
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
   }
 
-  const formatAmount = (amount) => {
-    return Number.parseFloat(amount).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
+  const formatAmount = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount)
   }
 
-  const getExplorerUrl = (network, address) => {
-    const explorers = {
-      Ethereum: `https://etherscan.io/address/${address}`,
-      Base: `https://basescan.org/address/${address}`,
-      Polygon: `https://polygonscan.com/address/${address}`,
-      "Arbitrum One": `https://arbiscan.io/address/${address}`,
-      Optimism: `https://optimistic.etherscan.io/address/${address}`,
-      Avalanche: `https://snowtrace.io/address/${address}`,
-      BSC: `https://bscscan.com/address/${address}`,
-      Goerli: `https://goerli.etherscan.io/address/${address}`,
-      Sepolia: `https://sepolia.etherscan.io/address/${address}`,
-    }
-
-    return explorers[network] || `https://etherscan.io/address/${address}`
+  const explorers: { [key: string]: string } = {
+    Ethereum: "https://etherscan.io",
+    Base: "https://basescan.org",
+    Polygon: "https://polygonscan.com",
+    "Arbitrum One": "https://arbiscan.io",
+    Optimism: "https://optimistic.etherscan.io",
+    Avalanche: "https://snowtrace.io",
+    BSC: "https://bscscan.com",
+    Goerli: "https://goerli.etherscan.io",
+    Sepolia: "https://sepolia.etherscan.io",
   }
 
-  const handleExplore = (network, address) => {
-    if (address) {
-      const url = getExplorerUrl(network.name, address)
-      window.open(url, "_blank")
-    }
+  const getExplorerUrl = (network: string, address: string) => {
+    return explorers[network] ? `${explorers[network]}/address/${address}` : `https://etherscan.io/address/${address}`
   }
 
-  const copyToClipboard = async (text, id) => {
-    if (text) {
-      try {
-        await navigator.clipboard.writeText(text)
-        setCopiedAddresses((prev) => ({ ...prev, [id]: true }))
-        setTimeout(() => {
-          setCopiedAddresses((prev) => ({ ...prev, [id]: false }))
-        }, 2000)
-      } catch (err) {
-        console.error("Failed to copy text: ", err)
-      }
+  const handleExplore = (network: string, address: string) => {
+    const url = getExplorerUrl(network, address)
+    window.open(url, "_blank")
+  }
+
+  const copyToClipboard = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedAddresses(prev => ({ ...prev, [id]: true }))
+      setTimeout(() => {
+        setCopiedAddresses(prev => ({ ...prev, [id]: false }))
+      }, 2000)
+    } catch (err) {
+      console.error("Failed to copy text: ", err)
     }
   }
 
@@ -92,7 +98,7 @@ const HooksList = ({ hooks }) => {
               <span>Contract Address</span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleExplore(hook.network, hook.address)}
+                  onClick={() => handleExplore(hook.network.name, hook.address)}
                   className="text-gray-400 hover:text-gray-200 no-underline"
                 >
                   {hook.address ? `${hook.address.slice(0, 8)}...` : "Unknown"}
@@ -110,7 +116,7 @@ const HooksList = ({ hooks }) => {
               <span>Deployer Address</span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleExplore(hook.network, hook.deployerAddress)}
+                  onClick={() => handleExplore(hook.network.name, hook.deployerAddress)}
                   className="text-gray-400 hover:text-gray-200 no-underline"
                 >
                   {hook.deployerAddress ? `${hook.deployerAddress.slice(0, 8)}...` : "Unknown"}
@@ -126,17 +132,17 @@ const HooksList = ({ hooks }) => {
 
             <div className="flex justify-between">
               <span>Transaction volume</span>
-              <span>${formatAmount(hook.totalVolume.amount)}</span>
+              <span>{formatAmount(hook.totalVolume.amount)}</span>
             </div>
 
             <div className="flex justify-between">
               <span>TVL</span>
-              <span>${formatAmount(hook.tvl.amount)}</span>
+              <span>{formatAmount(hook.tvl.amount)}</span>
             </div>
 
             <div className="flex justify-between">
               <span>Total Earnings</span>
-              <span>${formatAmount(hook.totalEarning.amount)}</span>
+              <span>{formatAmount(hook.totalEarning.amount)}</span>
             </div>
 
             <div className="flex justify-between">
@@ -148,7 +154,7 @@ const HooksList = ({ hooks }) => {
           <div className="mt-6 flex justify-between items-center text-sm text-gray-500">
             <span>Deployed: {formatDate(hook.deployedAt)}</span>
             <button
-              onClick={() => handleExplore(hook.network, hook.address)}
+              onClick={() => handleExplore(hook.network.name, hook.address)}
               className="flex items-center gap-1 px-3 py-1 rounded border border-gray-700 hover:bg-gray-700 transition-colors"
             >
               Explore
@@ -162,4 +168,3 @@ const HooksList = ({ hooks }) => {
 }
 
 export default HooksList
-

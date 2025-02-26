@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ethers, utils, providers } from 'ethers';
+import { TransactionRequest } from '@ethersproject/abstract-provider';
 
 // Network configuration
 const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
@@ -137,7 +138,7 @@ export default function BuyToken() {
       const network = await provider.getNetwork();
       console.log('Current network:', network);
 
-      if (network.chainId !== BigInt(OPTIMISM_SEPOLIA_CHAIN_ID)) {
+      if (Number(network.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
         throw new Error(`Please switch to Optimistic Sepolia (Chain ID: ${OPTIMISM_SEPOLIA_CHAIN_ID})`);
       }
 
@@ -209,7 +210,7 @@ export default function BuyToken() {
       const network = await provider.getNetwork();
       console.log('Current network:', network);
 
-      if (network.chainId !== BigInt(OPTIMISM_SEPOLIA_CHAIN_ID)) {
+      if (Number(network.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
         throw new Error(`Please switch to Optimistic Sepolia (Chain ID: ${OPTIMISM_SEPOLIA_CHAIN_ID})`);
       }
 
@@ -233,7 +234,7 @@ export default function BuyToken() {
       console.log('Wei amount to send:', weiAmount.toString());
       
       // Set transaction parameters
-      const txParams = {
+      const txParams: TransactionRequest = {
         value: weiAmount
       };
 
@@ -327,7 +328,7 @@ export default function BuyToken() {
 
         // Calculate rate as tokens per ETH (1 ETH / price per token)
         const oneEth = utils.parseEther('1');
-        const rate = oneEth * BigInt(1e18) / currentPrice;
+        const rate = BigInt(oneEth.toString()) * BigInt(1e18) / BigInt(currentPrice.toString());
         setRate(rate.toString());
 
       } catch (contractError: any) {
@@ -339,7 +340,7 @@ export default function BuyToken() {
         
         // Use fallback values
         console.log('Using fallback values for rates');
-        setRate((BigInt(1e18) * BigInt(1e18) / INSTANT_PRICE).toString());
+        setRate((BigInt(1e18) * BigInt(1e18) / BigInt(INSTANT_PRICE.toString())).toString());
       }
 
     } catch (error: any) {
@@ -360,7 +361,7 @@ export default function BuyToken() {
       }
       
       // Set fallback rate
-      setRate((BigInt(1e18) * BigInt(1e18) / INSTANT_PRICE).toString());
+      setRate((BigInt(1e18) * BigInt(1e18) / BigInt(INSTANT_PRICE.toString())).toString());
     }
   };
 
@@ -465,7 +466,7 @@ export default function BuyToken() {
     
     // Calculate tokens the same way the contract does:
     // tokenAmount = (msg.value * 1e18) / PRICE
-    return (weiAmount * BigInt(1e18)) / pricePerToken;
+    return (BigInt(weiAmount.toString()) * BigInt(1e18)) / BigInt(pricePerToken.toString());
   };
 
   const buyTokens = async (withVesting: boolean = false) => {
@@ -537,7 +538,7 @@ export default function BuyToken() {
         }
 
         // Estimate gas before sending transaction
-        const options: ethers.TransactionRequest = {
+        const options: TransactionRequest = {
           value: weiAmount,
           gasLimit: gasEstimate ? (gasEstimate * BigInt(120)) / BigInt(100) : undefined
         };
@@ -548,10 +549,12 @@ export default function BuyToken() {
           } else {
             gasEstimate = await saleContract.buyTokensInstant.estimateGas(options);
           }
-          console.log('Estimated gas:', gasEstimate.toString());
-          
-          // Add 20% buffer to gas estimate
-          options.gasLimit = gasEstimate ? (gasEstimate * BigInt(120)) / BigInt(100) : undefined;
+          if (gasEstimate) {
+            console.log('Estimated gas:', gasEstimate.toString());
+            
+            // Add 20% buffer to gas estimate
+            options.gasLimit = (gasEstimate * BigInt(120)) / BigInt(100);
+          }
         } catch (gasError: any) {
           console.error('Gas estimation failed:', gasError);
           // If gas estimation fails, set a high gas limit

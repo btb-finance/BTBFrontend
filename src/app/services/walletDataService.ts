@@ -23,7 +23,19 @@ const LP_TOKEN_ABI = [
 ];
 
 // Chain configurations
-const CHAINS = {
+interface ChainInfo {
+  name: string;
+  chainId: number;
+  rpcUrl: string;
+  blockExplorer: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+}
+
+const CHAINS: { [key: string]: ChainInfo } = {
   ETHEREUM: {
     name: 'Ethereum',
     chainId: 1,
@@ -68,6 +80,13 @@ const CHAINS = {
       decimals: 18
     }
   }
+};
+
+const CHAIN_ID_TO_KEY: { [key: number]: string } = {
+  1: "ETHEREUM",
+  10: "OPTIMISM",
+  42161: "ARBITRUM",
+  8453: "BASE"
 };
 
 // Popular token addresses across different chains
@@ -202,6 +221,18 @@ const TOKENS_BY_CHAIN = {
   }
 };
 
+export interface TokenBalance {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  balance: string;
+  balanceUSD: string;
+  priceUSD: string;
+  chain: string;
+  chainId?: number;
+}
+
 // LP Pools by chain
 const LP_POOLS_BY_CHAIN = {
   [CHAINS.ETHEREUM.chainId]: [
@@ -217,16 +248,16 @@ const LP_POOLS_BY_CHAIN = {
       address: '0x8a649274e4d777ffc6851f13d23a86bbfa2f2fbf', // Balancer WBTC-ETH
       protocol: 'Balancer',
       pair: 'WBTC/ETH',
-      token0: { symbol: 'WBTC', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId].WBTC.address },
-      token1: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId].WETH.address },
+      token0: { symbol: 'WBTC', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId]?.WBTC?.address },
+      token1: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId]?.WETH?.address },
       apy: '6.2%'
     },
     {
       address: '0xceff51756c56ceffca006cd410b03ffc46dd3a58', // Sushiswap WBTC-ETH
       protocol: 'Sushiswap',
       pair: 'WBTC/ETH',
-      token0: { symbol: 'WBTC', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId].WBTC.address },
-      token1: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId].WETH.address },
+      token0: { symbol: 'WBTC', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId]?.WBTC?.address },
+      token1: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.ETHEREUM.chainId]?.WETH?.address },
       apy: '5.9%'
     }
   ],
@@ -426,7 +457,7 @@ export class WalletDataService {
       console.log('Fetching all token balances for:', address);
       
       // Get token balances from all supported chains
-      let allTokenBalances: any[] = [];
+      let allTokenBalances: TokenBalance[] = [];
       
       // Define a list of chains to check
       const chainsToCheck = [
@@ -456,7 +487,7 @@ export class WalletDataService {
         // Add chain information to each token
         balances.forEach(token => {
           if (token) {
-            token.chain = chainName;
+            token.chain = CHAINS[CHAIN_ID_TO_KEY[chainId]]?.name || 'Unknown Chain';
             token.chainId = chainId;
             allTokenBalances.push(token);
           }
@@ -465,8 +496,8 @@ export class WalletDataService {
       
       // Sort token balances by USD value (highest first)
       allTokenBalances.sort((a, b) => {
-        const valueA = parseFloat(a.valueUSD.replace('$', '').replace(',', ''));
-        const valueB = parseFloat(b.valueUSD.replace('$', '').replace(',', ''));
+        const valueA = parseFloat(a.balanceUSD.replace('$', '').replace(',', ''));
+        const valueB = parseFloat(b.balanceUSD.replace('$', '').replace(',', ''));
         return valueB - valueA;
       });
       
@@ -590,7 +621,25 @@ export class WalletDataService {
       );
       
       // Filter out null values (tokens with zero balance)
-      return lpPositions.filter(Boolean);
+      let validLpPositions = lpPositions.filter(pos => pos !== null).map(pos => {
+        // Ensure token0 and token1 addresses are strings
+        if (pos) {
+          return {
+            ...pos,
+            token0: pos.token0 ? {
+              symbol: pos.token0.symbol,
+              address: pos.token0.address || ''
+            } : undefined,
+            token1: pos.token1 ? {
+              symbol: pos.token1.symbol,
+              address: pos.token1.address || ''
+            } : undefined
+          };
+        }
+        return pos;
+      });
+      
+      return validLpPositions;
       
     } catch (error) {
       console.error("Error fetching LP positions:", error);
@@ -763,15 +812,15 @@ export class WalletDataService {
       let totalPositionsValue = 0;
       
       // Process token balances
-      const allTokenBalances: any[] = [];
+      const allTokenBalances: TokenBalance[] = [];
       let activeTokens = 0;
       
       chainResults.forEach(chainResult => {
         // Add token balances
         if (chainResult.tokenBalances && chainResult.tokenBalances.length > 0) {
-          chainResult.tokenBalances.forEach((token: any) => {
-            if (token.valueUSD) {
-              const valueUSD = parseFloat(token.valueUSD.replace(/[^0-9.]/g, ''));
+          chainResult.tokenBalances.forEach((token: TokenBalance) => {
+            if (token.balanceUSD) {
+              const valueUSD = parseFloat(token.balanceUSD.replace(/[^0-9.]/g, ''));
               if (!isNaN(valueUSD) && valueUSD > 0) {
                 totalValueUSD += valueUSD;
                 activeTokens++;
@@ -779,7 +828,7 @@ export class WalletDataService {
                 // Add chain info to token
                 allTokenBalances.push({
                   ...token,
-                  chain: chainResult.chainName
+                  chain: CHAINS[CHAIN_ID_TO_KEY[chainResult.chainId]]?.name || 'Unknown Chain'
                 });
               }
             }
@@ -876,7 +925,7 @@ export class WalletDataService {
   }
   
   // Helper methods for multi-chain data fetching
-  async getTokenBalancesForChain(address: string, chainId: number): Promise<any[]> {
+  async getTokenBalancesForChain(address: string, chainId: number): Promise<TokenBalance[]> {
     try {
       const provider = this.providers[chainId];
       if (!provider) {
@@ -887,8 +936,10 @@ export class WalletDataService {
           symbol: 'ETH',
           address: `native-${chainId}`,
           balance: '0',
-          formattedBalance: '0.0',
-          valueUSD: '$0.00'
+          balanceUSD: '$0.00',
+          priceUSD: '0',
+          chain: CHAINS[chainId]?.name || 'Unknown Chain',
+          decimals: 18
         }];
       }
       
@@ -903,8 +954,10 @@ export class WalletDataService {
           symbol: 'ETH',
           address: `native-${chainId}`,
           balance: '0',
-          formattedBalance: '0.0',
-          valueUSD: '$0.00'
+          balanceUSD: '$0.00',
+          priceUSD: '0',
+          chain: CHAINS[chainId]?.name || 'Unknown Chain',
+          decimals: 18
         }];
       }
       
@@ -924,13 +977,15 @@ export class WalletDataService {
       const formattedNativeBalance = ethers.utils.formatEther(nativeBalance);
       const nativeValueUSD = await this.getTokenValueUSD(chainTokens.ETH.symbol, formattedNativeBalance);
       
-      const nativeToken = {
+      const nativeToken: TokenBalance = {
         name: chainTokens.ETH.name,
         symbol: chainTokens.ETH.symbol,
         address: `native-${chainId}`,
         balance: nativeBalance.toString(),
-        formattedBalance: formattedNativeBalance,
-        valueUSD: nativeValueUSD || '$0.00'
+        balanceUSD: nativeValueUSD || '$0.00',
+        priceUSD: '0',
+        chain: CHAINS[chainId]?.name || 'Unknown Chain',
+        decimals: 18
       };
       
       // Define common ERC20 token ABIs
@@ -946,46 +1001,47 @@ export class WalletDataService {
         .filter(token => token.address !== 'native') // Skip native token which we've already handled
         .map(async token => {
           try {
-            const tokenContract = new ethers.Contract(token.address, ERC20_ABI, provider);
+            const contract = new ethers.Contract(token.address, ERC20_ABI_MINIMAL, provider);
             
-            try {
-              const balance = await tokenContract.balanceOf(address);
-              
-              if (balance.isZero()) {
-                return null; // Skip zero balances
-              }
-              
-              const formattedBalance = ethers.utils.formatUnits(balance, token.decimals);
-              const valueUSD = await this.getTokenValueUSD(token.symbol, formattedBalance);
-              
-              return {
-                name: token.name,
-                symbol: token.symbol,
-                address: token.address,
-                balance: balance.toString(),
-                formattedBalance,
-                valueUSD: valueUSD || '$0.00'
-              };
-            } catch (error) {
-              console.error(`Error fetching balance for token ${token.symbol}:`, error);
-              return null;
+            const [balance, decimals] = await Promise.all([
+              contract.balanceOf(address),
+              contract.decimals()
+            ]);
+            
+            if (balance.isZero()) {
+              return null; // Skip zero balances
             }
+            
+            const formattedBalance = ethers.utils.formatUnits(balance, decimals);
+            const valueUSD = await this.getTokenValueUSD(token.symbol, formattedBalance);
+            
+            return {
+              name: token.name,
+              symbol: token.symbol,
+              address: token.address,
+              balance: balance.toString(),
+              balanceUSD: valueUSD || '$0.00',
+              priceUSD: '0',
+              chain: CHAINS[chainId]?.name || 'Unknown Chain',
+              decimals: decimals
+            };
           } catch (error) {
-            console.error(`Error creating contract for token ${token.symbol}:`, error);
+            console.error(`Error fetching balance for token ${token.symbol}:`, error);
             return null;
           }
         });
       
-      let tokenBalances;
+      let tokenBalances: TokenBalance[];
       try {
-        tokenBalances = await Promise.all(tokenPromises);
+        const results = await Promise.all(tokenPromises);
+        tokenBalances = results.filter((token): token is TokenBalance => token !== null);
       } catch (error) {
         console.error(`Error in token balance promises for chain ${chainId}:`, error);
         tokenBalances = [];
       }
       
       // If this is Ethereum mainnet, try to get additional tokens using an on-chain token detector
-      let additionalTokens = [];
+      let additionalTokens: TokenBalance[] = [];
       if (chainId === CHAINS.ETHEREUM.chainId) {
         try {
           console.log('Trying to detect additional tokens on Ethereum mainnet');
@@ -1034,8 +1090,10 @@ export class WalletDataService {
                 symbol,
                 address: tokenAddress,
                 balance: balance.toString(),
-                formattedBalance,
-                valueUSD: valueUSD || '$0.00'
+                balanceUSD: valueUSD || '$0.00',
+                priceUSD: '0',
+                chain: CHAINS[chainId]?.name || 'Unknown Chain',
+                decimals: decimals
               };
             } catch (error) {
               console.error(`Error checking additional token ${tokenAddress}:`, error);
@@ -1043,7 +1101,7 @@ export class WalletDataService {
             }
           });
           
-          additionalTokens = (await Promise.all(additionalTokenPromises)).filter(Boolean);
+          additionalTokens = (await Promise.all(additionalTokenPromises)).filter((token): token is NonNullable<typeof token> => token !== null);
           console.log(`Found ${additionalTokens.length} additional tokens`);
         } catch (error) {
           console.error('Error detecting additional tokens:', error);
@@ -1051,12 +1109,12 @@ export class WalletDataService {
       }
       
       // Filter out null values and combine all tokens
-      const allTokens = [nativeToken, ...tokenBalances.filter(Boolean), ...additionalTokens];
+      const allTokens = [nativeToken, ...tokenBalances, ...additionalTokens];
       
       // Sort tokens by value (highest first)
       allTokens.sort((a, b) => {
-        const valueA = parseFloat(a.valueUSD.replace('$', '').replace(',', ''));
-        const valueB = parseFloat(b.valueUSD.replace('$', '').replace(',', ''));
+        const valueA = parseFloat(a.balanceUSD.replace('$', '').replace(',', ''));
+        const valueB = parseFloat(b.balanceUSD.replace('$', '').replace(',', ''));
         return valueB - valueA;
       });
       
@@ -1069,8 +1127,10 @@ export class WalletDataService {
         symbol: 'ETH',
         address: `native-${chainId}`,
         balance: '0',
-        formattedBalance: '0.0',
-        valueUSD: '$0.00'
+        balanceUSD: '$0.00',
+        priceUSD: '0',
+        chain: CHAINS[chainId]?.name || 'Unknown Chain',
+        decimals: 18
       }];
     }
   }
@@ -1143,8 +1203,14 @@ export class WalletDataService {
             name: name || lp.pair + ' LP',
             symbol: symbol || 'LP',
             address: lp.address,
-            token0: lp.token0,
-            token1: lp.token1,
+            token0: lp.token0 && {
+              symbol: lp.token0.symbol,
+              address: lp.token0.address || ''
+            },
+            token1: lp.token1 && {
+              symbol: lp.token1.symbol,
+              address: lp.token1.address || ''
+            },
             balance: balance.toString(),
             formattedBalance,
             protocol: lp.protocol,
@@ -1160,14 +1226,32 @@ export class WalletDataService {
       
       let lpPositions;
       try {
-        lpPositions = await Promise.all(lpPositionsPromises);
+        const results = await Promise.all(lpPositionsPromises);
+        lpPositions = results.filter((pos): pos is NonNullable<typeof pos> => pos !== null);
       } catch (error) {
         console.error(`Error in LP positions promises for chain ${chainId}:`, error);
         return [];
       }
       
-      // Filter out null values (tokens with zero balance)
-      return lpPositions.filter(Boolean);
+      let validLpPositions = lpPositions.filter(pos => pos !== null).map(pos => {
+        // Ensure token0 and token1 addresses are strings
+        if (pos) {
+          return {
+            ...pos,
+            token0: pos.token0 ? {
+              symbol: pos.token0.symbol,
+              address: pos.token0.address || ''
+            } : undefined,
+            token1: pos.token1 ? {
+              symbol: pos.token1.symbol,
+              address: pos.token1.address || ''
+            } : undefined
+          };
+        }
+        return pos;
+      });
+      
+      return validLpPositions;
     } catch (error) {
       console.error(`Error fetching LP positions for chain ${chainId}:`, error);
       return [];

@@ -136,9 +136,11 @@ export default function PositionsList({ positions }: PositionsListProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">{formatCurrency(position.tvl)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {typeof position.apy === 'number' 
-                      ? `${position.apy.toFixed(1)}%` 
-                      : (position.apy || '0.0%')}
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {position.apy !== "N/A"
+                        ? `${position.apy}%`
+                        : position.apy}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRiskColor(position.risk)}`}>

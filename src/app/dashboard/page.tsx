@@ -51,47 +51,42 @@ export default function DashboardPage() {
         
         // Map wallet data to our application's data format
         const mappedPortfolio: Portfolio = {
-          totalValue: walletPortfolio.totalValueUSD,
-          change24h: walletPortfolio.totalChange24h,
-          changePercentage24h: walletPortfolio.totalChangePercentage24h,
+          totalValue: Number(walletPortfolio.totalValueUSD),
+          change24h: Number(walletPortfolio.totalChange24h),
+          changePercentage24h: Number(walletPortfolio.totalChangePercentage24h),
           assets: {
-            tokens: walletPortfolio.assets.tokens,
-            liquidity: walletPortfolio.assets.liquidity,
-            lending: walletPortfolio.assets.lending,
-            staking: walletPortfolio.assets.staking
+            active: Object.values(walletPortfolio.assets).filter(v => v > 0).length,
+            total: Object.values(walletPortfolio.assets).length
           },
-          history: walletPortfolio.history.map(item => ({
-            date: new Date(item.timestamp).toISOString().split('T')[0],
-            value: item.value
-          }))
+          positions: []
         };
         
-        // Map LP positions to our application's Position format
+        // Map LP positions to our format
         const mappedPositions: Position[] = lpPositions.map(lp => ({
           id: lp.address,
           protocol: lp.protocol,
           pair: `${lp.token0?.symbol || ''}/${lp.token1?.symbol || ''}`,
-          tvl: lp.tvl || 'N/A', 
-          apy: lp.apy || 'N/A',
+          tvl: lp.tvl || '0',
+          apy: lp.apy || '0',
           rewards: [],
-          risk: 'Medium',
-          health: 'Good',
-          chain: 'Ethereum'
+          risk: "Medium",
+          health: "Healthy",
+          chain: "Ethereum"
         }));
         
-        // For tokens, create additional "positions"
+        // Map token positions
         const tokenPositions: Position[] = popularTokens
-          .filter(token => parseFloat(token.formattedBalance) > 0)
+          .filter(token => token && token.balance)
           .map(token => ({
             id: token.address,
-            protocol: 'Wallet',
+            protocol: "Token",
             pair: token.symbol,
-            tvl: `${token.formattedBalance} ${token.symbol}`, 
-            apy: 'N/A',
+            tvl: token.balanceUSD,
+            apy: "0",
             rewards: [],
-            risk: 'Low',
-            health: 'Good',
-            chain: 'Ethereum'
+            risk: "Low",
+            health: "Healthy",
+            chain: token.chain || "Unknown"
           }));
         
         setPortfolioData(mappedPortfolio);
