@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import ILCalculator from '../components/calculator/ILCalculator';
 import PriceChart from '../components/calculator/PriceChart';
 
@@ -16,6 +17,22 @@ export default function CalculatorPage() {
             Calculate potential impermanent loss for your liquidity positions. 
             Understand your risks before providing liquidity to AMM pools.
           </p>
+        </div>
+
+        {/* Calculator Types */}
+        <div className="flex flex-wrap justify-center gap-4 mb-12">
+          <Link 
+            href="/calculator" 
+            className="btn-primary"
+          >
+            Standard IL Calculator
+          </Link>
+          <Link 
+            href="/calculator/uniswapv3" 
+            className="btn-secondary"
+          >
+            Uniswap V3 Range Analysis
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
