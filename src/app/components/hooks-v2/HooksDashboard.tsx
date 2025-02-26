@@ -3,80 +3,123 @@
 import { useState, useEffect, useMemo } from "react"
 import HooksControls from "./HooksControls"
 import HooksList from "./HooksList"
+import { getHookrankApiKey } from '../../hooks-v2/usePublicApi'
+
+export interface Hook {
+  id: string;
+  name: string;
+  address: string;
+  deployerAddress: string;
+  network: {
+    name: string;
+    chainId: number;
+  };
+  deployedAt: string;
+  totalVolume: {
+    amount: number;
+  };
+  tvl: {
+    amount: number;
+  };
+  totalEarning: {
+    amount: number;
+  };
+  isVerified: boolean;
+}
+
+interface SortConfig {
+  key: string;
+  direction: 'asc' | 'desc';
+}
 
 const HooksDashboard = () => {
-  const [hooks, setHooks] = useState([])
-  const [filteredHooks, setFilteredHooks] = useState([])
+  const [hooks, setHooks] = useState<Hook[]>([])
+  const [filteredHooks, setFilteredHooks] = useState<Hook[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedNetwork, setSelectedNetwork] = useState("all")
-  const [sortConfig, setSortConfig] = useState({
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "deployedAt",
     direction: "asc",
   })
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false)
 
-  const fetchPage = async (page, limit) => {
+  const fetchPage = async (page: number, limit: number): Promise<Hook[]> => {
     try {
+      // Get API key from our utility function
+      const apiKey = getHookrankApiKey();
+      
       const response = await fetch(`https://api.hookrank.io/api/public/v1/uniswap/hooks?page=${page}&limit=${limit}`, {
         headers: {
-          "X-API-Key": process.env.NEXT_PUBLIC_HOOKRANK_API_KEY,
+          "X-API-Key": apiKey,
         },
       })
+      
+      if (!response.ok) {
+        throw new Error(`API Response Status: ${response.status}`);
+      }
+      
       const data = await response.json()
       if (data.status === "success") {
-        return data
+        return data.data
       } else {
         throw new Error(`API Response Status: ${data.status}`)
       }
     } catch (error) {
-      throw new Error(`Failed to fetch page ${page}: ${error.message}`)
+      console.error("Fetch error details:", error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to fetch page ${page}: ${error.message}`);
+      }
+      throw new Error(`Failed to fetch page ${page}`);
     }
   }
 
   const fetchAllHooks = async () => {
-    let allHooks = []
+    let allHooks: Hook[] = []
     let page = 1
     const limit = 100
 
     try {
       while (true) {
         const response = await fetchPage(page, limit)
-        if (response.data.length === 0) break
-        allHooks = allHooks.concat(response.data)
+        if (response.length === 0) break
+        allHooks = allHooks.concat(response)
         page++
       }
       setHooks(allHooks)
       setFilteredHooks(allHooks)
     } catch (error) {
-      setError(error.message)
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError('An unknown error occurred')
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const getSortedHooks = useMemo(() => {
-    return (hooksToSort) => {
+    return (hooksToSort: Hook[]) => {
       return [...hooksToSort].sort((a, b) => {
-        let aValue = sortConfig.key.includes(".")
-          ? sortConfig.key.split(".").reduce((obj, key) => obj[key], a)
-          : a[sortConfig.key]
-        let bValue = sortConfig.key.includes(".")
-          ? sortConfig.key.split(".").reduce((obj, key) => obj[key], b)
-          : b[sortConfig.key]
+        let aValue: any = sortConfig.key.includes(".")
+          ? sortConfig.key.split(".").reduce((obj: any, key: string) => obj[key], a)
+          : (a as any)[sortConfig.key]
+        let bValue: any = sortConfig.key.includes(".")
+          ? sortConfig.key.split(".").reduce((obj: any, key: string) => obj[key], b)
+          : (b as any)[sortConfig.key]
 
-        if (!aValue) aValue = ""
-        if (!bValue) bValue = ""
-
-        if (typeof aValue === "string" && !isNaN(aValue)) {
-          aValue = Number.parseFloat(aValue)
-          bValue = Number.parseFloat(bValue)
+        if (typeof aValue === "string") {
+          aValue = aValue.toLowerCase()
+          bValue = bValue.toLowerCase()
         }
 
-        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1
-        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1
-        return 0
+        if (sortConfig.direction === "asc") {
+          return aValue > bValue ? 1 : -1
+        } else {
+          return aValue < bValue ? 1 : -1
+        }
       })
     }
   }, [sortConfig])
@@ -165,4 +208,3 @@ const HooksDashboard = () => {
 }
 
 export default HooksDashboard
-

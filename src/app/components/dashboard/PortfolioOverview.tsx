@@ -1,151 +1,104 @@
 'use client';
 
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
-import { Chart } from 'chart.js/auto';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
+import { Portfolio } from '../../services/btbApi';
 
-const stats = [
-  {
-    name: 'Total Value Locked',
-    value: '$124,592.00',
-    change: '+14.2%',
-    changeType: 'increase'
-  },
-  {
-    name: 'Total Earnings',
-    value: '$12,789.00',
-    change: '+7.8%',
-    changeType: 'increase'
-  },
-  {
-    name: 'Average APY',
-    value: '24.5%',
-    change: '-2.4%',
-    changeType: 'decrease'
-  },
-  {
-    name: 'Active Positions',
-    value: '8',
-    change: '+2',
-    changeType: 'increase'
-  }
-];
+interface PortfolioOverviewProps {
+  portfolioData: Portfolio | null;
+}
 
-export default function PortfolioOverview() {
-  const chartRef = useRef<HTMLCanvasElement>(null);
-  const chartInstance = useRef<Chart | null>(null);
-
-  useEffect(() => {
-    if (!chartRef.current) return;
-
-    const ctx = chartRef.current.getContext('2d');
-    if (!ctx) return;
-
-    // Sample data for the portfolio value over time
-    const data = {
-      labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-      datasets: [
-        {
-          label: 'Portfolio Value',
-          data: [95000, 102000, 98000, 115000, 124000, 124592],
-          borderColor: '#1976D2',
-          backgroundColor: 'rgba(25, 118, 210, 0.1)',
-          fill: true,
-          tension: 0.4,
-        }
-      ]
-    };
-
-    if (chartInstance.current) {
-      chartInstance.current.destroy();
+export default function PortfolioOverview({ portfolioData }: PortfolioOverviewProps) {
+  // Format number as currency
+  const formatCurrency = (value: number | string): string => {
+    // Handle string inputs (like '$12,450.75')
+    if (typeof value === 'string') {
+      if (value.startsWith('$')) return value;
+      const numValue = parseFloat(value.replace(/,/g, ''));
+      if (isNaN(numValue)) return value;
+      value = numValue;
     }
+    
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 2
+    }).format(value);
+  };
 
-    chartInstance.current = new Chart(ctx, {
-      type: 'line',
-      data: data,
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            display: false,
-          },
-          title: {
-            display: true,
-            text: 'Portfolio Value Over Time',
-            color: 'rgb(156, 163, 175)',
-          }
-        },
-        scales: {
-          x: {
-            grid: {
-              color: 'rgba(156, 163, 175, 0.1)',
-            },
-            ticks: {
-              color: 'rgb(156, 163, 175)',
-            }
-          },
-          y: {
-            grid: {
-              color: 'rgba(156, 163, 175, 0.1)',
-            },
-            ticks: {
-              color: 'rgb(156, 163, 175)',
-              callback: (value) => '$' + value.toLocaleString()
-            }
-          }
-        }
-      }
-    });
+  // If no data is provided, use empty stats
+  const stats = useMemo(() => {
+    if (!portfolioData) return [];
+    
+    return [
+      {
+        name: '24h Change',
+        value: portfolioData.change24h !== undefined 
+          ? formatCurrency(portfolioData.change24h)
+          : '-',
+        changeType: portfolioData.change24h < 0 ? 'negative' : 'positive',
+      },
+      {
+        name: 'Total Value',
+        value: portfolioData.totalValue !== undefined 
+          ? formatCurrency(portfolioData.totalValue)
+          : '-',
+      },
+      {
+        name: 'Active Assets',
+        value: portfolioData.assets.active.toString(),
+      },
+      {
+        name: 'Total Assets',
+        value: portfolioData.assets.total.toString(),
+      },
+    ];
+  }, [portfolioData]);
 
-    return () => {
-      if (chartInstance.current) {
-        chartInstance.current.destroy();
-      }
-    };
-  }, []);
+  if (!portfolioData) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+          Portfolio Overview
+        </h2>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-gray-500 dark:text-gray-400">
+            Connect your wallet to view portfolio
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-        Portfolio Overview
-      </h2>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
-        {stats.map((stat) => (
-          <div
-            key={stat.name}
-            className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
-          >
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {stat.name}
-            </div>
-            <div className="mt-1 flex items-baseline justify-between">
-              <div className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {stat.value}
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((stat, index) => (
+          <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+            <p className="text-sm text-gray-500 dark:text-gray-400">{stat.name}</p>
+            <p className="text-xl font-semibold mt-1">{stat.value}</p>
+            {stat.changeType && (
+              <div className="flex items-center mt-2">
+                {stat.changeType === 'negative' ? (
+                  <ArrowDownIcon className="w-4 h-4 text-red-500 mr-1" />
+                ) : stat.changeType === 'positive' ? (
+                  <ArrowUpIcon className="w-4 h-4 text-green-500 mr-1" />
+                ) : null}
+                <span
+                  className={`text-sm ${
+                    stat.changeType === 'negative'
+                      ? 'text-red-500'
+                      : stat.changeType === 'positive'
+                      ? 'text-green-500'
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {portfolioData.changePercentage24h}%
+                </span>
               </div>
-              <div
-                className={`flex items-center text-sm ${
-                  stat.changeType === 'increase'
-                    ? 'text-green-600 dark:text-green-500'
-                    : 'text-red-600 dark:text-red-500'
-                }`}
-              >
-                {stat.changeType === 'increase' ? (
-                  <ArrowUpIcon className="h-4 w-4 mr-1" />
-                ) : (
-                  <ArrowDownIcon className="h-4 w-4 mr-1" />
-                )}
-                {stat.change}
-              </div>
-            </div>
+            )}
           </div>
         ))}
-      </div>
-
-      {/* Chart */}
-      <div className="h-80">
-        <canvas ref={chartRef} />
       </div>
     </div>
   );

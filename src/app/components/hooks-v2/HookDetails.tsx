@@ -44,16 +44,17 @@ const HookDetail = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const headers: HeadersInit = {};
+        if (process.env.NEXT_PUBLIC_HOOKRANK_API_KEY) {
+          headers["X-API-Key"] = process.env.NEXT_PUBLIC_HOOKRANK_API_KEY;
+        }
+
         const [hookResponse, currenciesResponse] = await Promise.all([
           fetch(`https://api.hookrank.io/api/public/v1/hooks/${chainId}/${address}`, {
-            headers: {
-              "X-API-Key": process.env.NEXT_PUBLIC_HOOKRANK_API_KEY,
-            },
+            headers
           }),
           fetch(`https://api.hookrank.io/api/public/v1/uniswap/hooks/currencies?hookAddress=${address}`, {
-            headers: {
-              "X-API-Key": process.env.NEXT_PUBLIC_HOOKRANK_API_KEY,
-            },
+            headers
           }),
         ])
 
@@ -222,4 +223,3 @@ const HookDetail = () => {
 }
 
 export default HookDetail
-

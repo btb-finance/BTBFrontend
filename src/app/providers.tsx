@@ -1,6 +1,7 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
+import { WalletProvider } from './context/WalletContext';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -11,7 +12,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       storageKey="btb-theme"
       disableTransitionOnChange
     >
-      {children}
+      <WalletProvider>
+        {children}
+      </WalletProvider>
     </ThemeProvider>
   );
 }

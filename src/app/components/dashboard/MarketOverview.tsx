@@ -1,43 +1,44 @@
 'use client';
 
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
+import { MarketData } from '../../services/btbApi';
 
-const marketData = [
-  {
-    protocol: 'Uniswap V3',
-    tvl: '$8.2B',
-    volume24h: '$1.2B',
-    change24h: '+5.2%',
-    topPairs: ['ETH/USDC', 'BTC/USDC', 'ETH/BTC'],
-    changeType: 'increase'
-  },
-  {
-    protocol: 'Curve Finance',
-    tvl: '$3.8B',
-    volume24h: '$580M',
-    change24h: '-2.1%',
-    topPairs: ['stETH/ETH', '3pool', 'tricrypto'],
-    changeType: 'decrease'
-  },
-  {
-    protocol: 'Balancer',
-    tvl: '$2.1B',
-    volume24h: '$320M',
-    change24h: '+1.8%',
-    topPairs: ['wstETH/ETH', 'BTC/ETH/USDC', 'auraBAL'],
-    changeType: 'increase'
-  },
-  {
-    protocol: 'Aave V3',
-    tvl: '$5.4B',
-    volume24h: '$890M',
-    change24h: '+3.4%',
-    topPairs: ['ETH', 'USDC', 'wBTC'],
-    changeType: 'increase'
+interface MarketOverviewProps {
+  marketData: MarketData | null;
+}
+
+export default function MarketOverview({ marketData }: MarketOverviewProps) {
+  // Format number as currency or percentage
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1
+    }).format(value);
+  };
+
+  const formatPercentage = (value: number): string => {
+    const sign = value >= 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)}%`;
+  };
+
+  if (!marketData) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+          Market Overview
+        </h2>
+        <div className="flex items-center justify-center h-40">
+          <p className="text-gray-500 dark:text-gray-400">
+            Market data not available. Connect your wallet to see market insights.
+          </p>
+        </div>
+      </div>
+    );
   }
-];
 
-export default function MarketOverview() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
       <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
@@ -45,68 +46,88 @@ export default function MarketOverview() {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {marketData.map((protocol) => (
+        {marketData.topProtocols.map((protocol) => (
           <div
-            key={protocol.protocol}
+            key={protocol.name}
             className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                {protocol.protocol}
+                {protocol.name}
               </h3>
               <div
                 className={`flex items-center text-sm ${
-                  protocol.changeType === 'increase'
+                  protocol.change24h >= 0
                     ? 'text-green-600 dark:text-green-500'
                     : 'text-red-600 dark:text-red-500'
                 }`}
               >
-                {protocol.changeType === 'increase' ? (
+                {protocol.change24h >= 0 ? (
                   <ArrowUpIcon className="h-4 w-4 mr-1" />
                 ) : (
                   <ArrowDownIcon className="h-4 w-4 mr-1" />
                 )}
-                {protocol.change24h}
+                {formatPercentage(protocol.change24h)}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  Total Value Locked
-                </div>
-                <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {protocol.tvl}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
-                  24h Volume
-                </div>
-                <div className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {protocol.volume24h}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                  Top Pairs
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {protocol.topPairs.map((pair) => (
-                    <span
-                      key={pair}
-                      className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
-                    >
-                      {pair}
-                    </span>
-                  ))}
-                </div>
+            <div className="flex flex-col space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">TVL</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {formatCurrency(protocol.tvl)}
+                </span>
               </div>
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="mt-8">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+          Top Pairs by Volume
+        </h3>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+            <thead className="bg-gray-100 dark:bg-gray-800">
+              <tr>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                >
+                  Pair
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                >
+                  24h Volume
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                >
+                  APY
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
+              {marketData.topPairs.map((pair) => (
+                <tr key={pair.name} className="hover:bg-gray-50 dark:hover:bg-gray-600">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    {pair.name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {formatCurrency(pair.volume24h)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {pair.apy.toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

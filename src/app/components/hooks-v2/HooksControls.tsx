@@ -22,6 +22,24 @@ const sortOptions = [
   { key: "tvl.amount", label: "TVL" },
 ]
 
+type SortDirection = 'asc' | 'desc';
+
+interface SortConfig {
+  key: string;
+  direction: SortDirection;
+}
+
+interface HooksControlsProps {
+  selectedNetwork: string;
+  setSelectedNetwork: (network: string) => void;
+  searchTerm: string;
+  setSearchTerm: (term: string) => void;
+  showVerifiedOnly: boolean;
+  setShowVerifiedOnly: (show: boolean) => void;
+  sortConfig: SortConfig;
+  setSortConfig: (config: SortConfig | ((prev: SortConfig) => SortConfig)) => void;
+}
+
 const HooksControls = ({
   selectedNetwork,
   setSelectedNetwork,
@@ -31,13 +49,13 @@ const HooksControls = ({
   setShowVerifiedOnly,
   sortConfig,
   setSortConfig,
-}) => {
+}: HooksControlsProps) => {
   const [showSortDropdown, setShowSortDropdown] = useState(false)
 
-  const handleSort = (key) => {
-    setSortConfig((prevConfig) => ({
+  const handleSort = (key: string) => {
+    setSortConfig((prevConfig: SortConfig): SortConfig => ({
       key,
-      direction: prevConfig.key === key && prevConfig.direction === "asc" ? "desc" : "asc",
+      direction: (prevConfig.key === key && prevConfig.direction === "asc" ? "desc" : "asc") as SortDirection,
     }))
     setShowSortDropdown(false)
   }
@@ -129,4 +147,3 @@ const HooksControls = ({
 }
 
 export default HooksControls
-
