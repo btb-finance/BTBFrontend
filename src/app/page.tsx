@@ -42,19 +42,19 @@ const products = [
   {
     name: 'BTB Token',
     description: 'Our governance token with staking rewards and ecosystem benefits.',
-    image: '/images/btblogo.jpg',
+    icon: CurrencyDollarIcon,
     href: '/token'
   },
   {
     name: 'Yield Farming',
     description: 'Generate passive income through our innovative yield farming protocols.',
-    image: '/images/btblogo.jpg',
+    icon: ChartBarIcon,
     href: '/calculator'
   },
   {
     name: 'Hooks',
     description: 'Advanced DeFi hooks for seamless trading and investment.',
-    image: '/images/btblogo.jpg',
+    icon: ShieldCheckIcon,
     href: '/hooks'
   }
 ];
@@ -78,28 +78,19 @@ export default function Home() {
                 <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
                   Join the future of decentralized finance with our comprehensive ecosystem of digital assets and yield farming solutions.
                 </p>
-                <div className="mt-6 flex flex-wrap gap-4 items-center">
-                  <Image 
-                    src="/images/btblogo.jpg"
-                    width={80}
-                    height={80}
-                    alt="BTB Logo"
-                    className="rounded-full shadow-lg"
-                  />
-                  <div className="mt-4 flex items-center gap-x-6">
-                    <Link
-                      href="/token"
-                      className="btn-primary flex items-center"
-                    >
-                      Explore BTB Token <ArrowRightIcon className="ml-2 h-4 w-4" />
-                    </Link>
-                    <Link
-                      href="/calculator"
-                      className="btn-secondary"
-                    >
-                      Start Yield Farming
-                    </Link>
-                  </div>
+                <div className="mt-10 flex flex-wrap gap-4">
+                  <Link
+                    href="/token"
+                    className="btn-primary flex items-center"
+                  >
+                    Explore BTB Token <ArrowRightIcon className="ml-2 h-4 w-4" />
+                  </Link>
+                  <Link
+                    href="/calculator"
+                    className="btn-secondary"
+                  >
+                    Start Yield Farming
+                  </Link>
                 </div>
               </div>
               <div className="h-[400px] w-full relative">
@@ -115,10 +106,10 @@ export default function Home() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center mb-16">
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-              Our Products
+              Explore the BTB Finance ecosystem
             </h2>
             <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-              Explore the BTB Finance ecosystem
+              Powerful tools for decentralized finance
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -129,14 +120,8 @@ export default function Home() {
                 className="card group relative overflow-hidden"
               >
                 <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-btb-primary opacity-10 group-hover:opacity-20 transition-opacity" />
-                <div className="flex items-center justify-center h-28 w-28 mb-6">
-                  <Image 
-                    src={product.image} 
-                    alt={product.name} 
-                    width={80} 
-                    height={80}
-                    className="rounded-full shadow-lg"
-                  />
+                <div className="flex items-center justify-center h-28 w-28 mb-6 text-btb-primary">
+                  <product.icon className="h-16 w-16" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
                   {product.name}
