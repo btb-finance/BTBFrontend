@@ -66,13 +66,13 @@ export default function ILCalculator() {
 
   return (
     <div className="space-y-6">
-      <div className="text-xl font-semibold text-[#FF0420] dark:text-[#FF0420] mb-4">
+      <div className="text-xl font-semibold text-btb-primary dark:text-btb-primary mb-4">
         Input Token Details
       </div>
 
       {/* Token 1 Inputs */}
       <div className="space-y-4">
-        <div className="text-sm font-medium text-[#FF0420] dark:text-[#FF0420]">Token 1</div>
+        <div className="text-sm font-medium text-btb-primary dark:text-btb-primary">Token 1</div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -80,7 +80,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="text"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token1.name}
               onChange={(e) => handleInputChange(setToken1, token1, 'name', e.target.value)}
               placeholder="e.g., ETH"
@@ -92,7 +92,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token1.amount}
               onChange={(e) => handleInputChange(setToken1, token1, 'amount', e.target.value)}
               placeholder="0.0"
@@ -104,7 +104,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token1.initialPrice}
               onChange={(e) => handleInputChange(setToken1, token1, 'initialPrice', e.target.value)}
               placeholder="0.0"
@@ -116,7 +116,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token1.currentPrice}
               onChange={(e) => handleInputChange(setToken1, token1, 'currentPrice', e.target.value)}
               placeholder="0.0"
@@ -127,7 +127,7 @@ export default function ILCalculator() {
 
       {/* Token 2 Inputs */}
       <div className="space-y-4">
-        <div className="text-sm font-medium text-[#FF0420] dark:text-[#FF0420]">Token 2</div>
+        <div className="text-sm font-medium text-btb-primary dark:text-btb-primary">Token 2</div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -135,7 +135,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="text"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token2.name}
               onChange={(e) => handleInputChange(setToken2, token2, 'name', e.target.value)}
               placeholder="e.g., USDC"
@@ -147,7 +147,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token2.amount}
               onChange={(e) => handleInputChange(setToken2, token2, 'amount', e.target.value)}
               placeholder="0.0"
@@ -159,7 +159,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token2.initialPrice}
               onChange={(e) => handleInputChange(setToken2, token2, 'initialPrice', e.target.value)}
               placeholder="0.0"
@@ -171,7 +171,7 @@ export default function ILCalculator() {
             </label>
             <input
               type="number"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-[#FF0420] focus:border-[#FF0420] dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-btb-primary focus:border-btb-primary dark:bg-gray-700 dark:text-white"
               value={token2.currentPrice}
               onChange={(e) => handleInputChange(setToken2, token2, 'currentPrice', e.target.value)}
               placeholder="0.0"
@@ -192,7 +192,7 @@ export default function ILCalculator() {
       {/* Results */}
       {ilResult && (
         <div className="mt-6 card">
-          <div className="text-lg font-semibold text-[#FF0420] dark:text-[#FF0420] mb-2">
+          <div className="text-lg font-semibold text-btb-primary dark:text-btb-primary mb-2">
             Results
           </div>
           <div className="space-y-2">
@@ -206,7 +206,7 @@ export default function ILCalculator() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-300">Value Impact:</span>
-              <span className="font-semibold text-[#FF0420] dark:text-[#FF0420]">
+              <span className="font-semibold text-btb-primary dark:text-btb-primary">
                 ${ilResult.dollarValue.toFixed(2)}
               </span>
             </div>
