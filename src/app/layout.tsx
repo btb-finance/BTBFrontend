@@ -4,12 +4,17 @@ import './globals.css';
 import { Providers } from './providers';
 import { ThemeScript } from './theme-script';
 import Navbar from './components/layout/Navbar';
+import Logo from './components/common/Logo';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'BTB Finance - Revolutionary DeFi Ecosystem',
   description: 'Experience the future of decentralized finance with BTB Finance. Explore our comprehensive ecosystem of digital assets and yield farming solutions.',
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/images/btblogo.jpg',
+  },
 };
 
 export default function RootLayout({
@@ -29,14 +34,17 @@ export default function RootLayout({
             </main>
             <footer className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
               <div className="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8">
+                <div className="flex justify-center md:justify-start mb-6 md:mb-0">
+                  <Logo size={40} showText={true} />
+                </div>
                 <div className="flex justify-center space-x-6 md:order-2">
-                  <a href="#" className="text-[#FF0420] hover:text-opacity-80">
+                  <a href="#" className="text-btb-primary hover:text-opacity-80">
                     Twitter
                   </a>
-                  <a href="#" className="text-[#FF0420] hover:text-opacity-80">
+                  <a href="#" className="text-btb-primary hover:text-opacity-80">
                     Discord
                   </a>
-                  <a href="#" className="text-[#FF0420] hover:text-opacity-80">
+                  <a href="#" className="text-btb-primary hover:text-opacity-80">
                     GitHub
                   </a>
                 </div>

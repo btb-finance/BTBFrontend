@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { SunIcon, MoonIcon, Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import Logo from '../common/Logo';
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -27,13 +28,9 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-primary via-primary/90 to-primary-light backdrop-blur-lg border-b border-white/10">
+    <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-btb-primary via-btb-primary/90 to-btb-primary-light backdrop-blur-lg border-b border-white/10">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <Link href="/" className="flex items-center">
-          <span className="self-center text-xl md:text-2xl font-semibold whitespace-nowrap text-white">
-            BTBFinance
-          </span>
-        </Link>
+        <Logo showText={true} size={40} />
 
         <div className="flex items-center md:order-2">
           <button
