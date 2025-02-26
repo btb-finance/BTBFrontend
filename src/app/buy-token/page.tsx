@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { ethers, utils, providers } from 'ethers';
 
 // Network configuration
 const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
@@ -13,8 +13,8 @@ const TOKEN_SALE_ADDRESS = '0x7398e9CBa26b47771aB45a05915CcAc8740709CF';
 const VESTING_NFT_ADDRESS = '0x4aa2b35ae4f758d555561111a123F7181257fb07';
 
 // Price constants
-const INSTANT_PRICE = ethers.parseEther('0.000001');   // 0.000001 ETH per token
-const VESTING_PRICE = ethers.parseEther('0.0000005');  // 0.0000005 ETH per token (50% discount)
+const INSTANT_PRICE = utils.parseEther('0.000001');   // 0.000001 ETH per token
+const VESTING_PRICE = utils.parseEther('0.0000005');  // 0.0000005 ETH per token (50% discount)
 const VESTING_DURATION = 365 * 24 * 60 * 60; // 365 days in seconds
 
 // Contract ABIs
@@ -58,17 +58,12 @@ const VestingNFTABI = [
   "event TokensReleased(address indexed beneficiary, uint256 indexed tokenId, uint256 amount)"
 ];
 
-declare global {
-  interface Window {
-    ethereum: any;
-  }
-}
-
 export default function BuyToken() {
   const [account, setAccount] = useState('');
   const [tokenBalance, setTokenBalance] = useState('0');
   const [ethAmount, setEthAmount] = useState('');
   const [tokenAmount, setTokenAmount] = useState('0');
+  const [vestingTokenAmount, setVestingTokenAmount] = useState('0');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -101,8 +96,8 @@ export default function BuyToken() {
 
   const checkConnection = async () => {
     try {
-      if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        const provider = new providers.Web3Provider((window as any).ethereum);
         const accounts = await provider.listAccounts();
         if (accounts.length > 0) {
           setAccount(accounts[0] ? (typeof accounts[0] === 'string' ? accounts[0] : (accounts[0] as { address: string }).address) : '');
@@ -115,162 +110,47 @@ export default function BuyToken() {
     }
   };
 
-  const detectMetaMask = () => {
-    const { ethereum } = window;
-    if (!ethereum || typeof ethereum.request === 'undefined') {
-      throw new Error('MetaMask is not installed or not properly initialized');
-    }
-    if (!ethereum.isMetaMask) {
-      throw new Error('Please install MetaMask to use this feature');
-    }
-    return ethereum;
+  const hasMetaMask = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    return Boolean((window as any).ethereum);
   };
 
-  const connectWallet = async () => {
-    // Prevent multiple concurrent requests
-    if (isConnecting || isProcessingRequest) {
-      setError('Already processing a connection request. Please check MetaMask popup or try again in a few seconds.');
-      return;
-    }
-
-    setError('');
-    setSuccess('');
-    setIsConnecting(true);
-    setIsProcessingRequest(true);
-
+  const connectWallet = async (): Promise<boolean> => {
     try {
-      // Check if running in browser
-      if (typeof window === 'undefined') {
-        throw new Error('Cannot connect wallet: Window object not available');
+      if (!hasMetaMask()) {
+        setError('MetaMask is not installed');
+        return false;
       }
 
-      // Detect and verify MetaMask
-      let ethereum;
-      try {
-        ethereum = detectMetaMask();
-        console.log('MetaMask detected:', {
-          isMetaMask: ethereum.isMetaMask,
-          hasRequest: typeof ethereum.request !== 'undefined',
-          selectedAddress: ethereum.selectedAddress
-        });
-      } catch (metaMaskError: any) {
-        console.error('MetaMask detection error:', metaMaskError);
-        throw metaMaskError;
-      }
+      setLoading(true);
+      const ethereum = (window as any).ethereum;
 
-      // Request accounts with timeout
-      console.log('Requesting accounts from MetaMask...');
-      let accounts;
-      try {
-        const accountsPromise = ethereum.request({
-          method: 'eth_requestAccounts'
-        });
-
-        // Add a timeout of 30 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Connection request timed out. Please try again.'));
-          }, 30000);
-        });
-
-        accounts = await Promise.race([accountsPromise, timeoutPromise])
-          .catch((error: any) => {
-            console.error('Request accounts error:', error);
-            
-            // Handle specific error cases
-            if (error.code === 4001) {
-              throw new Error('Please approve the connection request in MetaMask');
-            }
-            if (error.message?.includes('Already processing')) {
-              throw new Error('MetaMask is already processing a request. Please check your MetaMask popup.');
-            }
-            throw error;
-          });
-
-        console.log('Accounts received:', accounts);
-        if (!accounts || accounts.length === 0) {
-          throw new Error('No accounts received from MetaMask');
-        }
-      } catch (accountError: any) {
-        console.error('Account request error:', {
-          name: accountError.name,
-          message: accountError.message,
-          code: accountError.code,
-          stack: accountError.stack
-        });
-        throw accountError;
-      }
+      console.log('Requesting accounts...');
+      await ethereum.request({ method: 'eth_requestAccounts' });
 
       // Initialize provider
       console.log('Initializing Web3 provider...');
-      const provider = new ethers.BrowserProvider(ethereum);
+      const provider = new providers.Web3Provider(ethereum);
       
       // Get current chain ID
       console.log('Getting chain ID...');
-      let chainId;
-      try {
-        chainId = await ethereum.request({
-          method: 'eth_chainId'
-        });
-        console.log('Current chain ID:', chainId);
-      } catch (chainError: any) {
-        console.error('Chain ID error:', chainError);
-        throw new Error('Failed to get network chain ID');
-      }
+      const network = await provider.getNetwork();
+      console.log('Current network:', network);
 
-      // Check and switch to Optimism if needed
-      if (chainId !== '0xaa37dc') {
-        console.log('Not on Optimistic Sepolia, attempting to switch...');
-        try {
-          await ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa37dc' }]
-          });
-          console.log('Successfully switched to Optimistic Sepolia');
-        } catch (switchError: any) {
-          console.log('Switch error:', switchError);
-          if (switchError.code === 4902) {
-            console.log('Optimistic Sepolia network not found, attempting to add...');
-            await ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [
-                {
-                  chainId: '0xaa37dc',
-                  chainName: 'Optimistic Sepolia',
-                  nativeCurrency: {
-                    name: 'ETH',
-                    symbol: 'ETH',
-                    decimals: 18
-                  },
-                  rpcUrls: [OPTIMISM_SEPOLIA_RPC_URL],
-                  blockExplorerUrls: ['https://sepolia.etherscan.io']
-                }
-              ]
-            });
-          } else {
-            throw new Error('Failed to switch to Optimistic Sepolia network: ' + (switchError.message || 'Unknown error'));
-          }
-        }
-        
-        // Verify the switch was successful
-        const updatedNetwork = await provider.getNetwork();
-        if (Number(updatedNetwork.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
-          throw new Error('Failed to switch to Optimistic Sepolia network');
-        }
+      if (network.chainId !== BigInt(OPTIMISM_SEPOLIA_CHAIN_ID)) {
+        throw new Error(`Please switch to Optimistic Sepolia (Chain ID: ${OPTIMISM_SEPOLIA_CHAIN_ID})`);
       }
 
       // Set account and get balances
-      const address = accounts[0] ? (typeof accounts[0] === 'string' ? accounts[0] : (accounts[0] as { address: string }).address) : '';
-      setAccount(address);
+      const address = await ethereum.request({ method: 'eth_accounts' });
+      setAccount(address[0]);
       
       try {
-        await getTokenBalance(address);
+        await getTokenBalance(address[0]);
         await getTokenRate();
         setSuccess('Wallet connected successfully!');
       } catch (balanceError: any) {
-        console.error('Balance/Rate error:', balanceError);
-        // Don't throw here, we still want to consider the connection successful
-        setError('Connected, but failed to fetch balances: ' + (balanceError.message || 'Unknown error'));
+        console.warn('Error getting token balances:', balanceError);
       }
 
       // Setup event listeners
@@ -278,32 +158,26 @@ export default function BuyToken() {
       ethereum.on('chainChanged', handleChainChanged);
 
       console.log('Wallet connection complete!');
+      return true;
     } catch (error: any) {
       const errorDetails = {
         name: error.name,
         message: error.message,
-        code: error.code,
-        data: error.data,
-        stack: error.stack
+        code: error.code
       };
-      console.error('Connection error details:', errorDetails);
+      console.error('Connection error:', errorDetails);
       
-      // Set a user-friendly error message
-      let userMessage = 'Failed to connect wallet';
-      if (error.message) {
-        userMessage = error.message;
-      } else if (error.code === -32002) {
-        userMessage = 'MetaMask is already processing a request. Please check your MetaMask popup.';
-      } else if (error.code === 4001) {
-        userMessage = 'You rejected the connection request. Please try again and approve the connection in MetaMask.';
+      if (error.code === 4001) {
+        setError('User rejected the connection request');
+      } else {
+        setError(`Failed to connect wallet: ${error.message}`);
       }
       
-      setError(userMessage);
-      setAccount('');
-      setTokenBalance('0');
+      return false;
     } finally {
+      setLoading(false);
       setIsConnecting(false);
-      // Don't reset processing state here, let the useEffect handle it
+      setIsProcessingRequest(false);
     }
   };
 
@@ -327,52 +201,41 @@ export default function BuyToken() {
 
   const verifyNetwork = async () => {
     try {
-      if (!window.ethereum) {
+      if (!hasMetaMask()) {
         throw new Error('MetaMask is not installed');
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider((window as any).ethereum);
       const network = await provider.getNetwork();
       console.log('Current network:', network);
 
-      if (Number(network.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
-        console.log('Not on Optimistic Sepolia, attempting to switch...');
-        try {
-          await window.ethereum.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: '0xaa37dc' }]
-          });
-        } catch (switchError: any) {
-          console.log('Switch error:', switchError);
-          if (switchError.code === 4902) {
-            console.log('Optimistic Sepolia network not found, attempting to add...');
-            await window.ethereum.request({
-              method: 'wallet_addEthereumChain',
-              params: [
-                {
-                  chainId: '0xaa37dc',
-                  chainName: 'Optimistic Sepolia',
-                  nativeCurrency: {
-                    name: 'ETH',
-                    symbol: 'ETH',
-                    decimals: 18
-                  },
-                  rpcUrls: [OPTIMISM_SEPOLIA_RPC_URL],
-                  blockExplorerUrls: ['https://sepolia.etherscan.io']
-                }
-              ]
-            });
-          } else {
-            throw new Error('Failed to switch to Optimistic Sepolia network: ' + (switchError.message || 'Unknown error'));
-          }
-        }
-        
-        // Verify the switch was successful
-        const updatedNetwork = await provider.getNetwork();
-        if (Number(updatedNetwork.chainId) !== OPTIMISM_SEPOLIA_CHAIN_ID) {
-          throw new Error('Failed to switch to Optimistic Sepolia network');
-        }
+      if (network.chainId !== BigInt(OPTIMISM_SEPOLIA_CHAIN_ID)) {
+        throw new Error(`Please switch to Optimistic Sepolia (Chain ID: ${OPTIMISM_SEPOLIA_CHAIN_ID})`);
       }
+
+      // Initialize provider and signer
+      const signer = await provider.getSigner();
+
+      // Connect to token sale contract
+      console.log('Connecting to token sale contract...');
+      const tokenSaleContract = new ethers.Contract(TOKEN_SALE_ADDRESS, TokenSaleABI, signer);
+      
+      if (!tokenSaleContract.address) {
+        throw new Error('Failed to connect to token sale contract');
+      }
+
+      // Calculate tokens based on ETH amount
+      const tokens = calculateTokenAmount(ethAmount, false);
+      console.log('Calculated tokens:', utils.formatEther(tokens));
+
+      // Calculate total price (ethAmount as wei)
+      const weiAmount = utils.parseEther(ethAmount);
+      console.log('Wei amount to send:', weiAmount.toString());
+      
+      // Set transaction parameters
+      const txParams = {
+        value: weiAmount
+      };
 
       return true;
     } catch (error: any) {
@@ -388,7 +251,7 @@ export default function BuyToken() {
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider((window as any).ethereum);
       
       // Verify contract exists
       console.log('Checking BTB token contract...');
@@ -404,7 +267,7 @@ export default function BuyToken() {
       const balance = await tokenContract.balanceOf(address);
       console.log('Balance received:', balance.toString());
       
-      setTokenBalance(ethers.formatEther(balance));
+      setTokenBalance(utils.formatEther(balance));
     } catch (error: any) {
       console.error('Error getting token balance:', {
         message: error.message,
@@ -416,7 +279,7 @@ export default function BuyToken() {
       
       // More specific error messages
       if (error.code === 'CALL_EXCEPTION') {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new providers.Web3Provider((window as any).ethereum);
         const network = await provider.getNetwork();
         setError(`Contract call failed. Current network: ${network.name} (${network.chainId}). ` +
                  'Please make sure you are on Optimistic Sepolia (Chain ID: 11155420)');
@@ -432,7 +295,7 @@ export default function BuyToken() {
         return;
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider((window as any).ethereum);
       
       // Verify contract exists
       console.log('Checking token sale contract...');
@@ -458,12 +321,12 @@ export default function BuyToken() {
         });
 
         console.log('Contract rates:', {
-          price: ethers.formatEther(currentPrice),
-          vestingPrice: ethers.formatEther(vestingPrice)
+          price: utils.formatEther(currentPrice),
+          vestingPrice: utils.formatEther(vestingPrice)
         });
 
         // Calculate rate as tokens per ETH (1 ETH / price per token)
-        const oneEth = ethers.parseEther('1');
+        const oneEth = utils.parseEther('1');
         const rate = oneEth * BigInt(1e18) / currentPrice;
         setRate(rate.toString());
 
@@ -488,7 +351,7 @@ export default function BuyToken() {
 
       // More specific error messages
       if (error.code === 'CALL_EXCEPTION') {
-        const provider = new ethers.BrowserProvider(window.ethereum);
+        const provider = new providers.Web3Provider((window as any).ethereum);
         const network = await provider.getNetwork();
         setError(`Contract call failed. Current network: ${network.name} (${network.chainId}). ` +
                  'Please make sure you are on Optimistic Sepolia (Chain ID: 11155420)');
@@ -503,7 +366,7 @@ export default function BuyToken() {
 
   const getVestingInfo = async (address: string) => {
     try {
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider((window as any).ethereum);
       const vestingContract = new ethers.Contract(VESTING_NFT_ADDRESS, VestingNFTABI, provider);
       
       console.log('Checking vesting NFTs for address:', address);
@@ -527,24 +390,24 @@ export default function BuyToken() {
         // Get vesting schedule for this token
         const schedule = await vestingContract.getVestingSchedule(tokenId);
         console.log('Vesting schedule:', {
-          totalAmount: ethers.formatEther(schedule.totalAmount),
-          releasedAmount: ethers.formatEther(schedule.releasedAmount),
+          totalAmount: utils.formatEther(schedule.totalAmount),
+          releasedAmount: utils.formatEther(schedule.releasedAmount),
           startTime: new Date(schedule.startTime.toNumber() * 1000).toISOString(),
           duration: schedule.duration.toNumber() / (24 * 60 * 60) + ' days'
         });
 
         const releasable = await vestingContract.releasableAmount(tokenId);
-        console.log('Releasable amount:', ethers.formatEther(releasable));
+        console.log('Releasable amount:', utils.formatEther(releasable));
         
         setVestingInfo({
           tokenId: tokenId.toString(),
-          totalAmount: ethers.formatEther(schedule.totalAmount),
-          releasedAmount: ethers.formatEther(schedule.releasedAmount),
+          totalAmount: utils.formatEther(schedule.totalAmount),
+          releasedAmount: utils.formatEther(schedule.releasedAmount),
           startTime: schedule.startTime.toNumber(),
           duration: schedule.duration.toNumber()
         });
         
-        setReleasableAmount(ethers.formatEther(releasable));
+        setReleasableAmount(utils.formatEther(releasable));
       } catch (error: any) {
         console.error('Error getting vesting NFT details:', error);
         setVestingInfo(null);
@@ -570,7 +433,7 @@ export default function BuyToken() {
         throw new Error('No vesting NFT found');
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider((window as any).ethereum);
       const signer = await provider.getSigner();
       const vestingContract = new ethers.Contract(VESTING_NFT_ADDRESS, VestingNFTABI, signer);
 
@@ -597,7 +460,7 @@ export default function BuyToken() {
   };
 
   const calculateTokenAmount = (ethAmount: string, isVesting: boolean): bigint => {
-    const weiAmount = ethers.parseEther(ethAmount);
+    const weiAmount = utils.parseEther(ethAmount);
     const pricePerToken = isVesting ? VESTING_PRICE : INSTANT_PRICE;
     
     // Calculate tokens the same way the contract does:
@@ -620,11 +483,11 @@ export default function BuyToken() {
         return;
       }
 
-      if (!window.ethereum) {
+      if (!hasMetaMask()) {
         throw new Error('Please install MetaMask to use this feature');
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
+      const provider = new providers.Web3Provider((window as any).ethereum);
       const signer = await provider.getSigner();
       
       // Check contract code exists
@@ -634,15 +497,15 @@ export default function BuyToken() {
 
       // Check if token sale has enough tokens
       const tokenSaleBalance = await tokenContract.balanceOf(TOKEN_SALE_ADDRESS);
-      console.log('Token sale balance:', ethers.formatEther(tokenSaleBalance));
+      console.log('Token sale balance:', utils.formatEther(tokenSaleBalance));
 
       // Convert amount to wei
-      const weiAmount = ethers.parseEther(ethAmount);
-      console.log('Wei amount:', weiAmount.toString());
+      const weiAmount = utils.parseEther(ethAmount);
+      console.log('Wei amount to send:', weiAmount.toString());
       
       // Calculate required tokens
       const requiredTokens = calculateTokenAmount(ethAmount, withVesting);
-      console.log('Required tokens:', ethers.formatEther(requiredTokens));
+      console.log('Required tokens:', utils.formatEther(requiredTokens));
       
       if (tokenSaleBalance < requiredTokens) {
         throw new Error('Token sale contract does not have enough tokens to fulfill this purchase');
@@ -651,13 +514,13 @@ export default function BuyToken() {
       // Validate minimum payment
       const minPrice = withVesting ? VESTING_PRICE : INSTANT_PRICE;
       if (weiAmount < minPrice) {
-        throw new Error(`Minimum payment required: ${ethers.formatEther(minPrice)} ETH`);
+        throw new Error(`Minimum payment required: ${utils.formatEther(minPrice)} ETH`);
       }
 
       console.log('Purchase parameters:', {
         ethAmount: ethAmount,
         weiAmount: weiAmount.toString(),
-        requiredTokens: ethers.formatEther(requiredTokens),
+        requiredTokens: utils.formatEther(requiredTokens),
         withVesting
       });
 
@@ -763,9 +626,18 @@ export default function BuyToken() {
   useEffect(() => {
     if (ethAmount && !isNaN(parseFloat(ethAmount))) {
       const tokens = calculateTokenAmount(ethAmount, false);
-      setTokenAmount(ethers.formatEther(tokens));
+      setTokenAmount(utils.formatEther(tokens));
     } else {
       setTokenAmount('0');
+    }
+  }, [ethAmount]);
+
+  useEffect(() => {
+    if (ethAmount && !isNaN(parseFloat(ethAmount))) {
+      const tokens = calculateTokenAmount(ethAmount, true);
+      setVestingTokenAmount(utils.formatEther(tokens));
+    } else {
+      setVestingTokenAmount('0');
     }
   }, [ethAmount]);
 

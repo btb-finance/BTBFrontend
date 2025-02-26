@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import HooksControls from "./HooksControls"
 import HooksList from "./HooksList"
+import { getHookrankApiKey } from '../../hooks-v2/usePublicApi'
 
 const HooksDashboard = () => {
   const [hooks, setHooks] = useState([])
@@ -19,11 +20,19 @@ const HooksDashboard = () => {
 
   const fetchPage = async (page, limit) => {
     try {
+      // Get API key from our utility function
+      const apiKey = getHookrankApiKey();
+      
       const response = await fetch(`https://api.hookrank.io/api/public/v1/uniswap/hooks?page=${page}&limit=${limit}`, {
         headers: {
-          "X-API-Key": process.env.NEXT_PUBLIC_HOOKRANK_API_KEY,
+          "X-API-Key": apiKey,
         },
       })
+      
+      if (!response.ok) {
+        throw new Error(`API Response Status: ${response.status}`);
+      }
+      
       const data = await response.json()
       if (data.status === "success") {
         return data
@@ -31,6 +40,7 @@ const HooksDashboard = () => {
         throw new Error(`API Response Status: ${data.status}`)
       }
     } catch (error) {
+      console.error("Fetch error details:", error);
       throw new Error(`Failed to fetch page ${page}: ${error.message}`)
     }
   }
@@ -165,4 +175,3 @@ const HooksDashboard = () => {
 }
 
 export default HooksDashboard
-

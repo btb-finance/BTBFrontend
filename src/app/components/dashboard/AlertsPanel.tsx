@@ -1,39 +1,28 @@
 'use client';
 
 import { ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { Alert } from '../../services/btbApi';
 
-const alerts = [
-  {
-    id: 1,
-    type: 'warning',
-    title: 'High Price Volatility',
-    message: 'ETH/USDC pool experiencing significant price movements. Consider adjusting position.',
-    timestamp: '10 minutes ago'
-  },
-  {
-    id: 2,
-    type: 'info',
-    title: 'New Farming Opportunity',
-    message: 'High APY opportunity detected in Curve stETH/ETH pool.',
-    timestamp: '1 hour ago'
-  },
-  {
-    id: 3,
-    type: 'warning',
-    title: 'Low Liquidity Alert',
-    message: 'BTC/ETH pool liquidity dropping below optimal levels.',
-    timestamp: '2 hours ago'
-  },
-  {
-    id: 4,
-    type: 'info',
-    title: 'Rewards Available',
-    message: 'New rewards ready to claim from your Uniswap V3 position.',
-    timestamp: '3 hours ago'
+interface AlertsPanelProps {
+  alerts: Alert[];
+}
+
+export default function AlertsPanel({ alerts }: AlertsPanelProps) {
+  if (!alerts || alerts.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+          Alerts & Notifications
+        </h2>
+        <div className="flex items-center justify-center h-40">
+          <p className="text-gray-500 dark:text-gray-400">
+            No alerts at this time.
+          </p>
+        </div>
+      </div>
+    );
   }
-];
 
-export default function AlertsPanel() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
@@ -70,18 +59,22 @@ export default function AlertsPanel() {
                 )}
               </div>
               <div className="ml-3 flex-1">
-                <h3 className={`text-sm font-medium ${
-                  alert.type === 'warning'
-                    ? 'text-yellow-800 dark:text-yellow-200'
-                    : 'text-blue-800 dark:text-blue-200'
-                }`}>
+                <h3
+                  className={`text-sm font-medium ${
+                    alert.type === 'warning'
+                      ? 'text-yellow-800 dark:text-yellow-200'
+                      : 'text-blue-800 dark:text-blue-200'
+                  }`}
+                >
                   {alert.title}
                 </h3>
-                <div className={`mt-2 text-sm ${
-                  alert.type === 'warning'
-                    ? 'text-yellow-700 dark:text-yellow-300'
-                    : 'text-blue-700 dark:text-blue-300'
-                }`}>
+                <div
+                  className={`mt-2 text-sm ${
+                    alert.type === 'warning'
+                      ? 'text-yellow-700 dark:text-yellow-300'
+                      : 'text-blue-700 dark:text-blue-300'
+                  }`}
+                >
                   {alert.message}
                 </div>
                 <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
