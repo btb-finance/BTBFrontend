@@ -133,6 +133,7 @@ const FlywheelDiagram: React.FC = () => {
     return () => clearInterval(intervalId);
   }, [isAnimating, steps.length]);
 
+  // Setup canvas dimensions and resize handler
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -140,47 +141,52 @@ const FlywheelDiagram: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions and handle high DPI displays
-    const displayWidth = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
-    
-    // For high DPI displays
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = displayWidth * dpr;
-    canvas.height = displayHeight * dpr;
-    
-    ctx.scale(dpr, dpr);
-    canvas.style.width = `${displayWidth}px`;
-    canvas.style.height = `${displayHeight}px`;
-    
-    // Function to handle resize
-    const handleResize = () => {
-      const newWidth = canvas.clientWidth;
-      const newHeight = canvas.clientHeight;
+    // Set initial canvas dimensions
+    const updateCanvasDimensions = () => {
+      // Get the display size
+      const displayWidth = canvas.clientWidth;
+      const displayHeight = canvas.clientHeight;
       
-      // Update canvas dimensions
-      canvas.width = newWidth * dpr;
-      canvas.height = newHeight * dpr;
+      // For high DPI displays
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
       
       ctx.scale(dpr, dpr);
-      canvas.style.width = `${newWidth}px`;
-      canvas.style.height = `${newHeight}px`;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
     };
+
+    // Initial setup
+    updateCanvasDimensions();
     
     // Add resize listener
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', updateCanvasDimensions);
     
     // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', updateCanvasDimensions);
     };
+  }, []);
 
+  // Animation loop
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     // Animation function
     const animate = () => {
       if (!ctx) return;
       
+      // Get current canvas dimensions
+      const displayWidth = canvas.clientWidth;
+      const displayHeight = canvas.clientHeight;
+      
       // Clear canvas
-      ctx.clearRect(0, 0, canvas?.width || 0, canvas?.height || 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Center points
       const centerX = displayWidth / 2;
@@ -294,8 +300,10 @@ const FlywheelDiagram: React.FC = () => {
       requestRef.current = requestAnimationFrame(animate);
     };
 
+    // Start animation
     animate();
 
+    // Cleanup animation on unmount
     return () => {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
