@@ -12,37 +12,38 @@ import FlywheelDiagram from '../components/btb-exchange/FlywheelDiagram';
 export default function BTBExchangePage() {
   const { isConnected, isCorrectNetwork, connectWallet } = useWalletConnection();
 
-  if (!isConnected) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-3xl font-bold mb-6 text-btb-primary">BTB Exchange</h1>
-          <Alert className="mb-6">
-            Please connect your wallet to access the BTB Exchange
+  // Show wallet connection alert at the top if not connected
+  const WalletAlert = () => {
+    if (!isConnected) {
+      return (
+        <div className="max-w-4xl mx-auto mb-8">
+          <Alert className="mb-4">
+            Please connect your wallet to trade on the BTB Exchange
           </Alert>
-          <Button 
-            onClick={connectWallet}
-            className="bg-btb-primary hover:bg-btb-primary-dark text-white"
-          >
-            Connect Wallet
-          </Button>
+          <div className="text-center">
+            <Button 
+              onClick={connectWallet}
+              className="bg-btb-primary hover:bg-btb-primary-dark text-white"
+            >
+              Connect Wallet
+            </Button>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  if (!isCorrectNetwork) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto text-center">
-          <h1 className="text-3xl font-bold mb-6 text-btb-primary">BTB Exchange</h1>
-          <Alert className="mb-6">
-            Please switch to the Base network to use BTB Exchange
+      );
+    }
+    
+    if (!isCorrectNetwork) {
+      return (
+        <div className="max-w-4xl mx-auto mb-8">
+          <Alert className="mb-4">
+            Please switch to the Base network to trade on BTB Exchange
           </Alert>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+    
+    return null;
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -51,6 +52,9 @@ export default function BTBExchangePage() {
         <p className="text-lg mb-6 text-gray-600 dark:text-gray-300">
           Welcome to the BTB Exchange - your gateway to trading BTB tokens on the Base network. Our exchange provides a secure and efficient platform for buying and selling BTB tokens using USDC.
         </p>
+        
+        {/* Wallet Connection Alert */}
+        <WalletAlert />
 
         {/* BTB Exchange Flywheel Section */}
         <div className="mt-8 mb-12 text-left p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -63,10 +67,10 @@ export default function BTBExchangePage() {
             <div>
               <h3 className="text-xl font-semibold text-btb-primary mb-3">The Core Mechanics</h3>
               
-              <div className="space-y-4 pl-4">
+              <div className="space-y-4 pl-2 md:pl-4">
                 <div>
-                  <h4 className="font-bold text-btb-primary-dark">1. Token-Gated Trading Access</h4>
-                  <ul className="list-disc pl-5 text-gray-600 dark:text-gray-300">
+                  <h4 className="font-bold text-btb-primary-dark text-sm md:text-base">1. Token-Gated Trading Access</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-sm md:text-base text-gray-600 dark:text-gray-300">
                     <li><span className="font-semibold text-btb-primary">First step: Users must lock BTB tokens</span> in our contract to trade BTBY/USDC</li>
                     <li>More frequent trading requires more BTB tokens locked</li>
                     <li>This creates exclusive access and steady demand for BTB</li>
@@ -74,8 +78,8 @@ export default function BTBExchangePage() {
                 </div>
                 
                 <div>
-                  <h4 className="font-bold text-btb-primary-dark">2. BTBY Token & Bonding Curve</h4>
-                  <ul className="list-disc pl-5 text-gray-600 dark:text-gray-300">
+                  <h4 className="font-bold text-btb-primary-dark text-sm md:text-base">2. BTBY Token & Bonding Curve</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-sm md:text-base text-gray-600 dark:text-gray-300">
                     <li>Our exchange trades BTBY tokens using a unique bonding curve mechanism</li>
                     <li><span className="font-semibold">BTBY price always increases</span> regardless of whether users buy OR sell</li>
                     <li>Every purchase <span className="font-semibold">AND every sale</span> increases the price slightly</li>
@@ -84,8 +88,8 @@ export default function BTBExchangePage() {
                 </div>
                 
                 <div>
-                  <h4 className="font-bold text-btb-primary-dark">3. Fee Distribution to Liquidity Providers</h4>
-                  <ul className="list-disc pl-5 text-gray-600 dark:text-gray-300">
+                  <h4 className="font-bold text-btb-primary-dark text-sm md:text-base">3. Fee Distribution to Liquidity Providers</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-sm md:text-base text-gray-600 dark:text-gray-300">
                     <li><span className="font-semibold">0.1% fee from each trade</span> goes to admin, which is then directed to BTBY/ETH pair on Uniswap</li>
                     <li>LP providers earn significant passive income from exchange activity</li>
                     <li>The more trading volume, the more rewards LP providers earn</li>
@@ -94,8 +98,8 @@ export default function BTBExchangePage() {
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-btb-primary-dark">4. Arbitrage Opportunity</h4>
-                  <ul className="list-disc pl-5 text-gray-600 dark:text-gray-300">
+                  <h4 className="font-bold text-btb-primary-dark text-sm md:text-base">4. Arbitrage Opportunity</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-sm md:text-base text-gray-600 dark:text-gray-300">
                     <li>Traders <span className="font-semibold">keep 100% of their arbitrage profits</span> between our exchange and Uniswap</li>
                     <li>No hidden fees on arbitrage trades</li>
                     <li>BTB token holders receive benefits from all arbitrage activity</li>
@@ -107,10 +111,10 @@ export default function BTBExchangePage() {
 
             <div>
               <h3 className="text-xl font-semibold text-btb-primary mb-3">How The Flywheel Spins</h3>
-              <p className="mb-3 text-gray-600 dark:text-gray-300">
+              <p className="mb-3 text-gray-600 dark:text-gray-300 text-sm md:text-base">
                 This creates a powerful self-reinforcing cycle where everyone benefits:
               </p>
-              <ol className="list-decimal pl-5 space-y-1 text-gray-600 dark:text-gray-300">
+              <ol className="list-decimal pl-4 md:pl-5 space-y-1 text-sm md:text-base text-gray-600 dark:text-gray-300">
                 <li><span className="font-semibold">Lock BTB Tokens</span> → FIRST STEP: Users must lock BTB tokens to access BTBY/USDC trading</li>
                 <li><span className="font-semibold">Trade BTBY/USDC</span> → Trading generates 0.1% fees with our unique bonding curve</li>
                 <li><span className="font-semibold">Fees to LP</span> → All trading fees fund BTBY/ETH liquidity providers on Uniswap</li>
@@ -126,27 +130,27 @@ export default function BTBExchangePage() {
               <h3 className="text-xl font-semibold text-btb-primary mb-3">Who Wins in This Model?</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-bold text-btb-primary-dark mb-2">BTB Token Holders Win</h4>
-                  <ul className="list-disc pl-5 text-sm text-gray-600 dark:text-gray-300">
+                <div className="p-3 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-bold text-btb-primary-dark mb-2 text-sm md:text-base">BTB Token Holders Win</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-xs md:text-sm text-gray-600 dark:text-gray-300">
                     <li>Their tokens have clear utility (trading access)</li>
                     <li>Benefit from all arbitrage activity</li>
                     <li>Increasing demand for trading drives demand for BTB</li>
                   </ul>
                 </div>
                 
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-bold text-btb-primary-dark mb-2">BTBY/ETH Liquidity Providers Win</h4>
-                  <ul className="list-disc pl-5 text-sm text-gray-600 dark:text-gray-300">
+                <div className="p-3 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-bold text-btb-primary-dark mb-2 text-sm md:text-base">BTBY/ETH Liquidity Providers Win</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-xs md:text-sm text-gray-600 dark:text-gray-300">
                     <li>Earn rewards from all 0.1% trading fees</li>
                     <li>Benefit from increased trading volume due to arbitrage</li>
                     <li>Participate in a high-yield liquidity pool</li>
                   </ul>
                 </div>
                 
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <h4 className="font-bold text-btb-primary-dark mb-2">Traders Win</h4>
-                  <ul className="list-disc pl-5 text-sm text-gray-600 dark:text-gray-300">
+                <div className="p-3 md:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="font-bold text-btb-primary-dark mb-2 text-sm md:text-base">Traders Win</h4>
+                  <ul className="list-disc pl-4 md:pl-5 text-xs md:text-sm text-gray-600 dark:text-gray-300">
                     <li>Keep 100% of arbitrage profits</li>
                     <li>Trade on a unique exchange with bonding curve pricing</li>
                     <li>BTBY price always trends upward</li>
@@ -158,7 +162,7 @@ export default function BTBExchangePage() {
 
             <div>
               <h3 className="text-xl font-semibold text-btb-primary mb-3">Real-World Example</h3>
-              <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-600 dark:text-gray-300">
+              <div className="p-3 md:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-600 dark:text-gray-300 text-sm md:text-base">
                 <p className="mb-2">
                   Imagine Alice locks 9,000 BTB to make her second trade of the day. She buys BTBY tokens on our exchange. 
                   The trade generates a 0.1% fee which goes to the admin and is directed to BTBY/ETH LP providers on Uniswap. The bonding curve ensures her 
@@ -176,7 +180,7 @@ export default function BTBExchangePage() {
                   a positive cycle that strengthens the entire ecosystem. Meanwhile, all BTB token holders benefit from this increased activity.
                 </p>
               </div>
-              <p className="mt-4 italic text-center text-gray-600 dark:text-gray-300">
+              <p className="mt-4 italic text-center text-gray-600 dark:text-gray-300 text-xs md:text-sm">
                 This flywheel creates aligned incentives where each participant's actions benefit the entire system, 
                 creating a win-win scenario and sustainable growth for the BTB ecosystem.
               </p>
@@ -209,17 +213,37 @@ export default function BTBExchangePage() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <BTBStatusPanel />
-          <div className="mt-6">
-            <BTBManagement />
+
+      {/* Display trading interface only when connected */}
+      {isConnected ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <BTBStatusPanel />
+            <div className="mt-6">
+              <BTBManagement />
+            </div>
+          </div>
+          <div>
+            <TradingInterface />
           </div>
         </div>
-        <div>
-          <TradingInterface />
+      ) : (
+        <div className="max-w-4xl mx-auto mb-12 text-center mt-10">
+          <div className="p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            <h3 className="text-xl font-bold mb-4 text-btb-primary">Ready to Start Trading?</h3>
+            <p className="mb-6 text-gray-600 dark:text-gray-300">
+              Connect your wallet to access the BTB Exchange trading interface. You'll be able to trade BTB tokens, 
+              manage your holdings, and view real-time market data.
+            </p>
+            <Button 
+              onClick={connectWallet}
+              className="bg-btb-primary hover:bg-btb-primary-dark text-white px-8 py-3 text-lg"
+            >
+              Connect Wallet to Trade
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

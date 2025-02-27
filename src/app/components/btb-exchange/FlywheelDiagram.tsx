@@ -10,26 +10,33 @@ interface StepProps {
     top: string;
     left: string;
   };
+  mobilePosition: {
+    top: string;
+    left: string;
+  };
   active: boolean;
+  isMobile: boolean;
 }
 
-const FlywheelStep: React.FC<StepProps> = ({ number, title, description, position, active }) => {
+const FlywheelStep: React.FC<StepProps> = ({ number, title, description, position, mobilePosition, active, isMobile }) => {
+  const posToUse = isMobile ? mobilePosition : position;
+  
   return (
     <div 
-      className={`absolute w-44 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-md border-2 ${
+      className={`absolute ${isMobile ? 'w-32' : 'w-44'} p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md border-2 ${
         active ? 'border-btb-primary scale-110 z-20' : 'border-btb-primary-light'
       } transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hover:scale-105 hover:z-10`}
-      style={{ top: position.top, left: position.left }}
+      style={{ top: posToUse.top, left: posToUse.left }}
     >
-      <div className="flex items-center mb-2">
-        <div className={`w-7 h-7 rounded-full ${
+      <div className="flex items-center mb-1">
+        <div className={`${isMobile ? 'w-5 h-5' : 'w-7 h-7'} rounded-full ${
           active ? 'bg-btb-primary-dark' : 'bg-btb-primary'
-        } text-white flex items-center justify-center font-bold mr-2 transition-colors duration-300`}>
+        } text-white flex items-center justify-center font-bold mr-2 transition-colors duration-300 text-xs md:text-sm`}>
           {number}
         </div>
-        <h4 className="font-semibold text-btb-primary-dark text-sm">{title}</h4>
+        <h4 className="font-semibold text-btb-primary-dark text-xs md:text-sm">{title}</h4>
       </div>
-      <p className="text-xs text-gray-600 dark:text-gray-300">{description}</p>
+      <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 dark:text-gray-300`}>{description}</p>
     </div>
   );
 };
@@ -38,8 +45,22 @@ const FlywheelDiagram: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [activeStep, setActiveStep] = useState(1);
   const [isAnimating, setIsAnimating] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const requestRef = useRef<number>();
   const rotationRef = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check if we're on mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile(); // Check on initial render
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Define steps based on updated mechanics
   const steps = [
@@ -47,49 +68,57 @@ const FlywheelDiagram: React.FC = () => {
       number: 1,
       title: "Lock BTB Tokens",
       description: "FIRST STEP: Users must lock BTB tokens to access BTBY/USDC trading",
-      position: { top: "15%", left: "50%" }
+      position: { top: "15%", left: "50%" },
+      mobilePosition: { top: "7%", left: "50%" }
     },
     {
       number: 2,
       title: "Trade BTBY/USDC",
       description: "Trading generates 0.1% fees with our unique bonding curve",
-      position: { top: "25%", left: "80%" }
+      position: { top: "25%", left: "80%" },
+      mobilePosition: { top: "16%", left: "86%" }
     },
     {
       number: 3,
       title: "Fees to LP",
       description: "All trading fees fund BTBY/ETH liquidity providers on Uniswap",
-      position: { top: "50%", left: "90%" }
+      position: { top: "50%", left: "90%" },
+      mobilePosition: { top: "40%", left: "93%" }
     },
     {
       number: 4,
       title: "Price Always Rises",
       description: "BTBY price increases with BOTH buys AND sells",
-      position: { top: "75%", left: "80%" }
+      position: { top: "75%", left: "80%" },
+      mobilePosition: { top: "62%", left: "86%" }
     },
     {
       number: 5,
       title: "Arbitrage Profit",
       description: "Traders keep 100% of arbitrage profits between platforms",
-      position: { top: "85%", left: "50%" }
+      position: { top: "85%", left: "50%" },
+      mobilePosition: { top: "74%", left: "50%" }
     },
     {
       number: 6,
       title: "LP Growth",
       description: "Increased trading fees attract more LP providers to BTBY/ETH",
-      position: { top: "75%", left: "20%" }
+      position: { top: "75%", left: "20%" },
+      mobilePosition: { top: "62%", left: "14%" }
     },
     {
       number: 7,
       title: "BTB Holder Rewards",
       description: "BTB token holders benefit from all arbitrage activity",
-      position: { top: "50%", left: "10%" }
+      position: { top: "50%", left: "10%" },
+      mobilePosition: { top: "40%", left: "7%" }
     },
     {
       number: 8,
       title: "Growing Ecosystem",
       description: "Win-win system drives sustainable growth for all participants",
-      position: { top: "25%", left: "20%" }
+      position: { top: "25%", left: "20%" },
+      mobilePosition: { top: "16%", left: "14%" }
     },
   ];
 
@@ -123,6 +152,28 @@ const FlywheelDiagram: React.FC = () => {
     ctx.scale(dpr, dpr);
     canvas.style.width = `${displayWidth}px`;
     canvas.style.height = `${displayHeight}px`;
+    
+    // Function to handle resize
+    const handleResize = () => {
+      const newWidth = canvas.clientWidth;
+      const newHeight = canvas.clientHeight;
+      
+      // Update canvas dimensions
+      canvas.width = newWidth * dpr;
+      canvas.height = newHeight * dpr;
+      
+      ctx.scale(dpr, dpr);
+      canvas.style.width = `${newWidth}px`;
+      canvas.style.height = `${newHeight}px`;
+    };
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
 
     // Animation function
     const animate = () => {
@@ -168,12 +219,14 @@ const FlywheelDiagram: React.FC = () => {
 
       // Draw BTB logo/text in center
       ctx.fillStyle = '#3B82F6';
-      ctx.font = 'bold 24px Arial';
+      const textSize = isMobile ? 20 : 24;
+      const subTextSize = isMobile ? 14 : 16;
+      ctx.font = `bold ${textSize}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('BTB', centerX, centerY - 12);
-      ctx.font = 'bold 16px Arial';
-      ctx.fillText('EXCHANGE', centerX, centerY + 12);
+      ctx.fillText('BTB', centerX, centerY - (isMobile ? 10 : 12));
+      ctx.font = `bold ${subTextSize}px Arial`;
+      ctx.fillText('EXCHANGE', centerX, centerY + (isMobile ? 10 : 12));
 
       // Draw moving particles along the circle path to indicate flow
       const particleCount = 24;
@@ -185,16 +238,18 @@ const FlywheelDiagram: React.FC = () => {
         const isNearActiveStep = Math.abs(((i / particleCount) * 8) % 8 - (activeStep - 1)) < 0.5 ||
                                 Math.abs(((i / particleCount) * 8) % 8 - (activeStep - 1)) > 7.5;
         
+        const particleSize = isMobile ? (isNearActiveStep ? 3 : 1.5) : (isNearActiveStep ? 4 : 2);
+        
         ctx.beginPath();
-        ctx.arc(x, y, isNearActiveStep ? 4 : 2, 0, 2 * Math.PI);
+        ctx.arc(x, y, particleSize, 0, 2 * Math.PI);
         ctx.fillStyle = isNearActiveStep ? '#2563EB' : '#60A5FA';
         ctx.fill();
       }
 
       // Draw arrows along the circle
       const drawArrow = (angle: number, isActive: boolean) => {
-        const arrowLength = 20;
-        const arrowWidth = 8;
+        const arrowLength = isMobile ? 16 : 20;
+        const arrowWidth = isMobile ? 6 : 8;
         
         const x = centerX + radius * Math.cos(angle);
         const y = centerY + radius * Math.sin(angle);
@@ -208,7 +263,7 @@ const FlywheelDiagram: React.FC = () => {
         ctx.moveTo(x - dirX * arrowLength / 2, y - dirY * arrowLength / 2);
         ctx.lineTo(x + dirX * arrowLength / 2, y + dirY * arrowLength / 2);
         ctx.strokeStyle = isActive ? '#2563EB' : '#3B82F6'; // btb-primary-dark or btb-primary
-        ctx.lineWidth = isActive ? 6 : 4;
+        ctx.lineWidth = isActive ? (isMobile ? 4 : 6) : (isMobile ? 3 : 4);
         ctx.stroke();
         
         // Draw arrowhead
@@ -246,10 +301,10 @@ const FlywheelDiagram: React.FC = () => {
         cancelAnimationFrame(requestRef.current);
       }
     };
-  }, [activeStep, isAnimating]);
+  }, [activeStep, isAnimating, isMobile]);
 
   return (
-    <div className="relative w-full h-[500px] my-8">
+    <div className="relative w-full h-[400px] md:h-[500px] my-8" ref={containerRef}>
       <canvas 
         ref={canvasRef} 
         className="w-full h-full cursor-pointer" 
@@ -263,11 +318,13 @@ const FlywheelDiagram: React.FC = () => {
           title={step.title}
           description={step.description}
           position={step.position}
+          mobilePosition={step.mobilePosition}
           active={step.number === activeStep}
+          isMobile={isMobile}
         />
       ))}
       
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm">
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs md:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm">
         Click the diagram to {isAnimating ? 'pause' : 'resume'} animation
       </div>
     </div>
