@@ -1,19 +1,31 @@
 export const themeConfig = {
 
   colors: {
-    primary: '#3B82F6',
-    primaryDark: '#2563EB',
-    primaryLight: '#60A5FA',
-    secondary: '#1A1B1F',
-    accent: '#00A3FF',
+    primary: '#8B0000',
+    primaryDark: '#660000',
+    primaryLight: '#A52A2A',
+    secondary: '#1A1E23',
+    accent: '#10B981',
+    // OP Superchain colors - darkened for eye comfort
+    opRed: '#8B0000',
+    opRedDark: '#660000',
+    opRedLight: '#A52A2A',
+    opBlack: '#121212',
+    opWhite: '#F8F8F8',
+    opGray: '#8A8A97',
   },
   fonts: {
     heading: 'Montserrat, sans-serif',
     body: 'Roboto, sans-serif',
+    // OP Superchain typography
+    superchain: 'Montserrat, sans-serif',
   },
   gradients: {
-    primary: 'linear-gradient(to right, #3B82F6, #60A5FA)',
-    dark: 'linear-gradient(to right, #2563EB, #3B82F6)',
+    primary: 'linear-gradient(to right, #8B0000, #A52A2A)',
+    dark: 'linear-gradient(to right, #660000, #8B0000)',
+    // OP Superchain gradients
+    superchain: 'linear-gradient(to right, #8B0000, #A52A2A)',
+    superchainDark: 'linear-gradient(90deg, #8B0000 0%, #660000 100%)',
   },
   borderRadius: {
     small: '0.375rem',

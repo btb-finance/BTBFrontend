@@ -2,37 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --btb-primary: #3B82F6;
-  --btb-primary-dark: #2563EB;
-  --btb-primary-light: #60A5FA;
-  --btb-secondary: #1F2937;
+  --btb-primary: #8B0000;
+  --btb-primary-dark: #660000;
+  --btb-primary-light: #A52A2A;
+  --btb-secondary: #1A1E23;
   --btb-accent: #10B981;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Montserrat', sans-serif;
   }
   
   body {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Inter', 'Roboto', sans-serif;
+    @apply antialiased text-gray-900 dark:text-white bg-white dark:bg-gray-900;
   }
 
   /* Custom button styles */
   .btn-primary {
-    @apply bg-btb-primary text-white px-4 py-2 rounded-full hover:bg-opacity-90 transition-all duration-200;
+    @apply bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light text-white px-5 py-3 rounded-lg font-medium shadow-md shadow-btb-primary/20 hover:shadow-lg hover:shadow-btb-primary/30 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300;
   }
 
   .btn-secondary {
-    @apply border-2 border-btb-primary text-btb-primary px-4 py-2 rounded-full hover:bg-btb-primary hover:text-white transition-all duration-200;
+    @apply border-2 border-btb-primary text-btb-primary px-5 py-[10px] rounded-lg font-medium hover:bg-btb-primary hover:text-white transition-all duration-300 hover:shadow-md;
+  }
+
+  .btn-glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/30 text-white px-5 py-3 rounded-lg font-medium hover:bg-white/20 shadow-lg hover:shadow-xl transition-all duration-300;
   }
 
   /* Custom card styles */
   .card {
-    @apply bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 hover:shadow-xl transition-all duration-200;
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700;
+  }
+
+  .card-glass {
+    @apply bg-white/10 backdrop-blur-md rounded-xl border border-white/20 shadow-lg p-6 text-white;
+  }
+
+  .card-gradient {
+    @apply bg-gradient-to-br from-btb-primary-dark/90 via-btb-primary/80 to-btb-primary-light/90 rounded-xl shadow-lg p-6 text-white;
   }
 
   /* Custom gradient backgrounds */
@@ -47,6 +64,91 @@
   /* Custom text gradients */
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-btb-primary to-btb-primary-light;
+  }
+  
+  .text-gradient-white {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80;
+  }
+  
+  /* Advanced hover effects */
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,4,32,0.5)];
+  }
+  
+  /* Glass morphism */
+  .glass-effect {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-lg;
+  }
+  
+  /* Custom animations */
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  .animate-ripple {
+    animation: ripple 1s linear forwards;
+  }
+
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
   }
 }
 
@@ -151,5 +253,16 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-[#FF0420] bg-opacity-50 rounded-full hover:bg-opacity-70;
+  @apply bg-[#8B0000] bg-opacity-50 rounded-full hover:bg-opacity-70;
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
