@@ -8,7 +8,6 @@ import PortfolioOverview from '../components/dashboard/PortfolioOverview';
 import PositionsList from '../components/dashboard/PositionsList';
 import MarketOverview from '../components/dashboard/MarketOverview';
 import AlertsPanel from '../components/dashboard/AlertsPanel';
-import WalletButton from '../components/WalletButton';
 import { Portfolio, Position, MarketData, Alert } from '../services/btbApi';
 
 export default function DashboardPage() {
@@ -132,17 +131,14 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header with Wallet Button */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-gradient">
-              Your DeFi Investment Control Center
-            </h1>
-            <p className="mt-2 text-gray-600 dark:text-gray-300">
-              Monitor, adjust, and optimize your yield farming strategies across platforms
-            </p>
-          </div>
-          <WalletButton />
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gradient">
+            Your DeFi Investment Control Center
+          </h1>
+          <p className="mt-2 text-gray-600 dark:text-gray-300">
+            Monitor, adjust, and optimize your yield farming strategies across platforms
+          </p>
         </div>
 
         {isConnected ? (
@@ -214,10 +210,9 @@ export default function DashboardPage() {
             <div className="mb-6 text-center">
               <h2 className="text-2xl font-bold mb-2">Connect Your Wallet</h2>
               <p className="text-gray-600 dark:text-gray-300">
-                Connect your wallet to view your portfolio and positions
+                Connect your wallet using the button in the navigation bar to view your portfolio and positions
               </p>
             </div>
-            <WalletButton large />
           </div>
         )}
       </div>

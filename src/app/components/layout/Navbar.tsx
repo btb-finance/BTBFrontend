@@ -3,67 +3,93 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { SunIcon, MoonIcon, Bars3Icon, XMarkIcon, ChevronDownIcon, HomeIcon, CalculatorIcon, ChartBarIcon, AcademicCapIcon, CubeTransparentIcon, CurrencyDollarIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, XMarkIcon, ChevronDownIcon, HomeIcon, CalculatorIcon, ChartBarIcon, AcademicCapIcon, CubeTransparentIcon, CurrencyDollarIcon, UserGroupIcon, WalletIcon } from '@heroicons/react/24/outline';
 import Logo from '../common/Logo';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../ui/dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// Define navigation structure
-const navigation = [
-  {
-    name: 'Home',
-    href: '/',
-    icon: HomeIcon
-  },
-  {
-    name: 'Tools',
-    icon: CalculatorIcon,
-    children: [
-      { name: 'Calculator', href: '/calculator' },
-      { name: 'Dashboard', href: '/dashboard' },
-    ]
-  },
-  {
-    name: 'Invest',
-    icon: ChartBarIcon,
-    children: [
-      { name: 'Pools', href: '/pools' },
-      { name: 'BTB Exchange', href: '/btb-exchange' },
-    ]
-  },
-  {
-    name: 'Learn',
-    href: '/education',
-    icon: AcademicCapIcon
-  },
-  {
-    name: 'Products',
-    icon: CubeTransparentIcon,
-    children: [
-      { name: 'Hooks', href: '/hooks' },
-      { name: 'Hooks v2', href: '/hooks-v2' },
-    ]
-  },
-  {
-    name: 'Token',
-    icon: CurrencyDollarIcon,
-    children: [
-      { name: 'Token Info', href: '/token' },
-      { name: 'Buy Token', href: '/buy-token' },
-    ]
-  },
-  {
-    name: 'Community',
-    href: '/community',
-    icon: UserGroupIcon
-  },
-];
+import { useWallet } from '../../context/WalletContext';
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
+  const { address, isConnected, isConnecting, connectWallet, disconnectWallet } = useWallet();
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeItem, setActiveItem] = useState('');
+  const [activeItem, setActiveItem] = useState<string>('');
+  
+  // Define navigation structure
+  type NavigationItem = {
+    name: string;
+    href?: string;
+    icon?: React.ElementType;
+    children?: Array<{
+      name: string;
+      href: string;
+      action?: string;
+      disabled?: boolean;
+    }>;
+  };
+
+  const navigation: NavigationItem[] = [
+    {
+      name: 'Home',
+      href: '/',
+      icon: HomeIcon
+    },
+    {
+      name: 'Tools',
+      icon: CalculatorIcon,
+      children: [
+        { name: 'Calculator', href: '/calculator' },
+        { name: 'Dashboard', href: '/dashboard' },
+      ]
+    },
+    {
+      name: 'Invest',
+      icon: ChartBarIcon,
+      children: [
+        { name: 'Pools', href: '/pools' },
+        { name: 'BTB Exchange', href: '/btb-exchange' },
+        { name: 'Yield Trading', href: '/yield-trading' },
+      ]
+    },
+    {
+      name: 'Learn',
+      href: '/education',
+      icon: AcademicCapIcon
+    },
+    {
+      name: 'Products',
+      icon: CubeTransparentIcon,
+      children: [
+        { name: 'Hooks', href: '/hooks' },
+        { name: 'Hooks v2', href: '/hooks-v2' },
+      ]
+    },
+    {
+      name: 'Token',
+      icon: CurrencyDollarIcon,
+      children: [
+        { name: 'Token Info', href: '/token' },
+        { name: 'Buy Token', href: '/buy-token' },
+      ]
+    },
+    {
+      name: 'Community',
+      href: '/community',
+      icon: UserGroupIcon
+    },
+    {
+      name: 'Wallet',
+      icon: WalletIcon,
+      children: [
+        { name: 'Connect Wallet', href: '#', action: 'connect' },
+        { name: 'View Transactions', href: isConnected ? `https://basescan.org/address/${address}` : '#', disabled: !isConnected },
+        { name: 'Wallet Balance', href: '/wallet/balance', disabled: !isConnected },
+        { name: 'Wallet Details', href: '/wallet/details', disabled: !isConnected }
+      ]
+    },
+  ];
+
 
   useEffect(() => {
     setMounted(true);
@@ -94,10 +120,6 @@ export default function Navbar() {
   if (!mounted) {
     return null;
   }
-
-  const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
-  };
 
 
   return (
@@ -140,16 +162,29 @@ export default function Navbar() {
                   <DropdownMenuContent align="center" className="w-48 bg-white dark:bg-gray-800 backdrop-blur-lg border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-lg shadow-lg">
                     {item.children.map((child) => (
                       <DropdownMenuItem key={child.name} asChild>
-                        <Link 
-                          href={child.href} 
-                          className="w-full cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                          onClick={() => {
-                            setActiveItem(item.name);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          {child.name}
-                        </Link>
+                        {child.action === 'connect' ? (
+                          <button 
+                            className="w-full text-left px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                            onClick={() => {
+                              isConnected ? disconnectWallet() : connectWallet();
+                              setActiveItem(item.name);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            {isConnected ? 'Disconnect Wallet' : child.name}
+                          </button>
+                        ) : (
+                          <Link 
+                            href={child.href} 
+                            className="w-full cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                            onClick={() => {
+                              setActiveItem(item.name);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            {child.name}
+                          </Link>
+                        )}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
@@ -169,20 +204,6 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center space-x-2">
-          <motion.button
-            onClick={toggleTheme}
-            className="p-2 text-white rounded-lg hover:bg-white/20 transition-all duration-300 shadow-sm"
-            aria-label="Toggle theme"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {theme === 'dark' ? (
-              <SunIcon className="h-5 w-5" />
-            ) : (
-              <MoonIcon className="h-5 w-5" />
-            )}
-          </motion.button>
-          
           {/* Mobile menu button */}
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -212,12 +233,30 @@ export default function Navbar() {
               id="mobile-menu"
             >
               <ul className="flex flex-col space-y-2">
+                {/* Add wallet button to mobile menu */}
+                <motion.li
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="py-2 border-b border-white/20 mb-2"
+                >
+                  <button
+                    onClick={isConnected ? disconnectWallet : connectWallet}
+                    className={`w-full flex items-center justify-center px-4 py-3 text-sm font-medium rounded-md text-white ${isConnected ? 'bg-green-600 hover:bg-green-700' : 'bg-btb-primary hover:bg-btb-primary-dark'} transition-all duration-300 shadow-sm`}
+                  >
+                    <WalletIcon className="mr-2 h-5 w-5" />
+                    {isConnecting ? 'Connecting...' : isConnected ? 
+                      `${address?.substring(0, 6)}...${address?.substring(address.length - 4)}` : 
+                      'Connect Wallet'}
+                  </button>
+                </motion.li>
+                
                 {navigation.map((item, index) => (
                   <motion.li 
                     key={item.name}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    transition={{ delay: index * 0.1 + 0.2 }}
                   >
                     {item.children ? (
                       <div className="space-y-2">
@@ -233,13 +272,25 @@ export default function Navbar() {
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: childIndex * 0.05 + 0.2 }}
                             >
-                              <Link 
-                                href={child.href} 
-                                className="block py-2 px-3 text-sm text-white hover:bg-white/20 rounded-md transition-all duration-200"
-                                onClick={() => setIsMenuOpen(false)}
-                              >
-                                {child.name}
-                              </Link>
+                              {child.action === 'connect' ? (
+                                <button 
+                                  className="block w-full text-left py-2 px-3 text-sm text-white hover:bg-white/20 rounded-md transition-all duration-200"
+                                  onClick={() => {
+                                    isConnected ? disconnectWallet() : connectWallet();
+                                    setIsMenuOpen(false);
+                                  }}
+                                >
+                                  {isConnected ? 'Disconnect Wallet' : child.name}
+                                </button>
+                              ) : (
+                                <Link 
+                                  href={child.href} 
+                                  className="block py-2 px-3 text-sm text-white hover:bg-white/20 rounded-md transition-all duration-200"
+                                  onClick={() => setIsMenuOpen(false)}
+                                >
+                                  {child.name}
+                                </Link>
+                              )}
                             </motion.li>
                           ))}
                         </ul>
@@ -248,7 +299,9 @@ export default function Navbar() {
                       <Link 
                         href={item.href || '#'} 
                         className="flex items-center px-3 py-2 text-white font-medium hover:bg-white/20 rounded-md transition-all duration-200 shadow-sm"
-                        onClick={() => setIsMenuOpen(false)}
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                        }}
                       >
                         {item.icon && <item.icon className="mr-2 h-5 w-5" />}
                         {item.name}

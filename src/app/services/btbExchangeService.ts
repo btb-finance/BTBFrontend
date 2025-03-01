@@ -183,11 +183,11 @@ class BTBExchangeService {
     return { tx1, tx2 };
   }
 
-  public async withdrawBTB(amount: string) {
+  public async withdrawBTB(amount: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     const parsedAmount = ethers.utils.parseEther(amount);
     const tx = await this.contract!.withdrawBTB(parsedAmount);
-    await tx.wait();
+    return tx;
   }
 
   public async unlockBTB() {
@@ -216,7 +216,7 @@ class BTBExchangeService {
   public async quoteUsdcForTokens(tokenAmount: string) {
     try {
       const parsedAmount = ethers.utils.parseEther(tokenAmount);
-      const [usdcAmount, adminFee, platformFee] = await this.contract!.getUSDCForTokens(parsedAmount);
+      const [usdcAmount, adminFee, platformFee] = await this.contract!.quoteUsdcForTokens(parsedAmount);
       
       return {
         usdcAmount: ethers.utils.formatUnits(usdcAmount, 6),
@@ -329,6 +329,25 @@ class BTBExchangeService {
     }
   }
 
+  public async getBTBYBalance(address?: string): Promise<string> {
+    try {
+      const userAddress = address || (this.signer ? await this.signer.getAddress() : null);
+      if (!userAddress) throw new Error('No wallet connected');
+
+      const btbyToken = new ethers.Contract(
+        this.tokenAddress,
+        ['function balanceOf(address account) public view returns (uint256)'],
+        this.provider!
+      );
+
+      const balance = await btbyToken.balanceOf(userAddress);
+      return ethers.utils.formatEther(balance);
+    } catch (error) {
+      console.error('Error getting BTBY balance:', error);
+      return '0';
+    }
+  }
+
   public async sellTokens(tokenAmount: string) {
     await this.ensureInitialized();
 
@@ -338,16 +357,32 @@ class BTBExchangeService {
         throw new Error('Invalid token amount');
       }
 
-      // Get BTB status to check lock
-      const btbStatus = await this.getBTBStatus();
-      if (parseFloat(btbStatus.lockedAmount) > 0) {
-        const releaseTime = new Date(btbStatus.lockReleaseTimestamp * 1000);
-        throw new Error(`Cannot sell tokens: BTB is locked until ${releaseTime.toLocaleString()}`);
+      // Create BTBY token contract instance
+      const btbyToken = new ethers.Contract(
+        this.tokenAddress,
+        [
+          'function balanceOf(address account) public view returns (uint256)',
+          'function approve(address spender, uint256 amount) public returns (bool)',
+          'function allowance(address owner, address spender) public view returns (uint256)'
+        ],
+        this.signer!
+      );
+
+      // Get user's address
+      const address = await this.signer!.getAddress();
+
+      // Check BTBY balance
+      const balance = await btbyToken.balanceOf(address);
+      const parsedAmount = ethers.utils.parseEther(tokenAmount);
+      if (balance.lt(parsedAmount)) {
+        throw new Error(`Insufficient BTBY balance. You have ${ethers.utils.formatEther(balance)} BTBY`);
       }
 
-      // Check if user has enough available BTB
-      if (parseFloat(btbStatus.availableAmount) < parseFloat(tokenAmount)) {
-        throw new Error(`Insufficient available BTB balance. Available: ${btbStatus.availableAmount} BTB`);
+      // Check allowance and approve if needed
+      const currentAllowance = await btbyToken.allowance(address, this.contractAddress);
+      if (currentAllowance.lt(parsedAmount)) {
+        const approveTx = await btbyToken.approve(this.contractAddress, ethers.constants.MaxUint256);
+        await approveTx.wait();
       }
 
       // Get quote to validate liquidity
@@ -363,7 +398,6 @@ class BTBExchangeService {
         throw new Error('Insufficient liquidity in the exchange');
       }
 
-      const parsedAmount = ethers.utils.parseEther(tokenAmount);
       const tx = await this.contract!.sellTokens(parsedAmount, {
         gasLimit: 500000 // Set a reasonable fixed gas limit
       }).catch((error: ContractError) => {
