@@ -21,6 +21,8 @@ import {
 import Testimonials from './components/home/Testimonials';
 import Stats from './components/home/Stats';
 import Logo from './components/common/Logo';
+import UniswapHooks from './components/home/UniswapHooks';
+import ImpermanentLossProtection from './components/home/ImpermanentLossProtection';
 import { Button, MotionButton } from './components/ui/button';
 import { Card, MotionCard, CardContent, CardTitle, CardDescription } from './components/ui/card';
 
@@ -636,6 +638,12 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Uniswap Hooks Section */}
+      <UniswapHooks />
+
+      {/* Impermanent Loss Protection Section */}
+      <ImpermanentLossProtection />
 
       {/* Enhanced IL Calculator Section */}
       <div className="py-16 bg-white dark:bg-gray-900">
