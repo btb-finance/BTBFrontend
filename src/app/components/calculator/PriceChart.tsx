@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Chart, registerables } from 'chart.js';
+import { Chart, registerables, ChartData, ChartOptions, Scale, CoreScaleOptions, Tick } from 'chart.js';
 import { useTheme } from 'next-themes';
 
 Chart.register(...registerables);
@@ -51,8 +51,20 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
       return null;
     });
 
-    let chartData;
-    let chartOptions;
+    // Initialize with empty data to avoid 'used before assigned' errors
+    let chartData: ChartData<'line'> = {
+      labels: [],
+      datasets: []
+    };
+    // Initialize with basic options to avoid 'used before assigned' errors
+    let chartOptions: ChartOptions<'line'> = {
+      responsive: true,
+      plugins: {
+        legend: {
+          display: false
+        }
+      }
+    };
 
     if (chartType === 'ilVsPrice') {
       // Calculate impermanent loss for each price point
@@ -143,9 +155,9 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
               },
               maxRotation: 45,
               minRotation: 45,
-              callback: function(value, index, values) {
+              callback: function(this: Scale<CoreScaleOptions>, tickValue: string | number, index: number, ticks: Tick[]) {
                 // Show fewer ticks for readability
-                return index % 10 === 0 ? this.getLabelForValue(value) : '';
+                return index % 10 === 0 ? tickValue.toString() : ''
               }
             },
           },
@@ -268,9 +280,9 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
               },
               maxRotation: 45,
               minRotation: 45,
-              callback: function(value, index, values) {
+              callback: function(this: Scale<CoreScaleOptions>, tickValue: string | number, index: number, ticks: Tick[]) {
                 // Show fewer ticks for readability
-                return index % 10 === 0 ? this.getLabelForValue(value) : '';
+                return index % 10 === 0 ? tickValue.toString() : ''
               }
             },
           },
@@ -291,8 +303,8 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
               font: {
                 family: "'Roboto', sans-serif",
               },
-              callback: function(value) {
-                return '$' + value;
+              callback: function(this: Scale<CoreScaleOptions>, value: number | string, index: number, ticks: Tick[]) {
+                return '$' + value.toString();
               }
             },
           },
@@ -375,9 +387,9 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
               font: {
                 family: "'Roboto', sans-serif",
               },
-              callback: function(value, index, values) {
+              callback: function(this: Scale<CoreScaleOptions>, value: number | string, index: number, ticks: Tick[]) {
                 // Show fewer ticks for readability
-                return index % 5 === 0 ? this.getLabelForValue(value) : '';
+                return index % 5 === 0 ? value.toString() : '';
               }
             },
           },
@@ -399,8 +411,8 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
               font: {
                 family: "'Roboto', sans-serif",
               },
-              callback: function(value) {
-                return value + '%';
+              callback: function(this: Scale<CoreScaleOptions>, value: number | string, index: number, ticks: Tick[]) {
+                return value.toString() + '%';
               }
             },
           },
@@ -422,8 +434,11 @@ export default function PriceChart({ chartType = 'ilVsPrice', height = 400 }: Pr
               font: {
                 family: "'Roboto', sans-serif",
               },
-              min: 0,
-              max: 100,
+              // Use properties compatible with Chart.js type definitions
+              count: 5,
+              callback: function(this: Scale<CoreScaleOptions>, value: number | string) {
+                return value.toString();
+              }
             },
           },
         },
