@@ -6,9 +6,11 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Alert } from '../ui/alert';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import btbExchangeService from '@/app/services/btbExchangeService';
 import { formatNumber } from '../../utils/formatNumber';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
+import { ArrowDownIcon, ArrowUpIcon, LockIcon, UnlockIcon, WalletIcon } from 'lucide-react';
 
 export default function BTBManagement() {
   const { isConnected } = useWalletConnection();
@@ -20,9 +22,10 @@ export default function BTBManagement() {
   });
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [isDepositing, setIsDepositing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [txStatus, setTxStatus] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -46,13 +49,14 @@ export default function BTBManagement() {
 
   const handleDeposit = async () => {
     if (!isConnected) {
-      setError('Please connect your wallet first');
+      setError('Please connect your wallet using the button in the navigation bar');
       return;
     }
   
-    setIsDepositing(true);
+    setIsProcessing(true);
     setError(null);
     setTxStatus(null);
+    setSuccessMessage(null);
   
     try {
       setTxStatus('Approving BTB token...');
@@ -64,7 +68,7 @@ export default function BTBManagement() {
       setTxStatus('Depositing BTB...');
       await tx2.wait();
       
-      setTxStatus('Deposit successful!');
+      setSuccessMessage(`Successfully deposited ${depositAmount} BTB!`);
       setDepositAmount('');
       
       // Refresh status
@@ -80,9 +84,10 @@ export default function BTBManagement() {
         setError('Failed to deposit BTB. Please try again.');
       }
     } finally {
-      setIsDepositing(false);
+      setIsProcessing(false);
+      setTxStatus(null);
       setTimeout(() => {
-        setTxStatus(null);
+        setSuccessMessage(null);
         setError(null);
       }, 5000);
     }
@@ -90,42 +95,83 @@ export default function BTBManagement() {
 
   const handleWithdraw = async () => {
     if (!isConnected) {
-      setError('Please connect your wallet first');
+      setError('Please connect your wallet using the button in the navigation bar');
       return;
     }
 
+    setIsProcessing(true);
+    setError(null);
+    setTxStatus(null);
+    setSuccessMessage(null);
+
     try {
-      await btbExchangeService.withdrawBTB(withdrawAmount);
+      setTxStatus('Withdrawing BTB...');
+      const tx = await btbExchangeService.withdrawBTB(withdrawAmount);
+      await tx.wait();
+      
+      setSuccessMessage(`Successfully withdrew ${withdrawAmount} BTB!`);
       setWithdrawAmount('');
+      
+      // Refresh status
       const newStatus = await btbExchangeService.getBTBStatus();
       setStatus(newStatus);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error withdrawing BTB:', error);
-      setError(error?.message || 'Failed to withdraw BTB');
+      if (error instanceof Error) {
+        setError(error.message);
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        setError(error.message as string);
+      } else {
+        setError('Failed to withdraw BTB. Please try again.');
+      }
+    } finally {
+      setIsProcessing(false);
+      setTxStatus(null);
+      setTimeout(() => {
+        setSuccessMessage(null);
+        setError(null);
+      }, 5000);
     }
   };
 
   const handleUnlock = async () => {
     if (!isConnected) {
-      setError('Please connect your wallet first');
+      setError('Please connect your wallet using the button in the navigation bar');
       return;
     }
 
+    setIsProcessing(true);
+    setError(null);
+    setTxStatus(null);
+    setSuccessMessage(null);
+
     try {
-      await btbExchangeService.unlockBTB();
+      setTxStatus('Unlocking BTB...');
+      const tx = await btbExchangeService.unlockBTB();
+      // No need to await tx.wait() as it's already done in the service
+      
+      setSuccessMessage('Successfully unlocked BTB!');
+      
+      // Refresh status
       const newStatus = await btbExchangeService.getBTBStatus();
       setStatus(newStatus);
     } catch (error: any) {
       console.error('Error unlocking BTB:', error);
       setError(error?.message || 'Failed to unlock BTB');
+    } finally {
+      setIsProcessing(false);
+      setTxStatus(null);
     }
   };
 
   if (!isConnected) {
     return (
       <Card className="p-6">
-        <h2 className="text-2xl font-bold mb-6 text-btb-primary">BTB Management</h2>
-        <p className="text-gray-600 dark:text-gray-400">Please connect your wallet to manage your BTB.</p>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-btb-primary">BTB Management</h2>
+          <WalletIcon className="h-6 w-6 text-gray-400" />
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">Please connect your wallet using the button in the navigation bar to manage your BTB tokens.</p>
       </Card>
     );
   }
@@ -146,9 +192,23 @@ export default function BTBManagement() {
         </Alert>
       )}
 
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Deposit BTB</h3>
+      {successMessage && (
+        <Alert className="mb-4 bg-green-100 border-green-400 text-green-700">
+          {successMessage}
+        </Alert>
+      )}
+
+      <Tabs defaultValue="deposit" className="space-y-6">
+        <TabsList className="w-full">
+          <TabsTrigger value="deposit" className="w-1/2">Deposit</TabsTrigger>
+          <TabsTrigger value="withdraw" className="w-1/2">Withdraw</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="deposit" className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <ArrowDownIcon className="h-5 w-5 text-green-500" />
+            <h3 className="text-xl font-semibold">Deposit BTB</h3>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="depositAmount">Amount to Deposit</Label>
             <Input
@@ -157,20 +217,26 @@ export default function BTBManagement() {
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
               placeholder="Enter BTB amount"
-              disabled={isDepositing}
+              disabled={isProcessing}
             />
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm">
+              <p>Depositing BTB tokens allows you to participate in trading on the BTB Exchange.</p>
+            </div>
             <Button
               onClick={handleDeposit}
-              disabled={!depositAmount || isNaN(Number(depositAmount)) || isDepositing}
+              disabled={!depositAmount || isNaN(Number(depositAmount)) || isProcessing}
               className="w-full bg-btb-primary hover:bg-btb-primary-dark text-white"
             >
-              {isDepositing ? 'Processing...' : 'Deposit'}
+              {isProcessing ? 'Processing...' : 'Deposit'}
             </Button>
           </div>
-        </div>
+        </TabsContent>
 
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold">Withdraw BTB</h3>
+        <TabsContent value="withdraw" className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <ArrowUpIcon className="h-5 w-5 text-blue-500" />
+            <h3 className="text-xl font-semibold">Withdraw BTB</h3>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="withdrawAmount">Amount to Withdraw</Label>
             <Input
@@ -179,45 +245,55 @@ export default function BTBManagement() {
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
               placeholder="Enter BTB amount"
+              disabled={isProcessing}
             />
-            <p className="text-sm text-gray-600">
-              Available: {formatNumber(status.availableAmount)} BTB
-            </p>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm space-y-2">
+              <div className="flex justify-between">
+                <span>Available:</span>
+                <span className="font-medium">{formatNumber(status.availableAmount)} BTB</span>
+              </div>
+              {Number(status.lockedAmount) > 0 && (
+                <div className="flex justify-between text-amber-600 dark:text-amber-400">
+                  <span>Locked:</span>
+                  <span className="font-medium">{formatNumber(status.lockedAmount)} BTB</span>
+                </div>
+              )}
+            </div>
             <Button
               onClick={handleWithdraw}
               disabled={
                 !withdrawAmount ||
                 isNaN(Number(withdrawAmount)) ||
-                Number(withdrawAmount) > Number(status.availableAmount)
+                Number(withdrawAmount) > Number(status.availableAmount) ||
+                isProcessing
               }
               className="w-full bg-btb-primary hover:bg-btb-primary-dark text-white"
             >
-              Withdraw
+              {isProcessing ? 'Processing...' : 'Withdraw'}
             </Button>
           </div>
-        </div>
 
-        {Number(status.lockedAmount) > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold">Locked BTB</h3>
-            <div className="space-y-2">
-              <p className="text-sm text-gray-600">
-                Locked Amount: {formatNumber(status.lockedAmount)} BTB
-              </p>
-              <p className="text-sm text-gray-600">
-                Unlocks at: {new Date(status.lockReleaseTimestamp * 1000).toLocaleString()}
+          {Number(status.lockedAmount) > 0 && status.lockReleaseTimestamp > 0 && (
+            <div className="mt-6 p-4 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <LockIcon className="h-5 w-5 text-amber-600" />
+                <h4 className="font-semibold text-amber-700 dark:text-amber-400">Locked BTB</h4>
+              </div>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">
+                You have {formatNumber(status.lockedAmount)} BTB locked until {new Date(status.lockReleaseTimestamp * 1000).toLocaleString()}
               </p>
               <Button
                 onClick={handleUnlock}
-                disabled={Date.now() < status.lockReleaseTimestamp * 1000}
-                className="w-full bg-btb-primary hover:bg-btb-primary-dark text-white"
+                disabled={Date.now() < status.lockReleaseTimestamp * 1000 || isProcessing}
+                className="w-full bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2"
               >
-                Unlock BTB
+                <UnlockIcon className="h-4 w-4" />
+                {Date.now() < status.lockReleaseTimestamp * 1000 ? 'Unlock Available After Lock Period' : 'Unlock BTB'}
               </Button>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </Card>
   );
 }

@@ -1,339 +1,423 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { ArrowPathIcon, CubeIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon } from '@heroicons/react/24/outline';
+import { Button } from '@/app/components/ui/button';
 
 interface StepProps {
   number: number;
   title: string;
   description: string;
-  position: {
-    top: string;
-    left: string;
-  };
-  mobilePosition: {
-    top: string;
-    left: string;
-  };
+  icon: React.ReactNode;
   active: boolean;
-  isMobile: boolean;
+  onClick?: () => void;
+  color?: string;
 }
 
-const FlywheelStep: React.FC<StepProps> = ({ number, title, description, position, mobilePosition, active, isMobile }) => {
-  const posToUse = isMobile ? mobilePosition : position;
-  
+// Particle effect component for connections between steps
+const ParticleFlow: React.FC<{ active: boolean; color: string }> = ({ active, color }) => {
   return (
-    <div 
-      className={`absolute ${isMobile ? 'w-32' : 'w-44'} p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md border-2 ${
-        active ? 'border-btb-primary scale-110 z-20' : 'border-btb-primary-light'
-      } transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 hover:scale-105 hover:z-10`}
-      style={{ top: posToUse.top, left: posToUse.left }}
+    <motion.div
+      className="absolute inset-0 overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: active ? 1 : 0 }}
+      transition={{ duration: 0.5 }}
     >
-      <div className="flex items-center mb-1">
-        <div className={`${isMobile ? 'w-5 h-5' : 'w-7 h-7'} rounded-full ${
-          active ? 'bg-btb-primary-dark' : 'bg-btb-primary'
-        } text-white flex items-center justify-center font-bold mr-2 transition-colors duration-300 text-xs md:text-sm`}>
+      {[...Array(15)].map((_, i) => (
+        <motion.div
+          key={i}
+          className="absolute w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: color }}
+          initial={{ 
+            x: '0%', 
+            y: '50%',
+            opacity: 0 
+          }}
+          animate={{
+            x: ['0%', '100%'],
+            y: ['50%', '50%'],
+            opacity: [0, 1, 0],
+            scale: [0.8, 1.2, 0.8]
+          }}
+          transition={{
+            duration: 3,
+            delay: i * 0.2,
+            repeat: Infinity,
+            repeatType: "loop",
+            ease: "easeInOut"
+          }}
+        />
+      ))}
+    </motion.div>
+  );
+};
+
+// Hexagon shape for the prism faces
+const HexagonShape: React.FC<{ className?: string }> = ({ className }) => {
+  return (
+    <svg 
+      viewBox="0 0 100 100" 
+      className={`absolute inset-0 w-full h-full ${className || ''}`}
+    >
+      <polygon 
+        points="50,3 100,28 100,72 50,97 0,72 0,28" 
+        fill="none" 
+        strokeWidth="1.5"
+        className="stroke-btb-primary/60"
+      />
+    </svg>
+  );
+};
+
+const PrismFace: React.FC<StepProps> = ({ number, title, description, icon, active, onClick, color = '#3B82F6' }) => {
+  return (
+    <motion.div
+      className={`absolute inset-0 flex flex-col items-center justify-center p-6 backdrop-blur-sm ${active ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+      initial={{ opacity: 0, scale: 0.8, rotateY: 60 }}
+      animate={{ 
+        opacity: active ? 1 : 0, 
+        scale: active ? 1 : 0.8,
+        rotateY: active ? 0 : 60
+      }}
+      transition={{ duration: 0.7, type: "spring", stiffness: 100 }}
+      onClick={onClick}
+    >
+      <HexagonShape className="opacity-70" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent rounded-xl backdrop-blur-sm border border-white/20 shadow-xl"></div>
+      <div className="flex flex-col items-center text-center">
+        <motion.div 
+          className="w-16 h-16 mb-4 flex items-center justify-center rounded-full bg-gradient-to-br from-btb-primary to-btb-primary-dark text-white shadow-lg relative z-10"
+          animate={{ 
+            scale: active ? [1, 1.05, 1] : 1,
+            boxShadow: active ? '0 0 30px rgba(59, 130, 246, 0.8)' : '0 0 0 rgba(59, 130, 246, 0)'
+          }}
+          transition={{ 
+            duration: 1.5, 
+            repeat: Infinity, 
+            repeatType: "reverse" 
+          }}
+        >
+          <motion.div 
+            className="absolute inset-0 rounded-full bg-btb-primary-light/30 blur-md"
+            animate={{ 
+              scale: active ? [0.8, 1.2, 0.8] : 0.8,
+              opacity: active ? [0.4, 0.7, 0.4] : 0.4
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity,
+              repeatType: "reverse" 
+            }}
+          />
+          {icon}
+        </motion.div>
+        
+        <h3 className="text-xl font-bold text-btb-primary-dark mb-2 relative z-10">{title}</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-300 max-w-xs relative z-10">{description}</p>
+        
+        <motion.div 
+          className="mt-4 w-8 h-8 rounded-full bg-btb-primary flex items-center justify-center text-white font-bold"
+          animate={{ 
+            backgroundColor: ['#3B82F6', '#2563EB', '#3B82F6'],
+            boxShadow: ['0 0 0px rgba(59, 130, 246, 0)', '0 0 15px rgba(59, 130, 246, 0.7)', '0 0 0px rgba(59, 130, 246, 0)']
+          }}
+          transition={{ 
+            duration: 2, 
+            repeat: Infinity,
+            repeatType: "loop" 
+          }}
+        >
           {number}
-        </div>
-        <h4 className="font-semibold text-btb-primary-dark text-xs md:text-sm">{title}</h4>
+        </motion.div>
       </div>
-      <p className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-600 dark:text-gray-300`}>{description}</p>
-    </div>
+    </motion.div>
   );
 };
 
 const FlywheelDiagram: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [activeStep, setActiveStep] = useState(1);
   const [isAnimating, setIsAnimating] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const requestRef = useRef<number>();
-  const rotationRef = useRef(0);
+  const [rotationSpeed, setRotationSpeed] = useState(1);
+  const [isRotating, setIsRotating] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isExploded, setIsExploded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Motion values for interactive 3D effect
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const rotateX = useTransform(mouseY, [-300, 300], [10, -10]);
+  const rotateY = useTransform(mouseX, [-300, 300], [-10, 10]);
 
-  // Check if we're on mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile(); // Check on initial render
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  // Handle manual step selection
+  const handleStepClick = (stepNumber: number) => {
+    setActiveStep(stepNumber);
+    setIsAnimating(false);
+  };
 
-  // Define steps based on updated mechanics
+  // Toggle animation
+  const toggleAnimation = () => {
+    setIsAnimating(!isAnimating);
+  };
+
+  // Change rotation speed
+  const changeSpeed = () => {
+    setRotationSpeed(prev => (prev === 1 ? 2 : prev === 2 ? 0.5 : 1));
+  };
+  
+  // Toggle fullscreen mode
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+  
+  // Toggle exploded view
+  const toggleExplodedView = () => {
+    setIsExploded(!isExploded);
+  };
+  
+  // Handle mouse move for 3D effect
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (rect) {
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      mouseX.set(e.clientX - centerX);
+      mouseY.set(e.clientY - centerY);
+    }
+  };
+  
+  // Reset mouse position when mouse leaves
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
+  // Define steps with icons and colors
   const steps = [
     {
       number: 1,
       title: "Lock BTB Tokens",
-      description: "FIRST STEP: Users must lock BTB tokens to access BTBY/USDC trading",
-      position: { top: "15%", left: "50%" },
-      mobilePosition: { top: "7%", left: "50%" }
+      description: "Users must lock BTB tokens to access BTBY/USDC trading, creating exclusive access and steady demand",
+      icon: <CubeIcon className="w-8 h-8" />,
+      color: '#3B82F6'
     },
     {
       number: 2,
       title: "Trade BTBY/USDC",
-      description: "Trading generates 0.1% fees with our unique bonding curve",
-      position: { top: "25%", left: "80%" },
-      mobilePosition: { top: "16%", left: "86%" }
+      description: "Trading generates 0.1% fees with our unique bonding curve mechanism",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>,
+      color: '#14B8A6'
     },
     {
       number: 3,
       title: "Fees to LP",
-      description: "All trading fees fund BTBY/ETH liquidity providers on Uniswap",
-      position: { top: "50%", left: "90%" },
-      mobilePosition: { top: "40%", left: "93%" }
+      description: "All trading fees fund BTBY/ETH liquidity providers on Uniswap, creating incentives for LP providers",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>,
+      color: '#06B6D4'
     },
     {
       number: 4,
       title: "Price Always Rises",
-      description: "BTBY price increases with BOTH buys AND sells",
-      position: { top: "75%", left: "80%" },
-      mobilePosition: { top: "62%", left: "86%" }
+      description: "BTBY price increases with BOTH buys AND sells, ensuring continuous upward price trends",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+      </svg>,
+      color: '#8B5CF6'
     },
     {
       number: 5,
       title: "Arbitrage Profit",
-      description: "Traders keep 100% of arbitrage profits between platforms",
-      position: { top: "85%", left: "50%" },
-      mobilePosition: { top: "74%", left: "50%" }
+      description: "Traders keep 100% of arbitrage profits between platforms, creating a win-win scenario",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+      </svg>,
+      color: '#EC4899'
     },
     {
       number: 6,
       title: "LP Growth",
-      description: "Increased trading fees attract more LP providers to BTBY/ETH",
-      position: { top: "75%", left: "20%" },
-      mobilePosition: { top: "62%", left: "14%" }
+      description: "Increased trading fees attract more LP providers to BTBY/ETH, enhancing liquidity",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+      </svg>,
+      color: '#F59E0B'
     },
     {
       number: 7,
       title: "BTB Holder Rewards",
-      description: "BTB token holders benefit from all arbitrage activity",
-      position: { top: "50%", left: "10%" },
-      mobilePosition: { top: "40%", left: "7%" }
+      description: "BTB token holders benefit from all arbitrage activity, creating long-term value",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>,
+      color: '#10B981'
     },
     {
       number: 8,
       title: "Growing Ecosystem",
-      description: "Win-win system drives sustainable growth for all participants",
-      position: { top: "25%", left: "20%" },
-      mobilePosition: { top: "16%", left: "14%" }
-    },
+      description: "Win-win system drives sustainable growth for all participants in the BTB ecosystem",
+      icon: <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+      </svg>,
+      color: '#4F46E5'
+    }
   ];
 
   useEffect(() => {
     // Set up animation cycle for active step
+    if (!isAnimating) return;
+    
     const intervalId = setInterval(() => {
-      if (isAnimating) {
-        setActiveStep(prev => (prev % steps.length) + 1);
-      }
-    }, 3000);
+      setActiveStep(prev => {
+        const next = (prev % steps.length) + 1;
+        setIsRotating(true);
+        setTimeout(() => setIsRotating(false), 500);
+        return next;
+      });
+    }, 5000 / rotationSpeed);
 
     return () => clearInterval(intervalId);
-  }, [isAnimating, steps.length]);
-
-  // Setup canvas dimensions and resize handler
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set initial canvas dimensions
-    const updateCanvasDimensions = () => {
-      // Get the display size
-      const displayWidth = canvas.clientWidth;
-      const displayHeight = canvas.clientHeight;
-      
-      // For high DPI displays
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
-      
-      ctx.scale(dpr, dpr);
-      canvas.style.width = `${displayWidth}px`;
-      canvas.style.height = `${displayHeight}px`;
-    };
-
-    // Initial setup
-    updateCanvasDimensions();
-    
-    // Add resize listener
-    window.addEventListener('resize', updateCanvasDimensions);
-    
-    // Cleanup
-    return () => {
-      window.removeEventListener('resize', updateCanvasDimensions);
-    };
-  }, []);
-
-  // Animation loop
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Animation function
-    const animate = () => {
-      if (!ctx) return;
-      
-      // Get current canvas dimensions
-      const displayWidth = canvas.clientWidth;
-      const displayHeight = canvas.clientHeight;
-      
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Center points
-      const centerX = displayWidth / 2;
-      const centerY = displayHeight / 2;
-      const radius = Math.min(centerX, centerY) - 40;
-
-      // Draw flywheel (circle)
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-      ctx.strokeStyle = '#3B82F6'; // btb-primary
-      ctx.lineWidth = 8;
-      ctx.stroke();
-
-      // Draw second circle - inner mechanism
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius * 0.7, 0, 2 * Math.PI);
-      ctx.strokeStyle = '#60A5FA'; // btb-primary-light
-      ctx.lineWidth = 4;
-      ctx.stroke();
-
-      // Draw spokes connecting inner and outer circles
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * 2 * Math.PI + rotationRef.current;
-        const innerX = centerX + radius * 0.7 * Math.cos(angle);
-        const innerY = centerY + radius * 0.7 * Math.sin(angle);
-        const outerX = centerX + radius * Math.cos(angle);
-        const outerY = centerY + radius * Math.sin(angle);
-        
-        ctx.beginPath();
-        ctx.moveTo(innerX, innerY);
-        ctx.lineTo(outerX, outerY);
-        ctx.strokeStyle = '#60A5FA'; // btb-primary-light
-        ctx.lineWidth = 3;
-        ctx.stroke();
-      }
-
-      // Draw BTB logo/text in center
-      ctx.fillStyle = '#3B82F6';
-      const textSize = isMobile ? 20 : 24;
-      const subTextSize = isMobile ? 14 : 16;
-      ctx.font = `bold ${textSize}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('BTB', centerX, centerY - (isMobile ? 10 : 12));
-      ctx.font = `bold ${subTextSize}px Arial`;
-      ctx.fillText('EXCHANGE', centerX, centerY + (isMobile ? 10 : 12));
-
-      // Draw moving particles along the circle path to indicate flow
-      const particleCount = 24;
-      for (let i = 0; i < particleCount; i++) {
-        const angle = (i / particleCount) * 2 * Math.PI + rotationRef.current * 2;
-        const x = centerX + radius * Math.cos(angle);
-        const y = centerY + radius * Math.sin(angle);
-        
-        const isNearActiveStep = Math.abs(((i / particleCount) * 8) % 8 - (activeStep - 1)) < 0.5 ||
-                                Math.abs(((i / particleCount) * 8) % 8 - (activeStep - 1)) > 7.5;
-        
-        const particleSize = isMobile ? (isNearActiveStep ? 3 : 1.5) : (isNearActiveStep ? 4 : 2);
-        
-        ctx.beginPath();
-        ctx.arc(x, y, particleSize, 0, 2 * Math.PI);
-        ctx.fillStyle = isNearActiveStep ? '#2563EB' : '#60A5FA';
-        ctx.fill();
-      }
-
-      // Draw arrows along the circle
-      const drawArrow = (angle: number, isActive: boolean) => {
-        const arrowLength = isMobile ? 16 : 20;
-        const arrowWidth = isMobile ? 6 : 8;
-        
-        const x = centerX + radius * Math.cos(angle);
-        const y = centerY + radius * Math.sin(angle);
-        
-        // Calculate direction tangent to the circle
-        const dirX = -Math.sin(angle);
-        const dirY = Math.cos(angle);
-        
-        // Draw arrow line
-        ctx.beginPath();
-        ctx.moveTo(x - dirX * arrowLength / 2, y - dirY * arrowLength / 2);
-        ctx.lineTo(x + dirX * arrowLength / 2, y + dirY * arrowLength / 2);
-        ctx.strokeStyle = isActive ? '#2563EB' : '#3B82F6'; // btb-primary-dark or btb-primary
-        ctx.lineWidth = isActive ? (isMobile ? 4 : 6) : (isMobile ? 3 : 4);
-        ctx.stroke();
-        
-        // Draw arrowhead
-        ctx.beginPath();
-        ctx.moveTo(x + dirX * arrowLength / 2, y + dirY * arrowLength / 2);
-        ctx.lineTo(
-          x + dirX * arrowLength / 2 - dirX * arrowWidth - dirY * arrowWidth,
-          y + dirY * arrowLength / 2 - dirY * arrowWidth + dirX * arrowWidth
-        );
-        ctx.lineTo(
-          x + dirX * arrowLength / 2 - dirX * arrowWidth + dirY * arrowWidth,
-          y + dirY * arrowLength / 2 - dirY * arrowWidth - dirX * arrowWidth
-        );
-        ctx.closePath();
-        ctx.fillStyle = isActive ? '#2563EB' : '#3B82F6';
-        ctx.fill();
-      };
-      
-      // Draw 8 arrows evenly spaced around the circle, with the active one highlighted
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * 2 * Math.PI + rotationRef.current;
-        drawArrow(angle, i === activeStep - 1);
-      }
-
-      // Update rotation for animation
-      rotationRef.current += isAnimating ? 0.002 : 0;
-      
-      requestRef.current = requestAnimationFrame(animate);
-    };
-
-    // Start animation
-    animate();
-
-    // Cleanup animation on unmount
-    return () => {
-      if (requestRef.current) {
-        cancelAnimationFrame(requestRef.current);
-      }
-    };
-  }, [activeStep, isAnimating, isMobile]);
+  }, [isAnimating, steps.length, rotationSpeed]);
 
   return (
-    <div className="relative w-full h-[400px] md:h-[500px] my-8" ref={containerRef}>
-      <canvas 
-        ref={canvasRef} 
-        className="w-full h-full cursor-pointer" 
-        onClick={() => setIsAnimating(!isAnimating)}
-      ></canvas>
+    <div 
+      className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-white/95 dark:bg-gray-900/95 p-4' : 'h-[600px] md:h-[700px] mb-12'}`} 
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-btb-primary text-center flex-1">The BTB Exchange Ecosystem</h2>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={toggleAnimation}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+          >
+            <ArrowPathIcon className={`h-4 w-4 ${isAnimating ? 'animate-spin' : ''}`} />
+            {isAnimating ? 'Pause' : 'Play'}
+          </Button>
+          <Button
+            onClick={changeSpeed}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+          >
+            {rotationSpeed === 0.5 ? '0.5x' : rotationSpeed === 1 ? '1x' : '2x'}
+          </Button>
+          <Button
+            onClick={toggleExplodedView}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+          >
+            {isExploded ? 'Collapse' : 'Explode'}
+          </Button>
+          <Button
+            onClick={toggleFullscreen}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+          >
+            {isFullscreen ? <ArrowsPointingInIcon className="h-4 w-4" /> : <ArrowsPointingOutIcon className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+      <p className="text-center mb-8 text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+        Our revolutionary economic model creates a self-reinforcing ecosystem where everyone wins
+      </p>
       
-      {steps.map((step) => (
-        <FlywheelStep
-          key={step.number}
-          number={step.number}
-          title={step.title}
-          description={step.description}
-          position={step.position}
-          mobilePosition={step.mobilePosition}
-          active={step.number === activeStep}
-          isMobile={isMobile}
-        />
-      ))}
-      
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs md:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full shadow-sm">
-        Click the diagram to {isAnimating ? 'pause' : 'resume'} animation
+      <div className="relative w-full h-full flex items-center justify-center">
+        {/* 3D Prism Container */}
+        <motion.div 
+          className="relative w-[300px] h-[300px] md:w-[400px] md:h-[400px] perspective-1000"
+          style={{
+            rotateX: rotateX,
+            rotateY: rotateY
+          }}
+          animate={{
+            rotateY: isRotating ? [0, 360] : 0,
+            scale: isExploded ? 1.2 : 1
+          }}
+          transition={{
+            duration: 1,
+            ease: "easeInOut"
+          }}
+        >
+          {/* Glowing background effect */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-btb-primary-dark/20 via-btb-primary/30 to-btb-primary-light/20 blur-xl"></div>
+          
+          {/* Connection lines between steps */}
+          {steps.map((step, index) => {
+            const nextIndex = (index + 1) % steps.length;
+            return (
+              <div key={`connection-${index}`} className="absolute inset-0 z-0">
+                <ParticleFlow 
+                  active={activeStep === step.number || activeStep === steps[nextIndex].number}
+                  color={step.color}
+                />
+              </div>
+            );
+          })}
+          
+          {/* Prism faces */}
+          <div className="relative w-full h-full">
+            {steps.map((step) => (
+              <PrismFace
+                key={step.number}
+                number={step.number}
+                title={step.title}
+                description={step.description}
+                icon={step.icon}
+                color={step.color}
+                active={activeStep === step.number}
+                onClick={() => handleStepClick(step.number)}
+              />
+            ))}
+          </div>
+        </motion.div>
+        
+        {/* Step indicators */}
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+          {steps.map((step) => (
+            <motion.button
+              key={step.number}
+              className={`w-3 h-3 rounded-full ${activeStep === step.number ? `bg-[${step.color}]` : 'bg-gray-300 dark:bg-gray-600'}`}
+              style={activeStep === step.number ? { backgroundColor: step.color } : {}}
+              whileHover={{ scale: 1.2 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => handleStepClick(step.number)}
+            />
+          ))}
+        </div>
+        
+        {/* Step navigation */}
+        <div className="absolute top-1/2 left-0 right-0 flex justify-between px-4 transform -translate-y-1/2 pointer-events-none">
+          <motion.button 
+            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-gray-700 dark:text-white border border-gray-200 dark:border-gray-700 shadow-lg pointer-events-auto"
+            whileHover={{ scale: 1.1, backgroundColor: 'rgba(255, 255, 255, 0.3)' }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleStepClick(activeStep === 1 ? steps.length : activeStep - 1)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </motion.button>
+          <motion.button 
+            className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-gray-700 dark:text-white border border-gray-200 dark:border-gray-700 shadow-lg pointer-events-auto"
+            whileHover={{ scale: 1.1, backgroundColor: 'rgba(255, 255, 255, 0.3)' }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleStepClick(activeStep === steps.length ? 1 : activeStep + 1)}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          </motion.button>
+        </div>
       </div>
     </div>
   );
