@@ -1,0 +1,41 @@
+{
+  "tokenIn": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "amountIn": "1000000000000000000",
+  "amountInUsd": "2235.4229075423",
+  "tokenInMarketPriceAvailable": false,
+  "tokenOut": "0xbbf88f780072f5141de94e0a711bd2ad2c1f83bb",
+  "amountOut": "129986911218918215322",
+  "amountOutUsd": "335.4120767875064",
+  "tokenOutMarketPriceAvailable": false,
+  "gas": "210000",
+  "gasPrice": "2806433",
+  "gasUsd": "0.0013174485695033585",
+  "extraFee": {
+    "feeAmount": "0",
+    "chargeFeeBy": "",
+    "isInBps": false,
+    "feeReceiver": ""
+  },
+  "route": [
+    [
+      {
+        "pool": "0x09c0448079574a10e3c2dd5f6a7df8ccf2ae4762",
+        "tokenIn": "0x4200000000000000000000000000000000000006",
+        "tokenOut": "0xbbf88f780072f5141de94e0a711bd2ad2c1f83bb",
+        "limitReturnAmount": "0",
+        "swapAmount": "1000000000000000000",
+        "amountOut": "129986911218918215322",
+        "exchange": "uniswapv3",
+        "poolLength": 2,
+        "poolType": "uniswapv3",
+        "poolExtra": {
+          "blockNumber": 0,
+          "priceLimit": 4306310044
+        },
+        "extra": {}
+      }
+    ]
+  ],
+  "checksum": "16029823440430413775",
+  "timestamp": 1740822132
+}
