@@ -4,37 +4,22 @@ import React, { useState } from 'react';
 import { useWalletConnection } from '../hooks/useWalletConnection';
 import { Alert } from '../components/ui/alert';
 import { Card } from '../components/ui/card';
-import { InfoIcon, ChartBarIcon, LockIcon, CoinsIcon } from 'lucide-react';
+import { InfoIcon, ChartBarIcon, LockIcon, CoinsIcon, ArrowRightLeftIcon } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import BTBStatusPanel from '../components/btb-exchange/BTBStatusPanel';
 import TradingInterface from '../components/btb-exchange/TradingInterface';
+import KyberSwapExchange from '../components/btb-exchange/KyberSwapExchange';
 import BTBManagement from '../components/btb-exchange/BTBManagement';
 import FlywheelDiagram from '../components/btb-exchange/FlywheelDiagram';
+import TokenPriceDisplay from '../components/btb-exchange/TokenPriceDisplay';
 
 export default function BTBExchangePage() {
   const { isConnected, isCorrectNetwork } = useWalletConnection();
-  const [activeSection, setActiveSection] = useState('trade');
-
-  // Show network check alert if on wrong network
-  const NetworkAlert = () => {
-    if (!isCorrectNetwork && isConnected) {
-      return (
-        <div className="max-w-4xl mx-auto mb-8">
-          <Alert className="mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800">
-            <div className="flex items-center">
-              <InfoIcon className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
-              <span>Please switch to the Base network to trade on BTB Exchange</span>
-            </div>
-          </Alert>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-12">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <div className="inline-block px-4 py-1 mb-4 rounded-full bg-btb-primary/10 border border-btb-primary/20">
               <p className="text-sm font-medium text-btb-primary flex items-center">
@@ -49,43 +34,60 @@ export default function BTBExchangePage() {
             </p>
             
             {/* Network Check Alert */}
-            <NetworkAlert />
-
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+            {isConnected && !isCorrectNetwork && (
+              <Alert className="mb-6 bg-yellow-100 border-yellow-400 text-yellow-700">Please switch to the Base network to use the exchange.</Alert>
+            )}
+            
+            {/* Token Price Display */}
+            <div className="max-w-2xl mx-auto mb-8">
+              <TokenPriceDisplay />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               <Card className="p-6 bg-white dark:bg-gray-800 border-t-4 border-t-btb-primary transform hover:scale-105 transition-transform duration-300">
                 <div className="flex items-center gap-3 mb-2">
                   <ChartBarIcon className="h-6 w-6 text-btb-primary" />
-                  <h3 className="font-semibold text-btb-primary">Trade BTB Tokens</h3>
+                  <h3 className="font-semibold text-btb-primary">BTB Exchange</h3>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300">Buy and sell BTB tokens with competitive pricing and low fees</p>
+              </Card>
+              <Card className="p-6 bg-white dark:bg-gray-800 border-t-4 border-t-btb-primary transform hover:scale-105 transition-transform duration-300">
+                <div className="flex items-center gap-3 mb-2">
+                  <ArrowRightLeftIcon className="h-6 w-6 text-btb-primary" />
+                  <h3 className="font-semibold text-btb-primary">KyberSwap Exchange</h3>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Swap tokens with best price routing from private markets</p>
               </Card>
               <Card className="p-6 bg-white dark:bg-gray-800 border-t-4 border-t-btb-primary transform hover:scale-105 transition-transform duration-300">
                 <div className="flex items-center gap-3 mb-2">
                   <LockIcon className="h-6 w-6 text-btb-primary" />
                   <h3 className="font-semibold text-btb-primary">Manage Holdings</h3>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Deposit, withdraw, and track your BTB token balance</p>
-              </Card>
-              <Card className="p-6 bg-white dark:bg-gray-800 border-t-4 border-t-btb-primary transform hover:scale-105 transition-transform duration-300">
-                <div className="flex items-center gap-3 mb-2">
-                  <CoinsIcon className="h-6 w-6 text-btb-primary" />
-                  <h3 className="font-semibold text-btb-primary">Real-time Quotes</h3>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Get instant price quotes and execute trades seamlessly</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Manage your BTB token holdings and view your balance</p>
               </Card>
             </div>
           </div>
 
-          {/* Display trading interface only when connected */}
+          {/* Main Content */}
           {isConnected ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div>
                 <BTBStatusPanel />
                 <BTBManagement />
               </div>
               <div className="lg:sticky lg:top-6 h-fit">
-                <TradingInterface />
+                <Tabs defaultValue="btb-exchange" className="w-full">
+                  <TabsList className="w-full mb-4">
+                    <TabsTrigger value="btb-exchange" className="w-1/2">BTB Exchange</TabsTrigger>
+                    <TabsTrigger value="kyberswap" className="w-1/2">KyberSwap</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="btb-exchange">
+                    <TradingInterface />
+                  </TabsContent>
+                  <TabsContent value="kyberswap">
+                    <KyberSwapExchange />
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           ) : (
