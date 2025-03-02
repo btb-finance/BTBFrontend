@@ -369,6 +369,7 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
       variants={containerVariants}
       initial="hidden"
       animate="visible"
+    >
       {filteredArticles.map((article, index) => (
         <motion.article
           key={article.id}
@@ -384,9 +385,7 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
           />
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                getDifficultyColor(article.difficulty)
-              }`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(article.difficulty)}`}>
                 {article.difficulty}
               </span>
               <div className="flex items-center space-x-2">
@@ -394,9 +393,8 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {article.readTime} read
                 </span>
-              </motion.div>
-            </AnimatePresence>
-            </motion.div>
+              </div>
+            </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3 leading-tight">
               {article.title}
             </h2>
@@ -404,9 +402,7 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
               {article.description}
             </p>
             <motion.button
-              onClick={() => setExpandedArticle(
-                expandedArticle === article.id ? null : article.id
-              )}
+              onClick={() => setExpandedArticle(expandedArticle === article.id ? null : article.id)}
               className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors duration-200 relative overflow-hidden group"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -418,53 +414,50 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
                 transition={{ duration: 0.5 }}
               />
               <span className="relative z-10">{expandedArticle === article.id ? 'Show Less' : 'Read More'}</span>
-              <ChevronRightIcon className={`h-5 w-5 ml-1 transition-transform duration-200 relative z-10 ${
-                expandedArticle === article.id ? 'rotate-90' : ''
-              }`} />
+              <ChevronRightIcon className={`h-5 w-5 ml-1 transition-transform duration-200 relative z-10 ${expandedArticle === article.id ? 'rotate-90' : ''}`} />
             </motion.button>
             <AnimatePresence mode="wait">
               {expandedArticle === article.id && (
-              <motion.div 
-                className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                <div className="prose dark:prose-invert max-w-none">
-                  {article.content.split('\n').map((paragraph, index) => {
-                    if (paragraph.trim().endsWith('————————————————————————')) {
-                      return (
-                        <h3 key={index} className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-4">
-                          {paragraph.replace('————————————————————————', '')}
-                        </h3>
-                      );
-                    }
-                    if (paragraph.trim().startsWith('•')) {
-                      return (
-                        <div key={index} className="flex items-start space-x-2 mb-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2"></div>
-                          <p className="text-gray-700 dark:text-gray-300 flex-1">
-                            {paragraph.replace('•', '').trim()}
+                <motion.div 
+                  className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="prose dark:prose-invert max-w-none">
+                    {article.content.split('\n').map((paragraph, index) => {
+                      if (paragraph.trim().endsWith('————————————————————————')) {
+                        return (
+                          <h3 key={index} className="text-xl font-semibold text-gray-900 dark:text-white mt-8 mb-4">
+                            {paragraph.replace('————————————————————————', '')}
+                          </h3>
+                        );
+                      }
+                      if (paragraph.trim().startsWith('•')) {
+                        return (
+                          <div key={index} className="flex items-start space-x-2 mb-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2"></div>
+                            <p className="text-gray-700 dark:text-gray-300 flex-1">
+                              {paragraph.replace('•', '').trim()}
+                            </p>
+                          </div>
+                        );
+                      }
+                      if (paragraph.trim()) {
+                        return (
+                          <p key={index} className="text-gray-700 dark:text-gray-300 mb-4 text-lg leading-relaxed">
+                            {paragraph}
                           </p>
-                        </motion.div>
-            </AnimatePresence>
-                      );
-                    }
-                    if (paragraph.trim()) {
-                      return (
-                        <p key={index} className="text-gray-700 dark:text-gray-300 mb-4 text-lg leading-relaxed">
-                          {paragraph}
-                        </p>
-                      );
-                    }
-                    return null;
-                  })}
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
                 </motion.div>
+              )}
             </AnimatePresence>
-              </motion.div>
-            </AnimatePresence>
-            )}
-          </motion.div>
+          </div>
         </motion.article>
       ))}
     </motion.div>
