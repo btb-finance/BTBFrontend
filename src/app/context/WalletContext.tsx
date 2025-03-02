@@ -97,21 +97,26 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         const userAddress = ethers.utils.getAddress(accounts[0]);
         
         let signature;
-        try {
-          // Sign message to verify ownership
-          signature = await window.ethereum.request({
-            method: 'personal_sign',
-            params: [
-              `Welcome to BTB Finance! By signing this message, you confirm that:\n\n1. You are connecting to BTB Finance - The Next Generation DeFi Platform\n2. You understand that cryptocurrency markets are subject to high risk\n3. You are responsible for securing your wallet and assets\n\nWallet verification timestamp: ${new Date().toISOString()}`,
-              userAddress
-            ]
-          });
-        } catch (signError: any) {
-          // Handle user rejection of signature request
-          if (signError.code === 4001) { // MetaMask error code for user rejected request
-            throw new Error('You must sign the message to connect your wallet.');
+        // Skip signature in development mode
+        if (isDevelopment) {
+          console.log('Development mode: Skipping wallet signature');
+        } else {
+          try {
+            // Sign message to verify ownership
+            signature = await window.ethereum.request({
+              method: 'personal_sign',
+              params: [
+                `Welcome to BTB Finance! By signing this message, you confirm that:\n\n1. You are connecting to BTB Finance - The Next Generation DeFi Platform\n2. You understand that cryptocurrency markets are subject to high risk\n3. You are responsible for securing your wallet and assets\n\nWallet verification timestamp: ${new Date().toISOString()}`,
+                userAddress
+              ]
+            });
+          } catch (signError: any) {
+            // Handle user rejection of signature request
+            if (signError.code === 4001) { // MetaMask error code for user rejected request
+              throw new Error('You must sign the message to connect your wallet.');
+            }
+            throw signError;
           }
-          throw signError;
         }
         
         // Set user address and connected state

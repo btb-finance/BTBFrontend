@@ -8,6 +8,7 @@ export interface Portfolio {
   totalValueUSD: string;
   totalValue?: string | number;
   totalEarningsUSD: string;
+  dailyRewards?: string; // New field for daily rewards
   averageApy: string;
   activePositions: number;
   totalChange24h: string;
@@ -69,12 +70,13 @@ export default function PortfolioOverview({ portfolioData }: PortfolioOverviewPr
           : '-',
       },
       {
-        name: 'Active Assets',
-        value: portfolioData.assets.active !== undefined ? portfolioData.assets.active.toString() : '0',
+        name: 'Daily Rewards',
+        value: portfolioData.dailyRewards || '$0.00',
+        changeType: 'positive',
       },
       {
-        name: 'Total Assets',
-        value: portfolioData.assets.total !== undefined ? portfolioData.assets.total.toString() : '0',
+        name: 'Active Assets',
+        value: portfolioData.assets.active !== undefined ? portfolioData.assets.active.toString() : '0',
       },
     ];
   }, [portfolioData]);

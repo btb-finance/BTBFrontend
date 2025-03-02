@@ -11,6 +11,8 @@ export interface Position {
   protocol: string;
   value: string;
   rewards: string;
+  rewardsUSD?: string;
+  rewardsTokens?: string;
   apy: string;
   risk: string; // 'low' | 'medium' | 'high'
   startDate: string;
@@ -18,6 +20,7 @@ export interface Position {
   pair?: string;
   tvl?: string | number;
   health?: string;
+  chain?: string;
   details?: {
     [key: string]: string;
   };
@@ -127,7 +130,10 @@ export default function PositionsList({ positions }: PositionsListProps) {
                   APY
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Risk
+                  Rewards
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Chain
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Health
@@ -160,8 +166,18 @@ export default function PositionsList({ positions }: PositionsListProps) {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRiskColor(position.risk)}`}>
-                      {position.risk}
+                    <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                      {position.rewardsUSD || formatCurrency(position.rewards)}
+                      {position.rewardsTokens && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {position.rewardsTokens}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                      {position.chain || 'Base'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
