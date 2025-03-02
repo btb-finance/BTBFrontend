@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { ethers } from 'ethers';
 
 interface WalletContextType {
   address: string | null;
@@ -44,8 +45,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   useEffect(() => {
     const savedAddress = localStorage.getItem('walletAddress');
     if (savedAddress) {
-      setAddress(savedAddress);
-      setIsConnected(true);
+      try {
+        // Ensure the address is properly checksummed
+        const checksummedAddress = ethers.utils.getAddress(savedAddress);
+        setAddress(checksummedAddress);
+        setIsConnected(true);
+      } catch (error) {
+        console.error('Invalid wallet address in localStorage:', error);
+        localStorage.removeItem('walletAddress');
+      }
     }
 
     // Setup wallet listeners if ethereum provider is available
@@ -81,7 +89,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           throw new Error('No accounts found. Please make sure your wallet is unlocked.');
         }
         
-        const userAddress = accounts[0];
+        // Ensure the address is properly checksummed
+        const userAddress = ethers.utils.getAddress(accounts[0]);
         
         let signature;
         try {
@@ -89,7 +98,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           signature = await window.ethereum.request({
             method: 'personal_sign',
             params: [
-              `I am signing to connect to BTB.Finance: ${Date.now()}`,
+              `Welcome to BTB Finance! By signing this message, you confirm that:\n\n1. You are connecting to BTB Finance - The Next Generation DeFi Platform\n2. You understand that cryptocurrency markets are subject to high risk\n3. You are responsible for securing your wallet and assets\n\nWallet verification timestamp: ${new Date().toISOString()}`,
               userAddress
             ]
           });
@@ -133,9 +142,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           // User disconnected their wallet
           disconnectWallet();
         } else if (accounts[0] !== address) {
-          // User switched accounts
-          setAddress(accounts[0]);
-          localStorage.setItem('walletAddress', accounts[0]);
+          // User switched accounts - ensure proper checksum
+          const checksummedAddress = ethers.utils.getAddress(accounts[0]);
+          setAddress(checksummedAddress);
+          localStorage.setItem('walletAddress', checksummedAddress);
         }
       };
 

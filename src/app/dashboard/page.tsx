@@ -25,6 +25,7 @@ import LoansList from '../components/dashboard/LoansList';
 import TokenSwap from '../components/dashboard/TokenSwap';
 import walletDataService from '../services/walletDataService';
 import kyberSwapService from '../services/kyberSwapService';
+import { useWalletConnection } from '../hooks/useWalletConnection';
 
 // Import types from components
 import { Portfolio } from '../components/dashboard/PortfolioOverview';
@@ -73,8 +74,7 @@ interface Loan {
 }
 
 export default function Dashboard() {
-  const [address, setAddress] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const { isConnected, address, connectWallet } = useWalletConnection();
   const [isLoading, setIsLoading] = useState(true);
   const [portfolioData, setPortfolioData] = useState<Portfolio | null>(null);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
@@ -84,14 +84,11 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedToken, setSelectedToken] = useState<TokenBalance | null>(null);
-  
+
   // Check if wallet is connected on component mount
   useEffect(() => {
-    const savedAddress = localStorage.getItem('walletAddress');
-    if (savedAddress) {
-      setAddress(savedAddress);
-      setIsConnected(true);
-    }
+    // No need to manually check localStorage or set connection state
+    // as this is now handled by the useWalletConnection hook
   }, []);
 
   // Animation variants
@@ -309,7 +306,7 @@ export default function Dashboard() {
               <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
                 Connect your wallet to view your portfolio, positions, and personalized insights.
               </p>
-              <Button size="lg">
+              <Button size="lg" onClick={connectWallet}>
                 Connect Wallet
               </Button>
             </div>
