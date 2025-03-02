@@ -14,17 +14,19 @@ import {
   BeakerIcon,
   LightBulbIcon,
   SparklesIcon,
-  RocketLaunchIcon,
+
   CubeTransparentIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
 import Testimonials from './components/home/Testimonials';
+import ChainSelector from './components/home/ChainSelector';
 import Stats from './components/home/Stats';
 import Logo from './components/common/Logo';
 import UniswapHooks from './components/home/UniswapHooks';
 import ImpermanentLossProtection from './components/home/ImpermanentLossProtection';
 import { Button, MotionButton } from './components/ui/button';
 import { Card, MotionCard, CardContent, CardTitle, CardDescription } from './components/ui/card';
+import TypewriterEffect from './components/ui/typewriter-effect';
 
 const features = [
   {
@@ -198,7 +200,7 @@ export default function Home() {
   return (
     <div className="relative isolate">
       {/* Hero section */}
-      <div className="relative min-h-screen flex flex-col justify-center" ref={heroRef}>
+      <div className="relative min-h-[90vh] flex flex-col justify-center" ref={heroRef}>
         {/* Background elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-x-0 -top-40 transform-gpu overflow-hidden blur-3xl sm:-top-80">
@@ -209,7 +211,7 @@ export default function Home() {
           </div>
         </div>
         
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 py-12 sm:py-24 flex flex-col justify-center min-h-[80vh]">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8 py-16 sm:py-20 flex flex-col justify-center">
           <motion.div 
             style={{ opacity, scale, y }}
             className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
@@ -224,60 +226,63 @@ export default function Home() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2, duration: 0.5 }}
-                className="inline-block px-4 py-1 mb-4 rounded-full bg-gradient-to-r from-btb-primary/10 to-btb-primary-light/20 border border-btb-primary/20 backdrop-blur-sm shadow-lg shadow-btb-primary/5"
+                className="-mt-20"
               >
-                <p className="text-sm font-medium text-btb-primary dark:text-btb-primary-light flex items-center">
-                  <RocketLaunchIcon className="h-4 w-4 mr-2 animate-pulse" /> Powered by OP Mainnet Superchain
-                </p>
+                <ChainSelector />
               </motion.div>
               
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-gray-900 dark:text-white">
-                {['Revolutionizing', 'DeFi', 'with'].map((word, wordIndex) => (
-                  <span key={wordIndex} className="inline-block mr-4 last:mr-0">
-                    {word.split('').map((letter, letterIndex) => (
-                      <motion.span
-                        key={`${wordIndex}-${letterIndex}`}
-                        initial={{ y: 50, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{
-                          delay: wordIndex * 0.1 + letterIndex * 0.03,
-                          type: "spring",
-                          stiffness: 150,
-                          damping: 25,
-                        }}
-                        className="inline-block"
-                      >
-                        {letter}
-                      </motion.span>
-                    ))}
-                  </span>
-                ))}
-                <motion.span 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 1.2, duration: 0.5 }}
-                  className="block mt-2"
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
+                <div className="mb-2">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1, duration: 0.5 }}
+                  >
+                    <span className="relative inline-block">
+                      <span className="absolute -inset-1 blur-md bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light opacity-30"></span>
+                      <span className="relative bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light bg-clip-text text-transparent">
+                        BTB Finance
+                      </span>
+                    </span>
+                  </motion.div>
+                </div>
+                
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5, duration: 0.5 }}
+                  className="h-12 sm:h-14 mt-4"
                 >
-                  <span className="bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light bg-clip-text text-transparent">
-                    BTB Finance
-                  </span>
-                </motion.span>
+                  <TypewriterEffect 
+                    words={[
+                      'Revolutionizing DeFi on Optimism', 
+                      'Secure Your Financial Future',
+                      'Trade with Bonding Curve Pricing',
+                      'Join the DeFi Evolution',
+                      'Yield Farming Reimagined'
+                    ]} 
+                    typingSpeed={60}
+                    deletingSpeed={30}
+                    delayBetweenWords={1500}
+                    className="text-xl sm:text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white min-h-[3rem]"
+                  />
+                </motion.div>
               </h1>
               
               <motion.p 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 1.5, duration: 0.5 }}
-                className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300 max-w-xl"
+                transition={{ delay: 0.8, duration: 0.5 }}
+                className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl"
               >
-                BTB Finance is a comprehensive DeFi platform built on Optimism that combines a revolutionary exchange with unique bonding curve pricing, advanced yield farming tools, and a governance token ecosystem. Our platform helps users navigate the complex world of decentralized finance with confidence and precision.
+                A comprehensive DeFi platform combining revolutionary exchange mechanics, advanced yield farming, and an ecosystem built for success on Optimism.
               </motion.p>
               
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.8, duration: 0.5 }}
-                className="mt-10 flex flex-wrap gap-4"
+                transition={{ delay: 1.0, duration: 0.5 }}
+                className="mt-6 flex items-center gap-3 flex-wrap"
               >
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -286,22 +291,23 @@ export default function Home() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
                   <Link
-                    href="/token"
+                    href="/btb-exchange"
                     className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20"
                   >
-                    Explore BTB Token <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    Trade on Exchange <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
                 
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  className="inline-block"
                 >
                   <Link
-                    href="/calculator"
-                    className="relative border-2 border-btb-primary text-btb-primary px-6 py-[10px] rounded-lg font-medium hover:bg-white/10 hover:border-btb-primary-light transition-all duration-300"
+                    href="/pools"
+                    className="relative border-2 border-btb-primary text-btb-primary px-6 py-3 rounded-lg font-medium hover:bg-white/10 hover:border-btb-primary-light transition-all duration-300 flex items-center"
                   >
-                    Start Yield Farming
+                    Explore Pools <ArrowRightIcon className="ml-2 h-4 w-4 opacity-70 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
               </motion.div>
@@ -408,63 +414,44 @@ export default function Home() {
       </div>
 
       {/* Product showcase section */}
-      <div className="py-16 bg-gray-50 dark:bg-gray-900">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl font-heading">
+      <div className="py-16 sm:py-20 bg-gray-50 dark:bg-gray-900">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-xl text-center mb-6">
+            <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-2xl font-heading">
               Explore the BTB Finance ecosystem
             </h2>
-            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Powerful tools for decentralized finance
             </p>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {products.map((product, index) => (
               <div 
                 key={index} 
-                className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red"
+                className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red"
               >
-                <div className="absolute -right-20 -top-20 h-40 w-40 rounded-full bg-optimism-red opacity-10 group-hover:opacity-20 transition-opacity" />
-                <div className="p-6 md:p-8">
-                  <div className="flex items-start">
-                    <div className={`flex-shrink-0 flex items-center justify-center h-16 w-16 rounded-lg ${product.bgColor} ${product.iconColor} p-3 mr-6`}>
-                      <product.icon className="h-10 w-10" />
+                <div className="absolute -right-10 -top-10 h-20 w-20 rounded-full bg-optimism-red opacity-10 group-hover:opacity-20 transition-opacity" />
+                <div className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg ${product.bgColor} ${product.iconColor} p-2 mr-3`}>
+                        <product.icon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-gray-900 dark:text-white font-heading">
+                          {product.name}
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-300 text-xs">
+                          {product.description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 font-heading">
-                        {product.name}
-                      </h3>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm md:text-base">
-                        {product.description}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <p className="text-gray-700 dark:text-gray-300 mb-4">
-                      {product.detailedDescription}
-                    </p>
-                    
-                    <div className="mt-4">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Key Features:</h4>
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {product.features.map((feature, i) => (
-                          <li key={i} className="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                            <span className="mr-2 text-optimism-red">•</span>
-                            {feature}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div className="mt-6">
-                      <Link 
-                        href={product.href}
-                        className="inline-flex items-center text-optimism-red font-medium hover:text-optimism-red/80 transition-colors"
-                      >
-                        Learn more <ArrowRightIcon className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Link>
-                    </div>
+                    <Link 
+                      href={product.href}
+                      className="flex-shrink-0 inline-flex items-center text-optimism-red text-sm font-medium hover:text-optimism-red/80 transition-colors"
+                    >
+                      <span className="hidden sm:inline">Learn more</span> <ArrowRightIcon className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -474,28 +461,28 @@ export default function Home() {
       </div>
 
       {/* BTB Exchange Flywheel Section */}
-      <div className="py-24 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="mx-auto max-w-3xl text-center mb-16">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl font-heading">
+      <div className="py-16 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center mb-10">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl font-heading">
               The BTB Exchange Flywheel
             </h2>
-            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
+            <p className="mt-3 text-base text-gray-600 dark:text-gray-300">
               Our revolutionary economic model creates a self-reinforcing ecosystem where everyone wins
             </p>
           </div>
           
           <div className="relative">
             {/* Flywheel Diagram */}
-            <div className="mb-16 relative max-w-3xl mx-auto">
-              <div className="absolute inset-0 bg-gradient-to-r from-btb-primary/5 to-btb-primary-light/5 rounded-xl transform -rotate-1"></div>
-              <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 border border-gray-100 dark:border-gray-700">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="mb-10 relative max-w-3xl mx-auto">
+              <div className="absolute inset-0 bg-gradient-to-r from-btb-primary/5 to-btb-primary-light/5 rounded-lg transform -rotate-1"></div>
+              <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="w-full md:w-1/2">
-                    <h3 className="text-xl font-bold text-btb-primary mb-4">How The Flywheel Spins</h3>
-                    <p className="text-gray-600 dark:text-gray-300 mb-6">Our ecosystem creates a powerful self-reinforcing cycle that benefits all participants:</p>
+                    <h3 className="text-lg font-bold text-btb-primary mb-2">How The Flywheel Spins</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Our ecosystem creates a powerful self-reinforcing cycle that benefits all participants:</p>
                     
-                    <ol className="space-y-3">
+                    <ol className="space-y-2">
                       {[
                         { step: "BTB Utility", desc: "Users lock BTB tokens to gain trading access" },
                         { step: "Trading Activity", desc: "Trading generates fees while using the bonding curve" },
@@ -506,8 +493,8 @@ export default function Home() {
                         { step: "Ecosystem Growth", desc: "Back to step 1 with more participants" }
                       ].map((item, i) => (
                         <li key={i} className="flex items-start">
-                          <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full bg-btb-primary text-white text-sm font-medium mr-3">{i+1}</span>
-                          <div>
+                          <span className="flex-shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-btb-primary text-white text-xs font-medium mr-2">{i+1}</span>
+                          <div className="text-sm">
                             <span className="font-semibold text-gray-900 dark:text-white">{item.step}</span>
                             <span className="text-gray-600 dark:text-gray-300"> → {item.desc}</span>
                           </div>
@@ -569,31 +556,31 @@ export default function Home() {
             </div>
             
             {/* Who Wins Section */}
-            <div className="mb-16">
-              <h3 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-8">Who Wins in This Model?</h3>
+            <div className="mb-10">
+              <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-6">Who Wins in This Model?</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {winnerGroups.map((group, index) => (
                   <motion.div
                     key={index}
-                    className={`p-6 rounded-xl shadow-lg ${group.color}`}
+                    className={`p-4 rounded-lg shadow-md ${group.color}`}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     viewport={{ once: true }}
                   >
-                    <div className="flex items-center mb-4">
-                      <div className="p-2 rounded-full bg-white/50 dark:bg-gray-800/50 mr-3">
-                        <group.icon className="h-6 w-6 text-btb-primary" />
+                    <div className="flex items-center mb-2">
+                      <div className="p-1.5 rounded-full bg-white/50 dark:bg-gray-800/50 mr-2">
+                        <group.icon className="h-4 w-4 text-btb-primary" />
                       </div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">{group.title}</h4>
+                      <h4 className="text-base font-bold text-gray-900 dark:text-white">{group.title}</h4>
                     </div>
                     
-                    <ul className="space-y-2">
+                    <ul className="space-y-1">
                       {group.benefits.map((benefit, i) => (
                         <li key={i} className="flex items-start">
-                          <span className="text-btb-primary mr-2">•</span>
-                          <span className="text-gray-700 dark:text-gray-300 text-sm">{benefit}</span>
+                          <span className="text-btb-primary mr-1.5">•</span>
+                          <span className="text-gray-700 dark:text-gray-300 text-xs">{benefit}</span>
                         </li>
                       ))}
                     </ul>
@@ -603,35 +590,29 @@ export default function Home() {
             </div>
             
             {/* Real-world Example */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 md:p-8 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-btb-primary mb-4">Real-World Example</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 border border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-bold text-btb-primary mb-3">Real-World Example</h3>
               
-              <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300">
-                <p className="mb-4">
-                  <span className="font-semibold">Alice</span> locks 9,000 BTB to make her second trade of the day. She buys BTBY tokens on our exchange. 
-                  The trade generates a 0.1% fee which goes to the admin and is directed to BTBY/ETH LP providers on Uniswap. The bonding curve ensures her 
-                  purchase <span className="font-semibold">increases</span> the BTBY price.
+              <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 text-sm">
+                <p className="mb-2">
+                  <span className="font-semibold">Alice</span> locks 9,000 BTB to trade. She buys BTBY tokens, generating a 0.1% fee for BTBY/ETH LP providers. The bonding curve ensures her purchase <span className="font-semibold">increases</span> the BTBY price.
                 </p>
                 
-                <p className="mb-4">
-                  <span className="font-semibold">Bob</span> notices that BTBY is now available at different prices on different platforms. He buys BTBY on Uniswap and sells it on our 
-                  exchange. Uniquely, even though he's <span className="font-semibold">selling</span> BTBY, the price still <span className="font-semibold">increases</span>! 
-                  He keeps 100% of his arbitrage profit while also paying the 0.1% fee that rewards LP providers.
+                <p className="mb-2">
+                  <span className="font-semibold">Bob</span> arbitrages between platforms. Even when <span className="font-semibold">selling</span> BTBY, the price still <span className="font-semibold">increases</span>! He profits while paying fees that reward LP providers.
                 </p>
                 
                 <p>
-                  <span className="font-semibold">Carol</span>, seeing these rewards, decides to provide liquidity to the BTBY/ETH pair on Uniswap, earning a share of all these 
-                  fees. The <span className="font-semibold">revolutionary bonding curve</span> where price increases with both buys AND sells creates 
-                  a positive cycle that strengthens the entire ecosystem.
+                  <span className="font-semibold">Carol</span> provides liquidity to BTBY/ETH on Uniswap, earning rewards. The <span className="font-semibold">revolutionary bonding curve</span> creates a positive cycle strengthening the ecosystem.
                 </p>
               </div>
               
-              <div className="mt-8 text-center">
+              <div className="mt-5 text-center">
                 <Link 
                   href="/btb-exchange"
-                  className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300"
+                  className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-md transition-all duration-300"
                 >
-                  Experience the BTB Exchange <ArrowRightIcon className="ml-2 h-4 w-4" />
+                  Experience the BTB Exchange <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
                 </Link>
               </div>
             </div>

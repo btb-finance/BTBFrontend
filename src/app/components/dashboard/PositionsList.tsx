@@ -2,7 +2,26 @@
 
 import { useState } from 'react';
 import { ChevronRightIcon } from '@heroicons/react/24/outline';
-import { Position } from '../../services/btbApi';
+
+// Local type definition
+export interface Position {
+  id: string;
+  type: string; // 'liquidity' | 'lending' | 'staking'
+  asset: string;
+  protocol: string;
+  value: string;
+  rewards: string;
+  apy: string;
+  risk: string; // 'low' | 'medium' | 'high'
+  startDate: string;
+  endDate?: string;
+  pair?: string;
+  tvl?: string | number;
+  health?: string;
+  details?: {
+    [key: string]: string;
+  };
+}
 
 interface PositionsListProps {
   positions: Position[];
@@ -10,6 +29,24 @@ interface PositionsListProps {
 
 export default function PositionsList({ positions }: PositionsListProps) {
   const [expandedPosition, setExpandedPosition] = useState<string | null>(null);
+  
+  // Format currency with null handling
+  const formatCurrency = (value: string | number | undefined): string => {
+    if (value === undefined) return '$0.00';
+    if (typeof value === 'string') {
+      // Handle string inputs (like '$12,450.75')
+      if (value.startsWith('$')) return value;
+      const numValue = parseFloat(value.replace(/,/g, ''));
+      if (isNaN(numValue)) return '$0.00';
+      value = numValue;
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      notation: 'compact',
+      maximumFractionDigits: 1
+    }).format(value);
+  };
 
   const getRiskColor = (risk: string) => {
     switch (risk.toLowerCase()) {
@@ -24,7 +61,8 @@ export default function PositionsList({ positions }: PositionsListProps) {
     }
   };
 
-  const getHealthColor = (health: string) => {
+  const getHealthColor = (health: string | undefined) => {
+    if (!health) return '';
     switch (health.toLowerCase()) {
       case 'healthy':
       case 'good':
@@ -42,28 +80,7 @@ export default function PositionsList({ positions }: PositionsListProps) {
     setExpandedPosition(expandedPosition === positionId ? null : positionId);
   };
 
-  // Format number as currency
-  const formatCurrency = (value: number | string): string => {
-    // If it's already a formatted string (like "$123.45" or "10.5 ETH")
-    if (typeof value === 'string') {
-      // Return as is if it already has a currency symbol or looks like "X.X TOKEN"
-      if (value.startsWith('$') || value.includes(' ') || value === 'N/A') {
-        return value;
-      }
-      // Try to convert to number if it's a numeric string
-      const numValue = parseFloat(value.replace(/,/g, ''));
-      if (isNaN(numValue)) {
-        return value; // Return the original string if it can't be parsed
-      }
-      value = numValue;
-    }
-    
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 2
-    }).format(value);
-  };
+
 
   if (!positions || positions.length === 0) {
     return (

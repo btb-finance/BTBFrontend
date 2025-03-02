@@ -1,7 +1,16 @@
 'use client';
 
 import { ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
-import { Alert } from '../../services/btbApi';
+
+// Local type definition
+export interface Alert {
+  id: string;
+  type: string; // 'info', 'warning', 'error', 'Warning'
+  title?: string;
+  message: string;
+  timestamp: string;
+  isRead?: boolean;
+}
 
 interface AlertsPanelProps {
   alerts: Alert[];

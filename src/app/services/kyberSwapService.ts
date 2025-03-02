@@ -64,8 +64,8 @@ export class KyberSwapService {
     toToken: string,
     amount: string,
     userAddress?: string,
-    fromDecimals: number = 18,
-    toDecimals: number = 18
+    fromDecimals?: number,
+    toDecimals?: number
   ): Promise<KyberSwapQuoteResponse> {
     if (!this.provider || !this.signer) {
       throw new Error('Provider and signer are not set');
@@ -81,10 +81,65 @@ export class KyberSwapService {
       // Use a default address if userAddress is not provided
       const address = userAddress || await this.signer.getAddress();
       
+      // Try to get decimals from contracts if not provided
+      let actualFromDecimals = fromDecimals;
+      let actualToDecimals = toDecimals;
+      
+      if (!actualFromDecimals || !actualToDecimals) {
+        try {
+          if (!actualFromDecimals) {
+            // If from token is native ETH
+            if (normalizedFromToken === this.NATIVE_TOKEN_ADDRESS) {
+              actualFromDecimals = 18;
+            } else {
+              // For ERC20 tokens
+              const fromTokenContract = new ethers.Contract(
+                normalizedFromToken,
+                ['function decimals() view returns (uint8)'],
+                this.provider
+              );
+              try {
+                actualFromDecimals = await fromTokenContract.decimals();
+              } catch (error) {
+                console.warn(`Failed to get decimals for token ${normalizedFromToken}, using default of 18:`, error);
+                actualFromDecimals = 18;
+              }
+            }
+          }
+          
+          if (!actualToDecimals) {
+            // If to token is native ETH
+            if (normalizedToToken === this.NATIVE_TOKEN_ADDRESS) {
+              actualToDecimals = 18;
+            } else {
+              // For ERC20 tokens
+              const toTokenContract = new ethers.Contract(
+                normalizedToToken,
+                ['function decimals() view returns (uint8)'],
+                this.provider
+              );
+              try {
+                actualToDecimals = await toTokenContract.decimals();
+              } catch (error) {
+                console.warn(`Failed to get decimals for token ${normalizedToToken}, using default of 18:`, error);
+                actualToDecimals = 18;
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Error getting token decimals, using defaults:', error);
+          // Use default decimals if we couldn't get them
+          if (!actualFromDecimals) actualFromDecimals = 18;
+          if (!actualToDecimals) actualToDecimals = 18;
+        }
+      }
+      
+      console.log(`Using decimals: from=${actualFromDecimals}, to=${actualToDecimals}`);
+      
       const response = await fetch(
         `${this.baseUrl}/${this.CHAIN_NAME}/api/v1/routes?tokenIn=${normalizedFromToken}&tokenOut=${normalizedToToken}&amountIn=${ethers.utils.parseUnits(
           amount,
-          fromDecimals
+          actualFromDecimals
         )}&to=${address}`,
         {
           method: 'GET',
@@ -117,7 +172,7 @@ export class KyberSwapService {
       const data = responseData.data;
       
       // Format the output amount
-      const formattedOutputAmount = ethers.utils.formatUnits(data.routeSummary.amountOut, toDecimals);
+      const formattedOutputAmount = ethers.utils.formatUnits(data.routeSummary.amountOut, actualToDecimals);
       
       return {
         ...data,
@@ -160,7 +215,16 @@ export class KyberSwapService {
       );
       
       const routerAddress = '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5'; // KyberSwap router address
-      const decimals = await tokenContract.decimals();
+      
+      // Try to get decimals, fallback to 18 if it fails
+      let decimals = 18;
+      try {
+        decimals = await tokenContract.decimals();
+      } catch (error) {
+        console.warn(`Failed to get decimals for token ${tokenAddress}, using default of 18:`, error);
+        // Continue with default decimals
+      }
+      
       const amountInWei = ethers.utils.parseUnits(amount, decimals);
       
       // Check current allowance
@@ -377,17 +441,37 @@ export class KyberSwapService {
         return ethers.utils.formatEther(balanceWei);
       } 
       
-      // For ERC20 tokens
-      const tokenContract = new ethers.Contract(
-        tokenAddress,
-        ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'],
-        this.provider
-      );
+      // For ERC20 tokens - use try/catch for each call to handle potential errors
+      let balanceWei = ethers.BigNumber.from(0);
+      let decimals = 18;
       
-      const [balanceWei, decimals] = await Promise.all([
-        tokenContract.balanceOf(userAddress),
-        tokenContract.decimals()
-      ]);
+      try {
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)'],
+          this.provider
+        );
+        
+        // Try to get balance
+        try {
+          balanceWei = await tokenContract.balanceOf(userAddress);
+        } catch (error) {
+          console.warn(`Failed to get balance for token ${tokenAddress}:`, error);
+          // Return 0 balance if we can't get it
+          balanceWei = ethers.BigNumber.from(0);
+        }
+        
+        // Try to get decimals
+        try {
+          decimals = await tokenContract.decimals();
+        } catch (error) {
+          console.warn(`Failed to get decimals for token ${tokenAddress}, using default of 18:`, error);
+          // Continue with default decimals
+        }
+      } catch (error) {
+        console.error(`Error creating contract for token ${tokenAddress}:`, error);
+        return '0';
+      }
       
       return ethers.utils.formatUnits(balanceWei, decimals);
     } catch (error) {

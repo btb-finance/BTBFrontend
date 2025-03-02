@@ -132,9 +132,6 @@ export default function Navbar() {
           className="flex items-center"
         >
           <Logo showText={true} size={40} />
-          <div className="ml-2 hidden sm:block">
-            <span className="text-xs font-semibold text-white/90 bg-btb-primary-dark px-2 py-0.5 rounded-full">on Optimism</span>
-          </div>
         </motion.div>
 
         {/* Desktop Navigation */}

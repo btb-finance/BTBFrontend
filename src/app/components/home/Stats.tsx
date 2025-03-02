@@ -4,34 +4,34 @@ import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import { useInView } from 'framer-motion';
 
-const stats = [
+const achievements = [
   { 
     id: 1, 
-    name: 'Total Value Locked', 
-    value: '$100M+',
-    icon: '💰',
-    color: 'from-pink-500 to-rose-500'
+    title: 'Innovative Trading', 
+    description: 'Revolutionary bonding curve mechanism',
+    icon: '🚀',
+    color: 'from-violet-500 to-purple-600'
   },
   { 
     id: 2, 
-    name: 'BTB Token Holders', 
-    value: '50,000+',
-    icon: '👥',
-    color: 'from-blue-500 to-indigo-500'
+    title: 'Optimism Powered', 
+    description: 'Built on OP Mainnet Superchain',
+    icon: '⚡',
+    color: 'from-cyan-400 to-blue-600'
   },
   { 
     id: 3, 
-    name: 'Yield Farming Pools', 
-    value: '100+',
-    icon: '🌊',
-    color: 'from-green-500 to-emerald-500'
+    title: 'Community Governed', 
+    description: 'Fully decentralized protocol',
+    icon: '🏛️',
+    color: 'from-emerald-400 to-teal-600'
   },
   { 
     id: 4, 
-    name: 'Global Community', 
-    value: '100,000+',
-    icon: '🌎',
-    color: 'from-amber-500 to-orange-500'
+    title: 'Yield Optimized', 
+    description: 'Advanced IL protection',
+    icon: '🛡️',
+    color: 'from-rose-400 to-red-600'
   },
 ];
 
@@ -40,7 +40,7 @@ export default function Stats() {
   const isInView = useInView(containerRef, { once: false, amount: 0.2 });
   
   return (
-    <div className="relative overflow-hidden bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light py-24 sm:py-32">
+    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-violet-900 py-24 sm:py-32">
       {/* Background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"></div>
@@ -62,7 +62,7 @@ export default function Stats() {
               animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: -20 }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              Leading the DeFi Revolution
+              <span className="bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">Leading the DeFi Revolution</span>
             </motion.h2>
             <motion.p 
               className="mt-4 text-lg leading-8 text-white/90"
@@ -70,27 +70,29 @@ export default function Stats() {
               animate={isInView ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
             >
-              Join the BTB Finance ecosystem and be part of the future of decentralized finance
+              Empowering users with cutting-edge financial tools on the Optimism ecosystem
             </motion.p>
           </div>
           
           <div className="mt-16 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat, index) => (
+            {achievements.map((item, index) => (
               <motion.div 
-                key={stat.id} 
-                className="relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl"
+                key={item.id} 
+                className="relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl hover:shadow-2xl transition-all duration-300"
                 initial={{ opacity: 0, y: 30 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
                 transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
                 whileHover={{ y: -5, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.3)" }}
               >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.color}"></div>
-                <div className="p-8 text-center">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${item.color}"></div>
+                <div className="p-6 text-center">
                   <div className="mb-4 flex justify-center">
-                    <span className="text-4xl">{stat.icon}</span>
+                    <div className={`h-16 w-16 rounded-full flex items-center justify-center bg-gradient-to-r ${item.color} bg-opacity-20 shadow-lg`}>
+                      <span className="text-3xl">{item.icon}</span>
+                    </div>
                   </div>
-                  <motion.p 
-                    className="text-4xl font-bold text-white tracking-tight"
+                  <motion.h3 
+                    className={`text-xl font-bold tracking-tight bg-gradient-to-r ${item.color} bg-clip-text text-transparent mb-2`}
                     initial={{ opacity: 0, scale: 0.5 }}
                     animate={isInView ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.5 }}
                     transition={{ 
@@ -100,9 +102,9 @@ export default function Stats() {
                       duration: 0.8
                     }}
                   >
-                    {stat.value}
-                  </motion.p>
-                  <p className="mt-2 text-sm font-medium text-white/80">{stat.name}</p>
+                    {item.title}
+                  </motion.h3>
+                  <p className="text-sm font-medium text-white/90">{item.description}</p>
                 </div>
               </motion.div>
             ))}

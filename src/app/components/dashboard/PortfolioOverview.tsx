@@ -2,7 +2,31 @@
 
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
 import { useEffect, useRef, useMemo } from 'react';
-import { Portfolio } from '../../services/btbApi';
+
+// Local type definition
+export interface Portfolio {
+  totalValueUSD: string;
+  totalValue?: string | number;
+  totalEarningsUSD: string;
+  averageApy: string;
+  activePositions: number;
+  totalChange24h: string;
+  change24h?: number | string;
+  totalChangePercentage24h: string;
+  changePercentage24h?: string | number;
+  assets: {
+    tokens: number;
+    liquidity: number;
+    lending: number;
+    staking: number;
+    active?: number;
+    total?: number;
+  };
+  history: Array<{
+    timestamp: number;
+    value: number;
+  }>;
+}
 
 interface PortfolioOverviewProps {
   portfolioData: Portfolio | null;
@@ -36,7 +60,7 @@ export default function PortfolioOverview({ portfolioData }: PortfolioOverviewPr
         value: portfolioData.change24h !== undefined 
           ? formatCurrency(portfolioData.change24h)
           : '-',
-        changeType: portfolioData.change24h < 0 ? 'negative' : 'positive',
+        changeType: portfolioData.change24h !== undefined && Number(portfolioData.change24h) < 0 ? 'negative' : 'positive',
       },
       {
         name: 'Total Value',
@@ -46,11 +70,11 @@ export default function PortfolioOverview({ portfolioData }: PortfolioOverviewPr
       },
       {
         name: 'Active Assets',
-        value: portfolioData.assets.active.toString(),
+        value: portfolioData.assets.active !== undefined ? portfolioData.assets.active.toString() : '0',
       },
       {
         name: 'Total Assets',
-        value: portfolioData.assets.total.toString(),
+        value: portfolioData.assets.total !== undefined ? portfolioData.assets.total.toString() : '0',
       },
     ];
   }, [portfolioData]);
@@ -93,7 +117,7 @@ export default function PortfolioOverview({ portfolioData }: PortfolioOverviewPr
                       : 'text-gray-500 dark:text-gray-400'
                   }`}
                 >
-                  {portfolioData.changePercentage24h}%
+                  {portfolioData.changePercentage24h || portfolioData.totalChangePercentage24h || '0'}%
                 </span>
               </div>
             )}

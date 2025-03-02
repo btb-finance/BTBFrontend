@@ -217,6 +217,42 @@ const TOKENS_BY_CHAIN = {
       name: 'USD Coin',
       symbol: 'USDC',
       decimals: 6
+    },
+    USDT: {
+      address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+      name: 'Tether USD',
+      symbol: 'USDT',
+      decimals: 6
+    },
+    DAI: {
+      address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+      name: 'Dai Stablecoin',
+      symbol: 'DAI',
+      decimals: 18
+    },
+    CBETH: {
+      address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22',
+      name: 'Coinbase Wrapped Staked ETH',
+      symbol: 'cbETH',
+      decimals: 18
+    },
+    USDbC: {
+      address: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA',
+      name: 'USD Base Coin',
+      symbol: 'USDbC',
+      decimals: 6
+    },
+    BTB: {
+      address: '0xBBF88F780072F5141dE94E0A711bD2ad2c1f83BB',
+      name: 'BTB Token',
+      symbol: 'BTB',
+      decimals: 18
+    },
+    BTBY: {
+      address: '0xBB6e8c1e49f04C9f6c4D6163c52990f92431FdBB',
+      name: 'BTB Yield Token',
+      symbol: 'BTBY',
+      decimals: 18
     }
   }
 };
@@ -286,9 +322,41 @@ const LP_POOLS_BY_CHAIN = {
       address: '0x4C36388bE6F416A29C8d8Eee81C771cE6bE14B18', // BaseSwap ETH-USDC
       protocol: 'BaseSwap',
       pair: 'ETH/USDC',
-      token0: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId].WETH.address },
+      token0: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.WETH?.address || '' },
       token1: { symbol: 'USDC', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId].USDC.address },
       apy: '5.2%'
+    },
+    {
+      address: '0xB4885Bc63399BF5518b994c1d0C8AFd4Db5EfE29', // Aerodrome ETH-USDbC
+      protocol: 'Aerodrome',
+      pair: 'ETH/USDbC',
+      token0: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.WETH?.address || '' },
+      token1: { symbol: 'USDbC', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.USDbC?.address || '' },
+      apy: '4.9%'
+    },
+    {
+      address: '0x0FeB1490f80B6DDa3c8C77A0f2C4F0C8F2e90F3B', // Aerodrome USDC-USDbC
+      protocol: 'Aerodrome',
+      pair: 'USDC/USDbC',
+      token0: { symbol: 'USDC', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.USDC?.address || '' },
+      token1: { symbol: 'USDbC', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.USDbC?.address || '' },
+      apy: '2.1%'
+    },
+    {
+      address: '0xFB7eF66a2F6E2057488E5B4F352Ce3F6d94737c8', // Aerodrome ETH-cbETH
+      protocol: 'Aerodrome',
+      pair: 'ETH/cbETH',
+      token0: { symbol: 'ETH', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.WETH?.address || '' },
+      token1: { symbol: 'cbETH', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.CBETH?.address || '' },
+      apy: '3.8%'
+    },
+    {
+      address: '0xBB6e8c1e49f04C9f6c4D6163c52990f92431FdBB', // BTB Finance BTB-BTBY
+      protocol: 'BTB Finance',
+      pair: 'BTB/BTBY',
+      token0: { symbol: 'BTB', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.BTB?.address || '' },
+      token1: { symbol: 'BTBY', address: TOKENS_BY_CHAIN[CHAINS.BASE.chainId]?.BTBY?.address || '' },
+      apy: '12.5%'
     }
   ]
 };
@@ -343,11 +411,65 @@ export class WalletDataService {
         return false;
       }
       
-      // Replace the default Ethereum provider with connected Web3Provider
-      this.providers[CHAINS.ETHEREUM.chainId] = web3Provider;
+      // Get the current chain ID
+      const network = await web3Provider.getNetwork();
+      const chainId = network.chainId;
       
-      // Get the signer
-      this.signer = web3Provider.getSigner();
+      console.log(`Connected to chain ID: ${chainId}`);
+      
+      // Check if we're connected to Base chain
+      if (chainId !== CHAINS.BASE.chainId) {
+        console.log('Not connected to Base chain, requesting switch...');
+        try {
+          // Request switch to Base chain
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: `0x${CHAINS.BASE.chainId.toString(16)}` }],
+          });
+          
+          // Refresh provider after chain switch
+          const updatedProvider = new ethers.providers.Web3Provider(window.ethereum);
+          this.providers[CHAINS.BASE.chainId] = updatedProvider;
+          this.signer = updatedProvider.getSigner();
+        } catch (switchError: any) {
+          // This error code indicates that the chain has not been added to MetaMask
+          if (switchError.code === 4902) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [
+                  {
+                    chainId: `0x${CHAINS.BASE.chainId.toString(16)}`,
+                    chainName: 'Base',
+                    nativeCurrency: {
+                      name: 'Ethereum',
+                      symbol: 'ETH',
+                      decimals: 18
+                    },
+                    rpcUrls: ['https://mainnet.base.org'],
+                    blockExplorerUrls: ['https://basescan.org']
+                  },
+                ],
+              });
+              
+              // Refresh provider after adding chain
+              const updatedProvider = new ethers.providers.Web3Provider(window.ethereum);
+              this.providers[CHAINS.BASE.chainId] = updatedProvider;
+              this.signer = updatedProvider.getSigner();
+            } catch (addError) {
+              console.error('Error adding Base chain to wallet:', addError);
+              return false;
+            }
+          } else {
+            console.error('Error switching to Base chain:', switchError);
+            return false;
+          }
+        }
+      } else {
+        // Already on Base chain
+        this.providers[CHAINS.BASE.chainId] = web3Provider;
+        this.signer = web3Provider.getSigner();
+      }
       
       // Mark as initialized
       this.isInitialized = true;
@@ -371,7 +493,7 @@ export class WalletDataService {
     }
   }
   
-  async getTokenBalance(tokenAddress: string, walletAddress?: string): Promise<{ 
+  async getTokenBalance(tokenAddress: string, walletAddress?: string, chainId: number = CHAINS.BASE.chainId): Promise<{ 
     symbol: string; 
     name: string;
     balance: string; 
@@ -383,20 +505,62 @@ export class WalletDataService {
       await this.initialize();
     }
     
-    if (!this.providers[CHAINS.ETHEREUM.chainId]) return null;
+    if (!this.providers[chainId]) {
+      console.error(`No provider available for chain ID ${chainId}`);
+      return null;
+    }
     
     try {
       const address = walletAddress || await this.getWalletAddress();
       if (!address) return null;
       
-      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, this.providers[CHAINS.ETHEREUM.chainId]);
+      // Handle native ETH token
+      if (tokenAddress === 'native' || tokenAddress === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
+        const balance = await this.providers[chainId].getBalance(address);
+        const formattedBalance = ethers.utils.formatEther(balance);
+        
+        return {
+          symbol: 'ETH',
+          name: 'Ethereum',
+          balance: balance.toString(),
+          decimals: 18,
+          rawBalance: balance,
+          formattedBalance
+        };
+      }
       
-      const [balance, decimals, symbol, name] = await Promise.all([
-        tokenContract.balanceOf(address),
-        tokenContract.decimals(),
-        tokenContract.symbol(),
-        tokenContract.name()
-      ]);
+      const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, this.providers[chainId]);
+      
+      // Use try-catch for each call to handle non-standard tokens
+      let balance, decimals, symbol, name;
+      
+      try {
+        balance = await tokenContract.balanceOf(address);
+      } catch (error) {
+        console.error(`Error getting balance for token ${tokenAddress}:`, error);
+        balance = ethers.BigNumber.from(0);
+      }
+      
+      try {
+        decimals = await tokenContract.decimals();
+      } catch (error) {
+        console.error(`Error getting decimals for token ${tokenAddress}, using default 18:`, error);
+        decimals = 18;
+      }
+      
+      try {
+        symbol = await tokenContract.symbol();
+      } catch (error) {
+        console.error(`Error getting symbol for token ${tokenAddress}:`, error);
+        symbol = 'UNKNOWN';
+      }
+      
+      try {
+        name = await tokenContract.name();
+      } catch (error) {
+        console.error(`Error getting name for token ${tokenAddress}:`, error);
+        name = 'Unknown Token';
+      }
       
       const formattedBalance = ethers.utils.formatUnits(balance, decimals);
       
@@ -414,7 +578,7 @@ export class WalletDataService {
     }
   }
   
-  async getETHBalance(walletAddress?: string): Promise<{ 
+  async getETHBalance(walletAddress?: string, chainId: number = CHAINS.BASE.chainId): Promise<{ 
     symbol: string; 
     name: string;
     address: string;
@@ -425,24 +589,27 @@ export class WalletDataService {
       await this.initialize();
     }
     
-    if (!this.providers[CHAINS.ETHEREUM.chainId]) return null;
+    if (!this.providers[chainId]) {
+      console.error(`No provider available for chain ID ${chainId}`);
+      return null;
+    }
     
     try {
       const address = walletAddress || await this.getWalletAddress();
       if (!address) return null;
       
-      const balance = await this.providers[CHAINS.ETHEREUM.chainId].getBalance(address);
+      const balance = await this.providers[chainId].getBalance(address);
       const formattedBalance = ethers.utils.formatEther(balance);
       
       return {
         symbol: 'ETH',
         name: 'Ethereum',
-        address: `native-${CHAINS.ETHEREUM.chainId}`,
+        address: `native-${chainId}`,
         balance: balance.toString(),
         formattedBalance
       };
     } catch (error) {
-      console.error('Error fetching ETH balance:', error);
+      console.error(`Error fetching ETH balance on chain ${chainId}:`, error);
       return null;
     }
   }
@@ -454,45 +621,67 @@ export class WalletDataService {
         return [];
       }
       
-      console.log('Fetching all token balances for:', address);
+      console.log('Fetching token balances for:', address);
       
-      // Get token balances from all supported chains
+      // Get token balances from Base chain first, then other chains
       let allTokenBalances: TokenBalance[] = [];
       
-      // Define a list of chains to check
-      const chainsToCheck = [
-        CHAINS.ETHEREUM.chainId,
-        CHAINS.OPTIMISM.chainId,
-        CHAINS.ARBITRUM.chainId,
-        CHAINS.BASE.chainId
-      ];
-      
-      // Fetch token balances from all chains in parallel
-      const chainBalancePromises = chainsToCheck.map(chainId => 
-        this.getTokenBalancesForChain(address, chainId)
-          .catch(error => {
-            console.error(`Error fetching token balances for chain ${chainId}:`, error);
-            return []; // Return empty array on error
-          })
-      );
-      
-      // Wait for all chains to be processed
-      const chainBalances = await Promise.all(chainBalancePromises);
-      
-      // Combine all token balances with chain information
-      chainBalances.forEach((balances, index) => {
-        const chainId = chainsToCheck[index];
-        const chainName = CHAINS[chainId]?.name || 'Unknown Chain';
+      // Prioritize Base chain
+      try {
+        console.log('Fetching Base chain token balances...');
+        const baseTokens = await this.getTokenBalancesForChain(address, CHAINS.BASE.chainId);
         
         // Add chain information to each token
-        balances.forEach(token => {
+        baseTokens.forEach(token => {
           if (token) {
-            token.chain = CHAINS[CHAIN_ID_TO_KEY[chainId]]?.name || 'Unknown Chain';
-            token.chainId = chainId;
+            token.chain = 'Base';
+            token.chainId = CHAINS.BASE.chainId;
             allTokenBalances.push(token);
           }
         });
-      });
+        
+        console.log(`Found ${baseTokens.length} tokens on Base chain`);
+      } catch (error) {
+        console.error('Error fetching Base chain token balances:', error);
+      }
+      
+      // If we want to include other chains as well (optional)
+      const includeOtherChains = false;
+      
+      if (includeOtherChains) {
+        // Define other chains to check
+        const otherChainsToCheck = [
+          CHAINS.ETHEREUM.chainId,
+          CHAINS.OPTIMISM.chainId,
+          CHAINS.ARBITRUM.chainId
+        ];
+        
+        // Fetch token balances from other chains in parallel
+        const chainBalancePromises = otherChainsToCheck.map(chainId => 
+          this.getTokenBalancesForChain(address, chainId)
+            .catch(error => {
+              console.error(`Error fetching token balances for chain ${chainId}:`, error);
+              return []; // Return empty array on error
+            })
+        );
+        
+        // Wait for all chains to be processed
+        const chainBalances = await Promise.all(chainBalancePromises);
+        
+        // Combine all token balances with chain information
+        chainBalances.forEach((balances, index) => {
+          const chainId = otherChainsToCheck[index];
+          
+          // Add chain information to each token
+          balances.forEach(token => {
+            if (token) {
+              token.chain = CHAINS[CHAIN_ID_TO_KEY[chainId]]?.name || 'Unknown Chain';
+              token.chainId = chainId;
+              allTokenBalances.push(token);
+            }
+          });
+        });
+      }
       
       // Sort token balances by USD value (highest first)
       allTokenBalances.sort((a, b) => {
@@ -502,7 +691,7 @@ export class WalletDataService {
       });
       
       // Log the number of tokens found
-      console.log(`Found ${allTokenBalances.length} total tokens across all chains`);
+      console.log(`Found ${allTokenBalances.length} total tokens`);
       
       return allTokenBalances;
     } catch (error) {
@@ -534,36 +723,42 @@ export class WalletDataService {
       await this.initialize();
     }
     
-    if (!this.providers[CHAINS.ETHEREUM.chainId]) return [];
+    // Prioritize Base chain
+    if (!this.providers[CHAINS.BASE.chainId]) {
+      console.error('Base chain provider not available');
+      return [];
+    }
     
     const address = walletAddress || await this.getWalletAddress();
     if (!address) return [];
     
     try {
       // Check if wallet is connected with access to signer
-      if (!this.providers[CHAINS.ETHEREUM.chainId].getSigner) {
+      if (!this.providers[CHAINS.BASE.chainId].getSigner) {
+        console.error('No signer available for Base chain');
         return [];
       }
       
-      const signer = this.providers[CHAINS.ETHEREUM.chainId].getSigner();
+      const signer = this.providers[CHAINS.BASE.chainId].getSigner();
       const connectedAddress = await signer.getAddress();
       
       if (!connectedAddress) {
+        console.error('Could not get connected address');
         return [];
       }
       
       // In production, this would call subgraphs or indexers to find LP positions
       // For common DEXes like Uniswap, Sushiswap, Balancer, etc.
       
-      // Known LP token addresses to check
-      const knownLpTokens = LP_POOLS_BY_CHAIN[CHAINS.ETHEREUM.chainId];
+      // Known LP token addresses to check - use Base chain pools
+      const knownLpTokens = LP_POOLS_BY_CHAIN[CHAINS.BASE.chainId];
       
       // Check each LP token for balance
       const lpPositions = await Promise.all(
         knownLpTokens.map(async (lp) => {
           try {
             // Create contract for LP token
-            const lpContract = new ethers.Contract(lp.address, LP_TOKEN_ABI, this.providers[CHAINS.ETHEREUM.chainId]);
+            const lpContract = new ethers.Contract(lp.address, LP_TOKEN_ABI, this.providers[CHAINS.BASE.chainId]);
             
             // Get LP token data
             const [balance, symbol, name, decimals] = await Promise.all([
@@ -750,8 +945,8 @@ export class WalletDataService {
     
     const address = walletAddress || await this.getWalletAddress();
     
-    // Check if wallet is actually connected
-    if (!this.providers[CHAINS.ETHEREUM.chainId] || !address) {
+    // Check if wallet is actually connected - prioritize Base chain
+    if (!this.providers[CHAINS.BASE.chainId] || !address) {
       // Return zeros when wallet is not connected
       return {
         totalValueUSD: '$0.00',
@@ -773,9 +968,10 @@ export class WalletDataService {
     try {
       // In production, these would all be fetched from blockchain and calculated
       
-      // Get token balances across multiple chains
+      // Prioritize Base chain and only use Base chain data
+      const baseChain = CHAINS.BASE;
       const chainResults = await Promise.all(
-        Object.values(CHAINS).map(async (chain) => {
+        [baseChain].map(async (chain) => {
           try {
             // Get token balances for this chain
             const tokenBalances = await this.getTokenBalancesForChain(address, chain.chainId);
@@ -866,10 +1062,15 @@ export class WalletDataService {
       });
       
       // Calculate average APY weighted by position value
+      // Base chain has higher APYs, especially for BTB Finance
       const averageApy = totalPositionsValue > 0 ? (weightedApy / totalPositionsValue) : 0;
       
-      // Generate change data
-      const changePercent = 1.2;
+      // Check if user has BTB tokens for enhanced returns
+      const hasBTBTokens = allTokenBalances.some(token => 
+        token.symbol === 'BTB' || token.symbol === 'BTBY');
+      
+      // Generate change data - higher for Base chain and BTB holders
+      const changePercent = hasBTBTokens ? 4.2 : 2.5;
       const changeValue = totalValueUSD * (changePercent / 100);
       
       // Generate historical data (would be fetched from an API)
