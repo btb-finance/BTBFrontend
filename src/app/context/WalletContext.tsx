@@ -35,11 +35,15 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isDevelopment, setIsDevelopment] = useState(false);
+
   // Check if we're in development mode
-  const isDevelopment = typeof window !== 'undefined' && (
-    window.location.hostname === 'localhost' || 
-    window.location.hostname === '127.0.0.1'
-  );
+  useEffect(() => {
+    setIsDevelopment(
+      window.location.hostname === 'localhost' || 
+      window.location.hostname === '127.0.0.1'
+    );
+  }, []);
 
   // Check for saved wallet address on mount
   useEffect(() => {
