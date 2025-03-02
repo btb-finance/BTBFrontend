@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import { ChevronRightIcon, BookOpenIcon, AcademicCapIcon, BeakerIcon } from '@heroicons/react/24/outline';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Article {
   id: string;
@@ -324,6 +325,22 @@ interface ArticleListProps {
 
 export default function ArticleList({ category, searchQuery }: ArticleListProps) {
   const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
+  
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+  
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 }
+  };
 
   const filteredArticles = uniswapV4Articles.filter((article) => {
     const matchesCategory = category === 'all' || article.category === category;
@@ -347,12 +364,24 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
   };
 
   return (
-    <div className="space-y-6">
-      {filteredArticles.map((article) => (
-        <article
+    <motion.div 
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      {filteredArticles.map((article, index) => (
+        <motion.article
           key={article.id}
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-300 relative group"
+          variants={itemVariants}
+          whileHover={{ y: -5, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" }}
         >
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-blue-500/5 opacity-0 group-hover:opacity-100"
+            initial={{ opacity: 0 }}
+            whileHover={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+          />
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -365,27 +394,42 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
                 <span className="text-sm text-gray-500 dark:text-gray-400">
                   {article.readTime} read
                 </span>
-              </div>
-            </div>
+              </motion.div>
+            </AnimatePresence>
+            </motion.div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3 leading-tight">
               {article.title}
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg">
               {article.description}
             </p>
-            <button
+            <motion.button
               onClick={() => setExpandedArticle(
                 expandedArticle === article.id ? null : article.id
               )}
-              className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors duration-200"
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors duration-200 relative overflow-hidden group"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              {expandedArticle === article.id ? 'Show Less' : 'Read More'}
-              <ChevronRightIcon className={`h-5 w-5 ml-1 transition-transform duration-200 ${
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10"
+                initial={{ x: "-100%" }}
+                whileHover={{ x: "100%" }}
+                transition={{ duration: 0.5 }}
+              />
+              <span className="relative z-10">{expandedArticle === article.id ? 'Show Less' : 'Read More'}</span>
+              <ChevronRightIcon className={`h-5 w-5 ml-1 transition-transform duration-200 relative z-10 ${
                 expandedArticle === article.id ? 'rotate-90' : ''
               }`} />
-            </button>
-            {expandedArticle === article.id && (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            </motion.button>
+            <AnimatePresence mode="wait">
+              {expandedArticle === article.id && (
+              <motion.div 
+                className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
                 <div className="prose dark:prose-invert max-w-none">
                   {article.content.split('\n').map((paragraph, index) => {
                     if (paragraph.trim().endsWith('————————————————————————')) {
@@ -402,7 +446,8 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
                           <p className="text-gray-700 dark:text-gray-300 flex-1">
                             {paragraph.replace('•', '').trim()}
                           </p>
-                        </div>
+                        </motion.div>
+            </AnimatePresence>
                       );
                     }
                     if (paragraph.trim()) {
@@ -414,12 +459,14 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
                     }
                     return null;
                   })}
-                </div>
-              </div>
+                </motion.div>
+            </AnimatePresence>
+              </motion.div>
+            </AnimatePresence>
             )}
-          </div>
-        </article>
+          </motion.div>
+        </motion.article>
       ))}
-    </div>
+    </motion.div>
   );
 }

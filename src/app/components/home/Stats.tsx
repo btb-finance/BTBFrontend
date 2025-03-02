@@ -43,9 +43,30 @@ export default function Stats() {
     <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-violet-900 py-24 sm:py-32">
       {/* Background elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full border border-white/10 opacity-20"></div>
+        <motion.div 
+          className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.1, 0.2, 0.1]
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            opacity: [0.1, 0.2, 0.1]
+          }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+        />
+        <motion.div 
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full border border-white/10"
+          animate={{ 
+            opacity: [0.1, 0.3, 0.1],
+            rotate: [0, 360]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+        />
       </div>
       
       <div className="relative mx-auto max-w-7xl px-6 lg:px-8" ref={containerRef}>
@@ -78,18 +99,22 @@ export default function Stats() {
             {achievements.map((item, index) => (
               <motion.div 
                 key={item.id} 
-                className="relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 shadow-xl hover:shadow-2xl transition-all duration-300"
+                className="relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-md border-2 border-white/20 shadow-xl hover:shadow-2xl transition-all duration-300 hover:border-white/40"
                 initial={{ opacity: 0, y: 30 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
                 transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
                 whileHover={{ y: -5, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.3)" }}
               >
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${item.color}"></div>
+                <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${item.color}`}></div>
                 <div className="p-6 text-center">
                   <div className="mb-4 flex justify-center">
-                    <div className={`h-16 w-16 rounded-full flex items-center justify-center bg-gradient-to-r ${item.color} bg-opacity-20 shadow-lg`}>
-                      <span className="text-3xl">{item.icon}</span>
-                    </div>
+                    <motion.div 
+                      className={`h-16 w-16 rounded-full flex items-center justify-center bg-gradient-to-r ${item.color} bg-opacity-20 shadow-lg group-hover:shadow-2xl transition-all duration-300`}
+                      whileHover={{ scale: 1.1, rotate: [0, -10, 10, -10, 0] }}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <span className="text-3xl transform group-hover:scale-110 transition-transform duration-300">{item.icon}</span>
+                    </motion.div>
                   </div>
                   <motion.h3 
                     className={`text-xl font-bold tracking-tight bg-gradient-to-r ${item.color} bg-clip-text text-transparent mb-2`}

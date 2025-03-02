@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRightIcon, CubeTransparentIcon } from '@heroicons/react/24/outline';
+import { ArrowRightIcon, CurrencyDollarIcon, ClockIcon, ShieldCheckIcon, GlobeAltIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 
 const UniswapHooks: React.FC = () => {
@@ -27,8 +27,29 @@ const UniswapHooks: React.FC = () => {
   ];
 
   return (
-    <div className="py-24 bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+    <div className="py-24 bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div 
+          className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-purple-500/10 blur-3xl"
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3],
+            rotate: [0, 45, 0]
+          }}
+          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div 
+          className="absolute -bottom-32 -left-32 w-96 h-96 rounded-full bg-indigo-500/10 blur-3xl"
+          animate={{ 
+            scale: [1.2, 1, 1.2],
+            opacity: [0.4, 0.6, 0.4],
+            rotate: [45, 0, 45]
+          }}
+          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+      <div className="mx-auto max-w-7xl px-6 lg:px-8 relative">
         {/* Uniswap Hooks Integration */}
         <div className="mb-24">
           <div className="mx-auto max-w-3xl text-center mb-16">
@@ -56,22 +77,43 @@ const UniswapHooks: React.FC = () => {
             {hooksFeatures.map((feature, index) => (
               <motion.div
                 key={index}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-shadow"
+                className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-md p-6 border-2 border-transparent hover:border-purple-500/20 dark:hover:border-purple-400/20 hover:shadow-xl transition-all duration-300 group relative overflow-hidden"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
+                whileHover={{ scale: 1.02, y: -5 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 viewport={{ once: true }}
               >
-                <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-md bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 mb-4">
-                  <CubeTransparentIcon className="h-6 w-6" />
-                </div>
+                <motion.div 
+                  className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  initial={{ opacity: 0 }}
+                  whileHover={{ opacity: 1 }}
+                />
+                <motion.div 
+                  className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-md bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-300 mb-4 group-hover:scale-110 transition-transform duration-300"
+                  whileHover={{ rotate: [0, -10, 10, -10, 0] }}
+                  transition={{ duration: 0.5 }}
+                >
+                  {index === 0 && <CurrencyDollarIcon className="h-6 w-6" />}
+                  {index === 1 && <ClockIcon className="h-6 w-6" />}
+                  {index === 2 && <ShieldCheckIcon className="h-6 w-6" />}
+                  {index === 3 && <GlobeAltIcon className="h-6 w-6" />}
+                </motion.div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{feature.title}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">{feature.description}</p>
               </motion.div>
             ))}
           </div>
 
-          <div className="mt-10 text-center">
+          <div className="mt-10 text-center relative z-10">
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-indigo-500/20 blur-2xl -z-10"
+              animate={{
+                opacity: [0.5, 0.8, 0.5],
+                scale: [0.8, 1, 0.8]
+              }}
+              transition={{ duration: 4, repeat: Infinity }}
+            />
             <Link 
               href="/hooks"
               className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:shadow-lg transition-all duration-300"
