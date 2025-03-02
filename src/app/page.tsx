@@ -462,151 +462,161 @@ export default function Home() {
 
       {/* BTB Exchange Flywheel Section */}
       <div className="py-16 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            viewport={{ once: true }}
-            className="mx-auto max-w-3xl text-center mb-10"
-          >
-            <div className="inline-block px-4 py-1 mb-4 rounded-full bg-gradient-to-r from-btb-primary/10 to-btb-primary-light/20 border border-btb-primary/20 backdrop-blur-sm shadow-lg">
-              <p className="text-sm font-medium text-btb-primary flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Revolutionary Economic Model
-              </p>
-            </div>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl font-heading bg-clip-text text-transparent bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center mb-10">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl font-heading">
               The BTB Exchange Flywheel
             </h2>
-            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Our innovative economic model creates a self-reinforcing ecosystem where all participants benefit from a continuous positive feedback loop
+            <p className="mt-3 text-base text-gray-600 dark:text-gray-300">
+              Our revolutionary economic model creates a self-reinforcing ecosystem where everyone wins
             </p>
-          </motion.div>
-          
-          {/* Interactive Flywheel Diagram */}
-          <div className="relative mb-16 overflow-hidden rounded-2xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm shadow-xl border border-white/20 dark:border-gray-700/20">
-            <div className="absolute inset-0 bg-gradient-to-br from-btb-primary/5 via-transparent to-btb-primary-light/5 opacity-70"></div>
-            <div className="absolute -top-24 -right-24 w-64 h-64 bg-btb-primary/10 rounded-full blur-3xl"></div>
-            <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-btb-primary-light/10 rounded-full blur-3xl"></div>
-            
-            <div className="relative z-10 p-6 md:p-10">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.7 }}
-                viewport={{ once: true }}
-              >
-                <FlywheelDiagram />
-              </motion.div>
-            </div>
           </div>
           
-          {/* Key Benefits Section */}
-          <div className="mb-16">
-            <motion.h3 
-              className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-8"
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              viewport={{ once: true }}
-            >
-              Key Benefits of Our Flywheel Model
-            </motion.h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {winnerGroups.map((group, index) => (
-                <motion.div
-                  key={index}
-                  className={`p-6 rounded-xl shadow-lg ${group.color} border border-white/20 dark:border-gray-700/30 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1`}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1, duration: 0.5 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="flex items-center mb-4">
-                    <div className="p-2 rounded-full bg-white/70 dark:bg-gray-800/70 mr-3 shadow-md">
-                      <group.icon className="h-6 w-6 text-btb-primary" />
-                    </div>
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white">{group.title}</h4>
+          <div className="relative">
+            {/* Flywheel Diagram */}
+            <div className="mb-10 relative max-w-3xl mx-auto">
+              <div className="absolute inset-0 bg-gradient-to-r from-btb-primary/5 to-btb-primary-light/5 rounded-lg transform -rotate-1"></div>
+              <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="w-full md:w-1/2">
+                    <h3 className="text-lg font-bold text-btb-primary mb-2">How The Flywheel Spins</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Our ecosystem creates a powerful self-reinforcing cycle that benefits all participants:</p>
+                    
+                    <ol className="space-y-2">
+                      {[
+                        { step: "BTB Utility", desc: "Users lock BTB tokens to gain trading access" },
+                        { step: "Trading Activity", desc: "Trading generates fees while using the bonding curve" },
+                        { step: "LP Rewards", desc: "Fees reward BTBY/ETH liquidity providers" },
+                        { step: "Arbitrage Opportunity", desc: "Price differences create arbitrage opportunities" },
+                        { step: "More Volume", desc: "Arbitrageurs increase trading volume on both platforms" },
+                        { step: "Enhanced Liquidity", desc: "More LP providers join for the rewards" },
+                        { step: "Ecosystem Growth", desc: "Back to step 1 with more participants" }
+                      ].map((item, i) => (
+                        <li key={i} className="flex items-start">
+                          <span className="flex-shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-btb-primary text-white text-xs font-medium mr-2">{i+1}</span>
+                          <div className="text-sm">
+                            <span className="font-semibold text-gray-900 dark:text-white">{item.step}</span>
+                            <span className="text-gray-600 dark:text-gray-300"> → {item.desc}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
                   </div>
                   
-                  <ul className="space-y-3">
-                    {group.benefits.map((benefit, i) => (
-                      <li key={i} className="flex items-start">
-                        <span className="text-btb-primary mr-2 text-lg">•</span>
-                        <span className="text-gray-700 dark:text-gray-300 text-sm">{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-              ))}
+                  <div className="w-full md:w-1/2 flex justify-center">
+                    <div className="relative w-64 h-64">
+                      {/* Circular flywheel visualization */}
+                      <motion.div 
+                        className="absolute inset-0 rounded-full border-4 border-dashed border-btb-primary/30"
+                        animate={spinAnimation}
+                      />
+                      <motion.div 
+                        className="absolute inset-4 rounded-full border-2 border-btb-primary/50"
+                        animate={spinReverseAnimation}
+                      />
+                      
+                      {/* Flywheel steps */}
+                      {flywheelSteps.map((step, index) => {
+                        const angle = (index / flywheelSteps.length) * Math.PI * 2;
+                        const x = Math.cos(angle) * 100;
+                        const y = Math.sin(angle) * 100;
+                        
+                        return (
+                          <motion.div
+                            key={index}
+                            className="absolute w-8 h-8 rounded-full bg-white dark:bg-gray-700 shadow-md flex items-center justify-center text-xs font-medium text-btb-primary border border-btb-primary/20"
+                            style={{
+                              left: "50%",
+                              top: "50%",
+                              transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`
+                            }}
+                            whileHover={{ scale: 1.2, zIndex: 10 }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.1 }}
+                          >
+                            {index + 1}
+                          </motion.div>
+                        );
+                      })}
+                      
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <motion.span 
+                          className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-btb-primary-light via-white to-btb-primary-light bg-clip-text text-transparent"
+                          animate={{ scale: [1, 1.05, 1] }}
+                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                          BTB
+                        </motion.span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Who Wins Section */}
+            <div className="mb-10">
+              <h3 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-6">Who Wins in This Model?</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {winnerGroups.map((group, index) => (
+                  <motion.div
+                    key={index}
+                    className={`p-4 rounded-lg shadow-md ${group.color}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    viewport={{ once: true }}
+                  >
+                    <div className="flex items-center mb-2">
+                      <div className="p-1.5 rounded-full bg-white/50 dark:bg-gray-800/50 mr-2">
+                        <group.icon className="h-4 w-4 text-btb-primary" />
+                      </div>
+                      <h4 className="text-base font-bold text-gray-900 dark:text-white">{group.title}</h4>
+                    </div>
+                    
+                    <ul className="space-y-1">
+                      {group.benefits.map((benefit, i) => (
+                        <li key={i} className="flex items-start">
+                          <span className="text-btb-primary mr-1.5">•</span>
+                          <span className="text-gray-700 dark:text-gray-300 text-xs">{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Real-world Example */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 border border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-bold text-btb-primary mb-3">Real-World Example</h3>
+              
+              <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 text-sm">
+                <p className="mb-2">
+                  <span className="font-semibold">Alice</span> locks 9,000 BTB to trade. She buys BTBY tokens, generating a 0.1% fee for BTBY/ETH LP providers. The bonding curve ensures her purchase <span className="font-semibold">increases</span> the BTBY price.
+                </p>
+                
+                <p className="mb-2">
+                  <span className="font-semibold">Bob</span> arbitrages between platforms. Even when <span className="font-semibold">selling</span> BTBY, the price still <span className="font-semibold">increases</span>! He profits while paying fees that reward LP providers.
+                </p>
+                
+                <p>
+                  <span className="font-semibold">Carol</span> provides liquidity to BTBY/ETH on Uniswap, earning rewards. The <span className="font-semibold">revolutionary bonding curve</span> creates a positive cycle strengthening the ecosystem.
+                </p>
+              </div>
+              
+              <div className="mt-5 text-center">
+                <Link 
+                  href="/btb-exchange"
+                  className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-md transition-all duration-300"
+                >
+                  Experience the BTB Exchange <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           </div>
-          
-          {/* Real-world Example */}
-          <motion.div 
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-8 border border-gray-100 dark:border-gray-700 mb-16 relative overflow-hidden"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            viewport={{ once: true }}
-          >
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-btb-primary/5 rounded-full blur-3xl"></div>
-            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-btb-primary-light/5 rounded-full blur-3xl"></div>
-            
-            <h3 className="text-2xl font-bold text-btb-primary mb-6 relative z-10">See The Flywheel In Action</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-lg border border-blue-100 dark:border-blue-800/30">
-                <div className="flex items-center mb-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center text-blue-600 dark:text-blue-300 font-bold mr-2">A</div>
-                  <h4 className="font-bold text-gray-900 dark:text-white">Alice: BTB Holder</h4>
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 text-sm">
-                  Locks 9,000 BTB tokens to access the exchange. She buys BTBY tokens, generating a 0.1% fee for liquidity providers. The bonding curve ensures her purchase <span className="font-semibold text-btb-primary">increases</span> the BTBY price.
-                </p>
-              </div>
-              
-              <div className="bg-purple-50 dark:bg-purple-900/20 p-5 rounded-lg border border-purple-100 dark:border-purple-800/30">
-                <div className="flex items-center mb-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-800 flex items-center justify-center text-purple-600 dark:text-purple-300 font-bold mr-2">B</div>
-                  <h4 className="font-bold text-gray-900 dark:text-white">Bob: Arbitrageur</h4>
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 text-sm">
-                  Notices price differences and arbitrages between platforms. Even when <span className="font-semibold text-btb-primary">selling</span> BTBY, the price still <span className="font-semibold text-btb-primary">increases</span>! He profits while paying fees that reward LP providers.
-                </p>
-              </div>
-              
-              <div className="bg-green-50 dark:bg-green-900/20 p-5 rounded-lg border border-green-100 dark:border-green-800/30">
-                <div className="flex items-center mb-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center text-green-600 dark:text-green-300 font-bold mr-2">C</div>
-                  <h4 className="font-bold text-gray-900 dark:text-white">Carol: LP Provider</h4>
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 text-sm">
-                  Provides liquidity to BTBY/ETH on Uniswap, earning rewards from all trading fees. As trading volume increases, her rewards grow, incentivizing her to add more liquidity to the pool.
-                </p>
-              </div>
-            </div>
-            
-            <div className="mt-8 text-center">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="inline-block group relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
-                <Link
-                  href="/btb-exchange"
-                  className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20"
-                >
-                  Experience the BTB Exchange <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
-                </Link>
-              </motion.div>
-            </div>
-          </motion.div>
         </div>
       </div>
 
