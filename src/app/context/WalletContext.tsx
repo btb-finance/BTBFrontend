@@ -1,7 +1,6 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import btbApi from '../services/btbApi';
 
 interface WalletContextType {
   address: string | null;
@@ -102,31 +101,13 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
           throw signError;
         }
         
-        try {
-          // Connect to BTB API with the address and signature
-          await btbApi.connectWithWallet(userAddress, signature);
-          
-          setAddress(userAddress);
-          setIsConnected(true);
-          localStorage.setItem('walletAddress', userAddress);
-          
-          // Setup wallet event listeners
-          setupWalletListeners();
-          
-        } catch (apiError) {
-          console.error('API connection error:', apiError);
-          
-          if (isDevelopment) {
-            // In development, we can proceed even if the API connection fails
-            // The btbApi service should handle fallbacks to mock data
-            setAddress(userAddress);
-            setIsConnected(true);
-            localStorage.setItem('walletAddress', userAddress);
-            console.log('Development mode: Proceeding with wallet connection despite API error');
-          } else {
-            throw new Error('Failed to connect to BTB.Finance API. Please try again later.');
-          }
-        }
+        // Set user address and connected state
+        setAddress(userAddress);
+        setIsConnected(true);
+        localStorage.setItem('walletAddress', userAddress);
+        
+        // Setup wallet event listeners
+        setupWalletListeners();
       } catch (walletError: any) {
         // Specific wallet interaction errors
         if (walletError.code === -32002) {
@@ -179,7 +160,6 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const disconnectWallet = () => {
     setAddress(null);
     setIsConnected(false);
-    btbApi.clearAuthToken();
     localStorage.removeItem('walletAddress');
   };
 

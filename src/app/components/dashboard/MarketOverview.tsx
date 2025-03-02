@@ -1,7 +1,33 @@
 'use client';
 
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
-import { MarketData } from '../../services/btbApi';
+
+// Local type definition
+export interface MarketData {
+  totalTVL: number;
+  tvlChange24h: number;
+  tvlChangePercentage24h: number;
+  totalVolume24h: number;
+  volumeChange24h: number;
+  volumeChangePercentage24h: number;
+  totalFees24h: number;
+  feesChange24h: number;
+  feesChangePercentage24h: number;
+  topProtocols: Array<{
+    name: string;
+    tvl: number;
+    volume24h: number;
+    marketShare: number;
+    change24h: number;
+  }>;
+  topPairs: Array<{
+    pair: string;
+    volume24h: number;
+    tvl: number;
+    fee: number;
+    apy: number;
+  }>;
+}
 
 interface MarketOverviewProps {
   marketData: MarketData | null;
@@ -46,7 +72,7 @@ export default function MarketOverview({ marketData }: MarketOverviewProps) {
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {marketData.topProtocols.map((protocol) => (
+        {marketData.topProtocols.map((protocol: any) => (
           <div
             key={protocol.name}
             className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4"
@@ -112,7 +138,7 @@ export default function MarketOverview({ marketData }: MarketOverviewProps) {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-700 divide-y divide-gray-200 dark:divide-gray-600">
-              {marketData.topPairs.map((pair) => (
+              {marketData.topPairs.map((pair: any) => (
                 <tr key={pair.name} className="hover:bg-gray-50 dark:hover:bg-gray-600">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     {pair.name}
