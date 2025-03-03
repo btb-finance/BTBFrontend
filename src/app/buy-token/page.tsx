@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react';
 import { ethers, utils, providers } from 'ethers';
 import { TransactionRequest } from '@ethersproject/abstract-provider';
+import { Card } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Alert } from '@/app/components/ui/alert';
+import { ChartBarIcon, ArrowDownIcon, WalletIcon } from 'lucide-react';
 
 // Network configuration
 const OPTIMISM_SEPOLIA_CHAIN_ID = 11155420;
@@ -86,7 +91,6 @@ export default function BuyToken() {
   }, []);
 
   useEffect(() => {
-    // Clear processing state after 3 seconds
     if (isProcessingRequest) {
       const timer = setTimeout(() => {
         setIsProcessingRequest(false);
@@ -645,146 +649,135 @@ export default function BuyToken() {
   }, [ethAmount]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FF0420] via-[#FF0420]/80 to-[#FF0420] py-12 px-4">
-      <div className="max-w-3xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">Buy BTB Tokens</h1>
-          <p className="text-lg text-white/80">Join the BTB Finance ecosystem and be part of the future of DeFi</p>
-        </div>
-
-        {/* Wallet Section */}
-        <div className="bg-black/20 backdrop-blur-lg rounded-xl p-6 mb-8 border border-white/10">
-          <h2 className="text-2xl font-bold text-white mb-4">Your Wallet</h2>
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <div>
-              <p className="text-white/80">
-                {account && typeof account === 'string' ? 
-                  `Connected: ${account.slice(0, 6)}...${account.slice(-4)}` : 
-                  'Not Connected'}
+    <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <div className="inline-block px-4 py-1 mb-4 rounded-full bg-btb-primary/10 border border-btb-primary/20">
+              <p className="text-sm font-medium text-btb-primary flex items-center">
+                <ChartBarIcon className="h-4 w-4 mr-2" /> Live on Optimistic Sepolia
               </p>
-              <p className="text-xl font-bold text-white mt-2">BTB Balance: {tokenBalance} BTB</p>
             </div>
-            {!account && (
-              <button
-                onClick={connectWallet}
-                disabled={isConnecting}
-                className={`px-6 py-3 ${
-                  isConnecting 
-                    ? 'bg-gray-500' 
-                    : 'bg-white text-[#FF0420] hover:bg-white/90'
-                } rounded-lg font-semibold transition-colors`}
-              >
-                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-              </button>
-            )}
+            <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-btb-primary to-btb-primary-light bg-clip-text text-transparent">
+              Buy BTB Token
+            </h1>
+            <p className="text-lg mb-6 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+              Join the BTB ecosystem by purchasing BTB tokens. Choose between instant purchase or vesting options for long-term holders.
+            </p>
           </div>
-        </div>
 
-        {/* Buy Tokens Section */}
-        <div className="bg-black/20 backdrop-blur-lg rounded-xl p-6 border border-white/10">
-          <h2 className="text-2xl font-bold text-white mb-6">Buy Tokens</h2>
-          <div className="space-y-6">
-            <div className="bg-black/30 rounded-lg p-4 border border-white/10 text-white">
-              <p className="text-white/80 text-sm">Current Rate</p>
-              <p className="text-xl font-bold text-white">{rate} BTB per ETH</p>
-            </div>
-
-            <div>
-              <label className="block text-white/80 mb-2">ETH Amount</label>
-              <input
-                type="number"
-                value={ethAmount}
-                onChange={(e) => {
-                  setEthAmount(e.target.value);
-                  setTokenAmount(calculateTokenAmount(e.target.value, false).toString());
-                }}
-                className="w-full px-4 py-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-white/50 focus:outline-none focus:border-white/30"
-                placeholder="0.0"
-                min="0"
-                step="0.01"
-              />
-            </div>
-
-            <div>
-              <label className="block text-white/80 mb-2">You Will Receive</label>
-              <div className="w-full px-4 py-3 rounded-lg bg-black/30 border border-white/10 text-white">
-                {tokenAmount} BTB
+          {!account ? (
+            <Card className="max-w-md mx-auto p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-center mb-6">
+                <WalletIcon className="h-12 w-12 text-btb-primary" />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-white/80 mb-2">Vesting Duration (days)</label>
-              <input
-                type="number"
-                value={vestingDuration}
-                onChange={(e) => setVestingDuration(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg bg-black/30 border border-white/10 text-white placeholder-white/50 focus:outline-none focus:border-white/30"
-                placeholder="Enter vesting duration in days"
-                min="0"
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => buyTokens(false)}
-                disabled={loading || !account || !ethAmount}
-                className={`w-full px-6 py-4 rounded-lg font-semibold text-lg transition-colors ${
-                  loading || !account || !ethAmount
-                    ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-white text-[#FF0420] hover:bg-white/90'
-                }`}
+              <h2 className="text-xl font-semibold text-center mb-4">Connect Your Wallet</h2>
+              <p className="text-gray-600 dark:text-gray-300 text-center mb-6">
+                Connect your wallet to purchase BTB tokens and manage your holdings.
+              </p>
+              <Button
+                onClick={() => connectWallet()}
+                className="w-full bg-btb-primary hover:bg-btb-primary-dark text-white"
+                disabled={loading}
               >
-                Buy Tokens
-              </button>
-              <button
-                onClick={() => buyTokens(true)}
-                disabled={loading || !account || !ethAmount || !vestingDuration}
-                className={`w-full px-6 py-4 rounded-lg font-semibold text-lg transition-colors ${
-                  loading || !account || !ethAmount || !vestingDuration
-                    ? 'bg-gray-500 cursor-not-allowed'
-                    : 'bg-white text-[#FF0420] hover:bg-white/90'
-                }`}
-              >
-                Buy with Vesting
-              </button>
-            </div>
-            
-            {vestingInfo && (
-              <div className="mt-8">
-                <h2 className="text-2xl font-bold text-white mb-4">Vesting Information</h2>
-                <div className="bg-black/30 rounded-lg p-4 border border-white/10 text-white">
-                  <p className="mb-2">Total Vested Amount: {vestingInfo.totalAmount} BTB</p>
-                  <p className="mb-2">Released Amount: {vestingInfo.releasedAmount} BTB</p>
-                  <p className="mb-2">Start Time: {new Date(vestingInfo.startTime * 1000).toLocaleString()}</p>
-                  <p className="mb-2">Duration: {vestingInfo.duration / (24 * 60 * 60)} days</p>
-                  <p className="mb-4">Releasable Amount: {releasableAmount} BTB</p>
+                {loading ? 'Connecting...' : 'Connect Wallet'}
+              </Button>
+            </Card>
+          ) : (
+            <div className="max-w-2xl mx-auto">
+              {error && (
+                <Alert className="mb-4 bg-red-100 border-red-400 text-red-700">
+                  {error}
+                </Alert>
+              )}
+              {success && (
+                <Alert className="mb-4 bg-green-100 border-green-400 text-green-700">
+                  {success}
+                </Alert>
+              )}
+              
+              <Card className="p-6 mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-semibold mb-4">Purchase BTB Tokens</h2>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      ETH Amount
+                    </label>
+                    <Input
+                      type="number"
+                      value={ethAmount}
+                      onChange={(e) => setEthAmount(e.target.value)}
+                      placeholder="0.0"
+                      className="w-full"
+                      disabled={loading}
+                    />
+                  </div>
                   
-                  <button
-                    onClick={releaseTokens}
-                    disabled={loading || parseFloat(releasableAmount) <= 0}
-                    className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                      loading || parseFloat(releasableAmount) <= 0
-                        ? 'bg-gray-500 cursor-not-allowed'
-                        : 'bg-white text-[#FF0420] hover:bg-white/90'
-                    }`}
-                  >
-                    Release Available Tokens
-                  </button>
+                  <div className="flex justify-center">
+                    <ArrowDownIcon className="h-6 w-6 text-gray-400" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      BTB Tokens to Receive
+                    </label>
+                    <Input
+                      type="text"
+                      value={tokenAmount}
+                      readOnly
+                      className="w-full bg-gray-50"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button
+                      onClick={() => buyTokens(false)}
+                      className="w-full bg-btb-primary hover:bg-btb-primary-dark text-white"
+                      disabled={loading || !ethAmount}
+                    >
+                      {loading ? 'Processing...' : 'Buy Instant'}
+                    </Button>
+                    <Button
+                      onClick={() => buyTokens(true)}
+                      className="w-full bg-btb-primary hover:bg-btb-primary-dark text-white"
+                      disabled={loading || !ethAmount}
+                    >
+                      {loading ? 'Processing...' : 'Buy with Vesting'}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {error && (
-              <div className="p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="p-4 bg-green-900/20 border border-green-500/50 rounded-lg text-green-200">
-                {success}
-              </div>
-            )}
-          </div>
+              </Card>
+
+              {vestingInfo && (
+                <Card className="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <h2 className="text-xl font-semibold mb-4">Vesting Status</h2>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm text-gray-500">Total Amount</label>
+                        <p className="font-semibold">{vestingInfo.totalAmount} BTB</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-gray-500">Released Amount</label>
+                        <p className="font-semibold">{vestingInfo.releasedAmount} BTB</p>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">Releasable Amount</label>
+                      <p className="font-semibold">{releasableAmount} BTB</p>
+                    </div>
+                    <Button
+                      onClick={releaseTokens}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      disabled={loading || parseFloat(releasableAmount) === 0}
+                    >
+                      {loading ? 'Processing...' : 'Release Available Tokens'}
+                    </Button>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
