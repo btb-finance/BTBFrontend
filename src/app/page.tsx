@@ -275,7 +275,7 @@ export default function Home() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl"
               >
-                A comprehensive DeFi platform combining revolutionary exchange mechanics, advanced yield farming, and an ecosystem built for success on Optimism.
+                A comprehensive DeFi platform combining revolutionary exchange mechanics, advanced yield farming, and an ecosystem built for success on BASE.
               </motion.p>
               
               <motion.div 
