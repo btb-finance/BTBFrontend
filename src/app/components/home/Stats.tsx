@@ -15,7 +15,7 @@ const achievements = [
   { 
     id: 2, 
     title: 'Optimism Powered', 
-    description: 'Built on OP Mainnet Superchain',
+    description: 'Built on BASE',
     icon: '⚡',
     color: 'from-cyan-400 to-blue-600'
   },
@@ -91,7 +91,7 @@ export default function Stats() {
               animate={isInView ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
             >
-              Empowering users with cutting-edge financial tools on the Optimism ecosystem
+              Empowering users with cutting-edge financial tools on the BASE ecosystem
             </motion.p>
           </div>
           
