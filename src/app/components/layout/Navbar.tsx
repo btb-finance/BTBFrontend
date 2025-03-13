@@ -48,6 +48,7 @@ export default function Navbar() {
       icon: ChartBarIcon,
       children: [
         { name: 'Pools', href: '/pools' },
+        { name: 'Staking', href: '/staking' },
         { name: 'BTB Exchange', href: '/btb-exchange' },
         { name: 'Yield Trading', href: '/yield-trading' },
       ]
