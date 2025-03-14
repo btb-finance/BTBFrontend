@@ -51,6 +51,7 @@ export default function Navbar() {
         { name: 'Staking', href: '/staking' },
         { name: 'BTB Exchange', href: '/btb-exchange' },
         { name: 'Yield Trading', href: '/yield-trading' },
+        { name: 'CHICKS', href: '/chicks' },
       ]
     },
     {
