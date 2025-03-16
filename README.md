@@ -46,6 +46,144 @@
   </div>
 </details>
 
+## 🎮 Interactive Demo
+
+We've created an interactive demo that showcases the key features of the CHICKS Token platform. This demo highlights the real-time animations and dynamic elements that make our platform engaging and informative.
+
+### How to Run the Demo
+
+1. Clone the repository and navigate to the project directory
+2. Open the demo file in your browser:
+```bash
+open public/demo.html
+```
+
+### Demo Features
+
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center">
+        <h4>📊 Real-time Stats</h4>
+        <p>Watch as TVL grows from $20K to $100M<br/>Price fluctuations update in real-time<br/>Holder count increases dynamically</p>
+      </td>
+      <td width="50%" align="center">
+        <h4>🎯 Mini-Game</h4>
+        <p>Click on floating tokens to earn points<br/>Race against the 30-second timer<br/>Challenge your friends to beat your score</p>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <h4>🌊 Floating Animations</h4>
+        <p>Particles float across the screen<br/>Elements respond to user interaction<br/>Smooth animations powered by requestAnimationFrame</p>
+      </td>
+      <td width="50%" align="center">
+        <h4>💥 Pulsing CTA</h4>
+        <p>Attention-grabbing call-to-action<br/>Subtle pulsing effect<br/>Responsive hover animations</p>
+      </td>
+    </tr>
+  </table>
+</div>
+
+### Demo Preview
+
+<div align="center">
+  <p>The demo includes these exciting features:</p>
+  
+  <h4>🔄 Real-time Animated Stats</h4>
+  <pre>
+  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+  │       TVL       │  │   CHICKS Price  │  │     Holders     │  │       APY       │
+  │    $20,000+     │  │     $0.001+     │  │       1+        │  │     5000%+      │
+  │   [Growing]     │  │ [Fluctuating]   │  │   [Increasing]  │  │  [Sustainable]  │
+  └─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘
+  </pre>
+  
+  <h4>🎮 Interactive Token Game</h4>
+  <pre>
+  ┌─────────────────────────────────────────────────────────────┐
+  │                                                             │
+  │    Score: 0                                     Time: 30s   │
+  │                                                             │
+  │                        *                                    │
+  │                                        *                    │
+  │             *                                               │
+  │                                                             │
+  │                                 *                           │
+  │        *                                      *             │
+  │                       *                                     │
+  │                                                             │
+  │                *                      *                     │
+  │                                                             │
+  └─────────────────────────────────────────────────────────────┘
+  * = Clickable CHICKS tokens that appear and disappear
+  </pre>
+  
+  <h4>💯 Tokenomics Visualization</h4>
+  <pre>
+  ┌─────────────────────────────────────────────────────────────┐
+  │                                                             │
+  │                     ┌───────────────┐                       │
+  │                     │               │                       │
+  │                     │  100% USDC    │                       │
+  │                     │   BACKED      │                       │
+  │                     │               │                       │
+  │                     └───────────────┘                       │
+  │                                                             │
+  │  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐       │
+  │  │ No Pre-mint │   │ Transparent │   │ Sustainable │       │
+  │  └─────────────┘   └─────────────┘   └─────────────┘       │
+  │                                                             │
+  └─────────────────────────────────────────────────────────────┘
+  </pre>
+</div>
+
+### Demo Implementation
+
+The demo is built with pure HTML, CSS, and JavaScript and showcases:
+
+- **requestAnimationFrame** for smooth animations
+- **Dynamic counters** that simulate real-time data
+- **Floating elements** that move naturally across the screen
+- **Interactive game** with click detection and scoring
+- **Animated gradients** that shift colors continuously
+- **Pulsing effects** on buttons and interactive elements
+
+Try it yourself by opening `public/demo.html` in your browser!
+
+### 📱 Quick Access
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center">
+        <h4>🔄 Scan to View Demo</h4>
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://btb.finance/demo" width="150" height="150" alt="Demo QR Code"/>
+        <p>Scan with your mobile device</p>
+      </td>
+      <td align="center">
+        <h4>⚡ Animation Showcase</h4>
+        <div style="background: #111; padding: 15px; border-radius: 10px;">
+          <code>
+          function updateStats() {<br/>
+            &nbsp;&nbsp;// TVL growth with random fluctuations<br/>
+            &nbsp;&nbsp;tvl += tvl * 0.001 * (Math.random() + 0.5);<br/>
+            &nbsp;&nbsp;// Price micro-fluctuations<br/>
+            &nbsp;&nbsp;price += price * 0.0002 * (Math.random() * 2 - 1);<br/>
+            &nbsp;&nbsp;// Holders accelerating growth<br/>
+            &nbsp;&nbsp;holders += Math.random() * holders * 0.01;<br/>
+            &nbsp;&nbsp;// APY micro-fluctuations<br/>
+            &nbsp;&nbsp;apy += (Math.random() * 0.1 - 0.05);<br/>
+            &nbsp;&nbsp;requestAnimationFrame(updateStats);<br/>
+          }
+          </code>
+        </div>
+        <p>Real-time animation code snippet</p>
+      </td>
+    </tr>
+  </table>
+</div>
+
 ---
 
 ## 🚀 Features
