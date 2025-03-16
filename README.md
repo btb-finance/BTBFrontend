@@ -1,4 +1,4 @@
-# CHICKS Token - The Next Generation DeFi Yield Protocol
+# 🐣 CHICKS Token - The Next Generation DeFi Yield Protocol
 
 <div align="center">
   <img src="public/images/btblogo.jpg" alt="CHICKS Token Logo" width="200"/>
@@ -7,77 +7,151 @@
     <b>100% USDC-Backed | Real-Time Animated Stats | 5000%+ APY</b>
   </p>
 
-  <p>
-    <a href="https://btb.finance"><img src="https://img.shields.io/badge/website-btb.finance-blue?style=flat-square" alt="Website"></a>
-    <a href="#"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-    <a href="#"><img src="https://img.shields.io/badge/version-1.0.0-orange?style=flat-square" alt="Version"></a>
-  </p>
+  <div>
+    <a href="https://btb.finance"><img src="https://img.shields.io/badge/website-btb.finance-blue?style=for-the-badge&logo=ethereum" alt="Website"></a>
+    <a href="#"><img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge&logo=opensourceinitiative" alt="License"></a>
+    <a href="#"><img src="https://img.shields.io/badge/version-1.0.0-orange?style=for-the-badge&logo=npm" alt="Version"></a>
+    <a href="#"><img src="https://img.shields.io/badge/APY-5000%2B-ff69b4?style=for-the-badge&logo=bitcoin" alt="APY"></a>
+  </div>
+  
+  <br/>
+  
+  <div>
+    <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js" alt="Next.js">
+    <img src="https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=flat-square&logo=tailwind-css" alt="Tailwind">
+    <img src="https://img.shields.io/badge/Framer-Motion-0055FF?style=flat-square&logo=framer" alt="Framer">
+    <img src="https://img.shields.io/badge/TypeScript-4.9-3178C6?style=flat-square&logo=typescript" alt="TypeScript">
+  </div>
 </div>
 
-## Live Demo
+<br/>
+
+<p align="center">
+  <b>🚀 The most innovative DeFi protocol with stunning animations and real-time stats 🚀</b>
+</p>
+
+---
+
+## ✨ Live Demo
 
 <div align="center">
   <img src="https://i.imgur.com/XYZ123.gif" alt="CHICKS Token Demo" width="800"/>
   <p><i>Experience our dynamic animations and real-time stats dashboard</i></p>
 </div>
 
-## Features
+<details>
+  <summary>📱 View Mobile Demo</summary>
+  <div align="center">
+    <img src="https://i.imgur.com/MOBILE123.gif" alt="CHICKS Token Mobile Demo" width="300"/>
+  </div>
+</details>
+
+---
+
+## 🚀 Features
 
 <table>
   <tr>
-    <td width="50%">
-      <h3>100% USDC-Backed</h3>
+    <td width="50%" align="center">
+      <h3>💰 100% USDC-Backed</h3>
+      <img src="https://i.imgur.com/USDC456.png" alt="USDC Backed" width="150"/>
       <p>Every CHICKS token is fully backed by USDC, ensuring stability and trust</p>
     </td>
-    <td width="50%">
-      <h3>Real-Time Stats</h3>
+    <td width="50%" align="center">
+      <h3>📈 Real-Time Stats</h3>
+      <img src="https://i.imgur.com/STATS789.png" alt="Real-Time Stats" width="150"/>
       <p>Watch as TVL grows from $20K to $100M with live animations</p>
     </td>
   </tr>
   <tr>
-    <td width="50%">
-      <h3>Animated UI</h3>
+    <td width="50%" align="center">
+      <h3>🌊 Animated UI</h3>
+      <img src="https://i.imgur.com/UI123.png" alt="Animated UI" width="150"/>
       <p>Floating elements and continuous motion effects create an engaging experience</p>
     </td>
-    <td width="50%">
-      <h3>5000%+ APY</h3>
+    <td width="50%" align="center">
+      <h3>🔥 5000%+ APY</h3>
+      <img src="https://i.imgur.com/APY456.png" alt="High APY" width="150"/>
       <p>Industry-leading yields with micro-fluctuations visualized in real-time</p>
     </td>
   </tr>
 </table>
 
-## Interactive Elements
+---
+
+## 🎮 Interactive Elements
 
 Our platform features several interactive elements that make exploring DeFi fun and engaging:
 
-- **Floating Tokens**: Watch as tokens float across your screen in the hero section
-- **Live Counter**: See the number of holders increase in real-time
-- **Price Ticker**: Experience micro-fluctuations in the CHICKS token price
-- **Animated Gradients**: Beautiful background effects that respond to user interaction
-- **Pulsing CTAs**: Attention-grabbing call-to-action buttons with dynamic effects
+<div align="center">
+  <img src="https://i.imgur.com/INTERACTIVE789.png" alt="Interactive Elements" width="700"/>
+</div>
 
-## Tech Stack
+- **🪙 Floating Tokens**: Watch as tokens float across your screen in the hero section
+- **👥 Live Counter**: See the number of holders increase in real-time
+- **💹 Price Ticker**: Experience micro-fluctuations in the CHICKS token price
+- **🌈 Animated Gradients**: Beautiful background effects that respond to user interaction
+- **💥 Pulsing CTAs**: Attention-grabbing call-to-action buttons with dynamic effects
 
-- **Frontend**: Next.js 15 with App Router
-- **Styling**: Tailwind CSS with custom animations
-- **Animations**: Framer Motion for smooth, performant effects
-- **Charts**: Recharts for dynamic data visualization
-- **Web3**: ethers.js, wagmi, and viem for blockchain interaction
-- **State Management**: React Context API
-- **Rendering**: requestAnimationFrame for optimal performance
+---
 
-## Tokenomics
+## 🛠️ Tech Stack
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/next-js.svg" width="40"/><br/>Next.js 15</td>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/tailwindcss.svg" width="40"/><br/>Tailwind CSS</td>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/framer-motion.svg" width="40"/><br/>Framer Motion</td>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/typescript.svg" width="40"/><br/>TypeScript</td>
+    </tr>
+    <tr>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/ethereum-1.svg" width="40"/><br/>ethers.js</td>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/react-2.svg" width="40"/><br/>React 18</td>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/recharts.svg" width="40"/><br/>Recharts</td>
+      <td align="center"><img src="https://cdn.worldvectorlogo.com/logos/wagmi.svg" width="40"/><br/>wagmi</td>
+    </tr>
+  </table>
+</div>
+
+- **🔄 Animations**: Framer Motion for smooth, performant effects
+- **📊 Charts**: Recharts for dynamic data visualization
+- **🔗 Web3**: ethers.js, wagmi, and viem for blockchain interaction
+- **🧠 State Management**: React Context API
+- **⚡ Rendering**: requestAnimationFrame for optimal performance
+
+---
+
+## 📊 Tokenomics
 
 <div align="center">
   <img src="https://i.imgur.com/ABC456.png" alt="CHICKS Tokenomics" width="600"/>
 </div>
 
-- **100% USDC-Backed**: Every CHICKS token is fully collateralized
-- **No Pre-minted Tokens**: Fair launch with no team allocations
-- **Transparent Supply**: All tokens are accounted for and visible on-chain
-- **Sustainable Yield**: 5000%+ APY maintained through innovative DeFi strategies
+<table>
+  <tr>
+    <td width="25%" align="center">
+      <h3>💯 100% USDC-Backed</h3>
+      <p>Every token fully collateralized</p>
+    </td>
+    <td width="25%" align="center">
+      <h3>🚫 No Pre-mints</h3>
+      <p>Fair launch, no team allocations</p>
+    </td>
+    <td width="25%" align="center">
+      <h3>👁️ Transparent</h3>
+      <p>All tokens visible on-chain</p>
+    </td>
+    <td width="25%" align="center">
+      <h3>♾️ Sustainable</h3>
+      <p>5000%+ APY maintained</p>
+    </td>
+  </tr>
+</table>
 
-## Getting Started
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -85,6 +159,10 @@ Our platform features several interactive elements that make exploring DeFi fun 
 - pnpm package manager
 
 ### Installation
+
+<div align="center">
+  <img src="https://i.imgur.com/INSTALL123.png" alt="Installation" width="600"/>
+</div>
 
 1. Clone the repository:
 ```bash
@@ -111,29 +189,40 @@ pnpm run dev
 
 5. Open [http://localhost:3000](http://localhost:3000) to see the magic!
 
-## Deployment
+---
 
-### Vercel (Recommended)
+## 🌐 Deployment
 
-1. Fork this repository
-2. Create a new project on [Vercel](https://vercel.com)
-3. Connect your forked repository
-4. Add environment variables
-5. Deploy!
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center">
+        <h3>Vercel (Recommended)</h3>
+        <img src="https://cdn.worldvectorlogo.com/logos/vercel.svg" width="100"/>
+        <ol>
+          <li>Fork this repository</li>
+          <li>Create a new project on <a href="https://vercel.com">Vercel</a></li>
+          <li>Connect your forked repository</li>
+          <li>Add environment variables</li>
+          <li>Deploy!</li>
+        </ol>
+      </td>
+      <td width="50%" align="center">
+        <h3>Self-Hosted</h3>
+        <img src="https://cdn.worldvectorlogo.com/logos/docker.svg" width="100"/>
+        <ol>
+          <li>Build the production version:<br/><code>pnpm run build</code></li>
+          <li>Start the production server:<br/><code>pnpm start</code></li>
+          <li>Or use Docker:<br/><code>docker-compose up -d</code></li>
+        </ol>
+      </td>
+    </tr>
+  </table>
+</div>
 
-### Self-Hosted
+---
 
-1. Build the production version:
-```bash
-pnpm run build
-```
-
-2. Start the production server:
-```bash
-pnpm start
-```
-
-## Try It Out!
+## 🎮 Try It Out!
 
 <div align="center">
   <img src="https://i.imgur.com/DEF789.png" alt="CHICKS Token Game" width="700"/>
@@ -141,28 +230,46 @@ pnpm start
 </div>
 
 Our platform includes a fun mini-game where you can:
-- Click on floating CHICKS tokens to earn points
-- Watch your score increase in real-time
-- Compete with other users on our leaderboard
-- Earn exclusive NFT rewards for high scores
+- 🎯 Click on floating CHICKS tokens to earn points
+- 📈 Watch your score increase in real-time
+- 🏆 Compete with other users on our leaderboard
+- 🎁 Earn exclusive NFT rewards for high scores
 
-## Community & Support
+<details>
+  <summary>🎥 View Game Demo</summary>
+  <div align="center">
+    <img src="https://i.imgur.com/GAME123.gif" alt="CHICKS Token Game Demo" width="600"/>
+  </div>
+</details>
 
-- **Website**: [btb.finance](https://btb.finance)
-- **Twitter**: [@BTB_Finance](https://twitter.com/BTB_Finance)
-- **Discord**: [Join our community](https://discord.gg/bqFEPA56Tc)
-- **Documentation**: [docs.btb.finance](https://docs.btb.finance)
+---
 
-## License
+## 👥 Community & Support
+
+<div align="center">
+  <a href="https://btb.finance"><img src="https://img.shields.io/badge/Website-btb.finance-blue?style=for-the-badge&logo=firefox" alt="Website"></a>
+  <a href="https://twitter.com/BTB_Finance"><img src="https://img.shields.io/badge/Twitter-@BTB__Finance-1DA1F2?style=for-the-badge&logo=twitter" alt="Twitter"></a>
+  <a href="https://discord.gg/bqFEPA56Tc"><img src="https://img.shields.io/badge/Discord-Join%20Us-7289DA?style=for-the-badge&logo=discord" alt="Discord"></a>
+  <a href="https://docs.btb.finance"><img src="https://img.shields.io/badge/Docs-docs.btb.finance-lightgrey?style=for-the-badge&logo=gitbook" alt="Docs"></a>
+</div>
+
+---
+
+## 📝 License
+
+<div align="center">
+  <img src="https://opensource.org/files/osi_keyhole_300X300_90ppi_0.png" width="50"/>
+</div>
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
-  <p>Built with by the BTB Finance Team</p>
+  <h3>Built with ❤️ by the BTB Finance Team</h3>
   <p>
     <img src="public/images/eth-logo.png" alt="Ethereum" width="30"/>
     <img src="public/images/usdc-logo.png" alt="USDC" width="30"/>
   </p>
+  <p>© 2025 BTB Finance. All rights reserved.</p>
 </div>
