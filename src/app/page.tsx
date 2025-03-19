@@ -644,7 +644,7 @@ export default function Home() {
                     <span className="text-lg font-semibold">1</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Real-time Calculations</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Real-time Calculations</h3>
                     <p className="text-gray-600 dark:text-gray-300">Instantly see how price changes affect your liquidity position</p>
                   </div>
                 </div>
@@ -654,7 +654,7 @@ export default function Home() {
                     <span className="text-lg font-semibold">2</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Multiple AMM Support</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Multiple AMM Support</h3>
                     <p className="text-gray-600 dark:text-gray-300">Compare IL across different protocols and pool types</p>
                   </div>
                 </div>
@@ -664,7 +664,7 @@ export default function Home() {
                     <span className="text-lg font-semibold">3</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Visual Analytics</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Visual Analytics</h3>
                     <p className="text-gray-600 dark:text-gray-300">Interactive charts help visualize potential outcomes</p>
                   </div>
                 </div>
@@ -716,6 +716,184 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Experimental Innovation Disclaimer */}
+      <div className="py-10 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden opacity-10">
+          <motion.div 
+            className="absolute top-10 left-10 w-64 h-64 rounded-full bg-btb-primary/30 blur-3xl"
+            animate={{ 
+              x: [0, 50, 0], 
+              y: [0, 30, 0],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-btb-primary-light/20 blur-3xl"
+            animate={{ 
+              x: [0, -40, 0], 
+              y: [0, -20, 0],
+              scale: [1, 1.3, 1],
+            }}
+            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          />
+        </div>
+
+        <div className="mx-auto max-w-5xl px-6 lg:px-8 relative z-10">
+          <motion.div 
+            className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+          >
+            {/* Innovation Lab Header */}
+            <div className="bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light p-4 flex items-center justify-center relative overflow-hidden">
+              <div className="absolute inset-0 opacity-20">
+                <svg className="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="white" stopOpacity="0.3" />
+                      <stop offset="100%" stopColor="white" stopOpacity="0.1" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M20,50 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0" fill="none" stroke="url(#grad1)" strokeWidth="0.5">
+                    <animate attributeName="stroke-dasharray" from="0 188.5" to="188.5 0" dur="3s" repeatCount="indefinite" />
+                  </path>
+                  <path d="M30,50 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.3">
+                    <animate attributeName="stroke-dasharray" from="0 125.7" to="125.7 0" dur="3s" repeatCount="indefinite" begin="0.5s" />
+                  </path>
+                  <path d="M40,50 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.5">
+                    <animate attributeName="stroke-dasharray" from="0 62.8" to="62.8 0" dur="3s" repeatCount="indefinite" begin="1s" />
+                  </path>
+                </svg>
+              </div>
+              
+              <div className="relative z-10 flex items-center">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="w-12 h-12 mr-4 relative flex-shrink-0"
+                >
+                  <div className="absolute inset-0 rounded-full border-2 border-white/30 border-dashed"></div>
+                  <div className="absolute inset-2 rounded-full border-1 border-white/50"></div>
+                  <motion.div 
+                    className="absolute inset-0 flex items-center justify-center"
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <BeakerIcon className="h-6 w-6 text-white" />
+                  </motion.div>
+                </motion.div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold text-white font-heading">
+                    Innovation Through <span className="text-white/90 italic">Experimentation</span>
+                  </h2>
+                  <div className="flex items-center text-white/80 text-sm">
+                    <SparklesIcon className="h-3 w-3 mr-1" />
+                    <span>Pushing the boundaries of DeFi with bold new concepts</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6">
+              <div className="flex items-start mb-4">
+                <div className="flex-shrink-0 w-1 self-stretch bg-gradient-to-b from-btb-primary to-btb-primary-light rounded-full mr-3 opacity-30"></div>
+                <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed">
+                  At BTB Finance, we're pioneering the future of DeFi through bold experimentation, creating innovative financial concepts that have never existed before.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <motion.div 
+                  className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 hover:border-btb-primary/30 dark:hover:border-btb-primary/30 transition-all duration-300"
+                  whileHover={{ y: -3, boxShadow: "0 8px 15px -5px rgba(0, 0, 0, 0.1)" }}
+                >
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-lg bg-gradient-to-br from-btb-primary/20 to-btb-primary-light/20 text-btb-primary mr-2">
+                      <SparklesIcon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Pioneering New Concepts</h3>
+                      <p className="text-gray-600 dark:text-gray-300 text-xs">
+                        Our revolutionary bonding curve pricing and unique economic models are the first of their kind.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+                
+                <motion.div 
+                  className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 hover:border-btb-primary/30 dark:hover:border-btb-primary/30 transition-all duration-300"
+                  whileHover={{ y: -3, boxShadow: "0 8px 15px -5px rgba(0, 0, 0, 0.1)" }}
+                >
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-lg bg-gradient-to-br from-btb-primary/20 to-btb-primary-light/20 text-btb-primary mr-2">
+                      <ShieldCheckIcon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Risk Awareness</h3>
+                      <p className="text-gray-600 dark:text-gray-300 text-xs">
+                        We encourage all users to invest only what they can afford to lose.
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              
+              <motion.div 
+                className="relative overflow-hidden rounded-xl bg-gradient-to-r from-btb-primary/5 via-btb-primary/10 to-btb-primary-light/5 p-4 border border-btb-primary/20"
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                viewport={{ once: true }}
+              >
+                <motion.div 
+                  className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-btb-primary/5"
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.1, 0.2, 0.1],
+                  }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                />
+                <motion.div 
+                  className="absolute -bottom-12 -left-12 w-24 h-24 rounded-full bg-btb-primary/5"
+                  animate={{
+                    scale: [1, 1.2, 1],
+                    opacity: [0.1, 0.2, 0.1],
+                  }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+                />
+                
+                <div className="relative z-10">
+                  <div className="flex items-center mb-2">
+                    <div className="flex-shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-gradient-to-r from-btb-primary to-btb-primary-light text-white mr-2">
+                      <span className="text-xs font-bold">!</span>
+                    </div>
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Important Disclaimer</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 dark:text-gray-200 text-sm">
+                    <strong>Always invest at your own risk.</strong> The experimental nature of our products means outcomes may differ from expectations. We're committed to transparency as we explore new financial frontiers together.
+                  </p>
+                  
+                  <div className="mt-2 text-xs">
+                    <Link 
+                      href="/risk-disclosure" 
+                      className="inline-flex items-center px-2 py-1 rounded-md bg-btb-primary/10 text-btb-primary dark:text-btb-primary-light hover:bg-btb-primary/20 transition-colors"
+                    >
+                      Read full risk disclosure <ArrowRightIcon className="ml-1 h-2.5 w-2.5" />
+                    </Link>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </motion.div>
         </div>
       </div>
 
