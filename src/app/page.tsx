@@ -95,7 +95,7 @@ const products = [
   },
   {
     name: 'DeFi Hooks',
-    description: 'Advanced DeFi hooks for seamless trading and investment across the Optimism ecosystem.',
+    description: 'Advanced DeFi hooks for seamless trading and investment across the Base ecosystem.',
     detailedDescription: 'Our DeFi Hooks provide developers and users with powerful integrations to connect with various DeFi protocols across the Optimism ecosystem. These hooks enable seamless trading, liquidity provision, and yield optimization with minimal friction.',
     features: ['Cross-protocol integrations', 'Gas-optimized transactions', 'Automated yield strategies', 'Custom trading hooks'],
     icon: LightBulbIcon,
@@ -255,7 +255,7 @@ export default function Home() {
                 >
                   <TypewriterEffect 
                     words={[
-                      'Revolutionizing DeFi on Optimism', 
+                      'Revolutionizing DeFi on Base', 
                       'Secure Your Financial Future',
                       'Trade with Bonding Curve Pricing',
                       'Join the DeFi Evolution',
