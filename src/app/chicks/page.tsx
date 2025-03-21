@@ -220,12 +220,14 @@ export default function ChicksTokenPage() {
               className="flex flex-wrap justify-center gap-4"
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button 
-                  size="lg" 
-                  leftIcon={<CurrencyDollarIcon className="w-5 h-5" />}
-                >
-                  Buy CHICKS
-                </Button>
+                <Link href="/chicks/trade">
+                  <Button 
+                    size="lg" 
+                    leftIcon={<CurrencyDollarIcon className="w-5 h-5" />}
+                  >
+                    Buy CHICKS
+                  </Button>
+                </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button 
@@ -1386,9 +1388,11 @@ export default function ChicksTokenPage() {
                 whileTap={{ scale: 0.95 }}
                 className="inline-block"
               >
-                <Button size="lg" className="bg-gradient-to-r from-btb-primary to-blue-600 hover:from-btb-primary-dark hover:to-blue-700">
-                  Launch App
-                </Button>
+                <Link href="/chicks/trade">
+                  <Button size="lg" className="bg-gradient-to-r from-btb-primary to-blue-600 hover:from-btb-primary-dark hover:to-blue-700">
+                    Launch App
+                  </Button>
+                </Link>
               </motion.div>
               
               <div className="mt-6 flex justify-center space-x-4">
@@ -1475,13 +1479,15 @@ export default function ChicksTokenPage() {
                 }}
                 transition={{ boxShadow: { duration: 2, repeat: Infinity } }}
               >
-                <Button 
-                  size="lg" 
-                  className="bg-white text-btb-primary hover:bg-gray-100"
-                  leftIcon={<CurrencyDollarIcon className="w-5 h-5" />}
-                >
-                  Buy CHICKS Now
-                </Button>
+                <Link href="/chicks/trade">
+                  <Button 
+                    size="lg" 
+                    className="bg-white text-btb-primary hover:bg-gray-100"
+                    leftIcon={<CurrencyDollarIcon className="w-5 h-5" />}
+                  >
+                    Buy CHICKS Now
+                  </Button>
+                </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button 
