@@ -1,89 +1,60 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '../../../context/WalletContext';
 import chicksService from '../../../services/chicksService';
-import { Button } from '../../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { ShieldCheckIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ShieldCheckIcon, CalendarIcon } from '@heroicons/react/24/outline';
+
+interface LoanData {
+  collateral: string;
+  borrowed: string;
+  endDate: number;
+  numberOfDays: number;
+}
 
 interface LoanInfoProps {
   hasLoan: boolean;
-  loanData: any;
-  chicksPrice: string;
-  onSuccess: () => void;
+  loanData: LoanData | null;
+  chicksPrice: string; // Keeping for future use
+  onSuccess: () => void; // Keeping for future use
 }
 
-export default function LoanInfo({ hasLoan, loanData, chicksPrice, onSuccess }: LoanInfoProps) {
+export default function LoanInfo({ hasLoan, loanData }: LoanInfoProps) {
   const { isConnected } = useWallet();
-  const [liquidationPrice, setLiquidationPrice] = useState<string>('0');
-  const [healthFactor, setHealthFactor] = useState<number>(0);
-  const [isLiquidating, setIsLiquidating] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isExpired, setIsExpired] = useState<boolean>(false);
 
-  useEffect(() => {
-    if (hasLoan && loanData && chicksPrice) {
-      calculateLoanMetrics();
-    }
-  }, [hasLoan, loanData, chicksPrice]);
-
-  const calculateLoanMetrics = () => {
+  const checkLoanExpiry = useCallback(async () => {
     if (!hasLoan || !loanData) return;
 
     try {
-      const totalDebt = parseFloat(loanData.borrowed) + parseFloat(loanData.interest);
-      const collateralValue = parseFloat(loanData.collateral) * parseFloat(chicksPrice);
-      
-      // Calculate health factor (collateral value / debt)
-      const factor = collateralValue / totalDebt;
-      setHealthFactor(factor);
-      
-      // Calculate liquidation price
-      // Liquidation happens when collateral value = debt * liquidation threshold (usually 110%)
-      // So: collateral * liquidation_price = debt * 1.1
-      // liquidation_price = (debt * 1.1) / collateral
-      const liquidationThreshold = 1.1; // 110%
-      const liqPrice = (totalDebt * liquidationThreshold) / parseFloat(loanData.collateral);
-      setLiquidationPrice(liqPrice.toFixed(6));
+      const expired = await chicksService.isLoanExpired();
+      setIsExpired(expired);
     } catch (error) {
-      console.error('Error calculating loan metrics:', error);
+      console.error('Error checking loan expiry:', error);
     }
-  };
+  }, [hasLoan, loanData]);
 
-  const getHealthColor = () => {
-    if (healthFactor >= 2) return 'text-green-500';
-    if (healthFactor >= 1.5) return 'text-yellow-500';
-    if (healthFactor >= 1.2) return 'text-orange-500';
-    return 'text-red-500';
-  };
-
-  const getHealthStatus = () => {
-    if (healthFactor >= 2) return 'Excellent';
-    if (healthFactor >= 1.5) return 'Good';
-    if (healthFactor >= 1.2) return 'Caution';
-    return 'At Risk';
-  };
-
-  const handleLiquidate = async () => {
-    if (!hasLoan || !loanData) {
-      return;
+  useEffect(() => {
+    if (hasLoan && loanData) {
+      checkLoanExpiry();
     }
+  }, [hasLoan, loanData, checkLoanExpiry]);
 
+  const formatDate = (timestamp: number) => {
+    if (!timestamp) return 'N/A';
+    
     try {
-      setIsLiquidating(true);
-      setError(null);
-
-      // Execute liquidate transaction
-      const tx = await chicksService.liquidate();
-      await tx.wait();
-
-      // Refresh data
-      onSuccess();
-    } catch (error: any) {
-      console.error('Error liquidating loan:', error);
-      setError(error.message || 'Failed to liquidate loan. Please try again.');
-    } finally {
-      setIsLiquidating(false);
+      const date = new Date(timestamp * 1000);
+      const options: Intl.DateTimeFormatOptions = { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      };
+      return date.toLocaleDateString(undefined, options);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'N/A';
     }
   };
 
@@ -113,7 +84,7 @@ export default function LoanInfo({ hasLoan, loanData, chicksPrice, onSuccess }: 
           <ShieldCheckIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
           <h4 className="text-lg font-medium mb-2">No Active Loans</h4>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            You don't have any active loans at this time.
+            You don&apos;t have any active loans at this time.
           </p>
         </CardContent>
       </Card>
@@ -126,33 +97,13 @@ export default function LoanInfo({ hasLoan, loanData, chicksPrice, onSuccess }: 
         <CardTitle>Loan Information</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Borrowed Amount
             </div>
             <div className="font-medium">
               {loanData ? parseFloat(loanData.borrowed).toFixed(6) : '0.00'} USDC
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Accrued Interest
-            </div>
-            <div className="font-medium">
-              {loanData ? parseFloat(loanData.interest).toFixed(6) : '0.00'} USDC
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Total Debt
-            </div>
-            <div className="font-medium">
-              {loanData 
-                ? (parseFloat(loanData.borrowed) + parseFloat(loanData.interest)).toFixed(6) 
-                : '0.00'} USDC
             </div>
           </div>
           
@@ -167,70 +118,38 @@ export default function LoanInfo({ hasLoan, loanData, chicksPrice, onSuccess }: 
           
           <div>
             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Loan Duration
+            </div>
+            <div className="font-medium">
+              {loanData ? loanData.numberOfDays : '0'} days
+            </div>
+          </div>
+          
+          <div>
+            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Loan Expiry
             </div>
             <div className="font-medium">
-              {loanData && loanData.expiry 
-                ? new Date(parseInt(loanData.expiry) * 1000).toLocaleDateString() 
-                : 'N/A'}
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Health Factor
-            </div>
-            <div className={`font-medium ${getHealthColor()}`}>
-              {healthFactor.toFixed(2)} ({getHealthStatus()})
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Liquidation Price
-            </div>
-            <div className="font-medium">
-              ${parseFloat(liquidationPrice).toFixed(6)} USDC
+              {loanData && loanData.endDate ? formatDate(loanData.endDate) : 'N/A'}
             </div>
           </div>
         </div>
         
-        {healthFactor < 1.2 && (
-          <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded text-sm">
+        {isExpired && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded text-sm">
             <div className="flex items-start">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-2 flex-shrink-0" />
+              <CalendarIcon className="h-5 w-5 text-yellow-500 mr-2 flex-shrink-0" />
               <div>
-                <p className="font-medium text-red-800 dark:text-red-200 mb-1">
-                  Liquidation Risk
+                <p className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
+                  Loan Expired
                 </p>
-                <p className="text-red-700 dark:text-red-300">
-                  Your loan is at risk of liquidation. Consider repaying some of your debt or adding more collateral to improve your health factor.
+                <p className="text-yellow-700 dark:text-yellow-300">
+                  Your loan has expired. Please repay your loan to retrieve your collateral.
                 </p>
               </div>
             </div>
           </div>
         )}
-        
-        {error && (
-          <div className="text-red-500 text-sm p-2 bg-red-50 dark:bg-red-900/20 rounded">
-            {error}
-          </div>
-        )}
-        
-        <div className="pt-2">
-          <Button
-            onClick={handleLiquidate}
-            disabled={isLiquidating || healthFactor > 1.1}
-            variant="destructive"
-            className="w-full"
-          >
-            {isLiquidating ? 'Processing...' : 'Liquidate Position'}
-          </Button>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
-            Liquidate your position to retrieve your collateral minus liquidation penalty.
-            Only available when health factor is critically low.
-          </p>
-        </div>
       </CardContent>
     </Card>
   );

@@ -214,6 +214,22 @@ class ChicksService {
     }
   }
 
+  // Check if user has an active loan
+  public async hasActiveLoan(): Promise<boolean> {
+    await this.ensureInitialized();
+    
+    try {
+      const address = await this.signer!.getAddress();
+      const loan = await this.contract!.Loans(address);
+      
+      // Check if the loan exists and has a non-zero borrowed amount
+      return loan && !loan.borrowed.isZero();
+    } catch (error) {
+      console.error('Error checking active loan:', error);
+      return false;
+    }
+  }
+
   // Buy CHICKS with USDC
   public async buyChicks(usdcAmount: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
@@ -285,7 +301,18 @@ class ChicksService {
 
   // Calculate leverage fee
   public async getLeverageFee(usdcAmount: string, numberOfDays: number): Promise<string> {
+    await this.ensureInitialized();
+    
     try {
+      // Validate inputs
+      if (!usdcAmount || isNaN(parseFloat(usdcAmount)) || parseFloat(usdcAmount) <= 0) {
+        throw new Error('Invalid USDC amount');
+      }
+      
+      if (!numberOfDays || numberOfDays <= 0) {
+        throw new Error('Invalid number of days');
+      }
+      
       const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       const fee = await this.contract!.leverageFee(parsedAmount, numberOfDays);
       return ethers.utils.formatUnits(fee, 6); // USDC has 6 decimals
@@ -300,6 +327,22 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
+      // Validate inputs
+      if (!usdcAmount || isNaN(parseFloat(usdcAmount)) || parseFloat(usdcAmount) <= 0) {
+        throw new Error('Invalid USDC amount');
+      }
+      
+      if (!numberOfDays || numberOfDays <= 0) {
+        throw new Error('Invalid number of days');
+      }
+      
+      // Check if user already has an active loan
+      const address = await this.signer!.getAddress();
+      const hasLoan = await this.hasActiveLoan();
+      if (hasLoan) {
+        throw new Error('You already have an active loan. Please repay or close your existing position before creating a new one.');
+      }
+      
       const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Calculate the fee
@@ -309,24 +352,87 @@ class ChicksService {
       const totalAmount = parsedAmount.add(fee);
       
       // Get USDC contract
-      const address = await this.signer!.getAddress();
       const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, this.signer!);
+      
+      // Check USDC balance
+      const balance = await usdcContract.balanceOf(address);
+      if (balance.lt(totalAmount)) {
+        throw new Error(`Insufficient USDC balance. You need ${ethers.utils.formatUnits(totalAmount, 6)} USDC but have ${ethers.utils.formatUnits(balance, 6)} USDC.`);
+      }
       
       // Check allowance
       const allowance = await usdcContract.allowance(address, this.contractAddress);
       
       // If allowance is insufficient, approve first
       if (allowance.lt(totalAmount)) {
-        const approveTx = await usdcContract.approve(this.contractAddress, totalAmount);
-        await approveTx.wait();
+        console.log('Approving USDC spend...');
+        try {
+          const approveTx = await usdcContract.approve(this.contractAddress, ethers.constants.MaxUint256);
+          await approveTx.wait();
+          console.log('USDC approval successful');
+        } catch (approveError) {
+          console.error('Error approving USDC:', approveError);
+          throw new Error('Failed to approve USDC spending. Please try again.');
+        }
       }
       
-      // Execute leverage transaction
-      const tx = await this.contract!.leverage(parsedAmount, numberOfDays);
-      return tx;
-    } catch (error) {
+      console.log('Executing leverage transaction...');
+      console.log('Parameters:', {
+        parsedAmount: parsedAmount.toString(),
+        numberOfDays,
+        contractAddress: this.contractAddress
+      });
+      
+      // Try different approaches if the first one fails
+      try {
+        // First attempt with standard parameters
+        const tx = await this.contract!.leverage(parsedAmount, numberOfDays, {
+          gasLimit: 1000000,
+        });
+        console.log('Leverage transaction submitted:', tx.hash);
+        return tx;
+      } catch (error1) {
+        console.error('First leverage attempt failed:', error1);
+        
+        // Second attempt with different gas settings
+        try {
+          const tx = await this.contract!.leverage(parsedAmount, numberOfDays, {
+            gasLimit: 2000000,
+            gasPrice: ethers.utils.parseUnits('50', 'gwei')
+          });
+          console.log('Leverage transaction submitted (second attempt):', tx.hash);
+          return tx;
+        } catch (error2) {
+          console.error('Second leverage attempt failed:', error2);
+          
+          // Check if user has an existing loan that might be causing issues
+          try {
+            const loan = await this.contract!.Loans(address);
+            if (loan && loan.borrowed && !loan.borrowed.isZero()) {
+              throw new Error('You already have an active loan. Please repay or close your existing position before creating a new one.');
+            }
+          } catch (loanError) {
+            console.error('Error checking loan status:', loanError);
+          }
+          
+          throw new Error('Transaction failed. The contract rejected the operation. This could be due to contract restrictions or an issue with the parameters.');
+        }
+      }
+    } catch (error: any) {
       console.error('Error creating leveraged position:', error);
-      throw error;
+      
+      // Extract meaningful error message
+      let errorMessage = 'Failed to create leveraged position';
+      
+      if (error.reason) {
+        errorMessage += `: ${error.reason}`;
+      } else if (error.message) {
+        errorMessage += `: ${error.message}`;
+      } else if (error.data) {
+        errorMessage += ` (error code: ${error.data})`;
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
@@ -340,8 +446,34 @@ class ChicksService {
       // Execute borrow transaction
       const tx = await this.contract!.borrow(parsedAmount, numberOfDays);
       return tx;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error borrowing USDC:', error);
+      
+      // Check if the error message contains "Use borrowMore"
+      if (error.data && typeof error.data === 'object' && error.data.message) {
+        if (error.data.message.includes('Use borrowMore')) {
+          throw new Error('You already have an active loan. Please use "Borrow More" instead.');
+        }
+      } else if (error.message && error.message.includes('Use borrowMore')) {
+        throw new Error('You already have an active loan. Please use "Borrow More" instead.');
+      }
+      
+      throw error;
+    }
+  }
+
+  // Borrow more USDC against existing collateral
+  public async borrowMore(usdcAmount: string): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    
+    try {
+      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      
+      // Execute borrowMore transaction
+      const tx = await this.contract!.borrowMore(parsedAmount);
+      return tx;
+    } catch (error) {
+      console.error('Error borrowing more USDC:', error);
       throw error;
     }
   }
@@ -351,6 +483,22 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
+      // Validate input to prevent overflow/underflow
+      const amount = parseFloat(usdcAmount);
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Invalid repay amount. Amount must be greater than 0.");
+      }
+      
+      // Get the user's loan to check if repay amount is valid
+      const loan = await this.getUserLoan();
+      const borrowedAmount = parseFloat(loan.borrowed);
+      
+      // Ensure repay amount is not greater than borrowed amount
+      if (amount > borrowedAmount) {
+        console.warn(`Repay amount (${amount}) is greater than borrowed amount (${borrowedAmount}). Adjusting to borrowed amount.`);
+        usdcAmount = borrowedAmount.toString();
+      }
+      
       const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Get USDC contract
@@ -375,12 +523,17 @@ class ChicksService {
     }
   }
 
-  // Close a position by repaying the full loan
-  public async closePosition(usdcAmount: string): Promise<ethers.ContractTransaction> {
+  // Close a position by repaying the full loan amount
+  public async closePosition(usdcAmount?: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      // Get the user's loan to determine the exact borrowed amount
+      const loan = await this.getUserLoan();
+      const borrowedAmount = loan.borrowed;
+      
+      // Parse the borrowed amount
+      const parsedAmount = ethers.utils.parseUnits(borrowedAmount, 6); // USDC has 6 decimals
       
       // Get USDC contract
       const address = await this.signer!.getAddress();
@@ -395,23 +548,57 @@ class ChicksService {
         await approveTx.wait();
       }
       
-      // Execute closePosition transaction
-      const tx = await this.contract!.closePosition(parsedAmount);
-      return tx;
+      try {
+        // Try to execute closePosition transaction with the exact borrowed amount
+        const tx = await this.contract!.closePosition(parsedAmount);
+        return tx;
+      } catch (error: any) {
+        // Check if the error is due to insufficient collateral
+        if (error.message && error.message.includes("You do not have enough collateral to close position")) {
+          console.log("Not enough collateral to close position normally, trying flash close...");
+          // Fall back to flash close position
+          return await this.flashClosePosition();
+        }
+        // If it's a different error, rethrow it
+        throw error;
+      }
     } catch (error) {
       console.error('Error closing position:', error);
       throw error;
     }
   }
 
-  // Flash close a position (sell collateral to repay loan)
+  // Flash close position (repay loan using flash loan)
   public async flashClosePosition(): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
-      // Execute flashClosePosition transaction
-      const tx = await this.contract!.flashClosePosition();
-      return tx;
+      // Check if user has an active loan first
+      const hasLoan = await this.hasActiveLoan();
+      if (!hasLoan) {
+        throw new Error("No active loan to close");
+      }
+      
+      // Get the user's loan to log details for debugging
+      const loan = await this.getUserLoan();
+      console.log("Attempting flash close for loan:", {
+        borrowed: loan.borrowed,
+        collateral: loan.collateral,
+        endDate: loan.endDate
+      });
+      
+      try {
+        // Execute flashClosePosition transaction
+        const tx = await this.contract!.flashClosePosition();
+        return tx;
+      } catch (error: any) {
+        // Check for specific error messages and provide more helpful errors
+        if (error.message && error.message.includes("arithmetic")) {
+          console.error("Arithmetic error in flash close. This may be due to precision issues with the loan amounts.");
+          throw new Error("Failed to flash close position due to calculation error. Please try again or contact support.");
+        }
+        throw error;
+      }
     } catch (error) {
       console.error('Error flash closing position:', error);
       throw error;
@@ -470,8 +657,8 @@ class ChicksService {
     try {
       const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
-      // Calculate the fee
-      const fee = await this.contract!.borrowFee(parsedAmount, numberOfDays);
+      // Calculate the fee using the correct function name getInterestFee
+      const fee = await this.contract!.getInterestFee(parsedAmount, numberOfDays);
       
       return ethers.utils.formatUnits(fee, 6);
     } catch (error) {

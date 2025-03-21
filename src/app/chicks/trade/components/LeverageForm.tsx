@@ -31,6 +31,7 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
 
       try {
         setIsCalculating(true);
+        setError(null);
         
         // Calculate leverage fee
         const fee = await chicksService.getLeverageFee(usdcAmount, days);
@@ -44,8 +45,9 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
         // This is an approximation since we don't have the exact formula
         const estimatedChicks = (parseFloat(usdcAmount) / parseFloat(chicksPrice)).toFixed(6);
         setChicksAmount(estimatedChicks);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error calculating leverage details:', error);
+        setError('Failed to calculate leverage details. Please try again.');
       } finally {
         setIsCalculating(false);
       }
@@ -83,7 +85,6 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
 
   const handleLeverage = async () => {
     if (!isConnected) {
-      // Removed connectWallet call
       return;
     }
 
@@ -92,36 +93,92 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
       return;
     }
 
-    if (days <= 0 || days > 365) {
-      setError('Loan duration must be between 1 and 365 days');
-      return;
-    }
-
-    if (parseFloat(totalCost) > parseFloat(usdcBalance)) {
-      setError('Insufficient USDC balance for leverage + fees');
+    if (days <= 0) {
+      setError('Please select a valid loan duration');
       return;
     }
 
     try {
       setIsSubmitting(true);
-      setError(null);
+      setError('Preparing transaction...');
 
-      // Execute leverage transaction
-      const tx = await chicksService.leverage(usdcAmount, days);
-      await tx.wait();
+      // Check if user already has an active loan
+      const hasLoan = await chicksService.hasActiveLoan();
+      if (hasLoan) {
+        setError('You already have an active loan. Please repay or close your existing position before creating a new one.');
+        setIsSubmitting(false);
+        return;
+      }
 
-      // Reset form
-      setUsdcAmount('');
-      setChicksAmount('');
-      setDays(30);
-      setLeverageFee('0');
-      setTotalCost('0');
+      console.log('Starting leverage process with:', {
+        usdcAmount,
+        days,
+        leverageFee,
+        totalCost
+      });
 
-      // Refresh data
-      onSuccess();
+      // Execute leverage transaction with retry logic
+      let tx;
+      try {
+        tx = await chicksService.leverage(usdcAmount, days);
+      } catch (leverageError: any) {
+        console.error('Initial leverage attempt failed:', leverageError);
+        
+        // Display the error to the user
+        setError(`Transaction failed: ${leverageError.message || 'Unknown error'}. Please check your wallet and try again.`);
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (!tx) {
+        setError('Failed to create transaction. Please try again later.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      console.log('Transaction submitted:', tx.hash);
+      setError(`Transaction submitted. Waiting for confirmation... (${tx.hash.substring(0, 10)}...)`);
+      
+      try {
+        const receipt = await tx.wait();
+        console.log('Transaction confirmed:', receipt);
+        
+        // Reset form
+        setUsdcAmount('');
+        setChicksAmount('');
+        setDays(30);
+        setLeverageFee('0');
+        setTotalCost('0');
+        setError('Transaction successful! Position created.');
+        
+        // Refresh data
+        onSuccess();
+      } catch (confirmError: any) {
+        console.error('Transaction failed during confirmation:', confirmError);
+        setError(`Transaction failed during confirmation: ${confirmError.message || 'Unknown error'}`);
+      }
     } catch (error: any) {
       console.error('Error creating leveraged position:', error);
-      setError(error.message || 'Failed to create leveraged position. Please try again.');
+      
+      // Extract meaningful error message
+      let errorMessage = 'Failed to create leveraged position. Please try again.';
+      
+      if (typeof error === 'object' && error !== null) {
+        if (error.message) {
+          errorMessage = error.message;
+          
+          // Special case handling for common errors
+          if (errorMessage.includes('active loan')) {
+            errorMessage = 'You already have an active loan. Please repay or close your existing position before creating a new one.';
+          } else if (errorMessage.includes('user rejected')) {
+            errorMessage = 'Transaction was rejected in your wallet. Please try again if you want to proceed.';
+          } else if (errorMessage.includes('insufficient funds')) {
+            errorMessage = 'Insufficient funds for this transaction. Please check your balance and try again.';
+          }
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -168,34 +225,27 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
           </div>
         </div>
 
-        <div>
-          <label htmlFor="days" className="block text-sm font-medium mb-2">
+        <div className="space-y-2">
+          <label htmlFor="days" className="block text-sm font-medium">
             Loan Duration (Days)
           </label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="days"
-              type="number"
-              min="1"
-              max="365"
-              value={days}
-              onChange={handleDaysChange}
-              disabled={isSubmitting}
-              className="w-24"
-            />
-            <input
-              type="range"
-              min="1"
-              max="365"
-              value={days}
-              onChange={(e) => setDays(parseInt(e.target.value))}
-              disabled={isSubmitting}
-              className="flex-1"
-            />
+          <div className="grid grid-cols-3 gap-2">
+            {[7, 14, 30].map((option) => (
+              <Button
+                key={option}
+                type="button"
+                variant={days === option ? "default" : "outline"}
+                onClick={() => setDays(option)}
+                disabled={isSubmitting}
+                className="w-full"
+              >
+                {option} Days
+              </Button>
+            ))}
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Longer durations have higher fees but provide more time before liquidation.
-          </p>
+          <div className="text-xs text-gray-500 mt-1">
+            Longer durations may have higher fees but provide more time before repayment is required.
+          </div>
         </div>
 
         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
@@ -218,7 +268,7 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
         </div>
 
         {error && (
-          <div className="text-red-500 text-sm p-2 bg-red-50 dark:bg-red-900/20 rounded">
+          <div className={`text-sm p-3 rounded ${error.includes('submitted') ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'}`}>
             {error}
           </div>
         )}

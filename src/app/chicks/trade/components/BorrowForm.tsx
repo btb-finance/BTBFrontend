@@ -5,7 +5,13 @@ import { useWallet } from '../../../context/WalletContext';
 import chicksService from '../../../services/chicksService';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { LockClosedIcon } from '@heroicons/react/24/outline';
+
+interface LoanData {
+  collateral: string;
+  borrowed: string;
+  endDate: number;
+  numberOfDays: number;
+}
 
 interface BorrowFormProps {
   chicksPrice: string;
@@ -24,6 +30,9 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoan, setHasLoan] = useState<boolean>(false);
+  const [loanData, setLoanData] = useState<LoanData | null>(null);
+  const [isBorrowMore, setIsBorrowMore] = useState<boolean>(false);
 
   // Calculate max borrow amount based on CHICKS balance
   useEffect(() => {
@@ -50,6 +59,34 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
 
     calculateMaxBorrow();
   }, [isConnected, chicksBalance, chicksPrice, collateralRatio]);
+
+  // Check if user has an existing loan
+  useEffect(() => {
+    const checkLoan = async () => {
+      if (!isConnected) {
+        setHasLoan(false);
+        setLoanData(null);
+        setIsBorrowMore(false);
+        return;
+      }
+
+      try {
+        const loan = await chicksService.getUserLoan();
+        const hasActiveLoan = parseFloat(loan.borrowed) > 0;
+        setHasLoan(hasActiveLoan);
+        setLoanData(loan);
+        
+        // Automatically switch to borrowMore mode if user has an active loan
+        if (hasActiveLoan) {
+          setIsBorrowMore(true);
+        }
+      } catch (error) {
+        console.error('Error checking loan:', error);
+      }
+    };
+
+    checkLoan();
+  }, [isConnected]);
 
   // Calculate borrow fee when USDC amount or days change
   useEffect(() => {
@@ -110,13 +147,6 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
     }
   };
 
-  const handleCollateralRatioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value >= 120 && value <= 300) {
-      setCollateralRatio(value);
-    }
-  };
-
   const handleMaxClick = () => {
     if (parseFloat(maxBorrowAmount) > 0) {
       // Set to 90% of max to be safe
@@ -127,7 +157,6 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
 
   const handleBorrow = async () => {
     if (!isConnected) {
-      // Removed connectWallet call
       return;
     }
 
@@ -136,7 +165,7 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       return;
     }
 
-    if (days <= 0 || days > 365) {
+    if (!isBorrowMore && (days <= 0 || days > 365)) {
       setError('Loan duration must be between 1 and 365 days');
       return;
     }
@@ -146,7 +175,7 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       return;
     }
 
-    if (parseFloat(chicksAmount) > parseFloat(chicksBalance)) {
+    if (!isBorrowMore && parseFloat(chicksAmount) > parseFloat(chicksBalance)) {
       setError('Insufficient CHICKS balance for required collateral');
       return;
     }
@@ -155,8 +184,28 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       setIsSubmitting(true);
       setError(null);
 
+      // If attempting to create a new loan, check if user already has one
+      if (!isBorrowMore) {
+        // Check for active loan first
+        const hasActiveLoan = await chicksService.hasActiveLoan();
+        
+        if (hasActiveLoan) {
+          // Switch to borrowMore mode
+          setIsBorrowMore(true);
+          setError("You already have an active loan. Switched to 'Borrow More' mode. Please try again.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Execute borrow transaction
-      const tx = await chicksService.borrow(usdcAmount, days);
+      let tx;
+      if (isBorrowMore) {
+        tx = await chicksService.borrowMore(usdcAmount);
+      } else {
+        tx = await chicksService.borrow(usdcAmount, days);
+      }
+      
       await tx.wait();
 
       // Reset form
@@ -164,12 +213,20 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       setChicksAmount('0');
       setBorrowFee('0');
       setDays(30);
+      setIsBorrowMore(false);
 
       // Refresh data
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error borrowing USDC:', error);
-      setError(error.message || 'Failed to borrow USDC. Please try again.');
+      
+      // Still try to catch the error for better UX
+      if (error instanceof Error && error.message && error.message.includes('Use borrowMore')) {
+        setIsBorrowMore(true);
+        setError("You already have an active loan. Switched to 'Borrow More' mode. Please try again.");
+      } else {
+        setError(error instanceof Error ? error.message : 'Failed to borrow USDC. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -184,7 +241,38 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
         </p>
       </div>
 
+      {hasLoan && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800 mb-4">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
+            <strong>You have an active loan.</strong> You can borrow more USDC against your existing collateral or create a new loan.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-4">
+        {hasLoan && (
+          <div className="flex justify-between">
+            <Button
+              type="button"
+              variant={!isBorrowMore ? "default" : "outline"}
+              onClick={() => setIsBorrowMore(false)}
+              disabled={isSubmitting}
+              className="flex-1 mr-2"
+            >
+              New Loan
+            </Button>
+            <Button
+              type="button"
+              variant={isBorrowMore ? "default" : "outline"}
+              onClick={() => setIsBorrowMore(true)}
+              disabled={isSubmitting}
+              className="flex-1 ml-2"
+            >
+              Borrow More
+            </Button>
+          </div>
+        )}
+
         <div>
           <div className="flex justify-between mb-2">
             <label htmlFor="usdcAmount" className="text-sm font-medium">
@@ -216,65 +304,91 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
           </div>
         </div>
 
-        <div>
-          <label htmlFor="days" className="block text-sm font-medium mb-2">
-            Loan Duration (Days)
-          </label>
-          <div className="flex items-center space-x-2">
-            <Input
-              id="days"
-              type="number"
-              min="1"
-              max="365"
-              value={days}
-              onChange={handleDaysChange}
-              disabled={isSubmitting}
-              className="w-24"
-            />
-            <input
-              type="range"
-              min="1"
-              max="365"
-              value={days}
-              onChange={(e) => setDays(parseInt(e.target.value))}
-              disabled={isSubmitting}
-              className="flex-1"
-            />
-          </div>
-        </div>
+        {!isBorrowMore && (
+          <>
+            <div>
+              <label htmlFor="days" className="block text-sm font-medium mb-2">
+                Loan Duration (Days)
+              </label>
+              <div className="flex items-center space-x-2">
+                <Input
+                  id="days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={days}
+                  onChange={handleDaysChange}
+                  disabled={isSubmitting}
+                  className="w-24"
+                />
+                <input
+                  type="range"
+                  min="1"
+                  max="365"
+                  value={days}
+                  onChange={(e) => setDays(parseInt(e.target.value))}
+                  disabled={isSubmitting}
+                  className="flex-1"
+                />
+              </div>
+            </div>
 
-        <div>
-          <label htmlFor="collateralRatio" className="block text-sm font-medium mb-2">
-            Collateral Ratio: {collateralRatio}%
-          </label>
-          <input
-            type="range"
-            min="120"
-            max="300"
-            step="10"
-            value={collateralRatio}
-            onChange={(e) => setCollateralRatio(parseInt(e.target.value))}
-            disabled={isSubmitting}
-            className="w-full"
-          />
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Higher collateral ratio reduces liquidation risk but requires more CHICKS.
-          </p>
-        </div>
+            <div>
+              <label htmlFor="collateralRatio" className="block text-sm font-medium mb-2">
+                Collateral Ratio: {collateralRatio}%
+              </label>
+              <input
+                type="range"
+                min="120"
+                max="300"
+                step="10"
+                value={collateralRatio}
+                onChange={(e) => setCollateralRatio(parseInt(e.target.value))}
+                disabled={isSubmitting}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Higher collateral ratio reduces liquidation risk but requires more CHICKS.
+              </p>
+            </div>
+          </>
+        )}
 
         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg space-y-2">
-          <div className="flex justify-between">
-            <span className="text-sm">Required CHICKS Collateral:</span>
-            <span className="text-sm font-medium">
-              {chicksAmount !== '0' ? parseFloat(chicksAmount).toFixed(6) : '0.00'} CHICKS
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-sm">Your CHICKS Balance:</span>
-            <span className="text-sm font-medium">
-              {parseFloat(chicksBalance).toFixed(6)} CHICKS
-            </span>
-          </div>
+          {!isBorrowMore && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-sm">Required CHICKS Collateral:</span>
+                <span className="text-sm font-medium">
+                  {chicksAmount !== '0' ? parseFloat(chicksAmount).toFixed(6) : '0.00'} CHICKS
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Your CHICKS Balance:</span>
+                <span className="text-sm font-medium">
+                  {parseFloat(chicksBalance).toFixed(6)} CHICKS
+                </span>
+              </div>
+            </>
+          )}
+          
+          {isBorrowMore && hasLoan && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-sm">Current Collateral:</span>
+                <span className="text-sm font-medium">
+                  {loanData ? parseFloat(loanData.collateral).toFixed(6) : '0.00'} CHICKS
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm">Current Borrowed:</span>
+                <span className="text-sm font-medium">
+                  {loanData ? parseFloat(loanData.borrowed).toFixed(6) : '0.00'} USDC
+                </span>
+              </div>
+            </>
+          )}
+          
           <div className="flex justify-between">
             <span className="text-sm">Borrow Fee:</span>
             <span className="text-sm font-medium">
@@ -305,7 +419,7 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
             !usdcAmount || 
             parseFloat(usdcAmount) <= 0 ||
             parseFloat(usdcAmount) > parseFloat(maxBorrowAmount) ||
-            parseFloat(chicksAmount) > parseFloat(chicksBalance)
+            (!isBorrowMore && parseFloat(chicksAmount) > parseFloat(chicksBalance))
           }
           className="w-full bg-btb-primary hover:bg-btb-primary/90"
         >
@@ -313,6 +427,8 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
             ? 'Connect Wallet'
             : isSubmitting
             ? 'Processing...'
+            : isBorrowMore
+            ? 'Borrow More USDC'
             : 'Borrow USDC'}
         </Button>
       </div>

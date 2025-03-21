@@ -32,6 +32,7 @@ import {
   LeverageForm,
   BorrowForm,
   RepayForm,
+  ExtendLoanForm,
   LoanInfo
 } from './components';
 
@@ -218,7 +219,7 @@ export default function ChicksTradePanel() {
             <Card>
               <CardContent className="p-6">
                 <Tabs defaultValue="buy" className="w-full">
-                  <TabsList className="grid grid-cols-5 mb-6">
+                  <TabsList className="grid grid-cols-6 mb-6">
                     <TabsTrigger value="buy" className="flex items-center gap-1">
                       <BanknotesIcon className="h-4 w-4" />
                       <span className="hidden sm:inline">Buy</span>
@@ -238,6 +239,10 @@ export default function ChicksTradePanel() {
                     <TabsTrigger value="repay" className="flex items-center gap-1">
                       <ShieldCheckIcon className="h-4 w-4" />
                       <span className="hidden sm:inline">Repay</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="extend" className="flex items-center gap-1">
+                      <ClockIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline">Extend</span>
                     </TabsTrigger>
                   </TabsList>
                   
@@ -275,6 +280,15 @@ export default function ChicksTradePanel() {
                   
                   <TabsContent value="repay">
                     <RepayForm 
+                      hasLoan={hasLoan}
+                      loanData={loanData}
+                      usdcBalance={usdcBalance}
+                      onSuccess={handleRefresh}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="extend">
+                    <ExtendLoanForm 
                       hasLoan={hasLoan}
                       loanData={loanData}
                       usdcBalance={usdcBalance}
