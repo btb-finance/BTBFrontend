@@ -68,6 +68,7 @@ export default function Navbar() {
         { name: 'BTB Exchange', href: '/btb-exchange' },
         { name: 'Yield Trading', href: '/yield-trading' },
         { name: 'CHICKS', href: '/chicks' },
+        { name: 'Megapot Lottery', href: '/contracts/megapot' },
       ]
     },
     {
