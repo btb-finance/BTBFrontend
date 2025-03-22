@@ -87,6 +87,12 @@ const truncateAddress = (address: string): string => {
   return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
 };
 
+// Create Basescan link for address
+const getBasescanLink = (address: string): string => {
+  if (!address || address === '0x0000000000000000000000000000000000000000') return '';
+  return `https://basescan.org/address/${address}`;
+};
+
 interface MegapotStatsProps {
   jackpotAmount: number | null;
   ticketPrice: number | null;
@@ -166,6 +172,7 @@ export default function MegapotStats({
     {
       name: 'Last Winner',
       value: lastWinner !== null ? truncateAddress(lastWinner) : 'N/A',
+      link: lastWinner !== null ? getBasescanLink(lastWinner) : '',
       icon: CurrencyDollarIcon,
       color: 'bg-gradient-to-r from-green-500 to-emerald-600',
       textColor: 'text-green-600 dark:text-green-400'
@@ -197,7 +204,18 @@ export default function MegapotStats({
               </div>
               <div>
                 <p className="text-xs md:text-sm text-white/80">{stat.name}</p>
-                <p className="text-base md:text-lg font-bold text-white">{stat.value}</p>
+                {stat.link ? (
+                  <a 
+                    href={stat.link} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-base md:text-lg font-bold text-white hover:underline"
+                  >
+                    {stat.value}
+                  </a>
+                ) : (
+                  <p className="text-base md:text-lg font-bold text-white">{stat.value}</p>
+                )}
               </div>
             </div>
           ))}
