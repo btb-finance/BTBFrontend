@@ -354,6 +354,19 @@ export default function BuyTickets({
         {/* Referral info */}
         <div className="mt-4 md:mt-6 text-center text-xs md:text-sm text-gray-600 dark:text-gray-400">
           <p>Buying with referral: {referralAddress.substring(0, 6)}...{referralAddress.substring(referralAddress.length - 4)}</p>
+          <div className="mt-2 p-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
+            <div className="flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="font-medium text-purple-800 dark:text-purple-300">
+                50% MegaPoints Bonus!
+              </span>
+            </div>
+            <p className="mt-1 text-purple-700 dark:text-purple-300">
+              Using BTB website as your referrer gives you 50% more MegaPoints instead of the standard 20%.
+            </p>
+          </div>
         </div>
       </div>
     </Card>

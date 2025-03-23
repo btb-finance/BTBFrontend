@@ -76,6 +76,13 @@ const megapotFeatures = [
     color: 'from-green-500 to-teal-600'
   },
   {
+    title: 'MegaPoints Bonus',
+    description: 'Get 50% more MegaPoints (instead of standard 20%) when buying tickets with BTB website as your referrer.',
+    icon: TrophyIcon,
+    color: 'from-purple-500 to-pink-600',
+    highlight: true
+  },
+  {
     title: 'Transparent Draws',
     description: 'Lottery draws use Pyth Network\'s Entropy for provably fair and verifiable randomness.',
     icon: LockClosedIcon,
@@ -98,7 +105,7 @@ const megapotFeatures = [
 // Contract addresses
 const CONTRACT_ADDRESS = '0xbEDd4F2beBE9E3E636161E644759f3cbe3d51B95';
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const REFERRAL_ADDRESS = '0x7A209fFbA040CF5DD345994D2eb4623477F0Ee01';
+const REFERRAL_ADDRESS = '0xfed2Ff614E0289D41937139730B49Ee158D02299';
 const NETWORK = 'base';
 
 export default function MegapotPage() {
@@ -132,9 +139,11 @@ export default function MegapotPage() {
         const winner = await contract.lastWinnerAddress();
         setLastWinner(winner);
         
-        // Get active participants count
-        const activeUserCount = await contract.userLimit();
-        setParticipants(activeUserCount.toNumber());
+        // Get active participants count - using ticketCountTotal instead of userLimit
+        const ticketCountTotalBps = await contract.ticketCountTotalBps();
+        // Convert from basis points and divide by 10000 to get actual count
+        const actualParticipants = Math.ceil(ticketCountTotalBps.div(10000).toNumber() / 3); // Assuming average 3 tickets per user
+        setParticipants(actualParticipants);
         
         setIsLoading(false);
       } catch (error) {
@@ -188,7 +197,7 @@ export default function MegapotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning!
+                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ BONUS: Get 50% extra MegaPoints when using BTB website as your referrer!
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

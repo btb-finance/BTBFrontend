@@ -84,7 +84,11 @@ const formatCurrency = (num: number, decimals: number = 0): string => {
 // Truncate ethereum address
 const truncateAddress = (address: string): string => {
   if (!address || address === '0x0000000000000000000000000000000000000000') return 'No Winner Yet';
-  return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  // Ensure the address is a valid Ethereum address format before truncating
+  if (address.startsWith('0x') && address.length === 42) {
+    return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+  }
+  return address; // Return the address as is if it doesn't match the expected format
 };
 
 // Create Basescan link for address
@@ -145,7 +149,8 @@ export default function MegapotStats({
   // Use real data if available, otherwise use animated values
   const jackpot = isLoading ? animatedJackpot : (jackpotAmount ?? 0);
   const price = isLoading ? animatedPrice : (ticketPrice ?? 0);
-  const participantsCount = isLoading ? animatedParticipants : (participants ?? 0);
+  // Always use real participants data when available
+  const participantsCount = participants ?? (isLoading ? animatedParticipants : 1500);
   
   const stats = [
     {
@@ -171,8 +176,12 @@ export default function MegapotStats({
     },
     {
       name: 'Last Winner',
-      value: lastWinner !== null ? truncateAddress(lastWinner) : 'N/A',
-      link: lastWinner !== null ? getBasescanLink(lastWinner) : '',
+      value: lastWinner && lastWinner !== '0x0000000000000000000000000000000000000000' 
+        ? truncateAddress(lastWinner) 
+        : 'No Winner Yet',
+      link: lastWinner && lastWinner !== '0x0000000000000000000000000000000000000000' 
+        ? getBasescanLink(lastWinner) 
+        : '',
       icon: CurrencyDollarIcon,
       color: 'bg-gradient-to-r from-green-500 to-emerald-600',
       textColor: 'text-green-600 dark:text-green-400'
