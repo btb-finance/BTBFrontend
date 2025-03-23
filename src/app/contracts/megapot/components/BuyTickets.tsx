@@ -7,7 +7,8 @@ import {
   ArrowPathIcon, 
   CheckIcon, 
   ExclamationCircleIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '@/app/components/ui/button';
 import { Card } from '@/app/components/ui/card';
@@ -43,10 +44,12 @@ export default function BuyTickets({
   const [txHash, setTxHash] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [refundAmount, setRefundAmount] = useState(0);
   
-  // Calculate total price when ticket count changes
+  // Calculate total price and refund when ticket count changes
   useEffect(() => {
     setTotalPrice(ticketCount * ticketPrice);
+    setRefundAmount(ticketCount * 0.10); // $0.10 refund per ticket
   }, [ticketCount, ticketPrice]);
   
   // Check USDC approval and balance when connected
@@ -249,6 +252,30 @@ export default function BuyTickets({
             <span className="text-gray-700 dark:text-gray-300">Total Price:</span>
             <span className="text-lg md:text-xl font-bold text-btb-primary">${totalPrice.toFixed(2)}</span>
           </div>
+        </div>
+        
+        {/* Refund information - Beautiful highlight box */}
+        <div className="mb-4 md:mb-6 overflow-hidden">
+          <motion.div 
+            className="p-3 md:p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border border-green-200 dark:border-green-800 shadow-sm"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <motion.div 
+                  className="mr-2 p-1.5 bg-green-200 dark:bg-green-800 rounded-full"
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <CurrencyDollarIcon className="w-4 h-4 text-green-700 dark:text-green-300" />
+                </motion.div>
+                <span className="font-medium text-green-800 dark:text-green-200">Eligible for 10% Cashback!</span>
+              </div>
+              <span className="text-lg font-bold text-green-700 dark:text-green-300">${refundAmount.toFixed(2)}</span>
+            </div>
+          </motion.div>
         </div>
         
         {/* Action buttons */}
