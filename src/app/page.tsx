@@ -14,7 +14,7 @@ import {
   BeakerIcon,
   LightBulbIcon,
   SparklesIcon,
-
+  TrophyIcon,
   CubeTransparentIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
@@ -44,11 +44,18 @@ const features = [
     color: 'from-green-500 to-emerald-600'
   },
   {
+    name: 'Megapot Lottery',
+    description: 'Win big with our daily USDC jackpots! Buy tickets and earn 50% extra MegaPoints when using BTB as your referrer.',
+    icon: SparklesIcon,
+    href: '/contracts/megapot',
+    color: 'from-purple-500 to-pink-600'
+  },
+  {
     name: 'BTB Exchange',
     description: 'Trade on our unique exchange with revolutionary bonding curve pricing where prices increase with both buys AND sells.',
     icon: BeakerIcon,
     href: '/btb-exchange',
-    color: 'from-purple-500 to-indigo-600'
+    color: 'from-indigo-500 to-indigo-600'
   },
   {
     name: 'Global Community',
@@ -714,6 +721,139 @@ export default function Home() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Fee income offsets IL after 4.7 months</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Megapot Lottery Section */}
+      <div className="py-16 sm:py-24 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob"></div>
+          <div className="absolute top-80 -right-24 w-96 h-96 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob animation-delay-2000"></div>
+          <div className="absolute -bottom-24 left-1/2 w-96 h-96 bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob animation-delay-4000"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center">
+                  <SparklesIcon className="h-8 w-8 mr-2 text-purple-500" />
+                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Megapot Lottery</span>
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                  Win big with daily USDC jackpots! Buy tickets for a chance to win and earn 50% extra MegaPoints.
+                </p>
+              </motion.div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center mr-4">
+                      <TrophyIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Daily Jackpots</h3>
+                      <p className="text-gray-600 dark:text-gray-300">New lottery runs every 24 hours</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center mr-4">
+                      <CurrencyDollarIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">USDC-Backed Prizes</h3>
+                      <p className="text-gray-600 dark:text-gray-300">All prizes paid in stable USDC</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center mr-4">
+                      <SparklesIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">50% MegaPoints Bonus</h3>
+                      <p className="text-gray-600 dark:text-gray-300">Get 50% extra points with BTB referral</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-center md:text-left mt-8">
+                  <Link 
+                    href="/contracts/megapot" 
+                    className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition-all duration-300"
+                  >
+                    Play Now <ArrowRightIcon className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="relative"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl transform rotate-1"></div>
+                <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
+                  <div className="aspect-w-16 aspect-h-9 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg overflow-hidden mb-6 p-4">
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="relative w-32 h-32 mx-auto mb-4">
+                          <motion.div 
+                            className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 opacity-75"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                          <div className="absolute inset-2 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
+                            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">WIN!</span>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-300 font-medium">Daily USDC Jackpot</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ticket Price</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">$1 USDC</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Jackpot</p>
+                      <p className="text-xl font-bold text-green-500">$250,000+</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
+                    <div className="flex items-center">
+                      <SparklesIcon className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" />
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">Get 50% extra MegaPoints when using BTB website as your referrer!</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </div>
