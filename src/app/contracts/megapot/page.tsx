@@ -26,6 +26,7 @@ import { Card, MotionCard, CardContent, CardTitle, CardDescription } from '../..
 import MegapotStats from './components/MegapotStats';
 import LotteryCountdown from './components/LotteryCountdown';
 import BuyTickets from './components/BuyTickets';
+import UserTickets from './components/UserTickets';
 import { useWallet } from '../../context/WalletContext';
 import { ethers } from 'ethers';
 import megapotABI from './megapotabi.json';
@@ -77,7 +78,7 @@ const megapotFeatures = [
   },
   {
     title: 'MegaPoints Bonus',
-    description: 'Get 50% more MegaPoints (instead of standard 20%) when buying tickets with BTB website as your referrer.',
+    description: 'Earn 50% more MegaPoints (tracked onchain) as BTB is a VIP partner site of Megapot.',
     icon: TrophyIcon,
     color: 'from-purple-500 to-pink-600',
     highlight: true
@@ -197,7 +198,7 @@ export default function MegapotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ BONUS: Get 50% extra MegaPoints when using BTB website as your referrer!
+                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ BONUS: Earn 50% more MegaPoints (tracked onchain) as BTB is a VIP partner site of Megapot!
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -287,12 +288,18 @@ export default function MegapotPage() {
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 md:mb-4">Buy Your Tickets</h2>
             <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">Get your tickets now for a chance to win big</p>
           </div>
-          <div className="max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
             <BuyTickets 
               contractAddress={MEGAPOT_CONTRACT_ADDRESS}
               usdcAddress={USDC_ADDRESS}
               referralAddress={REFERRAL_ADDRESS}
               ticketPrice={ticketPrice || 10}
+              isConnected={isConnected}
+              userAddress={address}
+              connectWallet={handleConnectWallet}
+            />
+            <UserTickets
+              contractAddress={MEGAPOT_CONTRACT_ADDRESS}
               isConnected={isConnected}
               userAddress={address}
               connectWallet={handleConnectWallet}

@@ -92,13 +92,13 @@ export default function BuyTickets({
         const signer = provider.getSigner();
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         
-        // Approve a large amount to avoid frequent approvals
-        const approvalAmount = ethers.utils.parseUnits("1000000", 6); // 1 million USDC
+        // Only approve the exact amount needed for the purchase
+        const approvalAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
         const tx = await usdcContract.approve(contractAddress, approvalAmount);
         
         await tx.wait();
         setIsApproved(true);
-        setSuccess('USDC approved successfully!');
+        setSuccess(`USDC approved successfully for ${ticketCount} ticket${ticketCount !== 1 ? 's' : ''}!`);
         
         // Clear success message after 3 seconds
         setTimeout(() => {
@@ -363,7 +363,7 @@ export default function BuyTickets({
               </span>
             </div>
             <p className="mt-1 text-purple-700 dark:text-purple-300">
-              Using BTB website as your referrer gives you 50% more MegaPoints instead of the standard 20%.
+              Earn 50% more MegaPoints (tracked onchain) as BTB is a VIP partner site of Megapot.
             </p>
           </div>
         </div>
