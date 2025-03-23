@@ -353,7 +353,6 @@ export default function BuyTickets({
         
         {/* Referral info */}
         <div className="mt-4 md:mt-6 text-center text-xs md:text-sm text-gray-600 dark:text-gray-400">
-          <p>Buying with referral: {referralAddress.substring(0, 6)}...{referralAddress.substring(referralAddress.length - 4)}</p>
           <div className="mt-2 p-3 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
             <div className="flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
