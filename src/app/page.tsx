@@ -5,6 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { 
+  ArrowTrendingUpIcon,
+  BanknotesIcon,
+  BoltIcon,
   CurrencyDollarIcon,
   ChartBarIcon,
   ShieldCheckIcon,
@@ -14,7 +17,7 @@ import {
   BeakerIcon,
   LightBulbIcon,
   SparklesIcon,
-
+  TrophyIcon,
   CubeTransparentIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
@@ -44,11 +47,18 @@ const features = [
     color: 'from-green-500 to-emerald-600'
   },
   {
+    name: 'Megapot Lottery',
+    description: 'Win big with our daily USDC jackpots! Buy tickets and earn 50% extra MegaPoints when using BTB as your referrer.',
+    icon: SparklesIcon,
+    href: '/contracts/megapot',
+    color: 'from-purple-500 to-pink-600'
+  },
+  {
     name: 'BTB Exchange',
     description: 'Trade on our unique exchange with revolutionary bonding curve pricing where prices increase with both buys AND sells.',
     icon: BeakerIcon,
     href: '/btb-exchange',
-    color: 'from-purple-500 to-indigo-600'
+    color: 'from-indigo-500 to-indigo-600'
   },
   {
     name: 'Global Community',
@@ -714,6 +724,297 @@ export default function Home() {
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Fee income offsets IL after 4.7 months</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* CHICKS Token Section */}
+      <div className="py-16 sm:py-24 bg-white dark:bg-gray-950 relative overflow-hidden">
+        {/* Abstract geometric background */}
+        <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
+          <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-r from-cyan-400 to-blue-500 skew-y-6 transform -translate-y-24"></div>
+          <div className="absolute bottom-0 right-0 w-full h-64 bg-gradient-to-l from-cyan-400 to-blue-500 skew-y-6 transform translate-y-24"></div>
+          <div className="grid grid-cols-6 grid-rows-6 gap-4 absolute inset-0">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="bg-blue-500/5 dark:bg-blue-500/10 rounded-lg transform rotate-45"></div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="md:w-1/2 text-left"
+              >
+                <div className="inline-flex items-center px-4 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm font-medium mb-4">
+                  <BanknotesIcon className="h-4 w-4 mr-2" />
+                  <span>Capital Efficiency</span>
+                </div>
+                <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white leading-tight">
+                  Introducing <span className="text-blue-600 dark:text-blue-500">CHICKS</span> Token
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-xl">
+                  The most capital efficient token in DeFi. 100% USDC-backed with up to 99% LTV borrowing and leveraging through Aave.
+                </p>
+                <div className="flex flex-wrap gap-4">
+                  <Link 
+                    href="/chicks" 
+                    className="inline-flex items-center px-6 py-3 rounded-md font-medium text-white bg-blue-600 hover:bg-blue-700 transition-all duration-300"
+                  >
+                    Get Started <ArrowRightIcon className="ml-2 h-4 w-4" />
+                  </Link>
+                  <Link 
+                    href="/chicks#learn" 
+                    className="inline-flex items-center px-6 py-3 rounded-md font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-300"
+                  >
+                    Learn More
+                  </Link>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="md:w-1/2 relative"
+              >
+                <div className="relative bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-2xl p-8 border border-blue-100 dark:border-blue-800/30 shadow-lg">
+                  <div className="absolute -top-4 -right-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white text-sm font-bold px-4 py-1 rounded-full">New</div>
+                  
+                  <div className="flex items-center justify-center mb-8">
+                    <div className="relative h-24 w-24 flex-shrink-0">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-20 animate-pulse"></div>
+                      <div className="absolute inset-2 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">$</span>
+                      </div>
+                    </div>
+                    <div className="ml-6">
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">CHICKS Token</h3>
+                      <p className="text-gray-600 dark:text-gray-400">USDC-backed efficiency</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <ShieldCheckIcon className="h-6 w-6 text-blue-500 mr-3" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">100% USDC Backed</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Full collateralization</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <ArrowTrendingUpIcon className="h-6 w-6 text-green-500 mr-3" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">99% LTV Borrowing</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Maximum capital efficiency</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <BoltIcon className="h-6 w-6 text-cyan-500 mr-3" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Aave Integration</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Seamless yield generation</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-blue-600 to-cyan-600 text-white p-4 rounded-lg">
+                    <div className="flex items-center">
+                      <SparklesIcon className="h-5 w-5 mr-2" />
+                      <p className="font-medium">Unlock maximum capital efficiency today!</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+            
+            {/* Stats section */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">100%</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">USDC Backing</p>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">99%</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">Maximum LTV</p>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+                className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400">5x</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">Leverage Potential</p>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">24/7</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">Market Access</p>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Megapot Lottery Section */}
+      <div className="py-16 sm:py-24 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob"></div>
+          <div className="absolute top-80 -right-24 w-96 h-96 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob animation-delay-2000"></div>
+          <div className="absolute -bottom-24 left-1/2 w-96 h-96 bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob animation-delay-4000"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center">
+                  <SparklesIcon className="h-8 w-8 mr-2 text-purple-500" />
+                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Megapot Lottery</span>
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                  Win big with daily USDC jackpots! Buy tickets for a chance to win and earn 50% extra MegaPoints.
+                </p>
+              </motion.div>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="space-y-6"
+              >
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center mr-4">
+                      <TrophyIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Daily Jackpots</h3>
+                      <p className="text-gray-600 dark:text-gray-300">New lottery runs every 24 hours</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center mr-4">
+                      <CurrencyDollarIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">USDC-Backed Prizes</h3>
+                      <p className="text-gray-600 dark:text-gray-300">All prizes paid in stable USDC</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center mr-4">
+                      <SparklesIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">50% MegaPoints Bonus</h3>
+                      <p className="text-gray-600 dark:text-gray-300">Get 50% extra points with BTB referral</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-center md:text-left mt-8">
+                  <Link 
+                    href="/contracts/megapot" 
+                    className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition-all duration-300"
+                  >
+                    Play Now <ArrowRightIcon className="ml-2 h-4 w-4" />
+                  </Link>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="relative"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl transform rotate-1"></div>
+                <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
+                  <div className="aspect-w-16 aspect-h-9 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg overflow-hidden mb-6 p-4">
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="relative w-32 h-32 mx-auto mb-4">
+                          <motion.div 
+                            className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 opacity-75"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                          <div className="absolute inset-2 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
+                            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">WIN!</span>
+                          </div>
+                        </div>
+                        <p className="text-gray-700 dark:text-gray-300 font-medium">Daily USDC Jackpot</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ticket Price</p>
+                      <p className="text-xl font-bold text-gray-900 dark:text-white">$1 USDC</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Jackpot</p>
+                      <p className="text-xl font-bold text-green-500">$250,000+</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
+                    <div className="flex items-center">
+                      <SparklesIcon className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" />
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">Get 50% extra MegaPoints when using BTB website as your referrer!</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </div>
