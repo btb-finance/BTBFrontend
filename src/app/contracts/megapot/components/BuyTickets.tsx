@@ -205,6 +205,24 @@ export default function BuyTickets({
           <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Buy Lottery Tickets</h3>
         </div>
         
+        {/* Cashback Highlight Banner */}
+        <motion.div 
+          className="mb-4 md:mb-6 p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg shadow-md"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <span className="font-bold text-sm md:text-base">EXCLUSIVE OFFER: </span>
+              <span className="text-sm md:text-base">Get <span className="font-bold text-xl">10% USDC cashback</span> on all ticket purchases!</span>
+            </div>
+          </div>
+        </motion.div>
+        
         {/* Balance display */}
         {isConnected && (
           <div className="mb-4 md:mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -246,37 +264,25 @@ export default function BuyTickets({
           </div>
         </div>
         
-        {/* Price display */}
-        <div className="mb-4 md:mb-6 p-3 md:p-4 bg-gradient-to-r from-btb-primary/10 to-btb-primary-light/10 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-700 dark:text-gray-300">Total Price:</span>
-            <span className="text-lg md:text-xl font-bold text-btb-primary">${totalPrice.toFixed(2)}</span>
+        {/* Price display with cashback highlight */}
+        <div className="mb-4 md:mb-6 p-3 md:p-4 bg-gradient-to-r from-btb-primary/10 to-btb-primary-light/10 rounded-lg border border-btb-primary/20 dark:border-btb-primary/10">
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-700 dark:text-gray-300">Total Price:</span>
+              <span className="text-lg md:text-xl font-bold text-btb-primary">${totalPrice.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-700 dark:text-gray-300">Your Cashback (10%):</span>
+              <span className="text-lg md:text-xl font-bold text-green-500">${(totalPrice * 0.1).toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-btb-primary/20 dark:border-btb-primary/10">
+              <span className="text-gray-700 dark:text-gray-300 font-medium">Final Cost:</span>
+              <span className="text-lg md:text-xl font-bold text-btb-primary">${(totalPrice * 0.9).toFixed(2)}</span>
+            </div>
           </div>
         </div>
         
-        {/* Refund information - Beautiful highlight box */}
-        <div className="mb-4 md:mb-6 overflow-hidden">
-          <motion.div 
-            className="p-3 md:p-4 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-lg border border-green-200 dark:border-green-800 shadow-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <motion.div 
-                  className="mr-2 p-1.5 bg-green-200 dark:bg-green-800 rounded-full"
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
-                  <CurrencyDollarIcon className="w-4 h-4 text-green-700 dark:text-green-300" />
-                </motion.div>
-                <span className="font-medium text-green-800 dark:text-green-200">Eligible for 10% Cashback!</span>
-              </div>
-              <span className="text-lg font-bold text-green-700 dark:text-green-300">${refundAmount.toFixed(2)}</span>
-            </div>
-          </motion.div>
-        </div>
+
         
         {/* Action buttons */}
         <div className="space-y-3 md:space-y-4">

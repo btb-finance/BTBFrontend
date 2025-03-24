@@ -77,11 +77,12 @@ const megapotFeatures = [
     color: 'from-green-500 to-teal-600'
   },
   {
-    title: 'MegaPoints Bonus',
-    description: 'Earn 50% more MegaPoints (tracked onchain) as BTB is a VIP partner site of Megapot.',
+    title: 'MegaPoints & Cashback Bonus',
+    description: <>Earn <span className="font-bold text-btb-primary">50% more MegaPoints</span> (tracked onchain) AND get <span className="font-bold text-green-500">10% USDC cashback</span> on all ticket purchases as BTB is a VIP partner site of Megapot!</>,
     icon: TrophyIcon,
     color: 'from-purple-500 to-pink-600',
-    highlight: true
+    highlight: true,
+    special: true
   },
   {
     title: 'Transparent Draws',
@@ -198,7 +199,7 @@ export default function MegapotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ BONUS: Earn 50% more MegaPoints (tracked onchain) as BTB is a VIP partner site of Megapot!
+                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ <span className="font-bold text-btb-primary">EXCLUSIVE BONUS: Earn 50% more MegaPoints</span> (tracked onchain) and <span className="font-bold text-green-500">get 10% USDC cashback</span> on all purchases as BTB is a VIP partner site of Megapot!
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
