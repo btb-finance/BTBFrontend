@@ -15,6 +15,7 @@ import { Card } from '@/app/components/ui/card';
 import { ethers } from 'ethers';
 import megapotABI from '../megapotabi.json';
 import usdcABI from './usdcABI.json';
+import buyticketABI from '../buyticketabi.json';
 
 interface BuyTicketsProps {
   contractAddress: string;
@@ -25,6 +26,9 @@ interface BuyTicketsProps {
   userAddress: string | null;
   connectWallet: () => Promise<void>;
 }
+
+// Cashback helper contract address
+const CASHBACK_CONTRACT_ADDRESS = '0x819eB717232992db08F0B8ffA9704DE496c136B5';
 
 export default function BuyTickets({ 
   contractAddress, 
@@ -66,8 +70,8 @@ export default function BuyTickets({
             const balance = await usdcContract.balanceOf(userAddress);
             setUsdcBalance(parseFloat(ethers.utils.formatUnits(balance, 6)));
             
-            // Check if contract is approved to spend USDC
-            const allowance = await usdcContract.allowance(userAddress, contractAddress);
+            // Check if USDC is approved for the cashback helper contract
+            const allowance = await usdcContract.allowance(userAddress, CASHBACK_CONTRACT_ADDRESS);
             const requiredAmount = ethers.utils.parseUnits((totalPrice).toString(), 6);
             setIsApproved(allowance.gte(requiredAmount));
           }
@@ -78,7 +82,7 @@ export default function BuyTickets({
     };
     
     checkApprovalAndBalance();
-  }, [isConnected, userAddress, contractAddress, usdcAddress, totalPrice]);
+  }, [isConnected, userAddress, usdcAddress, totalPrice]);
   
   const handleApproveUsdc = async () => {
     if (!isConnected) {
@@ -97,7 +101,7 @@ export default function BuyTickets({
         
         // Only approve the exact amount needed for the purchase
         const approvalAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
-        const tx = await usdcContract.approve(contractAddress, approvalAmount);
+        const tx = await usdcContract.approve(CASHBACK_CONTRACT_ADDRESS, approvalAmount);
         
         await tx.wait();
         setIsApproved(true);
@@ -131,13 +135,13 @@ export default function BuyTickets({
         const provider = new ethers.providers.Web3Provider(window.ethereum as any);
         const signer = provider.getSigner();
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
-        const megapotContract = new ethers.Contract(contractAddress, megapotABI, signer);
+        const cashbackContract = new ethers.Contract(CASHBACK_CONTRACT_ADDRESS, buyticketABI, signer);
         
         // Calculate the exact amount in wei
         const purchaseAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
         
         // Check approval status again before proceeding
-        const allowance = await usdcContract.allowance(userAddress, contractAddress);
+        const allowance = await usdcContract.allowance(userAddress, CASHBACK_CONTRACT_ADDRESS);
         
         // If not approved, handle approval first
         if (allowance.lt(purchaseAmount)) {
@@ -146,17 +150,13 @@ export default function BuyTickets({
           return;
         }
         
-        // Buy tickets with referral
-        const tx = await megapotContract.purchaseTickets(
-          referralAddress,
-          purchaseAmount,
-          userAddress // recipient is the user's address
-        );
+        // Buy tickets with cashback in a single transaction using the helper contract
+        const tx = await cashbackContract.purchaseTicketsWithCashback(purchaseAmount);
         
         setTxHash(tx.hash);
         await tx.wait();
         
-        setSuccess(`Successfully purchased ${ticketCount} ticket${ticketCount !== 1 ? 's' : ''}!`);
+        setSuccess(`Successfully purchased ${ticketCount} ticket${ticketCount !== 1 ? 's' : ''} with 10% cashback!`);
         
         // Reset ticket count after successful purchase
         setTicketCount(1);
