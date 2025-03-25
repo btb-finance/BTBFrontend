@@ -364,6 +364,14 @@ export default function MegapotPage() {
             <div className="space-y-6">
               {[
                 {
+                  question: "How does the 10% cashback work?",
+                  answer: "When you buy a Megapot ticket, you use our custom smart contract that returns the 10% fee that is normally paid to apps, directly to your wallet. It all takes place in one transaction."
+                },
+                {
+                  question: "How do the 50% bonus Megapoints work?",
+                  answer: <>BTB is part of Megapot's VIP program. You can learn more <a href="https://docs.megapot.io/appendix/vip-program" target="_blank" rel="noopener noreferrer" className="text-btb-primary hover:underline">here</a>.</>
+                },
+                {
                   question: "How often are the lottery draws?",
                   answer: "Lottery draws occur every 24 hours. The exact time is displayed in the countdown timer."
                 },

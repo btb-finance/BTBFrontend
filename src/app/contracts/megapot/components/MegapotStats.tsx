@@ -7,7 +7,8 @@ import {
   TicketIcon,
   UserIcon,
   TrophyIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ArrowTopRightOnSquareIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '@/app/components/ui/card';
 import { ethers } from 'ethers';
@@ -83,7 +84,7 @@ const formatCurrency = (num: number, decimals: number = 0): string => {
 
 // Truncate ethereum address
 const truncateAddress = (address: string): string => {
-  if (!address || address === '0x0000000000000000000000000000000000000000') return 'No Winner Yet';
+  if (!address || address === '0x0000000000000000000000000000000000000000') return 'LP Win';
   // Ensure the address is a valid Ethereum address format before truncating
   if (address.startsWith('0x') && address.length === 42) {
     return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
@@ -176,9 +177,7 @@ export default function MegapotStats({
     },
     {
       name: 'Last Winner',
-      value: lastWinner && lastWinner !== '0x0000000000000000000000000000000000000000' 
-        ? truncateAddress(lastWinner) 
-        : 'No Winner Yet',
+      value: truncateAddress(lastWinner || '0x0000000000000000000000000000000000000000'),
       link: lastWinner && lastWinner !== '0x0000000000000000000000000000000000000000' 
         ? getBasescanLink(lastWinner) 
         : '',
@@ -232,20 +231,36 @@ export default function MegapotStats({
         
         <div className="mt-4 md:mt-6">
           <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 md:p-4">
-            <h4 className="text-sm md:text-base font-medium text-gray-900 dark:text-white mb-2 md:mb-3">Tickets Sold This Round</h4>
+            <div className="flex items-center justify-between mb-2 md:mb-3">
+              <h4 className="text-sm md:text-base font-medium text-gray-900 dark:text-white flex items-center">
+                <TicketIcon className="w-4 h-4 mr-1 text-btb-primary" />
+                Tickets Sold
+              </h4>
+              <span className="text-base md:text-lg font-bold text-btb-primary">{formatNumber(ticketsSold)}</span>
+            </div>
+            
             <div className="relative h-4 md:h-5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
               <motion.div 
                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-btb-primary to-btb-primary-light"
-                initial={{ width: '0%' }}
-                animate={{ width: `${Math.min(100, (ticketsSold / maxTickets) * 100)}%` }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
+                initial={{ width: '5%' }}
+                animate={{ width: '100%' }}
+                transition={{ duration: 3, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
               />
             </div>
-            <div className="flex justify-between mt-1 md:mt-2 text-xs md:text-sm text-gray-600 dark:text-gray-400">
-              <span>0</span>
-              <span>{formatNumber(ticketsSold)}</span>
-            </div>
           </div>
+        </div>
+        
+        <div className="mt-4 md:mt-6 text-center">
+          <a 
+            href="https://stats.megapot.io/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-sm text-btb-primary hover:text-btb-primary-dark transition-colors"
+          >
+            <ChartBarIcon className="w-4 h-4 mr-1" />
+            View all past winners and stats
+            <ArrowTopRightOnSquareIcon className="w-3 h-3 ml-1" />
+          </a>
         </div>
       </div>
     </Card>
