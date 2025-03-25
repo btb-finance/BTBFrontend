@@ -133,7 +133,7 @@ export default function ChicksTradePanel() {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                 <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Current Price</p>
-                  <p className="text-xl font-bold">${parseFloat(chicksPrice).toFixed(4)} USDC</p>
+                  <p className="text-xl font-bold">${parseFloat(chicksPrice).toFixed(6)} USDC</p>
                 </div>
                 <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
                   <p className="text-sm text-gray-500 dark:text-gray-400">Backing</p>
@@ -162,54 +162,6 @@ export default function ChicksTradePanel() {
               Refresh
             </Button>
           </div>
-        </div>
-        
-        {/* Price and Balance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                CHICKS Price
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${parseFloat(chicksPrice).toFixed(6)} USDC</div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Your CHICKS Balance
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isConnected ? (
-                  `${parseFloat(chicksBalance).toFixed(2)} CHICKS`
-                ) : (
-                  'Connect Wallet'
-                )}
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Your USDC Balance
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {isConnected ? (
-                  `${parseFloat(usdcBalance).toFixed(2)} USDC`
-                ) : (
-                  'Connect Wallet'
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </div>
         
         {/* Main Trading Interface */}
@@ -314,41 +266,51 @@ export default function ChicksTradePanel() {
                 <CardTitle>CHICKS Token Info</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Current Price
-                    </div>
-                    <div className="font-medium">${parseFloat(chicksPrice).toFixed(6)} USDC</div>
-                  </div>
-                  
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      USDC Backing
-                    </div>
-                    <div className="font-medium">${parseFloat(backing).toFixed(2)} USDC</div>
-                  </div>
-                  
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Buy Fee
-                    </div>
-                    <div className="font-medium">2.5%</div>
-                  </div>
-                  
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Sell Fee
-                    </div>
-                    <div className="font-medium">2.5%</div>
-                  </div>
-                  
-                  <div>
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Leverage Fee
-                    </div>
-                    <div className="font-medium">1.0% + Interest</div>
-                  </div>
+                <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
+                  <table className="w-full">
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Current Price
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          ${parseFloat(chicksPrice).toFixed(6)} USDC
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          USDC Backing
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          ${parseFloat(backing).toFixed(2)} USDC
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Buy Fee
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          2.5%
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Sell Fee
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          2.5%
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Leverage Fee
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          1.0% + Interest
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

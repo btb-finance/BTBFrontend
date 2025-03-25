@@ -97,42 +97,43 @@ export default function LoanInfo({ hasLoan, loanData }: LoanInfoProps) {
         <CardTitle>Loan Information</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Borrowed Amount
-            </div>
-            <div className="font-medium">
-              {loanData ? parseFloat(loanData.borrowed).toFixed(6) : '0.00'} USDC
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Collateral
-            </div>
-            <div className="font-medium">
-              {loanData ? parseFloat(loanData.collateral).toFixed(6) : '0.00'} CHICKS
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Loan Duration
-            </div>
-            <div className="font-medium">
-              {loanData ? loanData.numberOfDays : '0'} days
-            </div>
-          </div>
-          
-          <div>
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Loan Expiry
-            </div>
-            <div className="font-medium">
-              {loanData && loanData.endDate ? formatDate(loanData.endDate) : 'N/A'}
-            </div>
-          </div>
+        <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
+          <table className="w-full">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+              <tr>
+                <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                  Borrowed Amount
+                </td>
+                <td className="px-4 py-3 font-medium">
+                  {loanData ? parseFloat(loanData.borrowed).toFixed(6) : '0.00'} USDC
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                  Collateral
+                </td>
+                <td className="px-4 py-3 font-medium">
+                  {loanData ? parseFloat(loanData.collateral).toFixed(6) : '0.00'} CHICKS
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                  Loan Duration
+                </td>
+                <td className="px-4 py-3 font-medium">
+                  {loanData ? loanData.numberOfDays : '0'} days
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                  Loan Expiry
+                </td>
+                <td className="px-4 py-3 font-medium">
+                  {loanData && loanData.endDate ? formatDate(loanData.endDate) : 'N/A'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         
         {isExpired && (
