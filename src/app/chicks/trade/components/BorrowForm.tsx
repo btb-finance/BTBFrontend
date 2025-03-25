@@ -94,7 +94,8 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       if (!usdcAmount || parseFloat(usdcAmount) <= 0 || days <= 0) return;
 
       try {
-        setIsCalculating(true);
+        // Don't disable the input field during calculation
+        // setIsCalculating(true);
         
         // Calculate borrow fee
         const fee = await chicksService.getBorrowFee(usdcAmount, days);
@@ -102,11 +103,16 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       } catch (error) {
         console.error('Error calculating borrow fee:', error);
       } finally {
-        setIsCalculating(false);
+        // setIsCalculating(false);
       }
     };
+    
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateBorrowFee();
+    }, 300); // 300ms delay - faster for more responsive feel
 
-    calculateBorrowFee();
+    return () => clearTimeout(debounceTimer);
   }, [usdcAmount, days]);
 
   // Calculate CHICKS amount needed for collateral when USDC amount changes
@@ -126,8 +132,13 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       
       setChicksAmount(requiredChicks);
     };
+    
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateCollateral();
+    }, 300); // 300ms delay - faster for more responsive feel
 
-    calculateCollateral();
+    return () => clearTimeout(debounceTimer);
   }, [usdcAmount, chicksPrice, collateralRatio]);
 
   const handleUsdcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,6 +147,7 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
       setUsdcAmount(value);
       if (value === '') {
         setBorrowFee('0');
+        setChicksAmount('0');
       }
     }
   };
@@ -289,7 +301,7 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
               placeholder="0.00"
               value={usdcAmount}
               onChange={handleUsdcChange}
-              disabled={isSubmitting || isCalculating}
+              disabled={isSubmitting}
               className="flex-1"
             />
             <Button

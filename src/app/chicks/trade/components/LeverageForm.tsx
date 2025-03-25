@@ -30,7 +30,8 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
       if (!usdcAmount || parseFloat(usdcAmount) === 0 || days <= 0) return;
 
       try {
-        setIsCalculating(true);
+        // Don't disable the input field during calculation
+        // setIsCalculating(true);
         setError(null);
         
         // Calculate leverage fee
@@ -49,11 +50,16 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
         console.error('Error calculating leverage details:', error);
         setError('Failed to calculate leverage details. Please try again.');
       } finally {
-        setIsCalculating(false);
+        // setIsCalculating(false);
       }
     };
+    
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateLeverage();
+    }, 300); // 300ms delay - faster for more responsive feel
 
-    calculateLeverage();
+    return () => clearTimeout(debounceTimer);
   }, [usdcAmount, days, chicksPrice]);
 
   const handleUsdcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,7 +216,7 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
               placeholder="0.00"
               value={usdcAmount}
               onChange={handleUsdcChange}
-              disabled={isSubmitting || isCalculating}
+              disabled={isSubmitting}
               className="flex-1"
             />
             <Button

@@ -28,7 +28,8 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
       if (!chicksAmount || parseFloat(chicksAmount) === 0 || activeInput !== 'chicks') return;
 
       try {
-        setIsCalculating(true);
+        // Don't disable the input field during calculation
+        // setIsCalculating(true);
         const amount = await chicksService.getSellAmount(chicksAmount);
         // Apply sell fee (2.5%)
         const amountAfterFee = (parseFloat(amount) * 0.975).toFixed(6);
@@ -36,11 +37,16 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
       } catch (error) {
         console.error('Error calculating USDC amount:', error);
       } finally {
-        setIsCalculating(false);
+        // setIsCalculating(false);
       }
     };
 
-    calculateUsdcAmount();
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateUsdcAmount();
+    }, 300); // 300ms delay - faster for more responsive feel
+
+    return () => clearTimeout(debounceTimer);
   }, [chicksAmount, activeInput]);
 
   // Calculate CHICKS amount when USDC amount changes
@@ -49,7 +55,8 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
       if (!usdcAmount || parseFloat(usdcAmount) === 0 || activeInput !== 'usdc') return;
 
       try {
-        setIsCalculating(true);
+        // Don't disable the input field during calculation
+        // setIsCalculating(true);
         // This is just an approximation since there's no direct method to calculate this
         // We need to account for the 2.5% fee
         const estimatedChicks = (parseFloat(usdcAmount) / (parseFloat(chicksPrice) * 0.975)).toFixed(6);
@@ -57,11 +64,16 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
       } catch (error) {
         console.error('Error calculating CHICKS amount:', error);
       } finally {
-        setIsCalculating(false);
+        // setIsCalculating(false);
       }
     };
 
-    calculateChicksAmount();
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateChicksAmount();
+    }, 300); // 300ms delay - faster for more responsive feel
+
+    return () => clearTimeout(debounceTimer);
   }, [usdcAmount, chicksPrice, activeInput]);
 
   const handleChicksChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,6 +118,13 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
       setError('Insufficient CHICKS balance');
       return;
     }
+    
+    // The minimum check will be handled by the service, but we can provide a better UX
+    // by checking if the USDC value is too low (below 0.13 USDC)
+    if (usdcAmount && parseFloat(usdcAmount) < 0.13) {
+      setError('Sell amount too small. Must result in at least 0.13 USDC');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -135,6 +154,9 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
         <h3 className="text-lg font-medium mb-2">Sell CHICKS</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Sell your CHICKS tokens for USDC at the current market price.
+          <span className="font-semibold text-amber-600 dark:text-amber-400 block mt-1">
+            Minimum trade value: 0.13 USDC equivalent
+          </span>
         </p>
       </div>
 
@@ -152,7 +174,7 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
               placeholder="0.00"
               value={chicksAmount}
               onChange={handleChicksChange}
-              disabled={isSubmitting || isCalculating}
+              disabled={isSubmitting}
               className={`flex-1 ${activeInput === 'chicks' ? 'border-blue-500 ring-1 ring-blue-500' : ''}`}
             />
             <Button
@@ -185,7 +207,7 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
             placeholder="0.00"
             value={usdcAmount}
             onChange={handleUsdcChange}
-            disabled={isSubmitting || isCalculating}
+            disabled={isSubmitting}
             className={`${activeInput === 'usdc' ? 'border-blue-500 ring-1 ring-blue-500' : ''}`}
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

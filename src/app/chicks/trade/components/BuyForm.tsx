@@ -38,7 +38,12 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
       }
     };
 
-    calculateChicksAmount();
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateChicksAmount();
+    }, 300); // 300ms delay - faster for more responsive feel
+
+    return () => clearTimeout(debounceTimer);
   }, [usdcAmount, activeInput]);
 
   // Calculate USDC amount when CHICKS amount changes
@@ -55,7 +60,12 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
       }
     };
 
-    calculateUsdcAmount();
+    // Add debounce to prevent calculation on every keystroke
+    const debounceTimer = setTimeout(() => {
+      calculateUsdcAmount();
+    }, 300); // 300ms delay - faster for more responsive feel
+
+    return () => clearTimeout(debounceTimer);
   }, [chicksAmount, chicksPrice, activeInput]);
 
   const handleUsdcChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,6 +105,11 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
       setError('Please enter a valid USDC amount');
       return;
     }
+    
+    if (parseFloat(usdcAmount) < 0.125) {
+      setError('Minimum trade amount is 0.125 USDC');
+      return;
+    }
 
     try {
       setIsSubmitting(true);
@@ -124,6 +139,9 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
         <h3 className="text-lg font-medium mb-2">Buy CHICKS</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
           Purchase CHICKS tokens with USDC at the current market price.
+          <span className="font-semibold text-amber-600 dark:text-amber-400 block mt-1">
+            Minimum trade amount: 0.125 USDC
+          </span>
         </p>
       </div>
 
@@ -190,13 +208,15 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
 
         <Button
           onClick={handleBuy}
-          disabled={isSubmitting || !usdcAmount || parseFloat(usdcAmount) <= 0}
+          disabled={isSubmitting || !usdcAmount || parseFloat(usdcAmount) < 0.125}
           className="w-full bg-btb-primary hover:bg-btb-primary/90"
         >
           {!isConnected
             ? 'Connect Wallet'
             : isSubmitting
             ? 'Processing...'
+            : parseFloat(usdcAmount || '0') < 0.125
+            ? 'Minimum 0.125 USDC'
             : 'Buy CHICKS'}
         </Button>
       </div>

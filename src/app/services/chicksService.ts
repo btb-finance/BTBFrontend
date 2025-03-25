@@ -12,14 +12,14 @@ interface ContractError extends Error {
 
 // Base network configuration
 const BASE_NETWORK = {
-  chainId: 84532,
-  name: 'Base Sepolia',
-  rpcUrl: 'https://sepolia.base.org',
-  blockExplorer: 'https://sepolia.basescan.org',
+  chainId: 8453,
+  name: 'Base Mainnet',
+  rpcUrl: 'https://mainnet.base.org',
+  blockExplorer: 'https://basescan.org',
 };
 
-// USDC contract address on Base Sepolia
-const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e'; // Base Sepolia USDC address
+// USDC contract address on Base Mainnet
+const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // Base Mainnet USDC address
 
 // Minimal ERC20 ABI for USDC interactions
 const ERC20_ABI = [
@@ -34,8 +34,8 @@ class ChicksService {
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
 
-  // Contract address for Chicks on Base Sepolia
-  private readonly contractAddress = '0xa617AD4f9aA6B2d13815A6CEC4dfEdEaF14dbF52';
+  // Contract address for Chicks on Base Mainnet
+  private readonly contractAddress = '0x0000a88106096104877F79674396708E017DFf00';
 
   constructor() {
     // Initialize the read-only provider
@@ -235,7 +235,15 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
+      // Minimum trade amount (0.13 USDC for mainnet)
+      const MIN_TRADE_AMOUNT = ethers.utils.parseUnits('0.13', 6); // 0.13 USDC minimum
       const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      
+      // Check if the amount meets the minimum requirement
+      if (parsedAmount.lt(MIN_TRADE_AMOUNT)) {
+        throw new Error(`Minimum trade amount is 0.13 USDC. You entered ${usdcAmount} USDC.`);
+      }
+      
       const address = await this.signer!.getAddress();
       
       // Get USDC contract
@@ -266,12 +274,52 @@ class ChicksService {
     try {
       const parsedAmount = ethers.utils.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
       
+      // Check if the amount will result in a USDC value that meets the minimum requirement
+      // We need to check if the resulting USDC amount / FEES_SELL > MIN
+      // FEES_SELL is 125, MIN is 1000 in the contract
+      // So we need to ensure the USDC equivalent is at least 0.13 USDC
+      const usdcAmount = await this.contract!.ChicksToUSDC(parsedAmount);
+      const feeAddressAmount = usdcAmount.div(125); // FEES_SELL is 125
+      const MIN = ethers.utils.parseUnits('1000', 0); // MIN is 1000 in the contract
+      
+      if (feeAddressAmount.lte(MIN)) {
+        const minChicksNeeded = await this.getMinSellAmount();
+        throw new Error(`Minimum sell amount is ${minChicksNeeded} CHICKS. You entered ${chicksAmount} CHICKS.`);
+      }
+      
       // Execute sell transaction
       const tx = await this.contract!.sell(parsedAmount);
       return tx;
     } catch (error) {
       console.error('Error selling CHICKS:', error);
       throw error;
+    }
+  }
+  
+  // Calculate the minimum amount of CHICKS needed to sell to meet the contract's minimum requirement
+  private async getMinSellAmount(): Promise<string> {
+    try {
+      // The contract requires: usdcAmount / FEES_SELL > MIN
+      // So usdcAmount > MIN * FEES_SELL
+      // MIN is 1000, FEES_SELL is 125
+      // So minimum USDC is 1000 * 125 = 125,000 (or 0.125 USDC with 6 decimals)
+      // Add a small buffer to be safe: 0.13 USDC
+      const minUsdcAmount = ethers.utils.parseUnits('0.13', 6);
+      
+      // Now convert this USDC amount to CHICKS
+      // We need to use the contract's price to convert accurately
+      const price = await this.contract!.lastPrice();
+      if (price.isZero()) {
+        return '0.13'; // If price is zero, return a reasonable minimum
+      }
+      
+      // Calculate minimum CHICKS: minUsdcAmount / price
+      // Since both have 6 decimals, we can divide directly
+      const minChicksAmount = minUsdcAmount.mul(ethers.utils.parseUnits('1', 6)).div(price);
+      return ethers.utils.formatUnits(minChicksAmount, 6);
+    } catch (error) {
+      console.error('Error calculating minimum sell amount:', error);
+      return '0.13'; // Return a reasonable default if calculation fails
     }
   }
 
