@@ -93,7 +93,27 @@ const chicksFeatures = [
 ];
 
 export default function ChicksTokenPage() {
+  interface FloatingElement {
+    id: number;
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+  }
+  
+  interface ParticleElement {
+    id: number;
+    top: number;
+    left: number;
+    animationY: number;
+    scale: number;
+    duration: number;
+    delay: number;
+  }
+  
   const [mounted, setMounted] = useState(false);
+  const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
+  const [particles, setParticles] = useState<ParticleElement[]>([]);
   
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -150,6 +170,28 @@ export default function ChicksTokenPage() {
   useEffect(() => {
     setMounted(true);
     
+    // Generate floating elements with fixed values to avoid hydration mismatches
+    const generatedFloatingElements = Array(8).fill(0).map((_, i) => ({
+      id: i,
+      width: 40 + Math.random() * 60,
+      height: 40 + Math.random() * 60,
+      top: Math.random() * 100,
+      left: Math.random() * 100
+    }));
+    setFloatingElements(generatedFloatingElements);
+    
+    // Generate particles for CTA section
+    const generatedParticles = Array(20).fill(0).map((_, i) => ({
+      id: i,
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      animationY: Math.random() * -100,
+      scale: Math.random() * 0.5 + 0.5,
+      duration: 5 + Math.random() * 5,
+      delay: Math.random() * 5
+    }));
+    setParticles(generatedParticles);
+    
     // Add CSS variables to document
     const style = document.createElement('style');
     style.innerHTML = colorStyles;
@@ -159,6 +201,13 @@ export default function ChicksTokenPage() {
       document.head.removeChild(style);
     };
   }, []);
+
+  // Don't render anything with random values until after client-side hydration
+  if (!mounted) {
+    return <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+      {/* Loading state or simplified version that doesn't use random values */}
+    </div>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
@@ -289,44 +338,6 @@ export default function ChicksTokenPage() {
         </motion.div>
       </div>
       
-      {/* Live Stats Section */}
-      <section className="py-16 bg-white dark:bg-gray-900 relative overflow-hidden">
-        {/* Animated background */}
-        <motion.div 
-          className="absolute inset-0 opacity-5 pointer-events-none"
-          style={{
-            background: "radial-gradient(circle at 30% 50%, rgba(79, 70, 229, 0.3), transparent 30%), radial-gradient(circle at 70% 50%, rgba(16, 185, 129, 0.3), transparent 30%)",
-            backgroundSize: "200% 200%"
-          }}
-          animate={{
-            backgroundPosition: ["0% 0%", "100% 100%"]
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-            repeatType: "reverse"
-          }}
-        />
-        
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-            className="mb-10 text-center"
-          >
-            <h2 className="text-3xl font-bold mb-4">Live CHICKS Stats</h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Real-time metrics showing the current state of the CHICKS token ecosystem.
-            </p>
-          </motion.div>
-          
-          <ChicksStats />
-        </div>
-      </section>
-      
       {/* Token Details Section */}
       <section className="py-16 bg-gray-50 dark:bg-gray-800 relative overflow-hidden">
         {/* Animated gradient background */}
@@ -406,7 +417,7 @@ export default function ChicksTokenPage() {
                   {
                     icon: "💲",
                     title: "Initial Price",
-                    value: "$0.001",
+                    value: "$0.0001",
                     color: "from-emerald-500 to-green-600"
                   },
                   {
@@ -535,17 +546,17 @@ export default function ChicksTokenPage() {
         
         {/* Floating elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          {[...Array(8)].map((_, i) => (
+          {floatingElements.map((element) => (
             <motion.div
-              key={i}
+              key={element.id}
               className="absolute rounded-full bg-gradient-to-r from-btb-primary/20 to-blue-500/20 backdrop-blur-sm"
               style={{
-                width: `${Math.random() * 60 + 40}px`,
-                height: `${Math.random() * 60 + 40}px`,
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
+                width: `${element.width}px`,
+                height: `${element.height}px`,
+                top: `${element.top}%`,
+                left: `${element.left}%`,
               }}
-              animate={enhancedFloatingAnimation(i * 0.5)}
+              animate={enhancedFloatingAnimation(element.id * 0.5)}
             />
           ))}
         </div>
@@ -1430,23 +1441,23 @@ export default function ChicksTokenPage() {
       <section className="py-20 bg-gradient-to-r from-btb-primary to-btb-primary-light text-white relative overflow-hidden">
         {/* Animated particles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(20)].map((_, i) => (
+          {particles.map((particle) => (
             <motion.div
-              key={i}
+              key={particle.id}
               className="absolute w-2 h-2 rounded-full bg-white opacity-20"
               style={{
-                top: `${Math.random() * 100}%`,
-                left: `${Math.random() * 100}%`,
+                top: `${particle.top}%`,
+                left: `${particle.left}%`,
               }}
               animate={{
-                y: [0, -100],
+                y: [0, particle.animationY],
                 opacity: [0, 0.5, 0],
-                scale: [0, 1, 0.5]
+                scale: [0, 1, particle.scale]
               }}
               transition={{
-                duration: 5 + Math.random() * 5,
+                duration: particle.duration,
                 repeat: Infinity,
-                delay: Math.random() * 5,
+                delay: particle.delay,
                 ease: "easeOut"
               }}
             />
@@ -1501,7 +1512,7 @@ export default function ChicksTokenPage() {
               </motion.div>
             </div>
             
-            {/* Animated counters */}
+            {/* Feature highlights instead of animated counters */}
             <motion.div 
               className="flex flex-wrap justify-center gap-8 mt-12"
               initial={{ opacity: 0, y: 20 }}
@@ -1510,10 +1521,10 @@ export default function ChicksTokenPage() {
               viewport={{ once: true }}
             >
               {[
-                { label: 'TVL', value: '$100M+' },
-                { label: 'Users', value: '10,000+' },
-                { label: 'APY', value: '5000%+' }
-              ].map((stat, index) => (
+                { label: 'Security', value: '100% Backed', icon: '🔒' },
+                { label: 'Efficiency', value: '99% LTV', icon: '⚡' },
+                { label: 'Innovation', value: 'Advanced DeFi', icon: '✨' }
+              ].map((feature, index) => (
                 <motion.div
                   key={index}
                   className="text-center"
@@ -1521,14 +1532,21 @@ export default function ChicksTokenPage() {
                   animate={{ scale: [1, 1.05, 1] }}
                   transition={{ scale: { duration: 2, delay: index * 0.2, repeat: Infinity } }}
                 >
+                  <motion.div
+                    className="text-3xl mb-1"
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    {feature.icon}
+                  </motion.div>
                   <motion.p 
-                    className="text-3xl font-bold"
+                    className="text-xl font-bold"
                     animate={{ opacity: [0.8, 1, 0.8] }}
                     transition={{ duration: 2, repeat: Infinity }}
                   >
-                    {stat.value}
+                    {feature.value}
                   </motion.p>
-                  <p className="text-sm opacity-80">{stat.label}</p>
+                  <p className="text-sm opacity-80">{feature.label}</p>
                 </motion.div>
               ))}
             </motion.div>
