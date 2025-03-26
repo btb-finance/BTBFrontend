@@ -8,6 +8,7 @@ import { PoolMetrics } from '@/app/components/pools/PoolMetrics';
 import { TokenSearch } from '@/app/components/pools/TokenSearch';
 import { FiRefreshCw, FiSearch, FiDollarSign } from 'react-icons/fi';
 import { MdError } from 'react-icons/md';
+import ComingSoonBanner from '@/app/components/common/ComingSoonBanner';
 
 export default function PoolsPage() {
   const [pools, setPools] = useState<Pool[]>([]);
@@ -154,6 +155,7 @@ export default function PoolsPage() {
   return (
     <div className="py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <ComingSoonBanner productName="Pools" />
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
             Uniswap Pools on Base

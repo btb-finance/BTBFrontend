@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useWalletConnection } from '../hooks/useWalletConnection';
 import { Alert } from '../components/ui/alert';
 import { Card } from '../components/ui/card';
+import ComingSoonBanner from '@/app/components/common/ComingSoonBanner';
 import { InfoIcon, ChartBarIcon, LockIcon, CoinsIcon, ArrowRightLeftIcon } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import BTBStatusPanel from '../components/btb-exchange/BTBStatusPanel';
@@ -20,6 +21,7 @@ export default function BTBExchangePage() {
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-7xl mx-auto">
+          <ComingSoonBanner productName="BTB Exchange" />
           <div className="text-center mb-12">
             <div className="inline-block px-4 py-1 mb-4 rounded-full bg-btb-primary/10 border border-btb-primary/20">
               <p className="text-sm font-medium text-btb-primary flex items-center">

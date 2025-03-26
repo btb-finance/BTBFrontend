@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from "react"
 import HooksControls from "./HooksControls"
 import HooksList from "./HooksList"
-import { getHookrankApiKey } from '../../hooks-v2/usePublicApi'
+
+// Mock API key function since hooks-v2 module was removed
+const getHookrankApiKey = () => 'dummy-api-key';
 
 export interface Hook {
   id: string;

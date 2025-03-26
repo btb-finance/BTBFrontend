@@ -52,23 +52,30 @@ export default function Navbar() {
       icon: HomeIcon
     },
     {
+      name: 'Live Products',
+      icon: CubeTransparentIcon,
+      children: [
+        { name: 'CHICKS', href: '/chicks' },
+        { name: 'Megapot Lottery', href: '/contracts/megapot' }
+      ]
+    },
+    {
+      name: 'Coming Soon',
+      icon: ChartBarIcon,
+      children: [
+        { name: 'Pools 🔜', href: '/pools' },
+        { name: 'Staking 🔜', href: '/staking' },
+        { name: 'BTB Exchange 🔜', href: '/btb-exchange' },
+        { name: 'Yield Trading 🔜', href: '/yield-trading' },
+        { name: 'Hooks 🔜', href: '/hooks' }
+      ]
+    },
+    {
       name: 'Tools',
       icon: CalculatorIcon,
       children: [
         { name: 'Calculator', href: '/calculator' },
-        { name: 'Dashboard', href: '/dashboard' },
-      ]
-    },
-    {
-      name: 'Invest',
-      icon: ChartBarIcon,
-      children: [
-        { name: 'Pools', href: '/pools' },
-        { name: 'Staking', href: '/staking' },
-        { name: 'BTB Exchange', href: '/btb-exchange' },
-        { name: 'Yield Trading', href: '/yield-trading' },
-        { name: 'CHICKS', href: '/chicks' },
-        { name: 'Megapot Lottery', href: '/contracts/megapot' },
+        { name: 'Dashboard', href: '/dashboard' }
       ]
     },
     {
@@ -77,19 +84,11 @@ export default function Navbar() {
       icon: AcademicCapIcon
     },
     {
-      name: 'Products',
-      icon: CubeTransparentIcon,
-      children: [
-        { name: 'Hooks', href: '/hooks' },
-        { name: 'Hooks v2', href: '/hooks-v2' },
-      ]
-    },
-    {
       name: 'Token',
       icon: CurrencyDollarIcon,
       children: [
         { name: 'Token Info', href: '/token' },
-        { name: 'Buy Token', href: '/buy-token' },
+        { name: 'Buy Token', href: '/buy-token' }
       ]
     },
     {
@@ -216,6 +215,20 @@ export default function Navbar() {
                               {isConnected ? 'Disconnect Wallet' : child.name}
                             </span>
                           </button>
+                        ) : child.name.includes('🔜') ? (
+                          <Link 
+                            href={child.href} 
+                            className="w-full px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium flex items-center justify-between"
+                            onClick={() => {
+                              setActiveItem(item.name);
+                              setIsMenuOpen(false);
+                              setOpenDropdown(null);
+                            }}
+                          >
+                            <span className="font-heading text-btb-primary dark:text-white hover:text-btb-primary-light dark:hover:text-btb-primary-light transition-all duration-300">
+                              {child.name}
+                            </span>
+                          </Link>
                         ) : (
                           <Link 
                             href={child.href} 
@@ -348,10 +361,20 @@ export default function Navbar() {
                                           {isConnected ? 'Disconnect Wallet' : child.name}
                                         </span>
                                       </button>
+                                    ) : child.name.includes('🔜') ? (
+                                      <Link 
+                                        href={child.href} 
+                                        className="block py-3 px-4 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
+                                        onClick={() => setIsMenuOpen(false)}
+                                      >
+                                        <span className="font-heading text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">
+                                          {child.name}
+                                        </span>
+                                      </Link>
                                     ) : (
                                       <Link 
                                         href={child.href} 
-                                        className={`block py-3 px-4 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium ${child.disabled ? 'opacity-50 pointer-events-none' : ''}`}
+                                        className="block py-3 px-4 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
                                         onClick={() => setIsMenuOpen(false)}
                                       >
                                         <span className="font-heading text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">

@@ -2,11 +2,13 @@ import React from 'react';
 import HooksList from '../components/hooks/HooksList';
 import HooksHeader from '../components/hooks/HooksHeader';
 import HooksStats from '../components/hooks/HooksStats';
+import ComingSoonBanner from '@/app/components/common/ComingSoonBanner';
 
 export default function HooksPage() {
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-8">
+        <ComingSoonBanner productName="Hooks" />
         <div className="card">
           <HooksHeader />
         </div>

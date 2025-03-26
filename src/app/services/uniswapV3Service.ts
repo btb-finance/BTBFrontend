@@ -1,5 +1,7 @@
 import { ethers } from 'ethers';
-import { getPublicApiUrl } from '../hooks-v2/usePublicApi';
+
+// Mock API URL function since hooks-v2 module was removed
+const getPublicApiUrl = () => 'https://api.btb.finance';
 
 // Uniswap V3 Contract ABIs
 const UNISWAP_V3_POSITION_MANAGER_ABI = [

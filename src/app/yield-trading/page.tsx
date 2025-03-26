@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import Link from 'next/link';
+import ComingSoonBanner from '@/app/components/common/ComingSoonBanner';
 
 export default function YieldTradingPage() {
   const [activeTab, setActiveTab] = useState('buy');
@@ -33,6 +34,7 @@ export default function YieldTradingPage() {
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        <ComingSoonBanner productName="Yield Trading" />
         {/* Header Section */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gradient mb-4">

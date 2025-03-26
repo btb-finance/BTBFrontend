@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import ComingSoonBanner from '@/app/components/common/ComingSoonBanner';
 import { 
   LockClosedIcon,
   CurrencyDollarIcon,
@@ -201,6 +202,9 @@ export default function StakingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 pt-6">
+        <ComingSoonBanner productName="Staking" />
+      </div>
       {/* Hero Section */}
       <div ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-btb-primary/10 via-btb-primary/5 to-transparent dark:from-btb-primary/20 dark:via-btb-primary/10 dark:to-transparent">
         <motion.div 
