@@ -298,15 +298,15 @@ export default function Dashboard() {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-          <Card className="p-8">
+          <h1 className="text-3xl font-bold mb-6 font-heading">Dashboard</h1>
+          <Card className="p-8 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
             <div className="flex flex-col items-center justify-center py-12">
-              <WalletIcon className="h-16 w-16 text-gray-400 mb-4" />
-              <h2 className="text-2xl font-semibold mb-2">Connect Your Wallet</h2>
+              <WalletIcon className="h-16 w-16 text-btb-primary mb-4" />
+              <h2 className="text-2xl font-semibold mb-2 font-heading">Connect Your Wallet</h2>
               <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md">
                 Connect your wallet to view your portfolio, positions, and personalized insights.
               </p>
-              <Button size="lg" onClick={connectWallet}>
+              <Button size="lg" onClick={connectWallet} className="bg-btb-primary hover:bg-btb-primary-dark">
                 Connect Wallet
               </Button>
             </div>
@@ -317,101 +317,52 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-12">
       <motion.div 
-        className="mb-6 flex items-center justify-between"
-        initial={{ opacity: 0, y: -20 }}
+        className="max-w-4xl mx-auto text-center"
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.5 }}
       >
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Button 
-          variant="secondary" 
-          onClick={handleRefresh}
-          disabled={isLoading}
-          leftIcon={<ArrowPathIcon className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />}
-        >
-          Refresh
-        </Button>
-      </motion.div>
-
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        {/* Alerts Panel */}
-        <motion.div variants={itemVariants} className="mb-8">
-          <AlertsPanel alerts={alerts} />
-        </motion.div>
-
-        {/* Portfolio Overview */}
-        <motion.div variants={itemVariants} className="mb-8">
-          <PortfolioOverview portfolioData={portfolioData} />
-        </motion.div>
-
-        {/* Tabs for different sections */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-          <TabsList className="mb-6">
-            <TabsTrigger value="overview">
-              <ChartBarIcon className="h-5 w-5 mr-2" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="tokens">
-              <CurrencyDollarIcon className="h-5 w-5 mr-2" />
-              Tokens
-            </TabsTrigger>
-            <TabsTrigger value="positions">
-              <ArrowTrendingUpIcon className="h-5 w-5 mr-2" />
-              Positions
-            </TabsTrigger>
-            <TabsTrigger value="loans">
-              <BanknotesIcon className="h-5 w-5 mr-2" />
-              Loans
-            </TabsTrigger>
-            <TabsTrigger value="swap">
-              <ArrowsRightLeftIcon className="h-5 w-5 mr-2" />
-              Swap
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <motion.div variants={itemVariants}>
-              <MarketOverview marketData={marketData} />
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="tokens">
-            <motion.div variants={itemVariants}>
-              <TokensList 
-                tokens={tokens} 
-                onSwapClick={handleSwapClick} 
-              />
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="positions">
-            <motion.div variants={itemVariants}>
-              <PositionsList positions={positions} />
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="loans">
-            <motion.div variants={itemVariants}>
-              <LoansList loans={loans} />
-            </motion.div>
-          </TabsContent>
-
-          <TabsContent value="swap">
-            <motion.div variants={itemVariants}>
-              <TokenSwap 
-                tokens={tokens} 
-                onSwapComplete={handleRefresh} 
-                selectedToken={selectedToken}
-              />
-            </motion.div>
-          </TabsContent>
-        </Tabs>
+        <h1 className="text-4xl font-bold mb-5 bg-btb-gradient bg-clip-text text-transparent font-heading">
+          Manage All Your DeFi in One Place
+        </h1>
+        
+        <p className="text-lg text-gray-600 dark:text-gray-300 mb-6 max-w-3xl mx-auto">
+          One unified dashboard to monitor and optimize all your DeFi yields across protocols.
+        </p>
+        
+        <Card className="p-6 md:p-10 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 border-2 border-btb-primary-light/30 dark:border-btb-primary-dark/50">
+          <div className="flex flex-col items-center justify-center">
+            <h2 className="text-xl md:text-2xl font-semibold mb-4 text-btb-primary dark:text-btb-primary-light font-heading">Coming Soon</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left mb-5 max-w-2xl mx-auto">
+              <div className="flex items-center">
+                <span className="mr-2 text-btb-primary">✓</span> Yield farming optimization
+              </div>
+              <div className="flex items-center">
+                <span className="mr-2 text-btb-primary">✓</span> Multi-chain portfolio tracking
+              </div>
+              <div className="flex items-center">
+                <span className="mr-2 text-btb-primary">✓</span> Automated yield strategies
+              </div>
+              <div className="flex items-center">
+                <span className="mr-2 text-btb-primary">✓</span> Risk assessment tools
+              </div>
+              <div className="flex items-center">
+                <span className="mr-2 text-btb-primary">✓</span> Real-time yield comparisons
+              </div>
+            </div>
+            
+            <Button size="lg" className="btn-primary mt-2">
+              Join Waitlist
+            </Button>
+            
+            <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-4">
+              We're working hard to bring you the ultimate DeFi dashboard experience.
+            </p>
+          </div>
+        </Card>
       </motion.div>
     </div>
   );
