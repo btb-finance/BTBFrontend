@@ -288,6 +288,15 @@ export default function Home() {
                 A comprehensive DeFi platform combining revolutionary exchange mechanics, advanced yield farming, and an ecosystem built for success on BASE.
               </motion.p>
               
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.0, duration: 0.5 }}
+                className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1"
+              >
+                <span className="font-bold">Our Mission:</span> To create a liquidity hub that refunds impermanent loss to users, ensuring no losses and maximizing liquidity across the ecosystem.
+              </motion.p>
+              
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -301,10 +310,10 @@ export default function Home() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
                   <Link
-                    href="/btb-exchange"
+                    href="/chicks"
                     className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20"
                   >
-                    Trade on Exchange <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    Buy CHICKS <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
                 
@@ -314,10 +323,10 @@ export default function Home() {
                   className="inline-block"
                 >
                   <Link
-                    href="/pools"
+                    href="/token"
                     className="relative border-2 border-btb-primary text-btb-primary px-6 py-3 rounded-lg font-medium hover:bg-white/10 hover:border-btb-primary-light transition-all duration-300 flex items-center"
                   >
-                    Explore Pools <ArrowRightIcon className="ml-2 h-4 w-4 opacity-70 group-hover:translate-x-1 transition-transform duration-300" />
+                    Explore Token <ArrowRightIcon className="ml-2 h-4 w-4 opacity-70 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
               </motion.div>

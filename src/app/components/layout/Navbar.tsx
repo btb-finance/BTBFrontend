@@ -67,7 +67,9 @@ export default function Navbar() {
         { name: 'Staking 🔜', href: '/staking' },
         { name: 'BTB Exchange 🔜', href: '/btb-exchange' },
         { name: 'Yield Trading 🔜', href: '/yield-trading' },
-        { name: 'Hooks 🔜', href: '/hooks' }
+        { name: 'Hooks 🔜', href: '/hooks' },
+        { name: 'Learn 🔜', href: '/education' },
+        { name: 'Community 🔜', href: '/community' }
       ]
     },
     {
@@ -79,22 +81,12 @@ export default function Navbar() {
       ]
     },
     {
-      name: 'Learn',
-      href: '/education',
-      icon: AcademicCapIcon
-    },
-    {
       name: 'Token',
       icon: CurrencyDollarIcon,
       children: [
         { name: 'Token Info', href: '/token' },
         { name: 'Buy Token', href: '/buy-token' }
       ]
-    },
-    {
-      name: 'Community',
-      href: '/community',
-      icon: UserGroupIcon
     },
     {
       name: 'Wallet',
@@ -265,6 +257,21 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Mobile Wallet Connect Button - Always visible */}
+          <motion.button
+            onClick={isConnected ? disconnectWallet : connectWallet}
+            type="button"
+            className="md:hidden inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm"
+            whileTap={{ scale: 0.95 }}
+          >
+            <WalletIcon className="mr-1 h-4 w-4" />
+            <span className="text-xs font-semibold">
+              {isConnecting ? 'Connecting...' : isConnected ? 
+                `${address?.substring(0, 4)}...${address?.substring(address.length - 2)}` : 
+                'Connect'}
+            </span>
+          </motion.button>
+          
           {/* Mobile menu button */}
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}

@@ -106,7 +106,7 @@ export function BackgroundPaths({
                         transition={{ delay: 0.5, duration: 0.8 }}
                         className="text-xl text-gray-600 dark:text-gray-400 mb-12"  
                     >
-                        The Future of Decentralized Finance
+                        
                     </motion.p>
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
