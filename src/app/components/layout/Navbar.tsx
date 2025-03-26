@@ -93,9 +93,7 @@ export default function Navbar() {
       icon: WalletIcon,
       children: [
         { name: 'Connect Wallet', href: '#', action: 'connect' },
-        { name: 'View Transactions', href: isConnected ? `https://basescan.org/address/${address}` : '#', disabled: !isConnected },
-        { name: 'Wallet Balance', href: '/wallet/balance', disabled: !isConnected },
-        { name: 'Wallet Details', href: '/wallet/details', disabled: !isConnected }
+        { name: 'View Transactions', href: isConnected ? `https://basescan.org/address/${address}` : '#', disabled: !isConnected }
       ]
     },
   ];
@@ -150,18 +148,18 @@ export default function Navbar() {
 
   return (
     <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light backdrop-blur-lg border-b border-white/20 shadow-lg">
-      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-4 py-3 md:p-4">
+      <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-3 py-2 md:px-4 md:py-2">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
           className="flex items-center"
         >
-          <Logo showText={true} size={40} />
+          <Logo showText={true} size={32} />
         </motion.div>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-2">
+        <div className="hidden md:flex items-center space-x-1">
           {navigation.map((item) => (
             <motion.div 
               key={item.name} 
@@ -178,13 +176,13 @@ export default function Navbar() {
                 }}>
                   <DropdownMenuTrigger asChild>
                     <button 
-                      className={`flex items-center px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-white/20 transition-all duration-300 ${activeItem === item.name ? 'bg-white/20 shadow-md' : ''}`}
+                      className={`flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white hover:bg-white/20 transition-all duration-300 ${activeItem === item.name ? 'bg-white/20 shadow-md' : ''}`}
                     >
-                      {item.icon && <item.icon className="mr-2 h-4 w-4" />}
+                      {item.icon && <item.icon className="mr-1.5 h-3.5 w-3.5" />}
                       <span className="font-heading font-semibold text-white hover:text-btb-primary-light transition-all duration-300">
                         {item.name}
                       </span>
-                      <ChevronDownIcon className={`ml-1 h-4 w-4 transition-transform duration-200 ${openDropdown === item.name ? 'rotate-180' : ''}`} />
+                      <ChevronDownIcon className={`ml-1 h-3.5 w-3.5 transition-transform duration-200 ${openDropdown === item.name ? 'rotate-180' : ''}`} />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent 
@@ -195,7 +193,7 @@ export default function Navbar() {
                       <DropdownMenuItem key={child.name} asChild>
                         {child.action === 'connect' ? (
                           <button 
-                            className="w-full text-left px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
+                            className="w-full text-left px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
                             onClick={() => {
                               isConnected ? disconnectWallet() : connectWallet();
                               setActiveItem(item.name);
@@ -210,7 +208,7 @@ export default function Navbar() {
                         ) : child.name.includes('🔜') ? (
                           <Link 
                             href={child.href} 
-                            className="w-full px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium flex items-center justify-between"
+                            className="w-full px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium flex items-center justify-between"
                             onClick={() => {
                               setActiveItem(item.name);
                               setIsMenuOpen(false);
@@ -224,7 +222,7 @@ export default function Navbar() {
                         ) : (
                           <Link 
                             href={child.href} 
-                            className="w-full cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
+                            className="w-full px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
                             onClick={() => {
                               setActiveItem(item.name);
                               setIsMenuOpen(false);
@@ -243,10 +241,10 @@ export default function Navbar() {
               ) : (
                 <Link 
                   href={item.href || '#'} 
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-md text-white hover:bg-white/20 transition-all duration-300 ${activeItem === item.name ? 'bg-white/20 shadow-md' : ''}`}
+                  className={`flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white hover:bg-white/20 transition-all duration-300 ${activeItem === item.name ? 'bg-white/20 shadow-md' : ''}`}
                   onClick={() => setActiveItem(item.name)}
                 >
-                  {item.icon && <item.icon className="mr-2 h-4 w-4" />}
+                  {item.icon && <item.icon className="mr-1.5 h-3.5 w-3.5" />}
                   <span className="font-heading font-semibold text-white hover:text-btb-primary-light transition-all duration-300">
                     {item.name}
                   </span>
@@ -256,18 +254,18 @@ export default function Navbar() {
           ))}
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           {/* Mobile Wallet Connect Button - Always visible */}
           <motion.button
             onClick={isConnected ? disconnectWallet : connectWallet}
             type="button"
-            className="md:hidden inline-flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm"
+            className="md:hidden inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm"
             whileTap={{ scale: 0.95 }}
           >
-            <WalletIcon className="mr-1 h-4 w-4" />
+            <WalletIcon className="mr-1 h-3.5 w-3.5" />
             <span className="text-xs font-semibold">
               {isConnecting ? 'Connecting...' : isConnected ? 
-                `${address?.substring(0, 4)}...${address?.substring(address.length - 2)}` : 
+                `${address?.substring(0, 3)}...${address?.substring(address.length - 2)}` : 
                 'Connect'}
             </span>
           </motion.button>
@@ -276,15 +274,15 @@ export default function Navbar() {
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             type="button"
-            className="inline-flex items-center justify-center p-3 w-12 h-12 text-sm text-white rounded-lg md:hidden hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm mobile-touch-target"
+            className="inline-flex items-center justify-center p-2 w-9 h-9 text-sm text-white rounded-lg md:hidden hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm mobile-touch-target"
             aria-controls="mobile-menu"
             aria-expanded={isMenuOpen}
             whileTap={{ scale: 0.95 }}
           >
             {isMenuOpen ? (
-              <XMarkIcon className="w-7 h-7" />
+              <XMarkIcon className="w-5 h-5" />
             ) : (
-              <Bars3Icon className="w-7 h-7" />
+              <Bars3Icon className="w-5 h-5" />
             )}
           </motion.button>
         </div>
@@ -297,7 +295,7 @@ export default function Navbar() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               transition={{ duration: 0.3 }}
-              className="fixed left-0 right-0 top-[64px] p-4 bg-white dark:bg-gray-800 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 md:hidden shadow-lg overflow-y-auto max-h-[calc(100vh-64px)]"
+              className="fixed left-0 right-0 top-[52px] p-3 bg-white dark:bg-gray-800 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 md:hidden shadow-lg overflow-y-auto max-h-[calc(100vh-52px)]"
               id="mobile-menu"
             >
               <ul className="flex flex-col space-y-3">
@@ -310,11 +308,11 @@ export default function Navbar() {
                 >
                   <button
                     onClick={isConnected ? disconnectWallet : connectWallet}
-                    className={`w-full flex items-center justify-center px-4 py-3 text-sm font-medium rounded-md ${isConnected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-btb-primary hover:bg-btb-primary-dark text-white'} transition-all duration-300 shadow-sm`}
+                    className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${isConnected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-btb-primary hover:bg-btb-primary-dark text-white'} transition-all duration-300 shadow-sm`}
                   >
-                    <WalletIcon className="mr-2 h-5 w-5" />
+                    <WalletIcon className="mr-2 h-4 w-4" />
                     {isConnecting ? 'Connecting...' : isConnected ? 
-                      `${address?.substring(0, 6)}...${address?.substring(address.length - 4)}` : 
+                      `Connected: ${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
                       'Connect Wallet'}
                   </button>
                 </motion.li>
@@ -330,17 +328,17 @@ export default function Navbar() {
                     {item.children ? (
                       <div className="space-y-1">
                         <div 
-                          className="flex items-center justify-between px-4 py-3 text-btb-primary-dark font-medium border-b border-gray-200 dark:border-gray-700 cursor-pointer"
+                          className="flex items-center justify-between px-3 py-2 text-btb-primary-dark font-medium border-b border-gray-200 dark:border-gray-700 cursor-pointer"
                           onClick={() => toggleMobileSubmenu(item.name)}
                         >
                           <div className="flex items-center">
-                            {item.icon && <item.icon className="mr-2 h-5 w-5" />}
+                            {item.icon && <item.icon className="mr-2 h-4 w-4" />}
                             <span className="font-heading font-semibold text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">
                               {item.name}
                             </span>
                           </div>
                           <ChevronRightIcon 
-                            className={`h-5 w-5 transition-transform duration-300 ${expandedMobileItems.includes(item.name) ? 'rotate-90' : ''}`} 
+                            className={`h-4 w-4 transition-transform duration-300 ${expandedMobileItems.includes(item.name) ? 'rotate-90' : ''}`} 
                           />
                         </div>
                         
@@ -351,14 +349,14 @@ export default function Navbar() {
                               animate={{ opacity: 1, height: 'auto' }}
                               exit={{ opacity: 0, height: 0 }}
                               transition={{ duration: 0.2 }}
-                              className="pl-4"
+                              className="pl-3"
                             >
                               <ul className="space-y-1 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
                                 {item.children.map((child) => (
                                   <li key={child.name}>
                                     {child.action === 'connect' ? (
                                       <button 
-                                        className="block w-full text-left py-3 px-4 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
+                                        className="block w-full text-left py-2 px-3 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
                                         onClick={() => {
                                           isConnected ? disconnectWallet() : connectWallet();
                                           setIsMenuOpen(false);
@@ -371,7 +369,7 @@ export default function Navbar() {
                                     ) : child.name.includes('🔜') ? (
                                       <Link 
                                         href={child.href} 
-                                        className="block py-3 px-4 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
+                                        className="block py-2 px-3 text-sm text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
                                         onClick={() => setIsMenuOpen(false)}
                                       >
                                         <span className="font-heading text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">
@@ -381,7 +379,7 @@ export default function Navbar() {
                                     ) : (
                                       <Link 
                                         href={child.href} 
-                                        className="block py-3 px-4 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
+                                        className="block py-2 px-3 text-sm text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
                                         onClick={() => setIsMenuOpen(false)}
                                       >
                                         <span className="font-heading text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">
@@ -399,12 +397,12 @@ export default function Navbar() {
                     ) : (
                       <Link 
                         href={item.href || '#'} 
-                        className="flex items-center px-4 py-3 text-base text-btb-primary-dark font-medium hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 shadow-sm"
+                        className="flex items-center px-3 py-2 text-sm text-btb-primary-dark font-medium hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 shadow-sm"
                         onClick={() => {
                           setIsMenuOpen(false);
                         }}
                       >
-                        {item.icon && <item.icon className="mr-2 h-5 w-5" />}
+                        {item.icon && <item.icon className="mr-2 h-4 w-4" />}
                         <span className="font-heading font-semibold text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">
                           {item.name}
                         </span>

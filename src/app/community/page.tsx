@@ -77,7 +77,7 @@ export default function CommunityPage() {
       {/* Hero Section */}
       <div className="relative">
         <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]"></div>
-        <div className="relative max-w-7xl mx-auto pt-24 pb-20 px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-7xl mx-auto pt-20 pb-20 px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gradient sm:text-5xl md:text-6xl mb-6">
               Where DeFi Minds Meet

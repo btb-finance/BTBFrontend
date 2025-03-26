@@ -53,7 +53,7 @@ export default function Testimonials() {
   return (
     <div
       ref={containerRef}
-      className="relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-20"
+      className="relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-16"
     >
       {/* Background elements */}
       <div className="absolute inset-0 overflow-hidden">

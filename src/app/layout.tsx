@@ -32,7 +32,7 @@ export default function RootLayout({
           <BackgroundWrapper>
             <div className="min-h-screen">
               <Navbar />
-              <main className="pt-20 text-gray-900 dark:text-white">
+              <main className="pt-14 text-gray-900 dark:text-white">
                 {children}
               </main>
               <footer className="bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800">

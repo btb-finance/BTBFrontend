@@ -11,7 +11,7 @@ interface LogoProps {
 
 export default function Logo({ size = 40, showText = true, className = '' }: LogoProps) {
   return (
-    <Link href="/" className={`flex items-center space-x-3 ${className}`}>
+    <Link href="/" className={`flex items-center space-x-2 ${className}`}>
       <div className="rounded-full overflow-hidden shadow-md" style={{ height: `${size}px`, width: `${size}px` }}>
         <Image 
           src="/images/btblogo.jpg" 
@@ -24,7 +24,7 @@ export default function Logo({ size = 40, showText = true, className = '' }: Log
       </div>
       {showText && (
         <div className="flex flex-col">
-          <span className="self-center text-xl font-bold whitespace-nowrap text-white">
+          <span className="self-center text-base font-bold whitespace-nowrap text-white">
             BTBFinance
           </span>
         </div>
