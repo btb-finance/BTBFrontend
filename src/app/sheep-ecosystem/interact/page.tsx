@@ -75,16 +75,16 @@ export default function SheepEcosystemInteract() {
       
       {/* Disclaimer Banner */}
       <div className="bg-amber-500 dark:bg-amber-600">
-        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between">
-            <div className="flex flex-1 items-center">
-              <span className="flex p-1 rounded-lg bg-amber-800">
-                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <div className="max-w-7xl mx-auto py-2 px-3">
+          <div className="flex flex-wrap items-start">
+            <div className="flex items-start">
+              <span className="flex p-1 rounded-lg bg-amber-800 flex-shrink-0 mt-0.5">
+                <svg className="h-3.5 w-3.5 md:h-5 md:w-5 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               </span>
-              <p className="ml-3 font-medium text-white truncate">
-                <span>Sheep is a 3rd party app on BTB Finance. Please use at your own risk. Information may not be accurate as we are working to create better products for everyone.</span>
+              <p className="ml-2 font-medium text-white text-xs md:text-sm leading-tight">
+                Sheep is a 3rd party app on BTB Finance. Please use at your own risk.
               </p>
             </div>
           </div>
@@ -93,17 +93,17 @@ export default function SheepEcosystemInteract() {
       
       {/* Coming Soon Banner */}
       <div className="bg-green-600 dark:bg-green-700">
-        <div className="max-w-7xl mx-auto py-3 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between flex-wrap">
-            <div className="flex-1 flex items-center">
-              <ClockIcon className="h-6 w-6 text-white animate-pulse" />
-              <p className="ml-3 font-medium text-white truncate">
-                <span>Coming Soon: Improved Sheep Ecosystem with Lower Fees</span>
+        <div className="max-w-7xl mx-auto py-2 px-3">
+          <div className="flex flex-col sm:flex-row items-center">
+            <div className="flex items-center">
+              <ClockIcon className="h-5 w-5 text-white animate-pulse" />
+              <p className="ml-2 font-medium text-white text-xs md:text-sm">
+                Coming Soon: Improved Sheep Ecosystem
               </p>
             </div>
-            <div className="mt-2 flex-shrink-0 w-full sm:mt-0 sm:w-auto">
+            <div className="mt-2 sm:mt-0 sm:ml-auto">
               <Link href="#notify">
-                <button className="flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-green-600 bg-white hover:bg-green-50">
+                <button className="flex items-center justify-center px-3 py-1 border border-transparent rounded-md shadow-sm text-xs font-medium text-green-600 bg-white hover:bg-green-50">
                   Get Notified
                 </button>
               </Link>
