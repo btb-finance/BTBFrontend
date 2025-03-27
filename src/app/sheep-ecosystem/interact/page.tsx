@@ -5,15 +5,88 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { 
   ArrowLeftIcon,
-  BoltIcon
+  BoltIcon,
+  ShoppingCartIcon
 } from '@heroicons/react/24/outline';
 import StakedBalances from '../components/StakedBalances';
 import WolfDetails from '../components/WolfDetails';
+import SheepDogInteract from '../components/SheepDogInteract';
+import { Button } from '@/app/components/ui/button';
+import { SheepEcosystemService } from '@/app/services/sheepEcosystemService';
+import { Card } from '@/app/components/ui/card';
 
 // Contract Addresses
 const SHEEP_CONTRACT = '0x7bf26dF0E9Db4F70f286c39A9cd3A77Cb7407aa4';
 const SHEEPDOG_CONTRACT = '0xa3b5f40a5719208B507F658a11Fb314Ef5e2c0e2';
 const WOLF_CONTRACT = '0xf1152a195B93d51457633F96B81B1CF95a96E7A7';
+
+// BuySheep component 
+function BuySheep() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  
+  const handleBuySheep = async () => {
+    setIsLoading(true);
+    setSuccess(false);
+    setError('');
+    
+    try {
+      const sheepService = new SheepEcosystemService();
+      await sheepService.connect();
+      
+      const tx = await sheepService.buySheepDogDistributeRewards();
+      await tx.wait();
+      
+      setSuccess(true);
+    } catch (err: any) {
+      console.error('Error buying sheep:', err);
+      setError(err.reason || err.message || String(err));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return (
+    <Card className="p-6 bg-white dark:bg-gray-800 shadow-sm mb-8">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Buy SHEEP with Gas Tokens</h3>
+        <ShoppingCartIcon className="w-6 h-6 text-green-500" />
+      </div>
+      
+      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+        This function uses the accumulated gas tokens from SheepDog rent payments to buy SHEEP tokens 
+        from the market. The purchased SHEEP is then distributed proportionally to all SheepDog share holders.
+      </p>
+      
+      {success && (
+        <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+          <p className="text-sm text-green-700 dark:text-green-300">
+            Successfully bought SHEEP with gas tokens and distributed to SheepDog holders!
+          </p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-md">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Error: {error}
+          </p>
+        </div>
+      )}
+      
+      <div className="flex justify-center">
+        <Button
+          onClick={handleBuySheep}
+          disabled={isLoading}
+          className="bg-green-500 hover:bg-green-600"
+        >
+          {isLoading ? 'Processing...' : 'Buy SHEEP with Gas Tokens'}
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 export default function SheepEcosystemInteract() {
   return (
@@ -55,7 +128,7 @@ export default function SheepEcosystemInteract() {
             <div className="flex items-center">
               <BoltIcon className="h-5 w-5 text-white" />
               <p className="ml-2 font-medium text-white text-xs md:text-sm">
-                SHEEP Ecosystem Token Tracker
+                SHEEP Ecosystem Interaction
               </p>
             </div>
           </div>
@@ -81,8 +154,8 @@ export default function SheepEcosystemInteract() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            Monitor your SHEEP tokens, WOLF NFTs, and SheepDog shares with our interactive dashboard.
-            View your balances, staking status, and protection in real-time.
+            Interact with the SHEEP ecosystem contracts, protect your tokens from wolves,
+            and manage your investments in one place.
           </motion.p>
           
           {/* User Token Balances Section */}
@@ -90,6 +163,22 @@ export default function SheepEcosystemInteract() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">Your SHEEP Ecosystem Tokens</h2>
             <div className="max-w-5xl mx-auto">
               <StakedBalances />
+            </div>
+          </div>
+          
+          {/* SheepDog Interaction Section */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">SheepDog Protection</h2>
+            <div className="max-w-5xl mx-auto">
+              <SheepDogInteract />
+            </div>
+          </div>
+          
+          {/* BuySheep Section */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">SheepDog Rewards</h2>
+            <div className="max-w-5xl mx-auto">
+              <BuySheep />
             </div>
           </div>
           

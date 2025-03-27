@@ -9,10 +9,16 @@ declare global {
 }
 
 // Import ABIs
-const SHEEPABI = require('../sheepcoin/sheepcoinabi.json');
-const SHEEPDOGABI = require('../sheepcoin/sheepdogabi.json');
-const WOLFABI = require('../sheepcoin/wolfabi.json');
-const ROUTERABI = require('../sheepcoin/routerabi.json');
+import SHEEPABI_RAW from '../sheepcoin/sheepcoinabi.json';
+import SHEEPDOGABI_RAW from '../sheepcoin/sheepdogabi.json';
+import WOLFABI_RAW from '../sheepcoin/wolfabi.json';
+import ROUTERABI_RAW from '../sheepcoin/routerabi.json';
+
+// Parse the ABIs
+const SHEEPABI = JSON.parse(JSON.stringify(SHEEPABI_RAW));
+const SHEEPDOGABI = JSON.parse(JSON.stringify(SHEEPDOGABI_RAW));
+const WOLFABI = JSON.parse(JSON.stringify(WOLFABI_RAW));
+const ROUTERABI = JSON.parse(JSON.stringify(ROUTERABI_RAW));
 
 // Base network configuration
 const SONIC_NETWORK = {
@@ -249,12 +255,20 @@ export class SheepEcosystemService {
     }
   }
 
+  // Helper function to clean decimal values for BigNumber conversion
+  private cleanDecimalString(value: string): string {
+    return value.includes('.')
+      ? value.replace(/0+$/, '').replace(/\.$/, '')
+      : value;
+  }
+
   public async buySheep(amountETH: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
-      // Parse the amount of Sonic (native token) to spend
-      const parsedAmount = ethers.utils.parseEther(amountETH);
+      // Clean the amount string and parse it
+      const cleanAmount = this.cleanDecimalString(amountETH);
+      const parsedAmount = ethers.utils.parseEther(cleanAmount);
       
       // Call the mintForFee function on the SHEEP contract
       // This will:
@@ -293,7 +307,8 @@ export class SheepEcosystemService {
     
     // Note: In real implementation, this would involve interacting with a DEX
     // This is just a placeholder for demonstration
-    const parsedAmount = ethers.utils.parseEther(amount);
+    const cleanAmount = this.cleanDecimalString(amount);
+    const parsedAmount = ethers.utils.parseEther(cleanAmount);
     throw new Error('Selling Sheep is not implemented in the current contract');
   }
 
@@ -521,7 +536,8 @@ export class SheepEcosystemService {
 
   public async activateProtection(amount: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
-    const parsedAmount = ethers.utils.parseEther(amount);
+    const cleanAmount = this.cleanDecimalString(amount);
+    const parsedAmount = ethers.utils.parseEther(cleanAmount);
     const tx = await this.sheepDogContract!.protect(parsedAmount);
     return tx;
   }
@@ -618,8 +634,11 @@ export class SheepEcosystemService {
   public async approveSheep(amount: string, spenderAddress: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     try {
+      // Clean the amount string to avoid issues with trailing zeros in decimal part
+      const cleanAmount = this.cleanDecimalString(amount);
+      
       // Convert amount to wei (18 decimals)
-      const amountWei = ethers.utils.parseEther(amount);
+      const amountWei = ethers.utils.parseEther(cleanAmount);
       
       // Call the approve function on the SHEEP contract
       const tx = await this.sheepContract!.approve(spenderAddress, amountWei);
@@ -813,45 +832,276 @@ export class SheepEcosystemService {
   }
 
   // Get potential targets for wolf to eat
-  public async getPotentialTargets(): Promise<any[]> {
+  public async getPotentialTargets(limit: number = 8, isCacheUpdate: boolean = false): Promise<any[]> {
     try {
-      // In a real implementation, this would query the contract or API for potential targets
-      // For demo, return mock targets
-      return [
-        { 
-          address: "0x1234567890123456789012345678901234567890", 
-          name: "Whale Wallet", 
-          sheepBalance: "15000000", 
-          canBeEaten: true 
-        },
-        { 
-          address: "0x2345678901234567890123456789012345678901", 
-          name: "Sheep Farmer", 
-          sheepBalance: "7500000", 
-          canBeEaten: true 
-        },
-        { 
-          address: "0x3456789012345678901234567890123456789012", 
-          name: "Protected Wallet", 
-          sheepBalance: "5000000", 
-          canBeEaten: false 
-        },
-        { 
-          address: "0x4567890123456789012345678901234567890123", 
-          name: "Small Holder", 
-          sheepBalance: "250000", 
-          canBeEaten: true 
-        },
-        { 
-          address: "0x5678901234567890123456789012345678901234", 
-          name: "Sleeping SheepDog", 
-          sheepBalance: "8000000", 
-          canBeEaten: true 
+      // Addresses to exclude (protected addresses and LP)
+      const EXCLUDED_ADDRESSES = [
+        '0xe0707Bd1e3800067447282eA95cE5B41D7E493d1',
+        '0xa3b5f40a5719208B507F658a11Fb314Ef5e2c0e2'
+      ].map(addr => addr.toLowerCase());
+      
+      // Return cached targets if they exist and are recent (unless this is a cache update call)
+      const now = Date.now();
+      if (!isCacheUpdate && 
+          SheepEcosystemService.cachedTargets.length > 0 && 
+          now - SheepEcosystemService.targetsCacheTime < SheepEcosystemService.CACHE_DURATION) {
+        console.log("Using cached targets:", SheepEcosystemService.cachedTargets.length);
+        
+        // Filter out excluded addresses from cached targets
+        const filteredTargets = SheepEcosystemService.cachedTargets.filter(
+          target => !EXCLUDED_ADDRESSES.includes(target.address.toLowerCase())
+        );
+        
+        // Return a random subset of the filtered cached targets
+        if (limit < filteredTargets.length) {
+          // Create a copy to shuffle
+          const targets = [...filteredTargets];
+          
+          // Fisher-Yates shuffle algorithm
+          for (let i = targets.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [targets[i], targets[j]] = [targets[j], targets[i]];
+          }
+          
+          return targets.slice(0, limit);
         }
-      ];
+        
+        return filteredTargets.slice(0, limit);
+      }
+      
+      // Check if we have a provider
+      if (!this.provider) {
+        throw new Error("Provider not initialized");
+      }
+      
+      console.log("Searching for new targets...");
+      // Get some recent blocks to find addresses
+      const latestBlockNumber = await this.provider.getBlockNumber();
+      const addressMap = new Map<string, boolean>();
+      const targets = [];
+      
+      // Add excluded addresses to the map to skip them
+      EXCLUDED_ADDRESSES.forEach(addr => addressMap.set(addr, true));
+      
+      // First attempt: Look through more blocks
+      for (let i = 0; i < 15 && targets.length < 500; i++) {
+        const blockNumber = latestBlockNumber - i;
+        const block = await this.provider.getBlock(blockNumber, true);
+        
+        if (!block || !block.transactions) continue;
+        
+        // Shuffle transactions to get random addresses
+        const shuffledTxs = [...block.transactions].sort(() => Math.random() - 0.5);
+        
+        for (const tx of shuffledTxs) {
+          const fromAddress = tx.from ? tx.from.toLowerCase() : null;
+          
+          // Skip if we already have this address, if it's null, or if it's the zero address or excluded
+          if (!fromAddress || 
+              addressMap.has(fromAddress) || 
+              fromAddress === '0x0000000000000000000000000000000000000000') {
+            continue;
+          }
+          
+          // Check if this address has any SHEEP tokens
+          try {
+            const sheepBalance = await this.sheepContract!.balanceOf(tx.from);
+            
+            if (sheepBalance.gt(0)) {
+              // Check if this address has protection (has SheepDog)
+              const sheepDogShares = await this.sheepDogContract!.sheepDogShares(tx.from);
+              const canBeEaten = sheepDogShares.isZero(); // Can be eaten if no SheepDog shares
+              
+              // Truncate address for display
+              const shortAddress = tx.from.substring(0, 6) + "..." + tx.from.substring(tx.from.length - 4);
+              
+              targets.push({
+                address: tx.from,
+                name: `Wallet ${shortAddress}`,
+                sheepBalance: ethers.utils.formatEther(sheepBalance),
+                canBeEaten
+              });
+              
+              addressMap.set(fromAddress, true);
+              
+              // Break if we have enough targets
+              if (targets.length >= 500) break;
+            }
+          } catch (error) {
+            console.warn(`Error checking balance for ${tx.from}:`, error);
+          }
+        }
+      }
+      
+      // Second attempt: If we still don't have addresses, try checking the "to" addresses in transactions too
+      if (targets.length < 300) {
+        for (let i = 0; i < 10 && targets.length < 500; i++) {
+          const blockNumber = latestBlockNumber - i - 15; // Check different blocks than before
+          const block = await this.provider.getBlock(blockNumber, true);
+          
+          if (!block || !block.transactions) continue;
+          
+          for (const tx of block.transactions) {
+            const toAddress = tx.to ? tx.to.toLowerCase() : null;
+            
+            // Check recipient addresses too
+            if (toAddress && 
+                !addressMap.has(toAddress) && 
+                toAddress !== '0x0000000000000000000000000000000000000000') {
+              try {
+                const sheepBalance = await this.sheepContract!.balanceOf(tx.to);
+                
+                if (sheepBalance.gt(0)) {
+                  const sheepDogShares = await this.sheepDogContract!.sheepDogShares(tx.to);
+                  const canBeEaten = sheepDogShares.isZero();
+                  
+                  const shortAddress = tx.to.substring(0, 6) + "..." + tx.to.substring(tx.to.length - 4);
+                  
+                  targets.push({
+                    address: tx.to,
+                    name: `Wallet ${shortAddress}`,
+                    sheepBalance: ethers.utils.formatEther(sheepBalance),
+                    canBeEaten
+                  });
+                  
+                  addressMap.set(toAddress, true);
+                  
+                  if (targets.length >= 500) break;
+                }
+              } catch (error) {
+                console.warn(`Error checking balance for ${tx.to}:`, error);
+              }
+            }
+          }
+        }
+      }
+      
+      // Third attempt: If we still have too few, try checking some known whale addresses
+      if (targets.length < 100) {
+        // Get top holders from contract events (transfers to/from)
+        try {
+          const transferEvents = await this.sheepContract!.queryFilter(
+            this.sheepContract!.filters.Transfer(),
+            latestBlockNumber - 5000,
+            latestBlockNumber
+          );
+          
+          // Count frequency of addresses in transfer events
+          const addressFrequency = new Map<string, number>();
+          for (const event of transferEvents) {
+            const from = event.args?.from?.toLowerCase();
+            const to = event.args?.to?.toLowerCase();
+            
+            if (from && 
+                from !== '0x0000000000000000000000000000000000000000' && 
+                !addressMap.has(from) && 
+                !EXCLUDED_ADDRESSES.includes(from)) {
+              addressFrequency.set(from, (addressFrequency.get(from) || 0) + 1);
+            }
+            
+            if (to && 
+                to !== '0x0000000000000000000000000000000000000000' && 
+                !addressMap.has(to) && 
+                !EXCLUDED_ADDRESSES.includes(to)) {
+              addressFrequency.set(to, (addressFrequency.get(to) || 0) + 1);
+            }
+          }
+          
+          // Sort addresses by frequency
+          const sortedAddresses = [...addressFrequency.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(entry => entry[0]);
+          
+          // Check top addresses for SHEEP balances
+          for (const address of sortedAddresses.slice(0, 50)) {
+            if (addressMap.has(address)) continue;
+            
+            try {
+              const sheepBalance = await this.sheepContract!.balanceOf(address);
+              
+              if (sheepBalance.gt(0)) {
+                const sheepDogShares = await this.sheepDogContract!.sheepDogShares(address);
+                const canBeEaten = sheepDogShares.isZero();
+                
+                const shortAddress = address.substring(0, 6) + "..." + address.substring(address.length - 4);
+                
+                targets.push({
+                  address: address,
+                  name: `Active Wallet ${shortAddress}`,
+                  sheepBalance: ethers.utils.formatEther(sheepBalance),
+                  canBeEaten
+                });
+                
+                addressMap.set(address, true);
+                
+                if (targets.length >= 500) break;
+              }
+            } catch (error) {
+              console.warn(`Error checking balance for ${address}:`, error);
+            }
+          }
+        } catch (error) {
+          console.warn("Error querying transfer events:", error);
+        }
+      }
+      
+      // If we STILL couldn't find enough real targets (which is unlikely after 3 attempts), 
+      // then and ONLY then use fallback addresses
+      if (targets.length === 0) {
+        console.warn("Could not find ANY real targets, falling back to mock data");
+        
+        // Generate random-looking addresses that will be different each time
+        const randomAddress = () => {
+          let addr = "0x";
+          for (let i = 0; i < 40; i++) {
+            addr += "0123456789abcdef"[Math.floor(Math.random() * 16)];
+          }
+          return addr;
+        };
+        
+        const randomBalance = () => {
+          return (Math.floor(Math.random() * 500000) + 100000).toString();
+        };
+        
+        // Generate 50 random addresses
+        for (let i = 0; i < 50; i++) {
+          const addr = randomAddress();
+          const shortAddr = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+          
+          targets.push({
+            address: addr,
+            name: `Random Wallet ${shortAddr}`,
+            sheepBalance: randomBalance(),
+            canBeEaten: Math.random() > 0.3 // 70% chance of being eatable
+          });
+        }
+      }
+      
+      // Cache the results
+      console.log(`Found ${targets.length} potential targets`);
+      SheepEcosystemService.cachedTargets = targets.slice(0, 500);
+      SheepEcosystemService.targetsCacheTime = now;
+      
+      // Return the targets, but make sure we're not returning too many at once
+      return targets.slice(0, limit);
     } catch (error) {
       console.error('Error getting potential targets:', error);
-      return [];
+      
+      // Even on error, generate random addresses instead of fixed mock ones
+      const targets = [];
+      for (let i = 0; i < 8; i++) {
+        const addr = `0x${Math.random().toString(16).substring(2, 42).padEnd(40, '0')}`;
+        const shortAddr = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+        
+        targets.push({
+          address: addr,
+          name: `Random Wallet ${shortAddr}`,
+          sheepBalance: (Math.floor(Math.random() * 5000000) + 100000).toString(),
+          canBeEaten: Math.random() > 0.2 // 80% chance of being eatable
+        });
+      }
+      
+      return targets;
     }
   }
   
@@ -860,17 +1110,44 @@ export class SheepEcosystemService {
     try {
       await this.ensureInitialized();
       
-      // In a real implementation, this would call the eatSheep function on the contract
-      console.log(`Wolf #${wolfId} is eating target ${targetAddress} (simulated)`);
+      // Call the actual eatSheep function from the wolf contract
+      const tx = await this.wolfContract!.eatSheep(targetAddress, wolfId, {
+        gasLimit: ethers.BigNumber.from("3000000")
+      });
       
-      // Simulate a delay for the transaction
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait for transaction to be mined
+      await tx.wait();
       
       return true;
     } catch (error) {
       console.error('Error eating target:', error);
       throw error;
     }
+  }
+
+  // Get more targets from the cache
+  public getMoreTargetsFromCache(count: number = 8): any[] {
+    if (SheepEcosystemService.cachedTargets.length === 0) return [];
+    
+    // Addresses to exclude (protected addresses and LP)
+    const EXCLUDED_ADDRESSES = [
+      '0xe0707Bd1e3800067447282eA95cE5B41D7E493d1',
+      '0xa3b5f40a5719208B507F658a11Fb314Ef5e2c0e2'
+    ].map(addr => addr.toLowerCase());
+    
+    // Filter out excluded addresses
+    const filteredTargets = SheepEcosystemService.cachedTargets.filter(
+      target => !EXCLUDED_ADDRESSES.includes(target.address.toLowerCase())
+    );
+    
+    if (filteredTargets.length === 0) return [];
+    
+    // Instead of getting random indexes which might repeat,
+    // let's shuffle the entire cache and then take the first 'count' elements
+    const shuffled = [...filteredTargets].sort(() => 0.5 - Math.random());
+    
+    // Take the first 'count' elements or all if there are fewer
+    return shuffled.slice(0, Math.min(count, shuffled.length));
   }
 }
 

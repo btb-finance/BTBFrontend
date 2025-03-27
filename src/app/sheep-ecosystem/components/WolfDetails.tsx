@@ -61,9 +61,10 @@ export default function WolfDetails() {
   const [autoHuntTargets, setAutoHuntTargets] = useState<Target[]>([]);
   const [loadingStates, setLoadingStates] = useState({
     wolves: true,
-    targets: true,
+    targets: false,
     metadata: true
   });
+  const [targetsLoaded, setTargetsLoaded] = useState(false);
   
   const sheepService = new SheepEcosystemService();
   
@@ -142,8 +143,8 @@ export default function WolfDetails() {
         setFeedingCost(wolfDetails[0].eatAmount);
       }
       
-      // Load targets in parallel
-      loadTargets();
+      // Don't load targets in parallel anymore
+      // loadTargets();
       
     } catch (err) {
       console.error('Error loading wolves:', err);
@@ -190,6 +191,10 @@ export default function WolfDetails() {
   };
   
   const loadTargets = async () => {
+    if (targetsLoaded) return targets; // Return cached targets if already loaded
+    
+    setLoadingStates(prev => ({ ...prev, targets: true }));
+    
     try {
       const targetsList = await sheepService.getPotentialTargets();
       setTargets(targetsList); // Show targets immediately
@@ -211,8 +216,11 @@ export default function WolfDetails() {
       );
       
       setTargets(updatedTargets);
+      setTargetsLoaded(true);
+      return updatedTargets;
     } catch (err) {
       console.error('Error loading targets:', err);
+      return [];
     } finally {
       setLoadingStates(prev => ({ ...prev, targets: false }));
     }
@@ -244,8 +252,13 @@ export default function WolfDetails() {
       const wolfHungerBN = await sheepService.wolfContract.hunger(wolfId);
       const formattedHunger = ethers.utils.formatEther(wolfHungerBN);
       
+      // Clean the formatted hunger value to avoid issues with trailing zeros
+      const cleanHunger = formattedHunger.includes('.')
+        ? formattedHunger.replace(/0+$/, '').replace(/\.$/, '')
+        : formattedHunger;
+      
       // First approve SHEEP tokens to be used by the Wolf contract
-      const approveTx = await sheepService.approveSheep(formattedHunger, sheepService.WOLF_CONTRACT_ADDRESS);
+      const approveTx = await sheepService.approveSheep(cleanHunger, sheepService.WOLF_CONTRACT_ADDRESS);
       await approveTx.wait();
       
       // Call eatSheep with a dummy target address (to feed wolf)
@@ -266,58 +279,37 @@ export default function WolfDetails() {
   };
   
   const handleEatTarget = async (wolfId: number, targetAddress: string) => {
-    if (!wolfId || !targetAddress) return;
+    if (!targetAddress) {
+      setError('Please select a target first');
+      return;
+    }
     
     setIsEatingTarget(true);
+    setError('');
+    
     try {
-      // Ensure wolf contract is available
-      if (!sheepService.wolfContract) {
-        throw new Error('Wolf contract not initialized');
+      // If targets not loaded, load them now
+      if (!targetsLoaded) {
+        await loadTargets();
       }
       
-      // Verify that the target can be eaten (not protected)
-      const cannotBeEaten = await sheepService.wolfContract.canNotBeEaten(targetAddress);
-      if (cannotBeEaten) {
-        throw new Error('This target cannot be eaten - they are protected');
-      }
+      const success = await sheepService.eatTarget(wolfId, targetAddress);
       
-      // Get the wolf's hunger level
-      const wolfHungerBN = await sheepService.wolfContract.hunger(wolfId);
-      
-      // Verify the wolf can eat (not starved)
-      const starvedTimestamp = await sheepService.wolfContract.starved(wolfId);
-      if (!starvedTimestamp.isZero()) {
-        throw new Error('This wolf has starved and cannot eat');
-      }
-      
-      // Call eatSheep directly with the target address and wolf ID
-      console.log(`Wolf #${wolfId} is hunting target ${targetAddress}`);
-      const tx = await sheepService.wolfContract.eatSheep(targetAddress, wolfId);
-      
-      // Wait for transaction to be mined
-      const receipt = await tx.wait();
-      
-      // Look for sheepEaten event in transaction logs
-      const sheepEatenEvent = receipt.events?.find(
-        (event: any) => event.event === 'sheepEaten'
-      );
-      
-      if (sheepEatenEvent) {
-        const eatenAmount = ethers.utils.formatEther(sheepEatenEvent.args.amount);
-        setError(`Successfully eaten ${eatenAmount} SHEEP from target!`);
+      if (success) {
+        // Refresh wolves
+        await loadWolves();
+        
+        // Clear selected target
+        setSelectedTarget(null);
+        
+        // Show success message
+        console.log(`Wolf #${wolfId} successfully ate target ${targetAddress}`);
       } else {
-        setError('Hunt successful!');
+        setError('Failed to eat the target.');
       }
-      
-      // Reload wolf data and targets
-      await loadWolves();
-      setSelectedTarget(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error eating target:', err);
-      const errorMessage = err instanceof Error 
-        ? err.message 
-        : 'Unknown error occurred while hunting';
-      setError(`Failed to eat target: ${errorMessage}`);
+      setError(err.reason || err.message || String(err));
     } finally {
       setIsEatingTarget(false);
     }
@@ -413,8 +405,8 @@ export default function WolfDetails() {
     setError('');
     
     try {
-      // Get all potential targets
-      const allTargets = await sheepService.getPotentialTargets();
+      // Get all potential targets - reuse already loaded targets if available
+      const allTargets = targetsLoaded ? targets : await loadTargets();
       
       // Get all wolves that can eat
       const hungryWolves = wolves.filter(wolf => wolf.canEat && !wolf.starved);
@@ -448,17 +440,28 @@ export default function WolfDetails() {
       setAutoHuntProgress(0);
       
       // Calculate total approval needed for all wolves
-      let totalApproval = '0';
+      let totalApproval = ethers.BigNumber.from(0);
       for (const wolf of hungryWolves) {
-        totalApproval = ethers.utils.formatEther(
-          ethers.BigNumber.from(totalApproval).add(
-            ethers.utils.parseEther(wolf.hungerRaw)
-          )
-        );
+        // Use try-catch to handle any potential errors in parsing
+        try {
+          // Remove trailing zeros after decimal point to avoid the "2.0" format error
+          const hungerValue = wolf.hungerRaw.includes('.') 
+            ? wolf.hungerRaw.replace(/0+$/, '').replace(/\.$/, '') 
+            : wolf.hungerRaw;
+            
+          const parsedAmount = ethers.utils.parseEther(hungerValue);
+          totalApproval = totalApproval.add(parsedAmount);
+        } catch (err) {
+          console.error(`Invalid hunger value: ${wolf.hungerRaw}`, err);
+          throw new Error(`Invalid hunger format: ${wolf.hungerRaw}. Please refresh and try again.`);
+        }
       }
       
+      // Format the total approval back to a string for the approval call
+      const totalApprovalStr = ethers.utils.formatEther(totalApproval);
+      
       // Approve SHEEP tokens for all hunts at once
-      const approveTx = await sheepService.approveSheep(totalApproval, sheepService.WOLF_CONTRACT_ADDRESS);
+      const approveTx = await sheepService.approveSheep(totalApprovalStr, sheepService.WOLF_CONTRACT_ADDRESS);
       await approveTx.wait();
       
       // Hunt with each wolf
@@ -590,13 +593,23 @@ export default function WolfDetails() {
           <Button
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"
             size="lg"
-            onClick={startAutoHunt}
-            disabled={isAutoHunting || !wolves.some(w => w.canEat && !w.starved)}
+            onClick={targetsLoaded ? startAutoHunt : loadTargets}
+            disabled={isAutoHunting || loadingStates.targets || !wolves.some(w => w.canEat && !w.starved)}
           >
             {isAutoHunting ? (
               <>
                 <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
                 Auto Hunting... ({autoHuntProgress}/{wolves.filter(w => w.canEat && !w.starved).length})
+              </>
+            ) : loadingStates.targets ? (
+              <>
+                <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+                Loading Targets...
+              </>
+            ) : !targetsLoaded ? (
+              <>
+                <ArrowPathIcon className="w-5 h-5 mr-2" />
+                Load Targets for Auto Hunt
               </>
             ) : !wolves.some(w => w.canEat && !w.starved) ? (
               <>
@@ -610,6 +623,12 @@ export default function WolfDetails() {
               </>
             )}
           </Button>
+          
+          {!targetsLoaded && !loadingStates.targets && wolves.some(w => w.canEat && !w.starved) && (
+            <p className="text-xs text-center mt-2 text-gray-500">
+              Targets must be loaded before auto hunt can begin
+            </p>
+          )}
         </div>
       )}
       
@@ -806,7 +825,32 @@ export default function WolfDetails() {
                   <p>Your wolf can hunt and eat SHEEP from other wallets.</p>
                 </div>
                 
-                {targets.length > 0 ? (
+                {loadingStates.targets ? (
+                  <div className="flex justify-center items-center p-4">
+                    <ArrowPathIcon className="w-5 h-5 text-gray-500 animate-spin mr-2" />
+                    <span>Loading potential targets...</span>
+                  </div>
+                ) : !targetsLoaded ? (
+                  <div className="text-center p-4 mb-4 bg-white dark:bg-gray-700 rounded-md">
+                    <Button 
+                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                      onClick={loadTargets}
+                      disabled={loadingStates.targets}
+                    >
+                      {loadingStates.targets ? (
+                        <>
+                          <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>Load Potential Targets</>
+                      )}
+                    </Button>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      Click to find wallets with SHEEP tokens for your wolf to hunt
+                    </p>
+                  </div>
+                ) : targets.length > 0 ? (
                   <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
                     {targets.map((target) => (
                       <button
@@ -833,12 +877,12 @@ export default function WolfDetails() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center p-4 bg-white dark:bg-gray-700 rounded-md">
+                  <div className="text-center p-4 bg-white dark:bg-gray-700 rounded-md mb-4">
                     <p className="text-gray-500 dark:text-gray-400">No targets available to hunt</p>
                   </div>
                 )}
                 
-                {selectedTarget && (
+                {targetsLoaded && selectedTarget && (
                   <Button
                     className="w-full"
                     variant="destructive"
