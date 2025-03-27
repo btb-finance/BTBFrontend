@@ -293,6 +293,7 @@ export default function WolfDetails() {
         await loadTargets();
       }
       
+      // Call eatTarget directly without approval
       const success = await sheepService.eatTarget(wolfId, targetAddress);
       
       if (success) {
@@ -439,32 +440,7 @@ export default function WolfDetails() {
       setAutoHuntTargets(selectedTargets);
       setAutoHuntProgress(0);
       
-      // Calculate total approval needed for all wolves
-      let totalApproval = ethers.BigNumber.from(0);
-      for (const wolf of hungryWolves) {
-        // Use try-catch to handle any potential errors in parsing
-        try {
-          // Remove trailing zeros after decimal point to avoid the "2.0" format error
-          const hungerValue = wolf.hungerRaw.includes('.') 
-            ? wolf.hungerRaw.replace(/0+$/, '').replace(/\.$/, '') 
-            : wolf.hungerRaw;
-            
-          const parsedAmount = ethers.utils.parseEther(hungerValue);
-          totalApproval = totalApproval.add(parsedAmount);
-        } catch (err) {
-          console.error(`Invalid hunger value: ${wolf.hungerRaw}`, err);
-          throw new Error(`Invalid hunger format: ${wolf.hungerRaw}. Please refresh and try again.`);
-        }
-      }
-      
-      // Format the total approval back to a string for the approval call
-      const totalApprovalStr = ethers.utils.formatEther(totalApproval);
-      
-      // Approve SHEEP tokens for all hunts at once
-      const approveTx = await sheepService.approveSheep(totalApprovalStr, sheepService.WOLF_CONTRACT_ADDRESS);
-      await approveTx.wait();
-      
-      // Hunt with each wolf
+      // Hunt with each wolf directly (no approval needed)
       for (let i = 0; i < hungryWolves.length; i++) {
         const wolf = hungryWolves[i];
         const target = selectedTargets[i];
@@ -561,7 +537,7 @@ export default function WolfDetails() {
           <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
             <p>Automatically hunt with all your hungry wolves.</p>
             <p>Each wolf will hunt a different random target.</p>
-            <p>You only need to approve one transaction for all hunts.</p>
+            <p>Just click the button to start hunting with all wolves.</p>
           </div>
           
           {autoHuntTargets.length > 0 && (
