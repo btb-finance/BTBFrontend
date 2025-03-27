@@ -31,10 +31,10 @@ const SONIC_NETWORK = {
 export class SheepEcosystemService {
   private sheepContract: ethers.Contract | null = null;
   private sheepDogContract: ethers.Contract | null = null;
-  private wolfContract: ethers.Contract | null = null;
+  public wolfContract: ethers.Contract | null = null;
   private routerContract: ethers.Contract | null = null;
   private provider: ethers.providers.StaticJsonRpcProvider | null = null;
-  private signer: ethers.Signer | null = null;
+  public signer: ethers.Signer | null = null;
   private isInitialized = false;
 
   // Contract addresses
@@ -336,8 +336,13 @@ export class SheepEcosystemService {
 
   // Get formatted SheepDog shares with 2 decimal places
   public async getFormattedSheepDogShares(address?: string): Promise<string> {
-    const shares = await this.getSheepDogShares(address);
-    return this.formatTokenAmount(shares);
+    try {
+      const shares = await this.getSheepDogShares(address);
+      return this.formatTokenAmount(shares);
+    } catch (error) {
+      console.error('Error getting formatted SheepDog shares:', error);
+      return "0";
+    }
   }
 
   // Get total SHEEP balance including what's staked in SheepDog
@@ -363,8 +368,13 @@ export class SheepEcosystemService {
 
   // Get formatted total SHEEP balance with 2 decimal places
   public async getFormattedTotalSheepBalance(address?: string): Promise<string> {
-    const balance = await this.getTotalSheepBalance(address);
-    return this.formatTokenAmount(balance);
+    try {
+      const balance = await this.getTotalSheepBalance(address);
+      return this.formatTokenAmount(balance);
+    } catch (error) {
+      console.error('Error getting total SHEEP balance:', error);
+      return "0";
+    }
   }
 
   // Update the existing getProtectionStatus method to work with total SHEEP balance
@@ -568,19 +578,13 @@ export class SheepEcosystemService {
     try {
       const targetAddress = address || (this.signer ? await this.signer.getAddress() : null);
       if (!targetAddress) throw new Error('No wallet connected and no address provided');
-      
-      // Get wolf balance
-      const wolfCount = await this.getWolfCount(targetAddress);
-      if (wolfCount === 0) return '0%';
-      
-      // For simplicity, we'll just return a simulated hunger level
-      // In a real implementation, you would query each Wolf's hunger level
-      // For now, we'll return a random percentage between 20-90%
-      const hunger = Math.floor(Math.random() * 70) + 20;
-      return `${hunger}%`;
+
+      // Would normally query wolf hunger from contract
+      // For demo:
+      return (35 + Math.floor(Math.random() * 65)).toString(); // Random 35-99%
     } catch (error) {
-      console.error('Error getting Wolf hunger:', error);
-      return '0%';
+      console.error('Error getting WOLF hunger:', error);
+      return "0";
     }
   }
 
@@ -685,6 +689,186 @@ export class SheepEcosystemService {
       return tx;
     } catch (error) {
       console.error('Error feeding Wolf:', error);
+      throw error;
+    }
+  }
+
+  // Get the wolf ID for the given index (for iterating through user's wolves)
+  public async getWolfId(index: number): Promise<number> {
+    try {
+      const targetAddress = this.signer ? await this.signer.getAddress() : null;
+      if (!targetAddress) throw new Error('No wallet connected');
+
+      // For a real implementation, this would call tokenOfOwnerByIndex from ERC721Enumerable
+      // For demo we'll return mock IDs
+      return 1000 + index;
+    } catch (error) {
+      console.error('Error getting Wolf ID:', error);
+      return 0;
+    }
+  }
+  
+  // Get the wolf hunger level as a percentage
+  public async getWolfHunger(wolfId: number): Promise<string> {
+    try {
+      // In a real implementation, this would query hunger from the Wolf contract
+      // For demo, generate random hunger based on wolfId for consistency
+      const hunger = (wolfId * 17) % 100; // Pseudo-random but consistent for each ID
+      return hunger.toString();
+    } catch (error) {
+      console.error('Error getting Wolf hunger:', error);
+      return "0";
+    }
+  }
+  
+  // Get the timestamp of the wolf's last feeding
+  public async getWolfLastFeeding(wolfId: number): Promise<number> {
+    try {
+      // In a real implementation, this would query the last feeding time from the contract
+      // For demo, we'll return a timestamp from the last few days
+      const now = Math.floor(Date.now() / 1000);
+      const daysSince = (wolfId * 13) % 14; // 0-13 days based on wolfId
+      return now - (daysSince * 24 * 60 * 60);
+    } catch (error) {
+      console.error('Error getting Wolf last feeding:', error);
+      return Math.floor(Date.now() / 1000);
+    }
+  }
+  
+  // Check if the wolf is starved
+  public async isWolfStarved(wolfId: number): Promise<boolean> {
+    try {
+      // In a real implementation, this would check the starved status from the contract
+      // For demo, we'll determine based on wolfId (some are starved, some aren't)
+      return wolfId % 5 === 0; // Every 5th wolf is starved
+    } catch (error) {
+      console.error('Error checking if Wolf is starved:', error);
+      return false;
+    }
+  }
+  
+  // Check if the wolf can eat (is not starved and hasn't eaten recently)
+  public async canWolfEat(wolfId: number): Promise<boolean> {
+    try {
+      const isStarved = await this.isWolfStarved(wolfId);
+      if (isStarved) return false;
+      
+      // In a real implementation, this would check hunger and last feeding time
+      // For demo, use wolfId to determine
+      return wolfId % 3 !== 0; // 2/3 of wolves can eat
+    } catch (error) {
+      console.error('Error checking if Wolf can eat:', error);
+      return false;
+    }
+  }
+  
+  // Get the wolf metadata (image, attributes)
+  public async getWolfMetadata(wolfId: number): Promise<any> {
+    try {
+      // In a real implementation, this would fetch the NFT metadata from IPFS or a server
+      // For demo, we'll return mock metadata
+      return {
+        image: `https://api.dicebear.com/6.x/identicon/svg?seed=${wolfId}`,
+        attributes: [
+          { trait_type: "Generation", value: "Gen " + (wolfId % 3 + 1) },
+          { trait_type: "Rarity", value: wolfId % 10 === 0 ? "Legendary" : wolfId % 5 === 0 ? "Rare" : "Common" },
+          { trait_type: "Strength", value: ((wolfId * 17) % 100).toString() },
+          { trait_type: "Aggression", value: ((wolfId * 23) % 100).toString() }
+        ]
+      };
+    } catch (error) {
+      console.error('Error getting Wolf metadata:', error);
+      return { image: "", attributes: [] };
+    }
+  }
+  
+  // Get the cost to feed a wolf (in SHEEP tokens)
+  public async getWolfFeedingCost(): Promise<string> {
+    try {
+      // In a real implementation, this would query the contract
+      // For demo, return a fixed cost
+      return "5000";
+    } catch (error) {
+      console.error('Error getting Wolf feeding cost:', error);
+      return "0";
+    }
+  }
+  
+  // Feed a wolf, consuming SHEEP tokens
+  public async feedWolf(wolfId: number): Promise<boolean> {
+    try {
+      await this.ensureInitialized();
+      
+      // In a real implementation, this would call a contract method to feed the wolf
+      console.log(`Feeding Wolf #${wolfId} (simulated)`);
+      
+      // Simulate a delay for the transaction
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      return true;
+    } catch (error) {
+      console.error('Error feeding Wolf:', error);
+      throw error;
+    }
+  }
+
+  // Get potential targets for wolf to eat
+  public async getPotentialTargets(): Promise<any[]> {
+    try {
+      // In a real implementation, this would query the contract or API for potential targets
+      // For demo, return mock targets
+      return [
+        { 
+          address: "0x1234567890123456789012345678901234567890", 
+          name: "Whale Wallet", 
+          sheepBalance: "15000000", 
+          canBeEaten: true 
+        },
+        { 
+          address: "0x2345678901234567890123456789012345678901", 
+          name: "Sheep Farmer", 
+          sheepBalance: "7500000", 
+          canBeEaten: true 
+        },
+        { 
+          address: "0x3456789012345678901234567890123456789012", 
+          name: "Protected Wallet", 
+          sheepBalance: "5000000", 
+          canBeEaten: false 
+        },
+        { 
+          address: "0x4567890123456789012345678901234567890123", 
+          name: "Small Holder", 
+          sheepBalance: "250000", 
+          canBeEaten: true 
+        },
+        { 
+          address: "0x5678901234567890123456789012345678901234", 
+          name: "Sleeping SheepDog", 
+          sheepBalance: "8000000", 
+          canBeEaten: true 
+        }
+      ];
+    } catch (error) {
+      console.error('Error getting potential targets:', error);
+      return [];
+    }
+  }
+  
+  // Eat a target with a wolf
+  public async eatTarget(wolfId: number, targetAddress: string): Promise<boolean> {
+    try {
+      await this.ensureInitialized();
+      
+      // In a real implementation, this would call the eatSheep function on the contract
+      console.log(`Wolf #${wolfId} is eating target ${targetAddress} (simulated)`);
+      
+      // Simulate a delay for the transaction
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      return true;
+    } catch (error) {
+      console.error('Error eating target:', error);
       throw error;
     }
   }
