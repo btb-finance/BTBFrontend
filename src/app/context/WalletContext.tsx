@@ -197,10 +197,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
 // Add TypeScript declarations for window.ethereum
 declare global {
   interface Window {
-    ethereum?: {
+    ethereum: {
       request: (args: any) => Promise<any>;
       on: (event: string, callback: (...args: any[]) => void) => void;
       removeListener: (event: string, callback: (...args: any[]) => void) => void;
-    };
+    } | undefined;
   }
 }
