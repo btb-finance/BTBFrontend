@@ -1511,8 +1511,8 @@ packages:
   '@types/node@20.17.19':
     resolution: {integrity: sha512-LEwC7o1ifqg/6r2gn9Dns0f1rhK+fPFDoMiceTJ6kWmVk6bgXBI/9IOWfVan4WiAavK9pIVWdX0/e3J+eEUh5A==}
 
-  '@types/node@20.17.27':
-    resolution: {integrity: sha512-U58sbKhDrthHlxHRJw7ZLiLDZGmAUOZUbpw0S6nL27sYUdhvgBLCRu/keSd6qcTsfArd1sRFCCBxzWATGr/0UA==}
+  '@types/node@20.17.28':
+    resolution: {integrity: sha512-DHlH/fNL6Mho38jTy7/JT7sn2wnXI+wULR6PV4gy4VHLVvnrV/d3pHAMQHhc4gjdLmK2ZiPoMxzp6B3yRajLSQ==}
 
   '@types/pbkdf2@3.1.2':
     resolution: {integrity: sha512-uRwJqmiXmh9++aSu1VNEn3iIxWOhd8AHXNSdlaLfdAAdSTY9jYVeGWnzejM3dvrkbqE3/hyQkQQ29IFATEGlew==}
@@ -6935,11 +6935,11 @@ snapshots:
 
   '@types/bn.js@4.11.6':
     dependencies:
-      '@types/node': 20.17.27
+      '@types/node': 20.17.28
 
   '@types/bn.js@5.1.6':
     dependencies:
-      '@types/node': 20.17.27
+      '@types/node': 20.17.28
 
   '@types/d3-array@3.2.1': {}
 
@@ -6993,13 +6993,13 @@ snapshots:
     dependencies:
       undici-types: 6.19.8
 
-  '@types/node@20.17.27':
+  '@types/node@20.17.28':
     dependencies:
       undici-types: 6.19.8
 
   '@types/pbkdf2@3.1.2':
     dependencies:
-      '@types/node': 20.17.27
+      '@types/node': 20.17.28
 
   '@types/prop-types@15.7.14': {}
 
@@ -7014,7 +7014,7 @@ snapshots:
 
   '@types/secp256k1@4.0.6':
     dependencies:
-      '@types/node': 20.17.27
+      '@types/node': 20.17.28
 
   '@types/trusted-types@2.0.7': {}
 
@@ -10197,7 +10197,7 @@ snapshots:
 
   jest-worker@27.5.1:
     dependencies:
-      '@types/node': 20.17.27
+      '@types/node': 20.17.28
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
