@@ -39,7 +39,7 @@ BTB Finance's frontend application provides a user-friendly interface for intera
 - 🔄 Manage loans and positions
 - 📊 View real-time stats and analytics
 
-The application is built with modern web technologies and connects to Ethereum-compatible blockchains (Base Sepolia testnet for development).
+The application is built with modern web technologies and connects to Ethereum-compatible blockchains (Base Mainnet for production, Base Sepolia testnet for development).
 
 ---
 
@@ -63,7 +63,7 @@ The application is built with modern web technologies and connects to Ethereum-c
     </td>
     <td width="50%" align="center">
       <h3>🌐 Web3 Integration</h3>
-      <p>Seamless connection to popular Web3 wallets</p>
+      <p>Seamless connection to popular Web3 wallets (MetaMask, WalletConnect, Coinbase Wallet)</p>
     </td>
   </tr>
 </table>
@@ -95,7 +95,7 @@ The application is built with modern web technologies and connects to Ethereum-c
 - **Trade Page**: Buy and sell CHICKS tokens
 - **Borrow Page**: Borrow USDC against CHICKS collateral
 - **Dashboard**: View stats and analytics
-- **Wallet Integration**: Connect with MetaMask and other wallets
+- **Wallet Integration**: Connect with MetaMask and other popular Web3 wallets
 
 ---
 
@@ -104,7 +104,7 @@ The application is built with modern web technologies and connects to Ethereum-c
 ### Prerequisites
 
 - Node.js 18+ installed
-- pnpm package manager
+- pnpm package manager (`npm install -g pnpm`)
 
 ### Installation
 
@@ -122,8 +122,16 @@ pnpm install
 3. Set up environment variables:
 Create a `.env.local` file with the following:
 ```
+# Contract Addresses
 NEXT_PUBLIC_CHICKS_CONTRACT_ADDRESS=your_contract_address
 NEXT_PUBLIC_USDC_CONTRACT_ADDRESS=your_usdc_address
+
+# Network Configuration
+NEXT_PUBLIC_CHAIN_ID=84532  # Base Sepolia testnet
+# NEXT_PUBLIC_CHAIN_ID=8453  # Base Mainnet (uncomment for production)
+
+# RPC URLs (optional - fallback providers)
+NEXT_PUBLIC_RPC_URL=https://sepolia.base.org
 ```
 
 4. Run the development server:
@@ -187,5 +195,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
   <h3>Built with ❤️ by the BTB Finance Team</h3>
-  <p>© 2025 BTB Finance. All rights reserved.</p>
+  <p>© 2023 BTB Finance. All rights reserved.</p>
 </div>
