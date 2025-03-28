@@ -75,12 +75,11 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      // Check if we're in a development environment
-      const isDevelopment = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-      
       // Check if MetaMask is installed
       if (typeof window.ethereum === 'undefined') {
-        throw new Error('No Ethereum wallet detected. Please install MetaMask or another Web3 wallet.');
+        setError('No Ethereum wallet detected. Please install MetaMask or another Web3 wallet and refresh the page.');
+        setIsConnecting(false);
+        return;
       }
       
       try {
@@ -96,23 +95,8 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         // Ensure the address is properly checksummed
         const userAddress = ethers.utils.getAddress(accounts[0]);
         
-        let signature;
-        try {
-          // Sign message to verify ownership
-          signature = await window.ethereum.request({
-            method: 'personal_sign',
-            params: [
-              `Welcome to BTB Finance! By signing this message, you confirm that:\n\n1. You are connecting to BTB Finance - The Next Generation DeFi Platform\n2. You understand that cryptocurrency markets are subject to high risk\n3. You are responsible for securing your wallet and assets\n\nWallet verification timestamp: ${new Date().toISOString()}`,
-              userAddress
-            ]
-          });
-        } catch (signError: any) {
-          // Handle user rejection of signature request
-          if (signError.code === 4001) { // MetaMask error code for user rejected request
-            throw new Error('You must sign the message to connect your wallet.');
-          }
-          throw signError;
-        }
+        // Message signing step removed to improve user experience
+        // Users can now connect without needing to sign a verification message
         
         // Set user address and connected state
         setAddress(userAddress);

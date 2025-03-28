@@ -24,13 +24,14 @@ import { useWallet } from '../../context/WalletContext';
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
-  const { address, isConnected, isConnecting, connectWallet, disconnectWallet } = useWallet();
+  const { address, isConnected, isConnecting, connectWallet, disconnectWallet, error, clearError } = useWallet();
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [expandedMobileItems, setExpandedMobileItems] = useState<string[]>([]);
   const [activeItem, setActiveItem] = useState<string>('');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [showError, setShowError] = useState(false);
 
   // Define navigation structure
   type NavigationItem = {
@@ -88,15 +89,7 @@ export default function Navbar() {
         { name: 'Token Info', href: '/token' },
         { name: 'Buy Token', href: '/buy-token' }
       ]
-    },
-    {
-      name: 'Wallet',
-      icon: WalletIcon,
-      children: [
-        { name: 'Connect Wallet', href: '#', action: 'connect' },
-        { name: 'View Transactions', href: isConnected ? `https://basescan.org/address/${address}` : '#', disabled: !isConnected }
-      ]
-    },
+    }
   ];
 
   useEffect(() => {
@@ -124,6 +117,18 @@ export default function Navbar() {
       return () => window.removeEventListener('popstate', handleRouteChange);
     }
   }, [mounted]);
+
+  // Track error state for auto-dismiss
+  useEffect(() => {
+    if (error) {
+      setShowError(true);
+      const timer = setTimeout(() => {
+        setShowError(false);
+        clearError();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
 
   if (!mounted) {
     return null;
@@ -158,6 +163,21 @@ export default function Navbar() {
         >
           <Logo showText={true} size={32} />
         </motion.div>
+
+        {/* Wallet Error Notification */}
+        <AnimatePresence>
+          {error && showError && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="fixed top-14 right-4 z-50 bg-red-600 text-white px-3 py-1 rounded-md shadow-lg text-xs"
+            >
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-1">
@@ -196,14 +216,18 @@ export default function Navbar() {
                           <button 
                             className="w-full text-left px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
                             onClick={() => {
-                              isConnected ? disconnectWallet() : connectWallet();
-                              setActiveItem(item.name);
-                              setIsMenuOpen(false);
-                              setOpenDropdown(null);
+                              try {
+                                isConnected ? disconnectWallet() : connectWallet();
+                                setActiveItem(item.name);
+                                setIsMenuOpen(false);
+                                setOpenDropdown(null);
+                              } catch (err) {
+                                console.error("Connection error:", err);
+                              }
                             }}
                           >
                             <span className="font-heading text-btb-primary dark:text-white hover:text-btb-primary-light dark:hover:text-btb-primary-light transition-all duration-300">
-                              {isConnected ? 'Disconnect Wallet' : child.name}
+                              {isConnected ? 'Disconnect Wallet' : isConnecting ? 'Connecting...' : child.name}
                             </span>
                           </button>
                         ) : child.name.includes('🔜') ? (
@@ -256,9 +280,53 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center space-x-1">
+          {/* Desktop Connect Wallet Button */}
+          <motion.button
+            onClick={() => {
+              try {
+                isConnected ? disconnectWallet() : connectWallet();
+              } catch (err) {
+                console.error("Desktop connection error:", err);
+              }
+            }}
+            type="button"
+            className="hidden md:inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm mr-2"
+            whileTap={{ scale: 0.95 }}
+          >
+            <WalletIcon className="mr-1.5 h-3.5 w-3.5" />
+            <span className="font-semibold">
+              {isConnecting ? 'Connecting...' : isConnected ? 
+                `${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
+                'Connect Wallet'}
+            </span>
+          </motion.button>
+          
+          {/* View Transactions Button - Only when connected */}
+          {isConnected && (
+            <motion.a
+              href={`https://basescan.org/address/${address}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:inline-flex items-center justify-center px-2 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none transition-all duration-300 shadow-sm mr-2"
+              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ChartBarIcon className="mr-1 h-3.5 w-3.5" />
+              <span className="font-semibold">Transactions</span>
+            </motion.a>
+          )}
+
           {/* Mobile Wallet Connect Button - Always visible */}
           <motion.button
-            onClick={isConnected ? disconnectWallet : connectWallet}
+            onClick={() => {
+              try {
+                isConnected ? disconnectWallet() : connectWallet();
+              } catch (err) {
+                console.error("Mobile connection error:", err);
+              }
+            }}
             type="button"
             className="md:hidden inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm"
             whileTap={{ scale: 0.95 }}
@@ -308,7 +376,13 @@ export default function Navbar() {
                   className="py-2 border-b border-gray-200 dark:border-gray-700 mb-2"
                 >
                   <button
-                    onClick={isConnected ? disconnectWallet : connectWallet}
+                    onClick={() => {
+                      try {
+                        isConnected ? disconnectWallet() : connectWallet();
+                      } catch (err) {
+                        console.error("Mobile connection error:", err);
+                      }
+                    }}
                     className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${isConnected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-btb-primary hover:bg-btb-primary-dark text-white'} transition-all duration-300 shadow-sm`}
                   >
                     <WalletIcon className="mr-2 h-4 w-4" />
@@ -316,6 +390,18 @@ export default function Navbar() {
                       `Connected: ${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
                       'Connect Wallet'}
                   </button>
+                  
+                  {isConnected && (
+                    <a
+                      href={`https://basescan.org/address/${address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all duration-300 shadow-sm"
+                    >
+                      <ChartBarIcon className="mr-2 h-4 w-4" />
+                      View Transactions
+                    </a>
+                  )}
                 </motion.li>
                 
                 {navigation.map((item, index) => (
@@ -355,19 +441,7 @@ export default function Navbar() {
                               <ul className="space-y-1 border-l-2 border-gray-200 dark:border-gray-700 pl-2">
                                 {item.children.map((child) => (
                                   <li key={child.name}>
-                                    {child.action === 'connect' ? (
-                                      <button 
-                                        className="block w-full text-left py-2 px-3 text-base text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
-                                        onClick={() => {
-                                          isConnected ? disconnectWallet() : connectWallet();
-                                          setIsMenuOpen(false);
-                                        }}
-                                      >
-                                        <span className="font-heading text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 transition-all duration-300">
-                                          {isConnected ? 'Disconnect Wallet' : child.name}
-                                        </span>
-                                      </button>
-                                    ) : child.name.includes('🔜') ? (
+                                    {child.name.includes('🔜') ? (
                                       <Link 
                                         href={child.href} 
                                         className="block py-2 px-3 text-sm text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
