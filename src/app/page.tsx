@@ -33,38 +33,38 @@ import TypewriterEffect from './components/ui/typewriter-effect';
 
 const features = [
   {
-    name: 'BTB Token Ecosystem',
-    description: 'Explore our comprehensive ecosystem of digital assets including BTB Token, BTBT Tax Token, and BTBN NFTs.',
-    icon: CurrencyDollarIcon,
-    href: '/token',
+    name: 'Unified DeFi Interface',
+    description: 'Access all your favorite DeFi apps in one place - Aave, Uniswap, yield farming, and more through a single intuitive interface.',
+    icon: GlobeAltIcon,
+    href: '/unified-interface',
     color: 'from-blue-500 to-blue-600'
   },
   {
-    name: 'Yield Farming Platform',
-    description: 'Access sophisticated yield farming solutions with our advanced IL Calculator and pool management tools.',
-    icon: ChartBarIcon,
-    href: '/calculator',
+    name: 'Impermanent Loss Protection',
+    description: 'Never lose money in DeFi again. Our revolutionary liquidity hub ensures users are protected from impermanent loss with weekly refunds.',
+    icon: ShieldCheckIcon,
+    href: '/il-protection',
     color: 'from-green-500 to-emerald-600'
   },
   {
-    name: 'Megapot Lottery',
-    description: 'Win big with our daily USDC jackpots! Buy tickets and earn 50% extra MegaPoints when using BTB as your referrer.',
-    icon: SparklesIcon,
-    href: '/contracts/megapot',
+    name: 'BTB Governance',
+    description: 'BTB token holders vote on supported pools and influence how the 10% weekly rewards are distributed across the ecosystem.',
+    icon: UserGroupIcon,
+    href: '/governance',
     color: 'from-purple-500 to-pink-600'
   },
   {
-    name: 'BTB Exchange',
-    description: 'Trade on our unique exchange with revolutionary bonding curve pricing where prices increase with both buys AND sells.',
-    icon: BeakerIcon,
-    href: '/btb-exchange',
+    name: 'Ultimate Yield Farming',
+    description: 'Experience the biggest yield farming opportunity in DeFi with risk-free returns and optimized strategies across multiple protocols.',
+    icon: ChartBarIcon,
+    href: '/yield-farming',
     color: 'from-indigo-500 to-indigo-600'
   },
   {
-    name: 'Global Community',
-    description: 'Join our vibrant community of crypto enthusiasts, developers, and investors worldwide.',
-    icon: UserGroupIcon,
-    href: '/community',
+    name: 'Liquidity Hub',
+    description: 'Our liquidity hub aggregates and optimizes liquidity across the DeFi ecosystem, creating deeper markets and better prices for all.',
+    icon: BeakerIcon,
+    href: '/liquidity-hub',
     color: 'from-amber-500 to-orange-600'
   }
 ];
@@ -72,9 +72,9 @@ const features = [
 const products = [
   {
     name: 'BTB Token',
-    description: 'Our governance token with staking rewards and ecosystem benefits. Lock BTB tokens to access trading on our exchange.',
-    detailedDescription: 'BTB is the core governance token of our ecosystem with a total supply of 1,000,000,000 tokens. It enables staking rewards, voting rights, and exclusive access to our trading platform. By locking BTB tokens, users gain the ability to trade on our revolutionary exchange with bonding curve pricing.',
-    features: ['Governance voting rights', 'Staking rewards up to 15% APY', 'Exchange access token', 'Deflationary tokenomics'],
+    description: 'Our governance token that powers the ecosystem. BTB holders vote on pools and receive 10% of LP fees from those pools.',
+    detailedDescription: 'BTB is the core governance token of our ecosystem with voting rights that directly impact which pools receive impermanent loss protection. Token holders vote on pools (like USDC/ETH) and receive 10% of the LP fees from those pools. In return, liquidity providers in these pools receive impermanent loss refunds from the BTB treasury, ensuring they never lose money.',
+    features: ['Pool selection voting rights', 'Receive 10% of LP fees from voted pools', 'Governance of IL protection', 'Deflationary tokenomics'],
     icon: CurrencyDollarIcon,
     href: '/token',
     bgColor: 'bg-gradient-to-br from-blue-600/10 to-blue-800/10',
@@ -82,34 +82,34 @@ const products = [
     borderColor: 'border-blue-200 dark:border-blue-800'
   },
   {
-    name: 'Impermanent Loss Calculator',
-    description: 'Understand and mitigate your risks with our sophisticated IL calculator tool.',
-    detailedDescription: 'Our advanced Impermanent Loss Calculator helps liquidity providers accurately predict potential losses when providing liquidity to AMMs. This essential tool simulates various market scenarios to help you make informed decisions about your yield farming strategy.',
-    features: ['Real-time IL calculations', 'Multiple AMM support', 'Price impact simulation', 'Historical data analysis'],
-    icon: CalculatorIcon,
-    href: '/calculator',
+    name: 'All-in-One DeFi Dashboard',
+    description: 'Access all your favorite DeFi protocols through a single intuitive interface - Aave, Uniswap, and more.',
+    detailedDescription: "Our unified dashboard brings together the best DeFi protocols in one place. No more juggling between different websites and interfaces. Whether you're providing liquidity on Uniswap, lending on Aave, or yield farming elsewhere, manage everything through our streamlined, user-friendly interface.",
+    features: ['Multi-protocol integration', 'Single-view portfolio tracking', 'Cross-protocol yield optimization', 'Simplified user experience'],
+    icon: GlobeAltIcon,
+    href: '/dashboard',
     bgColor: 'bg-gradient-to-br from-emerald-600/10 to-green-800/10',
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     borderColor: 'border-emerald-200 dark:border-emerald-800'
   },
   {
-    name: 'BTB Exchange',
-    description: 'Trade on our unique exchange with revolutionary bonding curve pricing where prices increase with both buys AND sells.',
-    detailedDescription: 'The BTB Exchange features a groundbreaking bonding curve mechanism where token prices increase with BOTH buys and sells. This revolutionary approach creates a sustainable economic flywheel that benefits all participants while ensuring continuous price appreciation.',
-    features: ['Unique bonding curve pricing', 'Token-gated trading access', 'Fee distribution to LPs', 'Arbitrage opportunities'],
-    icon: BeakerIcon,
-    href: '/btb-exchange',
+    name: 'Impermanent Loss Protection',
+    description: 'Never lose money in DeFi again. Our revolutionary liquidity hub ensures liquidity providers are fully protected from impermanent loss.',
+    detailedDescription: 'Our groundbreaking impermanent loss protection mechanism ensures liquidity providers never lose money. BTB token holders vote on pools that receive protection and earn 10% of the LP fees from those pools. In exchange, the BTB treasury provides full impermanent loss refunds to liquidity providers, creating the biggest and safest yield farming opportunity in the DeFi space.',
+    features: ['Complete IL refunds from BTB treasury', 'Pools selected by BTB token holders', '10% of LP fees to BTB voters', 'Risk-free liquidity provision'],
+    icon: ShieldCheckIcon,
+    href: '/il-protection',
     bgColor: 'bg-gradient-to-br from-purple-600/10 to-indigo-800/10',
     iconColor: 'text-purple-600 dark:text-purple-400',
     borderColor: 'border-purple-200 dark:border-purple-800'
   },
   {
-    name: 'DeFi Hooks',
-    description: 'Advanced DeFi hooks for seamless trading and investment across the Base ecosystem.',
-    detailedDescription: 'Our DeFi Hooks provide developers and users with powerful integrations to connect with various DeFi protocols across the Optimism ecosystem. These hooks enable seamless trading, liquidity provision, and yield optimization with minimal friction.',
-    features: ['Cross-protocol integrations', 'Gas-optimized transactions', 'Automated yield strategies', 'Custom trading hooks'],
-    icon: LightBulbIcon,
-    href: '/hooks',
+    name: 'Liquidity Hub',
+    description: 'Our liquidity hub aggregates and optimizes liquidity across the DeFi ecosystem, creating deeper markets and better prices.',
+    detailedDescription: 'The BTB Finance Liquidity Hub is the central infrastructure that connects and optimizes liquidity across multiple DeFi protocols. By aggregating liquidity and implementing smart routing, we ensure users always get the best rates while maintaining deep markets that benefit the entire ecosystem.',
+    features: ['Cross-protocol liquidity aggregation', 'Smart order routing', 'Optimized swap paths', 'Reduced slippage'],
+    icon: BeakerIcon,
+    href: '/liquidity-hub',
     bgColor: 'bg-gradient-to-br from-amber-600/10 to-amber-800/10',
     iconColor: 'text-amber-600 dark:text-amber-400',
     borderColor: 'border-amber-200 dark:border-amber-800'
@@ -118,20 +118,20 @@ const products = [
 
 const stats = [
   { label: 'Total Value Locked', value: '$42M+' },
-  { label: 'Active Users', value: '15,000+' },
-  { label: 'Transactions', value: '1.2M+' },
+  { label: 'IL Protection Paid', value: '$3.8M+' },
+  { label: 'Integrated DeFi Protocols', value: '15+' },
   { label: 'Supported Networks', value: '5+' }
 ];
 
-// BTB Exchange Flywheel steps
+// BTB Liquidity Hub Flywheel steps
 const flywheelSteps = [
-  { step: "Lock BTB Tokens", desc: "Users must lock BTB tokens to access BTBY/USDC trading" },
-  { step: "Trade BTBY/USDC", desc: "Trading generates 0.1% fees with our unique bonding curve" },
-  { step: "Fees to LP", desc: "All trading fees fund BTBY/ETH liquidity providers on Uniswap" },
-  { step: "Price Always Rises", desc: "BTBY price increases with BOTH buys AND sells" },
-  { step: "Arbitrage Profit", desc: "Traders keep 100% of arbitrage profits between platforms" },
-  { step: "Enhanced Liquidity", desc: "More LP providers join for the rewards" },
-  { step: "Ecosystem Growth", desc: "Back to step 1 with more participants" }
+  { step: "Hold BTB Tokens", desc: "BTB holders vote on which pools receive IL protection" },
+  { step: "Earn LP Fees", desc: "BTB voters receive 10% of the LP fees from those pools" },
+  { step: "Provide Liquidity", desc: "Users provide liquidity to protected pools across multiple protocols" },
+  { step: "IL Protection", desc: "Liquidity providers receive IL refunds from BTB treasury" },
+  { step: "Risk-Free Farming", desc: "Users enjoy yield farming without fear of impermanent loss" },
+  { step: "Deeper Liquidity", desc: "More liquidity providers join protected pools" },
+  { step: "Ecosystem Growth", desc: "The liquidity hub expands to more protocols and pools" }
 ];
 
 // Animation keyframes for the flywheel
@@ -153,37 +153,37 @@ const spinReverseAnimation = {
   }
 };
 
-// Who wins in the BTB Exchange model
+// Who wins in the BTB Liquidity Hub model
 const winnerGroups = [
   {
     title: "BTB Token Holders Win",
     benefits: [
-      "Their tokens have clear utility (trading access)",
-      "Benefit from all arbitrage activity",
-      "Increasing demand for trading drives demand for BTB"
+      "Governance rights to vote on protected pools",
+      "Influence distribution of weekly rewards",
+      "Growing ecosystem value as more users join"
     ],
     icon: CurrencyDollarIcon,
     color: "bg-blue-50 dark:bg-blue-900/20"
   },
   {
-    title: "BTBY/ETH Liquidity Providers Win",
+    title: "Liquidity Providers Win",
     benefits: [
-      "Earn rewards from all 0.1% trading fees",
-      "Benefit from increased trading volume due to arbitrage",
-      "Participate in a high-yield liquidity pool"
+      "Full protection against impermanent loss",
+      "Impermanent loss refunds from BTB treasury",
+      "Risk-free yield farming across multiple protocols"
     ],
-    icon: SparklesIcon,
+    icon: ShieldCheckIcon,
     color: "bg-purple-50 dark:bg-purple-900/20"
   },
   {
-    title: "Traders Win",
+    title: "DeFi Users Win",
     benefits: [
-      "Keep 100% of arbitrage profits",
-      "Trade on a unique exchange with bonding curve pricing",
-      "BTBY price always trends upward",
-      "Participate in a market with growing liquidity"
+      "Single interface for all DeFi activities",
+      "Simplified management of positions across protocols",
+      "Better rates through optimized liquidity routing",
+      "Enhanced user experience with unified dashboard"
     ],
-    icon: ChartBarIcon,
+    icon: GlobeAltIcon,
     color: "bg-green-50 dark:bg-green-900/20"
   }
 ];
@@ -285,7 +285,7 @@ export default function Home() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl"
               >
-                A comprehensive DeFi platform combining revolutionary exchange mechanics, advanced yield farming, and an ecosystem built for success on BASE.
+                Access all your favorite DeFi apps in one place - Aave, Uniswap, yield farming, and more through a single intuitive interface, while never worrying about impermanent loss again.
               </motion.p>
               
               <motion.p 
@@ -294,7 +294,7 @@ export default function Home() {
                 transition={{ delay: 1.0, duration: 0.5 }}
                 className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1"
               >
-                <span className="font-bold">Our Mission:</span> To create a liquidity hub that refunds impermanent loss to users, ensuring no losses and maximizing liquidity across the ecosystem.
+                <span className="font-bold">Our Mission:</span> To create the ultimate liquidity hub where BTB token holders vote on pools and receive 10% of LP fees, while liquidity providers get impermanent loss refunds from the BTB treasury, ensuring nobody ever loses money in DeFi again.
               </motion.p>
               
               <motion.div 
@@ -310,10 +310,10 @@ export default function Home() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
                   <Link
-                    href="/chicks"
+                    href="/unified-interface"
                     className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20"
                   >
-                    Buy CHICKS <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    Explore DeFi Hub <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
                 
@@ -323,10 +323,10 @@ export default function Home() {
                   className="inline-block"
                 >
                   <Link
-                    href="/token"
+                    href="/il-protection"
                     className="relative border-2 border-btb-primary text-btb-primary px-6 py-3 rounded-lg font-medium hover:bg-white/10 hover:border-btb-primary-light transition-all duration-300 flex items-center"
                   >
-                    Explore Token <ArrowRightIcon className="ml-2 h-4 w-4 opacity-70 group-hover:translate-x-1 transition-transform duration-300" />
+                    IL Protection <ArrowRightIcon className="ml-2 h-4 w-4 opacity-70 group-hover:translate-x-1 transition-transform duration-300" />
                   </Link>
                 </motion.div>
               </motion.div>
@@ -484,10 +484,10 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center mb-10">
             <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-3xl font-heading">
-              The BTB Exchange Flywheel
+              The BTB Liquidity Hub Flywheel
             </h2>
             <p className="mt-3 text-base text-gray-600 dark:text-gray-300">
-              Our revolutionary economic model creates a self-reinforcing ecosystem where everyone wins
+              Our revolutionary liquidity hub creates a self-reinforcing ecosystem where impermanent loss is eliminated and everyone wins
             </p>
           </div>
           
@@ -498,18 +498,18 @@ export default function Home() {
               <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="w-full md:w-1/2">
-                    <h3 className="text-lg font-bold text-btb-primary mb-2">How The Flywheel Spins</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Our ecosystem creates a powerful self-reinforcing cycle that benefits all participants:</p>
+                    <h3 className="text-lg font-bold text-btb-primary mb-2">How The Liquidity Hub Works</h3>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Our ecosystem creates a powerful self-reinforcing cycle that eliminates impermanent loss and benefits all participants:</p>
                     
                     <ol className="space-y-2">
                       {[
-                        { step: "BTB Utility", desc: "Users lock BTB tokens to gain trading access" },
-                        { step: "Trading Activity", desc: "Trading generates fees while using the bonding curve" },
-                        { step: "LP Rewards", desc: "Fees reward BTBY/ETH liquidity providers" },
-                        { step: "Arbitrage Opportunity", desc: "Price differences create arbitrage opportunities" },
-                        { step: "More Volume", desc: "Arbitrageurs increase trading volume on both platforms" },
-                        { step: "Enhanced Liquidity", desc: "More LP providers join for the rewards" },
-                        { step: "Ecosystem Growth", desc: "Back to step 1 with more participants" }
+                        { step: "BTB Governance", desc: "BTB holders vote on pools that receive IL protection" },
+                        { step: "Voter Rewards", desc: "BTB voters receive 10% of LP fees from those pools" },
+                        { step: "Multi-Protocol Access", desc: "Users access all DeFi protocols through one interface" },
+                        { step: "Protected Liquidity", desc: "Users provide liquidity to protected pools without risk" },
+                        { step: "IL Refunds", desc: "Liquidity providers receive refunds from BTB treasury" },
+                        { step: "Deeper Liquidity", desc: "Protected pools attract more liquidity" },
+                        { step: "Ecosystem Expansion", desc: "More protocols and pools join the ecosystem" }
                       ].map((item, i) => (
                         <li key={i} className="flex items-start">
                           <span className="flex-shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-btb-primary text-white text-xs font-medium mr-2">{i+1}</span>
@@ -614,24 +614,24 @@ export default function Home() {
               
               <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 text-sm">
                 <p className="mb-2">
-                  <span className="font-semibold">Alice</span> locks 9,000 BTB to trade. She buys BTBY tokens, generating a 0.1% fee for BTBY/ETH LP providers. The bonding curve ensures her purchase <span className="font-semibold">increases</span> the BTBY price.
+                  <span className="font-semibold">Alice</span> holds BTB tokens and votes for the USDC/ETH pool to receive impermanent loss protection. As a BTB voter, she now receives 10% of all LP fees generated by this pool.
                 </p>
                 
                 <p className="mb-2">
-                  <span className="font-semibold">Bob</span> arbitrages between platforms. Even when <span className="font-semibold">selling</span> BTBY, the price still <span className="font-semibold">increases</span>! He profits while paying fees that reward LP providers.
+                  <span className="font-semibold">Bob</span> provides liquidity to the USDC/ETH pool through BTB's unified interface. When the market experiences volatility, Bob would normally face impermanent loss, but instead receives full compensation from the BTB treasury, funded by the platform's revenue.
                 </p>
                 
                 <p>
-                  <span className="font-semibold">Carol</span> provides liquidity to BTBY/ETH on Uniswap, earning rewards. The <span className="font-semibold">revolutionary bonding curve</span> creates a positive cycle strengthening the ecosystem.
+                  <span className="font-semibold">Carol</span> uses BTB's single interface to manage her positions across multiple DeFi protocols - lending on Aave, yield farming on another platform, and providing liquidity on Uniswap - all without switching between different applications.
                 </p>
               </div>
               
               <div className="mt-5 text-center">
                 <Link 
-                  href="/btb-exchange"
+                  href="/unified-interface"
                   className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-md transition-all duration-300"
                 >
-                  Experience the BTB Exchange <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
+                  Experience the BTB Liquidity Hub <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
                 </Link>
               </div>
             </div>
