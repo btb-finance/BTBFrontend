@@ -6,12 +6,15 @@ interface MetadataResponse {
   [key: string]: any;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteParams = {
+  params: {
+    id: string;
+  };
+};
+
+export async function GET(request: NextRequest, context: RouteParams) {
   try {
-    const id = params.id;
+    const id = context.params.id;
     
     // Construct the IPFS URL using gateway for better reliability
     const ipfsUrl = `https://ipfs.io/ipfs/bafybeigh7eyxenck6zzsrgko4gmin67njweynfcvzganuyoiagkh4bxqyq/${id}.json`;
