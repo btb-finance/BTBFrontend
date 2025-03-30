@@ -34,8 +34,11 @@ export default function NFTMetadataProxy() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">NFT Metadata Proxy Tool</h1>
       <p className="mb-4">
+        It's a cute cat project from BTB Finance NFT. The NFT token can always be exchanged for the BTB token, allowing you to use NFTs as a profile picture on your social media profiles and more.
+      </p>
+      <p className="mb-4">
         This tool allows you to proxy and transform NFT metadata, changing collection names from
-        "BitBerry (BTB)" to "BTB Finance" while preserving all other metadata.
+        "BitBerry (BTB)" to "BTB Finance NFT" while preserving all other metadata.
       </p>
 
       <div className="mb-8">
@@ -107,7 +110,7 @@ export default function NFTMetadataProxy() {
             Update your NFT contract by calling the <code className="bg-gray-100 px-2 py-1 rounded">setBaseURI()</code>{' '}
             function to point to this endpoint
           </li>
-          <li>NFT marketplaces will now show the updated name "BTB Finance" instead of "BitBerry (BTB)"</li>
+          <li>NFT marketplaces will now show the updated name "BTB Finance NFT" instead of "BitBerry (BTB)"</li>
         </ol>
       </div>
     </div>

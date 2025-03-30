@@ -56,12 +56,21 @@ export function transformMetadata(metadata: any, tokenId: string): any {
   // Create a deep copy to avoid modifying the original
   const transformed = JSON.parse(JSON.stringify(metadata));
   
-  // Update the name field from "BitBerry (BTB)" to "BTB Finance"
+  // Update the name field from "BitBerry (BTB)" to "BTB Finance NFT"
   if (transformed.name && transformed.name.includes('BitBerry (BTB)')) {
-    transformed.name = transformed.name.replace('BitBerry (BTB)', 'BTB Finance');
+    transformed.name = transformed.name.replace('BitBerry (BTB)', 'BTB Finance NFT');
+  } else if (transformed.name && transformed.name.includes('BitBerry NFT')) {
+    transformed.name = transformed.name.replace('BitBerry NFT', 'BTB Finance NFT');
   } else if (transformed.name) {
-    // If it doesn't have the exact "BitBerry (BTB)" string but has a name field
-    transformed.name = `BTB Finance #${tokenId}`;
+    // If it doesn't have the exact "BitBerry" string but has a name field
+    transformed.name = `BTB Finance NFT #${tokenId}`;
+  }
+  
+  // Also check and update description if it exists
+  if (transformed.description && transformed.description.includes('BitBerry (BTB)')) {
+    transformed.description = transformed.description.replace(/BitBerry \(BTB\)/g, 'BTB Finance NFT');
+  } else if (transformed.description && transformed.description.includes('BitBerry NFT')) {
+    transformed.description = transformed.description.replace(/BitBerry NFT/g, 'BTB Finance NFT');
   }
   
   return transformed;
