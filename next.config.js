@@ -1,12 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverComponentsExternalPackages: [],
-  },
+  experimental: {},
+  serverExternalPackages: [],
   typescript: {
-    // Temporarily ignore TypeScript errors during build to test API functionality
-    ignoreBuildErrors: true,
+    // Type checking enabled during builds
+    ignoreBuildErrors: false,
   }
 }
 
