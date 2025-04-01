@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '../../context/WalletContext';
 import chicksService from '../../services/chicksService';
+import openOceanService from '../../services/openOceanService';
 import { 
   Tabs, 
   TabsContent, 
@@ -24,7 +25,8 @@ import {
   BanknotesIcon, 
   ClockIcon,
   LockClosedIcon,
-  ShieldCheckIcon 
+  ShieldCheckIcon,
+  GlobeAltIcon 
 } from '@heroicons/react/24/outline';
 import {
   BuyForm,
@@ -33,7 +35,8 @@ import {
   BorrowForm,
   RepayForm,
   ExtendLoanForm,
-  LoanInfo
+  LoanInfo,
+  MarketSwapForm
 } from './components';
 
 export default function ChicksTradePanel() {
@@ -45,6 +48,31 @@ export default function ChicksTradePanel() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [hasLoan, setHasLoan] = useState<boolean>(false);
   const [loanData, setLoanData] = useState<any>(null);
+  const [marketPrice, setMarketPrice] = useState<string>('0');
+  const [priceDifference, setPriceDifference] = useState<string>('0');
+  const [priceDifferencePercentage, setPriceDifferencePercentage] = useState<string>('0');
+  const [isLoadingMarketPrice, setIsLoadingMarketPrice] = useState<boolean>(false);
+
+  // Fetch market price and calculate arbitrage opportunity
+  const fetchMarketPrice = async (btbPrice: string) => {
+    if (!btbPrice || parseFloat(btbPrice) === 0) return;
+    
+    try {
+      setIsLoadingMarketPrice(true);
+      const comparison = await openOceanService.getPriceComparison(btbPrice);
+      
+      setMarketPrice(comparison.openOceanPrice);
+      setPriceDifference(comparison.priceDifference);
+      setPriceDifferencePercentage(comparison.priceDifferencePercentage);
+    } catch (error) {
+      console.error('Error fetching market price:', error);
+      setMarketPrice('0');
+      setPriceDifference('0');
+      setPriceDifferencePercentage('0');
+    } finally {
+      setIsLoadingMarketPrice(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,6 +102,9 @@ export default function ChicksTradePanel() {
         setUsdcBalance(usdc);
         setHasLoan(hasActiveLoan);
         setLoanData(loan);
+        
+        // Fetch market price after getting BTB price
+        await fetchMarketPrice(price);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -113,6 +144,9 @@ export default function ChicksTradePanel() {
       setUsdcBalance(usdc);
       setHasLoan(hasActiveLoan);
       setLoanData(loan);
+      
+      // Refresh market price
+      await fetchMarketPrice(price);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -123,31 +157,79 @@ export default function ChicksTradePanel() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-2">
           <div>
-            <h1 className="text-3xl font-bold mb-2">CHICKS Trading</h1>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">CHICKS Trading</h1>
+            <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mb-2 md:mb-4">
               Buy, sell, leverage, borrow, and manage your CHICKS positions
             </p>
             {isConnected && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Current Price</p>
-                  <p className="text-xl font-bold">${parseFloat(chicksPrice).toFixed(6)} USDC</p>
+              <>
+                {parseFloat(marketPrice) > 0 && parseFloat(priceDifference) !== 0 && (
+                  <div className={`p-2 md:p-4 mb-2 rounded-lg text-white text-sm ${parseFloat(priceDifference) > 0 ? 'bg-green-600' : 'bg-red-600'}`}>
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-sm md:text-base">Arbitrage Opportunity</h3>
+                      <div className="text-xs md:text-sm bg-white bg-opacity-20 px-1.5 py-0.5 rounded">
+                        {isLoadingMarketPrice ? 'Updating...' : `${parseFloat(priceDifferencePercentage) > 0 ? '+' : ''}${priceDifferencePercentage}%`}
+                      </div>
+                    </div>
+                    <p className="text-xs md:text-sm mt-0.5 md:mt-1">
+                      {parseFloat(priceDifference) > 0 ? (
+                        <>Earn <span className="font-bold">${priceDifference}</span>/CHICKS: Buy here at <span className="font-bold">${chicksPrice}</span>, sell on market at <span className="font-bold">${marketPrice}</span></>  
+                      ) : (
+                        <>Earn <span className="font-bold">${Math.abs(parseFloat(priceDifference)).toFixed(6)}</span>/CHICKS: Buy on market at <span className="font-bold">${marketPrice}</span>, sell here at <span className="font-bold">${chicksPrice}</span></>  
+                      )}
+                    </p>
+                    <div className="mt-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="bg-white bg-opacity-20 hover:bg-opacity-30 border-0 text-white text-xs md:text-sm py-0.5 md:py-1 h-6 md:h-8"
+                        onClick={() => {
+                          // Find the market tab trigger and click it
+                          const marketTab = document.querySelector('button[value="market"]') as HTMLButtonElement;
+                          if (marketTab) {
+                            marketTab.click();
+                          }
+                        }}
+                      >
+                        Go to Market Swap
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                  <div className="bg-gray-100 dark:bg-gray-800 p-2 md:p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">BTB Price</p>
+                      <div className="flex items-center">
+                        <p className="text-sm md:text-base font-bold">${parseFloat(chicksPrice).toFixed(6)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-100 dark:bg-gray-800 p-2 md:p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Market Price</p>
+                      <div className="flex items-center">
+                        {isLoadingMarketPrice && <span className="text-xs animate-pulse mr-1">⟳</span>}
+                        <p className="text-sm md:text-base font-bold">${parseFloat(marketPrice).toFixed(6)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-100 dark:bg-gray-800 p-2 md:p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Your CHICKS</p>
+                      <p className="text-sm md:text-base font-bold">{parseFloat(chicksBalance).toFixed(4)}</p>
+                    </div>
+                  </div>
+                  <div className="bg-gray-100 dark:bg-gray-800 p-2 md:p-3 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Your USDC</p>
+                      <p className="text-sm md:text-base font-bold">{parseFloat(usdcBalance).toFixed(4)}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Backing</p>
-                  <p className="text-xl font-bold">${parseFloat(backing).toFixed(4)} USDC</p>
-                </div>
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Your CHICKS</p>
-                  <p className="text-xl font-bold">{parseFloat(chicksBalance).toFixed(4)}</p>
-                </div>
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Your USDC</p>
-                  <p className="text-xl font-bold">{parseFloat(usdcBalance).toFixed(4)}</p>
-                </div>
-              </div>
+              </>
             )}
           </div>
           
@@ -171,7 +253,7 @@ export default function ChicksTradePanel() {
             <Card>
               <CardContent className="p-6">
                 <Tabs defaultValue="buy" className="w-full">
-                  <TabsList className="grid grid-cols-6 mb-6">
+                  <TabsList className="grid grid-cols-7 mb-6">
                     <TabsTrigger value="buy" className="flex items-center gap-1">
                       <BanknotesIcon className="h-4 w-4" />
                       <span className="hidden sm:inline">Buy</span>
@@ -195,6 +277,10 @@ export default function ChicksTradePanel() {
                     <TabsTrigger value="extend" className="flex items-center gap-1">
                       <ClockIcon className="h-4 w-4" />
                       <span className="hidden sm:inline">Extend</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="market" className="flex items-center gap-1">
+                      <GlobeAltIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline">Market</span>
                     </TabsTrigger>
                   </TabsList>
                   
@@ -243,6 +329,15 @@ export default function ChicksTradePanel() {
                     <ExtendLoanForm 
                       hasLoan={hasLoan}
                       loanData={loanData}
+                      usdcBalance={usdcBalance}
+                      onSuccess={handleRefresh}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="market">
+                    <MarketSwapForm 
+                      chicksPrice={chicksPrice}
+                      chicksBalance={chicksBalance}
                       usdcBalance={usdcBalance}
                       onSuccess={handleRefresh}
                     />
