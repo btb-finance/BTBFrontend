@@ -236,7 +236,7 @@ export default function MarketSwapForm({
         {priceComparison && (
           <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg mb-4">
             <div className="flex justify-between mb-2">
-              <span className="text-sm">BTB Price:</span>
+              <span className="text-sm">CHICKS Price:</span>
               <span className="text-sm font-medium">${priceComparison.btbPrice}</span>
             </div>
             <div className="flex justify-between mb-2">

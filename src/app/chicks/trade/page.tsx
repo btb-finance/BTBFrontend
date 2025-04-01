@@ -103,7 +103,7 @@ export default function ChicksTradePanel() {
         setHasLoan(hasActiveLoan);
         setLoanData(loan);
         
-        // Fetch market price after getting BTB price
+        // Fetch market price after getting the price
         await fetchMarketPrice(price);
       } catch (error) {
         console.error('Error fetching data:', error);
