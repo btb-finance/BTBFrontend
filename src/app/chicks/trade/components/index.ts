@@ -6,3 +6,4 @@ export { default as BorrowForm } from './BorrowForm';
 export { default as RepayForm } from './RepayForm';
 export { default as ExtendLoanForm } from './ExtendLoanForm';
 export { default as LoanInfo } from './LoanInfo';
+export { default as MarketSwapForm } from './MarketSwapForm';
