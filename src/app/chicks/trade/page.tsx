@@ -201,7 +201,7 @@ export default function ChicksTradePanel() {
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                   <div className="bg-gray-100 dark:bg-gray-800 p-2 md:p-3 rounded-lg">
                     <div className="flex justify-between items-center">
-                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">BTB Price</p>
+                      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">CHICKS Price</p>
                       <div className="flex items-center">
                         <p className="text-sm md:text-base font-bold">${parseFloat(chicksPrice).toFixed(6)}</p>
                       </div>
