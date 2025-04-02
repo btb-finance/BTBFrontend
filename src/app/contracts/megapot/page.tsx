@@ -30,6 +30,7 @@ import UserTickets from './components/UserTickets';
 import { useWallet } from '../../context/WalletContext';
 import { ethers } from 'ethers';
 import megapotABI from './megapotabi.json';
+import useNetworkSwitcher from '@/app/hooks/useNetworkSwitcher';
 
 // CSS variables for feature card colors
 const colorStyles = `
@@ -112,6 +113,7 @@ const NETWORK = 'base';
 
 export default function MegapotPage() {
   const { isConnected, address, connectWallet } = useWallet();
+  const { switchNetwork } = useNetworkSwitcher();
   const [jackpotAmount, setJackpotAmount] = useState<number | null>(null);
   const [ticketPrice, setTicketPrice] = useState<number | null>(null);
   const [participants, setParticipants] = useState<number | null>(null);
@@ -120,6 +122,41 @@ export default function MegapotPage() {
 
   // Contract addresses
   const MEGAPOT_CONTRACT_ADDRESS = CONTRACT_ADDRESS;
+  
+  // Silent network switching
+  useEffect(() => {
+    if (isConnected && typeof window.ethereum !== 'undefined') {
+      try {
+        const checkNetwork = async () => {
+          // Add type guard to make TypeScript happy
+          if (!window.ethereum) return;
+          
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const network = await provider.getNetwork();
+          if (network.chainId !== 8453) { // If not on Base
+            switchNetwork('BASE'); // Silently switch
+          }
+        };
+        
+        checkNetwork();
+        
+        // Listen for chain changes
+        const handleChainChanged = () => {
+          checkNetwork();
+        };
+        
+        window.ethereum.on('chainChanged', handleChainChanged);
+        
+        return () => {
+          if (window.ethereum?.removeListener) {
+            window.ethereum.removeListener('chainChanged', handleChainChanged);
+          }
+        };
+      } catch (error) {
+        console.error('Network check error:', error);
+      }
+    }
+  }, [isConnected, switchNetwork]);
 
   // Fetch contract data
   useEffect(() => {
