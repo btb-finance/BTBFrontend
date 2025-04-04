@@ -23,16 +23,18 @@ interface BuyTicketsProps {
   isConnected: boolean;
   userAddress: string | null;
   connectWallet: () => Promise<void>;
+  chainId: number | null;
 }
 
-export default function BuyTickets({ 
-  contractAddress, 
-  usdcAddress, 
+export default function BuyTickets({
+  contractAddress,
+  usdcAddress,
   referralAddress,
-  ticketPrice, 
+  ticketPrice,
   isConnected,
   userAddress,
-  connectWallet
+  connectWallet,
+  chainId
 }: BuyTicketsProps) {
   const [ticketCount, setTicketCount] = useState(1);
   const [totalPrice, setTotalPrice] = useState(ticketPrice);
@@ -57,7 +59,7 @@ export default function BuyTickets({
     }, 1000);
     
     return () => clearTimeout(timer);
-  }, [isConnected, userAddress, contractAddress, usdcAddress, totalPrice]);
+  }, [isConnected, userAddress, contractAddress, usdcAddress, totalPrice, chainId]);
   
   const checkApprovalAndBalance = async (retryCount = 0) => {
     if (isConnected && userAddress) {
