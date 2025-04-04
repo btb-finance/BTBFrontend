@@ -87,6 +87,18 @@ export default function BuyTickets({
         }
       } catch (error) {
         console.error("Error checking approval:", error);
+useEffect(() => {
+  let attempts = 0;
+  const maxAttempts = 5; // 5 attempts over 10 seconds
+  const interval = setInterval(async () => {
+    attempts++;
+    await checkApprovalAndBalance();
+    if (usdcBalance > 0 || attempts >= maxAttempts) {
+      clearInterval(interval);
+    }
+  }, 2000);
+  return () => clearInterval(interval);
+}, [isConnected, userAddress, chainId]);
         // If there was an error and we haven't retried too many times, retry
         if (retryCount < 3) {
           console.log(`Error fetching balance, retrying (${retryCount + 1}/3)...`);
@@ -228,6 +240,12 @@ export default function BuyTickets({
               <span className="text-sm text-gray-600 dark:text-gray-400">Your USDC Balance:</span>
               <span className="font-bold text-gray-900 dark:text-white">${usdcBalance.toFixed(2)}</span>
             </div>
+            <button
+              onClick={() => checkApprovalAndBalance()}
+              className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+            >
+              Refresh Balance
+            </button>
           </div>
         )}
         
