@@ -54,6 +54,7 @@
     "urql": "^4.2.1",
     "viem": "^2.23.5",
     "wagmi": "^1.4.13",
+    "web3modal": "^1.9.12",
     "ws": "8.18.1"
   },
   "devDependencies": {

@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ethers } from 'ethers';
+import Web3Modal from 'web3modal';
+import EthereumProvider from '@walletconnect/ethereum-provider';
 
 interface WalletContextType {
   address: string | null;
@@ -104,48 +106,51 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     setError(null);
   };
 
+  // Web3Modal instance (client-side only)
+  const [web3Modal, setWeb3Modal] = useState<Web3Modal | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const modal = new Web3Modal({
+        cacheProvider: true,
+        providerOptions: {
+          walletconnect: {
+            package: EthereumProvider,
+            options: {
+              projectId: 'e78d121a165909ad1ec1cd20c2af0f9a',
+              chains: [1, 8453], // Mainnet and Base
+              showQrModal: true
+            }
+          }
+        }
+      });
+      setWeb3Modal(modal);
+    }
+  }, []);
+
   const connectWallet = async () => {
     setIsConnecting(true);
     setError(null);
-    
+
     try {
-      // Check if MetaMask is installed
-      if (typeof window.ethereum === 'undefined') {
-        setError('No Ethereum wallet detected. Please install MetaMask or another Web3 wallet and refresh the page.');
+      if (!web3Modal) {
+        console.error('Web3Modal is not initialized yet.');
+        setError('Wallet connection is not ready. Please try again in a moment.');
         setIsConnecting(false);
         return;
       }
-      
-      try {
-        // Request account access
-        const accounts = await window.ethereum.request({ 
-          method: 'eth_requestAccounts' 
-        });
-        
-        if (!accounts || accounts.length === 0) {
-          throw new Error('No accounts found. Please make sure your wallet is unlocked.');
-        }
-        
-        // Ensure the address is properly checksummed
-        const userAddress = ethers.utils.getAddress(accounts[0]);
-        
-        // Message signing step removed to improve user experience
-        // Users can now connect without needing to sign a verification message
-        
-        // Set user address and connected state
-        setAddress(userAddress);
-        setIsConnected(true);
-        localStorage.setItem('walletAddress', userAddress);
-        
-        // Setup wallet event listeners
-        setupWalletListeners();
-      } catch (walletError: any) {
-        // Specific wallet interaction errors
-        if (walletError.code === -32002) {
-          throw new Error('Wallet connection already pending. Please check your wallet.');
-        }
-        throw walletError;
-      }
+      const providerInstance = await web3Modal.connect();
+
+      const provider = new ethers.providers.Web3Provider(providerInstance);
+      const signer = provider.getSigner();
+      const userAddress = await signer.getAddress();
+
+      setAddress(userAddress);
+      setIsConnected(true);
+      localStorage.setItem('walletAddress', userAddress);
+
+      // Setup wallet event listeners
+      setupWalletListeners();
     } catch (err: any) {
       console.error('Wallet connection error:', err);
       setError(err instanceof Error ? err.message : 'Failed to connect wallet');
