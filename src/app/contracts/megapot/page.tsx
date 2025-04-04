@@ -1,5 +1,7 @@
 'use client';
 
+import chicksService from '@/app/services/chicksService';
+
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
