@@ -40,15 +40,16 @@ export default function UserTickets({
   // Fetch user ticket information
   useEffect(() => {
     const fetchUserInfo = async () => {
-      if (isConnected && userAddress) {
-        try {
-          setIsLoading(true);
-          
+      try {
+        setIsLoading(true);
+        
+        // Only proceed if we have a user address
+        if (userAddress) {
           // Use public provider for Base network for read-only operations
           const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
           const contract = new ethers.Contract(contractAddress, megapotABI, provider);
           
-          // Get user info
+          // Get user info using read-only provider
           const userInfo = await contract.usersInfo(userAddress);
           
           // Convert from basis points (1 bps = 0.01%)
@@ -63,16 +64,20 @@ export default function UserTickets({
           // Get active status
           setIsActive(userInfo.active);
           
-        } catch (error) {
-          console.error("Error fetching user info:", error);
-          setError('Failed to fetch your ticket information. Please try again.');
-        } finally {
-          setIsLoading(false);
+          console.log('Fetched user info with address:', userAddress, 'Connected status:', isConnected);
+        } else {
+          // No user address available
+          setTicketCount(null);
+          setWinningsClaimable(null);
+          setIsActive(null);
         }
-      } else {
+      } catch (error) {
+        console.error("Error fetching user info:", error);
+        setError('Failed to fetch your ticket information. Please try again.');
         setTicketCount(null);
         setWinningsClaimable(null);
         setIsActive(null);
+      } finally {
         setIsLoading(false);
       }
     };
@@ -83,7 +88,7 @@ export default function UserTickets({
     const intervalId = setInterval(fetchUserInfo, 300000); // 5 minutes = 300000 ms
     
     return () => clearInterval(intervalId);
-  }, [isConnected, userAddress, contractAddress]);
+  }, [userAddress, contractAddress]);
   
   const handleWithdrawWinnings = async () => {
     if (!isConnected) {
@@ -130,7 +135,7 @@ export default function UserTickets({
     }
   };
   
-  // If not connected, show connect wallet prompt
+  // Show ticket data even if wallet isn't connected
   if (!isConnected) {
     return (
       <Card className="border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-800">
@@ -146,16 +151,43 @@ export default function UserTickets({
             <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Your Lottery Tickets</h3>
           </div>
           
-          <div className="text-center p-6">
-            <p className="text-gray-600 dark:text-gray-400 mb-4">Connect your wallet to view your tickets and winnings</p>
-            <Button 
-              onClick={connectWallet}
-              className="min-h-[44px]"
-              size="lg"
-            >
-              Connect Wallet
-            </Button>
-          </div>
+          {ticketCount !== null && winningsClaimable !== null ? (
+            <div className="mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">Your Tickets</p>
+                  <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">{ticketCount || 0}</p>
+                </div>
+                <div className="text-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <p className="text-gray-600 dark:text-gray-400 text-sm">Claimable Winnings</p>
+                  <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                    ${winningsClaimable ? winningsClaimable.toFixed(2) : '0.00'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-gray-600 dark:text-gray-400 mb-4">Connect your wallet to participate in the lottery</p>
+                <Button 
+                  onClick={connectWallet}
+                  className="min-h-[44px]"
+                  size="lg"
+                >
+                  Connect Wallet
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center p-6">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">Connect your wallet to view your tickets and winnings</p>
+              <Button 
+                onClick={connectWallet}
+                className="min-h-[44px]"
+                size="lg"
+              >
+                Connect Wallet
+              </Button>
+            </div>
+          )}
         </div>
       </Card>
     );

@@ -45,7 +45,7 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     );
   }, []);
 
-  // Check for saved wallet address on mount
+  // Check for saved wallet address on mount and auto-reconnect
   useEffect(() => {
     const savedAddress = localStorage.getItem('walletAddress');
     if (savedAddress) {
@@ -53,16 +53,50 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
         // Ensure the address is properly checksummed
         const checksummedAddress = ethers.utils.getAddress(savedAddress);
         setAddress(checksummedAddress);
-        setIsConnected(true);
+        
+        // Auto-connect if we have both an address and access to the wallet
+        if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined') {
+          // Check if the current connected account matches our saved address
+          const autoConnect = async () => {
+            try {
+              // We've already checked window.ethereum is defined above, so we can safely use it here
+              const accounts = await window.ethereum!.request({ 
+                method: 'eth_accounts' // This is non-intrusive, just checks current connected accounts
+              });
+              
+              if (accounts && accounts.length > 0) {
+                const connectedAddress = ethers.utils.getAddress(accounts[0]);
+                if (connectedAddress.toLowerCase() === checksummedAddress.toLowerCase()) {
+                  console.log('Auto-reconnected to wallet:', connectedAddress);
+                  setIsConnected(true);
+                  setupWalletListeners();
+                } else {
+                  console.log('Saved address doesn\'t match current wallet account. User needs to connect manually.');
+                  // We have the address but need explicit connection
+                  setIsConnected(false);
+                }
+              } else {
+                // Wallet is available but not connected to the site
+                console.log('Wallet available but not connected. User needs to connect manually.');
+                setIsConnected(false);
+              }
+            } catch (error) {
+              console.error('Error auto-connecting wallet:', error);
+              setIsConnected(false);
+            }
+          };
+          
+          autoConnect();
+        } else {
+          // We have the address but no wallet available
+          console.log('No wallet available. User needs to connect manually.');
+          setIsConnected(false);
+        }
       } catch (error) {
         console.error('Invalid wallet address in localStorage:', error);
         localStorage.removeItem('walletAddress');
+        setIsConnected(false);
       }
-    }
-
-    // Setup wallet listeners if ethereum provider is available
-    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined' && savedAddress) {
-      setupWalletListeners();
     }
   }, []);
 
