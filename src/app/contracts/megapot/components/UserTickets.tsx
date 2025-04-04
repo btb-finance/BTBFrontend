@@ -8,25 +8,33 @@ import {
   CheckIcon, 
   ExclamationCircleIcon,
   InformationCircleIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  CalendarIcon,
+  BoltIcon,
+  ClockIcon,
+  XCircleIcon,
+  PlusCircleIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '@/app/components/ui/button';
 import { Card } from '@/app/components/ui/card';
 import { ethers } from 'ethers';
 import megapotABI from '../megapotabi.json';
+import subscriptionJackpotABI from '../subscriptionjackpotabi.json';
 
 interface UserTicketsProps {
   contractAddress: string;
   isConnected: boolean;
   userAddress: string | null;
   connectWallet: () => Promise<void>;
+  subscriptionContractAddress: string;
 }
 
 export default function UserTickets({ 
   contractAddress, 
   isConnected,
   userAddress,
-  connectWallet
+  connectWallet,
+  subscriptionContractAddress
 }: UserTicketsProps) {
   const [ticketCount, setTicketCount] = useState<number | null>(null);
   const [winningsClaimable, setWinningsClaimable] = useState<number | null>(null);
@@ -37,16 +45,28 @@ export default function UserTickets({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
+  // Subscription state variables
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [subscriptionDetails, setSubscriptionDetails] = useState({
+    ticketsPerDay: 0,
+    daysRemaining: 0,
+    lastProcessedBatchDay: 0,
+    isActive: false
+  });
+  const [isCancellingSubscription, setIsCancellingSubscription] = useState(false);
+  
   // Fetch user ticket information
   useEffect(() => {
     const fetchUserInfo = async () => {
       if (isConnected && userAddress) {
         try {
           setIsLoading(true);
+          console.log("Fetching user info for address:", userAddress);
           
           // Use public provider for Base network for read-only operations
           const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
           const contract = new ethers.Contract(contractAddress, megapotABI, provider);
+          const subscriptionContract = new ethers.Contract(subscriptionContractAddress, subscriptionJackpotABI, provider);
           
           // Get user info
           const userInfo = await contract.usersInfo(userAddress);
@@ -63,6 +83,51 @@ export default function UserTickets({
           // Get active status
           setIsActive(userInfo.active);
           
+          // Get subscription info
+          try {
+            console.log("Checking subscription status for:", userAddress);
+            console.log("Using subscription contract at:", subscriptionContractAddress);
+            
+            const hasSubscription = await subscriptionContract.hasActiveSubscription(userAddress);
+            console.log("Has active subscription:", hasSubscription);
+            setHasActiveSubscription(hasSubscription);
+            
+            if (hasSubscription) {
+              console.log("Fetching subscription details...");
+              const subInfo = await subscriptionContract.getSubscription(userAddress);
+              console.log("Subscription details:", {
+                ticketsPerDay: subInfo[0].toNumber(),
+                daysRemaining: subInfo[1].toNumber(),
+                lastProcessedBatchDay: subInfo[2].toNumber(),
+                isActive: subInfo[3]
+              });
+              
+              setSubscriptionDetails({
+                ticketsPerDay: subInfo[0].toNumber(),
+                daysRemaining: subInfo[1].toNumber(),
+                lastProcessedBatchDay: subInfo[2].toNumber(),
+                isActive: subInfo[3]
+              });
+            } else {
+              // Reset subscription details if no active subscription
+              setSubscriptionDetails({
+                ticketsPerDay: 0,
+                daysRemaining: 0,
+                lastProcessedBatchDay: 0,
+                isActive: false
+              });
+            }
+          } catch (subError) {
+            console.error("Error fetching subscription info:", subError);
+            setHasActiveSubscription(false);
+            setSubscriptionDetails({
+              ticketsPerDay: 0,
+              daysRemaining: 0,
+              lastProcessedBatchDay: 0,
+              isActive: false
+            });
+          }
+          
         } catch (error) {
           console.error("Error fetching user info:", error);
           setError('Failed to fetch your ticket information. Please try again.');
@@ -73,6 +138,13 @@ export default function UserTickets({
         setTicketCount(null);
         setWinningsClaimable(null);
         setIsActive(null);
+        setHasActiveSubscription(false);
+        setSubscriptionDetails({
+          ticketsPerDay: 0,
+          daysRemaining: 0,
+          lastProcessedBatchDay: 0,
+          isActive: false
+        });
         setIsLoading(false);
       }
     };
@@ -83,7 +155,7 @@ export default function UserTickets({
     const intervalId = setInterval(fetchUserInfo, 300000); // 5 minutes = 300000 ms
     
     return () => clearInterval(intervalId);
-  }, [isConnected, userAddress, contractAddress]);
+  }, [isConnected, userAddress, contractAddress, subscriptionContractAddress]);
   
   const handleWithdrawWinnings = async () => {
     if (!isConnected) {
@@ -130,6 +202,69 @@ export default function UserTickets({
     }
   };
   
+  const handleCancelSubscription = async () => {
+    if (!isConnected) {
+      await connectWallet();
+      return;
+    }
+    
+    if (!hasActiveSubscription) {
+      setError('You do not have an active subscription to cancel.');
+      return;
+    }
+    
+    const confirm = window.confirm(
+      `Cancel your subscription?\n\n` +
+      `• You will be refunded for your remaining ${subscriptionDetails.daysRemaining} days\n` +
+      `• Your ${subscriptionDetails.ticketsPerDay} daily tickets will stop being automatically purchased\n` +
+      `• A small cancellation fee may apply`
+    );
+    
+    if (!confirm) return;
+    
+    setIsCancellingSubscription(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      if (typeof window !== 'undefined' && window.ethereum) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+        const signer = provider.getSigner();
+        const subscriptionContract = new ethers.Contract(
+          subscriptionContractAddress, 
+          subscriptionJackpotABI, 
+          signer
+        );
+        
+        // Cancel subscription
+        const tx = await subscriptionContract.cancelSubscription();
+        
+        setTxHash(tx.hash);
+        await tx.wait();
+        
+        setSuccess('Your subscription has been cancelled and remaining days refunded!');
+        setHasActiveSubscription(false);
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setSuccess('');
+        }, 5000);
+      }
+    } catch (error) {
+      console.error("Error cancelling subscription:", error);
+      setError('Failed to cancel subscription. Please try again.');
+    } finally {
+      setIsCancellingSubscription(false);
+    }
+  };
+  
+  const handleScrollToSubscription = () => {
+    document.getElementById('subscription')?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'center'
+    });
+  };
+  
   // If not connected, show connect wallet prompt
   if (!isConnected) {
     return (
@@ -161,6 +296,28 @@ export default function UserTickets({
     );
   }
   
+  // Add a debug section to ensure data is loaded properly
+  const renderDebug = () => {
+    if (!isConnected) return null;
+    
+    return (
+      <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700 text-xs">
+        <details>
+          <summary className="cursor-pointer font-medium">Debug Info</summary>
+          <div className="mt-2 space-y-1">
+            <p>Connected: {isConnected ? 'Yes' : 'No'}</p>
+            <p>Address: {userAddress || 'None'}</p>
+            <p>Has Subscription: {hasActiveSubscription ? 'Yes' : 'No'}</p>
+            <p>Daily Tickets: {subscriptionDetails.ticketsPerDay}</p>
+            <p>Days Left: {subscriptionDetails.daysRemaining}</p>
+            <p>Last Processed: {subscriptionDetails.lastProcessedBatchDay}</p>
+            <p>Active: {subscriptionDetails.isActive ? 'Yes' : 'No'}</p>
+          </div>
+        </details>
+      </div>
+    );
+  };
+  
   return (
     <Card className="border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-800">
       <div className="p-4 md:p-6">
@@ -183,6 +340,88 @@ export default function UserTickets({
           <>
             {/* Ticket information */}
             <div className="space-y-4 mb-6">
+              {/* Subscription Section - Always Display */}
+              <div className={`p-4 bg-gradient-to-r ${hasActiveSubscription ? 'from-purple-100 to-indigo-100 dark:from-purple-900/30 dark:to-indigo-900/30' : 'from-gray-100 to-gray-200 dark:from-gray-800/50 dark:to-gray-700/50'} rounded-lg`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center">
+                    <CalendarIcon className={`w-5 h-5 ${hasActiveSubscription ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'} mr-2`} />
+                    <span className={`text-lg font-bold ${hasActiveSubscription ? 'text-purple-800 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300'}`}>Auto-Buy Subscription</span>
+                  </div>
+                  {hasActiveSubscription ? (
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
+                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">Active</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">Not Active</span>
+                    </div>
+                  )}
+                </div>
+                
+                {hasActiveSubscription ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="bg-white/50 dark:bg-gray-800/30 rounded-lg p-2">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Daily Tickets</div>
+                        <div className="text-lg font-bold text-purple-700 dark:text-purple-300 flex items-center">
+                          {subscriptionDetails.ticketsPerDay}
+                          <BoltIcon className="w-4 h-4 ml-1 text-yellow-500" />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white/50 dark:bg-gray-800/30 rounded-lg p-2">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Days Remaining</div>
+                        <div className="text-lg font-bold text-purple-700 dark:text-purple-300 flex items-center">
+                          {subscriptionDetails.daysRemaining}
+                          <ClockIcon className="w-4 h-4 ml-1 text-blue-500" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {subscriptionDetails.ticketsPerDay * subscriptionDetails.daysRemaining} total tickets left
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        className="border-red-300 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 text-xs h-8"
+                        onClick={handleCancelSubscription}
+                        disabled={isCancellingSubscription}
+                      >
+                        {isCancellingSubscription ? (
+                          <>
+                            <ArrowPathIcon className="w-3 h-3 mr-1 animate-spin" />
+                            Cancelling...
+                          </>
+                        ) : (
+                          <>
+                            <XCircleIcon className="w-3 h-3 mr-1" />
+                            Cancel & Refund
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      You don't have an active subscription. Subscribe to automatically buy tickets daily.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="border-purple-300 bg-purple-50 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-sm"
+                      onClick={handleScrollToSubscription}
+                    >
+                      <PlusCircleIcon className="w-4 h-4 mr-1" />
+                      Get Auto-Buy Subscription
+                    </Button>
+                  </div>
+                )}
+              </div>
+            
               <div className="p-4 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-700 dark:text-gray-300">Your Tickets:</span>
@@ -201,6 +440,12 @@ export default function UserTickets({
                     `You have purchased ${ticketCount} ticket${ticketCount !== 1 ? 's' : ''} in the current lottery round.` : 
                     'You have not purchased any tickets in the current lottery round.'
                   }
+                  {hasActiveSubscription && (
+                    <span className="inline-flex items-center ml-1 text-purple-600 dark:text-purple-400">
+                      <BoltIcon className="w-3 h-3 mr-1" />
+                      Auto-buying {subscriptionDetails.ticketsPerDay} tickets daily
+                    </span>
+                  )}
                 </p>
               </div>
               
@@ -241,15 +486,15 @@ export default function UserTickets({
               {/* Participation status */}
               <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
                 <div className="flex items-center">
-                  <div className={`w-3 h-3 rounded-full mr-2 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                  <div className={`w-3 h-3 rounded-full mr-2 ${isActive || hasActiveSubscription ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                   <span className="text-gray-700 dark:text-gray-300">Status:</span>
                   <span className="ml-2 font-medium text-gray-900 dark:text-white">
-                    {isActive ? 'Active Participant' : 'Not Active'}
+                    {isActive || hasActiveSubscription ? 'Active Participant' : 'Not Active'}
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  {isActive ? 
-                    'You are actively participating in the lottery. Good luck!' : 
+                  {isActive || hasActiveSubscription ? 
+                    `You are actively participating in the lottery. ${hasActiveSubscription ? 'Your subscription ensures you never miss a draw!' : ''} Good luck!` : 
                     'You are not currently active in the lottery. Buy tickets to participate!'
                   }
                 </p>
@@ -299,6 +544,9 @@ export default function UserTickets({
                 </div>
               </div>
             )}
+            
+            {/* Add the debug section */}
+            {renderDebug()}
             
             <div className="text-center text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-4">
               <p>

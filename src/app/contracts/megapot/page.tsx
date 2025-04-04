@@ -27,6 +27,7 @@ import MegapotStats from './components/MegapotStats';
 import LotteryCountdown from './components/LotteryCountdown';
 import BuyTickets from './components/BuyTickets';
 import UserTickets from './components/UserTickets';
+import SubscriptionTickets from './components/SubscriptionTickets';
 import { useWallet } from '../../context/WalletContext';
 import { ethers } from 'ethers';
 import megapotABI from './megapotabi.json';
@@ -72,6 +73,13 @@ const megapotFeatures = [
     color: 'from-purple-500 to-indigo-600'
   },
   {
+    title: 'Auto-Renewing Subscriptions',
+    description: 'Set up automatic daily ticket purchases with our subscription service. Never miss a draw and get special cashback benefits.',
+    icon: ArrowPathIcon,
+    color: 'from-indigo-500 to-blue-600',
+    highlight: true
+  },
+  {
     title: 'Referral Rewards',
     description: 'Earn 5% in referral fees when friends buy tickets using your referral address.',
     icon: GiftIcon,
@@ -109,6 +117,7 @@ const megapotFeatures = [
 const CONTRACT_ADDRESS = '0xbEDd4F2beBE9E3E636161E644759f3cbe3d51B95';
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const REFERRAL_ADDRESS = '0xfed2Ff614E0289D41937139730B49Ee158D02299';
+const SUBSCRIPTION_CONTRACT_ADDRESS = '0x819eB717232992db08F0B8ffA9704DE496c136B5';
 const NETWORK = 'base';
 
 export default function MegapotPage() {
@@ -247,10 +256,18 @@ export default function MegapotPage() {
                 <MotionButton
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="bg-btb-primary hover:bg-btb-primary-dark text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-lg shadow-lg w-full sm:w-auto"
+                  className="bg-btb-primary hover:bg-btb-primary-dark text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-lg shadow-lg w-full sm:w-auto mr-0 sm:mr-4 mb-4 sm:mb-0"
                   onClick={() => document.getElementById('buy-tickets')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   Buy Tickets Now
+                </MotionButton>
+                <MotionButton
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 md:py-4 px-6 md:px-8 rounded-lg shadow-lg w-full sm:w-auto"
+                  onClick={() => document.getElementById('subscription')?.scrollIntoView({ behavior: 'smooth' })}
+                >
+                  Auto-Buy Daily
                 </MotionButton>
               </motion.div>
             </div>
@@ -336,12 +353,30 @@ export default function MegapotPage() {
               userAddress={address}
               connectWallet={handleConnectWallet}
             />
-            <UserTickets
-              contractAddress={MEGAPOT_CONTRACT_ADDRESS}
-              isConnected={isConnected}
-              userAddress={address}
-              connectWallet={handleConnectWallet}
-            />
+            <div id="subscription">
+              <SubscriptionTickets
+                contractAddress={MEGAPOT_CONTRACT_ADDRESS}
+                usdcAddress={USDC_ADDRESS}
+                referralAddress={REFERRAL_ADDRESS}
+                ticketPrice={ticketPrice || 10}
+                isConnected={isConnected}
+                userAddress={address}
+                connectWallet={handleConnectWallet}
+              />
+            </div>
+          </div>
+          
+          {/* User Tickets Section */}
+          <div className="mt-12 md:mt-16">
+            <div className="max-w-3xl mx-auto">
+              <UserTickets
+                contractAddress={MEGAPOT_CONTRACT_ADDRESS}
+                isConnected={isConnected}
+                userAddress={address}
+                connectWallet={handleConnectWallet}
+                subscriptionContractAddress={SUBSCRIPTION_CONTRACT_ADDRESS}
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -353,7 +388,7 @@ export default function MegapotPage() {
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-3 md:mb-4">How It Works</h2>
             <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">Simple steps to participate in the lottery</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {[
               {
                 icon: <WalletIcon className="w-12 h-12 text-btb-primary" />,
@@ -364,6 +399,11 @@ export default function MegapotPage() {
                 icon: <TicketIcon className="w-12 h-12 text-btb-primary" />,
                 title: "Buy Tickets",
                 description: "Purchase tickets using USDC. Each ticket costs $1."
+              },
+              {
+                icon: <ArrowPathIcon className="w-12 h-12 text-btb-primary" />,
+                title: "Subscribe (Optional)",
+                description: "Set up auto-buy to enter draws daily without returning to the website."
               },
               {
                 icon: <TrophyIcon className="w-12 h-12 text-btb-primary" />,
@@ -401,6 +441,14 @@ export default function MegapotPage() {
             <div className="space-y-6">
               {[
                 {
+                  question: "How does the lottery subscription work?",
+                  answer: "The auto-buy feature automatically purchases tickets for you every day without you needing to return to the website. Your tickets are entered into each daily draw, so you never miss a chance to win."
+                },
+                {
+                  question: "What are the benefits of subscribing?",
+                  answer: "The main benefit is convenience - you never need to remember to visit the site and buy tickets daily. Your subscription handles everything automatically, ensuring you're always entered in the draws for your selected duration."
+                },
+                {
                   question: "How does the 10% cashback work?",
                   answer: "When you buy a Megapot ticket, you use our custom smart contract that returns the 10% fee that is normally paid to apps, directly to your wallet. It all takes place in one transaction."
                 },
@@ -427,6 +475,10 @@ export default function MegapotPage() {
                 {
                   question: "Can I buy multiple tickets?",
                   answer: "Yes, you can buy as many tickets as you want. The more tickets you buy, the higher your chances of winning."
+                },
+                {
+                  question: "Can I cancel my subscription?",
+                  answer: "Yes, you can cancel your subscription at any time and receive a refund for the remaining days, minus a small withdrawal fee."
                 }
               ].map((faq, index) => (
                 <MotionCard
@@ -453,15 +505,25 @@ export default function MegapotPage() {
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto">
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 md:mb-6">Ready to Try Your Luck?</h2>
-            <p className="text-lg md:text-xl mb-6 md:mb-8">Buy your tickets now and get a chance to win the jackpot!</p>
-            <MotionButton
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="bg-white text-btb-primary hover:bg-gray-100 font-bold py-3 md:py-4 px-6 md:px-8 rounded-lg shadow-lg w-full sm:w-auto"
-              onClick={() => document.getElementById('buy-tickets')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              Buy Tickets Now
-            </MotionButton>
+            <p className="text-lg md:text-xl mb-6 md:mb-8">Buy tickets now or set up auto-buy so you don't need to return to the website daily!</p>
+            <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+              <MotionButton
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-white text-btb-primary hover:bg-gray-100 font-bold py-3 md:py-4 px-6 md:px-8 rounded-lg shadow-lg"
+                onClick={() => document.getElementById('buy-tickets')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Buy Tickets Now
+              </MotionButton>
+              <MotionButton
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-indigo-700 text-white hover:bg-indigo-800 font-bold py-3 md:py-4 px-6 md:px-8 rounded-lg shadow-lg"
+                onClick={() => document.getElementById('subscription')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                Auto-Buy Daily
+              </MotionButton>
+            </div>
           </div>
         </div>
       </section>
