@@ -51,31 +51,48 @@ export default function BuyTickets({
   
   // Check USDC approval and balance when connected
   useEffect(() => {
-    const checkApprovalAndBalance = async () => {
-      if (isConnected && userAddress) {
-        try {
-          if (typeof window !== 'undefined' && window.ethereum) {
-            const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-            const signer = provider.getSigner();
-            const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
-            
-            // Check USDC balance
-            const balance = await usdcContract.balanceOf(userAddress);
-            setUsdcBalance(parseFloat(ethers.utils.formatUnits(balance, 6)));
-            
-            // Check if contract is approved to spend USDC
-            const allowance = await usdcContract.allowance(userAddress, contractAddress);
-            const requiredAmount = ethers.utils.parseUnits((totalPrice).toString(), 6);
-            setIsApproved(allowance.gte(requiredAmount));
+    // Add a delay before checking balance to allow for wallet initialization
+    const timer = setTimeout(() => {
+      checkApprovalAndBalance();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [isConnected, userAddress, contractAddress, usdcAddress, totalPrice]);
+  
+  const checkApprovalAndBalance = async (retryCount = 0) => {
+    if (isConnected && userAddress) {
+      try {
+        if (typeof window !== 'undefined' && window.ethereum) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+          const signer = provider.getSigner();
+          const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
+          
+          // Check USDC balance
+          const balance = await usdcContract.balanceOf(userAddress);
+          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          setUsdcBalance(formattedBalance);
+          
+          // If balance is zero and we haven't retried too many times, retry
+          if (formattedBalance === 0 && retryCount < 3) {
+            console.log(`Balance is zero, retrying (${retryCount + 1}/3)...`);
+            setTimeout(() => checkApprovalAndBalance(retryCount + 1), 1500);
           }
-        } catch (error) {
-          console.error("Error checking approval:", error);
+          
+          // Check if contract is approved to spend USDC
+          const allowance = await usdcContract.allowance(userAddress, contractAddress);
+          const requiredAmount = ethers.utils.parseUnits((totalPrice).toString(), 6);
+          setIsApproved(allowance.gte(requiredAmount));
+        }
+      } catch (error) {
+        console.error("Error checking approval:", error);
+        // If there was an error and we haven't retried too many times, retry
+        if (retryCount < 3) {
+          console.log(`Error fetching balance, retrying (${retryCount + 1}/3)...`);
+          setTimeout(() => checkApprovalAndBalance(retryCount + 1), 1500);
         }
       }
-    };
-    
-    checkApprovalAndBalance();
-  }, [isConnected, userAddress, contractAddress, usdcAddress, totalPrice]);
+    }
+  };
   
   const handleApproveUsdc = async () => {
     if (!isConnected) {
