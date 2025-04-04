@@ -39,38 +39,37 @@ export default function UserTickets({
   
   // Fetch user ticket information
   useEffect(() => {
+    if (!isConnected || !userAddress) {
+      // Clear user data if disconnected or no address
+      setTicketCount(null);
+      setWinningsClaimable(null);
+      setIsActive(null);
+      return;
+    }
+
     const fetchUserInfo = async () => {
       try {
         setIsLoading(true);
-        
-        // Only proceed if we have a user address
-        if (userAddress) {
-          // Use public provider for Base network for read-only operations
-          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
-          const contract = new ethers.Contract(contractAddress, megapotABI, provider);
-          
-          // Get user info using read-only provider
-          const userInfo = await contract.usersInfo(userAddress);
-          
-          // Convert from basis points (1 bps = 0.01%)
-          // ticketsPurchasedTotalBps is in basis points, divide by 10000 to get actual count
-          const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
-          setTicketCount(Math.ceil(ticketsBps / 10000));
-          
-          // Get claimable winnings
-          const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
-          setWinningsClaimable(winnings);
-          
-          // Get active status
-          setIsActive(userInfo.active);
-          
-          console.log('Fetched user info with address:', userAddress, 'Connected status:', isConnected);
-        } else {
-          // No user address available
-          setTicketCount(null);
-          setWinningsClaimable(null);
-          setIsActive(null);
-        }
+
+        // Use public provider for Base network for read-only operations
+        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const contract = new ethers.Contract(contractAddress, megapotABI, provider);
+
+        // Get user info using read-only provider
+        const userInfo = await contract.usersInfo(userAddress);
+
+        // Convert from basis points (1 bps = 0.01%)
+        const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+        setTicketCount(Math.ceil(ticketsBps / 10000));
+
+        // Get claimable winnings
+        const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+        setWinningsClaimable(winnings);
+
+        // Get active status
+        setIsActive(userInfo.active);
+
+        console.log('Fetched user info with address:', userAddress, 'Connected status:', isConnected);
       } catch (error) {
         console.error("Error fetching user info:", error);
         setError('Failed to fetch your ticket information. Please try again.');
@@ -81,14 +80,13 @@ export default function UserTickets({
         setIsLoading(false);
       }
     };
-    
+
     fetchUserInfo();
-    
-    // Set up an interval to refresh the data every 5 minutes
-    const intervalId = setInterval(fetchUserInfo, 300000); // 5 minutes = 300000 ms
-    
+
+    const intervalId = setInterval(fetchUserInfo, 300000); // 5 minutes
+
     return () => clearInterval(intervalId);
-  }, [userAddress, contractAddress]);
+  }, [isConnected, userAddress, contractAddress]);
   
   const handleWithdrawWinnings = async () => {
     if (!isConnected) {

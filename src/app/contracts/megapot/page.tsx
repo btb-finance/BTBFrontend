@@ -158,41 +158,49 @@ export default function MegapotPage() {
     }
   }, [isConnected, switchNetwork]);
 
-  // Fetch contract data
-  useEffect(() => {
-    const fetchContractData = async () => {
-      try {
-        // Use public provider for Base network
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, megapotABI, provider);
-        
-        // Get jackpot pool size
-        const lpPoolTotal = await contract.lpPoolTotal();
-        setJackpotAmount(parseFloat(ethers.utils.formatUnits(lpPoolTotal, 6)));
-        
-        // Get ticket price
-        const price = await contract.ticketPrice();
-        setTicketPrice(parseFloat(ethers.utils.formatUnits(price, 6)));
-        
-        // Get last winner
-        const winner = await contract.lastWinnerAddress();
-        setLastWinner(winner);
-        
-        // Get active participants count - using ticketCountTotal instead of userLimit
-        const ticketCountTotalBps = await contract.ticketCountTotalBps();
-        // Convert from basis points and divide by 10000 to get actual count
-        const actualParticipants = Math.ceil(ticketCountTotalBps.div(10000).toNumber() / 3); // Assuming average 3 tickets per user
-        setParticipants(actualParticipants);
-        
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching contract data:', error);
-        setIsLoading(false);
-      }
-    };
+  // Fetch contract data function
+  const fetchContractData = async () => {
+    try {
+      // Use public provider for Base network
+      const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, megapotABI, provider);
+      
+      // Get jackpot pool size
+      const lpPoolTotal = await contract.lpPoolTotal();
+      setJackpotAmount(parseFloat(ethers.utils.formatUnits(lpPoolTotal, 6)));
+      
+      // Get ticket price
+      const price = await contract.ticketPrice();
+      setTicketPrice(parseFloat(ethers.utils.formatUnits(price, 6)));
+      
+      // Get last winner
+      const winner = await contract.lastWinnerAddress();
+      setLastWinner(winner);
+      
+      // Get active participants count - using ticketCountTotal instead of userLimit
+      const ticketCountTotalBps = await contract.ticketCountTotalBps();
+      // Convert from basis points and divide by 10000 to get actual count
+      const actualParticipants = Math.ceil(ticketCountTotalBps.div(10000).toNumber() / 3); // Assuming average 3 tickets per user
+      setParticipants(actualParticipants);
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching contract data:', error);
+      setIsLoading(false);
+    }
+  };
 
+  // Initial fetch on mount
+  useEffect(() => {
     fetchContractData();
   }, []);
+
+  // Refetch when wallet connects or address changes
+  useEffect(() => {
+    if (isConnected && address) {
+      fetchContractData();
+    }
+  }, [isConnected, address]);
 
   const handleConnectWallet = async () => {
     try {
