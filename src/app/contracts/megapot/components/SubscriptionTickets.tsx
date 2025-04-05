@@ -39,8 +39,8 @@ export default function SubscriptionTickets({
   userAddress,
   connectWallet
 }: SubscriptionTicketsProps) {
-  const [ticketsPerDay, setTicketsPerDay] = useState(1);
-  const [daysCount, setDaysCount] = useState(30);
+  const [ticketsPerDay, setTicketsPerDay] = useState<number | string>(1);
+  const [daysCount, setDaysCount] = useState<number | string>(30);
   const [totalPrice, setTotalPrice] = useState(0);
   const [isApproved, setIsApproved] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -62,6 +62,12 @@ export default function SubscriptionTickets({
   // Calculate total price when ticket count or days change
   useEffect(() => {
     const calculatePrices = async () => {
+      // Always ensure we have numeric values for calculations
+      const numericDaysCount = typeof daysCount === 'string' ? 
+        (daysCount === '' ? 0 : parseInt(daysCount) || 0) : daysCount;
+      const numericTicketsPerDay = typeof ticketsPerDay === 'string' ?
+        (ticketsPerDay === '' ? 0 : parseInt(ticketsPerDay) || 0) : ticketsPerDay;
+      
       if (ticketPrice && isConnected && userAddress) {
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
@@ -74,21 +80,26 @@ export default function SubscriptionTickets({
               signer
             );
             
-            if (hasActiveSubscription) {
-              // Use contract method to calculate upgrade cost
-              const upgradeCost = await subscriptionContract.calculateUpgradeCost(
-                userAddress,
-                ticketsPerDay,
-                daysCount
-              );
-              setTotalPrice(parseFloat(ethers.utils.formatUnits(upgradeCost, 6)));
+            // Only make contract calls if days count is valid
+            if (numericDaysCount > 0 && numericTicketsPerDay > 0) {
+              if (hasActiveSubscription) {
+                // Use contract method to calculate upgrade cost
+                const upgradeCost = await subscriptionContract.calculateUpgradeCost(
+                  userAddress,
+                  numericTicketsPerDay,
+                  numericDaysCount
+                );
+                setTotalPrice(parseFloat(ethers.utils.formatUnits(upgradeCost, 6)));
+              } else {
+                // Use contract method to calculate subscription cost
+                const subscriptionCost = await subscriptionContract.calculateSubscriptionCost(
+                  numericTicketsPerDay,
+                  numericDaysCount
+                );
+                setTotalPrice(parseFloat(ethers.utils.formatUnits(subscriptionCost, 6)));
+              }
             } else {
-              // Use contract method to calculate subscription cost
-              const subscriptionCost = await subscriptionContract.calculateSubscriptionCost(
-                ticketsPerDay,
-                daysCount
-              );
-              setTotalPrice(parseFloat(ethers.utils.formatUnits(subscriptionCost, 6)));
+              setTotalPrice(0); // Zero days means zero cost
             }
             
             // Calculate cashback
@@ -100,7 +111,8 @@ export default function SubscriptionTickets({
         } catch (error) {
           console.error("Error calculating prices:", error);
           // Fallback to local calculation
-          const calculatedPrice = ticketsPerDay * daysCount * ticketPrice;
+          const calculatedPrice = numericDaysCount > 0 && numericTicketsPerDay > 0 ? 
+            numericTicketsPerDay * numericDaysCount * ticketPrice : 0;
           setTotalPrice(calculatedPrice);
           
           if (cashbackPercentage > 0) {
@@ -110,7 +122,8 @@ export default function SubscriptionTickets({
         }
       } else {
         // Fallback to local calculation if not connected
-        const calculatedPrice = ticketsPerDay * daysCount * ticketPrice;
+        const calculatedPrice = numericDaysCount > 0 && numericTicketsPerDay > 0 ?
+          numericTicketsPerDay * numericDaysCount * ticketPrice : 0;
         setTotalPrice(calculatedPrice);
         
         if (cashbackPercentage > 0) {
@@ -130,6 +143,18 @@ export default function SubscriptionTickets({
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
             const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+            
+            // Verify that the wallet is actually connected by checking accounts
+            const accounts = await provider.listAccounts();
+            if (accounts.length === 0) {
+              console.log("Wallet shows as connected but no accounts found - need to reconnect");
+              // This would mean the wallet state is out of sync
+              if (typeof connectWallet === 'function') {
+                await connectWallet();
+              }
+              return; // Don't proceed until reconnection is complete
+            }
+            
             const signer = provider.getSigner();
             const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
             const subscriptionContract = new ethers.Contract(
@@ -168,12 +193,46 @@ export default function SubscriptionTickets({
           }
         } catch (error) {
           console.error("Error checking subscription status:", error);
+          // If we get RPC errors, wallet might be disconnected
+          if (error && typeof error.toString === 'function' && (
+              error.toString().includes("call revert exception") || 
+              error.toString().includes("network error") ||
+              error.toString().includes("user rejected"))) {
+            console.log("RPC error detected - attempting to reconnect wallet");
+            if (typeof connectWallet === 'function') {
+              await connectWallet();
+            }
+          }
         }
       }
     };
     
     checkApprovalBalanceAndSubscription();
-  }, [isConnected, userAddress, usdcAddress, totalPrice]);
+  }, [isConnected, userAddress, usdcAddress, totalPrice, connectWallet]);
+  
+  // Additional useEffect to verify wallet connection on initial load
+  useEffect(() => {
+    const verifyWalletConnection = async () => {
+      if (isConnected && typeof window !== 'undefined' && window.ethereum) {
+        try {
+          const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+          const accounts = await provider.listAccounts();
+          
+          // If wallet says it's connected but has no accounts, we need to reconnect
+          if (accounts.length === 0) {
+            console.log("Wallet shows connected state but no accounts available - reconnecting");
+            if (typeof connectWallet === 'function') {
+              await connectWallet();
+            }
+          }
+        } catch (error) {
+          console.error("Error verifying wallet connection on mount:", error);
+        }
+      }
+    };
+    
+    verifyWalletConnection();
+  }, []); // Empty dependency array ensures this runs once on component mount
   
   const handleApproveUsdc = async () => {
     if (!isConnected) {
@@ -352,13 +411,37 @@ export default function SubscriptionTickets({
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         
         // Calculate upgrade cost
+        const numericTicketsPerDay = typeof ticketsPerDay === 'string' ?
+          (ticketsPerDay === '' ? 0 : parseInt(ticketsPerDay) || 0) : ticketsPerDay;
+        const numericDaysCount = typeof daysCount === 'string' ? 
+          (daysCount === '' ? 0 : parseInt(daysCount) || 0) : daysCount;
+        
         const upgradeCost = await subscriptionContract.calculateUpgradeCost(
           userAddress,
-          ticketsPerDay,
-          daysCount
+          numericTicketsPerDay,
+          numericDaysCount
         );
         
         const formattedCost = ethers.utils.formatUnits(upgradeCost, 6);
+        
+        // Calculate explanation for user
+        const currentValue = subscription.daysRemaining * subscription.ticketsPerDay * ticketPrice;
+        const newValue = (subscription.daysRemaining + numericDaysCount) * numericTicketsPerDay * ticketPrice;
+        const calculatedCost = Math.max(0, newValue - currentValue);
+        
+        // Confirmation with explanation
+        const confirm = window.confirm(
+          `Upgrade Subscription?\n\n` +
+          `Current subscription: ${subscription.ticketsPerDay} tickets per day for ${subscription.daysRemaining} more days (value: $${currentValue.toFixed(2)})\n\n` +
+          `New subscription: ${numericTicketsPerDay} tickets per day for ${subscription.daysRemaining + numericDaysCount} days (value: $${newValue.toFixed(2)})\n\n` +
+          `Upgrade cost: $${formattedCost}\n\n` +
+          `This will add ${numericDaysCount} days to your subscription and set your daily tickets to ${numericTicketsPerDay}.`
+        );
+        
+        if (!confirm) {
+          setIsSubscribing(false);
+          return;
+        }
         
         const allowance = await usdcContract.allowance(userAddress, SUBSCRIPTION_CONTRACT_ADDRESS);
         
@@ -370,7 +453,7 @@ export default function SubscriptionTickets({
         }
         
         // Upgrade subscription
-        const tx = await subscriptionContract.upgradeSubscription(ticketsPerDay, daysCount);
+        const tx = await subscriptionContract.upgradeSubscription(numericTicketsPerDay, numericDaysCount);
         
         setTxHash(tx.hash);
         await tx.wait();
@@ -384,7 +467,7 @@ export default function SubscriptionTickets({
           isActive: subscriptionDetails[3]
         });
         
-        setSuccess(`Successfully upgraded subscription to ${ticketsPerDay} tickets per day with ${daysCount} additional days!`);
+        setSuccess(`Successfully upgraded subscription to ${numericTicketsPerDay} tickets per day with ${numericDaysCount} additional days!`);
         
         // Reset inputs after successful upgrade
         setTicketsPerDay(1);
@@ -404,36 +487,84 @@ export default function SubscriptionTickets({
   };
   
   const handleTicketsIncrement = () => {
-    setTicketsPerDay(prev => prev + 1);
+    setTicketsPerDay(prev => {
+      const currentValue = typeof prev === 'string' ? parseInt(prev) || 0 : prev;
+      return currentValue + 1;
+    });
   };
   
   const handleTicketsDecrement = () => {
-    setTicketsPerDay(prev => (prev > 1 ? prev - 1 : 1));
-  };
-  
-  const handleDaysIncrement = () => {
-    setDaysCount(prev => prev + 1);
-  };
-  
-  const handleDaysDecrement = () => {
-    setDaysCount(prev => (prev > 1 ? prev - 1 : 1));
+    setTicketsPerDay(prev => {
+      const currentValue = typeof prev === 'string' ? parseInt(prev) || 0 : prev;
+      return currentValue > 1 ? currentValue - 1 : 1;
+    });
   };
   
   const handleTicketsInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0) {
-      setTicketsPerDay(value);
-    } else {
+    const value = e.target.value;
+    
+    // Allow empty input
+    if (value === '') {
+      setTicketsPerDay(value as any); // temporarily allow empty string
+      return;
+    }
+    
+    // If it's a valid number, use it
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue > 0) {
+      setTicketsPerDay(numValue);
+    }
+    // Don't reset to 1 here - let the onBlur handler do that
+  };
+  
+  const handleTicketsInputBlur = () => {
+    // Reset to default value only if the current value is invalid
+    if (ticketsPerDay === '' || (typeof ticketsPerDay === 'string' && !parseInt(ticketsPerDay)) || (typeof ticketsPerDay === 'number' && (isNaN(ticketsPerDay) || ticketsPerDay <= 0))) {
       setTicketsPerDay(1);
+    } else if (typeof ticketsPerDay === 'string' && !isNaN(parseInt(ticketsPerDay))) {
+      // Convert valid string to number
+      setTicketsPerDay(parseInt(ticketsPerDay));
     }
   };
   
+  const handleDaysIncrement = () => {
+    setDaysCount(prev => {
+      const currentValue = typeof prev === 'string' ? parseInt(prev) || 0 : prev;
+      return currentValue + 1;
+    });
+  };
+  
+  const handleDaysDecrement = () => {
+    setDaysCount(prev => {
+      const currentValue = typeof prev === 'string' ? parseInt(prev) || 0 : prev;
+      return currentValue > 1 ? currentValue - 1 : 1;
+    });
+  };
+  
   const handleDaysInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0) {
-      setDaysCount(value);
-    } else {
+    const value = e.target.value;
+    
+    // Allow empty input
+    if (value === '') {
+      setDaysCount(value as any); // temporarily allow empty string
+      return;
+    }
+    
+    // If it's a valid number, use it
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue > 0) {
+      setDaysCount(numValue);
+    }
+    // Don't reset to 30 here - let the onBlur handler do that
+  };
+  
+  const handleDaysInputBlur = () => {
+    // Reset to default value only if the current value is invalid
+    if (daysCount === '' || (typeof daysCount === 'string' && !parseInt(daysCount)) || (typeof daysCount === 'number' && (isNaN(daysCount) || daysCount <= 0))) {
       setDaysCount(30);
+    } else if (typeof daysCount === 'string' && !isNaN(parseInt(daysCount))) {
+      // Convert valid string to number
+      setDaysCount(parseInt(daysCount));
     }
   };
   
@@ -529,6 +660,7 @@ export default function SubscriptionTickets({
                   type="number"
                   value={ticketsPerDay}
                   onChange={handleTicketsInputChange}
+                  onBlur={handleTicketsInputBlur}
                   className="w-full p-2 text-center bg-white dark:bg-gray-800 border-y border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none min-h-[44px]"
                   min="1"
                   aria-label="Number of tickets per day"
@@ -560,6 +692,7 @@ export default function SubscriptionTickets({
                   type="number"
                   value={daysCount}
                   onChange={handleDaysInputChange}
+                  onBlur={handleDaysInputBlur}
                   className="w-full p-2 text-center bg-white dark:bg-gray-800 border-y border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:outline-none min-h-[44px]"
                   min="1"
                   aria-label="Number of days"
@@ -581,12 +714,53 @@ export default function SubscriptionTickets({
           <div className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-gray-700 dark:text-gray-300">Tickets per Day:</span>
-              <span className="font-medium text-gray-900 dark:text-white">{ticketsPerDay}</span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {typeof ticketsPerDay === 'string' ? (ticketsPerDay === '' ? '0' : ticketsPerDay) : ticketsPerDay}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-700 dark:text-gray-300">Number of Days:</span>
-              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">{daysCount}</span>
+              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                {typeof daysCount === 'string' ? (daysCount === '' ? '0' : daysCount) : daysCount}
+              </span>
             </div>
+            
+            {/* Upgrade cost explanation - only show when user has active subscription */}
+            {isConnected && hasActiveSubscription && (
+              <>
+                <div className="pt-1 mt-1 border-t border-indigo-500/20 dark:border-indigo-500/10">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-2">Upgrade Cost Breakdown:</p>
+                  <div className="space-y-2 text-sm">
+                    {/* First line - extra cost for upgrading existing days */}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Upgrade remaining {subscription.daysRemaining} day(s) from {subscription.ticketsPerDay} to {typeof ticketsPerDay === 'string' ? (parseInt(ticketsPerDay) || 0) : ticketsPerDay} tickets:
+                      </span>
+                      <span className="font-medium">
+                        ${(subscription.daysRemaining * ((typeof ticketsPerDay === 'string' ? (parseInt(ticketsPerDay) || 0) : ticketsPerDay) - subscription.ticketsPerDay) * ticketPrice).toFixed(2)}
+                      </span>
+                    </div>
+                    
+                    {/* Second line - cost for new days */}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Add {typeof daysCount === 'string' ? (parseInt(daysCount) || 0) : daysCount} new day(s) at {typeof ticketsPerDay === 'string' ? (parseInt(ticketsPerDay) || 0) : ticketsPerDay} tickets per day:
+                      </span>
+                      <span className="font-medium">
+                        ${((typeof daysCount === 'string' ? (parseInt(daysCount) || 0) : daysCount) * (typeof ticketsPerDay === 'string' ? (parseInt(ticketsPerDay) || 0) : ticketsPerDay) * ticketPrice).toFixed(2)}
+                      </span>
+                    </div>
+                    
+                    {/* Total line */}
+                    <div className="flex justify-between pt-1 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">Total upgrade cost:</span>
+                      <span className="font-bold">${totalPrice.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+            
             {cashbackPercentage > 0 && (
               <div className="flex items-center justify-between">
                 <span className="text-gray-700 dark:text-gray-300">Cashback ({cashbackPercentage}%):</span>
@@ -595,7 +769,7 @@ export default function SubscriptionTickets({
             )}
             <div className="flex items-center justify-between pt-1 border-t border-indigo-500/20 dark:border-indigo-500/10">
               <span className="text-gray-700 dark:text-gray-300 font-medium">Final Cost (USDC):</span>
-              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">${(totalPrice - cashbackAmount).toFixed(2)}</span>
+              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">${Number(totalPrice - cashbackAmount).toFixed(2)}</span>
             </div>
           </div>
         </div>
@@ -702,7 +876,7 @@ export default function SubscriptionTickets({
         <div className="mt-4 flex items-start text-sm text-gray-600 dark:text-gray-400">
           <InformationCircleIcon className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-gray-500 dark:text-gray-500" />
           <p>
-            Subscribe to automatically buy tickets every day without needing to return to the website. Your subscription remains active for the selected number of days, and tickets are automatically entered into each daily draw.
+            Subscribe to automatically buy tickets every day without needing to return to the website. Your subscription remains active for the selected number of days, and tickets are automatically entered into each daily draw. You can <span className="text-green-600 dark:text-green-400 font-medium">cancel anytime</span> and get refunded for unused days (a small fee may apply).
           </p>
         </div>
       </div>

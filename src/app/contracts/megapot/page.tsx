@@ -245,7 +245,16 @@ export default function MegapotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                Buy tickets with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ <span className="font-bold text-btb-primary">EXCLUSIVE BONUS: Earn 50% more MegaPoints</span> (tracked onchain) and <span className="font-bold text-green-500">get 10% USDC cashback</span> on all purchases as BTB is a VIP partner site of Megapot!
+                We buy lottery tickets on your behalf with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ <span className="font-bold text-btb-primary">EXCLUSIVE BONUS: Earn 50% more MegaPoints</span> (tracked onchain) and <span className="font-bold text-green-500">get 10% USDC cashback</span> on all purchases as BTB is a VIP partner site of Megapot!
+              </motion.p>
+              
+              <motion.p
+                className="text-md md:text-lg text-gray-700 dark:text-gray-300 mb-6 md:mb-8 bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-lg border-l-4 border-indigo-600"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.15 }}
+              >
+                <span className="font-bold text-indigo-700 dark:text-indigo-400">NEW!</span> <span className="font-bold">Auto-Buy Subscription:</span> Set it once and never miss a draw! Our smart contract automatically enters you daily without returning to the site. <span className="italic">Plus, subscribers get the same 50% MegaPoints bonus and 10% cashback benefits!</span> <span className="font-bold text-green-600 dark:text-green-400">Cancel anytime!</span> 🔄
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
