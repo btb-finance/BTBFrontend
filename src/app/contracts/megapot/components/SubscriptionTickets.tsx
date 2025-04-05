@@ -40,7 +40,7 @@ export default function SubscriptionTickets({
   connectWallet
 }: SubscriptionTicketsProps) {
   const [ticketsPerDay, setTicketsPerDay] = useState(1);
-  const [daysCount, setDaysCount] = useState(7);
+  const [daysCount, setDaysCount] = useState(30);
   const [totalPrice, setTotalPrice] = useState(0);
   const [isApproved, setIsApproved] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -263,7 +263,7 @@ export default function SubscriptionTickets({
         
         // Reset inputs after successful purchase
         setTicketsPerDay(1);
-        setDaysCount(7);
+        setDaysCount(30);
         
         // Clear success message after 5 seconds
         setTimeout(() => {
@@ -388,7 +388,7 @@ export default function SubscriptionTickets({
         
         // Reset inputs after successful upgrade
         setTicketsPerDay(1);
-        setDaysCount(7);
+        setDaysCount(30);
         
         // Clear success message after 5 seconds
         setTimeout(() => {
@@ -433,7 +433,7 @@ export default function SubscriptionTickets({
     if (!isNaN(value) && value > 0) {
       setDaysCount(value);
     } else {
-      setDaysCount(7);
+      setDaysCount(30);
     }
   };
   
@@ -499,7 +499,7 @@ export default function SubscriptionTickets({
                 onClick={() => {
                   // Set default upgrade values based on current subscription
                   setTicketsPerDay(subscription.ticketsPerDay);
-                  setDaysCount(7); // Default add 7 days
+                  setDaysCount(30); // Default add 30 days
                 }}
                 className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
                 size="sm"
