@@ -28,7 +28,7 @@ interface SubscriptionTicketsProps {
 }
 
 // Subscription jackpot contract address
-const SUBSCRIPTION_CONTRACT_ADDRESS = '0x819eB717232992db08F0B8ffA9704DE496c136B5'; // Replace with actual address
+const SUBSCRIPTION_CONTRACT_ADDRESS = '0x92C1fce71847cd68a794A3377741b372F392b25a'; 
 
 export default function SubscriptionTickets({ 
   contractAddress, 
@@ -61,17 +61,67 @@ export default function SubscriptionTickets({
   
   // Calculate total price when ticket count or days change
   useEffect(() => {
-    if (ticketPrice) {
-      const calculatedPrice = ticketsPerDay * daysCount * ticketPrice;
-      setTotalPrice(calculatedPrice);
-      
-      // Calculate cashback
-      if (cashbackPercentage > 0) {
-        const calculatedCashback = (calculatedPrice * cashbackPercentage) / 100;
-        setCashbackAmount(calculatedCashback);
+    const calculatePrices = async () => {
+      if (ticketPrice && isConnected && userAddress) {
+        try {
+          if (typeof window !== 'undefined' && window.ethereum) {
+            // Get contract instance
+            const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+            const signer = provider.getSigner();
+            const subscriptionContract = new ethers.Contract(
+              SUBSCRIPTION_CONTRACT_ADDRESS,
+              subscriptionJackpotABI,
+              signer
+            );
+            
+            if (hasActiveSubscription) {
+              // Use contract method to calculate upgrade cost
+              const upgradeCost = await subscriptionContract.calculateUpgradeCost(
+                userAddress,
+                ticketsPerDay,
+                daysCount
+              );
+              setTotalPrice(parseFloat(ethers.utils.formatUnits(upgradeCost, 6)));
+            } else {
+              // Use contract method to calculate subscription cost
+              const subscriptionCost = await subscriptionContract.calculateSubscriptionCost(
+                ticketsPerDay,
+                daysCount
+              );
+              setTotalPrice(parseFloat(ethers.utils.formatUnits(subscriptionCost, 6)));
+            }
+            
+            // Calculate cashback
+            if (cashbackPercentage > 0) {
+              const calculatedCashback = (totalPrice * cashbackPercentage) / 100;
+              setCashbackAmount(calculatedCashback);
+            }
+          }
+        } catch (error) {
+          console.error("Error calculating prices:", error);
+          // Fallback to local calculation
+          const calculatedPrice = ticketsPerDay * daysCount * ticketPrice;
+          setTotalPrice(calculatedPrice);
+          
+          if (cashbackPercentage > 0) {
+            const calculatedCashback = (calculatedPrice * cashbackPercentage) / 100;
+            setCashbackAmount(calculatedCashback);
+          }
+        }
+      } else {
+        // Fallback to local calculation if not connected
+        const calculatedPrice = ticketsPerDay * daysCount * ticketPrice;
+        setTotalPrice(calculatedPrice);
+        
+        if (cashbackPercentage > 0) {
+          const calculatedCashback = (calculatedPrice * cashbackPercentage) / 100;
+          setCashbackAmount(calculatedCashback);
+        }
       }
-    }
-  }, [ticketsPerDay, daysCount, ticketPrice, cashbackPercentage]);
+    };
+    
+    calculatePrices();
+  }, [ticketsPerDay, daysCount, ticketPrice, cashbackPercentage, isConnected, userAddress, hasActiveSubscription]);
   
   // Check USDC approval and balance, plus subscription status when connected
   useEffect(() => {
@@ -141,7 +191,7 @@ export default function SubscriptionTickets({
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         
         // Approve a large amount for future transactions
-        const approvalAmount = ethers.utils.parseUnits((totalPrice * 2).toString(), 6); // Double the amount for buffer
+        const approvalAmount = ethers.utils.parseUnits(totalPrice.toString(), 6); // Only approve exact amount needed
         const tx = await usdcContract.approve(SUBSCRIPTION_CONTRACT_ADDRESS, approvalAmount);
         
         await tx.wait();
@@ -585,21 +635,7 @@ export default function SubscriptionTickets({
                 </>
               ) : 'Approve USDC'}
             </Button>
-          ) : !hasActiveSubscription ? (
-            <Button
-              onClick={handleCreateSubscription}
-              className="w-full min-h-[44px]"
-              disabled={isSubscribing}
-              size="lg"
-            >
-              {isSubscribing ? (
-                <>
-                  <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
-                  Creating Subscription...
-                </>
-              ) : 'Create Subscription'}
-            </Button>
-          ) : (
+          ) : hasActiveSubscription ? (
             <Button
               onClick={handleUpgradeSubscription}
               className="w-full min-h-[44px]"
@@ -612,6 +648,20 @@ export default function SubscriptionTickets({
                   Upgrading Subscription...
                 </>
               ) : 'Upgrade Subscription'}
+            </Button>
+          ) : (
+            <Button
+              onClick={handleCreateSubscription}
+              className="w-full min-h-[44px]"
+              disabled={isSubscribing}
+              size="lg"
+            >
+              {isSubscribing ? (
+                <>
+                  <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
+                  Creating Subscription...
+                </>
+              ) : 'Create Subscription'}
             </Button>
           )}
         </div>
