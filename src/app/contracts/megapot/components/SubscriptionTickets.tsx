@@ -495,17 +495,6 @@ export default function SubscriptionTickets({
               >
                 {isSubscribing ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : 'Cancel Subscription'}
               </Button>
-              <Button
-                onClick={() => {
-                  // Set default upgrade values based on current subscription
-                  setTicketsPerDay(subscription.ticketsPerDay);
-                  setDaysCount(30); // Default add 30 days
-                }}
-                className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
-                size="sm"
-              >
-                Upgrade
-              </Button>
             </div>
           </div>
         )}
@@ -591,12 +580,12 @@ export default function SubscriptionTickets({
         <div className="mb-4 md:mb-6 p-3 md:p-4 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-lg border border-indigo-500/20 dark:border-indigo-500/10">
           <div className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-gray-700 dark:text-gray-300">Total Tickets:</span>
-              <span className="font-medium text-gray-900 dark:text-white">{ticketsPerDay * daysCount}</span>
+              <span className="text-gray-700 dark:text-gray-300">Tickets per Day:</span>
+              <span className="font-medium text-gray-900 dark:text-white">{ticketsPerDay}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-700 dark:text-gray-300">Total Price:</span>
-              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">${totalPrice.toFixed(2)}</span>
+              <span className="text-gray-700 dark:text-gray-300">Number of Days:</span>
+              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">{daysCount}</span>
             </div>
             {cashbackPercentage > 0 && (
               <div className="flex items-center justify-between">
@@ -605,7 +594,7 @@ export default function SubscriptionTickets({
               </div>
             )}
             <div className="flex items-center justify-between pt-1 border-t border-indigo-500/20 dark:border-indigo-500/10">
-              <span className="text-gray-700 dark:text-gray-300 font-medium">Final Cost:</span>
+              <span className="text-gray-700 dark:text-gray-300 font-medium">Final Cost (USDC):</span>
               <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">${(totalPrice - cashbackAmount).toFixed(2)}</span>
             </div>
           </div>
