@@ -197,3 +197,109 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   <h3>Built with ❤️ by the BTB Finance Team</h3>
   <p>© 2023 BTB Finance. All rights reserved.</p>
 </div>
+---
+
+## 🎮 BTB Finance Developer Challenge - "Code to Save the Chicks!"
+
+Welcome, developer! Test your BTB Finance knowledge and coding skills with this fun challenge inspired by the actual project codebase.
+
+---
+
+### 🧩 Puzzle 1: Fix the Cashback Contract
+
+In `JackpotCashback.sol`, the contract approves tokens for the jackpot contract:
+
+```solidity
+token.approve(address(jackpotContract), amount);
+```
+
+**But wait!** What's a safer way to handle token approvals to prevent race conditions?
+
+**A)** Always approve `type(uint256).max` once and never again
+**B)** Reset allowance to zero before setting a new amount
+**C)** Approve twice for double security
+**D)** Use `transferFrom` instead
+
+<details>
+<summary>Answer</summary>
+B) Reset allowance to zero before setting a new amount to prevent race conditions.
+</details>
+
+---
+
+### 🧩 Puzzle 2: Spot the Bug in React Component
+
+In `TokenPriceDisplay.tsx`:
+
+```tsx
+const [btbPrice, setBtbPrice] = useState<TokenPrice>({ price: '0.00', change24h: 0, loading: true });
+
+// Later...
+setBtbPrice({ price: '1.23', change24h: 5 });
+```
+
+What's wrong here?
+
+**A)** Missing `loading` property in the update
+**B)** Wrong data type for `price`
+**C)** Should use Redux instead
+**D)** Nothing, it's fine
+
+<details>
+<summary>Answer</summary>
+A) Missing `loading` property, which may cause undefined errors.
+</details>
+
+---
+
+### 🧩 Puzzle 3: Secure the Jackpot!
+
+In `BaseJackpot.sol`, randomness is handled via an entropy contract.
+Why is it important to use an external entropy source instead of `block.timestamp` or `blockhash`?
+
+**A)** External entropy is more unpredictable and secure
+**B)** It's cheaper gas-wise
+**C)** Miners can't manipulate it
+**D)** Both A and C
+
+<details>
+<summary>Answer</summary>
+D) Both A and C. External entropy is more secure and less manipulable.
+</details>
+
+---
+
+### 🧩 Puzzle 4: Avoid Impermanent Loss
+
+In the Uniswap V3 calculator, what strategy helps reduce impermanent loss?
+
+**A)** Provide liquidity in a narrow price range
+**B)** Provide liquidity in a wide price range
+**C)** Constantly rebalance manually
+**D)** Never provide liquidity
+
+<details>
+<summary>Answer</summary>
+A) Narrow price range reduces impermanent loss but increases risk of being out of range.
+</details>
+
+---
+
+### 🧩 Puzzle 5: Governance Time!
+
+A scam token appears in your liquidity pool. What should you do?
+
+**A)** Ignore it
+**B)** Vote in governance to blacklist it
+**C)** Sell all your tokens
+**D)** Tweet angrily
+
+<details>
+<summary>Answer</summary>
+B) Vote in governance to protect the ecosystem.
+</details>
+
+---
+
+Thanks for playing the **BTB Finance Developer Challenge!**
+Keep coding, keep building, and protect those CHICKS! 🐣🚀
