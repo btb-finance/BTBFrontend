@@ -66,7 +66,43 @@ export default function UserTickets({
           // Use public provider for Base network for read-only operations
           const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
           const contract = new ethers.Contract(contractAddress, megapotABI, provider);
-          const subscriptionContract = new ethers.Contract(subscriptionContractAddress, subscriptionJackpotABI, provider);
+          
+          // Ensure we're using the correct subscription contract address, with a hardcoded fallback
+          const CORRECT_SUB_CONTRACT = '0x92C1fce71847cd68a794A3377741b372F392b25a';
+          
+          // Always use the hardcoded correct address
+          let subscriptionContract;
+          
+          if (typeof window !== 'undefined' && window.ethereum) {
+            try {
+              const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any);
+              const signer = walletProvider.getSigner();
+              // Use the correct hardcoded address
+              subscriptionContract = new ethers.Contract(
+                CORRECT_SUB_CONTRACT, 
+                subscriptionJackpotABI, 
+                signer
+              );
+              console.log("Using Web3Provider with signer for subscription contract at", CORRECT_SUB_CONTRACT);
+            } catch (err) {
+              console.error("Error creating subscription contract with signer:", err);
+              // Fallback to read-only provider but still use correct address
+              subscriptionContract = new ethers.Contract(
+                CORRECT_SUB_CONTRACT, 
+                subscriptionJackpotABI, 
+                provider
+              );
+              console.log("Falling back to JsonRpcProvider for subscription contract at", CORRECT_SUB_CONTRACT);
+            }
+          } else {
+            // Use read-only provider with correct address
+            subscriptionContract = new ethers.Contract(
+              CORRECT_SUB_CONTRACT, 
+              subscriptionJackpotABI, 
+              provider
+            );
+            console.log("Using JsonRpcProvider for subscription contract at", CORRECT_SUB_CONTRACT);
+          }
           
           // Get user info
           const userInfo = await contract.usersInfo(userAddress);
@@ -230,11 +266,17 @@ export default function UserTickets({
       if (typeof window !== 'undefined' && window.ethereum) {
         const provider = new ethers.providers.Web3Provider(window.ethereum as any);
         const signer = provider.getSigner();
+        
+        // Use the hardcoded correct address
+        const CORRECT_SUB_CONTRACT = '0x92C1fce71847cd68a794A3377741b372F392b25a';
+        
         const subscriptionContract = new ethers.Contract(
-          subscriptionContractAddress, 
+          CORRECT_SUB_CONTRACT, 
           subscriptionJackpotABI, 
           signer
         );
+        
+        console.log("Cancelling subscription using contract at:", CORRECT_SUB_CONTRACT);
         
         // Cancel subscription
         const tx = await subscriptionContract.cancelSubscription();
