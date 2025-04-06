@@ -128,9 +128,31 @@ export default function MegapotPage() {
   const [participants, setParticipants] = useState<number | null>(null);
   const [lastWinner, setLastWinner] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Contract addresses
   const MEGAPOT_CONTRACT_ADDRESS = CONTRACT_ADDRESS;
+  
+  // Function to refresh USDC balances
+  const refreshBalances = () => {
+    console.log('Refreshing USDC balances');
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  // Listen for window focus events to refresh balances
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isConnected) {
+        refreshBalances();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isConnected]);
   
   // Silent network switching
   useEffect(() => {
@@ -166,6 +188,13 @@ export default function MegapotPage() {
       }
     }
   }, [isConnected, switchNetwork]);
+
+  // Refresh balances when connected
+  useEffect(() => {
+    if (isConnected) {
+      refreshBalances();
+    }
+  }, [isConnected]);
 
   // Fetch contract data
   useEffect(() => {
@@ -361,6 +390,7 @@ export default function MegapotPage() {
               isConnected={isConnected}
               userAddress={address}
               connectWallet={handleConnectWallet}
+              refreshTrigger={refreshTrigger}
             />
             <div id="subscription">
               <SubscriptionTickets
@@ -371,6 +401,7 @@ export default function MegapotPage() {
                 isConnected={isConnected}
                 userAddress={address}
                 connectWallet={handleConnectWallet}
+                refreshTrigger={refreshTrigger}
               />
             </div>
           </div>
@@ -384,6 +415,7 @@ export default function MegapotPage() {
                 userAddress={address}
                 connectWallet={handleConnectWallet}
                 subscriptionContractAddress={SUBSCRIPTION_CONTRACT_ADDRESS}
+                refreshTrigger={refreshTrigger}
               />
             </div>
           </div>
