@@ -144,7 +144,11 @@ export default function SubscriptionTickets({
       if (isConnected && userAddress) {
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
+            console.log('SubscriptionTickets: Refreshing USDC balance for', userAddress);
             const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+            
+            // Force provider to update its accounts
+            await provider.send('eth_accounts', []);
             
             // Verify that the wallet is actually connected by checking accounts
             const accounts = await provider.listAccounts();
@@ -167,8 +171,10 @@ export default function SubscriptionTickets({
             
             // Check USDC balance
             const balance = await usdcContract.balanceOf(userAddress);
-            setUsdcBalance(parseFloat(ethers.utils.formatUnits(balance, 6)));
-            
+            const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+            console.log('SubscriptionTickets: USDC balance refreshed:', formattedBalance);
+            setUsdcBalance(formattedBalance);
+
             // Check if USDC is approved for the subscription contract
             const allowance = await usdcContract.allowance(userAddress, SUBSCRIPTION_CONTRACT_ADDRESS);
             const requiredAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
@@ -200,10 +206,8 @@ export default function SubscriptionTickets({
               error.toString().includes("call revert exception") || 
               error.toString().includes("network error") ||
               error.toString().includes("user rejected"))) {
-            console.log("RPC error detected - attempting to reconnect wallet");
-            if (typeof connectWallet === 'function') {
-              await connectWallet();
-            }
+              
+            // Add recovery code if needed
           }
         }
       }
@@ -211,6 +215,36 @@ export default function SubscriptionTickets({
     
     checkApprovalBalanceAndSubscription();
   }, [isConnected, userAddress, usdcAddress, totalPrice, connectWallet, refreshTrigger]);
+  
+  // Add an explicit refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0 && isConnected && userAddress) {
+      console.log('SubscriptionTickets: Explicit refresh triggered');
+      const refreshBalance = async () => {
+        try {
+          if (typeof window !== 'undefined' && window.ethereum) {
+            // Force a fresh provider instance
+            const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+            // Force provider to update its accounts
+            await provider.send('eth_accounts', []);
+            
+            const signer = provider.getSigner();
+            const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
+            
+            // Explicitly check USDC balance again
+            const balance = await usdcContract.balanceOf(userAddress);
+            const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+            console.log('SubscriptionTickets: USDC balance explicitly refreshed:', formattedBalance);
+            setUsdcBalance(formattedBalance);
+          }
+        } catch (error) {
+          console.error("Error in explicit refresh:", error);
+        }
+      };
+      
+      refreshBalance();
+    }
+  }, [refreshTrigger, isConnected, userAddress, usdcAddress]);
   
   // Additional useEffect to verify wallet connection on initial load
   useEffect(() => {
@@ -235,6 +269,52 @@ export default function SubscriptionTickets({
     
     verifyWalletConnection();
   }, []); // Empty dependency array ensures this runs once on component mount
+  
+  // Keep subscription component in sync with window blur/focus
+  useEffect(() => {
+    if (!isConnected || !userAddress) return;
+    
+    const handleFocus = async () => {
+      // Force provider to update when window gains focus
+      if (typeof window !== 'undefined' && window.ethereum) {
+        try {
+          const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          await provider.send('eth_accounts', []);
+        } catch (err) {
+          console.error("Error refreshing accounts on focus:", err);
+        }
+      }
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isConnected, userAddress]);
+  
+  // Add a manual refresh function
+  const manualRefreshBalance = async () => {
+    if (isConnected && userAddress) {
+      try {
+        console.log('Manually refreshing USDC balance in SubscriptionTickets');
+        if (typeof window !== 'undefined' && window.ethereum) {
+          // Force a fresh provider instance
+          const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          // Force provider to update its accounts
+          await provider.send('eth_accounts', []);
+          
+          const signer = provider.getSigner();
+          const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
+          
+          // Explicitly check USDC balance again
+          const balance = await usdcContract.balanceOf(userAddress);
+          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          console.log('SubscriptionTickets: USDC balance manually refreshed:', formattedBalance);
+          setUsdcBalance(formattedBalance);
+        }
+      } catch (error) {
+        console.error("Error in manual refresh:", error);
+      }
+    }
+  };
   
   const handleApproveUsdc = async () => {
     if (!isConnected) {
@@ -637,7 +717,18 @@ export default function SubscriptionTickets({
           <div className="mb-4 md:mb-6 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600 dark:text-gray-400">Your USDC Balance:</span>
-              <span className="font-bold text-gray-900 dark:text-white">${usdcBalance.toFixed(2)}</span>
+              <div className="flex items-center">
+                <span className="font-bold text-gray-900 dark:text-white">${usdcBalance.toFixed(2)}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={manualRefreshBalance}
+                  className="ml-2 p-1"
+                  title="Refresh Balance"
+                >
+                  <ArrowPathIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                </Button>
+              </div>
             </div>
           </div>
         )}
