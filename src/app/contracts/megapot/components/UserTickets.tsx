@@ -201,42 +201,175 @@ export default function UserTickets({
   
   // Add a manual refresh function
   const manualRefresh = async () => {
-    if (isConnected && userAddress) {
-      setIsLoading(true);
-      try {
-        console.log("Manually refreshing user ticket data for:", userAddress);
-        
-        // Force refresh wallet connection if connected through window.ethereum
-        if (typeof window !== 'undefined' && window.ethereum) {
+    if (!isConnected || !userAddress) {
+      console.log('Cannot refresh: wallet not connected or no address');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      console.log("Manually refreshing user ticket data for:", userAddress);
+      
+      // First ensure wallet connection is fresh
+      if (typeof window !== 'undefined' && window.ethereum) {
+        try {
+          // Request accounts explicitly to force wallet reconnection
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          
+          // Create a fresh provider instance
           const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
           await walletProvider.send('eth_accounts', []);
+          
+          const signer = walletProvider.getSigner();
+          const account = await signer.getAddress();
+          console.log('Current signer account:', account);
+          
+          // Use RPC provider for reliable read operations
+          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          const contract = new ethers.Contract(contractAddress, megapotABI, provider);
+          
+          // Get user info
+          const userInfo = await contract.usersInfo(account);
+          
+          // Convert from basis points and set state
+          const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+          setTicketCount(Math.ceil(ticketsBps / 10000));
+          
+          // Get claimable winnings
+          const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+          setWinningsClaimable(winnings);
+          
+          // Get active status
+          setIsActive(userInfo.active);
+          
+          // Get subscription info with signer for better accuracy
+          const CORRECT_SUB_CONTRACT = '0x92C1fce71847cd68a794A3377741b372F392b25a';
+          
+          try {
+            console.log("Checking subscription status with signer for:", account);
+            const subscriptionContract = new ethers.Contract(
+              CORRECT_SUB_CONTRACT,
+              subscriptionJackpotABI,
+              signer
+            );
+            
+            const hasSubscription = await subscriptionContract.hasActiveSubscription(account);
+            console.log("Has active subscription (with signer):", hasSubscription);
+            setHasActiveSubscription(hasSubscription);
+            
+            if (hasSubscription) {
+              console.log("Fetching subscription details with signer...");
+              const subInfo = await subscriptionContract.getSubscription(account);
+              
+              setSubscriptionDetails({
+                ticketsPerDay: subInfo[0].toNumber(),
+                daysRemaining: subInfo[1].toNumber(),
+                lastProcessedBatchDay: subInfo[2].toNumber(),
+                isActive: subInfo[3]
+              });
+              
+              console.log("Subscription details refreshed successfully:", {
+                ticketsPerDay: subInfo[0].toNumber(),
+                daysRemaining: subInfo[1].toNumber(),
+                lastProcessedBatchDay: subInfo[2].toNumber(),
+                isActive: subInfo[3]
+              });
+            }
+          } catch (subError) {
+            console.error("Error fetching subscription with signer:", subError);
+            
+            // Fallback to read-only provider
+            try {
+              console.log("Falling back to read-only provider for subscription check");
+              const subscriptionContract = new ethers.Contract(
+                CORRECT_SUB_CONTRACT,
+                subscriptionJackpotABI,
+                provider
+              );
+              
+              const hasSubscription = await subscriptionContract.hasActiveSubscription(account);
+              console.log("Has active subscription (read-only):", hasSubscription);
+              setHasActiveSubscription(hasSubscription);
+              
+              if (hasSubscription) {
+                const subInfo = await subscriptionContract.getSubscription(account);
+                setSubscriptionDetails({
+                  ticketsPerDay: subInfo[0].toNumber(),
+                  daysRemaining: subInfo[1].toNumber(),
+                  lastProcessedBatchDay: subInfo[2].toNumber(),
+                  isActive: subInfo[3]
+                });
+              }
+            } catch (fallbackError) {
+              console.error("Fallback subscription check also failed:", fallbackError);
+            }
+          }
+          
+          console.log("Manual refresh completed successfully with signer");
+        } catch (error) {
+          console.error("Error in wallet-connected refresh:", error);
+          
+          // Fall back to read-only if wallet connection fails
+          await refreshWithReadOnlyProvider();
         }
-        
-        // Use public provider for Base network for read-only operations
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
-        const contract = new ethers.Contract(contractAddress, megapotABI, provider);
-        
-        // Get user info
-        const userInfo = await contract.usersInfo(userAddress);
-        
-        // Convert from basis points and set state
-        const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
-        setTicketCount(Math.ceil(ticketsBps / 10000));
-        
-        // Get claimable winnings
-        const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
-        setWinningsClaimable(winnings);
-        
-        // Get active status
-        setIsActive(userInfo.active);
-        
-        console.log("Manual refresh completed successfully");
-      } catch (error) {
-        console.error("Error in manual refresh:", error);
-        setError('Failed to refresh data. Please try again.');
-      } finally {
-        setIsLoading(false);
+      } else {
+        // No window.ethereum, use read-only provider
+        await refreshWithReadOnlyProvider();
       }
+    } catch (error) {
+      console.error("Error in manual refresh:", error);
+      setError('Failed to refresh data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Helper function for read-only provider refreshes
+  const refreshWithReadOnlyProvider = async () => {
+    try {
+      console.log("Using read-only provider for refresh");
+      const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+      const contract = new ethers.Contract(contractAddress, megapotABI, provider);
+      
+      // Get user info
+      const userInfo = await contract.usersInfo(userAddress);
+      
+      // Convert from basis points and set state
+      const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+      setTicketCount(Math.ceil(ticketsBps / 10000));
+      
+      // Get claimable winnings
+      const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+      setWinningsClaimable(winnings);
+      
+      // Get active status
+      setIsActive(userInfo.active);
+      
+      // Check subscription with read-only provider
+      const CORRECT_SUB_CONTRACT = '0x92C1fce71847cd68a794A3377741b372F392b25a';
+      const subscriptionContract = new ethers.Contract(
+        CORRECT_SUB_CONTRACT,
+        subscriptionJackpotABI,
+        provider
+      );
+      
+      const hasSubscription = await subscriptionContract.hasActiveSubscription(userAddress);
+      setHasActiveSubscription(hasSubscription);
+      
+      if (hasSubscription) {
+        const subInfo = await subscriptionContract.getSubscription(userAddress);
+        setSubscriptionDetails({
+          ticketsPerDay: subInfo[0].toNumber(),
+          daysRemaining: subInfo[1].toNumber(),
+          lastProcessedBatchDay: subInfo[2].toNumber(),
+          isActive: subInfo[3]
+        });
+      }
+      
+      console.log("Read-only refresh completed successfully");
+    } catch (error) {
+      console.error("Error in read-only refresh:", error);
+      throw error; // Re-throw to be caught by the calling function
     }
   };
   

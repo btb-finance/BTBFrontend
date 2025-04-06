@@ -141,28 +141,110 @@ export default function MegapotPage() {
 
   // Function to explicitly fetch USDC balance
   const fetchUsdcBalance = async () => {
-    if (isConnected && address) {
-      try {
-        console.log('Explicitly fetching USDC balance for', address);
-        if (typeof window !== 'undefined' && window.ethereum) {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          // Force provider to update its cache of accounts
+    if (!isConnected || !address) {
+      console.log('Cannot fetch USDC balance: wallet not connected or no address');
+      return;
+    }
+    
+    try {
+      console.log('Explicitly fetching USDC balance for', address);
+      
+      // First try with window.ethereum
+      if (typeof window !== 'undefined' && window.ethereum) {
+        try {
+          // Request accounts explicitly to force wallet reconnection
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          
+          // Create a fresh provider
+          const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+          // Force provider to update its accounts
           await provider.send('eth_accounts', []);
           const signer = provider.getSigner();
-          const usdcContract = new ethers.Contract(USDC_ADDRESS, [
-            // ERC20 balanceOf function
-            'function balanceOf(address owner) view returns (uint256)',
-            // decimals function
-            'function decimals() view returns (uint8)'
-          ], signer);
+          const account = await signer.getAddress();
+          console.log('Current signer account:', account);
           
-          // Check USDC balance
+          // Use minimal ABI for better reliability
+          const minABI = [
+            // balanceOf
+            {
+              "constant": true,
+              "inputs": [{ "name": "_owner", "type": "address" }],
+              "name": "balanceOf",
+              "outputs": [{ "name": "balance", "type": "uint256" }],
+              "type": "function"
+            },
+            // decimals
+            {
+              "constant": true,
+              "inputs": [],
+              "name": "decimals",
+              "outputs": [{ "name": "", "type": "uint8" }],
+              "type": "function"
+            }
+          ];
+          
+          const usdcContract = new ethers.Contract(USDC_ADDRESS, minABI, signer);
+          
+          // Check USDC balance with the current signer account
+          const balance = await usdcContract.balanceOf(account);
+          console.log('USDC balance refreshed successfully (web3):', ethers.utils.formatUnits(balance, 6));
+          
+          return parseFloat(ethers.utils.formatUnits(balance, 6));
+        } catch (error) {
+          console.error('Error fetching balance with Web3Provider:', error);
+          
+          // Fallback to JsonRpcProvider
+          console.log('Falling back to JsonRpcProvider for USDC balance');
+          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          
+          // Use minimal ABI
+          const minABI = [
+            // balanceOf
+            {
+              "constant": true,
+              "inputs": [{ "name": "_owner", "type": "address" }],
+              "name": "balanceOf",
+              "outputs": [{ "name": "balance", "type": "uint256" }],
+              "type": "function"
+            }
+          ];
+          
+          const usdcContract = new ethers.Contract(USDC_ADDRESS, minABI, provider);
+          
+          // Check USDC balance with explicit address
           const balance = await usdcContract.balanceOf(address);
-          console.log('USDC balance refreshed successfully:', ethers.utils.formatUnits(balance, 6));
+          console.log('USDC balance refreshed successfully (rpc):', ethers.utils.formatUnits(balance, 6));
+          
+          return parseFloat(ethers.utils.formatUnits(balance, 6));
         }
-      } catch (error) {
-        console.error('Error explicitly fetching USDC balance:', error);
+      } else {
+        // Use JsonRpcProvider if window.ethereum not available
+        console.log('No window.ethereum, using JsonRpcProvider');
+        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        
+        // Use minimal ABI
+        const minABI = [
+          // balanceOf
+          {
+            "constant": true,
+            "inputs": [{ "name": "_owner", "type": "address" }],
+            "name": "balanceOf",
+            "outputs": [{ "name": "balance", "type": "uint256" }],
+            "type": "function"
+          }
+        ];
+        
+        const usdcContract = new ethers.Contract(USDC_ADDRESS, minABI, provider);
+        
+        // Check USDC balance with explicit address
+        const balance = await usdcContract.balanceOf(address);
+        console.log('USDC balance refreshed successfully (fallback):', ethers.utils.formatUnits(balance, 6));
+        
+        return parseFloat(ethers.utils.formatUnits(balance, 6));
       }
+    } catch (error) {
+      console.error('Error explicitly fetching USDC balance:', error);
+      return null;
     }
   };
 
