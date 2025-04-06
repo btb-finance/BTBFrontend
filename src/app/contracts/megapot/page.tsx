@@ -139,11 +139,40 @@ export default function MegapotPage() {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  // Function to explicitly fetch USDC balance
+  const fetchUsdcBalance = async () => {
+    if (isConnected && address) {
+      try {
+        console.log('Explicitly fetching USDC balance for', address);
+        if (typeof window !== 'undefined' && window.ethereum) {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          // Force provider to update its cache of accounts
+          await provider.send('eth_accounts', []);
+          const signer = provider.getSigner();
+          const usdcContract = new ethers.Contract(USDC_ADDRESS, [
+            // ERC20 balanceOf function
+            'function balanceOf(address owner) view returns (uint256)',
+            // decimals function
+            'function decimals() view returns (uint8)'
+          ], signer);
+          
+          // Check USDC balance
+          const balance = await usdcContract.balanceOf(address);
+          console.log('USDC balance refreshed successfully:', ethers.utils.formatUnits(balance, 6));
+        }
+      } catch (error) {
+        console.error('Error explicitly fetching USDC balance:', error);
+      }
+    }
+  };
+
   // Listen for window focus events to refresh balances
   useEffect(() => {
     const handleFocus = () => {
       if (isConnected) {
+        console.log('Window focused, refreshing balances');
         refreshBalances();
+        fetchUsdcBalance();
       }
     };
 
@@ -152,8 +181,29 @@ export default function MegapotPage() {
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [isConnected]);
+  }, [isConnected, address]);
+
+  // Refresh balances when connected
+  useEffect(() => {
+    if (isConnected) {
+      refreshBalances();
+      fetchUsdcBalance();
+    }
+  }, [isConnected, address]);
   
+  // Force refresh on page load
+  useEffect(() => {
+    // Force refresh on initial page load
+    if (isConnected && address) {
+      console.log('Initial page load, force refreshing USDC balance');
+      const timer = setTimeout(() => {
+        fetchUsdcBalance();
+      }, 1000); // Delay slightly to ensure wallet is fully connected
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   // Silent network switching
   useEffect(() => {
     if (isConnected && typeof window.ethereum !== 'undefined') {
@@ -188,13 +238,6 @@ export default function MegapotPage() {
       }
     }
   }, [isConnected, switchNetwork]);
-
-  // Refresh balances when connected
-  useEffect(() => {
-    if (isConnected) {
-      refreshBalances();
-    }
-  }, [isConnected]);
 
   // Fetch contract data
   useEffect(() => {

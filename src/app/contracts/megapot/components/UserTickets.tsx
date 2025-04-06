@@ -77,7 +77,11 @@ export default function UserTickets({
           
           if (typeof window !== 'undefined' && window.ethereum) {
             try {
-              const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any);
+              // Force a fresh provider instance
+              const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+              // Force provider to update its accounts
+              await walletProvider.send('eth_accounts', []);
+              
               const signer = walletProvider.getSigner();
               // Use the correct hardcoded address
               subscriptionContract = new ethers.Contract(
@@ -124,7 +128,7 @@ export default function UserTickets({
           // Get subscription info
           try {
             console.log("Checking subscription status for:", userAddress);
-            console.log("Using subscription contract at:", subscriptionContractAddress);
+            console.log("Using subscription contract at:", CORRECT_SUB_CONTRACT);
             
             const hasSubscription = await subscriptionContract.hasActiveSubscription(userAddress);
             console.log("Has active subscription:", hasSubscription);
@@ -194,6 +198,47 @@ export default function UserTickets({
     
     return () => clearInterval(intervalId);
   }, [isConnected, userAddress, contractAddress, subscriptionContractAddress, refreshTrigger]);
+  
+  // Add a manual refresh function
+  const manualRefresh = async () => {
+    if (isConnected && userAddress) {
+      setIsLoading(true);
+      try {
+        console.log("Manually refreshing user ticket data for:", userAddress);
+        
+        // Force refresh wallet connection if connected through window.ethereum
+        if (typeof window !== 'undefined' && window.ethereum) {
+          const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          await walletProvider.send('eth_accounts', []);
+        }
+        
+        // Use public provider for Base network for read-only operations
+        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const contract = new ethers.Contract(contractAddress, megapotABI, provider);
+        
+        // Get user info
+        const userInfo = await contract.usersInfo(userAddress);
+        
+        // Convert from basis points and set state
+        const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+        setTicketCount(Math.ceil(ticketsBps / 10000));
+        
+        // Get claimable winnings
+        const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+        setWinningsClaimable(winnings);
+        
+        // Get active status
+        setIsActive(userInfo.active);
+        
+        console.log("Manual refresh completed successfully");
+      } catch (error) {
+        console.error("Error in manual refresh:", error);
+        setError('Failed to refresh data. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
   
   const handleWithdrawWinnings = async () => {
     if (!isConnected) {
@@ -363,17 +408,31 @@ export default function UserTickets({
   };
   
   return (
-    <Card className="border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-800">
+    <Card className="border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800">
       <div className="p-4 md:p-6">
-        <div className="flex items-center justify-center mb-4 md:mb-6">
-          <motion.div 
-            className="p-2 md:p-3 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 mr-2 md:mr-3"
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 2, repeat: Infinity }}
+        <div className="flex items-center justify-between mb-4 md:mb-6">
+          <div className="flex items-center">
+            <motion.div 
+              className="p-2 md:p-3 rounded-full bg-gradient-to-r from-indigo-500 to-blue-600 mr-2 md:mr-3"
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <TicketIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
+            </motion.div>
+            <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
+              Your Tickets
+            </h3>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={manualRefresh}
+            disabled={isLoading || !isConnected}
+            className="flex items-center"
           >
-            <TicketIcon className="w-5 h-5 md:w-6 md:h-6 text-white" />
-          </motion.div>
-          <h3 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Your Lottery Tickets</h3>
+            <ArrowPathIcon className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
         
         {isLoading ? (
