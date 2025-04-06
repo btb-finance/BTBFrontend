@@ -292,27 +292,101 @@ export default function SubscriptionTickets({
   
   // Add a manual refresh function
   const manualRefreshBalance = async () => {
-    if (isConnected && userAddress) {
-      try {
-        console.log('Manually refreshing USDC balance in SubscriptionTickets');
-        if (typeof window !== 'undefined' && window.ethereum) {
-          // Force a fresh provider instance
+    if (!isConnected || !userAddress) {
+      console.log('Cannot refresh: wallet not connected or no address');
+      return;
+    }
+    
+    try {
+      console.log('Manually refreshing USDC balance in SubscriptionTickets for:', userAddress);
+      
+      // First, try to request accounts explicitly to ensure wallet is fresh
+      if (typeof window !== 'undefined' && window.ethereum) {
+        try {
+          // Request accounts explicitly to force wallet reconnection
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          
+          // Create a fresh provider instance
           const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
-          // Force provider to update its accounts
           await provider.send('eth_accounts', []);
           
           const signer = provider.getSigner();
-          const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
+          const account = await signer.getAddress();
+          console.log('Current signer account:', account);
           
-          // Explicitly check USDC balance again
+          // Use minimal ABI for better reliability
+          const minABI = [
+            // balanceOf
+            {
+              "constant": true,
+              "inputs": [{ "name": "_owner", "type": "address" }],
+              "name": "balanceOf",
+              "outputs": [{ "name": "balance", "type": "uint256" }],
+              "type": "function"
+            }
+          ];
+          
+          const usdcContract = new ethers.Contract(usdcAddress, minABI, signer);
+          
+          // Get balance with explicit address
+          const balance = await usdcContract.balanceOf(account);
+          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          console.log('SubscriptionTickets: USDC balance manually refreshed (web3):', formattedBalance);
+          setUsdcBalance(formattedBalance);
+        } catch (error) {
+          console.error("Error in web3 balance refresh:", error);
+          
+          // Fallback to JsonRpcProvider
+          console.log("Falling back to JsonRpcProvider for balance check");
+          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          
+          // Use minimal ABI
+          const minABI = [
+            // balanceOf
+            {
+              "constant": true,
+              "inputs": [{ "name": "_owner", "type": "address" }],
+              "name": "balanceOf",
+              "outputs": [{ "name": "balance", "type": "uint256" }],
+              "type": "function"
+            }
+          ];
+          
+          const usdcContract = new ethers.Contract(usdcAddress, minABI, provider);
+          
+          // Explicitly use user address
           const balance = await usdcContract.balanceOf(userAddress);
           const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
-          console.log('SubscriptionTickets: USDC balance manually refreshed:', formattedBalance);
+          console.log('SubscriptionTickets: USDC balance manually refreshed (rpc):', formattedBalance);
           setUsdcBalance(formattedBalance);
         }
-      } catch (error) {
-        console.error("Error in manual refresh:", error);
+      } else {
+        // Fallback to JsonRpcProvider if window.ethereum not available
+        console.log("No window.ethereum, using JsonRpcProvider");
+        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        
+        // Use minimal ABI
+        const minABI = [
+          // balanceOf
+          {
+            "constant": true,
+            "inputs": [{ "name": "_owner", "type": "address" }],
+            "name": "balanceOf",
+            "outputs": [{ "name": "balance", "type": "uint256" }],
+            "type": "function"
+          }
+        ];
+        
+        const usdcContract = new ethers.Contract(usdcAddress, minABI, provider);
+        
+        // Explicitly use user address
+        const balance = await usdcContract.balanceOf(userAddress);
+        const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+        console.log('SubscriptionTickets: USDC balance manually refreshed (fallback):', formattedBalance);
+        setUsdcBalance(formattedBalance);
       }
+    } catch (error) {
+      console.error("Error in manual refresh:", error);
     }
   };
   
