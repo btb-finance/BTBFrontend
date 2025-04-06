@@ -25,6 +25,7 @@ interface BuyTicketsProps {
   isConnected: boolean;
   userAddress: string | null;
   connectWallet: () => Promise<void>;
+  refreshTrigger?: number;
 }
 
 // Cashback helper contract address
@@ -37,7 +38,8 @@ export default function BuyTickets({
   ticketPrice, 
   isConnected,
   userAddress,
-  connectWallet
+  connectWallet,
+  refreshTrigger = 0
 }: BuyTicketsProps) {
   const [ticketCount, setTicketCount] = useState(1);
   const [totalPrice, setTotalPrice] = useState(ticketPrice);
@@ -82,7 +84,7 @@ export default function BuyTickets({
     };
     
     checkApprovalAndBalance();
-  }, [isConnected, userAddress, usdcAddress, totalPrice]);
+  }, [isConnected, userAddress, usdcAddress, totalPrice, refreshTrigger]);
   
   const handleApproveUsdc = async () => {
     if (!isConnected) {

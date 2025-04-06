@@ -27,6 +27,7 @@ interface UserTicketsProps {
   userAddress: string | null;
   connectWallet: () => Promise<void>;
   subscriptionContractAddress: string;
+  refreshTrigger?: number;
 }
 
 export default function UserTickets({ 
@@ -34,7 +35,8 @@ export default function UserTickets({
   isConnected,
   userAddress,
   connectWallet,
-  subscriptionContractAddress
+  subscriptionContractAddress,
+  refreshTrigger = 0
 }: UserTicketsProps) {
   const [ticketCount, setTicketCount] = useState<number | null>(null);
   const [winningsClaimable, setWinningsClaimable] = useState<number | null>(null);
@@ -191,7 +193,7 @@ export default function UserTickets({
     const intervalId = setInterval(fetchUserInfo, 300000); // 5 minutes = 300000 ms
     
     return () => clearInterval(intervalId);
-  }, [isConnected, userAddress, contractAddress, subscriptionContractAddress]);
+  }, [isConnected, userAddress, contractAddress, subscriptionContractAddress, refreshTrigger]);
   
   const handleWithdrawWinnings = async () => {
     if (!isConnected) {

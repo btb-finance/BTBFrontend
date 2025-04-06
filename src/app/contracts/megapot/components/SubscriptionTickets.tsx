@@ -25,6 +25,7 @@ interface SubscriptionTicketsProps {
   isConnected: boolean;
   userAddress: string | null;
   connectWallet: () => Promise<void>;
+  refreshTrigger?: number;
 }
 
 // Subscription jackpot contract address
@@ -37,7 +38,8 @@ export default function SubscriptionTickets({
   ticketPrice, 
   isConnected,
   userAddress,
-  connectWallet
+  connectWallet,
+  refreshTrigger = 0
 }: SubscriptionTicketsProps) {
   const [ticketsPerDay, setTicketsPerDay] = useState<number | string>(1);
   const [daysCount, setDaysCount] = useState<number | string>(30);
@@ -208,7 +210,7 @@ export default function SubscriptionTickets({
     };
     
     checkApprovalBalanceAndSubscription();
-  }, [isConnected, userAddress, usdcAddress, totalPrice, connectWallet]);
+  }, [isConnected, userAddress, usdcAddress, totalPrice, connectWallet, refreshTrigger]);
   
   // Additional useEffect to verify wallet connection on initial load
   useEffect(() => {
