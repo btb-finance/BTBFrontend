@@ -518,28 +518,6 @@ export default function UserTickets({
     );
   }
   
-  // Add a debug section to ensure data is loaded properly
-  const renderDebug = () => {
-    if (!isConnected) return null;
-    
-    return (
-      <div className="mt-4 p-2 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-700 text-xs">
-        <details>
-          <summary className="cursor-pointer font-medium">Debug Info</summary>
-          <div className="mt-2 space-y-1">
-            <p>Connected: {isConnected ? 'Yes' : 'No'}</p>
-            <p>Address: {userAddress || 'None'}</p>
-            <p>Has Subscription: {hasActiveSubscription ? 'Yes' : 'No'}</p>
-            <p>Daily Tickets: {subscriptionDetails.ticketsPerDay}</p>
-            <p>Days Left: {subscriptionDetails.daysRemaining}</p>
-            <p>Last Processed: {subscriptionDetails.lastProcessedBatchDay}</p>
-            <p>Active: {subscriptionDetails.isActive ? 'Yes' : 'No'}</p>
-          </div>
-        </details>
-      </div>
-    );
-  };
-  
   return (
     <Card className="border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-800">
       <div className="p-4 md:p-6">
@@ -780,9 +758,6 @@ export default function UserTickets({
                 </div>
               </div>
             )}
-            
-            {/* Add the debug section */}
-            {renderDebug()}
             
             <div className="text-center text-xs md:text-sm text-gray-600 dark:text-gray-400 mt-4">
               <p>
