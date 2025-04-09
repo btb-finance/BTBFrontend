@@ -19,7 +19,8 @@ import {
   TrophyIcon,
   UserGroupIcon,
   UserIcon,
-  WalletIcon
+  WalletIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 import { Button, MotionButton } from '../../components/ui/button';
 import { Card, MotionCard, CardContent, CardTitle, CardDescription } from '../../components/ui/card';
@@ -118,6 +119,7 @@ const CONTRACT_ADDRESS = '0xbEDd4F2beBE9E3E636161E644759f3cbe3d51B95';
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const REFERRAL_ADDRESS = '0xfed2Ff614E0289D41937139730B49Ee158D02299';
 const SUBSCRIPTION_CONTRACT_ADDRESS = '0x819eB717232992db08F0B8ffA9704DE496c136B5';
+const SCHEDULE_CONTRACT_ADDRESS = '0x92C1fce71847cd68a794A3377741b372F392b25a'; 
 const NETWORK = 'base';
 
 export default function MegapotPage() {
@@ -478,6 +480,53 @@ export default function MegapotPage() {
         </div>
       </section>
 
+      {/* Contract Verification Section */}
+      <section className="py-4 md:py-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-center md:justify-between">
+            <div className="flex items-center mb-3 md:mb-0">
+              <ShieldCheckIcon className="w-5 h-5 text-green-600 dark:text-green-400 mr-2" />
+              <span className="text-sm md:text-base font-medium text-gray-800 dark:text-gray-200">Contract Verified & Audited</span>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <a 
+                href={`https://basescan.org/address/${CONTRACT_ADDRESS}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm flex items-center px-3 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View Contract
+              </a>
+              <a 
+                href={`https://basescan.org/address/${SUBSCRIPTION_CONTRACT_ADDRESS}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm flex items-center px-3 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View Subscription
+              </a>
+              <a 
+                href={`https://basescan.org/address/${SCHEDULE_CONTRACT_ADDRESS}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm flex items-center px-3 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                View Schedule
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Live Stats Section */}
       <section className="py-12 md:py-16 bg-white dark:bg-gray-900">
         <div className="container mx-auto px-4">
@@ -636,7 +685,7 @@ export default function MegapotPage() {
                 },
                 {
                   question: "How big is the jackpot?",
-                  answer: "The jackpot size varies based on the number of tickets sold. 90% of all ticket sales go directly to the jackpot."
+                  answer: "The jackpot size varies based on the number of tickets sold. 70% of all ticket sales go directly to the jackpot. For referred tickets through our app, 20% goes to LPs and 10% goes to BTB Finance."
                 },
                 {
                   question: "Can I buy multiple tickets?",
