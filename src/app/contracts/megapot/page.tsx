@@ -401,7 +401,7 @@ export default function MegapotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.1 }}
               >
-                We buy lottery tickets on your behalf with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ <span className="font-bold text-btb-primary">EXCLUSIVE BONUS: Earn 50% more MegaPoints</span> (tracked onchain) and <span className="font-bold text-green-500">get 10% USDC cashback</span> on all purchases as BTB is a VIP partner site of Megapot!
+                We buy lottery tickets on your behalf with USDC for a chance to win the jackpot. The more tickets you buy, the higher your chances of winning! ⚡ <span className="font-bold text-btb-primary">EXCLUSIVE BONUS: Earn 50% more MegaPoints</span> (tracked onchain) and <span className="font-bold text-green-500">get 15% USDC cashback</span> on all purchases as BTB is a VIP partner site of Megapot! <span className="text-red-500 font-bold">Limited time offer!</span>
               </motion.p>
               
               <motion.p
@@ -410,7 +410,7 @@ export default function MegapotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.15 }}
               >
-                <span className="font-bold text-indigo-700 dark:text-indigo-400">NEW!</span> <span className="font-bold">Auto-Buy Subscription:</span> Set it once and never miss a draw! Our smart contract automatically enters you daily without returning to the site. <span className="italic">Plus, subscribers get the same 50% MegaPoints bonus and 10% cashback benefits!</span> <span className="font-bold text-green-600 dark:text-green-400">Cancel anytime!</span> 🔄
+                <span className="font-bold text-indigo-700 dark:text-indigo-400">NEW!</span> <span className="font-bold">Auto-Buy Subscription:</span> Set it once and never miss a draw! Our smart contract automatically enters you daily without returning to the site. <span className="italic">Plus, subscribers get the same 50% MegaPoints bonus and 15% cashback benefits!</span> <span className="font-bold text-green-600 dark:text-green-400">Cancel anytime!</span> 🔄
               </motion.p>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -556,18 +556,20 @@ export default function MegapotPage() {
             <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">Get your tickets now for a chance to win big</p>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
-            <BuyTickets 
-              contractAddress={MEGAPOT_CONTRACT_ADDRESS}
-              usdcAddress={USDC_ADDRESS}
-              referralAddress={REFERRAL_ADDRESS}
-              ticketPrice={ticketPrice || 10}
-              isConnected={isConnected}
-              userAddress={address}
-              connectWallet={handleConnectWallet}
-              refreshTrigger={refreshTrigger}
-            />
-            <div id="subscription">
+            <div id="subscription" className="order-1 lg:order-1">
               <SubscriptionTickets
+                contractAddress={MEGAPOT_CONTRACT_ADDRESS}
+                usdcAddress={USDC_ADDRESS}
+                referralAddress={REFERRAL_ADDRESS}
+                ticketPrice={ticketPrice || 10}
+                isConnected={isConnected}
+                userAddress={address}
+                connectWallet={handleConnectWallet}
+                refreshTrigger={refreshTrigger}
+              />
+            </div>
+            <div id="buy-tickets" className="order-2 lg:order-2">
+              <BuyTickets 
                 contractAddress={MEGAPOT_CONTRACT_ADDRESS}
                 usdcAddress={USDC_ADDRESS}
                 referralAddress={REFERRAL_ADDRESS}
@@ -664,8 +666,8 @@ export default function MegapotPage() {
                   answer: "The main benefit is convenience - you never need to remember to visit the site and buy tickets daily. Your subscription handles everything automatically, ensuring you're always entered in the draws for your selected duration."
                 },
                 {
-                  question: "How does the 10% cashback work?",
-                  answer: "When you buy a Megapot ticket, you use our custom smart contract that returns the 10% fee that is normally paid to apps, directly to your wallet. It all takes place in one transaction."
+                  question: "How does the 15% cashback work?",
+                  answer: "When you buy a Megapot ticket, you use our custom smart contract that returns the 15% fee directly to your wallet. For subscriptions, the cashback is applied per ticket purchase day during the limited time offer period. This means if you subscribe for 30 days, you'll receive cashback for each ticket purchased during the promotional period."
                 },
                 {
                   question: "How do the 50% bonus Megapoints work?",
