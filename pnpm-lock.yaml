@@ -89,9 +89,6 @@ importers:
       date-fns:
         specifier: 2.30.0
         version: 2.30.0
-      ethers:
-        specifier: ^5.7.2
-        version: 5.8.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       framer-motion:
         specifier: ^12.4.7
         version: 12.4.7(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -150,6 +147,9 @@ importers:
       '@eslint/eslintrc':
         specifier: ^3.0.0
         version: 3.3.0
+      '@netlify/functions':
+        specifier: ^3.0.4
+        version: 3.0.4
       '@shadcn/ui':
         specifier: ^0.0.4
         version: 0.0.4
@@ -168,6 +168,9 @@ importers:
       eslint-config-next:
         specifier: 15.1.6
         version: 15.1.6(eslint@8.57.1)(typescript@5.7.3)
+      ethers:
+        specifier: ^5.7.2
+        version: 5.8.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       mini-css-extract-plugin:
         specifier: ^2.9.2
         version: 2.9.2(webpack@5.98.0)
@@ -679,6 +682,14 @@ packages:
   '@motionone/vue@10.16.4':
     resolution: {integrity: sha512-z10PF9JV6SbjFq+/rYabM+8CVlMokgl8RFGvieSGNTmrkQanfHn+15XBrhG3BgUfvmTeSeyShfOHpG0i9zEdcg==}
     deprecated: Motion One for Vue is deprecated. Use Oku Motion instead https://oku-ui.com/motion
+
+  '@netlify/functions@3.0.4':
+    resolution: {integrity: sha512-Ox8+ABI+nsLK+c4/oC5dpquXuEIjzfTlJrdQKgQijCsDQoje7inXFAtKDLvvaGvuvE+PVpMLwQcIUL6P9Ob1hQ==}
+    engines: {node: '>=18.0.0'}
+
+  '@netlify/serverless-functions-api@1.36.0':
+    resolution: {integrity: sha512-z6okREyK8in0486a22Oro0k+YsuyEjDXJt46FpgeOgXqKJ9ElM8QPll0iuLBkpbH33ENiNbIPLd1cuClRQnhiw==}
+    engines: {node: '>=18.0.0'}
 
   '@next/env@15.2.4':
     resolution: {integrity: sha512-+SFtMgoiYP3WoSswuNmxJOCwi06TdWE733D+WPjpXIe4LXGULwEaofiiAy6kbS0+XjM5xF5n3lKuBwN2SnqD9g==}
@@ -6140,6 +6151,12 @@ snapshots:
     dependencies:
       '@motionone/dom': 10.18.0
       tslib: 2.8.1
+
+  '@netlify/functions@3.0.4':
+    dependencies:
+      '@netlify/serverless-functions-api': 1.36.0
+
+  '@netlify/serverless-functions-api@1.36.0': {}
 
   '@next/env@15.2.4': {}
 

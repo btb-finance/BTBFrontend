@@ -7,27 +7,57 @@
   node_bundler = "esbuild"
 
 # Schedule the process-daily-batch function at incrementing times
-# Day 1: 12:41 PM UTC
+# Day 1: 12:50 PM UTC
 [[scheduled]]
   function = "process-daily-batch"
-  schedule = "41 12 * * *"
+  schedule = "50 12 * * *"
 
-# Day 2: 12:42 PM UTC
+# Day 2: 12:51 PM UTC
 [[scheduled]]
   function = "process-daily-batch"
-  schedule = "42 12 * * *"
+  schedule = "51 12 * * *"
 
-# Day 3: 12:43 PM UTC
+# Day 3: 12:52 PM UTC
 [[scheduled]]
   function = "process-daily-batch"
-  schedule = "43 12 * * *"
+  schedule = "52 12 * * *"
 
-# Day 4: 12:44 PM UTC
+# Day 4: 12:53 PM UTC
 [[scheduled]]
   function = "process-daily-batch"
-  schedule = "44 12 * * *"
+  schedule = "53 12 * * *"
 
-# Day 5: 12:45 PM UTC
+# Day 5: 12:54 PM UTC
 [[scheduled]]
   function = "process-daily-batch"
-  schedule = "45 12 * * *"
+  schedule = "54 12 * * *"
+
+# Day 6: 12:55 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "55 12 * * *"
+
+# Day 7: 12:56 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "56 12 * * *"
+
+# Day 8: 12:57 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "57 12 * * *"
+
+# Day 9: 12:58 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "58 12 * * *"
+
+# Day 10: 12:59 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "59 12 * * *"
+
+# Day 11: 1:00 PM UTC (13:00)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "0 13 * * *"
