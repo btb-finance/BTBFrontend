@@ -7,57 +7,57 @@
   node_bundler = "esbuild"
 
 # Schedule the process-daily-batch function at incrementing times
-# Day 1: 12:50 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "50 12 * * *"
-
-# Day 2: 12:51 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "51 12 * * *"
-
-# Day 3: 12:52 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "52 12 * * *"
-
-# Day 4: 12:53 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "53 12 * * *"
-
-# Day 5: 12:54 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "54 12 * * *"
-
-# Day 6: 12:55 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "55 12 * * *"
-
-# Day 7: 12:56 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "56 12 * * *"
-
-# Day 8: 12:57 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "57 12 * * *"
-
-# Day 9: 12:58 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "58 12 * * *"
-
-# Day 10: 12:59 PM UTC
-[[scheduled]]
-  function = "process-daily-batch"
-  schedule = "59 12 * * *"
-
-# Day 11: 1:00 PM UTC (13:00)
+# Day 1: 1:00 PM UTC (13:00)
 [[scheduled]]
   function = "process-daily-batch"
   schedule = "0 13 * * *"
+
+# Day 2: 1:01 PM UTC (13:01)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "1 13 * * *"
+
+# Day 3: 1:02 PM UTC (13:02)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "2 13 * * *"
+
+# Day 4: 1:03 PM UTC (13:03)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "3 13 * * *"
+
+# Day 5: 1:04 PM UTC (13:04)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "4 13 * * *"
+
+# Day 6: 1:05 PM UTC (13:05)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "5 13 * * *"
+
+# Day 7: 1:06 PM UTC (13:06)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "6 13 * * *"
+
+# Day 8: 1:07 PM UTC (13:07)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "7 13 * * *"
+
+# Day 9: 1:08 PM UTC (13:08)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "8 13 * * *"
+
+# Day 10: 1:09 PM UTC (13:09)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "9 13 * * *"
+
+# Day 11: 1:10 PM UTC (13:10)
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "10 13 * * *"

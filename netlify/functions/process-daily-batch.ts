@@ -46,12 +46,48 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
       wallet
     );
 
+    // First check if we need to process batches at all
+    const allBatchesProcessed = await contract.allBatchesProcessed().catch((error: any) => {
+      console.log("Error checking if all batches processed:", error.message);
+      return false;
+    });
+
+    // If all batches are already processed, no need to continue
+    if (allBatchesProcessed) {
+      console.log('All batches are already processed. No action needed.');
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: 'All batches are already processed. No action needed.'
+        })
+      };
+    }
+
     // Calculate the batch index for today
     const batchIndex = calculateBatchIndex();
     console.log('Processing daily batch with index:', batchIndex);
     
+    // Check if this batch is already processed
+    const isBatchProcessed = await contract.batchProcessed(batchIndex).catch((error: any) => {
+      console.log(`Error checking if batch ${batchIndex} is processed:`, error.message);
+      return false;
+    });
+
+    if (isBatchProcessed) {
+      console.log(`Batch ${batchIndex} is already processed. Skipping.`);
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: `Batch ${batchIndex} is already processed. Skipping.`
+        })
+      };
+    }
+    
     // Call the processDailyBatch function with the calculated batch index
-    const tx = await contract.processDailyBatch(batchIndex);
+    // Use a manual gas limit to avoid estimation errors
+    const tx = await contract.processDailyBatch(batchIndex, {
+      gasLimit: 500000 // Manual gas limit
+    });
     
     // Wait for transaction to be mined
     const receipt = await tx.wait();
@@ -66,14 +102,49 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
         transactionHash: receipt.transactionHash
       })
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing daily batch:', error);
+    
+    // Check if this is due to "already processed" or other known conditions
+    const errorMessage = error.message || String(error);
+    
+    if (errorMessage.includes('execution reverted')) {
+      // Try to get more detailed error message
+      let detailedError = errorMessage;
+      
+      try {
+        if (error.error && error.error.body) {
+          const body = JSON.parse(error.error.body);
+          if (body.error && body.error.message) {
+            detailedError = body.error.message;
+          }
+        }
+      } catch (parseError) {
+        console.error('Error parsing error body:', parseError);
+      }
+      
+      console.log('Contract execution reverted:', detailedError);
+      
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Contract execution reverted',
+          error: detailedError,
+          possibleReasons: [
+            'Batch may have already been processed',
+            'Contract may be paused',
+            'No subscribers to process'
+          ]
+        })
+      };
+    }
     
     return {
       statusCode: 500,
       body: JSON.stringify({
         message: 'Error processing daily batch',
-        error: error instanceof Error ? error.message : String(error)
+        error: errorMessage,
+        transactionData: error.transaction || 'No transaction data available'
       })
     };
   }
