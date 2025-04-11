@@ -106,7 +106,7 @@ export default function SubscriptionTickets({
             
             // Calculate cashback
             if (cashbackPercentage > 0) {
-              const calculatedCashback = (totalPrice * cashbackPercentage) / 100;
+              const calculatedCashback = (numericTicketsPerDay * numericDaysCount * ticketPrice * cashbackPercentage) / 100;
               setCashbackAmount(calculatedCashback);
             }
           }
@@ -137,6 +137,16 @@ export default function SubscriptionTickets({
     
     calculatePrices();
   }, [ticketsPerDay, daysCount, ticketPrice, cashbackPercentage, isConnected, userAddress, hasActiveSubscription]);
+  
+  // Ensure cashback is recalculated whenever totalPrice changes
+  useEffect(() => {
+    if (cashbackPercentage > 0 && totalPrice > 0) {
+      const calculatedCashback = (totalPrice * cashbackPercentage) / 100;
+      setCashbackAmount(calculatedCashback);
+    } else {
+      setCashbackAmount(0);
+    }
+  }, [totalPrice, cashbackPercentage]);
   
   // Check USDC approval and balance, plus subscription status when connected
   useEffect(() => {
@@ -182,7 +192,11 @@ export default function SubscriptionTickets({
             
             // Get cashback percentage
             const subscriberCashbackPercentage = await subscriptionContract.subscriptionCashbackPercentage();
-            setCashbackPercentage(subscriberCashbackPercentage.toNumber() / 100); // Convert from basis points
+            console.log('Cashback from contract (basis points):', subscriberCashbackPercentage.toString());
+            // Convert from basis points (1/100 of a percent) to actual percentage
+            // 10000 basis points = 100%, so divide by 100 to get percentage
+            setCashbackPercentage(subscriberCashbackPercentage.toNumber() / 100);
+            console.log('Converted cashback percentage:', subscriberCashbackPercentage.toNumber() / 100);
             
             // Check if user has an active subscription
             const hasSubscription = await subscriptionContract.hasActiveSubscription(userAddress);
@@ -936,7 +950,7 @@ export default function SubscriptionTickets({
             )}
             <div className="flex items-center justify-between pt-1 border-t border-indigo-500/20 dark:border-indigo-500/10">
               <span className="text-gray-700 dark:text-gray-300 font-medium">Final Cost (USDC):</span>
-              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">${Number(totalPrice - cashbackAmount).toFixed(2)}</span>
+              <span className="text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400">${Math.max(0, totalPrice - cashbackAmount).toFixed(2)}</span>
             </div>
           </div>
         </div>
