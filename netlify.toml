@@ -1,0 +1,33 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Schedule the process-daily-batch function at incrementing times
+# Day 1: 12:41 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "41 12 * * *"
+
+# Day 2: 12:42 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "42 12 * * *"
+
+# Day 3: 12:43 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "43 12 * * *"
+
+# Day 4: 12:44 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "44 12 * * *"
+
+# Day 5: 12:45 PM UTC
+[[scheduled]]
+  function = "process-daily-batch"
+  schedule = "45 12 * * *"
