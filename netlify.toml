@@ -6,9 +6,34 @@
 [functions]
   node_bundler = "esbuild"
 
-# Schedule to run every minute between 1:00-1:15 PM UTC daily
-# The function will internally check if it's the right time to process based on the day
+# Primary scheduled run - target the 1 PM UTC window first
 [[scheduled]]
   function = "process-daily-batch"
-  # Run every minute from 1:00-1:15 PM UTC
-  schedule = "0-15 13 * * *"
+  # Run every 3 minutes from 1:05 PM to 1:30 PM UTC daily
+  # This covers our primary window with high frequency
+  schedule = "5-30/3 13 * * *"
+  
+# First backup window - early afternoon
+[[scheduled]]
+  function = "process-daily-batch"
+  # Run every 15 minutes from 2 PM to 5 PM UTC
+  # This provides backup attempts if the primary window fails
+  schedule = "0/15 14-17 * * *"
+
+# Second backup window - evening
+[[scheduled]]
+  function = "process-daily-batch"
+  # Run every 30 minutes from 6 PM to 11 PM UTC
+  # This ensures we won't miss processing even if significantly delayed
+  schedule = "0/30 18-23 * * *"
+  
+# Final safety net - late night/early morning
+[[scheduled]]
+  function = "process-daily-batch"
+  # Run hourly from midnight to noon UTC
+  # Last resort to ensure processing happens before next day's primary window
+  schedule = "0 0-12 * * *"
+  
+# Add environment variable flag to indicate this is a scheduled run
+[scheduled.environment]
+  IS_SCHEDULED = "true"

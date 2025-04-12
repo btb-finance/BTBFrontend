@@ -25,6 +25,27 @@ const isWithinProcessingWindow = (): boolean => {
   return hour === 13 && minute >= 0 && minute <= 15;
 }
 
+// Parse error message to extract wait time if it's a "too soon" error
+const parseTooSoonError = (errorMessage: string): number | null => {
+  // Pattern to match "You need to wait X more seconds" or similar messages
+  const waitTimeRegex = /wait\s+(\d+)\s+(?:more\s+)?seconds/i;
+  const match = errorMessage.match(waitTimeRegex);
+  
+  if (match && match[1]) {
+    return parseInt(match[1], 10);
+  }
+  
+  // If we can't parse an exact time, check if it's any kind of "too soon" error
+  if (errorMessage.toLowerCase().includes('too soon') || 
+      errorMessage.toLowerCase().includes('wait') ||
+      errorMessage.toLowerCase().includes('not time yet')) {
+    // Return a default wait time of 60 seconds if we can't parse the exact time
+    return 60;
+  }
+  
+  return null;
+}
+
 const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) => {
   // For manual testing via GET request, always allow
   // For scheduled runs, check if we're in the processing window
@@ -120,8 +141,22 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
       };
     }
     
-    // Use a gas limit based on actual usage (21,000) with a small buffer
-    const gasLimit = 25000; // Just slightly over the 21,000 observed
+    // Dynamically estimate required gas instead of using fixed value
+    console.log('Estimating gas required for batch processing...');
+    let gasLimit;
+    try {
+      // Estimate gas for this specific transaction
+      gasLimit = await contract.estimateGas.processDailyBatch(batchIndex);
+      
+      // Add 30% buffer to ensure transaction doesn't run out of gas
+      gasLimit = gasLimit.mul(130).div(100);
+      console.log(`Estimated gas needed: ${gasLimit.toString()} (with 30% buffer)`);
+    } catch (error: any) {
+      console.warn('Error estimating gas, falling back to default gas limit:', error.message);
+      // Fallback to reasonable default if estimation fails
+      gasLimit = 50000; 
+      console.log(`Using fallback gas limit: ${gasLimit}`);
+    }
     
     // Get current gas price from provider
     const gasPrice = await provider.getGasPrice();
@@ -146,23 +181,163 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
       };
     }
     
-    // Call the processDailyBatch function with optimized gas settings
-    const tx = await contract.processDailyBatch(batchIndex, {
-      gasLimit: gasLimit,
-      // Use type 2 EIP-1559 transaction
-      type: 2,
-      // Base fee actual usage showed 0.00080988 Gwei, use slightly higher
-      maxFeePerGas: ethers.utils.parseUnits("0.0021", "gwei"), // Max fee from observed tx
-      // Priority fee was 0.0011 Gwei in observed tx
-      maxPriorityFeePerGas: ethers.utils.parseUnits("0.0011", "gwei") // Same as observed tx
-    });
+    // Get network fee data for dynamic gas pricing
+    const feeData = await provider.getFeeData();
     
-    console.log('Transaction sent:', tx.hash);
+    // Apply multipliers to ensure transactions go through (1.5x for maxFeePerGas and 1.3x for priority fee)
+    const maxFeeMultiplier = 1.5;
+    const priorityFeeMultiplier = 1.3;
     
-    // Wait for transaction to be mined
-    const receipt = await tx.wait();
+    // Calculate gas fees with safety multipliers
+    const maxFeePerGas = feeData.maxFeePerGas 
+      ? feeData.maxFeePerGas.mul(Math.floor(maxFeeMultiplier * 10)).div(10)
+      : gasPrice.mul(2); // Fallback if maxFeePerGas is null
     
-    console.log('Transaction successful. Hash:', receipt.transactionHash);
+    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas
+      ? feeData.maxPriorityFeePerGas.mul(Math.floor(priorityFeeMultiplier * 10)).div(10)
+      : gasPrice; // Fallback if maxPriorityFeePerGas is null
+    
+    // Log the gas prices being used
+    console.log(`Using maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei`);
+    console.log(`Using maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    
+    // Recalculate expected gas cost with new gas prices
+    const estimatedGasCost = maxFeePerGas.mul(gasLimit);
+    const formattedEstimatedGasCost = ethers.utils.formatEther(estimatedGasCost);
+    console.log(`Updated estimated gas cost: ${formattedEstimatedGasCost} ETH`);
+    
+    // Recheck balance against new gas estimate
+    if (balance.lt(estimatedGasCost)) {
+      console.error(`Insufficient wallet balance for dynamic gas prices: ${formattedBalance} ETH. Need at least ${formattedEstimatedGasCost} ETH.`);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Insufficient funds for transaction with current gas prices',
+          walletAddress: wallet.address,
+          currentBalance: formattedBalance,
+          requiredGasCost: formattedEstimatedGasCost,
+          hint: "Please send some ETH to the wallet address to cover gas fees."
+        })
+      };
+    }
+    
+    // Implement retry mechanism with escalating gas parameters
+    let tx;
+    let receipt;
+    const maxRetries = 3;
+    let attempt = 0;
+    let success = false;
+    
+    while (!success && attempt < maxRetries) {
+      attempt++;
+      console.log(`Transaction attempt ${attempt} of ${maxRetries}`);
+      
+      try {
+        // Increase gas parameters on each retry
+        const retryMultiplier = 1 + (attempt * 0.25); // Add 25% more gas each retry
+        
+        // Calculate adjusted gas values for this attempt
+        const attemptMaxFeePerGas = maxFeePerGas.mul(Math.floor(retryMultiplier * 10)).div(10);
+        const attemptPriorityFeePerGas = maxPriorityFeePerGas.mul(Math.floor(retryMultiplier * 10)).div(10);
+        const attemptGasLimit = typeof gasLimit === 'number' 
+          ? Math.floor(gasLimit * retryMultiplier)
+          : gasLimit.mul(Math.floor(retryMultiplier * 10)).div(10);
+        
+        console.log(`Attempt ${attempt} - Using multiplier: ${retryMultiplier.toFixed(2)}`);
+        console.log(`Gas limit: ${typeof attemptGasLimit === 'number' ? attemptGasLimit : attemptGasLimit.toString()}`);
+        console.log(`Max fee: ${ethers.utils.formatUnits(attemptMaxFeePerGas, 'gwei')} gwei`);
+        console.log(`Priority fee: ${ethers.utils.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
+        
+        // Call the processDailyBatch function with dynamically adjusted gas settings
+        tx = await contract.processDailyBatch(batchIndex, {
+          gasLimit: attemptGasLimit,
+          type: 2, // Use type 2 EIP-1559 transaction
+          maxFeePerGas: attemptMaxFeePerGas,
+          maxPriorityFeePerGas: attemptPriorityFeePerGas
+        });
+        
+        console.log(`Transaction sent (attempt ${attempt}):`, tx.hash);
+        
+        // Wait for transaction with increasing timeout on each retry
+        const waitTimeoutMs = 60000 * attempt; // 1, 2, 3 minutes based on attempt
+        console.log(`Waiting up to ${waitTimeoutMs/1000} seconds for confirmation...`);
+        
+        // Create a timeout promise
+        const timeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Transaction confirmation timeout')), waitTimeoutMs);
+        });
+        
+        // Wait for transaction with timeout
+        receipt = await Promise.race([
+          tx.wait(),
+          timeout
+        ]);
+        
+        // If we get here, transaction was successful
+        console.log(`Transaction successful on attempt ${attempt}. Hash:`, receipt.transactionHash);
+        success = true;
+      } catch (txError: any) {
+        console.error(`Transaction attempt ${attempt} failed:`, txError.message);
+        
+        // Check if this is a "too soon" error
+        const waitTimeSeconds = parseTooSoonError(txError.message);
+        if (waitTimeSeconds) {
+          console.log(`Detected "too soon" error. Need to wait ${waitTimeSeconds} seconds.`);
+          
+          // If this is the first attempt and we need to wait, let's wait and retry once
+          if (attempt === 1 && waitTimeSeconds < 600) { // Only wait if less than 10 minutes
+            console.log(`Waiting ${waitTimeSeconds} seconds before retrying...`);
+            
+            // Wait the specified time plus a small buffer (5 seconds)
+            const waitTimeMs = (waitTimeSeconds + 5) * 1000;
+            await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+            
+            console.log('Wait time completed, retrying transaction...');
+            // Decrement attempt to retry with same parameters
+            attempt--;
+            continue;
+          } else {
+            // If this isn't the first attempt or wait time is too long, inform about the timing issue
+            return {
+              statusCode: 400,
+              body: JSON.stringify({
+                message: 'Transaction cannot be processed yet',
+                error: 'Too soon to process daily batch',
+                waitTimeSeconds: waitTimeSeconds,
+                suggestedRetryTime: new Date(Date.now() + (waitTimeSeconds * 1000)).toISOString(),
+                hint: "The contract can only be called once every 24 hours. Try again after the suggested retry time."
+              })
+            };
+          }
+        } 
+        
+        // Check specific error conditions
+        if (txError.message.includes('timeout') ||
+            txError.message.includes('transaction underpriced') ||
+            txError.message.includes('replacement fee too low') ||
+            txError.message.includes('nonce has already been used')) {
+          console.log(`Retrying with higher gas parameters...`);
+          // Continue to next attempt
+        } else if (txError.message.includes('insufficient funds')) {
+          // Fatal error - no point in retrying
+          throw txError;
+        } else if (attempt >= maxRetries) {
+          // Last attempt failed, propagate the error
+          throw txError;
+        }
+        
+        // Small delay before retry to allow network conditions to change
+        if (attempt < maxRetries) {
+          const delayMs = 5000 * attempt; // Increasing delay: 5s, 10s, 15s
+          console.log(`Waiting ${delayMs/1000} seconds before retrying...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    
+    if (!success) {
+      throw new Error(`Transaction failed after ${maxRetries} attempts`);
+    }
     
     // Calculate total cost including L1 and L2 fees
     const totalCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
