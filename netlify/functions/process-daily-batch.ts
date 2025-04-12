@@ -83,108 +83,74 @@ const parseTooSoonError = (errorMessage: string): number | null => {
   return null;
 }
 
-const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) => {
-  // For manual testing via GET request, always allow
-  // For scheduled runs, check if we're in the processing window
-  if (event.httpMethod !== 'GET' && !event.isScheduled) {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ message: 'Method not allowed' })
-    };
-  }
-  
-  // For scheduled events, ensure we're in the processing window
-  if (event.isScheduled && !isWithinProcessingWindow()) {
-    console.log('Scheduled event outside processing window. Skipping.');
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ 
-        message: 'Scheduled event outside processing window. Skipping.',
-        currentTimeUTC: new Date().toISOString()
-      })
-    };
-  }
-
+// Function to process the batch with precise timing
+const processBatchWithPreciseTiming = async (
+  contract: ethers.Contract,
+  wallet: ethers.Wallet,
+  provider: ethers.providers.JsonRpcProvider,
+): Promise<{
+  success: boolean;
+  result: any;
+}> => {
   try {
-    // Initialize provider with Base mainnet RPC URL
-    const provider = new ethers.providers.JsonRpcProvider(process.env.ETH_RPC_URL);
-    
-    // Initialize wallet with private key from environment variable
-    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY as string, provider);
-    
-    // Check wallet balance before proceeding
-    const balance = await wallet.getBalance();
-    const formattedBalance = ethers.utils.formatEther(balance);
-    console.log(`Wallet ${wallet.address} balance: ${formattedBalance} ETH`);
-    
-    // Lower minimum required gas threshold based on actual usage (21,000 gas)
-    const minGasRequired = ethers.utils.parseEther("0.00005"); // 0.00005 ETH is plenty for this tx
-    
-    if (balance.lt(minGasRequired)) {
-      console.error(`Insufficient wallet balance: ${formattedBalance} ETH. Need at least 0.00005 ETH for gas.`);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Insufficient funds for transaction',
-          walletAddress: wallet.address,
-          currentBalance: formattedBalance,
-          minRequired: "0.00005 ETH",
-          hint: "Please send some ETH to the wallet address to cover gas fees."
-        })
-      };
-    }
-    
-    // Create contract instance
-    const contract = new ethers.Contract(
-      SUBSCRIPTION_JACKPOT_ADDRESS,
-      subscriptionJackpotABI,
-      wallet
-    );
-    
     // Get next processing time information
     const processingTimeInfo = await getNextProcessingTime(contract);
-    console.log('Processing time info:', {
-      lastProcessed: new Date(processingTimeInfo.lastBatchTimestamp * 1000).toISOString(),
-      interval: `${processingTimeInfo.processingInterval} seconds (${processingTimeInfo.processingInterval / 3600} hours)`,
-      nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
-      canProcessNow: processingTimeInfo.canProcessNow,
-      timeRemaining: processingTimeInfo.canProcessNow ? 
-        'Ready to process now' : 
-        `Wait ${processingTimeInfo.secondsUntilNextValid} more seconds (${Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)} minutes)`
-    });
     
-    // If we can't process yet, return with detailed timing information
-    if (!processingTimeInfo.canProcessNow) {
+    // If we can process now, proceed immediately
+    if (processingTimeInfo.canProcessNow) {
+      console.log('Processing time reached. Proceeding with transaction...');
+      return processBatch(contract, wallet, provider);
+    }
+    
+    // Calculate how long to wait
+    const waitTimeMs = processingTimeInfo.secondsUntilNextValid * 1000;
+    
+    // Only wait if it's less than 10 minutes
+    if (waitTimeMs > 10 * 60 * 1000) {
+      console.log(`Wait time too long (${processingTimeInfo.secondsUntilNextValid} seconds). Try again later.`);
       return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Too soon to process daily batch',
-          lastProcessed: new Date(processingTimeInfo.lastBatchTimestamp * 1000).toISOString(),
-          processingInterval: `${processingTimeInfo.processingInterval} seconds`,
+        success: false,
+        result: {
+          message: 'Wait time too long',
           nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
-          secondsRemaining: processingTimeInfo.secondsUntilNextValid,
-          minutesRemaining: Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)
-        })
+          secondsRemaining: processingTimeInfo.secondsUntilNextValid
+        }
       };
     }
+    
+    // Log that we're waiting for the exact processing time
+    console.log(`Waiting exactly ${processingTimeInfo.secondsUntilNextValid} seconds until processing time...`);
+    
+    // Wait until exact processing time (plus 1 second buffer)
+    await new Promise(resolve => setTimeout(resolve, waitTimeMs + 1000));
+    
+    console.log('Wait complete. Proceeding with transaction...');
+    
+    // Process the batch
+    return processBatch(contract, wallet, provider);
+    
+  } catch (error) {
+    console.error('Error in precise timing processing:', error);
+    return {
+      success: false,
+      result: {
+        message: 'Error during precise timing processing',
+        error: String(error)
+      }
+    };
+  }
+};
 
-    // First check if we need to process batches at all
-    const allBatchesProcessed = await contract.allBatchesProcessed().catch((error: any) => {
-      console.log("Error checking if all batches processed:", error.message);
-      return false;
-    });
-
-    // If all batches are already processed, no need to continue
-    if (allBatchesProcessed) {
-      console.log('All batches are already processed. No action needed.');
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: 'All batches are already processed. No action needed.'
-        })
-      };
-    }
-
+// Extract batch processing logic to a separate function
+const processBatch = async (
+  contract: ethers.Contract,
+  wallet: ethers.Wallet,
+  provider: ethers.providers.JsonRpcProvider
+): Promise<{
+  success: boolean;
+  result: any;
+}> => {
+  try {
     // Calculate the batch index for today
     const batchIndex = calculateBatchIndex();
     console.log('Processing daily batch with index:', batchIndex);
@@ -198,14 +164,14 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
     if (isBatchProcessed) {
       console.log(`Batch ${batchIndex} is already processed. Skipping.`);
       return {
-        statusCode: 200,
-        body: JSON.stringify({
+        success: true,
+        result: {
           message: `Batch ${batchIndex} is already processed. Skipping.`
-        })
+        }
       };
     }
     
-    // Dynamically estimate required gas instead of using fixed value
+    // Dynamically estimate required gas
     console.log('Estimating gas required for batch processing...');
     let gasLimit;
     try {
@@ -224,26 +190,6 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
     
     // Get current gas price from provider
     const gasPrice = await provider.getGasPrice();
-    
-    // Calculate total gas cost with current gas price
-    const gasCost = gasPrice.mul(gasLimit);
-    const formattedGasCost = ethers.utils.formatEther(gasCost);
-    console.log(`Estimated gas cost with current gas price: ${formattedGasCost} ETH`);
-    
-    // Double check we have enough balance
-    if (balance.lt(gasCost)) {
-      console.error(`Insufficient wallet balance: ${formattedBalance} ETH. Need at least ${formattedGasCost} ETH for gas.`);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Insufficient funds for transaction',
-          walletAddress: wallet.address,
-          currentBalance: formattedBalance,
-          requiredGasCost: formattedGasCost,
-          hint: "Please send some ETH to the wallet address to cover gas fees."
-        })
-      };
-    }
     
     // Get network fee data for dynamic gas pricing
     const feeData = await provider.getFeeData();
@@ -264,26 +210,6 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
     // Log the gas prices being used
     console.log(`Using maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei`);
     console.log(`Using maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
-    
-    // Recalculate expected gas cost with new gas prices
-    const estimatedGasCost = maxFeePerGas.mul(gasLimit);
-    const formattedEstimatedGasCost = ethers.utils.formatEther(estimatedGasCost);
-    console.log(`Updated estimated gas cost: ${formattedEstimatedGasCost} ETH`);
-    
-    // Recheck balance against new gas estimate
-    if (balance.lt(estimatedGasCost)) {
-      console.error(`Insufficient wallet balance for dynamic gas prices: ${formattedBalance} ETH. Need at least ${formattedEstimatedGasCost} ETH.`);
-      return {
-        statusCode: 400,
-        body: JSON.stringify({
-          message: 'Insufficient funds for transaction with current gas prices',
-          walletAddress: wallet.address,
-          currentBalance: formattedBalance,
-          requiredGasCost: formattedEstimatedGasCost,
-          hint: "Please send some ETH to the wallet address to cover gas fees."
-        })
-      };
-    }
     
     // Implement retry mechanism with escalating gas parameters
     let tx;
@@ -348,34 +274,20 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
         if (waitTimeSeconds) {
           console.log(`Detected "too soon" error. Need to wait ${waitTimeSeconds} seconds.`);
           
-          // If this is the first attempt and we need to wait, let's wait and retry once
-          if (attempt === 1 && waitTimeSeconds < 600) { // Only wait if less than 10 minutes
-            console.log(`Waiting ${waitTimeSeconds} seconds before retrying...`);
-            
-            // Wait the specified time plus a small buffer (5 seconds)
-            const waitTimeMs = (waitTimeSeconds + 5) * 1000;
-            await new Promise(resolve => setTimeout(resolve, waitTimeMs));
-            
-            console.log('Wait time completed, retrying transaction...');
-            // Decrement attempt to retry with same parameters
-            attempt--;
-            continue;
-          } else {
-            // If this isn't the first attempt or wait time is too long, inform about the timing issue
-            return {
-              statusCode: 400,
-              body: JSON.stringify({
-                message: 'Transaction cannot be processed yet',
-                error: 'Too soon to process daily batch',
-                waitTimeSeconds: waitTimeSeconds,
-                suggestedRetryTime: new Date(Date.now() + (waitTimeSeconds * 1000)).toISOString(),
-                hint: "The contract can only be called once every 24 hours. Try again after the suggested retry time."
-              })
-            };
-          }
+          // For "too soon" errors, we should return with that information
+          return {
+            success: false,
+            result: {
+              message: 'Transaction cannot be processed yet',
+              error: 'Too soon to process daily batch',
+              waitTimeSeconds: waitTimeSeconds,
+              suggestedRetryTime: new Date(Date.now() + (waitTimeSeconds * 1000)).toISOString(),
+              hint: "The contract can only be called once every 24 hours. Try again after the suggested retry time."
+            }
+          };
         } 
         
-        // Check specific error conditions
+        // Check specific error conditions (existing code)
         if (txError.message.includes('timeout') ||
             txError.message.includes('transaction underpriced') ||
             txError.message.includes('replacement fee too low') ||
@@ -408,16 +320,156 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
     const formattedTotalCost = ethers.utils.formatEther(totalCost);
     
     return {
-      statusCode: 200,
-      body: JSON.stringify({
+      success: true,
+      result: {
         message: 'Daily batch processed successfully',
         batchIndex: batchIndex,
         transactionHash: receipt.transactionHash,
         gasUsed: receipt.gasUsed.toString(),
         effectiveGasPrice: ethers.utils.formatUnits(receipt.effectiveGasPrice, 'gwei') + ' gwei',
         totalCost: formattedTotalCost + ' ETH'
+      }
+    };
+  } catch (error: any) {
+    console.error('Error in batch processing:', error);
+    return {
+      success: false,
+      result: {
+        message: 'Error processing daily batch',
+        error: error.message || String(error),
+        transactionData: error.transaction || 'No transaction data available'
+      }
+    };
+  }
+};
+
+const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) => {
+  console.log('Starting process-daily-batch function for BTB Finance (btb.finance)');
+  console.log('Current time UTC:', new Date().toISOString());
+  
+  // For manual testing via GET request, always allow
+  // For scheduled runs, check if we're in the processing window
+  if (event.httpMethod !== 'GET' && !event.isScheduled) {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ 
+        message: 'Method not allowed',
+        site: 'BTB Finance (btb.finance)'
       })
     };
+  }
+  
+  // For scheduled events, ensure we're in the processing window
+  if (event.isScheduled && !isWithinProcessingWindow()) {
+    console.log('Scheduled event outside processing window. Skipping.');
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ 
+        message: 'Scheduled event outside processing window. Skipping.',
+        currentTimeUTC: new Date().toISOString()
+      })
+    };
+  }
+
+  try {
+    // Initialize provider with Base mainnet RPC URL
+    const provider = new ethers.providers.JsonRpcProvider(process.env.ETH_RPC_URL);
+    
+    // Initialize wallet with private key from environment variable
+    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY as string, provider);
+    
+    // Check wallet balance before proceeding
+    const balance = await wallet.getBalance();
+    const formattedBalance = ethers.utils.formatEther(balance);
+    console.log(`Wallet ${wallet.address} balance: ${formattedBalance} ETH`);
+    
+    // Lower minimum required gas threshold based on actual usage (21,000 gas)
+    const minGasRequired = ethers.utils.parseEther("0.00005"); // 0.00005 ETH is plenty for this tx
+    
+    if (balance.lt(minGasRequired)) {
+      console.error(`Insufficient wallet balance: ${formattedBalance} ETH. Need at least 0.00005 ETH for gas.`);
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Insufficient funds for transaction',
+          site: 'BTB Finance (btb.finance)',
+          walletAddress: wallet.address,
+          currentBalance: formattedBalance,
+          minRequired: "0.00005 ETH",
+          hint: "Please send some ETH to the wallet address to cover gas fees."
+        })
+      };
+    }
+    
+    // Create contract instance
+    const contract = new ethers.Contract(
+      SUBSCRIPTION_JACKPOT_ADDRESS,
+      subscriptionJackpotABI,
+      wallet
+    );
+    
+    // Get next processing time information
+    const processingTimeInfo = await getNextProcessingTime(contract);
+    console.log('Processing time info:', {
+      lastProcessed: new Date(processingTimeInfo.lastBatchTimestamp * 1000).toISOString(),
+      interval: `${processingTimeInfo.processingInterval} seconds (${processingTimeInfo.processingInterval / 3600} hours)`,
+      nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+      canProcessNow: processingTimeInfo.canProcessNow,
+      timeRemaining: processingTimeInfo.canProcessNow ? 
+        'Ready to process now' : 
+        `Wait ${processingTimeInfo.secondsUntilNextValid} more seconds (${Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)} minutes)`
+    });
+    
+    // Check for manual testing (HTTP GET request)
+    // For manual tests, we will check if we can process now, and if not, 
+    // we'll return timing info without waiting
+    if (event.httpMethod === 'GET' && !event.isScheduled) {
+      if (!processingTimeInfo.canProcessNow) {
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: 'Too soon to process daily batch',
+            site: 'BTB Finance (btb.finance)',
+            lastProcessed: new Date(processingTimeInfo.lastBatchTimestamp * 1000).toISOString(),
+            processingInterval: `${processingTimeInfo.processingInterval} seconds`,
+            nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+            secondsRemaining: processingTimeInfo.secondsUntilNextValid,
+            minutesRemaining: Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)
+          })
+        };
+      }
+    }
+    
+    // First check if we need to process batches at all
+    const allBatchesProcessed = await contract.allBatchesProcessed().catch((error: any) => {
+      console.log("Error checking if all batches processed:", error.message);
+      return false;
+    });
+
+    // If all batches are already processed, no need to continue
+    if (allBatchesProcessed) {
+      console.log('All batches are already processed. No action needed.');
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          message: 'All batches are already processed. No action needed.',
+          site: 'BTB Finance (btb.finance)'
+        })
+      };
+    }
+    
+    // Process with precise timing
+    const result = await processBatchWithPreciseTiming(contract, wallet, provider);
+    
+    // Return the result
+    return {
+      statusCode: result.success ? 200 : 400,
+      body: JSON.stringify({
+        ...result.result,
+        site: 'BTB Finance (btb.finance)'
+      })
+    };
+    
   } catch (error: any) {
     console.error('Error processing daily batch:', error);
     
@@ -437,6 +489,7 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
         statusCode: 400,
         body: JSON.stringify({
           message: 'Insufficient funds for transaction',
+          site: 'BTB Finance (btb.finance)',
           error: 'The wallet does not have enough ETH to cover gas costs',
           walletAddress: walletAddress,
           hint: "Please send some more ETH to the wallet address. Try at least 0.0001 ETH.",
@@ -467,6 +520,7 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
         statusCode: 400,
         body: JSON.stringify({
           message: 'Contract execution reverted',
+          site: 'BTB Finance (btb.finance)',
           error: detailedError,
           possibleReasons: [
             'Batch may have already been processed',
@@ -481,6 +535,7 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
       statusCode: 500,
       body: JSON.stringify({
         message: 'Error processing daily batch',
+        site: 'BTB Finance (btb.finance)',
         error: errorMessage,
         transactionData: error.transaction || 'No transaction data available'
       })
