@@ -179,14 +179,17 @@ const processBatch = async (
       // Estimate gas for this specific transaction
       gasLimit = await contract.estimateGas.processDailyBatch(batchIndex);
       
-      // Add 30% buffer to ensure transaction doesn't run out of gas
-      gasLimit = gasLimit.mul(130).div(100);
-      console.log(`Estimated gas needed: ${gasLimit.toString()} (with 30% buffer)`);
+      // Use exact estimated gas with no buffer
+      console.log(`Using exact estimated gas: ${gasLimit.toString()}`);
     } catch (error: any) {
-      console.warn('Error estimating gas, falling back to default gas limit:', error.message);
-      // Fallback to reasonable default if estimation fails
-      gasLimit = 50000; 
-      console.log(`Using fallback gas limit: ${gasLimit}`);
+      console.error('Error estimating gas - cannot proceed without accurate estimate:', error.message);
+      return {
+        success: false,
+        result: {
+          message: 'Failed to estimate gas for transaction',
+          error: error.message || String(error)
+        }
+      };
     }
     
     // Get current gas price from provider
@@ -195,22 +198,18 @@ const processBatch = async (
     // Get network fee data for dynamic gas pricing
     const feeData = await provider.getFeeData();
     
-    // Apply multipliers to ensure transactions go through (1.5x for maxFeePerGas and 1.3x for priority fee)
-    const maxFeeMultiplier = 1.5;
-    const priorityFeeMultiplier = 1.3;
+    // Use minimum gas fees possible - we're not in a hurry
+    // Base fee is the minimum required, no need for premium
+    const maxFeePerGas = feeData.lastBaseFeePerGas || gasPrice;
     
-    // Calculate gas fees with safety multipliers
-    const maxFeePerGas = feeData.maxFeePerGas 
-      ? feeData.maxFeePerGas.mul(Math.floor(maxFeeMultiplier * 10)).div(10)
-      : gasPrice.mul(2); // Fallback if maxFeePerGas is null
+    // Use minimal priority fee - just enough to be included eventually
+    // On Base, even 0.01 gwei is often enough since it's not congested
+    const minPriorityFee = ethers.utils.parseUnits("0.01", "gwei");
+    const maxPriorityFeePerGas = minPriorityFee;
     
-    const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas
-      ? feeData.maxPriorityFeePerGas.mul(Math.floor(priorityFeeMultiplier * 10)).div(10)
-      : gasPrice; // Fallback if maxPriorityFeePerGas is null
-    
-    // Log the gas prices being used
-    console.log(`Using maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei`);
-    console.log(`Using maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    // Log the minimal gas prices being used
+    console.log(`Using minimal maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei (base fee only)`);
+    console.log(`Using minimal maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
     
     // Calculate estimated transaction cost
     const estimatedGasCost = maxFeePerGas.mul(gasLimit);
@@ -242,7 +241,7 @@ const processBatch = async (
       };
     }
     
-    // Implement retry mechanism with escalating gas parameters
+    // Implement retry mechanism with minimal adjustments
     let tx;
     let receipt;
     const maxRetries = 3;
@@ -254,24 +253,25 @@ const processBatch = async (
       console.log(`Transaction attempt ${attempt} of ${maxRetries}`);
       
       try {
-        // Increase gas parameters on each retry
-        const retryMultiplier = 1 + (attempt * 0.25); // Add 25% more gas each retry
+        // Start with minimal fees, only increase priority fee on retries if needed
+        let attemptMaxFeePerGas = maxFeePerGas;
+        let attemptPriorityFeePerGas = maxPriorityFeePerGas;
         
-        // Calculate adjusted gas values for this attempt
-        const attemptMaxFeePerGas = maxFeePerGas.mul(Math.floor(retryMultiplier * 10)).div(10);
-        const attemptPriorityFeePerGas = maxPriorityFeePerGas.mul(Math.floor(retryMultiplier * 10)).div(10);
-        const attemptGasLimit = typeof gasLimit === 'number' 
-          ? Math.floor(gasLimit * retryMultiplier)
-          : gasLimit.mul(Math.floor(retryMultiplier * 10)).div(10);
+        // Only very slightly increase priority fee on retries if first attempt failed
+        if (attempt > 1) {
+          // Minimal increase to priority fee only on retry attempts
+          // Keep base fee the same - it's the network minimum
+          attemptPriorityFeePerGas = ethers.utils.parseUnits((0.01 * attempt).toString(), "gwei");
+          console.log(`Retry attempt ${attempt} - using minimal priority fee: ${ethers.utils.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
+        }
         
-        console.log(`Attempt ${attempt} - Using multiplier: ${retryMultiplier.toFixed(2)}`);
-        console.log(`Gas limit: ${typeof attemptGasLimit === 'number' ? attemptGasLimit : attemptGasLimit.toString()}`);
-        console.log(`Max fee: ${ethers.utils.formatUnits(attemptMaxFeePerGas, 'gwei')} gwei`);
+        console.log(`Gas limit: ${gasLimit.toString()}`);
+        console.log(`Max fee: ${ethers.utils.formatUnits(attemptMaxFeePerGas, 'gwei')} gwei (base fee only)`);
         console.log(`Priority fee: ${ethers.utils.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
         
         // Call the processDailyBatch function with dynamically adjusted gas settings
         tx = await contract.processDailyBatch(batchIndex, {
-          gasLimit: attemptGasLimit,
+          gasLimit: gasLimit,
           type: 2, // Use type 2 EIP-1559 transaction
           maxFeePerGas: attemptMaxFeePerGas,
           maxPriorityFeePerGas: attemptPriorityFeePerGas
