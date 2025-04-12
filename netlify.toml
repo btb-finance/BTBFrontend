@@ -9,18 +9,17 @@
 # Primary processing window - focused exactly on the observed processing time (13:07)
 [[scheduled]]
   function = "process-daily-batch"
-  # Run at minute 7 of the 1 PM hour (13:07) - exact start time
-  schedule = "7 13 * * *"
+  # Run every minute from 13:30 to 14:00 UTC
+  schedule = "30-59 13 * * *"
   
   [scheduled.environment]
     IS_SCHEDULED = "true"
 
-# Frequent checks for the 30 minutes after the expected processing time
+# Continue at 14:00
 [[scheduled]]
   function = "process-daily-batch"
-  # Run every minute from 13:08 to 13:37 UTC
-  # This covers the 30 minutes after the expected processing time
-  schedule = "8-37 13 * * *"
+  # Run at minute 0 of the 14:00 hour
+  schedule = "0 14 * * *"
   
   [scheduled.environment]
     IS_SCHEDULED = "true"
