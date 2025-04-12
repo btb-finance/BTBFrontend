@@ -478,8 +478,12 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
             })
           };
         } catch (error: any) {
-          // If we're testing gas but can't process yet, provide default estimates
-          if (!processingTimeInfo.canProcessNow && error.message.includes('Processing too soon')) {
+          // If we can't estimate gas due to "Processing too soon" error, provide default estimates
+          console.log("Gas test error:", error.message);
+          
+          if (error.message && error.message.includes("Processing too soon")) {
+            console.log("Using default gas estimates since processing is not allowed yet");
+            
             // Get current gas price from provider
             const gasPrice = await provider.getGasPrice();
             const feeData = await provider.getFeeData();
@@ -495,37 +499,15 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
             return {
               statusCode: 200,
               body: JSON.stringify({
-                message: 'Gas estimation test completed with default values (cannot estimate actual gas until processing time)',
+                message: 'Gas estimation test completed with default values',
+                note: 'Cannot estimate exact gas until processing time is reached',
                 gasEstimates: {
-                  note: 'Using default values since actual gas cannot be estimated until processing time',
-                  gasLimit: typicalGasLimit.toString() + ' (default value)',
+                  gasLimit: typicalGasLimit.toString() + ' (default estimate)',
                   maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
                   maxPriorityFeePerGas: ethers.utils.formatUnits(minPriorityFee, 'gwei') + ' gwei',
-                  estimatedCost: ethers.utils.formatEther(estimatedGasCost) + ' ETH (estimate based on default gas limit)',
+                  estimatedCost: ethers.utils.formatEther(estimatedGasCost) + ' ETH (based on default gas limit)',
                   currentWalletBalance: ethers.utils.formatEther(await wallet.getBalance()) + ' ETH'
                 },
-                batchIndex: calculateBatchIndex(),
-                networkDetails: {
-                  network: await provider.getNetwork().then(n => `${n.name} (chainId: ${n.chainId})`),
-                  currentBlock: await provider.getBlockNumber(),
-                  gasPrice: ethers.utils.formatUnits(gasPrice, 'gwei') + ' gwei',
-                  baseFeePerGas: feeData.lastBaseFeePerGas ? 
-                    ethers.utils.formatUnits(feeData.lastBaseFeePerGas, 'gwei') + ' gwei' : 'Not available'
-                },
-                processingInfo: {
-                  canProcessNow: processingTimeInfo.canProcessNow,
-                  nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
-                  secondsRemaining: processingTimeInfo.secondsUntilNextValid
-                }
-              })
-            };
-          } else {
-            // For other errors, just return them
-            return {
-              statusCode: 400,
-              body: JSON.stringify({
-                message: 'Error during gas test',
-                error: error.message || String(error),
                 site: 'BTB Finance (btb.finance)',
                 testMode: true,
                 processingInfo: {
@@ -536,6 +518,22 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
               })
             };
           }
+          
+          // For other errors, return the error message
+          return {
+            statusCode: 400,
+            body: JSON.stringify({
+              message: 'Error during gas test',
+              error: error.message || String(error),
+              site: 'BTB Finance (btb.finance)',
+              testMode: true,
+              processingInfo: {
+                canProcessNow: processingTimeInfo.canProcessNow,
+                nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+                secondsRemaining: processingTimeInfo.secondsUntilNextValid
+              }
+            })
+          };
         }
       }
       
