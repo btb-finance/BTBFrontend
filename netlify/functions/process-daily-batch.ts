@@ -182,14 +182,26 @@ const processBatch = async (
       // Use exact estimated gas with no buffer
       console.log(`Using exact estimated gas: ${gasLimit.toString()}`);
     } catch (error: any) {
-      console.error('Error estimating gas - cannot proceed without accurate estimate:', error.message);
-      return {
-        success: false,
-        result: {
-          message: 'Failed to estimate gas for transaction',
-          error: error.message || String(error)
-        }
-      };
+      console.error('Error estimating gas:', error.message);
+      
+      // If this is a test and we get "too soon" error, use default values
+      if (testGasOnly && error.message && error.message.includes("Processing too soon")) {
+        console.log("Using default gas estimate for test since processing is not allowed yet");
+        
+        // Use typical gas value for this type of transaction
+        gasLimit = ethers.BigNumber.from("300000"); // default estimate
+        console.log(`Using default gas estimate: ${gasLimit.toString()}`);
+      } else {
+        // For non-test mode or other errors, we cannot proceed
+        console.error('Cannot proceed without accurate gas estimate');
+        return {
+          success: false,
+          result: {
+            message: 'Failed to estimate gas for transaction',
+            error: error.message || String(error)
+          }
+        };
+      }
     }
     
     // Get current gas price from provider
@@ -374,6 +386,97 @@ const processBatch = async (
   }
 };
 
+// Function to run gas test without requiring transaction to be valid now
+const runGasTest = async (
+  contract: ethers.Contract,
+  wallet: ethers.Wallet,
+  provider: ethers.providers.JsonRpcProvider,
+  processingTimeInfo: any
+): Promise<{
+  statusCode: number;
+  body: string;
+}> => {
+  console.log("Running gas test without transaction execution");
+  
+  // Calculate the batch index for today
+  const batchIndex = calculateBatchIndex();
+  
+  // Get current gas price and fee data
+  const gasPrice = await provider.getGasPrice();
+  const feeData = await provider.getFeeData();
+  
+  // Use minimum gas fees possible
+  const maxFeePerGas = feeData.lastBaseFeePerGas || gasPrice;
+  const minPriorityFee = ethers.utils.parseUnits("0.01", "gwei");
+  
+  // Try to estimate gas, but use default if it fails due to timing
+  let gasLimit;
+  let isEstimateReal = true;
+  
+  try {
+    // Try to get actual gas estimate
+    gasLimit = await contract.estimateGas.processDailyBatch(batchIndex);
+    console.log(`Successfully estimated actual gas: ${gasLimit.toString()}`);
+  } catch (error: any) {
+    // If we get "too soon" error, use default value
+    console.log("Gas estimation failed:", error.message);
+    
+    if (error.message && error.message.includes("Processing too soon")) {
+      gasLimit = ethers.BigNumber.from("300000"); // typical gas for this transaction
+      isEstimateReal = false;
+      console.log(`Using default gas estimate of ${gasLimit.toString()} (could not get actual value yet)`);
+    } else {
+      // For other errors, return them
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: "Gas test failed with unexpected error",
+          error: error.message || String(error),
+          site: "BTB Finance (btb.finance)",
+          testMode: true,
+          processingInfo: {
+            canProcessNow: processingTimeInfo.canProcessNow,
+            nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+            secondsRemaining: processingTimeInfo.secondsUntilNextValid
+          }
+        })
+      };
+    }
+  }
+  
+  // Calculate estimated cost
+  const estimatedGasCost = maxFeePerGas.mul(gasLimit);
+  
+  return {
+    statusCode: 200,
+    body: JSON.stringify({
+      message: "Gas estimation test completed successfully",
+      gasEstimates: {
+        gasLimit: gasLimit.toString() + (isEstimateReal ? " (actual)" : " (default estimate)"),
+        maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, "gwei") + " gwei (base fee only)",
+        maxPriorityFeePerGas: ethers.utils.formatUnits(minPriorityFee, "gwei") + " gwei (minimal)",
+        estimatedCost: ethers.utils.formatEther(estimatedGasCost) + " ETH",
+        estimateType: isEstimateReal ? "accurate" : "using default gas limit until processing time",
+        currentWalletBalance: ethers.utils.formatEther(await wallet.getBalance()) + " ETH"
+      },
+      networkDetails: {
+        network: await provider.getNetwork().then(n => `${n.name} (chainId: ${n.chainId})`),
+        currentBlock: await provider.getBlockNumber(),
+        gasPrice: ethers.utils.formatUnits(gasPrice, "gwei") + " gwei",
+        baseFeePerGas: feeData.lastBaseFeePerGas ? 
+          ethers.utils.formatUnits(feeData.lastBaseFeePerGas, "gwei") + " gwei" : "Not available"
+      },
+      site: "BTB Finance (btb.finance)",
+      testMode: true,
+      processingInfo: {
+        canProcessNow: processingTimeInfo.canProcessNow,
+        nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+        secondsRemaining: processingTimeInfo.secondsUntilNextValid
+      }
+    })
+  };
+};
+
 const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) => {
   console.log('Starting process-daily-batch function for BTB Finance (btb.finance)');
   console.log('Current time UTC:', new Date().toISOString());
@@ -459,82 +562,10 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
     
     // Check for manual testing (HTTP GET request) or gas testing
     if ((event.httpMethod === 'GET' && !event.isScheduled) || isGasTest) {
-      // For gas testing, we want to estimate gas even if we can't process now
+      // For gas testing, we want to use our special gas test function that won't fail
       if (isGasTest) {
-        try {
-          // Process the batch with the test flag set to true
-          const result = await processBatch(contract, wallet, provider, true);
-          return {
-            statusCode: result.success ? 200 : 400,
-            body: JSON.stringify({
-              ...result.result,
-              site: 'BTB Finance (btb.finance)',
-              testMode: true,
-              processingInfo: {
-                canProcessNow: processingTimeInfo.canProcessNow,
-                nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
-                secondsRemaining: processingTimeInfo.secondsUntilNextValid
-              }
-            })
-          };
-        } catch (error: any) {
-          // If we can't estimate gas due to "Processing too soon" error, provide default estimates
-          console.log("Gas test error:", error.message);
-          
-          if (error.message && error.message.includes("Processing too soon")) {
-            console.log("Using default gas estimates since processing is not allowed yet");
-            
-            // Get current gas price from provider
-            const gasPrice = await provider.getGasPrice();
-            const feeData = await provider.getFeeData();
-            
-            // Use minimum gas fees as we do in the real transaction
-            const maxFeePerGas = feeData.lastBaseFeePerGas || gasPrice;
-            const minPriorityFee = ethers.utils.parseUnits("0.01", "gwei");
-            
-            // Use typical gas values for this type of transaction
-            const typicalGasLimit = ethers.BigNumber.from("300000"); // typical gas for this transaction
-            const estimatedGasCost = maxFeePerGas.mul(typicalGasLimit);
-            
-            return {
-              statusCode: 200,
-              body: JSON.stringify({
-                message: 'Gas estimation test completed with default values',
-                note: 'Cannot estimate exact gas until processing time is reached',
-                gasEstimates: {
-                  gasLimit: typicalGasLimit.toString() + ' (default estimate)',
-                  maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
-                  maxPriorityFeePerGas: ethers.utils.formatUnits(minPriorityFee, 'gwei') + ' gwei',
-                  estimatedCost: ethers.utils.formatEther(estimatedGasCost) + ' ETH (based on default gas limit)',
-                  currentWalletBalance: ethers.utils.formatEther(await wallet.getBalance()) + ' ETH'
-                },
-                site: 'BTB Finance (btb.finance)',
-                testMode: true,
-                processingInfo: {
-                  canProcessNow: processingTimeInfo.canProcessNow,
-                  nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
-                  secondsRemaining: processingTimeInfo.secondsUntilNextValid
-                }
-              })
-            };
-          }
-          
-          // For other errors, return the error message
-          return {
-            statusCode: 400,
-            body: JSON.stringify({
-              message: 'Error during gas test',
-              error: error.message || String(error),
-              site: 'BTB Finance (btb.finance)',
-              testMode: true,
-              processingInfo: {
-                canProcessNow: processingTimeInfo.canProcessNow,
-                nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
-                secondsRemaining: processingTimeInfo.secondsUntilNextValid
-              }
-            })
-          };
-        }
+        // Use our special gas test function that handles "too soon" errors gracefully
+        return await runGasTest(contract, wallet, provider, processingTimeInfo);
       }
       
       // For normal GET requests, just return timing info if we can't process yet
