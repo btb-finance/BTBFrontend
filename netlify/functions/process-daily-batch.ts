@@ -172,27 +172,36 @@ const processBatch = async (
       };
     }
     
-    // Dynamically estimate required gas
-    console.log('Estimating gas required for batch processing...');
-    let gasLimit;
+    // Dynamically estimate required gas with timeout
+    console.log('Estimating gas required for batch processing (max 5 seconds)...');
+    // Explicitly type gasLimit to handle potential unknown from Promise.race
+    let gasLimit: ethers.BigNumber;
+    const estimateGasPromise = contract.estimateGas.processDailyBatch(batchIndex);
+    const timeoutPromise = new Promise<never>((_, reject) => // Use <never> for type safety
+      setTimeout(() => reject(new Error('Gas estimation timed out after 5 seconds')), 5000)
+    );
+
     try {
-      // Estimate gas for this specific transaction
-      gasLimit = await contract.estimateGas.processDailyBatch(batchIndex);
-      
-      // Use exact estimated gas with no buffer
+      // Wait for either gas estimation or timeout
+      const estimatedGas = await Promise.race([estimateGasPromise, timeoutPromise]);
+      // Ensure the result is a BigNumber before assigning
+      gasLimit = ethers.BigNumber.from(estimatedGas); 
       console.log(`Using exact estimated gas: ${gasLimit.toString()}`);
     } catch (error: any) {
-      console.error('Error estimating gas:', error.message);
+      console.error('Error or timeout estimating gas:', error.message);
       
-      // If this is a test and we get "too soon" error, use default values
-      if (testGasOnly && error.message && error.message.includes("Processing too soon")) {
-        console.log("Using default gas estimate for test since processing is not allowed yet");
-        
-        // Use typical gas value for this type of transaction
+      // If it timed out or failed for other reasons (unless testing 'too soon')
+      if (error.message.includes('Gas estimation timed out') || !(testGasOnly && error.message.includes("Processing too soon"))) {
+        console.log("Using default gas estimate due to error or timeout.");
         gasLimit = ethers.BigNumber.from("300000"); // default estimate
-        console.log(`Using default gas estimate: ${gasLimit.toString()}`);
-      } else {
-        // For non-test mode or other errors, we cannot proceed
+      } 
+      // Handle the specific case for gas testing when it's 'too soon'
+      else if (testGasOnly && error.message.includes("Processing too soon")) {
+        console.log("Using default gas estimate for test since processing is not allowed yet");
+        gasLimit = ethers.BigNumber.from("300000"); // default estimate
+      } 
+      // For any other unhandled estimation error in non-test mode
+      else {
         console.error('Cannot proceed without accurate gas estimate');
         return {
           success: false,
@@ -202,6 +211,7 @@ const processBatch = async (
           }
         };
       }
+      console.log(`Using default gas estimate: ${gasLimit.toString()}`);
     }
     
     // Get current gas price from provider
