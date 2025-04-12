@@ -10,6 +10,43 @@ const calculateBatchIndex = (): number => {
   return 0;
 }
 
+// Check and calculate the next valid processing time
+const getNextProcessingTime = async (contract: ethers.Contract): Promise<{
+  lastBatchTimestamp: number;
+  processingInterval: number;
+  nextValidTime: Date;
+  canProcessNow: boolean;
+  secondsUntilNextValid: number;
+}> => {
+  try {
+    // Get the timestamp of the last batch processing
+    const lastBatchTimestamp = await contract.lastBatchTimestamp();
+    
+    // Get the required interval between processing (likely 24 hours = 86400 seconds)
+    const processingInterval = await contract.PROCESSING_INTERVAL();
+    
+    // Calculate the next valid processing time
+    const nextValidTimestamp = lastBatchTimestamp.add(processingInterval).toNumber() * 1000; // Convert to JS timestamp
+    const nextValidTime = new Date(nextValidTimestamp);
+    
+    // Check if we can process now
+    const now = Date.now();
+    const canProcessNow = now >= nextValidTimestamp;
+    const secondsUntilNextValid = canProcessNow ? 0 : Math.ceil((nextValidTimestamp - now) / 1000);
+    
+    return {
+      lastBatchTimestamp: lastBatchTimestamp.toNumber(),
+      processingInterval: processingInterval.toNumber(),
+      nextValidTime,
+      canProcessNow,
+      secondsUntilNextValid
+    };
+  } catch (error) {
+    console.error('Error getting next processing time:', error);
+    throw error;
+  }
+};
+
 // Extended event interface with isScheduled property
 interface ScheduledEvent extends HandlerEvent {
   isScheduled?: boolean;
@@ -103,6 +140,33 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
       subscriptionJackpotABI,
       wallet
     );
+    
+    // Get next processing time information
+    const processingTimeInfo = await getNextProcessingTime(contract);
+    console.log('Processing time info:', {
+      lastProcessed: new Date(processingTimeInfo.lastBatchTimestamp * 1000).toISOString(),
+      interval: `${processingTimeInfo.processingInterval} seconds (${processingTimeInfo.processingInterval / 3600} hours)`,
+      nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+      canProcessNow: processingTimeInfo.canProcessNow,
+      timeRemaining: processingTimeInfo.canProcessNow ? 
+        'Ready to process now' : 
+        `Wait ${processingTimeInfo.secondsUntilNextValid} more seconds (${Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)} minutes)`
+    });
+    
+    // If we can't process yet, return with detailed timing information
+    if (!processingTimeInfo.canProcessNow) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          message: 'Too soon to process daily batch',
+          lastProcessed: new Date(processingTimeInfo.lastBatchTimestamp * 1000).toISOString(),
+          processingInterval: `${processingTimeInfo.processingInterval} seconds`,
+          nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+          secondsRemaining: processingTimeInfo.secondsUntilNextValid,
+          minutesRemaining: Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)
+        })
+      };
+    }
 
     // First check if we need to process batches at all
     const allBatchesProcessed = await contract.allBatchesProcessed().catch((error: any) => {
