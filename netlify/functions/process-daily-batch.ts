@@ -145,7 +145,8 @@ const processBatchWithPreciseTiming = async (
 const processBatch = async (
   contract: ethers.Contract,
   wallet: ethers.Wallet,
-  provider: ethers.providers.JsonRpcProvider
+  provider: ethers.providers.JsonRpcProvider,
+  testGasOnly: boolean = false
 ): Promise<{
   success: boolean;
   result: any;
@@ -210,6 +211,36 @@ const processBatch = async (
     // Log the gas prices being used
     console.log(`Using maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei`);
     console.log(`Using maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    
+    // Calculate estimated transaction cost
+    const estimatedGasCost = maxFeePerGas.mul(gasLimit);
+    const formattedEstimatedGasCost = ethers.utils.formatEther(estimatedGasCost);
+    console.log(`Estimated transaction cost: ${formattedEstimatedGasCost} ETH`);
+    
+    // If this is a gas test only, return the gas estimates without sending transaction
+    if (testGasOnly) {
+      return {
+        success: true,
+        result: {
+          message: 'Gas estimation test completed successfully',
+          gasEstimates: {
+            gasLimit: gasLimit.toString(),
+            maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
+            maxPriorityFeePerGas: ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei') + ' gwei',
+            estimatedCost: formattedEstimatedGasCost + ' ETH',
+            currentWalletBalance: ethers.utils.formatEther(await wallet.getBalance()) + ' ETH'
+          },
+          batchIndex: batchIndex,
+          networkDetails: {
+            network: await provider.getNetwork().then(n => `${n.name} (chainId: ${n.chainId})`),
+            currentBlock: await provider.getBlockNumber(),
+            gasPrice: ethers.utils.formatUnits(gasPrice, 'gwei') + ' gwei',
+            baseFeePerGas: feeData.lastBaseFeePerGas ? 
+              ethers.utils.formatUnits(feeData.lastBaseFeePerGas, 'gwei') + ' gwei' : 'Not available'
+          }
+        }
+      };
+    }
     
     // Implement retry mechanism with escalating gas parameters
     let tx;
@@ -347,6 +378,12 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
   console.log('Starting process-daily-batch function for BTB Finance (btb.finance)');
   console.log('Current time UTC:', new Date().toISOString());
   
+  // Check if this is a gas estimation test
+  const isGasTest = event.queryStringParameters && event.queryStringParameters.test_gas === 'true';
+  if (isGasTest) {
+    console.log('Running in GAS TEST MODE - no transaction will be sent');
+  }
+  
   // For manual testing via GET request, always allow
   // For scheduled runs, check if we're in the processing window
   if (event.httpMethod !== 'GET' && !event.isScheduled) {
@@ -420,10 +457,28 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
         `Wait ${processingTimeInfo.secondsUntilNextValid} more seconds (${Math.ceil(processingTimeInfo.secondsUntilNextValid / 60)} minutes)`
     });
     
-    // Check for manual testing (HTTP GET request)
-    // For manual tests, we will check if we can process now, and if not, 
-    // we'll return timing info without waiting
-    if (event.httpMethod === 'GET' && !event.isScheduled) {
+    // Check for manual testing (HTTP GET request) or gas testing
+    if ((event.httpMethod === 'GET' && !event.isScheduled) || isGasTest) {
+      // For gas testing, we want to estimate gas even if we can't process now
+      if (isGasTest) {
+        // Process the batch with the test flag set to true
+        const result = await processBatch(contract, wallet, provider, true);
+        return {
+          statusCode: result.success ? 200 : 400,
+          body: JSON.stringify({
+            ...result.result,
+            site: 'BTB Finance (btb.finance)',
+            testMode: true,
+            processingInfo: {
+              canProcessNow: processingTimeInfo.canProcessNow,
+              nextValidTime: processingTimeInfo.nextValidTime.toISOString(),
+              secondsRemaining: processingTimeInfo.secondsUntilNextValid
+            }
+          })
+        };
+      }
+      
+      // For normal GET requests, just return timing info if we can't process yet
       if (!processingTimeInfo.canProcessNow) {
         return {
           statusCode: 200,
