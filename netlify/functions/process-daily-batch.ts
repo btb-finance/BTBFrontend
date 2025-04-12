@@ -220,18 +220,22 @@ const processBatch = async (
     // Get network fee data for dynamic gas pricing
     const feeData = await provider.getFeeData();
     
-    // Use minimum gas fees possible - we're not in a hurry
-    // Base fee is the minimum required, no need for premium
-    const maxFeePerGas = feeData.lastBaseFeePerGas || gasPrice;
-    
     // Use minimal priority fee - just enough to be included eventually
     // On Base, even 0.01 gwei is often enough since it's not congested
     const minPriorityFee = ethers.utils.parseUnits("0.01", "gwei");
-    const maxPriorityFeePerGas = minPriorityFee;
     
-    // Log the minimal gas prices being used
-    console.log(`Using minimal maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei (base fee only)`);
-    console.log(`Using minimal maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    // Base fee is the minimum required from network
+    const baseFee = feeData.lastBaseFeePerGas || gasPrice;
+    
+    // Ensure maxFeePerGas is at least equal to maxPriorityFeePerGas to avoid EIP-1559 errors
+    // The maxFeePerGas must be at least baseFee + priorityFee
+    const maxPriorityFeePerGas = minPriorityFee;
+    const maxFeePerGas = baseFee.add(maxPriorityFeePerGas);
+    
+    // Log the gas prices being used
+    console.log(`Using baseFee: ${ethers.utils.formatUnits(baseFee, 'gwei')} gwei`);
+    console.log(`Using maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    console.log(`Using maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei (ensures maxFee ≥ priorityFee)`);
     
     // Calculate estimated transaction cost
     const estimatedGasCost = maxFeePerGas.mul(gasLimit);
@@ -633,7 +637,7 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
           site: 'BTB Finance (btb.finance)',
           error: 'The wallet does not have enough ETH to cover gas costs',
           walletAddress: walletAddress,
-          hint: "Please send some more ETH to the wallet address. Try at least 0.0001 ETH.",
+          hint: "Please send some ETH to the wallet address. Try at least 0.0001 ETH.",
           rawError: errorMessage
         })
       };
