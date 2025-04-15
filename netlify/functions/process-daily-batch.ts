@@ -58,8 +58,8 @@ const isWithinProcessingWindow = (): boolean => {
   const hour = now.getUTCHours();
   const minute = now.getUTCMinutes();
   
-  // Allow processing if it's 1:00 PM - 1:15 PM UTC (13:00-13:15)
-  return hour === 13 && minute >= 0 && minute <= 15;
+  // Allow processing if it's 1:30 PM - 2:00 PM UTC (13:30-14:00)
+  return (hour === 13 && minute >= 30) || (hour === 14 && minute === 0);
 }
 
 // Parse error message to extract wait time if it's a "too soon" error
