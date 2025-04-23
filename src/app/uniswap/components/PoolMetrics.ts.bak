@@ -2,15 +2,13 @@ import React from 'react';
 import { Pool } from '@/app/types/uniswap';
 import { formatCurrency, formatPercent, formatAddress } from '@/app/utils/formatting';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
-import { Button } from '@/app/components/ui/button';
 import { Skeleton } from '@/app/components/ui/skeleton';
-import { Info, Plus } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface PoolMetricsProps {
   pool: Pool | null;
   isLoading: boolean;
-  onAddLiquidity?: (pool: Pool) => void;
 }
 
 // Generate some mock historical data for the chart
@@ -35,7 +33,7 @@ const generateHistoricalData = (baseAPR: number) => {
   return data;
 };
 
-export const PoolMetrics: React.FC<PoolMetricsProps> = ({ pool, isLoading, onAddLiquidity }) => {
+export const PoolMetrics: React.FC<PoolMetricsProps> = ({ pool, isLoading }) => {
   // If loading, show skeleton UI
   if (isLoading) {
     return (
@@ -92,24 +90,12 @@ export const PoolMetrics: React.FC<PoolMetricsProps> = ({ pool, isLoading, onAdd
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>
-                {pool.token0.symbol}/{pool.token1.symbol} Pool
-              </CardTitle>
-              <CardDescription>
-                {formatAddress(pool.address)} | Fee: {(pool.fee / 10000).toFixed(2)}%
-              </CardDescription>
-            </div>
-            <Button 
-              onClick={() => onAddLiquidity && onAddLiquidity(pool)}
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              <Plus className="h-4 w-4" />
-              Add Liquidity
-            </Button>
-          </div>
+          <CardTitle>
+            {pool.token0.symbol}/{pool.token1.symbol} Pool
+          </CardTitle>
+          <CardDescription>
+            {formatAddress(pool.address)} | Fee: {(pool.fee / 10000).toFixed(2)}%
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 mb-8">
@@ -125,7 +111,7 @@ export const PoolMetrics: React.FC<PoolMetricsProps> = ({ pool, isLoading, onAdd
             </div>
             <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
               <div className="text-sm text-gray-500 dark:text-gray-400">24h Volume</div>
-              <div className="text-2xl font-bold">{formatCurrency(pool.volume24h || 0)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(pool.volume24h)}</div>
             </div>
             <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
               <div className="text-sm text-gray-500 dark:text-gray-400">Fee Tier</div>
@@ -147,7 +133,7 @@ export const PoolMetrics: React.FC<PoolMetricsProps> = ({ pool, isLoading, onAdd
                     tickFormatter={(value) => `${value.toFixed(1)}%`}
                     domain={[0, 'auto']}
                   />
-                  <Tooltip formatter={(value) => [`${typeof value === 'number' ? value.toFixed(2) : value}%`, 'APR']} />
+                  <Tooltip formatter={(value) => [`${value.toFixed(2)}%`, 'APR']} />
                   <Area 
                     type="monotone" 
                     dataKey="apr" 

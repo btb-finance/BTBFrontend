@@ -58,14 +58,15 @@ export default function Navbar() {
       children: [
         { name: 'CHICKS', href: '/chicks' },
         { name: 'Sheep Ecosystem', href: '/sheep-ecosystem' },
-        { name: 'Megapot Lottery', href: '/contracts/megapot' }
+        { name: 'Megapot Lottery', href: '/contracts/megapot' },
+        { name: 'Zora Airdrop', href: '/zoraairdrop' }
       ]
     },
     {
       name: 'Coming Soon',
       icon: ChartBarIcon,
       children: [
-        { name: 'Pools 🔜', href: '/pools' },
+        { name: 'Uniswap 🔜', href: '/uniswap' },
         { name: 'Staking 🔜', href: '/staking' },
         { name: 'BTB Exchange 🔜', href: '/btb-exchange' },
         { name: 'Yield Trading 🔜', href: '/yield-trading' },

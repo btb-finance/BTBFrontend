@@ -11,10 +11,9 @@ import { Alert, AlertDescription } from '@/app/components/ui/alert';
 interface TokenSearchProps {
   onSelectToken: (token: Token) => void;
   isLoading: boolean;
-  selectedToken?: Token | null;
 }
 
-export const TokenSearch: React.FC<TokenSearchProps> = ({ onSelectToken, isLoading, selectedToken }) => {
+export const TokenSearch: React.FC<TokenSearchProps> = ({ onSelectToken, isLoading }) => {
   const [tokenAddress, setTokenAddress] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [localLoading, setLocalLoading] = useState<boolean>(false);
@@ -97,23 +96,7 @@ export const TokenSearch: React.FC<TokenSearchProps> = ({ onSelectToken, isLoadi
 
   return (
     <div className="bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-4">
-      <h2 className="text-xl font-bold mb-4">
-        {selectedToken ? (
-          <div className="flex items-center justify-between">
-            <span>Selected: {selectedToken.symbol || selectedToken.address.substring(0, 8)}</span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setTokenAddress('')}
-              className="text-xs"
-            >
-              Change
-            </Button>
-          </div>
-        ) : (
-          "Find Token"
-        )}
-      </h2>
+      <h2 className="text-xl font-bold mb-4">Find Token Pools</h2>
       
       <form onSubmit={handleSearch} className="mb-4">
         <div className="mb-4">
