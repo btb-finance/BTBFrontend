@@ -150,14 +150,10 @@ export default function ZoraAirdrop() {
 
     try {
       setIsChecking(true);
-      // Check if window.ethereum exists
-      if (!window.ethereum) {
-        toast.error('No Ethereum provider found. Please install MetaMask or use a Web3 browser.');
-        setIsChecking(false);
-        return;
-      }
       
-      const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+      // Use a public RPC provider to check any address without requiring wallet connection
+      // This allows users to check any address without connecting their wallet
+      const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
       const contract = new ethers.Contract(CHKER_CONTRACT_ADDRESS, zoraChkerABI, provider);
       
       // Get allocation for the address
@@ -232,32 +228,8 @@ export default function ZoraAirdrop() {
     }
   };
 
-  if (!isConnected) {
-    return (
-      <div className="container mx-auto px-4 py-6 sm:py-8">
-        <motion.div 
-          className="max-w-4xl mx-auto text-center"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 font-heading bg-btb-gradient bg-clip-text text-transparent">Zora Airdrop Checker</h1>
-          <Card className="p-6 sm:p-8 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-            <div className="flex flex-col items-center justify-center py-8 sm:py-12">
-              <WalletIcon className="h-12 sm:h-16 w-12 sm:w-16 text-btb-primary mb-4" />
-              <h2 className="text-xl sm:text-2xl font-semibold mb-2 font-heading">Connect Your Wallet</h2>
-              <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-6 max-w-md">
-                Connect your wallet to check your Zora token allocation and claim your airdrop.
-              </p>
-              <Button size="lg" onClick={connectWallet} className="bg-btb-primary hover:bg-btb-primary-dark w-full sm:w-auto">
-                Connect Wallet
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
-      </div>
-    );
-  }
+  // We no longer require wallet connection for the initial view
+  // Users can check any address without connecting
 
   return (
     <div className="container mx-auto px-4 py-6 sm:py-8">
@@ -416,11 +388,23 @@ export default function ZoraAirdrop() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
-                    <div className="p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 border-b border-gray-200 dark:border-gray-700">
-                        <span className="font-medium mb-1 sm:mb-0">Connected Address</span>
-                        <span className="font-mono text-xs sm:text-sm break-all">{address}</span>
+                    {!isConnected ? (
+                      <div className="text-center p-6">
+                        <WalletIcon className="h-12 w-12 mx-auto text-btb-primary mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Connect Your Wallet</h3>
+                        <p className="text-gray-500 dark:text-gray-400 mb-4">
+                          Connect your wallet to claim your Zora tokens
+                        </p>
+                        <Button onClick={connectWallet} className="bg-btb-primary hover:bg-btb-primary-dark">
+                          Connect Wallet
+                        </Button>
                       </div>
+                    ) : (
+                      <div className="p-4 rounded-lg bg-gray-100 dark:bg-gray-800">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                          <span className="font-medium mb-1 sm:mb-0">Connected Address</span>
+                          <span className="font-mono text-xs sm:text-sm break-all">{address}</span>
+                        </div>
 
                       {allocation && (
                         <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
@@ -479,26 +463,36 @@ export default function ZoraAirdrop() {
                         <span className="font-mono text-sm">{claimStart || 'Not set'}</span>
                       </div>
                     </div>
+                    )}
                     
                     <div className="flex justify-center">
-                      <Button 
-                        onClick={claimAirdrop} 
-                        disabled={isClaiming || hasClaimed || !claimIsOpen}
-                        className="bg-btb-primary hover:bg-btb-primary-dark w-full py-4 sm:py-6 text-base sm:text-lg"
-                      >
-                        {isClaiming ? (
-                          <>
-                            <ArrowPathIcon className="h-5 w-5 animate-spin mr-2" />
-                            <span>Processing...</span>
-                          </>
-                        ) : hasClaimed ? (
-                          'Already Claimed'
-                        ) : !claimIsOpen ? (
-                          'Claiming Not Open Yet'
-                        ) : (
-                          'Claim Zora Tokens'
-                        )}
-                      </Button>
+                      {!isConnected ? (
+                        <Button 
+                          onClick={connectWallet}
+                          className="bg-btb-primary hover:bg-btb-primary-dark w-full py-4 sm:py-6 text-base sm:text-lg"
+                        >
+                          Connect Wallet to Claim
+                        </Button>
+                      ) : (
+                        <Button 
+                          onClick={claimAirdrop} 
+                          disabled={isClaiming || hasClaimed || !claimIsOpen}
+                          className="bg-btb-primary hover:bg-btb-primary-dark w-full py-4 sm:py-6 text-base sm:text-lg"
+                        >
+                          {isClaiming ? (
+                            <>
+                              <ArrowPathIcon className="h-5 w-5 animate-spin mr-2" />
+                              <span>Processing...</span>
+                            </>
+                          ) : hasClaimed ? (
+                            'Already Claimed'
+                          ) : !claimIsOpen ? (
+                            'Claiming Not Open Yet'
+                          ) : (
+                            'Claim Zora Tokens'
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </CardContent>
