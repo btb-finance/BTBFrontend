@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { ethers } from 'ethers';
 
 interface WalletContextType {
@@ -34,8 +34,10 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [isDevelopment, setIsDevelopment] = useState(false);
+  
+  // Use a ref to store the provider to prevent conflicts
+  const providerRef = useRef<any>(null);
 
   // Check if we're in development mode
   useEffect(() => {
@@ -44,6 +46,30 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       window.location.hostname === '127.0.0.1'
     );
   }, []);
+
+  // Helper function to safely get a provider without causing conflicts
+  const getSafeProvider = () => {
+    // If we already have a provider reference, use it
+    if (providerRef.current) return providerRef.current;
+    
+    // Otherwise, try to get a provider safely
+    if (typeof window !== 'undefined') {
+      // Try to get Phantom's provider first
+      if (window.phantom?.ethereum) {
+        providerRef.current = window.phantom.ethereum;
+        return providerRef.current;
+      }
+      
+      // Fall back to window.ethereum if available
+      if (window.ethereum) {
+        // Store a reference to avoid conflicts
+        providerRef.current = window.ethereum;
+        return providerRef.current;
+      }
+    }
+    
+    return null;
+  };
 
   // Check for saved wallet address on mount
   useEffect(() => {
@@ -60,10 +86,19 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       }
     }
 
-    // Setup wallet listeners if ethereum provider is available
-    if (typeof window !== 'undefined' && typeof window.ethereum !== 'undefined' && savedAddress) {
+    // Setup wallet listeners if any ethereum provider is available
+    if (savedAddress && getSafeProvider()) {
       setupWalletListeners();
     }
+    
+    // Add this to prevent wallet conflicts
+    const handleLoad = () => {
+      // Store the initial provider reference
+      getSafeProvider();
+    };
+    
+    window.addEventListener('load', handleLoad);
+    return () => window.removeEventListener('load', handleLoad);
   }, []);
 
   const clearError = () => {
@@ -75,16 +110,19 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
     setError(null);
     
     try {
-      // Check if MetaMask is installed
-      if (typeof window.ethereum === 'undefined') {
-        setError('No Ethereum wallet detected. Please install MetaMask or another Web3 wallet and refresh the page.');
+      // Get a safe provider reference
+      const provider = getSafeProvider();
+      
+      // Check if any Ethereum provider is available
+      if (!provider) {
+        setError('No Ethereum provider found. Please install MetaMask, Phantom, or another Web3 wallet and refresh the page.');
         setIsConnecting(false);
         return;
       }
       
       try {
-        // Request account access
-        const accounts = await window.ethereum.request({ 
+        // Request account access using the selected provider
+        const accounts = await provider.request({ 
           method: 'eth_requestAccounts' 
         });
         
@@ -123,9 +161,14 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   };
 
   const setupWalletListeners = () => {
-    if (typeof window.ethereum !== 'undefined') {
-      // Handle account changes
-      const handleAccountsChanged = (accounts: string[]) => {
+    // Get a safe provider reference
+    const provider = getSafeProvider();
+    
+    // If no provider is available, return early
+    if (!provider) return;
+    
+    // Handle account changes
+    const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length === 0) {
           // User disconnected their wallet
           disconnectWallet();
@@ -138,21 +181,32 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       };
 
       // Handle chain changes
-      const handleChainChanged = () => {
-        // Reload the page on chain change as recommended by MetaMask
-        window.location.reload();
+      const handleChainChanged = (chainId: string) => {
+        console.log('Chain changed to:', chainId);
+        // Instead of reloading the page immediately, we'll update the state
+        // This prevents constant refreshing with some wallets
+        
+        // Only disconnect if we can't handle the new chain
+        // For now, we'll just log the chain change and not reload
+        // If specific chain handling is needed, it can be added here
       };
 
       // Add event listeners
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
+      provider.on('accountsChanged', handleAccountsChanged);
+      
+      // Some wallet providers might trigger chainChanged frequently
+      // We'll use a debounced version to prevent constant refreshing
+      let chainChangeTimeout: NodeJS.Timeout;
+      provider.on('chainChanged', (chainId: string) => {
+        clearTimeout(chainChangeTimeout);
+        chainChangeTimeout = setTimeout(() => handleChainChanged(chainId), 500);
+      });
 
       // Return cleanup function
       return () => {
-        window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum?.removeListener('chainChanged', handleChainChanged);
+        provider.removeListener('accountsChanged', handleAccountsChanged);
+        provider.removeListener('chainChanged', handleChainChanged);
       };
-    }
   };
 
   const disconnectWallet = () => {
@@ -178,13 +232,28 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
   );
 };
 
-// Add TypeScript declarations for window.ethereum
+// Add TypeScript declarations for window.ethereum and window.phantom
 declare global {
   interface Window {
     ethereum: {
       request: (args: any) => Promise<any>;
       on: (event: string, callback: (...args: any[]) => void) => void;
       removeListener: (event: string, callback: (...args: any[]) => void) => void;
+      isPhantom?: boolean;
+      isTronLink?: boolean;
+      isTrust?: boolean;
+      isCoinbaseWallet?: boolean;
+      isMetaMask?: boolean;
     } | undefined;
+    phantom?: {
+      ethereum: {
+        request: (args: any) => Promise<any>;
+        on: (event: string, callback: (...args: any[]) => void) => void;
+        removeListener: (event: string, callback: (...args: any[]) => void) => void;
+        isPhantom: boolean;
+      };
+    };
+    tronLink?: any;
+    tronWeb?: any;
   }
 }
