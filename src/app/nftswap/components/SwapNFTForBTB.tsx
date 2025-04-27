@@ -31,6 +31,8 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [baseBtbAmount, setBaseBtbAmount] = useState<string>('0');
+  const [feeAmount, setFeeAmount] = useState<string>('0');
   const [estimatedBtb, setEstimatedBtb] = useState<string>('0');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -87,9 +89,21 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
   // Calculate estimated BTB based on selected NFTs
   useEffect(() => {
     if (selectedNftIds.length > 0 && swapRate) {
-      const btbAmount = selectedNftIds.length * parseFloat(swapRate);
-      setEstimatedBtb(btbAmount.toFixed(4));
+      // Base amount calculation
+      const baseAmount = selectedNftIds.length * parseFloat(swapRate);
+      setBaseBtbAmount(baseAmount.toFixed(4));
+      
+      // Fee calculation (1% fee as per contract)
+      const feePercentage = 0.01; // 1% fee
+      const fee = baseAmount * feePercentage;
+      setFeeAmount(fee.toFixed(4));
+      
+      // Amount user receives (base - fee)
+      const amountToUser = baseAmount - fee;
+      setEstimatedBtb(amountToUser.toFixed(4));
     } else {
+      setBaseBtbAmount('0');
+      setFeeAmount('0');
       setEstimatedBtb('0');
     }
   }, [selectedNftIds, swapRate]);
@@ -256,24 +270,19 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
         ) : nftIds.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4">You don't have any Bear NFTs in your wallet.</p>
         ) : (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
             {nftIds.map(tokenId => (
               <div
                 key={tokenId}
                 onClick={(e: React.MouseEvent<HTMLDivElement>) => toggleNftSelection(tokenId, e)}
                 className={`
-                  cursor-pointer rounded-md p-2 transition-all duration-200
+                  cursor-pointer rounded p-2 text-center transition-all duration-200
                   ${selectedNftIds.includes(tokenId) 
                     ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700' 
-                    : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}
+                    : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}
                 `}
               >
-                <div className="aspect-square rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{tokenId}</span>
-                </div>
-                <div className="mt-1 text-center">
-                  <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">Bear #{tokenId}</span>
-                </div>
+                <span className="font-medium">{tokenId}</span>
               </div>
             ))}
           </div>
@@ -297,11 +306,19 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
             </div>
             <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Swap Rate</span>
-              <span className="text-sm font-medium">{swapRate} BTB per NFT</span>
+              <span className="text-sm font-medium">{parseFloat(swapRate).toFixed(3)} BTB per NFT</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Base Amount</span>
+              <span className="text-sm font-medium">{baseBtbAmount} BTB</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Fee (1%)</span>
+              <span className="text-sm font-medium">{feeAmount} BTB</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-500 dark:text-gray-400">You Receive</span>
-              <span className="text-sm font-medium">{estimatedBtb} BTB</span>
+              <span className="text-sm font-medium font-bold">{estimatedBtb} BTB</span>
             </div>
           </div>
 

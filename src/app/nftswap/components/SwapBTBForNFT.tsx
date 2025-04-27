@@ -17,8 +17,10 @@ interface SwapBTBForNFTProps {
 
 export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRate }: SwapBTBForNFTProps) {
   const { address, isConnected } = useWallet();
-  const [btbAmount, setBtbAmount] = useState<string>('');
-  const [nftAmount, setNftAmount] = useState<string>('0');
+  const [nftAmount, setNftAmount] = useState<string>('1');
+  const [btbAmount, setBtbAmount] = useState<string>('0');
+  const [feeAmount, setFeeAmount] = useState<string>('0');
+  const [totalAmount, setTotalAmount] = useState<string>('0');
   const [isApproved, setIsApproved] = useState<boolean>(false);
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
@@ -26,15 +28,27 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Calculate NFT amount based on BTB amount
+  // Calculate BTB amount based on NFT amount and swap rate
   useEffect(() => {
-    if (btbAmount && swapRate && parseFloat(swapRate) > 0) {
-      const calculatedNFTs = parseFloat(btbAmount) / parseFloat(swapRate);
-      setNftAmount(calculatedNFTs.toFixed(2));
+    if (nftAmount && swapRate && parseFloat(swapRate) > 0) {
+      // Base amount calculation
+      const baseAmount = parseFloat(nftAmount) * parseFloat(swapRate);
+      setBtbAmount(baseAmount.toFixed(4));
+      
+      // Fee calculation (1% fee as per contract)
+      const feePercentage = 0.01; // 1% fee
+      const fee = baseAmount * feePercentage;
+      setFeeAmount(fee.toFixed(4));
+      
+      // Total amount with fee
+      const total = baseAmount + fee;
+      setTotalAmount(total.toFixed(4));
     } else {
-      setNftAmount('0');
+      setBtbAmount('0');
+      setFeeAmount('0');
+      setTotalAmount('0');
     }
-  }, [btbAmount, swapRate]);
+  }, [nftAmount, swapRate]);
 
   // Check allowance and balance
   useEffect(() => {
@@ -124,36 +138,46 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
     }
   };
 
-  const handleSwap = async (e?: React.MouseEvent) => {
-    if (!isConnected || !address || !btbAmount) return;
-
+  const handleSwap = async () => {
+    if (!isConnected || !address || !nftAmount || parseInt(nftAmount) <= 0) return;
+    
     try {
       setIsSwapping(true);
       setError(null);
+      setSuccessMessage(null);
       
       if (!window.ethereum) {
-        console.error('No ethereum provider found');
-        setIsApproving(false);
-        setError('No Ethereum provider found. Please install MetaMask or another Web3 wallet.');
-        return;
+        throw new Error('No Ethereum provider found');
       }
+      
       const provider = new ethers.providers.Web3Provider(window.ethereum as any);
       const signer = provider.getSigner();
       
-      // Create NFT Swap contract instance
+      // Create contract instances
+      const btbContract = new ethers.Contract(
+        btbTokenAddress,
+        erc20ABI,
+        signer
+      );
+      
       const nftSwapContract = new ethers.Contract(
         nftSwapAddress,
         nftswapabi,
         signer
       );
-
-      // Convert BTB amount to wei
+      
+      // Check allowance
+      const allowance = await btbContract.allowance(address, nftSwapAddress);
       const btbAmountWei = ethers.utils.parseEther(btbAmount);
-
-      // Swap BTB for NFT
-      const tx = await nftSwapContract.swapBTBForNFT(btbAmountWei);
-
-      // Wait for transaction to be mined
+      
+      // If allowance is insufficient, request approval
+      if (allowance.lt(btbAmountWei)) {
+        const approveTx = await btbContract.approve(nftSwapAddress, ethers.constants.MaxUint256);
+        await approveTx.wait();
+      }
+      
+      // Execute swap - pass the number of NFTs to buy
+      const tx = await nftSwapContract.swapBTBForNFT(parseInt(nftAmount));
       const receipt = await tx.wait();
       
       // Get the NFT IDs from the event
@@ -162,27 +186,66 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
       
       setSuccessMessage(`Successfully swapped ${btbAmount} BTB for ${nftIds.length} NFTs!`);
       
-      // Reset form
-      setBtbAmount('');
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
+      // Refresh balances
+      const checkAllowanceAndBalance = async () => {
+        if (!isConnected || !address) return;
+
+        try {
+          if (!window.ethereum) {
+            console.error('No ethereum provider found');
+            return;
+          }
+          const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+          const signer = provider.getSigner();
+          
+          // Create BTB token contract instance
+          const btbContract = new ethers.Contract(
+            btbTokenAddress,
+            erc20ABI,
+            signer
+          );
+
+          // Check balance
+          const balance = await btbContract.balanceOf(address);
+          setBtbBalance(ethers.utils.formatEther(balance));
+
+          // Check allowance
+          const allowance = await btbContract.allowance(address, nftSwapAddress);
+          
+          // If allowance is greater than 0, set isApproved to true
+          if (allowance.gt(0)) {
+            setIsApproved(true);
+          } else {
+            setIsApproved(false);
+          }
+        } catch (error) {
+          console.error('Error checking allowance and balance:', error);
+        }
+      };
+
+      checkAllowanceAndBalance();
     } catch (error: any) {
       console.error('Error swapping BTB for NFT:', error);
-      setError(error.message || 'Error swapping BTB for NFT');
+      setError(error.message || 'An error occurred during the swap');
     } finally {
       setIsSwapping(false);
     }
   };
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setBtbAmount(e.target.value);
+  const handleNftAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Only allow positive integers for NFT amount
+    if (value === '' || /^\d+$/.test(value)) {
+      setNftAmount(value === '' ? '1' : value);
+    }
   };
 
   const handleMaxClick = () => {
-    setBtbAmount(btbBalance);
+    // Calculate maximum number of NFTs user can buy with their BTB balance
+    if (parseFloat(swapRate) > 0) {
+      const maxNfts = Math.floor(parseFloat(btbBalance) / parseFloat(swapRate));
+      setNftAmount(maxNfts.toString());
+    }
   };
 
   const formatBTB = (amount: string) => {
@@ -195,16 +258,17 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
     <div className="space-y-6">
       {/* Amount Input */}
       <div className="space-y-2">
-        <label htmlFor="btbAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          BTB Amount
+        <label htmlFor="nftAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          Number of NFTs to Buy
         </label>
         <div className="relative rounded-md shadow-sm">
           <Input
-            id="btbAmount"
+            id="nftAmount"
             type="number"
-            placeholder="Enter BTB amount"
-            value={btbAmount}
-            onChange={handleAmountChange}
+            min="1"
+            placeholder="Enter number of NFTs"
+            value={nftAmount}
+            onChange={handleNftAmountChange}
             className="pr-20 border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-blue-500 focus:border-blue-500"
           />
           <div className="absolute inset-y-0 right-0 flex items-center">
@@ -220,27 +284,51 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
         </div>
         <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
           <span>Balance: {formatBTB(btbBalance)} BTB</span>
-          <span>≈ {estimatedNftCount} NFT{estimatedNftCount !== 1 ? 's' : ''}</span>
+          <span>Max NFTs: {Math.floor(parseFloat(btbBalance) / parseFloat(swapRate))}</span>
         </div>
       </div>
 
       <div className="flex justify-center my-4">
-        <div className="p-2 bg-btb-primary/20 rounded-full">
-          <ArrowRightIcon className="h-5 w-5 text-btb-primary" />
+        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+          <ArrowRightIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
         </div>
       </div>
 
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-          NFT Amount (Estimated)
+          Total BTB Required (including fee)
         </label>
         <Input
           type="text"
-          value={nftAmount}
+          value={totalAmount}
           readOnly
-          className="bg-gray-900/50 border-gray-700/50 text-white font-medium"
+          className="border-gray-300 dark:border-gray-700 dark:bg-gray-800"
         />
-        <p className="text-sm text-white font-medium">Rate: 1 NFT = {swapRate} BTB</p>
+        <p className="text-sm text-gray-700 dark:text-gray-300">Rate: 1 NFT = {parseFloat(swapRate).toFixed(3)} BTB + 1% fee</p>
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Transaction Details</h3>
+        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Swap Rate</span>
+          <span className="text-sm font-medium">{parseFloat(swapRate).toFixed(3)} BTB per NFT</span>
+        </div>
+        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Base Amount</span>
+          <span className="text-sm font-medium">{btbAmount} BTB</span>
+        </div>
+        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Fee (1%)</span>
+          <span className="text-sm font-medium">{feeAmount} BTB</span>
+        </div>
+        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+          <span className="text-sm text-gray-500 dark:text-gray-400">Total You Pay</span>
+          <span className="text-sm font-medium font-bold">{totalAmount} BTB</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-sm text-gray-500 dark:text-gray-400">You Receive</span>
+          <span className="text-sm font-medium">{nftAmount} NFT{parseInt(nftAmount) !== 1 ? 's' : ''}</span>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -276,7 +364,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
         ) : (
           <Button
             onClick={handleSwap}
-            disabled={!isConnected || !btbAmount || isSwapping || parseFloat(btbAmount) <= 0 || parseFloat(btbAmount) > parseFloat(btbBalance)}
+            disabled={!isConnected || !nftAmount || isSwapping || parseInt(nftAmount) <= 0 || parseFloat(totalAmount) > parseFloat(btbBalance)}
             className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white py-2 px-4 rounded-md font-medium transition-colors"
           >
             {isSwapping ? (

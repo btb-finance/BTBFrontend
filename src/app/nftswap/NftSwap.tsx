@@ -103,7 +103,7 @@ export default function NftSwap() {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">BTB NFT Swap</h1>
               <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mb-2 md:mb-4">
-                Swap between BTB tokens and Bear NFTs seamlessly. The current swap rate is {swapRate} BTB per NFT.
+                Swap between BTB tokens and Bear NFTs seamlessly. The current swap rate is {parseFloat(swapRate).toFixed(3)} BTB per NFT.
               </p>
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function NftSwap() {
             <CardContent className="pt-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-2xl font-bold">{isLoading ? '...' : `${swapRate} BTB`}</h3>
+                  <h3 className="text-2xl font-bold">{isLoading ? '...' : `${parseFloat(swapRate).toFixed(3)} BTB`}</h3>
                 </div>
                 <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
                   <CurrencyDollarIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
