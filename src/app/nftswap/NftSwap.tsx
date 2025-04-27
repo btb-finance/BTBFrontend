@@ -92,24 +92,24 @@ export default function NftSwap() {
   }, [isConnected, address]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="max-w-6xl mx-auto overflow-hidden">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-2">
+          <div className="flex flex-col md:flex-row justify-between items-start mb-2 sm:mb-4 gap-2">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">BTB NFT Swap</h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mb-2 md:mb-4">
-                Swap between BTB tokens and Bear NFTs seamlessly. The current swap rate is {parseFloat(swapRate).toFixed(3)} BTB per NFT.
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 md:mb-2">BTB NFT Swap</h1>
+              <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm md:text-base mb-2 md:mb-4">
+                Swap between BTB tokens and Bear NFTs. Rate: {parseFloat(swapRate).toFixed(3)} BTB per NFT.
               </p>
             </div>
           </div>
 
           {/* Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
           <Card className="overflow-hidden border border-gray-200 dark:border-gray-800 shadow-md">
             <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 border-b border-gray-200 dark:border-gray-800">
               <h3 className="font-semibold text-blue-800 dark:text-blue-300 text-sm">Current Swap Rate</h3>
@@ -162,15 +162,15 @@ export default function NftSwap() {
           </div>
 
           {/* Swap Interface */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Panel - Swap Controls */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-4">
+          {/* Left Panel - Swap Interface */}
           <div className="lg:col-span-2">
-            <Card className="border border-gray-200 dark:border-gray-800 shadow-md h-full">
-              <CardHeader>
+            <Card className="border border-gray-200 dark:border-gray-800 shadow-md">
+              <CardHeader className="p-3 sm:p-4">
                 <CardTitle>NFT Swap</CardTitle>
                 <CardDescription>Exchange BTB tokens for Bear NFTs or vice versa</CardDescription>
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="p-2 sm:p-4">
                 {!isConnected ? (
                   <div className="flex flex-col items-center justify-center h-full py-12">
                     <h3 className="text-xl font-bold mb-4">Connect Wallet to Swap</h3>
@@ -192,7 +192,7 @@ export default function NftSwap() {
                 ) : (
                   <>
                     {/* Swap Type Selector */}
-                    <div className="flex justify-center mb-6">
+                    <div className="flex justify-center mb-3 sm:mb-4">
                       <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
                         <button
                           onClick={() => setActiveTab('btb-to-nft')}

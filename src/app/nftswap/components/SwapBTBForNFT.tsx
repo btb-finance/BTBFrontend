@@ -255,37 +255,40 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
   const estimatedNftCount = parseFloat(nftAmount);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* Amount Input */}
-      <div className="space-y-2">
-        <label htmlFor="nftAmount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="space-y-1 sm:space-y-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
           Number of NFTs to Buy
         </label>
-        <div className="relative rounded-md shadow-sm">
-          <Input
-            id="nftAmount"
-            type="number"
-            min="1"
-            placeholder="Enter number of NFTs"
-            value={nftAmount}
-            onChange={handleNftAmountChange}
-            className="pr-20 border-gray-300 dark:border-gray-700 dark:bg-gray-800 focus:ring-blue-500 focus:border-blue-500"
-          />
-          <div className="absolute inset-y-0 right-0 flex items-center">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleMaxClick}
-              className="h-full px-3 text-sm text-blue-600 dark:text-blue-400 font-medium hover:text-blue-700 dark:hover:text-blue-300"
-            >
-              MAX
-            </Button>
+        <div className="flex items-center space-x-2">
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              value={nftAmount}
+              onChange={handleNftAmountChange}
+              className="border-gray-300 dark:border-gray-700 dark:bg-gray-800 pr-12 h-8 sm:h-10 text-sm"
+              placeholder="Enter NFT amount"
+              disabled={isSwapping}
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+              <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">NFTs</span>
+            </div>
           </div>
+          <Button
+            onClick={handleMaxClick}
+            variant="outline"
+            className="border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 h-8 sm:h-10 px-2 text-xs sm:text-sm"
+            disabled={isSwapping || !btbBalance || parseFloat(btbBalance) === 0 || !swapRate || parseFloat(swapRate) === 0}
+          >
+            MAX
+          </Button>
         </div>
-        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>Balance: {formatBTB(btbBalance)} BTB</span>
-          <span>Max NFTs: {Math.floor(parseFloat(btbBalance) / parseFloat(swapRate))}</span>
-        </div>
+        {Math.floor(parseFloat(btbBalance) / parseFloat(swapRate)) !== null && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Max NFTs: {Math.floor(parseFloat(btbBalance) / parseFloat(swapRate))}
+          </p>
+        )}
       </div>
 
       <div className="flex justify-center my-4">
@@ -294,28 +297,24 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
         </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <div className="space-y-1 sm:space-y-2">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
           Total BTB Required (including fee)
         </label>
         <Input
           type="text"
           value={totalAmount}
           readOnly
-          className="border-gray-300 dark:border-gray-700 dark:bg-gray-800"
+          className="border-gray-300 dark:border-gray-700 dark:bg-gray-800 h-8 sm:h-10 text-sm"
         />
-        <p className="text-sm text-gray-700 dark:text-gray-300">Rate: 1 NFT = {parseFloat(swapRate).toFixed(3)} BTB + 1% fee</p>
+        <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Rate: 1 NFT = {parseFloat(swapRate).toFixed(3)} BTB + 1% fee</p>
       </div>
 
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 sm:p-3 border border-gray-200 dark:border-gray-700 space-y-2">
         <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Transaction Details</h3>
         <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Swap Rate</span>
           <span className="text-sm font-medium">{parseFloat(swapRate).toFixed(3)} BTB per NFT</span>
-        </div>
-        <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Base Amount</span>
-          <span className="text-sm font-medium">{btbAmount} BTB</span>
         </div>
         <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
           <span className="text-sm text-gray-500 dark:text-gray-400">Fee (1%)</span>

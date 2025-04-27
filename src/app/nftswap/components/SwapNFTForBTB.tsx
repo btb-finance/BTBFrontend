@@ -240,22 +240,22 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* NFT Selection */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 sm:p-3 border border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-gray-700 dark:text-gray-300 font-medium">Your Bear NFTs</h3>
           {nftIds.length > 0 && (
             <div className="flex space-x-2">
               <button
                 onClick={selectAllNfts}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
               >
                 Select All
               </button>
               <button
                 onClick={deselectAllNfts}
-                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium"
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               >
                 Deselect All
               </button>
@@ -298,7 +298,7 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
           </div>
 
           {/* Transaction Details */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 sm:p-3 border border-gray-200 dark:border-gray-700 space-y-2">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Transaction Details</h3>
             <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Selected NFTs</span>
@@ -307,10 +307,6 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
             <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Swap Rate</span>
               <span className="text-sm font-medium">{parseFloat(swapRate).toFixed(3)} BTB per NFT</span>
-            </div>
-            <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Base Amount</span>
-              <span className="text-sm font-medium">{baseBtbAmount} BTB</span>
             </div>
             <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Fee (1%)</span>
