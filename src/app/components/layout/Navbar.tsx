@@ -88,7 +88,8 @@ export default function Navbar() {
       children: [
         { name: 'Token Info', href: '/token' },
         { name: 'Buy Token', href: '/buy-token' },
-        { name: 'BTB Bridge', href: '/btb-bridge' }
+        { name: 'BTB Bridge', href: '/btb-bridge' },
+        { name: 'NFT Swap', href: '/nftswap' }
       ]
     }
   ];

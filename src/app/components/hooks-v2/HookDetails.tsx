@@ -34,7 +34,9 @@ interface Hook {
 }
 
 const HookDetail = () => {
-  const { chainId, address } = useParams()
+  const params = useParams();
+  const chainId = params?.chainId as string;
+  const address = params?.address as string;
   const [hook, setHook] = useState<Hook | null>(null)
   const [currencies, setCurrencies] = useState<Currency[]>([])
   const [loading, setLoading] = useState(true)

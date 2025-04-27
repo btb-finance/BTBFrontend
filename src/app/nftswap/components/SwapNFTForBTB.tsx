@@ -1,0 +1,366 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import { useWallet } from '../../context/WalletContext';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { ArrowLeftIcon, ExclamationCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import nftswapabi from '../nftswapabi.json';
+
+interface SwapNFTForBTBProps {
+  bearNftAddress: string;
+  nftSwapAddress: string;
+  swapRate: string;
+}
+
+// ERC721 ABI for approval and token functions
+const erc721ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+  "function isApprovedForAll(address owner, address operator) view returns (bool)",
+  "function setApprovalForAll(address operator, bool approved)",
+  "function tokenURI(uint256 tokenId) view returns (string)"
+];
+
+export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate }: SwapNFTForBTBProps) {
+  const { address, isConnected } = useWallet();
+  const [nftIds, setNftIds] = useState<number[]>([]);
+  const [selectedNftIds, setSelectedNftIds] = useState<number[]>([]);
+  const [isApproved, setIsApproved] = useState<boolean>(false);
+  const [isApproving, setIsApproving] = useState<boolean>(false);
+  const [isSwapping, setIsSwapping] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [estimatedBtb, setEstimatedBtb] = useState<string>('0');
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Fetch user's NFTs
+  useEffect(() => {
+    const fetchUserNFTs = async () => {
+      if (!isConnected || !address) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        if (!window.ethereum) {
+          console.error('No ethereum provider found');
+          setIsLoading(false);
+          return;
+        }
+        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+        const bearNftContract = new ethers.Contract(
+          bearNftAddress,
+          erc721ABI,
+          provider
+        );
+
+        // Get user's NFT balance
+        const balance = await bearNftContract.balanceOf(address);
+        const balanceNumber = balance.toNumber();
+
+        // Get all NFT IDs owned by the user
+        const tokenIds = [];
+        for (let i = 0; i < balanceNumber; i++) {
+          const tokenId = await bearNftContract.tokenOfOwnerByIndex(address, i);
+          tokenIds.push(tokenId.toNumber());
+        }
+
+        setNftIds(tokenIds);
+        
+        // Check if NFTs are approved for the swap contract
+        const approved = await bearNftContract.isApprovedForAll(address, nftSwapAddress);
+        setIsApproved(approved);
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error fetching user NFTs:', error);
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserNFTs();
+  }, [isConnected, address, bearNftAddress, nftSwapAddress]);
+
+  // Calculate estimated BTB based on selected NFTs
+  useEffect(() => {
+    if (selectedNftIds.length > 0 && swapRate) {
+      const btbAmount = selectedNftIds.length * parseFloat(swapRate);
+      setEstimatedBtb(btbAmount.toFixed(4));
+    } else {
+      setEstimatedBtb('0');
+    }
+  }, [selectedNftIds, swapRate]);
+
+  const handleApprove = async () => {
+    if (!isConnected || !address) return;
+
+    try {
+      setIsApproving(true);
+      setError(null);
+      
+      if (!window.ethereum) {
+        console.error('No ethereum provider found');
+        setIsSwapping(false);
+        setError('No Ethereum provider found. Please install MetaMask or another Web3 wallet.');
+        return;
+      }
+      const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+      const signer = provider.getSigner();
+      
+      // Create Bear NFT contract instance
+      const bearNftContract = new ethers.Contract(
+        bearNftAddress,
+        erc721ABI,
+        signer
+      );
+
+      // Approve all NFTs for the swap contract
+      const tx = await bearNftContract.setApprovalForAll(nftSwapAddress, true);
+
+      // Wait for transaction to be mined
+      await tx.wait();
+      
+      setIsApproved(true);
+      setSuccessMessage('Approval successful!');
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
+    } catch (error: any) {
+      console.error('Error approving NFTs:', error);
+      setError(error.message || 'Error approving NFTs');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleSwap = async () => {
+    if (!isConnected || !address || selectedNftIds.length === 0) return;
+
+    try {
+      setIsSwapping(true);
+      setError(null);
+      
+      if (!window.ethereum) {
+        console.error('No ethereum provider found');
+        setIsSwapping(false);
+        setError('No Ethereum provider found. Please install MetaMask or another Web3 wallet.');
+        return;
+      }
+      const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+      const signer = provider.getSigner();
+      
+      // Create NFT Swap contract instance
+      const nftSwapContract = new ethers.Contract(
+        nftSwapAddress,
+        nftswapabi,
+        signer
+      );
+
+      // Swap NFTs for BTB
+      const tx = await nftSwapContract.swapNFTForBTB(selectedNftIds);
+
+      // Wait for transaction to be mined
+      const receipt = await tx.wait();
+      
+      // Get the BTB amount from the event
+      const event = receipt.events?.find((e: ethers.Event) => e.event === 'SwapNFTForBTB');
+      const btbAmount = event?.args?.btbAmount ? ethers.utils.formatEther(event.args.btbAmount) : '0';
+      
+      setSuccessMessage(`Successfully swapped ${selectedNftIds.length} NFTs for ${btbAmount} BTB!`);
+      
+      // Reset selected NFTs
+      setSelectedNftIds([]);
+      
+      // Refetch user's NFTs
+      const updatedBalance = await new ethers.Contract(
+        bearNftAddress,
+        erc721ABI,
+        provider
+      ).balanceOf(address);
+      
+      const updatedBalanceNumber = updatedBalance.toNumber();
+      const updatedTokenIds = [];
+      
+      for (let i = 0; i < updatedBalanceNumber; i++) {
+        const tokenId = await new ethers.Contract(
+          bearNftAddress,
+          erc721ABI,
+          provider
+        ).tokenOfOwnerByIndex(address, i);
+        updatedTokenIds.push(tokenId.toNumber());
+      }
+      
+      setNftIds(updatedTokenIds);
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+    } catch (error: any) {
+      console.error('Error swapping NFTs for BTB:', error);
+      setError(error.message || 'Error swapping NFTs for BTB');
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
+  const toggleNftSelection = (tokenId: number, e: React.MouseEvent<HTMLDivElement>) => {
+    setSelectedNftIds(prev => 
+      prev.includes(tokenId)
+        ? prev.filter(id => id !== tokenId)
+        : [...prev, tokenId]
+    );
+  };
+
+  const selectAllNfts = () => {
+    setSelectedNftIds([...nftIds]);
+  };
+
+  const deselectAllNfts = () => {
+    setSelectedNftIds([]);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* NFT Selection */}
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-gray-700 dark:text-gray-300 font-medium">Your Bear NFTs</h3>
+          {nftIds.length > 0 && (
+            <div className="flex space-x-2">
+              <button
+                onClick={selectAllNfts}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+              >
+                Select All
+              </button>
+              <button
+                onClick={deselectAllNfts}
+                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 font-medium"
+              >
+                Deselect All
+              </button>
+            </div>
+          )}
+        </div>
+        
+        {isLoading ? (
+          <div className="flex justify-center py-4">
+            <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div>
+          </div>
+        ) : nftIds.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4">You don't have any Bear NFTs in your wallet.</p>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+            {nftIds.map(tokenId => (
+              <div
+                key={tokenId}
+                onClick={(e: React.MouseEvent<HTMLDivElement>) => toggleNftSelection(tokenId, e)}
+                className={`
+                  cursor-pointer rounded-md p-2 transition-all duration-200
+                  ${selectedNftIds.includes(tokenId) 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700' 
+                    : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}
+                `}
+              >
+                <div className="aspect-square rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <span className="text-lg font-bold text-blue-600 dark:text-blue-400">{tokenId}</span>
+                </div>
+                <div className="mt-1 text-center">
+                  <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">Bear #{tokenId}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {nftIds.length > 0 && (
+        <>
+          <div className="flex justify-center">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+              <ArrowLeftIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+          </div>
+
+          {/* Transaction Details */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Transaction Details</h3>
+            <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Selected NFTs</span>
+              <span className="text-sm font-medium">{selectedNftIds.length}</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400">Swap Rate</span>
+              <span className="text-sm font-medium">{swapRate} BTB per NFT</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500 dark:text-gray-400">You Receive</span>
+              <span className="text-sm font-medium">{estimatedBtb} BTB</span>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md p-3 text-sm text-red-800 dark:text-red-200">
+              <div className="flex">
+                <ExclamationCircleIcon className="h-5 w-5 text-red-500 dark:text-red-400 mr-2 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Success Message */}
+          {successMessage && (
+            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-md p-3 text-sm text-green-800 dark:text-green-200">
+              <div className="flex">
+                <CheckCircleIcon className="h-5 w-5 text-green-500 dark:text-green-400 mr-2 flex-shrink-0" />
+                <span>{successMessage}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Swap Button */}
+          <div className="flex justify-center">
+            {!isApproved ? (
+              <Button
+                onClick={handleApprove}
+                disabled={isApproving}
+                className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white py-2 px-4 rounded-md font-medium transition-colors"
+              >
+                {isApproving ? (
+                  <div className="flex items-center justify-center">
+                    <div className="h-5 w-5 rounded-full border-2 border-t-transparent border-white animate-spin mr-2"></div>
+                    <span>Approving...</span>
+                  </div>
+                ) : (
+                  'Approve NFTs'
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleSwap}
+                disabled={isSwapping || selectedNftIds.length === 0}
+                className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white py-2 px-4 rounded-md font-medium transition-colors"
+              >
+                {isSwapping ? (
+                  <div className="flex items-center justify-center">
+                    <div className="h-5 w-5 rounded-full border-2 border-t-transparent border-white animate-spin mr-2"></div>
+                    <span>Swapping...</span>
+                  </div>
+                ) : (
+                  `Swap ${selectedNftIds.length} NFT${selectedNftIds.length !== 1 ? 's' : ''} for BTB`
+                )}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
