@@ -59,7 +59,6 @@ export default function Navbar() {
         { name: 'CHICKS', href: '/chicks' },
         { name: 'Sheep Ecosystem', href: '/sheep-ecosystem' },
         { name: 'Megapot Lottery', href: '/contracts/megapot' },
-        { name: 'Zora Airdrop', href: '/zoraairdrop' }
       ]
     },
     {
