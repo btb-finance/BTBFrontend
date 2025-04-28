@@ -59,17 +59,22 @@ const features = [
     icon: ChartBarIcon,
     href: '/yield-farming',
     color: 'from-indigo-500 to-indigo-600'
-  },
-  {
-    name: 'Liquidity Hub',
-    description: 'Our liquidity hub aggregates and optimizes liquidity across the DeFi ecosystem, creating deeper markets and better prices for all.',
-    icon: BeakerIcon,
-    href: '/liquidity-hub',
-    color: 'from-amber-500 to-orange-600'
   }
 ];
 
 const products = [
+  {
+    name: 'BTB Bear NFT Swap',
+    description: 'Swap between BTB tokens and Bear NFTs with instant liquidity. Our unique tokenomics ensures the price always goes up!',
+    detailedDescription: "Our innovative BTB Bear NFT Swap creates a revolutionary tokenomics model where the price always increases, regardless of whether you're buying or selling. Swap your BTB tokens for unique Bear NFTs or convert your NFTs back to BTB tokens with instant liquidity, all while benefiting from our ever-increasing price floor mechanism.",
+    features: ['Instant NFT liquidity', 'Ever-increasing price floor', 'Seamless token-to-NFT swaps', 'Progressive UI loading'],
+    icon: CubeTransparentIcon,
+    href: '/nftswap',
+    bgColor: 'bg-gradient-to-br from-amber-600/10 to-orange-800/10',
+    iconColor: 'text-amber-600 dark:text-amber-400',
+    borderColor: 'border-amber-200 dark:border-amber-800',
+    isNew: true
+  },
   {
     name: 'BTB Token',
     description: 'Our governance token that powers the ecosystem. BTB holders vote on pools and receive 10% of LP fees from those pools.',
@@ -102,17 +107,6 @@ const products = [
     bgColor: 'bg-gradient-to-br from-purple-600/10 to-indigo-800/10',
     iconColor: 'text-purple-600 dark:text-purple-400',
     borderColor: 'border-purple-200 dark:border-purple-800'
-  },
-  {
-    name: 'Liquidity Hub',
-    description: 'Our liquidity hub aggregates and optimizes liquidity across the DeFi ecosystem, creating deeper markets and better prices.',
-    detailedDescription: 'The BTB Finance Liquidity Hub is the central infrastructure that connects and optimizes liquidity across multiple DeFi protocols. By aggregating liquidity and implementing smart routing, we ensure users always get the best rates while maintaining deep markets that benefit the entire ecosystem.',
-    features: ['Cross-protocol liquidity aggregation', 'Smart order routing', 'Optimized swap paths', 'Reduced slippage'],
-    icon: BeakerIcon,
-    href: '/liquidity-hub',
-    bgColor: 'bg-gradient-to-br from-amber-600/10 to-amber-800/10',
-    iconColor: 'text-amber-600 dark:text-amber-400',
-    borderColor: 'border-amber-200 dark:border-amber-800'
   }
 ];
 
@@ -765,10 +759,11 @@ export default function Home() {
                   <BanknotesIcon className="h-4 w-4 mr-2" />
                   <span>Capital Efficiency</span>
                 </div>
-                <h2 className="text-3xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white leading-tight">
-                  Introducing <span className="text-blue-600 dark:text-blue-500">CHICKS</span> Token
+                <h2 className="text-3xl md:text-5xl font-bold mb-6 inline-flex items-center">
+                  <SparklesIcon className="h-8 w-8 mr-2 text-purple-500" />
+                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">CHICKS</span>
                 </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-300 mb-8 max-w-xl">
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-xl">
                   The most capital efficient token in DeFi. 100% USDC-backed with up to 99% LTV borrowing and leveraging through Aave.
                 </p>
                 <div className="flex flex-wrap gap-4">
@@ -800,7 +795,7 @@ export default function Home() {
                   <div className="flex items-center justify-center mb-8">
                     <div className="relative h-24 w-24 flex-shrink-0">
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full opacity-20 animate-pulse"></div>
-                      <div className="absolute inset-2 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+                      <div className="absolute inset-2 rounded-full bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
                         <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">$</span>
                       </div>
                     </div>
@@ -1192,13 +1187,27 @@ export default function Home() {
                     <strong>Always invest at your own risk.</strong> The experimental nature of our products means outcomes may differ from expectations. We're committed to transparency as we explore new financial frontiers together.
                   </p>
                   
-                  <div className="mt-2 text-xs">
-                    <Link 
-                      href="/risk-disclosure" 
-                      className="inline-flex items-center px-2 py-1 rounded-md bg-btb-primary/10 text-btb-primary dark:text-btb-primary-light hover:bg-btb-primary/20 transition-colors"
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mt-8 sm:mt-12">
+                    <MotionButton
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="bg-btb-primary hover:bg-btb-primary-dark text-white font-semibold py-3 px-6 rounded-lg shadow-lg shadow-btb-primary/20 dark:shadow-btb-primary/10"
+                      asChild
                     >
-                      Read full risk disclosure <ArrowRightIcon className="ml-1 h-2.5 w-2.5" />
-                    </Link>
+                      <Link href="/nftswap">
+                        Try BTB Bear NFT Swap
+                      </Link>
+                    </MotionButton>
+                    <MotionButton
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-btb-primary dark:text-btb-primary-light border border-btb-primary/30 dark:border-btb-primary-light/30 font-semibold py-3 px-6 rounded-lg shadow-md"
+                      asChild
+                    >
+                      <Link href="/token">
+                        Explore BTB Token
+                      </Link>
+                    </MotionButton>
                   </div>
                 </div>
               </motion.div>

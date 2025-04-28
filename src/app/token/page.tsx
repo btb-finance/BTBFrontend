@@ -46,10 +46,10 @@ export default function TokenPage() {
       color: 'bg-pink-100 text-pink-600 dark:bg-pink-900/20 dark:text-pink-400'
     },
     {
-      name: 'BTB Cats NFT',
-      description: '10,000 NFTs always redeemable with BTB token (10% backing)',
+      name: 'BTB Bear NFT',
+      description: '100,000 NFTs with instant liquidity through our BTB Bear NFT Swap',
       icon: CubeTransparentIcon,
-      color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+      color: 'bg-amber-100 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400'
     },
     {
       name: 'Megapot Lottery',
@@ -300,28 +300,28 @@ export default function TokenPage() {
                   </div>
                 </div>
                 
-                {/* BTB Cats NFT Feature */}
-                <Card className="p-4 sm:p-8 border border-gray-200 dark:border-gray-700 shadow-md bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+                {/* BTB Bear NFT Feature */}
+                <Card className="p-4 sm:p-8 border border-gray-200 dark:border-gray-700 shadow-md bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20">
                   <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8">
                     <div className="w-full md:w-1/3 flex justify-center">
-                      <div className="relative w-48 h-48 sm:w-64 sm:h-64 rounded-lg bg-gradient-to-br from-purple-200 to-pink-200 dark:from-purple-800/30 dark:to-pink-800/30 flex items-center justify-center overflow-hidden">
+                      <div className="relative w-48 h-48 sm:w-64 sm:h-64 rounded-lg bg-gradient-to-br from-amber-200 to-orange-200 dark:from-amber-800/30 dark:to-orange-800/30 flex items-center justify-center overflow-hidden">
                         <div className="absolute inset-0 bg-white/10 dark:bg-black/10 backdrop-blur-sm"></div>
-                        <div className="z-10 text-xl sm:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent px-4 text-center">
-                          BTB Cats NFT Collection
+                        <div className="z-10 text-xl sm:text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent px-4 text-center">
+                          BTB Bear NFT Collection
                         </div>
                       </div>
                     </div>
                     <div className="w-full md:w-2/3 mt-4 md:mt-0">
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 text-center md:text-left">BTB Cats NFT: Always Redeemable</h2>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 text-center md:text-left">BTB Bear NFT: Instant Liquidity</h2>
                       <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">
-                        Our upcoming 10,000 BTB Cats NFT collection is backed by BTB tokens, with each NFT always redeemable for BTB at a 10% backing rate. This creates a price floor for the collection and ensures that collectors always have intrinsic value in their NFTs.
+                        Our collection of 100,000 BTB Bear NFTs features instant liquidity through our innovative BTB Bear NFT Swap. This unique system creates a revolutionary tokenomics model where the price always increases, regardless of whether you're buying or selling.
                       </p>
                       <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">
-                        This innovative backing mechanism demonstrates our commitment to creating products with real value, rather than speculative assets with no underlying utility.
+                        Swap your BTB tokens for unique Bear NFTs or convert your NFTs back to BTB tokens with instant liquidity, all while benefiting from our ever-increasing price floor mechanism.
                       </p>
                       <div className="text-center md:text-left">
-                        <Button className="mt-2 sm:mt-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm sm:text-base py-2">
-                          Coming Soon
+                        <Button className="mt-2 sm:mt-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white text-sm sm:text-base py-2">
+                          <Link href="/nftswap" className="text-white no-underline">Try BTB Bear NFT Swap</Link>
                         </Button>
                       </div>
                     </div>
@@ -332,12 +332,12 @@ export default function TokenPage() {
                 <Card className="p-4 sm:p-8 border border-gray-200 dark:border-gray-700 shadow-md bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20">
                   <div className="flex flex-col md:flex-row items-center gap-6 sm:gap-8">
                     <div className="w-full md:w-2/3">
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 text-center md:text-left">CHICKS: Backed by BTB</h2>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 text-center md:text-left">CHICKS: Backed by USDC</h2>
                       <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">
-                        CHICKS is backed by BTB tokens, providing a strong foundation and giving users confidence in the long-term viability of the platform.
+                        CHICKS is backed by USDC, providing a strong stable foundation and giving users confidence in the long-term viability of the platform.
                       </p>
                       <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-3 sm:mb-4">
-                        The integration between BTB and CHICKS creates a synergistic relationship where the success of one benefits the other, creating a positive feedback loop for the entire ecosystem.
+                        With USDC backing, CHICKS offers stability and security while still being part of the BTB ecosystem. This creates a balanced approach where users can benefit from both stability and growth opportunities.
                       </p>
                       <div className="text-center md:text-left">
                         <Button className="mt-2 sm:mt-4 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white text-sm sm:text-base py-2">
