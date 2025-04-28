@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Button } from '../components/ui/button';
 import { ArrowRightIcon, ArrowLeftIcon, ShieldCheckIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import dynamic from 'next/dynamic';
+import useNetworkSwitcher from '@/app/hooks/useNetworkSwitcher';
 
 // Define component prop types
 type SwapBTBForNFTProps = {
@@ -27,16 +28,26 @@ type NFTDisplayProps = {
   isConnected: boolean;
 };
 
-// Use dynamic imports to avoid hydration issues
-const SwapBTBForNFT = dynamic<SwapBTBForNFTProps>(() => import('./components/SwapBTBForNFT'), { ssr: false });
-const SwapNFTForBTB = dynamic<SwapNFTForBTBProps>(() => import('./components/SwapNFTForBTB'), { ssr: false });
-const NFTDisplay = dynamic<NFTDisplayProps>(() => import('./components/NFTDisplay'), { ssr: false });
+// Use dynamic imports to avoid hydration issues but with suspense for better loading experience
+const SwapBTBForNFT = dynamic<SwapBTBForNFTProps>(() => import('./components/SwapBTBForNFT'), { 
+  ssr: false,
+  loading: () => <div className="flex justify-center items-center py-8"><div className="h-8 w-8 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div></div>
+});
+const SwapNFTForBTB = dynamic<SwapNFTForBTBProps>(() => import('./components/SwapNFTForBTB'), { 
+  ssr: false,
+  loading: () => <div className="flex justify-center items-center py-8"><div className="h-8 w-8 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div></div>
+});
+const NFTDisplay = dynamic<NFTDisplayProps>(() => import('./components/NFTDisplay'), { 
+  ssr: false,
+  loading: () => <div className="flex justify-center items-center py-8"><div className="h-8 w-8 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div></div>
+});
 import nftswapabi from './nftswapabi.json';
 
 // Contract addresses from the parameters
 const BTB_TOKEN_ADDRESS = '0xBBF88F780072F5141dE94E0A711bD2ad2c1f83BB';
 const BEAR_NFT_ADDRESS = '0x000081733751860A8E5BA00FdCF7000b53E90dDD';
 const NFT_SWAP_ADDRESS = '0x9e93eF8aD9c899A7798868FAACfA28276e082903';
+const NETWORK = 'BASE'; // Required network for NFT swap
 
 export default function NftSwap() {
   const { address, isConnected, connectWallet } = useWallet();
@@ -45,6 +56,28 @@ export default function NftSwap() {
   const [isLoading, setIsLoading] = useState(true);
   const [contractNFTCount, setContractNFTCount] = useState<number>(0);
   const [swapPaused, setSwapPaused] = useState<boolean>(false);
+  const [isCorrectNetwork, setIsCorrectNetwork] = useState<boolean>(false);
+  const { switchNetwork, isSwitching, error } = useNetworkSwitcher();
+
+  // Check if user is on the correct network
+  const checkNetwork = async () => {
+    if (!window.ethereum) return;
+    
+    try {
+      const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+      const network = await provider.getNetwork();
+      // Base network has chainId 8453
+      setIsCorrectNetwork(network.chainId === 8453);
+    } catch (error) {
+      console.error('Error checking network:', error);
+      setIsCorrectNetwork(false);
+    }
+  };
+
+  // Handle network changes
+  const handleChainChanged = () => {
+    checkNetwork();
+  };
 
   // Fetch contract data
   useEffect(() => {
@@ -89,6 +122,18 @@ export default function NftSwap() {
     };
 
     fetchContractData();
+    checkNetwork();
+
+    // Listen for chain changes
+    if (window.ethereum) {
+      window.ethereum.on('chainChanged', handleChainChanged);
+    }
+
+    return () => {
+      if (window.ethereum) {
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      }
+    };
   }, [isConnected, address]);
 
   return (
@@ -106,6 +151,18 @@ export default function NftSwap() {
                 Swap between BTB tokens and Bear NFTs. Rate: {parseFloat(swapRate).toFixed(3)} BTB per NFT.
               </p>
             </div>
+            {isConnected && !isCorrectNetwork && (
+              <div className="w-full md:w-auto">
+                <Button 
+                  onClick={() => switchNetwork('BASE')}
+                  disabled={isSwitching}
+                  className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2"
+                >
+                  {isSwitching ? 'Switching...' : 'Switch to Base Network'}
+                </Button>
+                {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+              </div>
+            )}
           </div>
 
           {/* Status Cards */}
@@ -182,6 +239,22 @@ export default function NftSwap() {
                       Connect Wallet
                     </Button>
                   </div>
+                ) : !isCorrectNetwork ? (
+                  <div className="flex flex-col items-center justify-center h-full py-12">
+                    <h3 className="text-xl font-bold text-amber-600 dark:text-amber-400 mb-4">Wrong Network Detected</h3>
+                    <p className="text-gray-700 dark:text-gray-300 text-center font-medium mb-4">
+                      Please switch to the Base network to use the NFT swap feature.
+                    </p>
+                    <Button 
+                      onClick={() => switchNetwork('BASE')}
+                      disabled={isSwitching}
+                      size="lg"
+                      className="w-full max-w-xs bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isSwitching ? 'Switching...' : 'Switch to Base Network'}
+                    </Button>
+                    {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+                  </div>
                 ) : swapPaused ? (
                   <div className="flex flex-col items-center justify-center h-full py-12">
                     <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">Swap is Currently Paused</h3>
@@ -219,19 +292,21 @@ export default function NftSwap() {
 
                     {/* Swap Interface */}
                     <div className="mt-4">
-                      {activeTab === 'btb-to-nft' ? (
+                      {/* Both components are always rendered but only one is visible */}
+                      <div className={activeTab === 'btb-to-nft' ? 'block' : 'hidden'}>
                         <SwapBTBForNFT 
                           btbTokenAddress={BTB_TOKEN_ADDRESS} 
                           nftSwapAddress={NFT_SWAP_ADDRESS} 
                           swapRate={swapRate}
                         />
-                      ) : (
+                      </div>
+                      <div className={activeTab === 'nft-to-btb' ? 'block' : 'hidden'}>
                         <SwapNFTForBTB 
                           bearNftAddress={BEAR_NFT_ADDRESS} 
                           nftSwapAddress={NFT_SWAP_ADDRESS} 
                           swapRate={swapRate}
                         />
-                      )}
+                      </div>
                     </div>
                   </>
                 )}

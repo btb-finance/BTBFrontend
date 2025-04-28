@@ -56,20 +56,47 @@ export default function NFTDisplay({ bearNftAddress, isConnected }: NFTDisplayPr
         const balance = await bearNftContract.balanceOf(address);
         const balanceNumber = balance.toNumber();
 
-        // Get all NFT IDs owned by the user
-        const tokenIds = [];
-        for (let i = 0; i < balanceNumber; i++) {
-          const tokenId = await bearNftContract.tokenOfOwnerByIndex(address, i);
-          tokenIds.push(tokenId.toNumber());
+        // Get NFT IDs progressively in batches
+        if (balanceNumber > 0) {
+          // Set loading to false once we have the balance
+          setIsLoading(false);
+          
+          // Load NFTs in batches to improve UX
+          const batchSize = 5;
+          for (let i = 0; i < balanceNumber; i += batchSize) {
+            const batchPromises = [];
+            const end = Math.min(i + batchSize, balanceNumber);
+            
+            for (let j = i; j < end; j++) {
+              batchPromises.push(
+                bearNftContract.tokenOfOwnerByIndex(address, j)
+                  .then((tokenId: ethers.BigNumber) => tokenId.toNumber())
+              );
+            }
+            
+            const batchResults = await Promise.all(batchPromises);
+            
+            // Update the NFT list with new batch, ensuring uniqueness
+            setUserNfts(prev => {
+              // Create a Set from the existing IDs to ensure uniqueness
+              const uniqueIds = new Set([...prev]);
+              // Add new IDs to the Set
+              batchResults.forEach(id => uniqueIds.add(id));
+              // Convert back to array
+              const newNfts = Array.from(uniqueIds);
+              // Fetch metadata for this batch immediately
+              fetchNFTMetadata(bearNftContract, batchResults);
+              return newNfts;
+            });
+            
+            // Small delay to allow UI to update between batches
+            if (i + batchSize < balanceNumber) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          }
+        } else {
+          setIsLoading(false);
         }
-
-        setUserNfts(tokenIds);
-        
-        // Fetch metadata for each NFT
-        if (tokenIds.length > 0) {
-          await fetchNFTMetadata(bearNftContract, tokenIds);
-        }
-        setIsLoading(false);
       } catch (error) {
         console.error('Error fetching user NFTs:', error);
         setError('Failed to load NFTs. Please try again later.');
@@ -77,15 +104,16 @@ export default function NFTDisplay({ bearNftAddress, isConnected }: NFTDisplayPr
       }
     };
 
+    // Reset NFTs when component mounts or dependencies change
+    setUserNfts([]);
+    setNftMetadata({});
     fetchUserNFTs();
   }, [isConnected, address, bearNftAddress]);
 
   const fetchNFTMetadata = async (contract: ethers.Contract, tokenIds: number[]) => {
     try {
-      setIsLoadingMetadata(true);
-      const metadata: {[tokenId: number]: { image: string; name: string; description: string }} = {};
-      
-      for (const tokenId of tokenIds) {
+      // Process each token ID individually to allow progressive loading
+      const fetchPromises = tokenIds.map(async (tokenId) => {
         try {
           // Get token URI
           const tokenURI = await contract.tokenURI(tokenId);
@@ -108,27 +136,39 @@ export default function NFTDisplay({ bearNftAddress, isConnected }: NFTDisplayPr
               imageUrl = imageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
             }
             
-            metadata[tokenId] = {
-              image: imageUrl,
-              name: data.name || `Bear NFT #${tokenId}`,
-              description: data.description || ''
-            };
+            // Update metadata for this specific token immediately
+            setNftMetadata(prev => ({
+              ...prev,
+              [tokenId]: {
+                image: imageUrl,
+                name: data.name || `Bear NFT #${tokenId}`,
+                description: data.description || ''
+              }
+            }));
           }
-        } catch (err) {
-          console.error(`Error fetching metadata for token ${tokenId}:`, err);
-          // Provide fallback data
-          metadata[tokenId] = {
-            image: '',
-            name: `Bear NFT #${tokenId}`,
-            description: 'Metadata unavailable'
-          };
+        } catch (error) {
+          console.error(`Error fetching metadata for NFT #${tokenId}:`, error);
+          // Still update the metadata with placeholder info
+          setNftMetadata(prev => ({
+            ...prev,
+            [tokenId]: {
+              image: '',
+              name: `Bear NFT #${tokenId}`,
+              description: 'Metadata unavailable'
+            }
+          }));
         }
-      }
+      });
       
-      setNftMetadata(metadata);
-    } catch (err) {
-      console.error('Error fetching NFT metadata:', err);
-    } finally {
+      // Process all promises in parallel but don't wait for all to complete
+      Promise.all(fetchPromises).then(() => {
+        setIsLoadingMetadata(false);
+      }).catch(error => {
+        console.error('Error in metadata batch processing:', error);
+        setIsLoadingMetadata(false);
+      });
+    } catch (error) {
+      console.error('Error fetching NFT metadata:', error);
       setIsLoadingMetadata(false);
     }
   };
@@ -149,7 +189,7 @@ export default function NFTDisplay({ bearNftAddress, isConnected }: NFTDisplayPr
       </CardHeader>
       <CardContent className="p-6">
 
-        {isLoading ? (
+        {isLoading && userNfts.length === 0 ? (
           <div className="flex justify-center items-center py-12">
             <div className="h-10 w-10 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div>
           </div>

@@ -34,10 +34,11 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
   const [baseBtbAmount, setBaseBtbAmount] = useState<string>('0');
   const [feeAmount, setFeeAmount] = useState<string>('0');
   const [estimatedBtb, setEstimatedBtb] = useState<string>('0');
+  const [feePercentage, setFeePercentage] = useState<number>(0.01); // Default to 1% but will be updated from contract
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Fetch user's NFTs
+  // Fetch user's NFTs and contract data
   useEffect(() => {
     const fetchUserNFTs = async () => {
       if (!isConnected || !address) {
@@ -58,31 +59,73 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
           erc721ABI,
           provider
         );
+        
+        // Create NFT swap contract instance to get fee percentage
+        const nftSwapContract = new ethers.Contract(
+          nftSwapAddress,
+          nftswapabi,
+          provider
+        );
+
+        // Get fee percentage from contract
+        const feePercentageBN = await nftSwapContract.feePercentage();
+        // Convert from basis points (e.g., 100 = 1%) to decimal
+        const feePercentageValue = feePercentageBN.toNumber() / 10000;
+        setFeePercentage(feePercentageValue);
 
         // Get user's NFT balance
         const balance = await bearNftContract.balanceOf(address);
         const balanceNumber = balance.toNumber();
 
-        // Get all NFT IDs owned by the user
-        const tokenIds = [];
-        for (let i = 0; i < balanceNumber; i++) {
-          const tokenId = await bearNftContract.tokenOfOwnerByIndex(address, i);
-          tokenIds.push(tokenId.toNumber());
-        }
-
-        setNftIds(tokenIds);
-        
         // Check if NFTs are approved for the swap contract
         const approved = await bearNftContract.isApprovedForAll(address, nftSwapAddress);
         setIsApproved(approved);
 
-        setIsLoading(false);
+        // Get NFT IDs progressively
+        if (balanceNumber > 0) {
+          // Set loading to false once we have the balance
+          setIsLoading(false);
+          
+          // Load NFTs in batches to improve UX
+          const batchSize = 5;
+          for (let i = 0; i < balanceNumber; i += batchSize) {
+            const batchPromises = [];
+            const end = Math.min(i + batchSize, balanceNumber);
+            
+            for (let j = i; j < end; j++) {
+              batchPromises.push(
+                bearNftContract.tokenOfOwnerByIndex(address, j)
+                  .then((tokenId: ethers.BigNumber) => tokenId.toNumber())
+              );
+            }
+            
+            const batchResults = await Promise.all(batchPromises);
+            // Use a Set to ensure uniqueness of NFT IDs
+            setNftIds(prev => {
+              // Create a Set from the existing IDs
+              const uniqueIds = new Set([...prev]);
+              // Add new IDs to the Set
+              batchResults.forEach(id => uniqueIds.add(id));
+              // Convert back to array
+              return Array.from(uniqueIds);
+            });
+            
+            // Small delay to allow UI to update between batches
+            if (i + batchSize < balanceNumber) {
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+          }
+        } else {
+          setIsLoading(false);
+        }
       } catch (error) {
         console.error('Error fetching user NFTs:', error);
         setIsLoading(false);
       }
     };
 
+    // Reset NFT IDs when component mounts or dependencies change
+    setNftIds([]);
     fetchUserNFTs();
   }, [isConnected, address, bearNftAddress, nftSwapAddress]);
 
@@ -93,8 +136,7 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
       const baseAmount = selectedNftIds.length * parseFloat(swapRate);
       setBaseBtbAmount(baseAmount.toFixed(4));
       
-      // Fee calculation (1% fee as per contract)
-      const feePercentage = 0.01; // 1% fee
+      // Fee calculation using the fee percentage from the contract
       const fee = baseAmount * feePercentage;
       setFeeAmount(fee.toFixed(4));
       
@@ -106,7 +148,7 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
       setFeeAmount('0');
       setEstimatedBtb('0');
     }
-  }, [selectedNftIds, swapRate]);
+  }, [selectedNftIds, swapRate, feePercentage]);
 
   const handleApprove = async () => {
     if (!isConnected || !address) return;
@@ -263,28 +305,35 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
           )}
         </div>
         
-        {isLoading ? (
-          <div className="flex justify-center py-4">
-            <div className="h-8 w-8 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div>
+        {isLoading && nftIds.length === 0 ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="h-10 w-10 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div>
           </div>
         ) : nftIds.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4">You don't have any Bear NFTs in your wallet.</p>
         ) : (
-          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-            {nftIds.map(tokenId => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 mb-4 max-h-[300px] overflow-y-auto p-1">
+            {nftIds.map((tokenId) => (
               <div
                 key={tokenId}
-                onClick={(e: React.MouseEvent<HTMLDivElement>) => toggleNftSelection(tokenId, e)}
-                className={`
-                  cursor-pointer rounded p-2 text-center transition-all duration-200
-                  ${selectedNftIds.includes(tokenId) 
-                    ? 'bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700' 
-                    : 'border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'}
-                `}
+                onClick={(e) => toggleNftSelection(tokenId, e)}
+                className={`relative cursor-pointer border-2 rounded-lg overflow-hidden transition-all ${selectedNftIds.includes(tokenId) ? 'border-blue-500 shadow-md' : 'border-gray-200 dark:border-gray-700'}`}
               >
-                <span className="font-medium">{tokenId}</span>
+                <div className="aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <span className="text-lg font-bold text-gray-700 dark:text-gray-300">#{tokenId}</span>
+                </div>
+                {selectedNftIds.includes(tokenId) && (
+                  <div className="absolute top-1 right-1 bg-blue-500 rounded-full p-0.5">
+                    <CheckCircleIcon className="h-4 w-4 text-white" />
+                  </div>
+                )}
               </div>
             ))}
+            {isLoading && (
+              <div className="aspect-square bg-gray-100 dark:bg-gray-800 flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="h-6 w-6 rounded-full border-2 border-t-transparent border-blue-500 animate-spin"></div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -309,7 +358,7 @@ export default function SwapNFTForBTB({ bearNftAddress, nftSwapAddress, swapRate
               <span className="text-sm font-medium">{parseFloat(swapRate).toFixed(3)} BTB per NFT</span>
             </div>
             <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
-              <span className="text-sm text-gray-500 dark:text-gray-400">Fee (1%)</span>
+              <span className="text-sm text-gray-500 dark:text-gray-400">Fee ({(feePercentage * 100).toFixed(2)}%)</span>
               <span className="text-sm font-medium">{feeAmount} BTB</span>
             </div>
             <div className="flex justify-between">

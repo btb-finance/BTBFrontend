@@ -25,6 +25,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
   const [isApproving, setIsApproving] = useState<boolean>(false);
   const [isSwapping, setIsSwapping] = useState<boolean>(false);
   const [btbBalance, setBtbBalance] = useState<string>('0');
+  const [feePercentage, setFeePercentage] = useState<number>(0.01); // Default to 1% but will be updated from contract
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -35,8 +36,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
       const baseAmount = parseFloat(nftAmount) * parseFloat(swapRate);
       setBtbAmount(baseAmount.toFixed(4));
       
-      // Fee calculation (1% fee as per contract)
-      const feePercentage = 0.01; // 1% fee
+      // Fee calculation using the fee percentage from the contract
       const fee = baseAmount * feePercentage;
       setFeeAmount(fee.toFixed(4));
       
@@ -48,11 +48,11 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
       setFeeAmount('0');
       setTotalAmount('0');
     }
-  }, [nftAmount, swapRate]);
+  }, [nftAmount, swapRate, feePercentage]);
 
-  // Check allowance and balance
+  // Fetch fee percentage from contract and check allowance and balance
   useEffect(() => {
-    const checkAllowanceAndBalance = async () => {
+    const fetchContractData = async () => {
       if (!isConnected || !address) return;
 
       try {
@@ -70,26 +70,40 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
           signer
         );
 
+        // Create NFT swap contract instance
+        const nftSwapContract = new ethers.Contract(
+          nftSwapAddress,
+          nftswapabi,
+          signer
+        );
+
+        // Get fee percentage from contract
+        const feePercentageBN = await nftSwapContract.feePercentage();
+        // Convert from basis points (e.g., 100 = 1%) to decimal
+        const feePercentageValue = feePercentageBN.toNumber() / 10000;
+        setFeePercentage(feePercentageValue);
+
         // Check balance
         const balance = await btbContract.balanceOf(address);
         setBtbBalance(ethers.utils.formatEther(balance));
 
         // Check allowance
         const allowance = await btbContract.allowance(address, nftSwapAddress);
+        const requiredAmount = ethers.utils.parseEther(totalAmount || '0');
         
-        // If allowance is greater than 0, set isApproved to true
-        if (allowance.gt(0)) {
+        // Check if allowance is sufficient for the current transaction
+        if (allowance.gte(requiredAmount) && !requiredAmount.isZero()) {
           setIsApproved(true);
         } else {
           setIsApproved(false);
         }
       } catch (error) {
-        console.error('Error checking allowance and balance:', error);
+        console.error('Error fetching contract data:', error);
       }
     };
 
-    checkAllowanceAndBalance();
-  }, [isConnected, address, btbTokenAddress, nftSwapAddress]);
+    fetchContractData();
+  }, [isConnected, address, btbTokenAddress, nftSwapAddress, totalAmount]);
 
   const handleApprove = async () => {
     if (!isConnected || !address) return;
@@ -114,23 +128,21 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
         signer
       );
 
-      // Approve max amount
+      // Calculate the exact amount needed for approval
+      const amountToApprove = ethers.utils.parseEther(totalAmount);
+      
+      // Only approve the exact amount needed
       const tx = await btbContract.approve(
         nftSwapAddress,
-        ethers.constants.MaxUint256
+        amountToApprove
       );
 
-      // Wait for transaction to be mined
       await tx.wait();
-      
       setIsApproved(true);
-      setSuccessMessage('Approval successful!');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
+      setIsApproving(false);
     } catch (error: any) {
+      console.error('Error approving tokens:', error);
+      setError(error.message || 'Failed to approve tokens');
       console.error('Error approving BTB:', error);
       setError(error.message || 'Error approving BTB');
     } finally {
@@ -307,7 +319,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
           readOnly
           className="border-gray-300 dark:border-gray-700 dark:bg-gray-800 h-8 sm:h-10 text-sm"
         />
-        <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Rate: 1 NFT = {parseFloat(swapRate).toFixed(3)} BTB + 1% fee</p>
+        <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">Rate: 1 NFT = {parseFloat(swapRate).toFixed(3)} BTB + {(feePercentage * 100).toFixed(2)}% fee</p>
       </div>
 
       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2 sm:p-3 border border-gray-200 dark:border-gray-700 space-y-2">
@@ -317,7 +329,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
           <span className="text-sm font-medium">{parseFloat(swapRate).toFixed(3)} BTB per NFT</span>
         </div>
         <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
-          <span className="text-sm text-gray-500 dark:text-gray-400">Fee (1%)</span>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Fee ({(feePercentage * 100).toFixed(2)}%)</span>
           <span className="text-sm font-medium">{feeAmount} BTB</span>
         </div>
         <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
