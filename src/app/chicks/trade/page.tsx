@@ -76,35 +76,34 @@ export default function ChicksTradePanel() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isConnected) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         setIsLoading(true);
         
-        // Get price and backing data
+        // Always fetch price and backing data regardless of connection status
         const price = await chicksService.getCurrentPrice();
         const backingValue = await chicksService.getBacking();
         
-        // Get user balances
-        const chicks = await chicksService.getChicksBalance();
-        const usdc = await chicksService.getUsdcBalance();
-        
-        // Get loan information
-        const loan = await chicksService.getUserLoan();
-        const hasActiveLoan = parseFloat(loan.borrowed) > 0;
-        
         setChicksPrice(price);
         setBacking(backingValue);
-        setChicksBalance(chicks);
-        setUsdcBalance(usdc);
-        setHasLoan(hasActiveLoan);
-        setLoanData(loan);
         
         // Fetch market price after getting the price
         await fetchMarketPrice(price);
+        
+        // Only fetch user-specific data if connected
+        if (isConnected) {
+          // Get user balances
+          const chicks = await chicksService.getChicksBalance();
+          const usdc = await chicksService.getUsdcBalance();
+          
+          // Get loan information
+          const loan = await chicksService.getUserLoan();
+          const hasActiveLoan = parseFloat(loan.borrowed) > 0;
+          
+          setChicksBalance(chicks);
+          setUsdcBalance(usdc);
+          setHasLoan(hasActiveLoan);
+          setLoanData(loan);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

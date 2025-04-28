@@ -137,8 +137,9 @@ class ChicksService {
   // Get the current price of CHICKS in USDC
   public async getCurrentPrice(): Promise<string> {
     try {
+      // No need to ensure initialized - use the read-only contract
       const price = await this.contract!.lastPrice();
-      return ethers.utils.formatUnits(price, 6); // USDC has 6 decimals
+      return ethers.utils.formatUnits(price, 6);
     } catch (error) {
       console.error('Error getting current price:', error);
       throw error;
@@ -148,8 +149,9 @@ class ChicksService {
   // Get the total backing of CHICKS in USDC
   public async getBacking(): Promise<string> {
     try {
+      // No need to ensure initialized - use the read-only contract
       const backing = await this.contract!.getBacking();
-      return ethers.utils.formatUnits(backing, 6); // USDC has 6 decimals
+      return ethers.utils.formatUnits(backing, 6);
     } catch (error) {
       console.error('Error getting backing:', error);
       throw error;
