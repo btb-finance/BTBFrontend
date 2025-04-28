@@ -82,26 +82,25 @@ export default function NftSwap() {
   // Fetch contract data
   useEffect(() => {
     const fetchContractData = async () => {
-      if (!isConnected) {
-        setIsLoading(false);
-        return;
-      }
-
       try {
         setIsLoading(true);
-        // Handle provider safely
-        if (!window.ethereum) {
-          console.error('No ethereum provider found');
-          setIsLoading(false);
-          return;
+        
+        // Create provider - use Web3Provider if connected, otherwise use JsonRpcProvider
+        let provider;
+        if (isConnected && window.ethereum) {
+          provider = new ethers.providers.Web3Provider(window.ethereum as any);
+        } else {
+          // Fallback to a public RPC provider for Base network when wallet is not connected
+          provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
         }
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+        
         const nftSwapContract = new ethers.Contract(
           NFT_SWAP_ADDRESS,
           nftswapabi,
           provider
         );
 
+        // Always fetch all contract data regardless of connection status
         // Get swap rate
         const rate = await nftSwapContract.getSwapRate();
         setSwapRate(ethers.utils.formatEther(rate));
