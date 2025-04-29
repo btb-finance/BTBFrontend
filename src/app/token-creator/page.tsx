@@ -90,7 +90,11 @@ export default function TokenCreator() {
     privateKey: string;
     contractAddress: string;
     balances?: Record<number, string>; // Map of chainId to balance
+    isImported?: boolean; // Flag to indicate if the wallet was imported
   } | null>(null);
+  
+  // State for importing private key
+  const [importPrivateKey, setImportPrivateKey] = useState('');
   
   // Address generation options
   const [addressOptions, setAddressOptions] = useState<AddressGenerationOptions>({
@@ -287,52 +291,19 @@ export default function TokenCreator() {
   const checkBalance = async (address: string, chainId: number) => {
     try {
       const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
-      if (!chain || !chain.rpcUrl) return '0';
-      
-      // Instead of directly accessing RPC endpoints which can cause CORS issues,
-      // use the connected wallet's provider when possible
-      if (window.ethereum) {
-        try {
-          // Use the connected wallet's provider
-          const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-          
-          // Check if we need to switch networks
-          const network = await provider.getNetwork();
-          if (network.chainId !== chainId) {
-            // Don't try to switch networks automatically during balance check
-            // Just use the default provider for this chain
-          } else {
-            // We're on the right network, use the wallet's provider
-            const balance = await provider.getBalance(address);
-            return ethers.utils.formatEther(balance);
-          }
-        } catch (walletError) {
-          console.warn('Error using wallet provider:', walletError);
-          // Fall back to other methods
-        }
+      if (!chain || !chain.rpcUrl) {
+        console.warn(`No RPC URL found for chain ID ${chainId}`);
+        return '0.00';
       }
       
-      // If we can't use the wallet's provider, try to use ethers.js default providers
-      // which have built-in fallbacks and handle CORS issues better
+      // Use direct RPC URL from the chain configuration to avoid CORS and provider issues
       try {
-        let provider;
-        
-        // Use ethers.js built-in providers which handle CORS better
-        if (chainId === 1) { // Ethereum Mainnet
-          provider = ethers.getDefaultProvider('mainnet', {
-            infura: 'your-infura-key', // Optional: add your own API keys
-            alchemy: 'your-alchemy-key',
-          });
-        } else if (chainId === 11155111) { // Sepolia
-          provider = ethers.getDefaultProvider('sepolia');
-        } else {
-          // For other networks, try a JsonRpcProvider with a timeout
-          provider = new ethers.providers.JsonRpcProvider(chain.rpcUrl);
-        }
+        // Create a provider using the chain's RPC URL directly
+        const provider = new ethers.providers.JsonRpcProvider(chain.rpcUrl);
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<string>((_, reject) => {
-          setTimeout(() => reject(new Error(`Balance check timeout for ${chain.name}`)), 15000);
+          setTimeout(() => reject(new Error(`Balance check timeout for ${chain.name}`)), 10000);
         });
         
         // Race between actual balance check and timeout
@@ -344,11 +315,27 @@ export default function TokenCreator() {
       } catch (providerError) {
         console.warn(`Provider error for ${chain.name}:`, providerError);
         
-        // As a last resort, for testnets like Sepolia, we can use a public API
-        // that doesn't have CORS issues
+        // If direct RPC fails, try using the wallet's provider as fallback
+        if (window.ethereum) {
+          try {
+            // Use the connected wallet's provider
+            const ethereumProvider = window.ethereum as any;
+            const provider = new ethers.providers.Web3Provider(ethereumProvider);
+            
+            // Check if we're on the right network
+            const network = await provider.getNetwork();
+            if (network.chainId === chainId) {
+              const balance = await provider.getBalance(address);
+              return ethers.utils.formatEther(balance);
+            }
+          } catch (walletError) {
+            console.warn('Error using wallet provider:', walletError);
+          }
+        }
+        
+        // As a last resort for testnets, try a public API
         if (chainId === 11155111) { // Sepolia
           try {
-            // Use Etherscan API which doesn't have CORS issues
             const response = await fetch(`https://api-sepolia.etherscan.io/api?module=account&action=balance&address=${address}&tag=latest`);
             const data = await response.json();
             if (data.status === '1') {
@@ -443,14 +430,30 @@ export default function TokenCreator() {
         removeListener: (event: string, callback: (...args: any[]) => void) => void;
       };
 
-      // Create a provider for the selected chain
-      const provider = new ethers.providers.Web3Provider(ethereumProvider as any);
-      await provider.send('eth_requestAccounts', []);
+      // Get the selected chain for RPC URL
+      const mainChain = SUPPORTED_CHAINS.find(c => c.id === tokenDetails.mainChainId);
+      if (!mainChain) {
+        toast.error('Invalid main chain selected');
+        setIsLoading(false);
+        return;
+      }
+
+      // Create a provider using the RPC URL directly to avoid CORS issues
+      const provider = new ethers.providers.JsonRpcProvider(mainChain.rpcUrl);
       
-      // Create a wallet from the generated private key
-      // First try to use the provider directly to avoid CORS issues
-      const wallet = new ethers.Wallet(generatedWallet.privateKey);
-      const connectedWallet = wallet.connect(provider);
+      // Request accounts from MetaMask
+      await ethereumProvider.request({ method: 'eth_requestAccounts' });
+      
+      // Create a wallet from the generated private key and connect it to the provider
+      // This is critical - the wallet must be connected to a provider to send transactions
+      const wallet = new ethers.Wallet(generatedWallet.privateKey, provider);
+      
+      // Verify the wallet has a provider
+      if (!wallet.provider) {
+        toast.error('Failed to connect wallet to provider');
+        setIsLoading(false);
+        return;
+      }
       
       // Validate that at least one chain is selected
       if (tokenDetails.chainIds.length === 0) {
@@ -459,9 +462,8 @@ export default function TokenCreator() {
         return;
       }
       
-      // Get the main chain for deployment
-      const selectedMainChain = SUPPORTED_CHAINS.find(c => c.id === tokenDetails.mainChainId);
-      if (!selectedMainChain) {
+      // We already have the main chain from earlier
+      if (!mainChain) {
         toast.error('Invalid main chain selected');
         setIsLoading(false);
         return;
@@ -478,7 +480,7 @@ export default function TokenCreator() {
         
         toast.error(
           <div className="space-y-2">
-            <p>The generated address has no funds. Please send some {selectedMainChain.symbol} to deploy on {selectedMainChain.name}.</p>
+            <p>The generated address has no funds. Please send some {mainChain.symbol} to deploy on {mainChain.name}.</p>
             <div className="font-mono text-sm bg-gray-100 dark:bg-gray-800 p-2 rounded break-all">
               {wallet.address}
             </div>
@@ -512,9 +514,8 @@ export default function TokenCreator() {
         return;
       }
       
-      // Get the chain ID from the provider
-      const network = await provider.getNetwork();
-      const currentChainId = network.chainId;
+      // Use the selected chain ID directly since we're using JsonRpcProvider
+      const currentChainId = tokenDetails.mainChainId;
       
       // Check if we're on the correct chain for the main deployment
       if (currentChainId !== tokenDetails.mainChainId) {
@@ -582,8 +583,8 @@ export default function TokenCreator() {
         }
       }
       
-      // Get the main chain for deployment
-      const mainChain = SUPPORTED_CHAINS.find(c => c.id === tokenDetails.mainChainId);
+      // We already have the main chain from earlier, so no need to find it again
+      // Just double-check it's still valid
       if (!mainChain) {
         toast.error('Selected main chain not supported');
         setIsLoading(false);
@@ -626,7 +627,7 @@ export default function TokenCreator() {
         const factory = new ethers.ContractFactory(
           contractJson.abi,
           contractJson.bytecode,
-          wallet
+          wallet // Use the wallet that's already connected to a provider
         );
         toast.info('Contract factory created successfully');
 
@@ -1036,6 +1037,76 @@ export default function TokenCreator() {
                         </div>
                       </div>
                     )}
+                    
+                    {/* Import Private Key Section */}
+                    <div className="border-t border-gray-200 dark:border-gray-700 mt-6 pt-6">
+                      <h3 className="text-lg font-medium mb-4">Or Import Existing Private Key</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="privateKey">Private Key</Label>
+                          <div className="flex space-x-2">
+                            <Input
+                              id="privateKey"
+                              type="password"
+                              placeholder="Enter your private key"
+                              value={importPrivateKey}
+                              onChange={(e) => setImportPrivateKey(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button 
+                              onClick={() => {
+                                if (!importPrivateKey || !importPrivateKey.trim()) {
+                                  toast.error('Please enter a valid private key');
+                                  return;
+                                }
+                                
+                                try {
+                                  // Validate and create wallet from private key
+                                  let privateKeyWithPrefix = importPrivateKey;
+                                  if (!privateKeyWithPrefix.startsWith('0x')) {
+                                    privateKeyWithPrefix = '0x' + privateKeyWithPrefix;
+                                  }
+                                  
+                                  const wallet = new ethers.Wallet(privateKeyWithPrefix);
+                                  const nonce = 0; // First transaction nonce
+                                  const contractAddress = ethers.utils.getContractAddress({
+                                    from: wallet.address,
+                                    nonce: nonce
+                                  });
+                                  
+                                  // Set the imported wallet
+                                  setGeneratedWallet({
+                                    address: wallet.address,
+                                    privateKey: wallet.privateKey,
+                                    contractAddress: ethers.utils.getAddress(contractAddress),
+                                    isImported: true
+                                  });
+                                  
+                                  // Move to the token tab
+                                  setActiveTab('token');
+                                  
+                                  // Show success message
+                                  toast.success('Private key imported successfully!');
+                                  
+                                  // Clear the input
+                                  setImportPrivateKey('');
+                                } catch (error) {
+                                  console.error('Error importing private key:', error);
+                                  toast.error('Invalid private key: ' + (error as Error).message);
+                                }
+                              }}
+                              variant="outline"
+                              disabled={isGenerating}
+                            >
+                              Import
+                            </Button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Your private key will never leave your browser. It's used only to generate the contract address.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                     
                     <div className="pt-4">
                       <Button 
