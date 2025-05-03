@@ -58,7 +58,7 @@ export default function Navbar() {
       children: [
         { name: 'CHICKS', href: '/chicks' },
         { name: 'Sheep Ecosystem', href: '/sheep-ecosystem' },
-        { name: 'Megapot Lottery', href: '/contracts/megapot' },
+        { name: 'Megapot Lottery', href: '/megapot' },
       ]
     },
     {
