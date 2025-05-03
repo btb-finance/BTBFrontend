@@ -1,6 +1,6 @@
 import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
 import { ethers } from 'ethers';
-import subscriptionJackpotABI from '../../src/app/contracts/megapot/subscriptionjackpotabi.json';
+import subscriptionJackpotABI from '../../src/app/megapot/subscriptionjackpotabi.json';
 
 // Contract address on Base mainnet
 const SUBSCRIPTION_JACKPOT_ADDRESS = '0x92C1fce71847cd68a794A3377741b372F392b25a';
