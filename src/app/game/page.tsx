@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
@@ -14,188 +14,233 @@ import {
 } from '@heroicons/react/24/outline';
 
 export default function GamePage() {
-  const [activeTab, setActiveTab] = useState('overview');
-
+  const [showMobileNav, setShowMobileNav] = React.useState(false);
   return (
     <div className="relative isolate">
+      {/* Progress Bar (Mobile Only) */}
+      <div className="fixed top-0 left-0 w-full h-1 bg-gray-200 dark:bg-gray-800 z-50 md:hidden">
+        <div className="h-full bg-gradient-to-r from-btb-primary to-blue-500 w-0" 
+             style={{width: "var(--scroll-percent, 0%)"}}
+             id="progressBar"></div>
+      </div>
+      <script dangerouslySetInnerHTML={{
+        __html: `
+          document.addEventListener('DOMContentLoaded', function() {
+            window.addEventListener('scroll', function() {
+              const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+              const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+              const scrolled = (winScroll / height) * 100;
+              document.documentElement.style.setProperty('--scroll-percent', scrolled + '%');
+            });
+          });
+        `
+      }} />
       {/* Hero section */}
-      <div className="relative min-h-[50vh] flex flex-col justify-center overflow-hidden">
-        {/* Fun dotted background pattern */}
+      <div className="relative min-h-[60vh] flex flex-col justify-center overflow-hidden">
+        {/* Modern background with mesh gradient */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-cyan-400 to-blue-500 dark:from-purple-900 dark:via-cyan-800 dark:to-blue-900"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 dark:from-blue-900 dark:via-indigo-950 dark:to-purple-950"></div>
+          
+          {/* Subtle mesh pattern */}
+          <div className="absolute inset-0 opacity-20">
+            <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="white" strokeWidth="0.5" />
+                </pattern>
+                <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+                  <rect width="80" height="80" fill="url(#smallGrid)" />
+                  <path d="M 80 0 L 0 0 0 80" fill="none" stroke="white" strokeWidth="1" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+          </div>
+          
+          {/* Floating particles */}
           <div className="absolute inset-0">
-            {[...Array(100)].map((_, i) => (
+            {[...Array(40)].map((_, i) => (
               <motion.div 
                 key={i}
-                className="absolute rounded-full bg-btb-primary-light/30 dark:bg-btb-primary-light/20"
+                className="absolute rounded-full bg-white/40"
                 style={{
-                  width: Math.random() * 10 + 3 + 'px',
-                  height: Math.random() * 10 + 3 + 'px',
+                  width: Math.random() * 6 + 2 + 'px',
+                  height: Math.random() * 6 + 2 + 'px',
                   left: Math.random() * 100 + '%',
                   top: Math.random() * 100 + '%',
                 }}
                 animate={{
-                  scale: [1, 1.5, 1],
+                  y: [0, Math.random() * -30 - 10, 0],
                   opacity: [0.3, 0.8, 0.3],
                 }}
                 transition={{
-                  duration: Math.random() * 5 + 3,
+                  duration: Math.random() * 3 + 2,
                   repeat: Infinity,
-                  delay: Math.random() * 5,
+                  ease: "easeInOut",
                 }}
               />
             ))}
           </div>
         </div>
         
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-16 md:py-20 flex flex-col justify-center">
+        {/* Content */}
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 flex flex-col justify-center relative z-10">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
             className="text-center"
           >
-            <h1 className="text-4xl sm:text-5xl font-bold mb-6 relative">
-              <span className="relative inline-block">
-                <span className="absolute left-0 top-0 w-full h-full flex flex-wrap justify-center items-center opacity-30">
-                  {[...Array(30)].map((_, i) => (
-                    <motion.span 
-                      key={i}
-                      className="inline-block rounded-full bg-btb-primary w-1.5 h-1.5 mx-[2px] my-[4px]"
-                      animate={{
-                        opacity: [0.5, 1, 0.5],
-                        scale: [1, 1.2, 1],
-                      }}
-                      transition={{
-                        duration: 2.5,
-                        repeat: Infinity,
-                        delay: i * 0.05,
-                      }}
-                    />
-                  ))}
-                </span>
-                <span className="relative text-white dark:text-white font-bold drop-shadow-md">
-                  MiMo Game
-                </span>
-              </span>
-            </h1>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-              className="mb-2"
-            >
-              <span className="text-lg font-bold tracking-widest relative text-white dark:text-white bg-btb-primary/80 px-3 py-1 rounded-md shadow-md">
-                <span className="absolute top-0 left-0 right-0 flex justify-between px-1.5">
-                  {[...Array(12)].map((_, i) => (
-                    <motion.span 
-                      key={i}
-                      className="inline-block h-[2px] w-[2px] rounded-full bg-white"
-                      animate={{
-                        opacity: [0.3, 0.8, 0.3],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        delay: i * 0.1,
-                      }}
-                    />
-                  ))}
-                </span>
-                PLAY TO EARN
-              </span>
-            </motion.div>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.7, delay: 1.2 }}
-              className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-100 max-w-3xl mx-auto mb-4 sm:mb-6 tracking-wide bg-white/70 dark:bg-gray-800/70 px-4 py-2 rounded-lg shadow-sm"
-            >
-              Hunt, earn, and build your digital ecosystem with MiMo - 
-              where strategy meets reward in an engaging blockchain experience
-            </motion.p>
-            
-            {/* Coming Soon Banner */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 1.5 }}
-              className="max-w-3xl mx-auto mb-6 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700/50 rounded-lg shadow-sm px-4 py-3"
-            >
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
-                  Coming Soon! The MiMo game is not live yet. All examples and calculations below are initial information to help you understand how the game will work.
-                </p>
+            {/* Game Logo Container */}
+            <div className="mb-8 inline-block">
+              <div className="relative h-24 w-24 sm:h-32 sm:w-32 mx-auto bg-white rounded-full shadow-xl flex items-center justify-center border-4 border-btb-primary">
+                <span className="text-4xl sm:text-5xl">🎮</span>
+                <motion.div 
+                  className="absolute -inset-2 rounded-full border-2 border-white/50"
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    opacity: [1, 0.5, 1]
+                  }}
+                  transition={{
+                    duration: 3,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                ></motion.div>
               </div>
-            </motion.div>
+            </div>
+            
+            {/* Title and Subtitle */}
+            <div className="bg-black/30 backdrop-blur-md rounded-xl p-6 sm:p-8 shadow-xl max-w-3xl mx-auto border border-white/10">
+              <h1 className="text-4xl sm:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
+                MiMo Game
+              </h1>
+              
+              <div className="mb-4 relative">
+                <span className="relative text-xl sm:text-2xl font-bold tracking-widest text-white px-4 py-1">
+                  <span className="absolute inset-0 bg-btb-primary/80 rounded-md backdrop-blur-sm -skew-x-6"></span>
+                  <span className="relative">PLAY TO EARN</span>
+                </span>
+              </div>
+              
+              <p className="text-lg sm:text-xl font-medium text-white mx-auto mb-6 tracking-wide leading-relaxed">
+                Hunt, earn, and build your digital ecosystem with MiMo — 
+                where strategy meets reward in an engaging blockchain experience
+              </p>
+              
+              {/* Coming Soon Banner */}
+              <div className="max-w-3xl mx-auto mt-6 bg-yellow-500/90 border border-yellow-600 rounded-lg shadow-md px-4 py-3">
+                <div className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-yellow-900 mr-3 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-sm sm:text-base font-bold text-yellow-900">
+                    Coming Soon! The MiMo game is not live yet. Examples below help you understand how the game will work.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="mt-8 flex flex-wrap gap-4 justify-center">
+              <motion.a
+                href="#overview"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-6 py-3 bg-white text-blue-700 font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center"
+              >
+                Explore Features
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </motion.a>
+              <motion.a
+                href="#play-to-earn"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-6 py-3 bg-transparent text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-white/70 hover:bg-white/10"
+              >
+                Learn More
+              </motion.a>
+            </div>
           </motion.div>
+        </div>
+        
+        {/* Decorative Bottom Wave */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320" className="w-full">
+            <path fill="#ffffff" fillOpacity="1" d="M0,224L80,213.3C160,203,320,181,480,186.7C640,192,800,224,960,229.3C1120,235,1280,213,1360,202.7L1440,192L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z" className="dark:fill-gray-900"></path>
+          </svg>
         </div>
       </div>
 
-      {/* Tab navigation */}
-      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm py-4 sm:py-6 border-y border-btb-primary/10">
-        <div className="container mx-auto px-3 sm:px-4">
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-5">
-            {[
-              { id: 'overview', label: 'OVERVIEW', fullLabel: 'GAME OVERVIEW' },
-              { id: 'play-to-earn', label: 'EARN', fullLabel: 'PLAY TO EARN' },
-              { id: 'protection', label: 'PROTECT', fullLabel: 'PROTECTION' },
-              { id: 'mechanics', label: 'MECHANICS', fullLabel: 'GAME MECHANICS' }
-            ].map((tab) => (
-              <motion.button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-3 sm:px-5 py-2 sm:py-2.5 rounded-full font-bold transition-all duration-300 text-xs sm:text-sm ${
-                  activeTab === tab.id 
-                    ? 'bg-gradient-to-r from-btb-primary-dark to-btb-primary text-white shadow-md' 
-                    : 'bg-white/90 dark:bg-gray-800/90 text-gray-800 dark:text-white hover:bg-white dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 shadow-sm'
-                }`}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div className="relative tracking-wide">
-                  {activeTab === tab.id && (
-                    <div className="absolute -top-1 left-0 right-0 flex justify-between px-1.5">
-                      {[...Array(Math.ceil(tab.label.length/2))].map((_, i) => (
-                        <motion.span 
-                          key={i}
-                          className="inline-block h-[2px] w-[2px] rounded-full bg-white"
-                          animate={{
-                            opacity: [0.3, 0.8, 0.3],
-                          }}
-                          transition={{
-                            duration: 1.5,
-                            repeat: Infinity,
-                            delay: i * 0.1,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  <span className="block sm:hidden">{tab.label}</span>
-                  <span className="hidden sm:block">{tab.fullLabel}</span>
-                </div>
-              </motion.button>
-            ))}
+      {/* Quick Navigation */}
+      <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-md py-3 border-b border-gray-200 dark:border-gray-700">
+        <div className="container mx-auto px-2 sm:px-4">
+          <div className="grid grid-cols-4 gap-1 sm:gap-2">
+            <a href="#overview" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
+              <GlobeAltIcon className="h-4 w-4 sm:mr-1" />
+              <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Overview</span>
+            </a>
+            <a href="#play-to-earn" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
+              <CurrencyDollarIcon className="h-4 w-4 sm:mr-1" />
+              <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Earn</span>
+            </a>
+            <a href="#protection" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
+              <ShieldCheckIcon className="h-4 w-4 sm:mr-1" />
+              <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Protect</span>
+            </a>
+            <a href="#mechanics" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
+              <SparklesIcon className="h-4 w-4 sm:mr-1" />
+              <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Mechanics</span>
+            </a>
           </div>
         </div>
       </div>
 
       {/* Content Sections */}
       <div className="container mx-auto px-4 py-8">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <motion.div 
+        {/* Section indicators */}
+        <div className="hidden md:block fixed right-6 top-1/2 transform -translate-y-1/2 z-10">
+          <div className="flex flex-col space-y-4">
+            <a href="#overview" className="group flex items-center">
+              <div className="w-2 h-2 rounded-full bg-btb-primary/50 group-hover:bg-btb-primary group-hover:scale-150 transition-all duration-300 mr-2"></div>
+              <span className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 bg-gray-800/80 text-white px-2 py-1 rounded">Overview</span>
+            </a>
+            <a href="#play-to-earn" className="group flex items-center">
+              <div className="w-2 h-2 rounded-full bg-btb-primary/50 group-hover:bg-btb-primary group-hover:scale-150 transition-all duration-300 mr-2"></div>
+              <span className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 bg-gray-800/80 text-white px-2 py-1 rounded">Earn</span>
+            </a>
+            <a href="#protection" className="group flex items-center">
+              <div className="w-2 h-2 rounded-full bg-btb-primary/50 group-hover:bg-btb-primary group-hover:scale-150 transition-all duration-300 mr-2"></div>
+              <span className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 bg-gray-800/80 text-white px-2 py-1 rounded">Protection</span>
+            </a>
+            <a href="#mechanics" className="group flex items-center">
+              <div className="w-2 h-2 rounded-full bg-btb-primary/50 group-hover:bg-btb-primary group-hover:scale-150 transition-all duration-300 mr-2"></div>
+              <span className="text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 bg-gray-800/80 text-white px-2 py-1 rounded">Mechanics</span>
+            </a>
+          </div>
+        </div>
+        
+        <div className="space-y-16">
+          {/* GAME OVERVIEW SECTION */}
+          <motion.div
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-8"
+            className="space-y-8 scroll-mt-16"
+            id="overview"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 border border-gray-100 dark:border-gray-700">
-              <h2 className="text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">How MiMo Game Works</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-btb-primary to-blue-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
+                  <GlobeAltIcon className="h-10 w-10 text-white" />
+                </div>
+                <div className="h-8"></div> {/* Spacer */}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                Game Overview
+              </h2>
               
               <div className="mb-8">
                 <div className="flex flex-col md:flex-row items-center justify-center bg-btb-primary/10 dark:bg-btb-primary/20 p-4 rounded-lg mb-6">
@@ -297,36 +342,27 @@ export default function GamePage() {
                   </div>
                 </div>
               </div>
-              
-              <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-xl font-bold mb-4 text-center">Getting Started Is Easy</h3>
-                <div className="flex justify-center">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-btb-primary text-white px-6 py-3 rounded-lg font-bold tracking-wide flex items-center shadow-md"
-                  >
-                    Start Your MiMo Adventure
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </motion.button>
-                </div>
-              </div>
             </div>
           </motion.div>
-        )}
 
-        {/* Play-to-Earn Tab */}
-        {activeTab === 'play-to-earn' && (
+          {/* PLAY TO EARN SECTION */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-8"
+            className="space-y-8 scroll-mt-16"
+            id="play-to-earn"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 border border-gray-100 dark:border-gray-700">
-              <h2 className="text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">Earn While You Play</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-green-500 to-btb-primary rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
+                  <CurrencyDollarIcon className="h-10 w-10 text-white" />
+                </div>
+                <div className="h-8"></div> {/* Spacer */}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                Play to Earn
+              </h2>
               
               <div className="mb-8">
                 <div className="flex flex-col md:flex-row items-center justify-center bg-btb-primary/10 dark:bg-btb-primary/20 p-6 rounded-lg">
@@ -500,267 +536,30 @@ export default function GamePage() {
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-                      <h4 className="font-bold mb-2">Earnings Potential</h4>
-                      
-                      <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-lg mb-3 border-l-4 border-green-500">
-                        <div className="flex items-start">
-                          <span className="font-bold text-green-600 dark:text-green-400 text-xl mr-2">1,000,000+</span>
-                          <div>
-                            <p className="font-bold">MiMo Tokens on Day One</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Initial allocation when creating a Hunter</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-3">
-                        <p className="font-medium mb-2">Daily Hunt Power Growth:</p>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">Starting Power:</span>
-                            <span className="font-bold text-btb-primary">10 MiMo per day</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">After 30 days:</span>
-                            <span className="font-bold text-btb-primary">~18 MiMo per day</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">After 90 days:</span>
-                            <span className="font-bold text-btb-primary">~60 MiMo per day</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">After 180 days:</span>
-                            <span className="font-bold text-btb-primary">~360 MiMo per day</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <p className="font-medium mb-1">Additional Earning Opportunities:</p>
-                        <ul className="space-y-1 text-sm">
-                          <li className="flex items-center">
-                            <span className="text-green-500 mr-1">✓</span>
-                            <span>Trading fees from liquidity provision</span>
-                          </li>
-                          <li className="flex items-center">
-                            <span className="text-green-500 mr-1">✓</span>
-                            <span>Selling high-power Hunters on marketplace</span>
-                          </li>
-                          <li className="flex items-center">
-                            <span className="text-green-500 mr-1">✓</span>
-                            <span>Redemption of BEAR NFTs (1M+ MiMo per NFT)</span>
-                          </li>
-                        </ul>
-                      </div>
-                      
-                      <div className="mt-3 text-xs text-gray-500 italic">
-                        *Daily growth requires consistent feeding to maintain power increases
-                      </div>
-                    </div>
                   </div>
-                  
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-5 rounded-lg border-l-4 border-yellow-500">
-                    <h4 className="font-bold flex items-center">
-                      <span className="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm mr-2">⚠️</span>
-                      Important Reminder
-                    </h4>
-                    <p className="mt-2 text-gray-700 dark:text-gray-300">
-                      Remember to <span className="font-bold">feed your Hunter daily</span> and <span className="font-bold">protect your MiMo tokens</span> by providing liquidity on Aerodrome to maximize your earnings potential.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-xl font-bold mb-6 text-center text-btb-primary dark:text-btb-primary-light">Game Examples & Strategies</h3>
-                
-                <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-4 sm:p-6 border border-purple-100 dark:border-purple-800/30 shadow-md mb-8">
-                  <h4 className="text-lg font-bold mb-4 text-center">A Day in the MiMo Game</h4>
-                  
-                  {/* Caption with disclaimer */}
-                  <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-lg border border-blue-100 dark:border-blue-800/30 text-center">
-                    <p className="text-xs text-blue-800 dark:text-blue-200">
-                      <span className="font-semibold">Note:</span> These are example player profiles to help illustrate possible gameplay strategies
-                    </p>
-                  </div>
-                  
-                  {/* Player cards - scrollable on mobile */}
-                  <div className="flex overflow-x-auto pb-2 gap-4 md:grid md:grid-cols-3 md:gap-6 snap-x">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm relative overflow-hidden min-w-[280px] flex-shrink-0 snap-center md:min-w-0">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                          <span className="text-lg sm:text-xl">🧙‍♂️</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-bold text-sm sm:text-base">Player: Alice</h5>
-                          <p className="text-xs text-gray-500 mb-2">60-day-old Hunter</p>
-                          
-                          <div className="space-y-1 mt-2 sm:mt-3">
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Hunter Power:</span>
-                              <span className="font-semibold">32.8 MiMo/day</span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Today's Hunt:</span>
-                              <span className="font-semibold text-green-600">+16.4 MiMo</span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>LP Rewards:</span>
-                              <span className="font-semibold text-purple-600">+2.5 MiMo</span>
-                            </div>
-                            <div className="h-px w-full bg-gray-200 dark:bg-gray-700 my-1"></div>
-                            <div className="flex justify-between text-xs sm:text-sm font-medium">
-                              <span>Total MiMo:</span>
-                              <span className="text-btb-primary">1,242,819 MiMo</span>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-2 sm:mt-3 text-xs bg-green-50 dark:bg-green-900/20 p-2 rounded text-green-700 dark:text-green-300">
-                            Alice provides liquidity with MiMo/USDC for protection
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm relative overflow-hidden min-w-[280px] flex-shrink-0 snap-center md:min-w-0">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                          <span className="text-lg sm:text-xl">🛡️</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-bold text-sm sm:text-base">Player: Bob</h5>
-                          <p className="text-xs text-gray-500 mb-2">120-day-old Hunter</p>
-                          
-                          <div className="space-y-1 mt-2 sm:mt-3">
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Hunter Power:</span>
-                              <span className="font-semibold">108.2 MiMo/day</span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Today's Hunt:</span>
-                              <span className="font-semibold text-green-600">+54.1 MiMo</span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Marketplace Sale:</span>
-                              <span className="font-semibold text-blue-600">+50,000 MiMo</span>
-                            </div>
-                            <div className="h-px w-full bg-gray-200 dark:bg-gray-700 my-1"></div>
-                            <div className="flex justify-between text-xs sm:text-sm font-medium">
-                              <span>Total MiMo:</span>
-                              <span className="text-btb-primary">1,389,472 MiMo</span>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-2 sm:mt-3 text-xs bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-blue-700 dark:text-blue-300">
-                            Bob sold a second Hunter NFT on the marketplace
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm relative overflow-hidden min-w-[280px] flex-shrink-0 snap-center md:min-w-0">
-                      <div className="absolute top-0 left-0 w-full h-1 bg-purple-500"></div>
-                      <div className="flex items-start">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                          <span className="text-lg sm:text-xl">🌟</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-bold text-sm sm:text-base">Player: Charlie</h5>
-                          <p className="text-xs text-gray-500 mb-2">180-day-old Hunter</p>
-                          
-                          <div className="space-y-1 mt-2 sm:mt-3">
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Hunter Power:</span>
-                              <span className="font-semibold">362.1 MiMo/day</span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Today's Hunt:</span>
-                              <span className="font-semibold text-green-600">+181.0 MiMo</span>
-                            </div>
-                            <div className="flex justify-between text-xs sm:text-sm">
-                              <span>Redeemed BEAR NFT:</span>
-                              <span className="font-semibold text-purple-600">-1,100,000 MiMo</span>
-                            </div>
-                            <div className="h-px w-full bg-gray-200 dark:bg-gray-700 my-1"></div>
-                            <div className="flex justify-between text-xs sm:text-sm font-medium">
-                              <span>Total MiMo:</span>
-                              <span className="text-btb-primary">456,902 MiMo</span>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-2 sm:mt-3 text-xs bg-purple-50 dark:bg-purple-900/20 p-2 rounded text-purple-700 dark:text-purple-300">
-                            Charlie redeemed MiMo for a BEAR NFT
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Mobile scroll indicator */}
-                  <div className="flex justify-center mt-2 mb-4 md:hidden">
-                    <div className="space-x-1">
-                      {[0, 1, 2].map((index) => (
-                        <span key={index} className="inline-block h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 sm:mt-6 bg-white/50 dark:bg-gray-800/50 p-3 sm:p-4 rounded-lg">
-                    <div className="flex items-start">
-                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center flex-shrink-0 mr-2 sm:mr-3">
-                        <span className="text-yellow-600">💡</span>
-                      </div>
-                      <div>
-                        <h5 className="font-bold mb-1 text-sm sm:text-base">Game Strategy Insights:</h5>
-                        <ul className="space-y-1 text-xs sm:text-sm">
-                          <li className="flex items-start">
-                            <span className="text-green-500 mr-1">•</span>
-                            <span><span className="font-medium">Alice</span> is building steady growth while protected by LP position</span>
-                          </li>
-                          <li className="flex items-start">
-                            <span className="text-green-500 mr-1">•</span>
-                            <span><span className="font-medium">Bob</span> strategically sold a high-power Hunter to another player for profit</span>
-                          </li>
-                          <li className="flex items-start">
-                            <span className="text-green-500 mr-1">•</span>
-                            <span><span className="font-medium">Charlie</span> completed the ecosystem cycle by redeeming MiMo for a BEAR NFT</span>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-center">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bg-btb-primary text-white px-6 py-3 rounded-lg font-bold tracking-wide flex items-center shadow-md"
-                  >
-                    Launch Game
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </motion.button>
                 </div>
               </div>
             </div>
           </motion.div>
-        )}
 
-        {/* Protection Tab */}
-        {activeTab === 'protection' && (
+          {/* PROTECTION SECTION */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-8"
+            className="space-y-8 scroll-mt-16"
+            id="protection"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 border border-gray-100 dark:border-gray-700">
-              <h2 className="text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">Shield Your MiMo Assets</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
+                  <ShieldCheckIcon className="h-10 w-10 text-white" />
+                </div>
+                <div className="h-8"></div> {/* Spacer */}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                Protection
+              </h2>
               
               <div className="mb-8">
                 <div className="flex flex-col md:flex-row items-center justify-center bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border-l-4 border-yellow-500">
@@ -814,71 +613,6 @@ export default function GamePage() {
                         </li>
                       </ul>
                     </div>
-                    
-                    <div className="bg-green-500/10 rounded-lg p-4 mb-6">
-                      <h4 className="text-lg font-bold mb-2 text-green-700 dark:text-green-300">Benefits of Protection</h4>
-                      <ul className="space-y-2">
-                        <li className="flex items-start">
-                          <span className="text-green-500 mr-2 mt-1">✓</span>
-                          <span>Your MiMo tokens <span className="font-bold">cannot be hunted</span> by other players</span>
-                        </li>
-                        <li className="flex items-start">
-                          <span className="text-green-500 mr-2 mt-1">✓</span>
-                          <span>Earn <span className="font-bold">trading fees</span> from your liquidity position</span>
-                        </li>
-                        <li className="flex items-start">
-                          <span className="text-green-500 mr-2 mt-1">✓</span>
-                          <span><span className="font-bold">Permanent protection</span> as long as you maintain your LP position</span>
-                        </li>
-                        <li className="flex items-start">
-                          <span className="text-green-500 mr-2 mt-1">✓</span>
-                          <span>Help create a <span className="font-bold">stable ecosystem</span> for all players</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-yellow-500/10 rounded-lg p-6">
-                    <h4 className="text-lg font-bold mb-3">Step-by-Step Protection Guide</h4>
-                    <ol className="space-y-4">
-                      <li className="flex items-start">
-                        <div className="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5 flex-shrink-0">1</div>
-                        <div>
-                          <p className="font-bold">Visit Aerodrome Exchange</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Go to the Aerodrome DEX to provide liquidity</p>
-                        </div>
-                      </li>
-                      <li className="flex items-start">
-                        <div className="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5 flex-shrink-0">2</div>
-                        <div>
-                          <p className="font-bold">Connect Your Wallet</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Make sure it contains the MiMo tokens you want to protect</p>
-                        </div>
-                      </li>
-                      <li className="flex items-start">
-                        <div className="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5 flex-shrink-0">3</div>
-                        <div>
-                          <p className="font-bold">Add Liquidity to a MiMo Pair</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Choose one of the approved pairs (USDC, cbBTC, or WETH)</p>
-                        </div>
-                      </li>
-                      <li className="flex items-start">
-                        <div className="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3 mt-0.5 flex-shrink-0">4</div>
-                        <div>
-                          <p className="font-bold">Maintain Your Position</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Keep your LP position to retain protection status</p>
-                        </div>
-                      </li>
-                    </ol>
-                    <div className="mt-6 flex justify-center">
-                      <Link 
-                        href="https://aerodrome.finance/" 
-                        target="_blank" 
-                        className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg font-bold hover:shadow-lg transition-all duration-300"
-                      >
-                        Visit Aerodrome Exchange <ArrowRightIcon className="h-4 w-4 ml-2" />
-                      </Link>
-                    </div>
                   </div>
                 </div>
                 
@@ -908,627 +642,226 @@ export default function GamePage() {
                           Hunter attempts to hunt, the contract checks if the target address is protected.
                         </p>
                       </div>
-                      
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                        <h4 className="font-bold mb-2 flex items-center">
-                          <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-2">3</span>
-                          Real-Time Verification
-                        </h4>
-                        <p className="text-gray-700 dark:text-gray-300">
-                          The <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm">hunt()</code> function checks the
-                          <code className="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm">protectedAddresses</code> mapping on the blockchain
-                          in real-time before each hunt attempt.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-6 shadow-sm border border-purple-100 dark:border-purple-800/30">
-                    <h3 className="text-xl font-bold mb-4 text-purple-700 dark:text-purple-300">Choose Your Strategy</h3>
-                    
-                    <div className="grid grid-cols-1 gap-4 mb-6">
-                      <div className="bg-white/70 dark:bg-gray-800/70 p-4 rounded-lg shadow-sm">
-                        <div className="flex items-center mb-2">
-                          <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-xl">🏹</span>
-                          </div>
-                          <h4 className="text-lg font-bold text-red-600 dark:text-red-400">Hunter Strategy</h4>
-                        </div>
-                        <div className="ml-13">
-                          <p className="text-gray-700 dark:text-gray-300 mb-2">
-                            Create and grow Hunters to hunt MiMo tokens from unprotected addresses.
-                          </p>
-                          <div className="flex justify-between text-sm mt-2">
-                            <span className="text-gray-500">Risk Level:</span>
-                            <span className="font-bold text-red-500">HIGH</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Reward Potential:</span>
-                            <span className="font-bold text-green-500">HIGH</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-white/70 dark:bg-gray-800/70 p-4 rounded-lg shadow-sm">
-                        <div className="flex items-center mb-2">
-                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-xl">🛡️</span>
-                          </div>
-                          <h4 className="text-lg font-bold text-blue-600 dark:text-blue-400">Protection Strategy</h4>
-                        </div>
-                        <div className="ml-13">
-                          <p className="text-gray-700 dark:text-gray-300 mb-2">
-                            Provide liquidity to protect your tokens and earn trading fees.
-                          </p>
-                          <div className="flex justify-between text-sm mt-2">
-                            <span className="text-gray-500">Risk Level:</span>
-                            <span className="font-bold text-green-500">LOW</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Reward Potential:</span>
-                            <span className="font-bold text-yellow-500">MODERATE</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-lg">
-                      <h4 className="font-bold mb-2 flex items-center">
-                        <span className="w-6 h-6 bg-purple-500 text-white rounded-full flex items-center justify-center text-sm mr-2">💡</span>
-                        Pro Tip
-                      </h4>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        For the best of both worlds, use <span className="font-bold">different wallets</span> for hunting and protection.
-                        This balanced approach maximizes your earnings while keeping your main assets secure.
-                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           </motion.div>
-        )}
 
-        {/* Game Mechanics Tab */}
-        {activeTab === 'mechanics' && (
+          {/* GAME MECHANICS SECTION */}
           <motion.div 
             initial={{ opacity: 0, y: 10 }} 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="space-y-8"
+            className="space-y-8 pb-10 scroll-mt-16"
+            id="mechanics"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 border border-gray-100 dark:border-gray-700">
-              <h2 className="text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">Detailed Game Mechanics</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+              <div className="relative">
+                <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
+                  <SparklesIcon className="h-10 w-10 text-white" />
+                </div>
+                <div className="h-8"></div> {/* Spacer */}
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                Game Mechanics
+              </h2>
               
               <div className="mb-8">
-                <div className="flex flex-col items-center justify-center bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg">
-                  <div className="w-20 h-20 bg-blue-100 dark:bg-blue-800/50 rounded-full flex items-center justify-center mb-4">
+                <div className="flex flex-col md:flex-row items-center justify-center bg-btb-primary/10 dark:bg-btb-primary/20 p-4 rounded-lg mb-6">
+                  <div className="w-16 h-16 bg-btb-primary/20 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mb-4 md:mb-0">
                     <motion.span 
-                      className="text-4xl"
-                      animate={{ rotate: [0, 5, 0, -5, 0] }}
-                      transition={{ duration: 5, repeat: Infinity }}
+                      className="text-3xl"
+                      animate={{ rotateY: [0, 360] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                     >⚙️</motion.span>
                   </div>
-                  <h3 className="text-xl font-bold mb-2 text-center">How MiMo Game Works</h3>
-                  <p className="text-center text-gray-700 dark:text-gray-300 max-w-2xl">
-                    Understanding the game mechanics will help you optimize your strategy
-                    and maximize your earnings while protecting your assets.
+                  <p className="text-lg font-medium text-center md:text-left">
+                    The MiMo game is built on a carefully balanced ecosystem that rewards strategy and consistent engagement. Here's how it all works behind the scenes.
                   </p>
                 </div>
               </div>
               
               <div className="grid md:grid-cols-2 gap-10">
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-xl p-6 border border-purple-100 dark:border-purple-800/30 shadow-sm">
-                    <h3 className="text-xl font-bold mb-4 text-purple-700 dark:text-purple-300 flex items-center">
-                      <span className="w-8 h-8 bg-purple-100 dark:bg-purple-800/50 rounded-full flex items-center justify-center mr-2 text-purple-600 dark:text-purple-300">🏹</span>
-                      Hunter Lifecycle
-                    </h3>
-                    
-                    <div className="relative p-4 bg-white/80 dark:bg-gray-800/80 rounded-lg mb-5">
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 to-blue-400 rounded-t-lg"></div>
-                      <h4 className="text-lg font-bold mb-3 text-btb-primary">Creation & Lifecycle</h4>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-bold">1</div>
-                          <div>
-                            <h5 className="font-bold">Creation</h5>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Deposit a BEAR NFT to create a Hunter with base power of 10 MiMo.
-                              You'll receive 1,000,000 initial MiMo tokens.
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-bold">2</div>
-                          <div>
-                            <h5 className="font-bold">Daily Feeding</h5>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Feed your Hunter every day to increase power by 2% and prevent hibernation.
-                              Missing feedings will lead to hibernation.
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-bold">3</div>
-                          <div>
-                            <h5 className="font-bold">Daily Hunting</h5>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Hunt once every 24 hours to earn MiMo tokens based on your Hunter's power.
-                              You cannot hunt from protected addresses.
-                            </p>
-                          </div>
-                        </div>
+                  <h3 className="text-xl font-bold mb-4 text-btb-primary dark:text-btb-primary-light">Hunter Mechanics</h3>
+                  
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md border border-gray-200 dark:border-gray-700">
+                    <h4 className="text-lg font-bold mb-4">Hunter Power Calculation</h4>
+                    <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg mb-4">
+                      <div className="mb-3">
+                        <p className="font-mono font-bold text-center bg-gray-100 dark:bg-gray-800 py-2 rounded">
+                          Power = Base Power × (1.02)<sup>Days Fed</sup>
+                        </p>
                       </div>
-                    </div>
-                    
-                    <div className="relative p-4 bg-white/80 dark:bg-gray-800/80 rounded-lg">
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 to-red-400 rounded-t-lg"></div>
-                      <h4 className="text-lg font-bold mb-3 text-yellow-600 dark:text-yellow-400">Hibernation & Recovery</h4>
-                      
-                      <div className="space-y-4">
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-bold">4</div>
-                          <div>
-                            <h5 className="font-bold">Hibernation</h5>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Miss 7 consecutive feedings and your Hunter hibernates, reducing power by 30%.
-                              Hibernating Hunters cannot hunt or be transferred.
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-bold">5</div>
-                          <div>
-                            <h5 className="font-bold">Recovery</h5>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Feed a hibernating Hunter to start the 24-hour recovery process.
-                              The Hunter cannot hunt during recovery.
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded-full flex items-center justify-center mr-3 flex-shrink-0 font-bold">6</div>
-                          <div>
-                            <h5 className="font-bold">Expiration</h5>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Hunters have a 365-day lifespan from creation. After this period,
-                              they can no longer hunt or grow.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                      <ul className="space-y-2 list-disc pl-5">
+                        <li>Base Power: 10 MiMo (starting value)</li>
+                        <li>Daily Growth: 2% (compounding)</li>
+                        <li>Maximum Hunt Frequency: Once per 24 hours</li>
+                        <li>Hibernation: Occurs after 7 days without feeding</li>
+                      </ul>
                     </div>
                   </div>
                   
                   <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md border border-gray-200 dark:border-gray-700">
-                    <h3 className="text-xl font-bold mb-4 flex items-center text-btb-primary">
-                      <span className="w-8 h-8 bg-btb-primary/10 rounded-full flex items-center justify-center mr-2">⏱️</span>
-                      Key Timers & Thresholds
-                    </h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mr-3">
-                            <span className="text-blue-500 font-bold">24h</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold">Feeding Interval</h4>
-                            <p className="text-xs text-gray-500">Once per day</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mr-3">
-                            <span className="text-green-500 font-bold">24h</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold">Hunting Cooldown</h4>
-                            <p className="text-xs text-gray-500">Once per day</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center mr-3">
-                            <span className="text-yellow-500 font-bold">7</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold">Hibernation Threshold</h4>
-                            <p className="text-xs text-gray-500">Missed feedings</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mr-3">
-                            <span className="text-purple-500 font-bold">24h</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold">Recovery Period</h4>
-                            <p className="text-xs text-gray-500">After hibernation</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center mr-3">
-                            <span className="text-red-500 font-bold">365d</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold">Hunter Lifespan</h4>
-                            <p className="text-xs text-gray-500">From creation</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-pink-100 dark:bg-pink-900/30 rounded-lg flex items-center justify-center mr-3">
-                            <span className="text-pink-500 font-bold">30%</span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold">Hibernation Penalty</h4>
-                            <p className="text-xs text-gray-500">Power reduction</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <h4 className="text-lg font-bold mb-4">Hibernation System</h4>
+                    <p className="mb-4">
+                      If a Hunter isn't fed for 7 consecutive days, it will enter hibernation mode:
+                    </p>
+                    <ul className="space-y-2 list-disc pl-5">
+                      <li>Cannot hunt while hibernating</li>
+                      <li>Requires 3 consecutive days of feeding to wake up</li>
+                      <li>10% power penalty applied after waking from hibernation</li>
+                    </ul>
                   </div>
                 </div>
                 
                 <div className="space-y-6">
-                  <div className="bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-xl p-6 border border-green-100 dark:border-green-800/30 shadow-sm">
-                    <h3 className="text-xl font-bold mb-4 text-green-700 dark:text-green-300 flex items-center">
-                      <span className="w-8 h-8 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center mr-2 text-green-600 dark:text-green-300">💰</span>
-                      MiMo Token Economy
-                    </h3>
-                    
-                    <div className="bg-white/80 dark:bg-gray-800/80 rounded-lg p-5 mb-4">
-                      <h4 className="text-lg font-bold mb-3 text-btb-primary">Token Distribution</h4>
-                      
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center mr-2">
-                              <span className="text-xl">🎁</span>
-                            </div>
-                            <span className="font-bold">Initial Reward</span>
-                          </div>
-                          <span className="font-bold text-green-600">1,000,000 MiMo</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-full flex items-center justify-center mr-2">
-                              <span className="text-xl">🔄</span>
-                            </div>
-                            <span className="font-bold">Redemption Cost</span>
-                          </div>
-                          <span className="font-bold text-purple-600">1,000,000 MiMo + 10% fee</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full flex items-center justify-center mr-2">
-                              <span className="text-xl">🔥</span>
-                            </div>
-                            <span className="font-bold">Burning Mechanism</span>
-                          </div>
-                          <span className="font-bold text-red-600">25% of hunt rewards</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-white/80 dark:bg-gray-800/80 rounded-lg p-5">
-                      <h4 className="text-lg font-bold mb-3 text-btb-primary">Token Utility</h4>
-                      
-                      <div className="space-y-3">
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-sm">01</span>
-                          </div>
-                          <div>
-                            <h5 className="font-bold">Hunting & Rewards</h5>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                              Earned through daily hunting with your Hunter character
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-sm">02</span>
-                          </div>
-                          <div>
-                            <h5 className="font-bold">Trading & Marketplace</h5>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                              Buy and sell MiMo tokens on exchanges for other cryptocurrencies
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-sm">03</span>
-                          </div>
-                          <div>
-                            <h5 className="font-bold">BEAR NFT Redemption</h5>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                              Exchange MiMo tokens back for BEAR NFTs in the ecosystem
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-start">
-                          <div className="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                            <span className="text-sm">04</span>
-                          </div>
-                          <div>
-                            <h5 className="font-bold">Liquidity Provision</h5>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                              Provide liquidity to MiMo pairs on Aerodrome for protection
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <h3 className="text-xl font-bold mb-4 text-btb-primary dark:text-btb-primary-light">Economy Mechanics</h3>
                   
-                  <div className="bg-red-50 dark:bg-red-900/20 p-5 rounded-lg border-l-4 border-red-500">
-                    <h4 className="font-bold flex items-center mb-2 text-red-700 dark:text-red-300">
-                      <span className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm mr-2">!</span>
-                      Important Game Rules
-                    </h4>
-                    
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md border border-gray-200 dark:border-gray-700">
+                    <h4 className="text-lg font-bold mb-4">Token Economics</h4>
                     <ul className="space-y-3">
                       <li className="flex items-start">
-                        <span className="text-red-500 mr-2 mt-1">•</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          <span className="font-bold">Daily Feeding Required:</span> Missing 7 consecutive feedings will put your Hunter into hibernation, reducing its power by 30%.
-                        </p>
+                        <span className="text-green-500 mr-2 mt-0.5">•</span>
+                        <div>
+                          <span className="font-bold">Initial Distribution:</span>
+                          <p className="text-sm">1,000,000 MiMo tokens per BEAR NFT deposit</p>
+                        </div>
                       </li>
                       <li className="flex items-start">
-                        <span className="text-red-500 mr-2 mt-1">•</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          <span className="font-bold">Cannot Hunt Protected Addresses:</span> Hunters cannot hunt MiMo tokens from addresses that have LP positions with MiMo/USDC, MiMo/cbBTC, or MiMo/WETH on Aerodrome.
-                        </p>
+                        <span className="text-green-500 mr-2 mt-0.5">•</span>
+                        <div>
+                          <span className="font-bold">Hunt Rewards:</span>
+                          <p className="text-sm">Equal to Hunter's power level in MiMo tokens</p>
+                        </div>
                       </li>
                       <li className="flex items-start">
-                        <span className="text-red-500 mr-2 mt-1">•</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          <span className="font-bold">Limited Lifespan:</span> Hunters expire after 365 days and can no longer hunt or grow in power after this period.
-                        </p>
+                        <span className="text-green-500 mr-2 mt-0.5">•</span>
+                        <div>
+                          <span className="font-bold">Burning Mechanism:</span>
+                          <p className="text-sm">25% of all hunting rewards are automatically burned</p>
+                        </div>
                       </li>
                       <li className="flex items-start">
-                        <span className="text-red-500 mr-2 mt-1">•</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          <span className="font-bold">Hibernating Hunters:</span> Cannot be traded or transferred until they recover through feeding and completing the 24-hour recovery period.
-                        </p>
+                        <span className="text-green-500 mr-2 mt-0.5">•</span>
+                        <div>
+                          <span className="font-bold">Liquidity Growth:</span>
+                          <p className="text-sm">25% of hunting rewards go to liquidity pools</p>
+                        </div>
                       </li>
                     </ul>
                   </div>
                   
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-lg border border-blue-200 dark:border-blue-800">
-                    <h4 className="font-bold flex items-center mb-3 text-blue-700 dark:text-blue-300">
-                      <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-2">💡</span>
-                      Pro Tips
-                    </h4>
-                    
-                    <ul className="space-y-2">
-                      <li className="flex items-start">
-                        <span className="text-blue-500 mr-2">✓</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          Set daily reminders to feed your Hunter and maximize its power growth
-                        </p>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="text-blue-500 mr-2">✓</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          Consider using two wallets: one for hunting and one for holding protected MiMo
-                        </p>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="text-blue-500 mr-2">✓</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          Hunt early in your Hunter's lifecycle to earn more before its 365-day expiration
-                        </p>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="text-blue-500 mr-2">✓</span>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          Consider providing liquidity with a portion of your MiMo to earn fees while protecting your assets
-                        </p>
-                      </li>
-                    </ul>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md border border-gray-200 dark:border-gray-700">
+                    <h4 className="text-lg font-bold mb-4">Redemption System</h4>
+                    <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                      <p className="mb-3">MiMo tokens can be redeemed for:</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-btb-primary/10 dark:bg-btb-primary/20 p-3 rounded-lg">
+                          <h5 className="font-bold text-btb-primary dark:text-btb-primary-light mb-1">BEAR NFTs</h5>
+                          <p className="text-sm">1,000,000+ MiMo tokens</p>
+                        </div>
+                        <div className="bg-btb-primary/10 dark:bg-btb-primary/20 p-3 rounded-lg">
+                          <h5 className="font-bold text-btb-primary dark:text-btb-primary-light mb-1">BTB Tokens</h5>
+                          <p className="text-sm">Variable rate based on market</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <div className="mt-10 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                  <div className="mb-4 md:mb-0">
-                    <h3 className="text-xl font-bold">Ready to start playing?</h3>
-                    <p className="text-gray-600 dark:text-gray-400">Join the MiMo ecosystem today!</p>
-                  </div>
-                  
-                  <div className="flex gap-4">
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="bg-btb-primary text-white px-5 py-2 rounded-lg font-bold tracking-wide flex items-center shadow-md"
-                    >
-                      Launch Game
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </motion.button>
-                    
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="border border-btb-primary text-btb-primary px-5 py-2 rounded-lg font-bold tracking-wide flex items-center"
-                    >
-                      Learn More
-                    </motion.button>
-                  </div>
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-center">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="bg-btb-primary text-white px-6 py-3 rounded-lg font-bold tracking-wide flex items-center shadow-md"
+                  >
+                    Start Playing Now
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </motion.button>
                 </div>
               </div>
             </div>
           </motion.div>
-        )}
+        </div>
       </div>
 
-      {/* Call to Action */}
-      <div className="container mx-auto px-4 py-10 sm:py-16">
-        <motion.div 
-          className="relative overflow-hidden rounded-2xl shadow-xl"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
+      {/* Mobile Navigation Button */}
+      <div className="md:hidden fixed bottom-6 right-6 z-20">
+        <button 
+          onClick={() => setShowMobileNav(!showMobileNav)}
+          className="bg-btb-primary text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
         >
-          {/* Background with animated dots */}
-          <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 via-btb-primary/20 to-blue-400/20 dark:from-purple-900/30 dark:via-btb-primary/30 dark:to-blue-900/30"></div>
-            {[...Array(30)].map((_, i) => (
-              <motion.div
-                key={i}
-                className="absolute rounded-full bg-btb-primary/30 dark:bg-btb-primary-light/20"
-                style={{
-                  width: Math.random() * 6 + 2 + 'px',
-                  height: Math.random() * 6 + 2 + 'px',
-                  left: Math.random() * 100 + '%',
-                  top: Math.random() * 100 + '%',
-                }}
-                animate={{
-                  y: [0, Math.random() * 20 - 10],
-                  x: [0, Math.random() * 20 - 10],
-                  opacity: [0.3, 0.7, 0.3],
-                }}
-                transition={{
-                  duration: Math.random() * 5 + 2,
-                  repeat: Infinity,
-                  repeatType: "reverse",
-                }}
-              />
-            ))}
-          </div>
-          
-          {/* Content */}
-          <div className="relative z-10 p-6 sm:p-10 text-center">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-              <span className="relative">
-                <span className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-12 h-2 flex justify-center">
-                  {[...Array(5)].map((_, i) => (
-                    <motion.span 
-                      key={i}
-                      className="inline-block rounded-full bg-btb-primary w-1.5 h-1.5 mx-0.5"
-                      animate={{
-                        scale: [1, 1.5, 1],
-                        opacity: [0.5, 1, 0.5],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        delay: i * 0.2,
-                      }}
-                    />
-                  ))}
-                </span>
-                <span className="tracking-wide">READY FOR THE MIMO EXPERIENCE?</span>
-              </span>
-            </h2>
-            <p className="mb-4 max-w-2xl mx-auto text-base sm:text-lg tracking-wide">
-              Stay updated on the MiMo ecosystem. Hunt for rewards, protect your assets,
-              and prepare to become part of our thriving play-to-earn community.
-            </p>
-            
-            {/* Coming Soon Badge */}
-            <div className="mb-6 inline-block bg-yellow-100 dark:bg-yellow-900/40 px-4 py-2 rounded-full text-xs sm:text-sm text-yellow-800 dark:text-yellow-200 font-semibold border border-yellow-200 dark:border-yellow-800/50">
-              <span className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Coming Soon - Join Our Waitlist
-              </span>
-            </div>
-            
-            <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link 
-                  href="#" 
-                  className="inline-flex items-center justify-center px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-btb-primary-dark to-btb-primary text-white rounded-full font-medium transition-all duration-300 shadow-md shadow-btb-primary/20 text-sm sm:text-base"
-                >
-                  <span className="relative tracking-widest">
-                    <span className="absolute -top-1 left-0 right-0 flex justify-between px-1">
-                      {[...Array(7)].map((_, i) => (
-                        <motion.span 
-                          key={i}
-                          className="inline-block h-[2px] w-[2px] rounded-full bg-white"
-                          animate={{
-                            opacity: [0.3, 0.8, 0.3],
-                          }}
-                          transition={{
-                            duration: 1.5,
-                            repeat: Infinity,
-                            delay: i * 0.1,
-                          }}
-                        />
-                      ))}
-                    </span>
-                    JOIN WAITLIST
-                  </span>
-                </Link>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Link 
-                  href="#" 
-                  className="inline-flex items-center justify-center px-6 sm:px-8 py-2.5 sm:py-3 bg-white/80 dark:bg-gray-800/50 text-btb-primary dark:text-btb-primary-light rounded-full font-medium border border-btb-primary/20 dark:border-btb-primary/30 hover:bg-white dark:hover:bg-gray-800/80 transition-all duration-300 shadow-md text-sm sm:text-base"
-                >
-                  <span className="relative tracking-widest">
-                    <span className="absolute -top-1 left-0 right-0 flex justify-between px-1">
-                      {[...Array(5)].map((_, i) => (
-                        <motion.span 
-                          key={i}
-                          className="inline-block h-[2px] w-[2px] rounded-full bg-btb-primary"
-                          animate={{
-                            opacity: [0.3, 0.8, 0.3],
-                          }}
-                          transition={{
-                            duration: 1.5,
-                            repeat: Infinity,
-                            delay: i * 0.1,
-                          }}
-                        />
-                      ))}
-                    </span>
-                    LEARN MORE
-                  </span>
-                </Link>
-              </motion.div>
-            </div>
-          </div>
-        </motion.div>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
       </div>
+
+      {/* Mobile Navigation Popup */}
+      {showMobileNav && (
+        <div className="md:hidden fixed inset-0 z-10 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowMobileNav(false)}
+          ></div>
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl p-6 shadow-xl w-4/5 max-w-sm">
+            <div className="absolute top-3 right-3">
+              <button 
+                onClick={() => setShowMobileNav(false)} 
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <h3 className="text-lg font-bold mb-4 text-center text-btb-primary dark:text-btb-primary-light">
+              Jump To Section
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <a 
+                href="#overview" 
+                className="flex flex-col items-center p-3 rounded-lg bg-btb-primary/10 hover:bg-btb-primary/20 transition-colors"
+                onClick={() => setShowMobileNav(false)}
+              >
+                <GlobeAltIcon className="h-6 w-6 mb-1 text-btb-primary" />
+                <span className="text-sm font-semibold">Overview</span>
+              </a>
+              <a 
+                href="#play-to-earn" 
+                className="flex flex-col items-center p-3 rounded-lg bg-btb-primary/10 hover:bg-btb-primary/20 transition-colors"
+                onClick={() => setShowMobileNav(false)}
+              >
+                <CurrencyDollarIcon className="h-6 w-6 mb-1 text-btb-primary" />
+                <span className="text-sm font-semibold">Earn</span>
+              </a>
+              <a 
+                href="#protection" 
+                className="flex flex-col items-center p-3 rounded-lg bg-btb-primary/10 hover:bg-btb-primary/20 transition-colors"
+                onClick={() => setShowMobileNav(false)}
+              >
+                <ShieldCheckIcon className="h-6 w-6 mb-1 text-btb-primary" />
+                <span className="text-sm font-semibold">Protection</span>
+              </a>
+              <a 
+                href="#mechanics" 
+                className="flex flex-col items-center p-3 rounded-lg bg-btb-primary/10 hover:bg-btb-primary/20 transition-colors"
+                onClick={() => setShowMobileNav(false)}
+              >
+                <SparklesIcon className="h-6 w-6 mb-1 text-btb-primary" />
+                <span className="text-sm font-semibold">Mechanics</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }
