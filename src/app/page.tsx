@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -188,7 +188,7 @@ const quickNavLinks = [
     name: 'CHICKS Trade',
     description: 'Trade, borrow & leverage CHICKS tokens',
     href: '/chicks/trade',
-    icon: ({ className }) => (
+    icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🐣</span>
     ),
     color: 'bg-blue-100 dark:bg-blue-900/30',
@@ -198,7 +198,7 @@ const quickNavLinks = [
     name: 'BTB Bridge',
     description: 'Bridge your BTB tokens across multiple blockchains',
     href: '/btb-bridge',
-    icon: ({ className }) => (
+    icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🌉</span>
     ),
     color: 'bg-purple-100 dark:bg-purple-900/30',
@@ -208,7 +208,7 @@ const quickNavLinks = [
     name: 'Megapot',
     description: 'Win big with daily USDC jackpots',
     href: '/megapot',
-    icon: ({ className }) => (
+    icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎰</span>
     ),
     color: 'bg-green-100 dark:bg-green-900/30',
@@ -218,7 +218,7 @@ const quickNavLinks = [
     name: 'NFT Swap',
     description: 'Swap between BTB tokens and Bear NFTs',
     href: '/nftswap',
-    icon: ({ className }) => (
+    icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🔄</span>
     ),
     color: 'bg-amber-100 dark:bg-amber-900/30',
@@ -241,24 +241,24 @@ export default function Home() {
   const y = useTransform(scrollYProgress, [0, 0.5], [0, 100]);
   
   // Close the popup when clicking outside of it
-  const popupRef = useRef(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   
   // Separate button refs to exclude them from outside click handling
-  const desktopButtonRef = useRef(null);
-  const mobileButtonRef = useRef(null);
-  const desktopPopupRef = useRef(null);
-  const mobilePopupRef = useRef(null);
+  const desktopButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileButtonRef = useRef<HTMLButtonElement>(null);
+  const desktopPopupRef = useRef<HTMLDivElement>(null);
+  const mobilePopupRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     // Only add the event listener if the popup is open
     if (!isNavPopupOpen) return;
     
-    const handleClickOutside = (event) => {
+    const handleClickOutside = (event: MouseEvent) => {
       // Check if click is outside the popups and not on the buttons
-      const isClickInDesktopPopup = desktopPopupRef.current && desktopPopupRef.current.contains(event.target);
-      const isClickInMobilePopup = mobilePopupRef.current && mobilePopupRef.current.contains(event.target);
-      const isClickOnDesktopButton = desktopButtonRef.current && desktopButtonRef.current.contains(event.target);
-      const isClickOnMobileButton = mobileButtonRef.current && mobileButtonRef.current.contains(event.target);
+      const isClickInDesktopPopup = desktopPopupRef.current && desktopPopupRef.current.contains(event.target as Node);
+      const isClickInMobilePopup = mobilePopupRef.current && mobilePopupRef.current.contains(event.target as Node);
+      const isClickOnDesktopButton = desktopButtonRef.current && desktopButtonRef.current.contains(event.target as Node);
+      const isClickOnMobileButton = mobileButtonRef.current && mobileButtonRef.current.contains(event.target as Node);
       
       const isClickInsideComponents = 
         isClickInDesktopPopup || 
@@ -384,7 +384,7 @@ export default function Home() {
                         <div className={`${link.color} ${link.textColor} p-1.5 sm:p-2 rounded-full mr-3 sm:mr-0 sm:mb-2`}>
                           {typeof link.icon === 'function' 
                             ? <link.icon className="h-4 w-4 sm:h-5 sm:w-5" /> 
-                            : <link.icon className="h-4 w-4 sm:h-5 sm:w-5" />}
+                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-4 w-4 sm:h-5 sm:w-5" })}
                         </div>
                         <div className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm">{link.name}</div>
                       </Link>
@@ -469,7 +469,7 @@ export default function Home() {
                         <div className={`${link.color} ${link.textColor} p-1.5 sm:p-2 rounded-full mr-3 sm:mr-0 sm:mb-2`}>
                           {typeof link.icon === 'function' 
                             ? <link.icon className="h-4 w-4 sm:h-5 sm:w-5" /> 
-                            : <link.icon className="h-4 w-4 sm:h-5 sm:w-5" />}
+                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-4 w-4 sm:h-5 sm:w-5" })}
                         </div>
                         <div className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm">{link.name}</div>
                       </Link>
