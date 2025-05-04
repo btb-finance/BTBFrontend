@@ -6,6 +6,7 @@ import { ThemeScript } from './theme-script';
 import Navbar from './components/layout/Navbar';
 import Logo from './components/common/Logo';
 import BackgroundWrapper from './components/layout/BackgroundWrapper';
+import QuickAccess from './components/layout/QuickAccess';
 import { FaXTwitter, FaTelegram, FaGithub, FaDiscord } from 'react-icons/fa6';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -34,6 +35,7 @@ export default function RootLayout({
               <Navbar />
               <main className="pt-14 text-gray-900 dark:text-white">
                 {children}
+                <QuickAccess />
               </main>
               <footer className="bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800">
                 <div className="mx-auto max-w-7xl px-4 py-4">
