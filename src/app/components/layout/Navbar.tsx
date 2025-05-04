@@ -57,7 +57,6 @@ export default function Navbar() {
       icon: CubeTransparentIcon,
       children: [
         { name: 'CHICKS', href: '/chicks' },
-        { name: 'Sheep Ecosystem', href: '/sheep-ecosystem' },
         { name: 'Megapot Lottery', href: '/megapot' },
       ]
     },
