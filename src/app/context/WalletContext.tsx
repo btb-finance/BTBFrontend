@@ -181,26 +181,30 @@ export const WalletProvider: React.FC<WalletProviderProps> = ({ children }) => {
       };
 
       // Handle chain changes
-      const handleChainChanged = (chainId: string) => {
+      const handleChainChanged = async (chainId: string) => {
         console.log('Chain changed to:', chainId);
-        // Instead of reloading the page immediately, we'll update the state
-        // This prevents constant refreshing with some wallets
+        // We won't reload the page, but we'll notify the user
+        // and reset provider state to avoid network mismatch errors
         
-        // Only disconnect if we can't handle the new chain
-        // For now, we'll just log the chain change and not reload
-        // If specific chain handling is needed, it can be added here
+        // Instead of disconnecting or reloading, we'll handle it gracefully
+        // by emitting a custom event for other components to react to
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('btb:networkChanged', { 
+            detail: { 
+              chainId: parseInt(chainId, 16),
+              chainIdHex: chainId
+            } 
+          });
+          window.dispatchEvent(event);
+        }
       };
 
       // Add event listeners
       provider.on('accountsChanged', handleAccountsChanged);
       
-      // Some wallet providers might trigger chainChanged frequently
-      // We'll use a debounced version to prevent constant refreshing
-      let chainChangeTimeout: NodeJS.Timeout;
-      provider.on('chainChanged', (chainId: string) => {
-        clearTimeout(chainChangeTimeout);
-        chainChangeTimeout = setTimeout(() => handleChainChanged(chainId), 500);
-      });
+      // Add proper chain change handling without debounce
+      // We need immediate reactions to chain changes to reinitialize providers
+      provider.on('chainChanged', handleChainChanged);
 
       // Return cleanup function
       return () => {

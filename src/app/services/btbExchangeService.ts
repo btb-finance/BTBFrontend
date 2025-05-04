@@ -88,12 +88,19 @@ class BTBExchangeService {
         }
       }
 
-      // Create Web3Provider and signer
-      const injectedProvider = new ethers.providers.Web3Provider(window.ethereum, {
-        chainId: BASE_NETWORK.chainId,
-        name: BASE_NETWORK.name,
-        ensAddress: undefined
-      });
+      // Get latest chain ID after possible network switch
+      const currentChainId = await window.ethereum.request({ method: 'eth_chainId' });
+      const parsedChainId = parseInt(currentChainId, 16);
+      
+      // Create Web3Provider and signer with explicit network
+      const injectedProvider = new ethers.providers.Web3Provider(
+        window.ethereum as any, 
+        {
+          chainId: parsedChainId,
+          name: parsedChainId === BASE_NETWORK.chainId ? BASE_NETWORK.name : 'unknown',
+          ensAddress: undefined
+        }
+      );
       
       this.signer = injectedProvider.getSigner();
       
@@ -105,6 +112,25 @@ class BTBExchangeService {
       );
 
       this.isInitialized = true;
+      
+      // Add listener for network changes to reinitialize
+      const handleChainChanged = async (newChainId: string) => {
+        console.log('Chain changed in service:', newChainId);
+        this.isInitialized = false;
+        this.contract = new ethers.Contract(
+          this.contractAddress,
+          BTBExchangeABI,
+          this.provider!
+        );
+        this.signer = null;
+      };
+      
+      // Remove any existing listeners and add our new one
+      if (window.ethereum.removeListener) {
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+      }
+      window.ethereum.on('chainChanged', handleChainChanged);
+      
     } catch (error) {
       console.error('Failed to connect wallet:', error);
       throw error;

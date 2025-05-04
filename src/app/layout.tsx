@@ -7,6 +7,7 @@ import Navbar from './components/layout/Navbar';
 import Logo from './components/common/Logo';
 import BackgroundWrapper from './components/layout/BackgroundWrapper';
 import QuickAccess from './components/layout/QuickAccess';
+import NetworkChangeAlert from './components/layout/NetworkChangeAlert';
 import { FaXTwitter, FaTelegram, FaGithub, FaDiscord } from 'react-icons/fa6';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -33,6 +34,7 @@ export default function RootLayout({
           <BackgroundWrapper>
             <div className="min-h-screen">
               <Navbar />
+              <NetworkChangeAlert />
               <main className="pt-14 text-gray-900 dark:text-white">
                 {children}
                 <QuickAccess />
