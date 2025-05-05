@@ -26,6 +26,12 @@ export const CHAIN_CONFIG = {
     eid: 30184,
     name: 'Base',
     symbol: 'ETH',
+  },
+  BASE_SEPOLIA: {
+    chainId: 84532,
+    eid: 40456,
+    name: 'Base Sepolia',
+    symbol: 'ETH',
   }
 };
 

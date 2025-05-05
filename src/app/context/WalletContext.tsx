@@ -248,6 +248,7 @@ declare global {
       isTrust?: boolean;
       isCoinbaseWallet?: boolean;
       isMetaMask?: boolean;
+      chainId?: string;
     } | undefined;
     phantom?: {
       ethereum: {

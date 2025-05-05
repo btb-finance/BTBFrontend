@@ -78,6 +78,8 @@ export default function useNetworkSwitcher() {
         return 'https://mainnet.optimism.io';
       case 'BASE':
         return 'https://mainnet.base.org';
+      case 'BASE_SEPOLIA':
+        return 'https://sepolia.base.org';
       default:
         return '';
     }
@@ -94,6 +96,8 @@ export default function useNetworkSwitcher() {
         return 'https://optimistic.etherscan.io';
       case 'BASE':
         return 'https://basescan.org';
+      case 'BASE_SEPOLIA':
+        return 'https://sepolia.basescan.org';
       default:
         return '';
     }
