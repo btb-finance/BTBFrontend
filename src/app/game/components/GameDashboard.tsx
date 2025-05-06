@@ -6,6 +6,7 @@ import { useGame } from './GameContext';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import HunterCard from './HunterCard';
 import DepositBear from './DepositBear';
+import RedeemBear from './RedeemBear';
 
 // Contract addresses
 const GAME_CONTRACT_ADDRESS = '0xA44906a6c5A0fC974a73C76F6E8B8a5C066413B7';
@@ -130,6 +131,13 @@ export default function GameDashboard() {
               className="bg-btb-primary hover:bg-blue-600 text-white py-2 px-4 rounded-lg shadow-sm transition-colors"
             >
               Deposit BEAR NFT
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('redeem')}
+              className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg shadow-sm transition-colors"
+            >
+              Redeem BEAR NFT
             </button>
             
             <button
@@ -337,6 +345,17 @@ export default function GameDashboard() {
           </button>
           
           <button
+            onClick={() => setActiveTab('redeem')}
+            className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'redeem'
+                ? 'border-btb-primary text-btb-primary dark:text-btb-primary-light'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
+            }`}
+          >
+            Redeem
+          </button>
+          
+          <button
             onClick={() => setActiveTab('protection')}
             className={`py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'protection'
@@ -392,6 +411,9 @@ export default function GameDashboard() {
         
         {/* Deposit Tab */}
         {activeTab === 'deposit' && <DepositBear />}
+        
+        {/* Redeem Tab */}
+        {activeTab === 'redeem' && <RedeemBear />}
         
         {/* Protection Tab */}
         {activeTab === 'protection' && (

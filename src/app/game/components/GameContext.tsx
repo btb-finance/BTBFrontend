@@ -38,6 +38,12 @@ export type GameContextType = {
   feedHunter: (hunterId: number) => Promise<void>;
   hunt: (hunterId: number) => Promise<void>;
   setAddressProtection: (status: boolean) => Promise<void>;
+  redeemBear: () => Promise<any>;
+  getRedemptionRequirements: () => Promise<{
+    amount: string;
+    fee: string;
+    paused: boolean;
+  }>;
   
   // UI state
   refreshData: () => Promise<void>;
@@ -57,6 +63,8 @@ const GameContext = createContext<GameContextType>({
   feedHunter: async () => {},
   hunt: async () => {},
   setAddressProtection: async () => {},
+  redeemBear: async () => { return null; },
+  getRedemptionRequirements: async () => ({ amount: '0', fee: '0', paused: true }),
   
   refreshData: async () => {},
   error: null,
@@ -343,6 +351,55 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const clearError = () => setError(null);
 
+  // Redeem BEAR NFT (spend MiMo tokens to get a BEAR)
+  const redeemBear = async () => {
+    if (!gameContract) {
+      setError('Game contract not initialized');
+      return;
+    }
+    
+    try {
+      console.log("Attempting to redeem a BEAR NFT...");
+      const tx = await gameContract.redeemBear();
+      console.log("Redemption transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Redemption confirmed in block:", receipt.blockNumber);
+      
+      // Refresh data after transaction
+      await refreshData();
+      
+      console.log("BEAR NFT redemption successful!");
+      return receipt;
+    } catch (error: any) {
+      console.error('Error redeeming BEAR NFT:', error);
+      setError(error.message || 'Failed to redeem BEAR NFT');
+      throw error;
+    }
+  };
+
+  // Get redemption requirements
+  const getRedemptionRequirements = async () => {
+    if (!gameContract) {
+      setError('Game contract not initialized');
+      return { amount: '0', paused: true };
+    }
+    
+    try {
+      const mimoAmount = await gameContract.REDEMPTION_MIMO_AMOUNT();
+      const isPaused = await gameContract.redemptionPaused();
+      const feePercentage = await gameContract.REDEMPTION_FEE_PERCENTAGE();
+      
+      return {
+        amount: ethers.utils.formatUnits(mimoAmount, 18),
+        fee: feePercentage.toString(),
+        paused: isPaused
+      };
+    } catch (error: any) {
+      console.error('Error getting redemption requirements:', error);
+      return { amount: '0', fee: '0', paused: true };
+    }
+  };
+
   // Context value
   const value = {
     loading,
@@ -355,6 +412,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     feedHunter,
     hunt,
     setAddressProtection,
+    redeemBear,
+    getRedemptionRequirements,
     
     refreshData,
     error,
