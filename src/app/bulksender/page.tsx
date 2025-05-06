@@ -22,7 +22,7 @@ import TransactionHistory from './components/TransactionHistory';
 import TokenSelector from './components/TokenSelector';
 
 // Contract addresses for different networks
-const CONTRACT_ADDRESSES = {
+const CONTRACT_ADDRESSES: {[chainId: number]: string} = {
   // Base Mainnet
   8453: '0xA5c55020dc1D2c7F9C7be3C32c93ae00F0d5690b',
   // Base Sepolia testnet
