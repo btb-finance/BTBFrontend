@@ -537,7 +537,22 @@ export default function BulkSenderForm({
         // Next batch number is completedBatches + 1
         const nextCompletedBatches = completedBatches + 1;
         const batchesForRemaining = remainingRecipients.length > 0 ? Math.ceil(remainingRecipients.length / 300) : 0;
-        const totalBatchesNeeded = nextCompletedBatches + batchesForRemaining; // Completed + remaining
+        
+        // For the first batch, we need to calculate the total number of batches required
+        // for the entire operation, which is based on the total number of addresses
+        // For subsequent batches, we use the already calculated totalBatches value
+        let totalBatchesNeeded;
+        
+        if (completedBatches === 0) {
+          // First batch - calculate total based on all addresses (processed + remaining)
+          const totalAddresses = processedAddressesRef.current.size + remainingRecipients.length;
+          totalBatchesNeeded = Math.ceil(totalAddresses / 300);
+          console.log(`First batch: Total addresses: ${totalAddresses}, Total batches needed: ${totalBatchesNeeded}`);
+        } else {
+          // Use existing totalBatches but ensure it's at least the number of completed batches
+          totalBatchesNeeded = Math.max(totalBatches, nextCompletedBatches);
+          console.log(`Subsequent batch: Using existing total batches: ${totalBatchesNeeded}`);
+        }
         
         console.log(`Completed ${completedBatches + 1} batches, need ${batchesForRemaining} more for remaining ${remainingRecipients.length} addresses`);
         
@@ -549,7 +564,8 @@ export default function BulkSenderForm({
         setRecipients(remainingRecipients);
         
         // Calculate overall progress percentage based on the nextCompletedBatches we defined above
-        const completedPercentage = Math.round((nextCompletedBatches / totalBatchesNeeded) * 100);
+        // Ensure percentage never exceeds 100%
+        const completedPercentage = Math.min(100, Math.round((nextCompletedBatches / totalBatchesNeeded) * 100));
         
         // Calculate total processed count for display (avoid duplicates)
         const nextTotalProcessed = allProcessedAddresses.size;
