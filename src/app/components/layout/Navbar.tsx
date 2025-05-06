@@ -78,7 +78,9 @@ export default function Navbar() {
       icon: CalculatorIcon,
       children: [
         { name: 'Calculator', href: '/calculator' },
-        { name: 'Dashboard', href: '/dashboard' }
+        { name: 'Dashboard', href: '/dashboard' },
+        { name: 'Bulk Sender', href: '/bulksender' },
+        { name: 'Token Creator', href: '/token-creator' }
       ]
     },
     {

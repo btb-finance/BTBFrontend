@@ -21,8 +21,16 @@ import BulkSenderForm from './components/BulkSenderForm';
 import TransactionHistory from './components/TransactionHistory';
 import TokenSelector from './components/TokenSelector';
 
-// Contract address
-const CONTRACT_ADDRESS = '0xb636bEc2F6a035123445d148d06B2A2401Ce72C5';
+// Contract addresses for different networks
+const CONTRACT_ADDRESSES = {
+  // Base Mainnet
+  8453: '0xA5c55020dc1D2c7F9C7be3C32c93ae00F0d5690b',
+  // Base Sepolia testnet
+  84532: '0xb636bEc2F6a035123445d148d06B2A2401Ce72C5'
+};
+
+// Default to Base Mainnet for initial rendering
+const DEFAULT_CONTRACT_ADDRESS = '0xA5c55020dc1D2c7F9C7be3C32c93ae00F0d5690b';
 
 // Features of the Bulk Sender
 const bulkSenderFeatures = [
@@ -76,6 +84,7 @@ export default function BulkSenderPage() {
   const [maxTransfers, setMaxTransfers] = useState<number>(0);
   const [selectedToken, setSelectedToken] = useState<string>('');
   const [showHistory, setShowHistory] = useState(false);
+  const [contractAddress, setContractAddress] = useState<string>(DEFAULT_CONTRACT_ADDRESS);
 
   // Fetch contract data
   useEffect(() => {
@@ -98,7 +107,12 @@ export default function BulkSenderPage() {
         }
         
         const provider = new ethers.providers.JsonRpcProvider(providerUrl);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, bulksenderABI, provider);
+        
+        // Use appropriate contract address based on the network
+        const networkContractAddress = CONTRACT_ADDRESSES[currentChainId] || DEFAULT_CONTRACT_ADDRESS;
+        setContractAddress(networkContractAddress);
+        
+        const contract = new ethers.Contract(networkContractAddress, bulksenderABI, provider);
         
         // Get fee per bulk
         const fee = await contract.feePerBulk();
@@ -266,7 +280,7 @@ export default function BulkSenderPage() {
             <div className="flex flex-wrap gap-3">
               <div className="flex space-x-2">
                 <a 
-                  href={`https://basescan.org/address/${CONTRACT_ADDRESS}`} 
+                  href="https://basescan.org/address/0xA5c55020dc1D2c7F9C7be3C32c93ae00F0d5690b" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-sm flex items-center px-3 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -277,7 +291,7 @@ export default function BulkSenderPage() {
                   Base Mainnet
                 </a>
                 <a 
-                  href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESS}`} 
+                  href={`https://sepolia.basescan.org/address/0xb636bEc2F6a035123445d148d06B2A2401Ce72C5`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="text-sm flex items-center px-3 py-1 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -369,7 +383,7 @@ export default function BulkSenderPage() {
             
             <div className="lg:col-span-8 order-1 lg:order-2">
               <BulkSenderForm 
-                contractAddress={CONTRACT_ADDRESS}
+                contractAddress={contractAddress}
                 isConnected={isConnected}
                 userAddress={address || undefined}
                 connectWallet={handleConnectWallet}
