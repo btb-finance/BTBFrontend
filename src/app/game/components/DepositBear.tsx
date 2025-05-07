@@ -6,7 +6,7 @@ import { ethers } from 'ethers';
 import { useGame } from './GameContext';
 
 // Contract addresses
-const BEAR_NFT_ADDRESS = '0x4AF11c8ea29039b9F169DBB08Bf6B794EB45BB7a';
+const BEAR_NFT_ADDRESS = '0xbBA5E5416815cdC744651E9E258bdf3506b62A99';
 
 export default function DepositBear() {
   const { depositBear, refreshData } = useGame();

@@ -3,11 +3,16 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
-import gameAbi from '../gameabi.json';
+import BearHunterEcosystemABI from '../BearHunterEcosystemabi.json';
+import BTBSwapLogicABI from '../BTBSwapLogicabi.json';
+import MiMoGaMeABI from '../MiMoGaMeabi.json';
 
 // Contract addresses
-const GAME_CONTRACT_ADDRESS = '0xA44906a6c5A0fC974a73C76F6E8B8a5C066413B7';
-const BEAR_NFT_ADDRESS = '0x4AF11c8ea29039b9F169DBB08Bf6B794EB45BB7a';
+const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0xc15D784F2B51f2376eCD06CCA0fCA702d4A232A6';
+const BEAR_NFT_ADDRESS = '0xbBA5E5416815cdC744651E9E258bdf3506b62A99';
+const BTB_TOKEN_ADDRESS = '0xC252D5fB1929F3d1fe6EB2e628acB21891282aF5';
+const MIMO_TOKEN_ADDRESS = '0x14CdD8dDdBA9E45A959d19821078D729B2e237a5';
+const BTB_SWAP_LOGIC_ADDRESS = '0xe49e40c262A8BbCb4207427bFEb7F28d71960f6F';
 
 // Types
 export type HunterStats = {
@@ -41,7 +46,7 @@ export function useHunterNFTs() {
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(GAME_CONTRACT_ADDRESS, gameAbi, signer);
+      const gameContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setContract(gameContract);
     } catch (err) {
       console.error('Failed to initialize game contract:', err);
@@ -87,7 +92,7 @@ export function useHunterNFTs() {
         lastFeedTime: stats.lastFeedTime.toNumber(),
         lastHuntTime: stats.lastHuntTime.toNumber(),
         power: ethers.utils.formatUnits(stats.power, 18),
-        missedFeedings: stats.missedFeedings.toNumber(),
+        missedFeedings: stats.missedFeedings,
         inHibernation: stats.inHibernation,
         recoveryStartTime: stats.recoveryStartTime.toNumber(),
         totalHunted: ethers.utils.formatUnits(stats.totalHunted, 18),
@@ -124,11 +129,18 @@ export function useHunterNFTs() {
     }
   };
 
-  const hunt = async (hunterId: number): Promise<boolean> => {
+  const hunt = async (hunterId: number, target?: string): Promise<boolean> => {
     if (!contract) return false;
     
     try {
-      const tx = await contract.hunt(hunterId);
+      // Ensure we have a target address, defaulting to self if not provided
+      const targetAddress = target || address;
+      
+      // Call hunt with both required parameters:
+      // tokenId (hunterId): The ID of the hunter NFT
+      // target (targetAddress): The address to hunt
+      console.log(`Hunting with parameters: tokenId=${hunterId}, target=${targetAddress}`);
+      const tx = await contract.hunt(hunterId, targetAddress);
       await tx.wait();
       return true;
     } catch (err) {
@@ -163,7 +175,7 @@ export function useBearDeposit() {
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(GAME_CONTRACT_ADDRESS, gameAbi, signer);
+      const gameContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setContract(gameContract);
       
       // Simple ERC721 interface for BEAR NFT
@@ -173,6 +185,7 @@ export function useBearDeposit() {
           'function balanceOf(address owner) view returns (uint256)',
           'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
           'function approve(address to, uint256 tokenId) public',
+          'function ownerOf(uint256 tokenId) view returns (address)'
         ],
         signer
       );
@@ -215,8 +228,14 @@ export function useBearDeposit() {
     if (!contract || !bearContract) return false;
     
     try {
+      // Check if we own the NFT
+      const ownerAddress = await bearContract.ownerOf(bearId);
+      if (ownerAddress.toLowerCase() !== address.toLowerCase()) {
+        throw new Error(`You don't own BEAR NFT #${bearId}`);
+      }
+      
       // First approve the game contract to transfer the BEAR NFT
-      const approveTx = await bearContract.approve(GAME_CONTRACT_ADDRESS, bearId);
+      const approveTx = await bearContract.approve(BEAR_HUNTER_ECOSYSTEM_ADDRESS, bearId);
       await approveTx.wait();
       
       // Then deposit the BEAR NFT
@@ -243,31 +262,36 @@ export function useMimoToken() {
   const { provider, address } = useWalletConnection();
   const [loading, setLoading] = useState(true);
   const [balance, setBalance] = useState('0');
-  const [contract, setContract] = useState<ethers.Contract | null>(null);
+  const [gameContract, setGameContract] = useState<ethers.Contract | null>(null);
+  const [mimoContract, setMimoContract] = useState<ethers.Contract | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize contract
+  // Initialize contracts
   useEffect(() => {
     if (!provider || !address) return;
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(GAME_CONTRACT_ADDRESS, gameAbi, signer);
-      setContract(gameContract);
+      const bearHunterContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+      setGameContract(bearHunterContract);
+      
+      // MiMo token contract
+      const mimoTokenContract = new ethers.Contract(MIMO_TOKEN_ADDRESS, MiMoGaMeABI, signer);
+      setMimoContract(mimoTokenContract);
     } catch (err) {
-      console.error('Failed to initialize game contract:', err);
-      setError('Failed to connect to game');
+      console.error('Failed to initialize contracts:', err);
+      setError('Failed to connect to game contracts');
     }
   }, [provider, address]);
 
   // Load MiMo balance
   useEffect(() => {
-    if (!contract || !address) return;
+    if (!mimoContract || !address) return;
     
     const loadBalance = async () => {
       try {
         setLoading(true);
-        const mimoBalance = await contract.mimoBalanceOf(address);
+        const mimoBalance = await mimoContract.balanceOf(address);
         setBalance(ethers.utils.formatUnits(mimoBalance, 18));
         setLoading(false);
       } catch (err) {
@@ -278,18 +302,18 @@ export function useMimoToken() {
     };
     
     loadBalance();
-  }, [contract, address]);
+  }, [mimoContract, address]);
 
   const transfer = async (to: string, amount: string): Promise<boolean> => {
-    if (!contract) return false;
+    if (!mimoContract) return false;
     
     try {
       const amountWei = ethers.utils.parseUnits(amount, 18);
-      const tx = await contract.mimoTransfer(to, amountWei);
+      const tx = await mimoContract.transfer(to, amountWei);
       await tx.wait();
       
       // Update balance
-      const newBalance = await contract.mimoBalanceOf(address);
+      const newBalance = await mimoContract.balanceOf(address);
       setBalance(ethers.utils.formatUnits(newBalance, 18));
       
       return true;
@@ -300,15 +324,15 @@ export function useMimoToken() {
   };
 
   const burn = async (amount: string): Promise<boolean> => {
-    if (!contract) return false;
+    if (!mimoContract) return false;
     
     try {
       const amountWei = ethers.utils.parseUnits(amount, 18);
-      const tx = await contract.mimoBurn(amountWei);
+      const tx = await mimoContract.burn(amountWei);
       await tx.wait();
       
       // Update balance
-      const newBalance = await contract.mimoBalanceOf(address);
+      const newBalance = await mimoContract.balanceOf(address);
       setBalance(ethers.utils.formatUnits(newBalance, 18));
       
       return true;
@@ -341,7 +365,7 @@ export function useAddressProtection() {
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(GAME_CONTRACT_ADDRESS, gameAbi, signer);
+      const gameContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setContract(gameContract);
     } catch (err) {
       console.error('Failed to initialize game contract:', err);
@@ -356,7 +380,7 @@ export function useAddressProtection() {
     const loadProtectionStatus = async () => {
       try {
         setLoading(true);
-        const isAddressProtected = await contract.isAddressProtected(address);
+        const isAddressProtected = await contract.protectedAddresses(address);
         setIsProtected(isAddressProtected);
         setLoading(false);
       } catch (err) {
@@ -373,5 +397,150 @@ export function useAddressProtection() {
     loading,
     isProtected,
     error,
+  };
+}
+
+// Hook for BTB Swap Logic interactions
+export function useBTBSwapLogic() {
+  const { provider, address } = useWalletConnection();
+  const [loading, setLoading] = useState(true);
+  const [swapRate, setSwapRate] = useState('0');
+  const [swapContract, setSwapContract] = useState<ethers.Contract | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize contract
+  useEffect(() => {
+    if (!provider || !address) return;
+    
+    try {
+      const signer = provider.getSigner();
+      const btbSwapContract = new ethers.Contract(BTB_SWAP_LOGIC_ADDRESS, BTBSwapLogicABI, signer);
+      setSwapContract(btbSwapContract);
+    } catch (err) {
+      console.error('Failed to initialize BTB swap contract:', err);
+      setError('Failed to connect to BTB swap');
+    }
+  }, [provider, address]);
+
+  // Load swap rate
+  useEffect(() => {
+    if (!swapContract) return;
+    
+    const loadSwapRate = async () => {
+      try {
+        setLoading(true);
+        const rate = await swapContract.getSwapRate();
+        setSwapRate(ethers.utils.formatUnits(rate, 18));
+        setLoading(false);
+      } catch (err) {
+        console.error('Error loading swap rate:', err);
+        setError('Failed to load BTB swap rate');
+        setLoading(false);
+      }
+    };
+    
+    loadSwapRate();
+  }, [swapContract]);
+
+  const swapBTBForNFT = async (amount: string): Promise<{success: boolean, tokenIds?: number[]}> => {
+    if (!swapContract) return {success: false};
+    
+    try {
+      const amountWei = ethers.utils.parseUnits(amount, 18);
+      
+      // First approve the BTB token transfer
+      const signer = provider.getSigner();
+      const btbContract = new ethers.Contract(
+        BTB_TOKEN_ADDRESS,
+        ['function approve(address spender, uint256 amount) public returns (bool)'],
+        signer
+      );
+      
+      const approveTx = await btbContract.approve(BTB_SWAP_LOGIC_ADDRESS, amountWei);
+      await approveTx.wait();
+      
+      // Then swap BTB for NFT
+      const tx = await swapContract.swapBTBForNFT(address, amountWei);
+      const receipt = await tx.wait();
+      
+      // Find the SwapBTBForNFTEvent in the receipt
+      const eventInterface = new ethers.utils.Interface([
+        'event SwapBTBForNFTEvent(address indexed user, uint256 btbAmount, uint256[] nftIds)'
+      ]);
+      
+      const events = receipt.logs
+        .map(log => {
+          try {
+            return eventInterface.parseLog(log);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      
+      if (events.length > 0) {
+        const tokenIds = events[0].args.nftIds.map(id => id.toNumber());
+        return {success: true, tokenIds};
+      }
+      
+      return {success: true};
+    } catch (err) {
+      console.error('Error swapping BTB for NFT:', err);
+      return {success: false};
+    }
+  };
+
+  const swapNFTForBTB = async (tokenIds: number[]): Promise<{success: boolean, btbAmount?: string}> => {
+    if (!swapContract) return {success: false};
+    
+    try {
+      // First approve the BEAR NFT transfers
+      const signer = provider.getSigner();
+      const bearContract = new ethers.Contract(
+        BEAR_NFT_ADDRESS,
+        ['function setApprovalForAll(address operator, bool approved) public'],
+        signer
+      );
+      
+      const approveTx = await bearContract.setApprovalForAll(BTB_SWAP_LOGIC_ADDRESS, true);
+      await approveTx.wait();
+      
+      // Then swap NFT for BTB
+      const tx = await swapContract.swapNFTForBTB(address, tokenIds);
+      const receipt = await tx.wait();
+      
+      // Find the SwapNFTForBTBEvent in the receipt
+      const eventInterface = new ethers.utils.Interface([
+        'event SwapNFTForBTBEvent(address indexed user, uint256[] nftIds, uint256 btbAmount)'
+      ]);
+      
+      const events = receipt.logs
+        .map(log => {
+          try {
+            return eventInterface.parseLog(log);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean);
+      
+      if (events.length > 0) {
+        const btbAmount = ethers.utils.formatUnits(events[0].args.btbAmount, 18);
+        return {success: true, btbAmount};
+      }
+      
+      return {success: true};
+    } catch (err) {
+      console.error('Error swapping NFT for BTB:', err);
+      return {success: false};
+    }
+  };
+
+  return {
+    loading,
+    swapRate,
+    error,
+    swapBTBForNFT,
+    swapNFTForBTB,
   };
 }

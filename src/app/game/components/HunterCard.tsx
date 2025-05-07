@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGame, Hunter } from './GameContext';
 import { formatDistanceToNow } from 'date-fns';
+import { useWalletConnection } from '../../hooks/useWalletConnection';
 
 interface HunterCardProps {
   hunter: Hunter;
@@ -25,15 +26,52 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
     const calculateTimeLeft = () => {
       const now = Math.floor(Date.now() / 1000);
       
-      // Feeding countdown (20 hours)
-      const feedCooldown = hunter.lastFeedTime + 20 * 60 * 60;
+      // Debug timestamps
+      console.log('Current time (Unix):', now);
+      console.log('Last feed time (Unix):', hunter.lastFeedTime);
+      console.log('Last hunt time (Unix):', hunter.lastHuntTime);
+      
+      // Check if timestamps are in the future
+      const isFeedTimeInFuture = hunter.lastFeedTime > now;
+      const isHuntTimeInFuture = hunter.lastHuntTime > now;
+      
+      if (isFeedTimeInFuture || isHuntTimeInFuture) {
+        console.warn('⚠️ Warning: Timestamps are in the future. This may indicate an issue with the contract or blockchain time.');
+        console.warn('Feed time in future:', isFeedTimeInFuture, 'Hunt time in future:', isHuntTimeInFuture);
+      }
+      
+      // Constants (these would ideally be read from the contract)
+      // The contract has RECOVERY_PERIOD which is for feeding
+      const FEED_COOLDOWN_SECONDS = 86400; // 24 hours in seconds (contract uses days)
+      const HUNT_COOLDOWN_SECONDS = 86400; // 24 hours in seconds
+      
+      // For times in the future, we'll treat them as if they were now
+      const effectiveLastFeedTime = isFeedTimeInFuture ? now : hunter.lastFeedTime;
+      const effectiveLastHuntTime = isHuntTimeInFuture ? now : hunter.lastHuntTime;
+      
+      // Feeding countdown
+      const feedCooldown = effectiveLastFeedTime + FEED_COOLDOWN_SECONDS;
+      // Can feed if enough time has passed since last feeding
       const canFeed = now >= feedCooldown;
       const feedTimeLeft = feedCooldown > now ? feedCooldown - now : 0;
       
-      // Hunt countdown (24 hours)
-      const huntCooldown = hunter.lastHuntTime + 24 * 60 * 60;
+      console.log('Feed cooldown ends (Unix):', feedCooldown);
+      console.log('Can feed now:', canFeed);
+      console.log('Feed time left (seconds):', feedTimeLeft);
+      
+      // Hunt countdown
+      const huntCooldown = effectiveLastHuntTime + HUNT_COOLDOWN_SECONDS;
+      // Can hunt if: cooldown period is over AND hunter is active (can hunt)
       const canHunt = now >= huntCooldown && hunter.canHuntNow;
       const huntTimeLeft = huntCooldown > now ? huntCooldown - now : 0;
+      
+      console.log('Hunt cooldown ends (Unix):', huntCooldown);
+      console.log('Can hunt now:', canHunt);
+      console.log('Hunt time left (seconds):', huntTimeLeft);
+      
+      // If the hunter has the canHuntNow flag set to true (directly from contract),
+      // we can override our calculation for UX purposes
+      const huntStatus = hunter.canHuntNow ? 'Ready' : 'Can\'t Hunt';
       
       // Format the countdown strings
       const formatTime = (seconds: number) => {
@@ -47,9 +85,9 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
       
       setTimeLeft({
         canFeed,
-        canHunt,
+        canHunt: hunter.canHuntNow,
         feedCountdown: formatTime(feedTimeLeft),
-        huntCountdown: formatTime(huntTimeLeft),
+        huntCountdown: hunter.canHuntNow ? huntStatus : formatTime(huntTimeLeft),
       });
     };
     
@@ -127,13 +165,15 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
           <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded">
             <div className="text-gray-500 dark:text-gray-400">Last Fed</div>
             <div className="font-medium">
-              {formatDistanceToNow(hunter.lastFeedTime * 1000, { addSuffix: true })}
+              {new Date(hunter.lastFeedTime * 1000).toLocaleString()} 
+              <div className="text-xs text-gray-500">Unix: {hunter.lastFeedTime}</div>
             </div>
           </div>
           <div className="bg-gray-100 dark:bg-gray-900 p-2 rounded">
             <div className="text-gray-500 dark:text-gray-400">Last Hunt</div>
             <div className="font-medium">
-              {formatDistanceToNow(hunter.lastHuntTime * 1000, { addSuffix: true })}
+              {new Date(hunter.lastHuntTime * 1000).toLocaleString()}
+              <div className="text-xs text-gray-500">Unix: {hunter.lastHuntTime}</div>
             </div>
           </div>
         </div>
@@ -145,14 +185,11 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
               e.stopPropagation();
               onFeed(hunter.id);
             }}
-            disabled={!timeLeft.canFeed}
             className={`flex-1 py-2 rounded-md text-white ${
-              timeLeft.canFeed 
-                ? 'bg-green-500 hover:bg-green-600' 
-                : 'bg-gray-400 cursor-not-allowed'
+              'bg-green-500 hover:bg-green-600' 
             }`}
           >
-            {timeLeft.canFeed ? 'Feed' : timeLeft.feedCountdown}
+            Feed
           </button>
           
           <button
@@ -160,14 +197,14 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
               e.stopPropagation();
               onHunt(hunter.id);
             }}
-            disabled={!timeLeft.canHunt}
+            disabled={!hunter.canHuntNow}
             className={`flex-1 py-2 rounded-md text-white ${
-              timeLeft.canHunt 
+              hunter.canHuntNow 
                 ? 'bg-btb-primary hover:bg-blue-600' 
                 : 'bg-gray-400 cursor-not-allowed'
             }`}
           >
-            {timeLeft.canHunt ? 'Hunt' : timeLeft.huntCountdown}
+            {hunter.canHuntNow ? 'Hunt' : 'Cannot Hunt'}
           </button>
         </div>
       </div>

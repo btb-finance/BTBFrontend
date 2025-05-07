@@ -3,11 +3,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ethers } from 'ethers';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
-import gameAbi from '../gameabi.json';
+import BearHunterEcosystemABI from '../BearHunterEcosystemabi.json';
+import BTBSwapLogicABI from '../BTBSwapLogicabi.json';
+import MiMoGaMeABI from '../MiMoGaMeabi.json';
 
 // Contract addresses
-const GAME_CONTRACT_ADDRESS = '0xA44906a6c5A0fC974a73C76F6E8B8a5C066413B7';
-const BEAR_NFT_ADDRESS = '0x4AF11c8ea29039b9F169DBB08Bf6B794EB45BB7a';
+const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0xc15D784F2B51f2376eCD06CCA0fCA702d4A232A6';
+const BEAR_NFT_ADDRESS = '0xbBA5E5416815cdC744651E9E258bdf3506b62A99';
+const BTB_TOKEN_ADDRESS = '0xC252D5fB1929F3d1fe6EB2e628acB21891282aF5';
+const MIMO_TOKEN_ADDRESS = '0x14CdD8dDdBA9E45A959d19821078D729B2e237a5';
+const BTB_SWAP_LOGIC_ADDRESS = '0xe49e40c262A8BbCb4207427bFEb7F28d71960f6F';
 
 // Types
 export type Hunter = {
@@ -32,11 +37,13 @@ export type GameContextType = {
   mimoBalance: string;
   isAddressProtected: boolean;
   gameContract: ethers.Contract | null;
+  btbSwapContract: ethers.Contract | null;
+  mimoToken: ethers.Contract | null;
   
   // Contract interactions
   depositBear: (bearId: number) => Promise<void>;
   feedHunter: (hunterId: number) => Promise<void>;
-  hunt: (hunterId: number) => Promise<void>;
+  hunt: (hunterId: number, target?: string) => Promise<void>;
   setAddressProtection: (status: boolean) => Promise<void>;
   redeemBear: () => Promise<any>;
   getRedemptionRequirements: () => Promise<{
@@ -58,6 +65,8 @@ const GameContext = createContext<GameContextType>({
   mimoBalance: '0',
   isAddressProtected: false,
   gameContract: null,
+  btbSwapContract: null,
+  mimoToken: null,
   
   depositBear: async () => {},
   feedHunter: async () => {},
@@ -81,58 +90,71 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [mimoBalance, setMimoBalance] = useState('0');
   const [isAddressProtected, setIsAddressProtected] = useState(false);
   const [gameContract, setGameContract] = useState<ethers.Contract | null>(null);
+  const [btbSwapContract, setBtbSwapContract] = useState<ethers.Contract | null>(null);
+  const [mimoToken, setMimoToken] = useState<ethers.Contract | null>(null);
 
-  // Initialize contract when provider is available
+  // Initialize contracts when provider is available
   useEffect(() => {
     console.log("Provider/address state:", { provider: !!provider, address });
     if (!address) {
-      console.log("Missing address, can't initialize contract");
+      console.log("Missing address, can't initialize contracts");
       return;
     }
     
     // Force provider initialization if needed
-    const initializeContract = async () => {
+    const initializeContracts = async () => {
       try {
-        if (!provider && window.ethereum) {
+        let signer;
+        if (provider) {
+          console.log("Using existing provider");
+          signer = provider.getSigner();
+        } else if (window.ethereum) {
           console.log("Using window.ethereum as provider");
           const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-          const signer = web3Provider.getSigner();
+          signer = web3Provider.getSigner();
           console.log("Created ethers provider and signer");
-          
-          console.log("Initializing game contract with address:", GAME_CONTRACT_ADDRESS);
-          const contract = new ethers.Contract(GAME_CONTRACT_ADDRESS, gameAbi, signer);
-          setGameContract(contract);
-          console.log("Game contract initialized successfully with window.ethereum");
-        } else if (provider) {
-          console.log("Using existing provider");
-          const signer = provider.getSigner();
-          console.log("Initializing game contract with address:", GAME_CONTRACT_ADDRESS);
-          const contract = new ethers.Contract(GAME_CONTRACT_ADDRESS, gameAbi, signer);
-          setGameContract(contract);
-          console.log("Game contract initialized successfully");
         } else {
           console.error("No provider available");
           setError('No Web3 provider available. Please connect your wallet.');
           return;
         }
+        
+        // Initialize Bear Hunter Ecosystem contract
+        console.log("Initializing Bear Hunter Ecosystem contract with address:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+        const bearHunterContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+        setGameContract(bearHunterContract);
+        
+        // Initialize BTB Swap Logic contract
+        console.log("Initializing BTB Swap Logic contract with address:", BTB_SWAP_LOGIC_ADDRESS);
+        const btbSwapLogicContract = new ethers.Contract(BTB_SWAP_LOGIC_ADDRESS, BTBSwapLogicABI, signer);
+        setBtbSwapContract(btbSwapLogicContract);
+        
+        // Initialize MiMo Token contract
+        console.log("Initializing MiMo Token contract with address:", MIMO_TOKEN_ADDRESS);
+        const mimoTokenContract = new ethers.Contract(MIMO_TOKEN_ADDRESS, MiMoGaMeABI, signer);
+        setMimoToken(mimoTokenContract);
+        
+        console.log("All contracts initialized successfully");
       } catch (error) {
-        console.error('Failed to initialize game contract:', error);
-        setError('Failed to connect to game contract');
+        console.error('Failed to initialize contracts:', error);
+        setError('Failed to connect to game contracts');
       }
     };
     
-    initializeContract();
+    initializeContracts();
   }, [provider, address]);
 
   // Load data when contract and address are available
   useEffect(() => {
     console.log("Contract/address state for data loading:", { 
-      hasContract: !!gameContract, 
+      hasGameContract: !!gameContract,
+      hasBtbSwapContract: !!btbSwapContract,
+      hasMimoToken: !!mimoToken,
       address 
     });
     
     if (gameContract && address) {
-      console.log("Contract and address available, refreshing data");
+      console.log("Game contract and address available, refreshing data");
       refreshData();
     }
   }, [gameContract, address]);
@@ -148,12 +170,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     console.log("Starting data refresh for address:", address);
     
     try {
+      // Get contract constants
+      console.log("Fetching contract constants...");
+      let huntCooldown, feedCooldown, recoveryPeriod, lifespan;
+      try {
+        huntCooldown = await gameContract.HUNT_COOLDOWN();
+        feedCooldown = await gameContract.RECOVERY_PERIOD();
+        recoveryPeriod = await gameContract.RECOVERY_PERIOD();
+        lifespan = await gameContract.LIFESPAN();
+        
+        console.log("Contract constants:");
+        console.log("- HUNT_COOLDOWN:", huntCooldown.toString());
+        console.log("- RECOVERY_PERIOD:", recoveryPeriod.toString());
+        console.log("- LIFESPAN:", lifespan.toString());
+      } catch (err) {
+        console.error("Error fetching contract constants:", err);
+      }
+      
       // Get MiMo balance
       console.log("Fetching MiMo balance...");
       try {
-        const balance = await gameContract.mimoBalanceOf(address);
-        console.log("MiMo balance:", balance.toString());
-        setMimoBalance(ethers.utils.formatUnits(balance, 18));
+        if (mimoToken) {
+          const balance = await mimoToken.balanceOf(address);
+          console.log("MiMo balance:", balance.toString());
+          setMimoBalance(ethers.utils.formatUnits(balance, 18));
+        } else {
+          console.log("MiMo token contract not initialized, checking game contract");
+          const balance = await gameContract.balanceOf(address);
+          console.log("MiMo balance from game contract:", balance.toString());
+          setMimoBalance(ethers.utils.formatUnits(balance, 18));
+        }
       } catch (err) {
         console.error("Error fetching MiMo balance:", err);
       }
@@ -161,7 +207,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Check if address is protected
       console.log("Checking if address is protected...");
       try {
-        const isProtected = await gameContract.isAddressProtected(address);
+        const isProtected = await gameContract.protectedAddresses(address);
         console.log("Address protected:", isProtected);
         setIsAddressProtected(isProtected);
       } catch (err) {
@@ -195,7 +241,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
               lastFeedTime: stats.lastFeedTime.toNumber(),
               lastHuntTime: stats.lastHuntTime.toNumber(),
               power: ethers.utils.formatUnits(stats.power, 18),
-              missedFeedings: stats.missedFeedings.toNumber(),
+              missedFeedings: stats.missedFeedings,
               inHibernation: stats.inHibernation,
               recoveryStartTime: stats.recoveryStartTime.toNumber(),
               totalHunted: ethers.utils.formatUnits(stats.totalHunted, 18),
@@ -268,8 +314,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       
       // Approve the game contract
-      console.log("Approving BEAR NFT transfer to:", GAME_CONTRACT_ADDRESS);
-      const approveTx = await bearContract.approve(GAME_CONTRACT_ADDRESS, bearId);
+      console.log("Approving BEAR NFT transfer to:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+      const approveTx = await bearContract.approve(BEAR_HUNTER_ECOSYSTEM_ADDRESS, bearId);
       console.log("Approval transaction:", approveTx.hash);
       const approveReceipt = await approveTx.wait();
       console.log("Approval confirmed in block:", approveReceipt.blockNumber);
@@ -277,7 +323,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Verify approval
       const approved = await bearContract.getApproved(bearId);
       console.log("Approved address:", approved);
-      if (approved.toLowerCase() !== GAME_CONTRACT_ADDRESS.toLowerCase()) {
+      if (approved.toLowerCase() !== BEAR_HUNTER_ECOSYSTEM_ADDRESS.toLowerCase()) {
         throw new Error("Approval did not succeed. Try again.");
       }
       
@@ -306,8 +352,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     
     try {
+      console.log(`Feeding hunter #${hunterId}...`);
       const tx = await gameContract.feedHunter(hunterId);
-      await tx.wait();
+      console.log("Feed transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Feed confirmed in block:", receipt.blockNumber);
       
       await refreshData();
     } catch (error: any) {
@@ -316,15 +365,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const hunt = async (hunterId: number) => {
+  const hunt = async (hunterId: number, target?: string) => {
     if (!gameContract) {
       setError('Game contract not initialized');
       return;
     }
     
     try {
-      const tx = await gameContract.hunt(hunterId);
-      await tx.wait();
+      // Make sure we have a target address - default to self if not provided
+      const targetAddress = target || address;
+      
+      console.log(`Hunter #${hunterId} hunting target: ${targetAddress}`);
+      console.log(`Parameters: tokenId=${hunterId}, target=${targetAddress}`);
+      
+      // Call hunt function with both required parameters:
+      // 1. tokenId (uint256): The hunter NFT ID
+      // 2. target (address): The address to hunt from
+      const tx = await gameContract.hunt(hunterId, targetAddress);
+      console.log("Hunt transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Hunt confirmed in block:", receipt.blockNumber);
       
       await refreshData();
     } catch (error: any) {
@@ -340,8 +400,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      // Only contract owner can set address protection
       // This is for checking status only, actual protection is set by contract owner or through liquidity provision
+      console.log(`Address protection status is currently: ${isAddressProtected}`);
+      console.log("(Note: Only the contract owner can actually change the protected status)");
+      
       setIsAddressProtected(status);
     } catch (error: any) {
       console.error('Error setting protection:', error);
@@ -381,7 +443,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const getRedemptionRequirements = async () => {
     if (!gameContract) {
       setError('Game contract not initialized');
-      return { amount: '0', paused: true };
+      return { amount: '0', paused: true, fee: '0' };
     }
     
     try {
@@ -407,6 +469,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     mimoBalance,
     isAddressProtected,
     gameContract,
+    btbSwapContract,
+    mimoToken,
     
     depositBear,
     feedHunter,

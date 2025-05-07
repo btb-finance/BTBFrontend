@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGame, Hunter } from './GameContext';
+import { useWalletConnection } from '../../hooks/useWalletConnection';
 
 interface HuntMimoProps {
   hunter: Hunter;
@@ -12,17 +13,52 @@ interface HuntMimoProps {
 
 export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) {
   const { hunt, isAddressProtected } = useGame();
+  const { address } = useWalletConnection();
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [targetAddress, setTargetAddress] = useState<string>('');
+  const [recentAddresses, setRecentAddresses] = useState<string[]>([]);
+  const [isSelfHunt, setIsSelfHunt] = useState(true);
+  
+  // Populate recent addresses
+  useEffect(() => {
+    // Try to get stored addresses from localStorage
+    try {
+      const stored = localStorage.getItem('recentHuntTargets');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentAddresses(parsed.slice(0, 5)); // Keep only the last 5
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load recent hunt targets:', err);
+    }
+  }, []);
+  
+  // Save an address to the list of recent addresses
+  const saveRecentAddress = (address: string) => {
+    if (!address) return;
+    
+    try {
+      // Validate it's a proper Ethereum address
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) return;
+      
+      const updatedList = [address, ...recentAddresses.filter(a => a !== address)].slice(0, 5);
+      setRecentAddresses(updatedList);
+      localStorage.setItem('recentHuntTargets', JSON.stringify(updatedList));
+    } catch (err) {
+      console.error('Failed to save recent hunt target:', err);
+    }
+  };
   
   // Calculate if hunter can hunt
   const canHunt = () => {
     if (!hunter.canHuntNow) return false;
-    if (isAddressProtected) return false;
+    if (isAddressProtected && isSelfHunt) return false; // Only matters for self-hunts
     
-    const now = Math.floor(Date.now() / 1000);
-    const huntCooldown = hunter.lastHuntTime + 24 * 60 * 60; // 24 hours
-    return now >= huntCooldown;
+    return true;
   };
   
   // Calculate potential rewards
@@ -45,11 +81,32 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
       return;
     }
     
+    // If not self-hunt, validate that we have a target address
+    if (!isSelfHunt && !targetAddress) {
+      setError("Please enter a target address for hunting");
+      return;
+    }
+    
+    // Validate the target address format
+    if (!isSelfHunt && !/^0x[a-fA-F0-9]{40}$/.test(targetAddress)) {
+      setError("Invalid Ethereum address format");
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
     try {
-      await hunt(hunter.id);
+      // Choose the target - self or entered address
+      const target = isSelfHunt ? address : targetAddress;
+      
+      // If not a self-hunt, save the address for future use
+      if (!isSelfHunt && targetAddress) {
+        saveRecentAddress(targetAddress);
+      }
+      
+      // Hunt with the selected target
+      await hunt(hunter.id, target);
       onSuccess();
     } catch (err: any) {
       setError(err.message || "Failed to hunt");
@@ -84,7 +141,7 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
           </button>
         </div>
         
-        <div className="mb-6">
+        <div className="mb-5">
           <div className="flex justify-between items-center mb-3">
             <div className="text-gray-600 dark:text-gray-400">Hunter Power</div>
             <div className="font-bold">{parseFloat(hunter.power).toFixed(2)} MiMo</div>
@@ -115,28 +172,117 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
                 <div className="text-xs font-medium mt-1">To Liquidity (25%)</div>
               </div>
             </div>
+            
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+              <p className="italic">When you hunt, your hunter will extract MiMo tokens from the target's wallet.</p>
+              <p>Targets need to have MiMo tokens and cannot be protected addresses.</p>
+            </div>
           </div>
         </div>
         
-        {isAddressProtected && (
-          <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
+        {/* Target selection */}
+        <div className="mb-5">
+          <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Target Selection</h3>
+          
+          <div className="flex gap-3 mb-3">
+            <button
+              onClick={() => setIsSelfHunt(true)}
+              className={`flex-1 py-2 px-3 rounded-lg border ${
+                isSelfHunt 
+                  ? 'bg-btb-primary/10 border-btb-primary text-btb-primary dark:text-btb-primary-light' 
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              Self Hunt
+            </button>
+            
+            <button
+              onClick={() => setIsSelfHunt(false)}
+              className={`flex-1 py-2 px-3 rounded-lg border ${
+                !isSelfHunt 
+                  ? 'bg-btb-primary/10 border-btb-primary text-btb-primary dark:text-btb-primary-light' 
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              Hunt Other
+            </button>
+          </div>
+          
+          {isSelfHunt ? (
+            <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-900 text-sm">
+              <p>
+                You will hunt your own address. This is useful for testing your hunters or
+                when you want to control your MiMo tokens.
+              </p>
+              
+              <div className="mt-2 p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded text-xs">
+                Target: <span className="font-mono">{address}</span>
+              </div>
+              
+              {isAddressProtected && (
+                <div className="mt-2 p-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded text-xs">
+                  Warning: Your address is protected and cannot be hunted. Select a different target.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="mb-3">
+                <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Target Address
+                </label>
+                <input 
+                  type="text"
+                  value={targetAddress}
+                  onChange={(e) => setTargetAddress(e.target.value)}
+                  placeholder="0x..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-btb-primary dark:bg-gray-900"
+                />
+              </div>
+              
+              {recentAddresses.length > 0 && (
+                <div className="mb-3">
+                  <label className="block mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                    Recent Addresses
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {recentAddresses.map((addr, index) => (
+                      <button 
+                        key={index}
+                        onClick={() => setTargetAddress(addr)}
+                        className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 truncate max-w-[100px] inline-block"
+                        title={addr}
+                      >
+                        {addr.substring(0, 6)}...{addr.substring(addr.length - 4)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        {isAddressProtected && isSelfHunt && (
+          <div className="mb-5 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
             <div className="font-bold mb-1">Your Address is Protected</div>
             <p>
-              Protected addresses cannot hunt for MiMo tokens.
-              To enable hunting, you need to stop providing liquidity on Aerodrome.
+              Protected addresses cannot be hunted for MiMo tokens.
+              To self-hunt, you need to stop providing liquidity on Aerodrome.
+              Alternatively, you can hunt other non-protected addresses.
             </p>
           </div>
         )}
         
         {!hunter.canHuntNow && (
-          <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
+          <div className="mb-5 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
             <div className="font-bold mb-1">Cannot Hunt</div>
             <p>{hunter.huntReason || "This hunter cannot hunt right now."}</p>
           </div>
         )}
         
         {hunter.inHibernation && (
-          <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
+          <div className="mb-5 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
             <div className="font-bold mb-1">Hunter is in Hibernation</div>
             <p>
               You need to feed the hunter for 3 consecutive days to recover from hibernation
@@ -146,7 +292,7 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
         )}
         
         {error && (
-          <div className="mb-6 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
+          <div className="mb-5 p-3 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-sm">
             {error}
           </div>
         )}
@@ -168,7 +314,7 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
                 : 'bg-btb-primary hover:bg-blue-600 transition-colors'
             }`}
           >
-            {loading ? 'Hunting...' : 'Hunt Now'}
+            {loading ? 'Hunting...' : isSelfHunt ? 'Self Hunt' : 'Hunt Target'}
           </button>
         </div>
       </div>

@@ -9,8 +9,8 @@ import DepositBear from './DepositBear';
 import RedeemBear from './RedeemBear';
 
 // Contract addresses
-const GAME_CONTRACT_ADDRESS = '0xA44906a6c5A0fC974a73C76F6E8B8a5C066413B7';
-const BEAR_NFT_ADDRESS = '0x4AF11c8ea29039b9F169DBB08Bf6B794EB45BB7a';
+const GAME_CONTRACT_ADDRESS = '0xc15D784F2B51f2376eCD06CCA0fCA702d4A232A6';
+const BEAR_NFT_ADDRESS = '0xbBA5E5416815cdC744651E9E258bdf3506b62A99';
 
 export default function GameDashboard() {
   const { loading, hunters, mimoBalance, isAddressProtected, feedHunter, hunt, refreshData, error, gameContract } = useGame();
