@@ -7,6 +7,7 @@ export interface WalletState {
   address: string | null;
   chainId: number | null;
   isCorrectNetwork: boolean;
+  provider: ethers.providers.Web3Provider | null;
 }
 
 const BASE_CHAIN_ID = 8453;
@@ -18,6 +19,7 @@ export function useWalletConnection() {
     address: null,
     chainId: null,
     isCorrectNetwork: false,
+    provider: null,
   });
 
   const checkConnection = async () => {
@@ -32,6 +34,7 @@ export function useWalletConnection() {
           address: accounts.length > 0 ? ethers.utils.getAddress(accounts[0]) : null,
           chainId: network.chainId,
           isCorrectNetwork: network.chainId === BASE_CHAIN_ID,
+          provider,
         });
       } catch (error) {
         console.error('Error checking wallet connection:', error);
@@ -40,6 +43,7 @@ export function useWalletConnection() {
           address: null,
           chainId: null,
           isCorrectNetwork: false,
+          provider: null,
         });
       }
     }
@@ -52,6 +56,7 @@ export function useWalletConnection() {
         address: null,
         chainId: walletState.chainId,
         isCorrectNetwork: walletState.isCorrectNetwork,
+        provider: null,
       });
     } else {
       await checkConnection();
@@ -89,6 +94,7 @@ export function useWalletConnection() {
         address: null,
         chainId: null,
         isCorrectNetwork: false,
+        provider: null,
       });
     }
   };

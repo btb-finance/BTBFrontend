@@ -6,13 +6,18 @@ import { useWalletConnection } from '../../hooks/useWalletConnection';
 import BearHunterEcosystemABI from '../BearHunterEcosystemabi.json';
 import BTBSwapLogicABI from '../BTBSwapLogicabi.json';
 import MiMoGaMeABI from '../MiMoGaMeabi.json';
+import { BTBTokenABI } from '../../contracts/BTBToken';
 
 // Contract addresses
-const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0xD4feebBB3bcAD99237A3A6b495088D6d0CA78115';
-const BEAR_NFT_ADDRESS = '0xFDF941c77E6Dd3eA4a714B26F91F09824C589404';
-const BTB_TOKEN_ADDRESS = '0xE7997Bc2d74B407d2A21fDaEf0fD44824876Ef70';
+const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0x9adEa91A07C1EFB76ad15aBFF9D407D2BaEa0323';
+const BEAR_NFT_ADDRESS = '0x98DfAb84a36c68dDC835bFb5681129f2b2A9e0aC';
+const BTB_TOKEN_ADDRESS = '0x7765fcea35C8f9bd79aF28413a41Bb15dE640D9B';
 const MIMO_TOKEN_ADDRESS = '0xD2bfAAD896F70ef217a478b0908a7Ce6A65523C4';
 const BTB_SWAP_LOGIC_ADDRESS = '0xe49e40c262A8BbCb4207427bFEb7F28d71960f6F';
+
+// Create interfaces for event parsing
+const gameInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+const btbInterface = new ethers.utils.Interface(BTBTokenABI);
 
 // Types
 export type HunterStats = {
@@ -129,18 +134,15 @@ export function useHunterNFTs() {
     }
   };
 
-  const hunt = async (hunterId: number, target?: string): Promise<boolean> => {
+  const hunt = async (hunterId: number, target: string): Promise<boolean> => {
     if (!contract) return false;
     
     try {
-      // Ensure we have a target address, defaulting to self if not provided
-      const targetAddress = target || address;
-      
       // Call hunt with both required parameters:
       // tokenId (hunterId): The ID of the hunter NFT
       // target (targetAddress): The address to hunt
-      console.log(`Hunting with parameters: tokenId=${hunterId}, target=${targetAddress}`);
-      const tx = await contract.hunt(hunterId, targetAddress);
+      console.log(`Hunting with parameters: tokenId=${hunterId}, target=${target}`);
+      const tx = await contract.hunt(hunterId, target);
       await tx.wait();
       return true;
     } catch (err) {
@@ -225,7 +227,7 @@ export function useBearDeposit() {
   }, [bearContract, address]);
 
   const depositBear = async (bearId: number): Promise<boolean> => {
-    if (!contract || !bearContract) return false;
+    if (!contract || !bearContract || !address) return false;
     
     try {
       // Check if we own the NFT
@@ -443,96 +445,83 @@ export function useBTBSwapLogic() {
   }, [swapContract]);
 
   const swapBTBForNFT = async (amount: string): Promise<{success: boolean, tokenIds?: number[]}> => {
-    if (!swapContract) return {success: false};
+    if (!swapContract || !provider) return { success: false };
     
     try {
-      const amountWei = ethers.utils.parseUnits(amount, 18);
+      const amountWei = ethers.utils.parseEther(amount);
       
-      // First approve the BTB token transfer
-      const signer = provider.getSigner();
-      const btbContract = new ethers.Contract(
-        BTB_TOKEN_ADDRESS,
-        ['function approve(address spender, uint256 amount) public returns (bool)'],
-        signer
-      );
-      
+      // First we need to approve the swap contract to spend our BTB
+      const btbContract = new ethers.Contract(BTB_TOKEN_ADDRESS, BTBTokenABI, provider.getSigner());
       const approveTx = await btbContract.approve(BTB_SWAP_LOGIC_ADDRESS, amountWei);
       await approveTx.wait();
       
-      // Then swap BTB for NFT
-      const tx = await swapContract.swapBTBForNFT(address, amountWei);
+      // Then call the swap function
+      const tx = await swapContract.swapBTBForNFT(amountWei);
       const receipt = await tx.wait();
       
-      // Find the SwapBTBForNFTEvent in the receipt
-      const eventInterface = new ethers.utils.Interface([
-        'event SwapBTBForNFTEvent(address indexed user, uint256 btbAmount, uint256[] nftIds)'
-      ]);
-      
+      // Parse the event logs to get the minted NFT IDs
       const events = receipt.logs
-        .map(log => {
+        .filter((log: any) => log.address === BEAR_HUNTER_ECOSYSTEM_ADDRESS)
+        .map((log: any) => {
           try {
-            return eventInterface.parseLog(log);
-          } catch (e) {
+            return gameInterface.parseLog(log);
+          } catch (err) {
             return null;
           }
         })
         .filter(Boolean);
       
       if (events.length > 0) {
-        const tokenIds = events[0].args.nftIds.map(id => id.toNumber());
-        return {success: true, tokenIds};
+        // Access the NFT IDs from the event
+        const tokenIds = events[0].args.nftIds.map((id: any) => id.toNumber());
+        return { success: true, tokenIds };
       }
       
-      return {success: true};
+      return { success: true };
     } catch (err) {
       console.error('Error swapping BTB for NFT:', err);
-      return {success: false};
+      return { success: false };
     }
   };
 
   const swapNFTForBTB = async (tokenIds: number[]): Promise<{success: boolean, btbAmount?: string}> => {
-    if (!swapContract) return {success: false};
+    if (!swapContract || !provider) return { success: false };
     
     try {
-      // First approve the BEAR NFT transfers
-      const signer = provider.getSigner();
-      const bearContract = new ethers.Contract(
-        BEAR_NFT_ADDRESS,
-        ['function setApprovalForAll(address operator, bool approved) public'],
-        signer
-      );
+      // First approve the swap contract for each NFT
+      const hunterContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, provider.getSigner());
       
-      const approveTx = await bearContract.setApprovalForAll(BTB_SWAP_LOGIC_ADDRESS, true);
-      await approveTx.wait();
+      for (const tokenId of tokenIds) {
+        const approveTx = await hunterContract.approve(BTB_SWAP_LOGIC_ADDRESS, tokenId);
+        await approveTx.wait();
+      }
       
-      // Then swap NFT for BTB
-      const tx = await swapContract.swapNFTForBTB(address, tokenIds);
+      // Then call the swap function
+      const tx = await swapContract.swapNFTForBTB(tokenIds);
       const receipt = await tx.wait();
       
-      // Find the SwapNFTForBTBEvent in the receipt
-      const eventInterface = new ethers.utils.Interface([
-        'event SwapNFTForBTBEvent(address indexed user, uint256[] nftIds, uint256 btbAmount)'
-      ]);
-      
+      // Parse the event logs to get the BTB amount received
       const events = receipt.logs
-        .map(log => {
+        .filter((log: any) => log.address === BTB_TOKEN_ADDRESS)
+        .map((log: any) => {
           try {
-            return eventInterface.parseLog(log);
-          } catch (e) {
+            return btbInterface.parseLog(log);
+          } catch (err) {
             return null;
           }
         })
         .filter(Boolean);
       
       if (events.length > 0) {
-        const btbAmount = ethers.utils.formatUnits(events[0].args.btbAmount, 18);
-        return {success: true, btbAmount};
+        // Access the BTB amount from the event
+        const btbAmount = ethers.utils.formatEther(events[0].args.value);
+        return { success: true, btbAmount };
       }
       
-      return {success: true};
+      return { success: true };
     } catch (err) {
       console.error('Error swapping NFT for BTB:', err);
-      return {success: false};
+      return { success: false };
     }
   };
 

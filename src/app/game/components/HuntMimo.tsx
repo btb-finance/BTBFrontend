@@ -76,25 +76,10 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
   const rewards = calculateRewards();
   
   const handleHunt = async () => {
-    if (!canHunt()) {
-      setError(hunter.huntReason || "Cannot hunt right now");
-      return;
-    }
-    
-    // If not self-hunt, validate that we have a target address
-    if (!isSelfHunt && !targetAddress) {
-      setError("Please enter a target address for hunting");
-      return;
-    }
-    
-    // Validate the target address format
-    if (!isSelfHunt && !/^0x[a-fA-F0-9]{40}$/.test(targetAddress)) {
-      setError("Invalid Ethereum address format");
-      return;
-    }
+    if (!canHunt()) return;
     
     setLoading(true);
-    setError(null);
+    setError("");
     
     try {
       // Choose the target - self or entered address
@@ -106,8 +91,12 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
       }
       
       // Hunt with the selected target
-      await hunt(hunter.id, target);
-      onSuccess();
+      if (target) {
+        await hunt(hunter.id, target);
+        onSuccess();
+      } else {
+        throw new Error("No target address specified");
+      }
     } catch (err: any) {
       setError(err.message || "Failed to hunt");
     } finally {

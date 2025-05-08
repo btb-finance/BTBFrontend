@@ -85,7 +85,7 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
       
       setTimeLeft({
         canFeed,
-        canHunt: hunter.canHuntNow,
+        canHunt: hunter.canHuntNow ? true : false,
         feedCountdown: formatTime(feedTimeLeft),
         huntCountdown: hunter.canHuntNow ? huntStatus : formatTime(huntTimeLeft),
       });
