@@ -45,34 +45,39 @@ export default function GamePage() {
       {/* Main Content */}
       {showGameInterface ? (
         <GameProvider>
-          <div className="py-4">
+          <div className="py-4 min-h-screen bg-gradient-to-b from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-950">
             <div className="container mx-auto px-4 mb-8">
               <div className="flex justify-between items-center">
                 <motion.button
                   onClick={() => setShowGameInterface(false)}
                   whileHover={{ x: -3 }}
-                  className="flex items-center text-gray-600 dark:text-gray-400 hover:text-btb-primary dark:hover:text-btb-primary-light"
+                  whileTap={{ scale: 0.97 }}
+                  className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-btb-primary dark:hover:text-btb-primary-light bg-white/90 dark:bg-gray-800/90 px-4 py-2 rounded-full shadow-sm backdrop-blur-sm border border-gray-200 dark:border-gray-700 transition-all duration-200"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
                   </svg>
                   Back to Game Info
                 </motion.button>
                 
-                <div className="text-xl font-bold text-btb-primary dark:text-btb-primary-light">MiMo Game</div>
+                <div className="flex items-center px-4 py-2 bg-gradient-to-r from-btb-primary/20 to-blue-500/20 dark:from-btb-primary/30 dark:to-blue-600/30 rounded-full backdrop-blur-sm border border-blue-200/50 dark:border-blue-800/50 shadow-sm">
+                  <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-btb-primary to-blue-600 dark:from-btb-primary-light dark:to-blue-400">MiMo Game</span>
+                  <span className="ml-2 text-sm px-2 py-0.5 bg-yellow-400/20 text-yellow-700 dark:text-yellow-300 rounded-full border border-yellow-400/30">Testnet</span>
+                </div>
               </div>
               
               {/* Testnet Notice */}
-              <div className="bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 text-yellow-700 dark:text-yellow-300 p-3 rounded my-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor">
+              <div className="bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-300 p-4 rounded-xl my-4 shadow-sm backdrop-blur-sm">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 bg-yellow-400 rounded-full p-1.5 mt-0.5">
+                    <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   </div>
-                  <div className="ml-3">
-                    <p className="text-sm">
-                      Currently running on testnet. Game design may have small changes on mainnet, but all core ideas will remain the same.
+                  <div>
+                    <h3 className="font-bold text-amber-800 dark:text-amber-300">Testnet Environment</h3>
+                    <p className="text-sm mt-1">
+                      You're currently playing on Base Sepolia testnet. Game mechanics may have small adjustments on mainnet, but all core features will remain the same.
                     </p>
                   </div>
                 </div>
@@ -85,13 +90,39 @@ export default function GamePage() {
       ) : (
         <>
           {/* Hero section */}
-          <div className="relative min-h-[60vh] flex flex-col justify-center overflow-hidden">
+          <div className="relative min-h-[80vh] flex flex-col justify-center overflow-hidden">
             {/* Modern background with mesh gradient */}
             <div className="absolute inset-0 -z-10">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 dark:from-blue-900 dark:via-indigo-950 dark:to-purple-950"></div>
               
-              {/* Subtle mesh pattern */}
-              <div className="absolute inset-0 opacity-20">
+              {/* Animated particles */}
+              <div className="absolute inset-0">
+                {[...Array(60)].map((_, i) => (
+                  <motion.div 
+                    key={i}
+                    className="absolute rounded-full bg-white/40"
+                    style={{
+                      width: Math.random() * 8 + 2 + 'px',
+                      height: Math.random() * 8 + 2 + 'px',
+                      left: Math.random() * 100 + '%',
+                      top: Math.random() * 100 + '%',
+                    }}
+                    animate={{
+                      y: [0, Math.random() * -40 - 10, 0],
+                      x: [0, Math.random() * 20 - 10, 0],
+                      opacity: [0.2, 0.8, 0.2],
+                    }}
+                    transition={{
+                      duration: Math.random() * 5 + 3,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                ))}
+              </div>
+              
+              {/* Subtle grid pattern */}
+              <div className="absolute inset-0 opacity-10">
                 <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
                   <defs>
                     <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -105,35 +136,10 @@ export default function GamePage() {
                   <rect width="100%" height="100%" fill="url(#grid)" />
                 </svg>
               </div>
-              
-              {/* Floating particles */}
-              <div className="absolute inset-0">
-                {[...Array(40)].map((_, i) => (
-                  <motion.div 
-                    key={i}
-                    className="absolute rounded-full bg-white/40"
-                    style={{
-                      width: Math.random() * 6 + 2 + 'px',
-                      height: Math.random() * 6 + 2 + 'px',
-                      left: Math.random() * 100 + '%',
-                      top: Math.random() * 100 + '%',
-                    }}
-                    animate={{
-                      y: [0, Math.random() * -30 - 10, 0],
-                      opacity: [0.3, 0.8, 0.3],
-                    }}
-                    transition={{
-                      duration: Math.random() * 3 + 2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                ))}
-              </div>
             </div>
             
-            {/* Content */}
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20 flex flex-col justify-center relative z-10">
+            {/* Hero Content */}
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20 flex flex-col justify-center relative z-10">
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -142,16 +148,29 @@ export default function GamePage() {
               >
                 {/* Game Logo Container */}
                 <div className="mb-8 inline-block">
-                  <div className="relative h-24 w-24 sm:h-32 sm:w-32 mx-auto bg-white rounded-full shadow-xl flex items-center justify-center border-4 border-btb-primary">
-                    <span className="text-4xl sm:text-5xl">🎮</span>
+                  <div className="relative h-28 w-28 sm:h-36 sm:w-36 mx-auto bg-gradient-to-br from-white to-blue-100 dark:from-gray-900 dark:to-blue-950 rounded-full shadow-2xl flex items-center justify-center border-4 border-btb-primary">
+                    <span className="text-5xl sm:text-6xl">🎮</span>
                     <motion.div 
-                      className="absolute -inset-2 rounded-full border-2 border-white/50"
+                      className="absolute -inset-3 rounded-full border-2 border-white/50"
                       animate={{ 
-                        scale: [1, 1.1, 1],
-                        opacity: [1, 0.5, 1]
+                        scale: [1, 1.15, 1],
+                        opacity: [0.7, 0.2, 0.7]
                       }}
                       transition={{
                         duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    ></motion.div>
+                    <motion.div 
+                      className="absolute -inset-5 rounded-full border border-white/30"
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        opacity: [0.5, 0.1, 0.5]
+                      }}
+                      transition={{
+                        duration: 4,
+                        delay: 0.5,
                         repeat: Infinity,
                         ease: "easeInOut"
                       }}
@@ -160,50 +179,79 @@ export default function GamePage() {
                 </div>
                 
                 {/* Title and Subtitle */}
-                <div className="bg-black/30 backdrop-blur-md rounded-xl p-6 sm:p-8 shadow-xl max-w-3xl mx-auto border border-white/10">
-                  <h1 className="text-4xl sm:text-6xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
+                <div className="bg-black/40 backdrop-blur-md rounded-2xl p-8 sm:p-10 shadow-2xl max-w-3xl mx-auto border border-white/20">
+                  <motion.h1 
+                    className="text-5xl sm:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.2 }}
+                  >
                     MiMo Game
-                  </h1>
+                  </motion.h1>
                   
-                  <div className="mb-4 relative">
-                    <span className="relative text-xl sm:text-2xl font-bold tracking-widest text-white px-4 py-1">
-                      <span className="absolute inset-0 bg-btb-primary/80 rounded-md backdrop-blur-sm -skew-x-6"></span>
+                  <motion.div 
+                    className="mb-6 relative"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.4 }}
+                  >
+                    <span className="relative inline-block text-xl sm:text-2xl font-bold tracking-widest text-white px-6 py-2">
+                      <span className="absolute inset-0 bg-gradient-to-r from-btb-primary to-blue-600 opacity-80 rounded-md -skew-x-6 shadow-lg"></span>
                       <span className="relative">PLAY TO EARN</span>
                     </span>
-                  </div>
+                  </motion.div>
                   
-                  <p className="text-lg sm:text-xl font-medium text-white mx-auto mb-6 tracking-wide leading-relaxed">
+                  <motion.p 
+                    className="text-lg sm:text-xl font-medium text-white mx-auto mb-8 tracking-wide leading-relaxed max-w-2xl"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 1, delay: 0.6 }}
+                  >
                     Hunt, earn, and build your digital ecosystem with MiMo — 
                     where strategy meets reward in an engaging blockchain experience
-                  </p>
+                  </motion.p>
                   
                   {/* Testnet Notice */}
-                  <div className="bg-yellow-500/80 dark:bg-yellow-600/80 text-black dark:text-white px-4 py-2 rounded-md mb-6 max-w-lg mx-auto">
-                    <p className="text-sm font-medium">
-                      ⚠️ Currently running on testnet. Game design may have small changes on mainnet, but all core ideas will remain the same.
+                  <motion.div 
+                    className="bg-gradient-to-r from-yellow-400/80 to-amber-500/80 text-black dark:text-white px-5 py-3 rounded-lg mb-8 max-w-lg mx-auto shadow-lg"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, delay: 0.8 }}
+                  >
+                    <p className="text-sm font-medium flex items-center justify-center gap-2">
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      Currently running on testnet. Game design may have small changes on mainnet.
                     </p>
-                  </div>
+                  </motion.div>
                   
                   {/* Launch Game Button */}
                   <motion.button
                     onClick={() => setShowGameInterface(true)}
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)" }}
                     whileTap={{ scale: 0.95 }}
-                    className="px-8 py-4 bg-btb-primary text-white font-bold text-lg rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center mx-auto"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 1 }}
+                    className="px-8 py-4 bg-gradient-to-r from-btb-primary to-blue-600 text-white font-bold text-lg rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center mx-auto"
                   >
                     Launch Game
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 ml-2" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 ml-2 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </motion.button>
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="mt-8 flex flex-wrap gap-4 justify-center">
+                <div className="mt-10 flex flex-wrap gap-4 justify-center">
                   <motion.a
                     href="#overview"
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, boxShadow: "0 4px 15px -2px rgba(255, 255, 255, 0.2)" }}
                     whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 1.2 }}
                     className="px-6 py-3 bg-white text-blue-700 font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center"
                   >
                     Explore Features
@@ -213,8 +261,11 @@ export default function GamePage() {
                   </motion.a>
                   <motion.a
                     href="#play-to-earn"
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, boxShadow: "0 4px 15px -2px rgba(255, 255, 255, 0.2)" }}
                     whileTap={{ scale: 0.95 }}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 1.2 }}
                     className="px-6 py-3 bg-transparent text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-white/70 hover:bg-white/10"
                   >
                     Learn More
@@ -232,24 +283,28 @@ export default function GamePage() {
           </div>
 
           {/* Quick Navigation */}
-          <div className="sticky top-0 z-10 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-md py-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="sticky top-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md shadow-lg py-3 border-b border-gray-200 dark:border-gray-700">
             <div className="container mx-auto px-2 sm:px-4">
-              <div className="grid grid-cols-4 gap-1 sm:gap-2">
-                <a href="#overview" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
-                  <GlobeAltIcon className="h-4 w-4 sm:mr-1" />
-                  <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Overview</span>
+              <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                <a href="#overview" className="relative overflow-hidden bg-gradient-to-r from-btb-primary/10 to-blue-500/10 dark:from-btb-primary/20 dark:to-blue-600/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:from-btb-primary/20 hover:to-blue-500/20 transition-all duration-300 group border border-blue-200/30 dark:border-blue-800/30">
+                  <span className="absolute inset-0 bg-btb-primary/5 dark:bg-btb-primary/10 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                  <GlobeAltIcon className="h-5 w-5 sm:mr-2 text-btb-primary dark:text-blue-400 z-10" />
+                  <span className="text-[10px] sm:text-sm font-bold mt-1 sm:mt-0 z-10">Overview</span>
                 </a>
-                <a href="#play-to-earn" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
-                  <CurrencyDollarIcon className="h-4 w-4 sm:mr-1" />
-                  <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Earn</span>
+                <a href="#play-to-earn" className="relative overflow-hidden bg-gradient-to-r from-green-500/10 to-emerald-500/10 dark:from-green-500/20 dark:to-emerald-500/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:from-green-500/20 hover:to-emerald-500/20 transition-all duration-300 group border border-green-200/30 dark:border-green-800/30">
+                  <span className="absolute inset-0 bg-green-500/5 dark:bg-green-500/10 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                  <CurrencyDollarIcon className="h-5 w-5 sm:mr-2 text-green-600 dark:text-green-400 z-10" />
+                  <span className="text-[10px] sm:text-sm font-bold mt-1 sm:mt-0 z-10">Earn</span>
                 </a>
-                <a href="#protection" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
-                  <ShieldCheckIcon className="h-4 w-4 sm:mr-1" />
-                  <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Protect</span>
+                <a href="#protection" className="relative overflow-hidden bg-gradient-to-r from-amber-500/10 to-yellow-500/10 dark:from-amber-500/20 dark:to-yellow-500/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:from-amber-500/20 hover:to-yellow-500/20 transition-all duration-300 group border border-amber-200/30 dark:border-amber-800/30">
+                  <span className="absolute inset-0 bg-amber-500/5 dark:bg-amber-500/10 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                  <ShieldCheckIcon className="h-5 w-5 sm:mr-2 text-amber-600 dark:text-amber-400 z-10" />
+                  <span className="text-[10px] sm:text-sm font-bold mt-1 sm:mt-0 z-10">Protect</span>
                 </a>
-                <a href="#mechanics" className="bg-btb-primary/10 dark:bg-btb-primary/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:bg-btb-primary/20 transition-colors">
-                  <SparklesIcon className="h-4 w-4 sm:mr-1" />
-                  <span className="text-[10px] sm:text-xs font-bold mt-1 sm:mt-0">Mechanics</span>
+                <a href="#mechanics" className="relative overflow-hidden bg-gradient-to-r from-purple-500/10 to-pink-500/10 dark:from-purple-500/20 dark:to-pink-500/20 px-2 sm:px-3 py-2 rounded-lg flex flex-col sm:flex-row items-center justify-center sm:justify-start hover:from-purple-500/20 hover:to-pink-500/20 transition-all duration-300 group border border-purple-200/30 dark:border-purple-800/30">
+                  <span className="absolute inset-0 bg-purple-500/5 dark:bg-purple-500/10 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                  <SparklesIcon className="h-5 w-5 sm:mr-2 text-purple-600 dark:text-purple-400 z-10" />
+                  <span className="text-[10px] sm:text-sm font-bold mt-1 sm:mt-0 z-10">Mechanics</span>
                 </a>
               </div>
             </div>
