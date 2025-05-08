@@ -64,6 +64,19 @@ const features = [
 
 const products = [
   {
+    name: 'BTB Game Ecosystem',
+    description: 'Hunt, feed, and earn in our exciting new game ecosystem - our next big focus that revolutionizes GameFi!',
+    detailedDescription: "Our innovative BTB Game is an exciting multi-contract ecosystem where players can deposit BEAR tokens, feed hunters, and hunt for rewards. The innovative game mechanics create a sustainable and engaging experience with real economic incentives and rewards.",
+    features: ['Hunt-to-Earn gameplay', 'Balanced tokenomics', 'Multi-contract ecosystem', 'Interactive game dashboard'],
+    icon: GlobeAltIcon,
+    href: '/game',
+    bgColor: 'bg-gradient-to-br from-red-600/10 to-orange-800/10',
+    iconColor: 'text-red-600 dark:text-red-400',
+    borderColor: 'border-red-200 dark:border-red-800',
+    isNew: true,
+    highlight: true
+  },
+  {
     name: 'BTB Bear NFT Swap',
     description: 'Swap between BTB tokens and Bear NFTs with instant liquidity. Our unique tokenomics ensures the price always goes up!',
     detailedDescription: "Our innovative BTB Bear NFT Swap creates a revolutionary tokenomics model where the price always increases, regardless of whether you're buying or selling. Swap your BTB tokens for unique Bear NFTs or convert your NFTs back to BTB tokens with instant liquidity, all while benefiting from our ever-increasing price floor mechanism.",
@@ -72,8 +85,7 @@ const products = [
     href: '/nftswap',
     bgColor: 'bg-gradient-to-br from-amber-600/10 to-orange-800/10',
     iconColor: 'text-amber-600 dark:text-amber-400',
-    borderColor: 'border-amber-200 dark:border-amber-800',
-    isNew: true
+    borderColor: 'border-amber-200 dark:border-amber-800'
   },
   {
     name: 'BTB Token',
@@ -184,6 +196,18 @@ const winnerGroups = [
 
 // Quick navigation links for the popup
 const quickNavLinks = [
+  {
+    name: 'BTB Game',
+    description: 'Our next big thing - Hunt, feed and earn!',
+    href: '/game',
+    icon: ({ className }: { className?: string }) => (
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎮</span>
+    ),
+    color: 'bg-red-100 dark:bg-red-900/30',
+    textColor: 'text-red-600 dark:text-red-400',
+    isNew: true,
+    highlight: true
+  },
   {
     name: 'CHICKS Trade',
     description: 'Trade, borrow & leverage CHICKS tokens',
@@ -308,9 +332,9 @@ export default function Home() {
                 >
                   <TypewriterEffect 
                     words={[
+                      'Introducing Our New Game Ecosystem!', 
+                      'Hunt, Feed, and Earn in GameFi',
                       'Revolutionizing DeFi on Base', 
-                      'Secure Your Financial Future',
-                      'Trade with Bonding Curve Pricing',
                       'Join the DeFi Evolution',
                       'Yield Farming Reimagined'
                     ]} 
@@ -351,6 +375,20 @@ export default function Home() {
                   whileTap={{ scale: 0.95 }}
                   className="inline-block group relative overflow-hidden"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
+                  <Link
+                    href="/game"
+                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-red-600 via-red-500 to-red-400 hover:shadow-lg transition-all duration-300 shadow-md shadow-red-500/20"
+                  >
+                    Try Our Game <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white animate-pulse">NEW!</span> <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                  </Link>
+                </motion.div>
+                
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="inline-block group relative overflow-hidden ml-3"
+                >
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
                   <Link
                     href="https://btb.finance/chicks"
@@ -363,7 +401,7 @@ export default function Home() {
                 <motion.div
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="inline-block"
+                  className="inline-block mt-3 sm:mt-0 sm:ml-3"
                 >
                   <Link
                     href="https://btb.finance/token"
@@ -490,18 +528,24 @@ export default function Home() {
             {products.map((product, index) => (
               <div 
                 key={index} 
-                className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red"
+                className={`group relative overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border ${product.highlight ? 'border-red-500 dark:border-red-500 ring-2 ring-red-500/50' : 'border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red'}`}
               >
+                {product.highlight && (
+                  <div className="absolute right-0 top-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
+                    NEXT BIG THING
+                  </div>
+                )}
                 <div className="absolute -right-10 -top-10 h-20 w-20 rounded-full bg-optimism-red opacity-10 group-hover:opacity-20 transition-opacity" />
                 <div className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <div className={`flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg ${product.bgColor} ${product.iconColor} p-2 mr-3`}>
+                      <div className={`flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-lg ${product.bgColor} ${product.iconColor} p-2 mr-3 ${product.highlight ? 'animate-pulse' : ''}`}>
                         <product.icon className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-gray-900 dark:text-white font-heading">
+                        <h3 className={`text-base font-bold font-heading ${product.highlight ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
                           {product.name}
+                          {product.isNew && !product.highlight && <span className="ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-300">New</span>}
                         </h3>
                         <p className="text-gray-600 dark:text-gray-300 text-xs">
                           {product.description}
@@ -510,7 +554,7 @@ export default function Home() {
                     </div>
                     <Link 
                       href={product.href}
-                      className="flex-shrink-0 inline-flex items-center text-optimism-red text-sm font-medium hover:text-optimism-red/80 transition-colors"
+                      className={`flex-shrink-0 inline-flex items-center text-sm font-medium transition-colors ${product.highlight ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300' : 'text-optimism-red hover:text-optimism-red/80'}`}
                     >
                       <span className="hidden sm:inline">Learn more</span> <ArrowRightIcon className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </Link>
@@ -687,6 +731,199 @@ export default function Home() {
 
       {/* Impermanent Loss Protection Section */}
       <ImpermanentLossProtection />
+
+      {/* BTB Game Ecosystem Section */}
+      <div className="py-16 bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-950 dark:to-gray-900 relative overflow-hidden">
+        {/* Abstract geometric background */}
+        <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
+          <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-r from-red-400 to-orange-500 skew-y-6 transform -translate-y-24"></div>
+          <div className="absolute bottom-0 right-0 w-full h-64 bg-gradient-to-l from-red-400 to-orange-500 skew-y-6 transform translate-y-24"></div>
+          <div className="grid grid-cols-6 grid-rows-6 gap-4 absolute inset-0">
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="bg-red-500/5 dark:bg-red-500/10 rounded-lg transform rotate-45"></div>
+            ))}
+          </div>
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-16 gap-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="md:w-1/2 text-left"
+              >
+                <div className="inline-flex items-center px-4 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium mb-4">
+                  <SparklesIcon className="h-4 w-4 mr-2" />
+                  <span>Our Next Big Thing</span>
+                </div>
+                <h2 className="text-3xl md:text-5xl font-bold mb-6 inline-flex items-center">
+                  <span className="bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
+                    BTB Game Ecosystem
+                  </span>
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-xl">
+                  Hunt, feed, and earn in our revolutionary multi-contract game ecosystem. Deposit BEAR tokens, feed hunters, and hunt for rewards in this sustainable GameFi experience.
+                </p>
+                
+                <div className="space-y-4 mt-6">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-red-100 dark:bg-red-900 text-red-600 dark:text-red-400 mr-4">
+                      <span className="text-lg font-semibold">1</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Deposit BEAR Tokens</h3>
+                      <p className="text-gray-600 dark:text-gray-300">Start earning by depositing your BEAR tokens into the ecosystem</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 mr-4">
+                      <span className="text-lg font-semibold">2</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Feed Your Hunters</h3>
+                      <p className="text-gray-600 dark:text-gray-300">Increase hunting potential by feeding your hunters regularly</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 text-amber-600 dark:text-amber-400 mr-4">
+                      <span className="text-lg font-semibold">3</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Hunt for Rewards</h3>
+                      <p className="text-gray-600 dark:text-gray-300">Hunt MiMo tokens for great rewards with your strengthened hunters</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-4 mt-8">
+                  <Link 
+                    href="/game" 
+                    className="inline-flex items-center px-6 py-3 rounded-md font-medium text-white bg-gradient-to-r from-red-600 to-orange-600 hover:shadow-lg transition-all duration-300"
+                  >
+                    Play Now <ArrowRightIcon className="ml-2 h-4 w-4" />
+                  </Link>
+                  <Link 
+                    href="/game#learn" 
+                    className="inline-flex items-center px-6 py-3 rounded-md font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 transition-all duration-300"
+                  >
+                    Learn More
+                  </Link>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="md:w-1/2 relative"
+              >
+                <div className="relative bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-2xl p-8 border border-red-100 dark:border-red-800/30 shadow-lg">
+                  <div className="absolute -top-4 -right-4 bg-gradient-to-r from-red-600 to-orange-500 text-white text-sm font-bold px-4 py-1 rounded-full animate-pulse">HOT!</div>
+                  
+                  <div className="flex items-center justify-center mb-8">
+                    <div className="relative h-24 w-24 flex-shrink-0">
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-500 rounded-full opacity-20 animate-pulse"></div>
+                      <div className="absolute inset-2 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
+                        <span className="text-2xl">🎮</span>
+                      </div>
+                    </div>
+                    <div className="ml-6">
+                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">BTB Game</h3>
+                      <p className="text-gray-600 dark:text-gray-400">Hunt-to-Earn Ecosystem</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <ShieldCheckIcon className="h-6 w-6 text-red-500 mr-3" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Multi-Contract Ecosystem</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Secure and decentralized architecture</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <ArrowTrendingUpIcon className="h-6 w-6 text-amber-500 mr-3" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Engaging Gameplay</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Balanced mechanics with financial incentives</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <BoltIcon className="h-6 w-6 text-orange-500 mr-3" />
+                      <div>
+                        <h4 className="font-medium text-gray-900 dark:text-white">Fair Economy</h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Sustainable rewards system</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-4 rounded-lg">
+                    <div className="flex items-center">
+                      <SparklesIcon className="h-5 w-5 mr-2" />
+                      <p className="font-medium">Join our exciting game ecosystem today!</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+            
+            {/* Stats section */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-red-600 dark:text-red-400">+500%</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">Potential ROI</p>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+                className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">3</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">Integrated Contracts</p>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+                className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">100%</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">On-Chain Logic</p>
+              </motion.div>
+              
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.3, delay: 0.4 }}
+                className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 rounded-xl p-6 text-center"
+              >
+                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">24/7</p>
+                <p className="text-gray-700 dark:text-gray-300 text-sm">Available to Play</p>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Enhanced IL Calculator Section */}
       <div className="py-16 bg-white dark:bg-gray-900">
