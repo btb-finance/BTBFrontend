@@ -4,7 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useGame } from './GameContext';
 
-export default function RedeemBear() {
+interface RedeemBearProps {
+  onSuccess?: () => void;
+}
+
+export default function RedeemBear({ onSuccess }: RedeemBearProps) {
   const { mimoBalance, redeemBear, getRedemptionRequirements, refreshData } = useGame();
   
   const [loading, setLoading] = useState(true);
@@ -76,6 +80,11 @@ export default function RedeemBear() {
       
       // Refresh data after redeeming
       refreshData();
+      
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       console.error("Error redeeming BEAR NFT:", err);
       setError(err.message || "Failed to redeem BEAR NFT");

@@ -8,13 +8,14 @@ import { useWalletConnection } from '../../hooks/useWalletConnection';
 import HunterCard from './HunterCard';
 import DepositBear from './DepositBear';
 import RedeemBear from './RedeemBear';
+import GameOverview from './GameOverview';
 
 export default function GameDashboard() {
   const { loading, hunters, mimoBalance, isAddressProtected, feedHunter, hunt, refreshData, error, gameContract } = useGame();
   const { provider, address, connectWallet } = useWalletConnection();
   
   const [showDeposit, setShowDeposit] = useState(false);
-  const [activeTab, setActiveTab] = useState('hunters');
+  const [activeTab, setActiveTab] = useState('overview');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -626,7 +627,33 @@ export default function GameDashboard() {
         <div className="overflow-x-auto no-scrollbar">
           <div className="flex space-x-1 sm:space-x-8 min-w-max pb-2">
             <button
-              onClick={() => setActiveTab('hunters')}
+              onClick={() => setActiveTab('overview')}
+              className={`relative py-3 px-4 text-sm font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'text-btb-primary dark:text-btb-primary-light'
+                  : 'text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <div className="flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                </svg>
+                Overview
+              </div>
+              {activeTab === 'overview' && (
+                <motion.div 
+                  layoutId="activeTab"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-btb-primary to-blue-600"
+                  initial={false}
+                />
+              )}
+            </button>
+            
+            <button
+              onClick={() => {
+                setActiveTab('hunters');
+                setShowDeposit(true);
+              }}
               className={`relative py-3 px-4 text-sm font-medium transition-colors ${
                 activeTab === 'hunters'
                   ? 'text-btb-primary dark:text-btb-primary-light'
@@ -649,10 +676,7 @@ export default function GameDashboard() {
             </button>
             
             <button
-              onClick={() => {
-                setActiveTab('deposit');
-                setShowDeposit(true);
-              }}
+              onClick={() => setActiveTab('deposit')}
               className={`relative py-3 px-4 text-sm font-medium transition-colors ${
                 activeTab === 'deposit'
                   ? 'text-btb-primary dark:text-btb-primary-light'
@@ -725,6 +749,9 @@ export default function GameDashboard() {
       
       {/* Tab Content */}
       <div>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && <GameOverview />}
+        
         {/* Hunters Tab */}
         {activeTab === 'hunters' && (
           <>
@@ -885,10 +912,98 @@ export default function GameDashboard() {
         )}
         
         {/* Deposit Tab */}
-        {activeTab === 'deposit' && <DepositBear />}
+        {activeTab === 'deposit' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <DepositBear onSuccess={() => {
+                setNotification({
+                  type: 'success',
+                  message: 'Successfully deposited BEAR NFT and minted a Hunter!',
+                });
+                refreshData();
+              }}/>
+            </div>
+            <div className="lg:col-span-1">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-blue-100 dark:border-blue-800/30 p-6">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">About Depositing</h3>
+                <div className="space-y-4 text-gray-600 dark:text-gray-400">
+                  <p>
+                    When you deposit a BEAR NFT, you'll receive a Hunter NFT with base power that can be used to earn MiMo tokens.
+                  </p>
+                  <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <p>Each Hunter has a lifespan and requires regular feeding to maintain its power.</p>
+                  </div>
+                  <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <p>You'll also receive a bonus of MiMo tokens as a reward for depositing.</p>
+                  </div>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-100 dark:border-yellow-800/30">
+                    <div className="flex">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-yellow-800 dark:text-yellow-200">
+                        The deposited BEAR NFT will be locked in the contract. You can't withdraw it directly, but you can redeem new BEAR NFTs with MiMo tokens.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Redeem Tab */}
-        {activeTab === 'redeem' && <RedeemBear />}
+        {activeTab === 'redeem' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <RedeemBear onSuccess={() => {
+                setNotification({
+                  type: 'success',
+                  message: 'Successfully redeemed a BEAR NFT!',
+                });
+                refreshData();
+              }} />
+            </div>
+            <div className="lg:col-span-1">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-blue-100 dark:border-blue-800/30 p-6">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-200 mb-4">About Redeeming</h3>
+                <div className="space-y-4 text-gray-600 dark:text-gray-400">
+                  <p>
+                    You can spend your MiMo tokens to redeem brand new BEAR NFTs that will be sent directly to your wallet.
+                  </p>
+                  <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <p>The redemption process mints a new BEAR NFT directly to your wallet.</p>
+                  </div>
+                  <div className="flex items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mr-2 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <p>You can use the redeemed BEAR NFT to mint a new Hunter, sell it on the market, or hold it.</p>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800/30">
+                    <div className="flex">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-500 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-blue-800 dark:text-blue-200">
+                        Redeeming a BEAR NFT costs a fixed amount of MiMo tokens, and a small redemption fee may apply.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Protection Tab */}
         {activeTab === 'protection' && (

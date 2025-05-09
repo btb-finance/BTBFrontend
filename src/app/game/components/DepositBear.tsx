@@ -5,7 +5,11 @@ import { ethers } from 'ethers';
 import { useGame } from './GameContext';
 import { BEAR_NFT_ADDRESS } from '../addresses';
 
-export default function DepositBear() {
+interface DepositBearProps {
+  onSuccess?: () => void;
+}
+
+export default function DepositBear({ onSuccess }: DepositBearProps) {
   const { depositBear, refreshData } = useGame();
   
   const [loading, setLoading] = useState(true);
@@ -104,6 +108,10 @@ export default function DepositBear() {
       setSelectedBearId(null);
       // Refresh data after successful deposit
       refreshData();
+      // Call onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (err: any) {
       console.error("Deposit error:", err);
       setError(err.message || "Failed to deposit BEAR NFT");
