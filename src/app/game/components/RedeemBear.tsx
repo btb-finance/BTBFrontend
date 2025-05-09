@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { ethers } from 'ethers';
 import { useGame } from './GameContext';
 
 export default function RedeemBear() {
@@ -26,7 +26,7 @@ export default function RedeemBear() {
         setIsPaused(requirements.paused);
       } catch (err) {
         console.error("Error loading redemption requirements:", err);
-        setError("Failed to load redemption requirements");
+        setError('Failed to load redemption requirements');
       } finally {
         setLoading(false);
       }
@@ -34,17 +34,27 @@ export default function RedeemBear() {
     
     loadRequirements();
   }, [getRedemptionRequirements]);
-
-  // Calculate if user has enough MiMo
+  
+  // Format number with commas
+  const formatNumber = (value: string) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return '0';
+    
+    // If the number has more than 2 decimal places, show only 2
+    const hasDecimal = value.includes('.');
+    if (hasDecimal) {
+      const parts = value.split('.');
+      const formattedWhole = parseInt(parts[0]).toLocaleString();
+      return `${formattedWhole}.${parts[1].substring(0, 2)}`;
+    }
+    
+    return parseInt(value).toLocaleString();
+  };
+  
+  // Check if user has enough MiMo tokens
   const hasEnoughMimo = parseFloat(mimoBalance) >= parseFloat(redemptionAmount);
   
-  // Calculate percentage of MiMo tokens user has compared to requirement
-  const getProgressPercentage = () => {
-    if (parseFloat(redemptionAmount) === 0) return 0;
-    const percentage = (parseFloat(mimoBalance) / parseFloat(redemptionAmount)) * 100;
-    return Math.min(percentage, 100);
-  };
-
+  // Handle redeem
   const handleRedeem = async () => {
     if (isPaused) {
       setError("Redemption is currently paused");
@@ -52,7 +62,7 @@ export default function RedeemBear() {
     }
     
     if (!hasEnoughMimo) {
-      setError(`You need at least ${redemptionAmount} MiMo tokens to redeem a BEAR NFT`);
+      setError(`You need at least ${formatNumber(redemptionAmount)} MiMo tokens to redeem a BEAR NFT`);
       return;
     }
     
@@ -63,34 +73,28 @@ export default function RedeemBear() {
     try {
       await redeemBear();
       setSuccess("Successfully redeemed a BEAR NFT!");
+      
+      // Refresh data after redeeming
       refreshData();
     } catch (err: any) {
-      console.error("Redemption error:", err);
+      console.error("Error redeeming BEAR NFT:", err);
       setError(err.message || "Failed to redeem BEAR NFT");
     } finally {
       setIsRedeeming(false);
     }
   };
 
-  // Format number with commas
-  const formatNumber = (num: string) => {
-    return parseFloat(num).toLocaleString(undefined, { maximumFractionDigits: 0 });
-  };
-
   return (
-    <motion.div 
-      className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+    <div 
+      className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30 transform transition-all duration-500 opacity-100"
     >
       {/* Card Header */}
       <div className="relative">
-        <div className="h-24 bg-gradient-to-r from-indigo-600 via-blue-600 to-blue-500 relative overflow-hidden">
+        <div className="h-24 bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-600 relative overflow-hidden">
           {/* Animated particle effects in header */}
           <div className="absolute inset-0">
             {[...Array(15)].map((_, i) => (
-              <motion.div 
+              <div 
                 key={i}
                 className="absolute rounded-full bg-white/20"
                 style={{
@@ -99,52 +103,28 @@ export default function RedeemBear() {
                   left: Math.random() * 100 + '%',
                   top: Math.random() * 100 + '%',
                 }}
-                animate={{
-                  y: [0, Math.random() * -20 - 5, 0],
-                  x: [0, Math.random() * 10 - 5, 0],
-                  opacity: [0.2, 0.6, 0.2],
-                }}
-                transition={{
-                  duration: Math.random() * 3 + 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
               />
             ))}
           </div>
-
+          
           {/* MiMo Token Emblem */}
-          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <motion.div 
-              className="text-white text-opacity-10 text-8xl font-bold"
-              animate={{ scale: [1, 1.05, 1], rotate: [0, 5, 0, -5, 0] }}
-              transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-            >
-              MiMo
-            </motion.div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+            <div className="text-white font-bold text-2xl animate-pulse">MiMo</div>
+            <div className="text-white/70 text-xs mt-1">token</div>
           </div>
         </div>
         
         <div className="absolute -bottom-10 left-6">
-          <motion.div 
-            className="rounded-full h-20 w-20 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-indigo-100 to-blue-200 dark:from-indigo-700 dark:to-blue-800 flex items-center justify-center shadow-xl"
-            animate={{ 
-              boxShadow: ["0 10px 25px -15px rgba(99, 102, 241, 0.4)", "0 15px 35px -15px rgba(99, 102, 241, 0.6)", "0 10px 25px -15px rgba(99, 102, 241, 0.4)"]
-            }}
-            transition={{ 
-              duration: 3, 
-              repeat: Infinity, 
-              ease: "easeInOut" 
-            }}
+          <div 
+            className="rounded-full h-20 w-20 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-indigo-100 to-blue-200 dark:from-indigo-700 dark:to-blue-800 flex items-center justify-center shadow-xl animate-pulse"
           >
-            <motion.span 
-              className="text-4xl"
-              animate={{ rotate: [0, 10, 0, -10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            <span 
+              className="text-4xl animate-bounce"
+              style={{ animationDuration: '5s' }}
             >
               🐻
-            </motion.span>
-          </motion.div>
+            </span>
+          </div>
         </div>
       </div>
       
@@ -156,210 +136,131 @@ export default function RedeemBear() {
           </h2>
           
           {isPaused && (
-            <motion.div 
-              className="px-3 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-full text-yellow-700 dark:text-yellow-300 text-sm font-medium flex items-center"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
+            <div 
+              className="px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-xs font-medium animate-pulse"
             >
-              <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
               Paused
-            </motion.div>
+            </div>
           )}
           
           {!isPaused && (
-            <motion.div 
-              className="px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-full text-green-700 dark:text-green-300 text-sm font-medium flex items-center"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
+            <div 
+              className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full text-xs font-medium flex items-center"
             >
-              <span className="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+              <span className="h-2 w-2 bg-green-500 rounded-full mr-1.5 animate-pulse"></span>
               Active
-            </motion.div>
-          )}
-        </div>
-
-        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30 relative overflow-hidden">
-          <div className="relative z-10 flex items-start">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-14a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V4z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="text-blue-800 dark:text-blue-200 mb-1 font-medium">
-                Exchange MiMo for BEAR NFT
-              </p>
-              <p className="text-sm text-blue-700/80 dark:text-blue-300/80">
-                Redeem your MiMo tokens for a BEAR NFT. You need 
-                {loading ? '...' : <span className="font-bold"> {formatNumber(redemptionAmount)}</span>} MiMo tokens for one BEAR NFT.
-              </p>
             </div>
-          </div>
-          
-          {/* Decorative elements */}
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-indigo-400/10 dark:bg-indigo-400/5"></div>
-          <div className="absolute right-8 -top-6 h-12 w-12 rounded-full bg-blue-400/10 dark:bg-blue-400/5"></div>
+          )}
         </div>
         
         {loading ? (
-          <div className="py-12 text-center">
+          <div className="py-10 text-center">
             <div className="flex flex-col items-center">
               <div className="relative mb-6">
                 {/* Background rings */}
                 {[...Array(3)].map((_, i) => (
-                  <motion.div
+                  <div 
                     key={i}
-                    className={`absolute rounded-full border-2 ${
-                      i === 0 ? 'border-indigo-500/20' :
-                      i === 1 ? 'border-blue-500/20' :
-                      'border-indigo-400/20'
-                    }`}
+                    className="absolute inset-0 rounded-full border-2 border-indigo-500/30"
                     style={{
-                      width: `${60 + i * 16}px`,
-                      height: `${60 + i * 16}px`,
-                      top: `${-i * 8}px`,
-                      left: `${-i * 8}px`,
+                      animation: `ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite`,
+                      animationDelay: `${i * 0.3}s`,
+                      width: `${(i+1) * 10 + 100}%`,
+                      height: `${(i+1) * 10 + 100}%`,
+                      top: `${-(i+1) * 5}%`,
+                      left: `${-(i+1) * 5}%`,
+                      opacity: 0.6 - (i * 0.15)
                     }}
-                    animate={{
-                      scale: [1, 1.1, 1],
-                      opacity: [0.3, 0.6, 0.3]
-                    }}
-                    transition={{
-                      duration: 2 + i * 0.5,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
-                  />
+                  ></div>
                 ))}
                 
-                {/* Spinning loader */}
-                <div className="relative">
-                  <motion.div 
-                    className="inline-block w-16 h-16 border-4 border-indigo-500/20 rounded-full"
-                    animate={{ rotate: [0, 180] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+                {/* Main spinner */}
+                <div 
+                  className="inline-block w-16 h-16 border-4 border-indigo-500/30 rounded-full animate-pulse"
+                >
+                  <div 
+                    className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-indigo-500 border-r-indigo-500 rounded-full animate-spin"
+                    style={{ animationDuration: '1.2s' }}
                   >
-                    <motion.div
-                      className="absolute h-2 w-2 rounded-full bg-indigo-500"
-                      style={{ top: '-4px', left: 'calc(50% - 4px)' }}
-                    />
-                  </motion.div>
+                  </div>
                   
-                  <motion.div 
-                    className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-blue-500 rounded-full"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                  />
-                  
-                  <motion.div 
-                    className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-l-indigo-500 rounded-full"
-                    animate={{ rotate: -360 }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  />
+                  {/* Pulsing center */}
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center"
+                  >
+                    <div
+                      className="w-6 h-6 bg-indigo-500/20 rounded-full animate-ping"
+                    ></div>
+                  </div>
                   
                   {/* Inner content */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <motion.div
-                      className="text-2xl"
-                      animate={{ scale: [1, 1.2, 1], rotate: [0, 10, 0, -10, 0] }}
-                      transition={{ duration: 4, repeat: Infinity }}
+                    <div
+                      className="text-2xl animate-bounce"
+                      style={{ animationDuration: '4s' }}
                     >
                       🔄
-                    </motion.div>
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <motion.p 
-                className="text-indigo-600 dark:text-indigo-400 font-medium"
-                animate={{ opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              <p 
+                className="text-indigo-600 dark:text-indigo-400 font-medium animate-pulse"
               >
                 Loading Redemption Data
-              </motion.p>
+              </p>
               
               <div className="mt-3 flex justify-center">
                 {[...Array(3)].map((_, i) => (
-                  <motion.div
+                  <div
                     key={i}
-                    className="h-1.5 w-1.5 mx-0.5 rounded-full bg-blue-500"
-                    animate={{
-                      scale: [1, 1.5, 1],
-                      opacity: [0.5, 1, 0.5]
+                    className="h-1.5 w-1.5 mx-0.5 rounded-full bg-blue-500 animate-bounce"
+                    style={{
+                      animationDelay: `${i * 0.15}s`,
+                      animationDuration: '1s'
                     }}
-                    transition={{
-                      duration: 1,
-                      repeat: Infinity,
-                      delay: i * 0.2,
-                      ease: "easeInOut"
-                    }}
-                  />
+                  ></div>
                 ))}
               </div>
-              
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-3">
-                Getting current requirements from blockchain...
-              </p>
             </div>
           </div>
         ) : (
           <>
-            {/* MiMo Balance Card */}
-            <div className="mb-8">
-              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 rounded-xl p-5 border border-indigo-100 dark:border-indigo-800/30 relative overflow-hidden">
-                <div className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Your MiMo Balance</div>
-                
-                <div className="flex items-end mb-3">
-                  <div className={`text-3xl font-bold ${hasEnoughMimo ? 'text-green-600 dark:text-green-400' : 'text-indigo-600 dark:text-indigo-400'}`}>
-                    {formatNumber(mimoBalance)}
-                  </div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 ml-2 mb-1">
-                    MiMo tokens
-                  </div>
-                </div>
-                
-                <div className="relative h-8 w-full bg-white dark:bg-gray-900 rounded-lg shadow-inner overflow-hidden mb-2">
-                  <motion.div 
-                    className={`absolute left-0 top-0 h-full rounded-lg ${
-                      hasEnoughMimo ? 'bg-gradient-to-r from-green-500 to-green-400' : 'bg-gradient-to-r from-indigo-500 to-blue-400'
-                    }`}
-                    style={{ width: '0%' }}
-                    animate={{ width: `${getProgressPercentage()}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                  >
-                    <div className="absolute inset-0 overflow-hidden flex">
-                      {[...Array(20)].map((_, i) => (
-                        <div 
-                          key={i} 
-                          className="h-full w-1 bg-white/20 transform -skew-x-12"
-                          style={{
-                            left: `${i * 8}%`,
-                            opacity: 0.5 + Math.random() * 0.5
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                  </motion.div>
+            <div className="mb-6 bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-800/30 relative overflow-hidden">
+              <div className="relative z-10 flex items-start">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-2 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <p className="text-indigo-800 dark:text-indigo-200 mb-1 font-medium">
+                    Redeem MiMo for a BEAR NFT
+                  </p>
+                  <p className="text-sm text-indigo-700/80 dark:text-indigo-300/80">
+                    Spend your MiMo tokens to redeem a BEAR NFT that can be used in the game or
+                    sold on marketplaces.
+                  </p>
                   
-                  {/* Goal marker */}
-                  <div className="absolute top-0 h-full" style={{ left: '100%', transform: 'translateX(-2px)' }}>
-                    <div className="h-full w-px bg-gray-300 dark:bg-gray-600"></div>
+                  {/* Progress bar for MiMo balance */}
+                  <div className="mt-3 w-full bg-indigo-100 dark:bg-indigo-900/30 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full transition-all duration-500"
+                      style={{ 
+                        width: `${Math.min(100, (parseFloat(mimoBalance) / parseFloat(redemptionAmount)) * 100)}%`,
+                      }}
+                    ></div>
+                  </div>
+                  
+                  <div className="flex justify-between text-xs mt-1">
+                    <span className="text-indigo-700 dark:text-indigo-300">Current: {formatNumber(mimoBalance)} MiMo</span>
+                    <span className="text-indigo-700 dark:text-indigo-300">Required: {formatNumber(redemptionAmount)} MiMo</span>
                   </div>
                 </div>
-                
-                <div className="flex justify-between text-xs">
-                  <div className="font-medium text-gray-500 dark:text-gray-400">
-                    {getProgressPercentage().toFixed(0)}% of required MiMo
-                  </div>
-                  <div className="font-medium text-gray-500 dark:text-gray-400">
-                    Need {formatNumber(redemptionAmount)} MiMo
-                  </div>
-                </div>
-                
-                {/* Decorative elements */}
-                <div className="absolute -left-4 -bottom-4 h-16 w-16 rounded-full bg-indigo-400/5"></div>
-                <div className="absolute -right-6 -bottom-8 h-24 w-24 rounded-full bg-blue-400/5"></div>
               </div>
+              
+              {/* Decorative elements */}
+              <div className="absolute -left-4 -bottom-4 h-16 w-16 rounded-full bg-indigo-400/5"></div>
+              <div className="absolute -right-6 -bottom-8 h-24 w-24 rounded-full bg-blue-400/5"></div>
             </div>
             
             {/* Redemption Details Card */}
@@ -397,14 +298,10 @@ export default function RedeemBear() {
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500 dark:text-indigo-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                      <span className="text-gray-600 dark:text-gray-400">Your MiMo Balance:</span>
                     </div>
-                    <span className={`font-semibold px-3 py-1 rounded-full text-sm ${
-                      isPaused 
-                        ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' 
-                        : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                    }`}>
-                      {isPaused ? 'Paused' : 'Active'}
+                    <span className={`font-semibold ${hasEnoughMimo ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      {formatNumber(mimoBalance)} MiMo
                     </span>
                   </li>
                 </ul>
@@ -412,11 +309,8 @@ export default function RedeemBear() {
             </div>
             
             {isPaused && (
-              <motion.div 
-                className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 rounded-xl text-sm text-yellow-800 dark:text-yellow-200 flex items-start"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
+              <div 
+                className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/30 text-yellow-800 dark:text-yellow-200 rounded-xl flex items-start animate-pulse"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0 text-yellow-600 dark:text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -427,48 +321,41 @@ export default function RedeemBear() {
                     NFT redemption is currently paused by the contract owner. Please check back later.
                   </p>
                 </div>
-              </motion.div>
+              </div>
             )}
             
             {error && (
-              <motion.div 
+              <div 
                 className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-200 rounded-xl text-sm flex items-start"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 <p>{error}</p>
-              </motion.div>
+              </div>
             )}
             
             {success && (
-              <motion.div 
+              <div 
                 className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-green-800 dark:text-green-200 rounded-xl text-sm flex items-start"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 <p>{success}</p>
-              </motion.div>
+              </div>
             )}
             
             <div className="mt-6">
-              <motion.button
+              <button
+                type="button"
                 onClick={handleRedeem}
                 disabled={isRedeeming || !hasEnoughMimo || isPaused}
-                className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center ${
+                className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center relative z-10 pointer-events-auto ${
                   isRedeeming || !hasEnoughMimo || isPaused
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-600/95 hover:to-blue-700'
+                    : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-600/95 hover:to-blue-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200'
                 }`}
-                whileHover={!isRedeeming && hasEnoughMimo && !isPaused ? { y: -2, boxShadow: "0 10px 25px -5px rgba(79, 70, 229, 0.4)" } : {}}
-                whileTap={!isRedeeming && hasEnoughMimo && !isPaused ? { y: 0, boxShadow: "0 5px 15px -5px rgba(79, 70, 229, 0.4)" } : {}}
               >
                 {isRedeeming ? (
                   <>
@@ -477,119 +364,81 @@ export default function RedeemBear() {
                       <div className="relative mr-3">
                         <div className="absolute inset-0">
                           {[...Array(3)].map((_, index) => (
-                            <motion.div
+                            <div
                               key={index}
                               className="absolute w-full h-full"
                               style={{ 
                                 rotate: index * 30,
-                                opacity: 0.7 
+                                opacity: 0.7,
+                                animation: 'spin 1.5s linear infinite'
                               }}
                             >
-                              <motion.div
+                              <div
                                 className="absolute bg-white h-4 w-0.5 left-1/2 -ml-0.5"
-                                style={{ 
-                                  top: -4,
-                                  transformOrigin: 'bottom center'
+                                style={{
+                                  animation: 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                                  animationDelay: `${index * 0.2}s`
                                 }}
-                                animate={{ 
-                                  scaleY: [0, 1, 0],
-                                  opacity: [0, 1, 0]
-                                }}
-                                transition={{ 
-                                  repeat: Infinity, 
-                                  duration: 1.5, 
-                                  delay: index * 0.2,
-                                  ease: "easeInOut"
-                                }}
-                              />
-                            </motion.div>
+                              ></div>
+                            </div>
                           ))}
                         </div>
                         
-                        {/* Main spinner */}
-                        <motion.div 
-                          className="w-6 h-6 border-2 border-white/20 rounded-full"
-                        />
-                        <motion.div 
-                          className="absolute top-0 left-0 w-6 h-6 border-2 border-transparent border-t-white border-r-white rounded-full"
-                          animate={{ rotate: 360 }}
-                          transition={{ 
-                            duration: 1, 
-                            repeat: Infinity, 
-                            ease: "linear" 
-                          }}
-                        />
+                        {/* Main spinner background */}
+                        <div
+                          className="h-5 w-5 rounded-full bg-white/20 animate-pulse"
+                        ></div>
+                        
+                        {/* Spinner animation */}
+                        <div
+                          className="absolute top-0 left-0 h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"
+                        ></div>
                         
                         {/* Pulsing center */}
-                        <motion.div 
-                          className="absolute top-1/2 left-1/2 w-2 h-2 -ml-1 -mt-1 bg-white rounded-full"
-                          animate={{ 
-                            scale: [1, 1.5, 1],
-                            opacity: [0.5, 1, 0.5]
-                          }}
-                          transition={{ 
-                            duration: 1, 
-                            repeat: Infinity 
-                          }}
-                        />
+                        <div
+                          className="absolute inset-0 flex items-center justify-center"
+                        >
+                          <div
+                            className="h-1.5 w-1.5 bg-white rounded-full animate-ping"
+                          ></div>
+                        </div>
                       </div>
-                      <span className="relative font-medium">
+                      <span className="relative">
                         Redeeming BEAR NFT
-                        <motion.span 
-                          className="absolute inline-flex"
-                          animate={{ 
-                            opacity: [0, 1, 0],
+                        <span 
+                          className="absolute animate-bounce"
+                          style={{
+                            animationDuration: '1.5s',
+                            opacity: 0.7
                           }}
-                          transition={{ 
-                            duration: 1.5, 
-                            repeat: Infinity, 
-                            repeatType: "loop" 
-                          }}
-                        >...</motion.span>
+                        >...</span>
                       </span>
                     </div>
-                  </>
-                ) : !hasEnoughMimo ? (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                    </svg>
-                    Need {formatNumber(redemptionAmount)} MiMo
-                  </>
-                ) : isPaused ? (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
-                    </svg>
-                    Redemption Paused
                   </>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
                     </svg>
                     Redeem BEAR NFT
                   </>
                 )}
-              </motion.button>
+              </button>
               
-              <motion.div 
-                className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-xl p-4 text-blue-800 dark:text-blue-200 text-sm flex items-start"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
+              <div 
+                className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30 text-xs text-blue-700 dark:text-blue-300"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-blue-500 dark:text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M11 17a1 1 0 001.447.894l4-2A1 1 0 0017 15V9.236a1 1 0 00-1.447-.894l-4 2a1 1 0 00-.553.894V17zM15.211 6.276a1 1 0 000-1.788l-4.764-2.382a1 1 0 00-.894 0L4.789 4.488a1 1 0 000 1.788l4.764 2.382a1 1 0 00.894 0l4.764-2.382zM4.447 8.342A1 1 0 003 9.236V15a1 1 0 00.553.894l4 2A1 1 0 009 17v-5.764a1 1 0 00-.553-.894l-4-2z" />
-                </svg>
-                <div>
-                  <span className="font-medium">After redemption:</span> Your BEAR NFT will be automatically minted and sent to your connected wallet. You can use this NFT to deposit and create a Hunter.
-                </div>
-              </motion.div>
+                <p className="flex items-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 text-blue-500 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  The BEAR NFT will be sent directly to your connected wallet after redemption
+                </p>
+              </div>
             </div>
           </>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

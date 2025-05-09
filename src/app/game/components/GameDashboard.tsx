@@ -544,8 +544,23 @@ export default function GameDashboard() {
                   </div>
                   <div>
                     <span className="text-xs text-gray-500 dark:text-gray-500">Game Contract:</span>
-                    <div className="truncate text-gray-800 dark:text-gray-300">
-                      {GAME_CONTRACT_ADDRESS}
+                    <div className="truncate text-gray-800 dark:text-gray-300 flex items-center">
+                      <a 
+                        href={`https://sepolia.basescan.org/address/${GAME_CONTRACT_ADDRESS}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate max-w-[120px] sm:max-w-full"
+                      >
+                        {GAME_CONTRACT_ADDRESS}
+                      </a>
+                      <a 
+                        href={`https://www.aerodrome.finance/pool/add/base-sepolia`} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        Add Liquidity
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -560,8 +575,23 @@ export default function GameDashboard() {
                   </div>
                   <div>
                     <span className="text-xs text-gray-500 dark:text-gray-500">BEAR NFT Contract:</span>
-                    <div className="truncate text-gray-800 dark:text-gray-300">
-                      {BEAR_NFT_ADDRESS}
+                    <div className="truncate text-gray-800 dark:text-gray-300 flex items-center">
+                      <a 
+                        href={`https://sepolia.basescan.org/address/${BEAR_NFT_ADDRESS}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate max-w-[120px] sm:max-w-full"
+                      >
+                        {BEAR_NFT_ADDRESS}
+                      </a>
+                      <a 
+                        href={`https://testnets.opensea.io/assets/base-sepolia/${BEAR_NFT_ADDRESS}`} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-2 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 text-[10px] px-1.5 py-0.5 rounded hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                      >
+                        View NFTs
+                      </a>
                     </div>
                   </div>
                 </div>

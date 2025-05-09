@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
 import { useGame } from './GameContext';
 import { BEAR_NFT_ADDRESS } from '../addresses';
@@ -114,11 +113,8 @@ export default function DepositBear() {
   };
 
   return (
-    <motion.div 
+    <div 
       className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
     >
       {/* Card Header */}
       <div className="relative">
@@ -126,7 +122,7 @@ export default function DepositBear() {
           {/* Animated particle effects in header */}
           <div className="absolute inset-0">
             {[...Array(15)].map((_, i) => (
-              <motion.div 
+              <div 
                 key={i}
                 className="absolute rounded-full bg-white/20"
                 style={{
@@ -135,45 +131,25 @@ export default function DepositBear() {
                   left: Math.random() * 100 + '%',
                   top: Math.random() * 100 + '%',
                 }}
-                animate={{
-                  y: [0, Math.random() * -20 - 5, 0],
-                  x: [0, Math.random() * 10 - 5, 0],
-                  opacity: [0.2, 0.6, 0.2],
-                }}
-                transition={{
-                  duration: Math.random() * 3 + 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
               />
             ))}
           </div>
         </div>
         
         <div className="absolute -bottom-10 left-6">
-          <motion.div 
+          <div 
             className="rounded-full h-20 w-20 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-700 dark:to-amber-800 flex items-center justify-center shadow-xl"
-            animate={{ 
-              boxShadow: ["0 10px 25px -15px rgba(251, 191, 36, 0.4)", "0 15px 35px -15px rgba(251, 191, 36, 0.6)", "0 10px 25px -15px rgba(251, 191, 36, 0.4)"]
-            }}
-            transition={{ 
-              duration: 3, 
-              repeat: Infinity, 
-              ease: "easeInOut" 
-            }}
           >
-            <motion.span 
+            <span 
               className="text-4xl"
-              animate={{ rotate: [0, 10, 0, -10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             >
               🐻
-            </motion.span>
-          </motion.div>
+            </span>
+          </div>
         </div>
         
         <div className="absolute top-4 right-4">
-          <motion.button 
+          <button 
             onClick={() => {
               setLoading(true);
               setBearNFTs([]);
@@ -245,15 +221,13 @@ export default function DepositBear() {
                 loadBearNFTs();
               }, 100);
             }}
-            className="text-sm px-3 py-1 bg-black/30 text-white rounded-full hover:bg-black/40 transition-colors backdrop-blur-sm flex items-center"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            className="text-sm px-3 py-1 bg-black/30 text-white rounded-full hover:bg-black/40 transition-colors backdrop-blur-sm flex items-center hover:scale-105 active:scale-95"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
             </svg>
             Reload
-          </motion.button>
+          </button>
         </div>
       </div>
       
@@ -290,45 +264,32 @@ export default function DepositBear() {
           <div className="py-10 text-center">
             <div className="flex flex-col items-center">
               <div className="relative mb-6">
-                <motion.div 
-                  className="inline-block w-16 h-16 border-4 border-btb-primary/30 rounded-full"
-                  animate={{ scale: [1, 1.05, 1], rotate: [0, 180, 360] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                ></motion.div>
-                <motion.div 
-                  className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-btb-primary border-r-btb-primary rounded-full"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-                ></motion.div>
+                <div 
+                  className="inline-block w-16 h-16 border-4 border-btb-primary/30 rounded-full animate-pulse"
+                ></div>
+                <div 
+                  className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-btb-primary border-r-btb-primary rounded-full animate-spin"
+                ></div>
                 
                 {/* Animated dots */}
                 <div className="absolute inset-0 flex items-center justify-center">
                   {[...Array(3)].map((_, i) => (
-                    <motion.div
+                    <div
                       key={i}
-                      className="w-1.5 h-1.5 mx-0.5 bg-btb-primary rounded-full"
-                      animate={{
-                        y: [0, -6, 0],
-                        opacity: [0.5, 1, 0.5]
-                      }}
-                      transition={{
-                        duration: 1,
-                        repeat: Infinity,
-                        delay: i * 0.2,
-                        ease: "easeInOut"
+                      className="w-1.5 h-1.5 mx-0.5 bg-btb-primary rounded-full animate-bounce"
+                      style={{
+                        animationDelay: `${i * 0.2}s`
                       }}
                     />
                   ))}
                 </div>
               </div>
               
-              <motion.p 
-                className="text-gray-600 dark:text-gray-300 font-medium"
-                animate={{ opacity: [0.7, 1, 0.7] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              <p 
+                className="text-gray-600 dark:text-gray-300 font-medium animate-pulse"
               >
                 Searching for your BEAR NFTs
-              </motion.p>
+              </p>
               
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
                 Connecting to your wallet...
@@ -337,10 +298,7 @@ export default function DepositBear() {
           </div>
         ) : bearNFTs.length === 0 ? (
           <div className="py-8 text-center">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
+            <div 
               className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-6 mb-6 border border-gray-200 dark:border-gray-700"
             >
               <div className="inline-block p-3 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
@@ -357,37 +315,33 @@ export default function DepositBear() {
               </p>
               
               <div className="flex flex-wrap justify-center gap-3">
-                <motion.a 
+                <a 
                   href="https://opensea.io" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="px-4 py-2 bg-gradient-to-r from-btb-primary to-blue-500 text-white rounded-lg shadow-md hover:shadow-lg flex items-center"
-                  whileHover={{ scale: 1.03, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="px-4 py-2 bg-gradient-to-r from-btb-primary to-blue-500 text-white rounded-lg shadow-md hover:shadow-lg flex items-center hover:scale-103 hover:-translate-y-1 transition-all"
                 >
                   <svg className="h-5 w-5 mr-2" viewBox="0 0 90 90" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                     <path d="M45 0C20.2 0 0 20.2 0 45C0 69.8 20.2 90 45 90C69.8 90 90 69.8 90 45C90 20.2 69.8 0 45 0ZM22.7 46.2L22.8 46L35.1 26.3C35.4 25.8 36.1 25.9 36.3 26.4C38.9 33.3 41.1 41.8 39.6 47.1C39.1 48.7 38.1 50.8 36.9 52.9C36.7 53.3 36.5 53.7 36.3 54C36.2 54.2 36 54.3 35.8 54.3H23.4C22.8 54.3 22.5 53.6 22.8 53.1L22.7 46.2ZM74.7 54.5C74.7 54.9 74.4 55.2 74 55.2H62.6C62.2 55.2 61.9 54.9 61.9 54.5C61.9 54.3 62 54.1 62.1 54L62.3 53.8C62.3 53.8 65.3 50.3 65.5 50C68.9 45.9 71.2 42.2 71.2 38C71.2 34.9 69.9 32.6 67.1 32.6C64.7 32.6 62.6 34.9 62.6 37.9C62.6 39.5 63.1 40.7 63.7 42.2C63.9 42.7 63.6 43.3 63.1 43.3H55.4C55.1 43.3 54.9 43.1 54.9 42.9C54.6 38.6 57.8 28.2 67.3 28.2C74.3 28.2 79.6 33.5 79.6 39.5C79.6 44.1 77.2 48.7 73.1 54C72.5 54.8 71.8 55.6 71.1 56.5C70.5 57.3 69.7 58.3 69.7 59.3C69.7 60.7 70.4 62 72.1 62C73.5 62 74.4 61.2 75.3 59.8C75.7 59.2 76.4 59.3 76.5 60L77.9 65C78 65.4 77.9 65.7 77.6 66C76.3 67 74.6 67.5 72.5 67.5C67.5 67.5 63.2 64.3 63.2 58.9C63.2 56.8 63.9 54.6 65.2 52.5C65.8 51.4 66.9 50 67.5 49.3C67.9 48.9 68.4 48.1 68.4 47.7C68.4 46.9 67.8 46.3 67 46.3C66 46.3 65.2 47.1 64.8 48.1C64.6 48.6 64.1 48.9 63.6 48.7L56.4 46.5C56 46.4 55.7 46 55.9 45.6C57.9 39.9 61.6 35.5 68.8 35.5C76.4 35.5 79.9 40.3 79.9 45.3C79.9 48.8 78.2 50.3 76.3 51.7L74.5 53C74.2 53.2 74 53.5 74.1 53.8L74.7 54.5Z"/>
                   </svg>
                   Get BEAR NFTs on OpenSea
-                </motion.a>
+                </a>
                 
-                <motion.button
+                <button
                   onClick={() => {
                     // For testing: add mock BEAR NFTs
                     setBearNFTs([1, 2, 3]);
                   }}
-                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-lg shadow-md hover:shadow-lg flex items-center"
-                  whileHover={{ scale: 1.03, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded-lg shadow-md hover:shadow-lg flex items-center hover:scale-103 hover:-translate-y-1 transition-all"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
                     <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
                   </svg>
                   Show Test NFTs
-                </motion.button>
+                </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         ) : (
           <>
@@ -398,11 +352,9 @@ export default function DepositBear() {
               
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 mb-6">
                 {bearNFTs.map((bearId) => (
-                  <motion.div
+                  <div
                     key={bearId}
-                    whileHover={{ y: -5, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.3)" }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 border-2 ${
+                    className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 border-2 hover:-translate-y-1 hover:shadow-xl ${
                       selectedBearId === bearId 
                         ? 'border-btb-primary ring-2 ring-btb-primary/30' 
                         : 'border-gray-200 dark:border-gray-700'
@@ -411,19 +363,11 @@ export default function DepositBear() {
                   >
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20">
                       <div className="h-24 flex items-center justify-center">
-                        <motion.div
-                          animate={{ 
-                            y: [0, -5, 0],
-                            rotate: [0, 5, 0, -5, 0]
-                          }}
-                          transition={{ 
-                            duration: 5, 
-                            repeat: Infinity, 
-                            ease: "easeInOut" 
-                          }}
+                        <div
+                          className="animate-pulse"
                         >
                           <span className="text-5xl drop-shadow-md">🐻</span>
-                        </motion.div>
+                        </div>
                       </div>
                       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm p-3 text-center">
                         <div className="font-bold text-btb-primary dark:text-btb-primary-light">BEAR #{bearId}</div>
@@ -431,63 +375,46 @@ export default function DepositBear() {
                     </div>
                     
                     {selectedBearId === bearId && (
-                      <motion.div 
-                        className="absolute top-2 right-2 h-8 w-8 bg-btb-primary text-white rounded-full flex items-center justify-center"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                      <div 
+                        className="absolute top-2 right-2 h-8 w-8 bg-btb-primary text-white rounded-full flex items-center justify-center animate-scale-in"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
-                      </motion.div>
+                      </div>
                     )}
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
             
             <div className="mt-6">
-              <motion.button
+              <button
+                type="button"
                 onClick={handleDeposit}
                 disabled={isDepositing || !selectedBearId}
-                className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center ${
+                className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center relative z-10 pointer-events-auto ${
                   isDepositing || !selectedBearId
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-btb-primary to-blue-600 hover:from-btb-primary/95 hover:to-blue-700'
+                    : 'bg-gradient-to-r from-btb-primary to-blue-600 hover:from-btb-primary/95 hover:to-blue-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200'
                 }`}
-                whileHover={!isDepositing && selectedBearId ? { y: -2, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.4)" } : {}}
-                whileTap={!isDepositing && selectedBearId ? { y: 0, boxShadow: "0 5px 15px -5px rgba(59, 130, 246, 0.4)" } : {}}
               >
                 {isDepositing ? (
                   <>
                     <div className="flex items-center justify-center">
                       <div className="relative mr-3">
-                        <motion.div 
-                          className="w-5 h-5 border-2 border-white/30 rounded-full"
-                          animate={{ scale: [1, 1.1, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
+                        <div 
+                          className="w-5 h-5 border-2 border-white/30 rounded-full animate-pulse"
                         />
-                        <motion.div 
-                          className="absolute top-0 left-0 w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                        <div 
+                          className="absolute top-0 left-0 w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"
                         />
                       </div>
                       <span className="relative">
                         Depositing BEAR NFT
-                        <motion.span 
-                          className="absolute"
-                          animate={{ 
-                            opacity: [0, 1, 0],
-                            x: [0, 3, 0]
-                          }}
-                          transition={{ 
-                            duration: 1.5, 
-                            repeat: Infinity, 
-                            repeatType: "loop"
-                          }}
-                        >...</motion.span>
+                        <span 
+                          className="absolute animate-typing"
+                        >...</span>
                       </span>
                     </div>
                   </>
@@ -499,7 +426,7 @@ export default function DepositBear() {
                     Deposit BEAR NFT
                   </>
                 )}
-              </motion.button>
+              </button>
               
               <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-3">
                 Deposit is permanent and will mint a new Hunter NFT to your wallet
@@ -509,11 +436,8 @@ export default function DepositBear() {
         )}
         
         {error && (
-          <motion.div 
+          <div 
             className="mt-5 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-200 rounded-xl text-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
           >
             <div className="flex items-start">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -521,15 +445,12 @@ export default function DepositBear() {
               </svg>
               <p>{error}</p>
             </div>
-          </motion.div>
+          </div>
         )}
         
         {success && (
-          <motion.div 
+          <div 
             className="mt-5 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 text-green-800 dark:text-green-200 rounded-xl text-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
           >
             <div className="flex items-start">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -537,9 +458,9 @@ export default function DepositBear() {
               </svg>
               <p>{success}</p>
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }
