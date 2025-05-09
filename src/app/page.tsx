@@ -108,17 +108,6 @@ const products = [
     bgColor: 'bg-gradient-to-br from-emerald-600/10 to-green-800/10',
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     borderColor: 'border-emerald-200 dark:border-emerald-800'
-  },
-  {
-    name: 'Impermanent Loss Protection',
-    description: 'Never lose money in DeFi again. Our revolutionary liquidity hub ensures liquidity providers are fully protected from impermanent loss.',
-    detailedDescription: 'Our groundbreaking impermanent loss protection mechanism ensures liquidity providers never lose money. BTB token holders vote on pools that receive protection and earn 10% of the LP fees from those pools. In exchange, the BTB treasury provides full impermanent loss refunds to liquidity providers, creating the biggest and safest yield farming opportunity in the DeFi space.',
-    features: ['Complete IL refunds from BTB treasury', 'Pools selected by BTB token holders', '10% of LP fees to BTB voters', 'Risk-free liquidity provision'],
-    icon: ShieldCheckIcon,
-    href: '/il-protection',
-    bgColor: 'bg-gradient-to-br from-purple-600/10 to-indigo-800/10',
-    iconColor: 'text-purple-600 dark:text-purple-400',
-    borderColor: 'border-purple-200 dark:border-purple-800'
   }
 ];
 
