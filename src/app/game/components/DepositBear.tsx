@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
-import { useGame, BEAR_NFT_ADDRESS } from './GameContext';
+import { useGame } from './GameContext';
+import { BEAR_NFT_ADDRESS } from '../addresses';
 
 export default function DepositBear() {
   const { depositBear, refreshData } = useGame();

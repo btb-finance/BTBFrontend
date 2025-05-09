@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useGame, BEAR_HUNTER_ECOSYSTEM_ADDRESS as GAME_CONTRACT_ADDRESS, BEAR_NFT_ADDRESS } from './GameContext';
+import { useGame } from './GameContext';
+import { BEAR_HUNTER_ECOSYSTEM_ADDRESS as GAME_CONTRACT_ADDRESS, BEAR_NFT_ADDRESS } from '../addresses';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import HunterCard from './HunterCard';
 import DepositBear from './DepositBear';

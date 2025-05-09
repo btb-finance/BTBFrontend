@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react';
 import { ethers } from 'ethers';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
-import BearHunterEcosystemABI from '../BearHunterEcosystemabi.json';
-import BTBSwapLogicABI from '../BTBSwapLogicabi.json';
-import MiMoGaMeABI from '../MiMoGaMeabi.json';
+import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
+import MiMoGaMeABI from '../abi/MiMoGaMe.json';
 import { BTBTokenABI } from '../../contracts/BTBToken';
 import { 
   BEAR_HUNTER_ECOSYSTEM_ADDRESS,
@@ -13,7 +12,7 @@ import {
   BTB_TOKEN_ADDRESS,
   MIMO_TOKEN_ADDRESS,
   BTB_SWAP_LOGIC_ADDRESS
-} from './GameContext';
+} from '../addresses';
 
 // Create interfaces for event parsing
 const gameInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
@@ -416,7 +415,11 @@ export function useBTBSwapLogic() {
     
     try {
       const signer = provider.getSigner();
-      const btbSwapContract = new ethers.Contract(BTB_SWAP_LOGIC_ADDRESS, BTBSwapLogicABI, signer);
+      const btbSwapContract = new ethers.Contract(
+        BTB_SWAP_LOGIC_ADDRESS, 
+        BearHunterEcosystemABI, // Using the same ABI as the main contract for swap functions
+        signer
+      );
       setSwapContract(btbSwapContract);
     } catch (err) {
       console.error('Failed to initialize BTB swap contract:', err);

@@ -1,4 +1,4 @@
-        // Cont ract addresses - export these so other components can use them
+// Contract addresses for the Bear Hunter Ecosystem Game
 export const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0x4C3E92f8d66C76dEf2dbA15f3F21fACFfDe55cB8';
 export const BEAR_NFT_ADDRESS = '0xd8Cb4AD6d847A0eD5FC6D2BFADb2242DF524095E';
 export const BTB_TOKEN_ADDRESS = '0x1329333db21807c56eD647D1423e2841b2f7B7F8';
