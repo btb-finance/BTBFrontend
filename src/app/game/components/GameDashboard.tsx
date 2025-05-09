@@ -148,8 +148,31 @@ export default function GameDashboard() {
                     <div className="text-3xl font-bold text-btb-primary dark:text-btb-primary-light mr-2">
                       {loading ? (
                         <div className="flex items-center">
-                          <div className="h-5 w-5 border-2 border-btb-primary border-t-transparent rounded-full animate-spin mr-2"></div>
-                          <span className="text-xl">Loading...</span>
+                          <div className="mr-2 relative h-6 w-6">
+                            <motion.div 
+                              className="absolute inset-0 border-2 border-btb-primary/20 rounded-full"
+                              animate={{ scale: [1, 1.2, 1] }}
+                              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                            />
+                            <motion.div 
+                              className="absolute inset-0 border-2 border-transparent border-t-btb-primary border-l-btb-primary rounded-full"
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+                            />
+                          </div>
+                          <motion.span 
+                            className="text-xl"
+                            animate={{ 
+                              opacity: [0.7, 1, 0.7],
+                            }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          >
+                            Loading
+                            <motion.span
+                              animate={{ opacity: [0, 1, 0] }}
+                              transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop" }}
+                            >...</motion.span>
+                          </motion.span>
                         </div>
                       ) : (
                         parseFloat(mimoBalance).toLocaleString()
@@ -199,8 +222,29 @@ export default function GameDashboard() {
                     <div className="text-lg font-bold">
                       {loading ? (
                         <div className="flex items-center">
-                          <div className="h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                          <span>Checking...</span>
+                          <div className="relative mr-2 h-4 w-4">
+                            <motion.div 
+                              className="absolute inset-0 rounded-full"
+                              style={{ 
+                                background: "conic-gradient(transparent 0deg, transparent 280deg, currentColor 280deg, currentColor 360deg)"
+                              }}
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+                            />
+                            <motion.div 
+                              className="absolute inset-0.5 bg-white dark:bg-gray-800 rounded-full"
+                            />
+                          </div>
+                          <motion.span
+                            animate={{ opacity: [0.7, 1, 0.7] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                          >
+                            Checking
+                            <motion.span
+                              animate={{ opacity: [0, 1, 0] }}
+                              transition={{ duration: 1.5, repeat: Infinity }}
+                            >...</motion.span>
+                          </motion.span>
                         </div>
                       ) : (
                         <span className={isAddressProtected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
@@ -659,7 +703,127 @@ export default function GameDashboard() {
           <>
             {loading ? (
               <div className="h-64 flex items-center justify-center">
-                <div className="text-gray-500 dark:text-gray-400">Loading your hunters...</div>
+                <div className="flex flex-col items-center">
+                  <div className="relative mb-6">
+                    <div className="relative">
+                      {/* Outer rings */}
+                      {[...Array(3)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          className="absolute rounded-full border-2 border-btb-primary/20"
+                          style={{
+                            width: `${100 + i * 20}px`,
+                            height: `${100 + i * 20}px`,
+                            top: `${-i * 10}px`,
+                            left: `${-i * 10}px`,
+                          }}
+                          animate={{
+                            scale: [1, 1.1, 1],
+                            opacity: [0.2, 0.5, 0.2],
+                          }}
+                          transition={{
+                            duration: 3 + i * 0.5,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: i * 0.2
+                          }}
+                        />
+                      ))}
+                    
+                      {/* Spinning loader */}
+                      <motion.div 
+                        className="relative h-24 w-24 border-4 border-btb-primary/20 rounded-full overflow-hidden"
+                      >
+                        {/* Inner content */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <motion.div
+                            className="text-4xl"
+                            animate={{ rotate: [0, 10, 0, -10, 0] }}
+                            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                          >
+                            🐻
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                      
+                      {/* Spinning borders */}
+                      <motion.div 
+                        className="absolute top-0 left-0 h-24 w-24 border-4 border-transparent border-t-btb-primary rounded-full"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                      />
+                      
+                      <motion.div 
+                        className="absolute top-0 left-0 h-24 w-24 border-4 border-transparent border-r-blue-500 rounded-full"
+                        animate={{ rotate: -180 }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      
+                      {/* Hunting paw effects */}
+                      {[...Array(6)].map((_, i) => {
+                        const angle = (i * 60) * (Math.PI / 180);
+                        const x = Math.cos(angle) * 60;
+                        const y = Math.sin(angle) * 60;
+                        
+                        return (
+                          <motion.div
+                            key={i}
+                            className="absolute h-4 w-4 rounded-full bg-btb-primary/50"
+                            style={{
+                              left: '50%',
+                              top: '50%',
+                              marginLeft: '-8px',
+                              marginTop: '-8px',
+                            }}
+                            animate={{
+                              x: [0, x * 0.5, x],
+                              y: [0, y * 0.5, y],
+                              opacity: [0, 1, 0],
+                              scale: [0.5, 1.5, 0.5]
+                            }}
+                            transition={{
+                              duration: 3,
+                              repeat: Infinity,
+                              delay: i * 0.5,
+                              ease: "easeInOut"
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  <motion.p 
+                    className="text-lg font-semibold text-btb-primary dark:text-btb-primary-light mb-2"
+                    animate={{ opacity: [0.6, 1, 0.6] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    Loading Hunters
+                  </motion.p>
+                  
+                  <div className="flex space-x-2 mb-3">
+                    {[...Array(3)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        className="h-2 w-2 rounded-full bg-btb-primary/70"
+                        animate={{
+                          scale: [0.5, 1.5, 0.5],
+                          opacity: [0.3, 1, 0.3]
+                        }}
+                        transition={{
+                          duration: 1.5,
+                          repeat: Infinity,
+                          delay: i * 0.3,
+                          ease: "easeInOut"
+                        }}
+                      />
+                    ))}
+                  </div>
+                  
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    Connecting to blockchain and fetching your data...
+                  </p>
+                </div>
               </div>
             ) : hunters.length === 0 ? (
               <div className="text-center py-12">
