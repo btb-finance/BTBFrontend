@@ -2,15 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useGame } from './GameContext';
+import { useGame, BEAR_HUNTER_ECOSYSTEM_ADDRESS as GAME_CONTRACT_ADDRESS, BEAR_NFT_ADDRESS } from './GameContext';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import HunterCard from './HunterCard';
 import DepositBear from './DepositBear';
 import RedeemBear from './RedeemBear';
-
-// Contract addresses
-const GAME_CONTRACT_ADDRESS = '0xD4feebBB3bcAD99237A3A6b495088D6d0CA78115';
-const BEAR_NFT_ADDRESS = '0xFDF941c77E6Dd3eA4a714B26F91F09824C589404';
 
 export default function GameDashboard() {
   const { loading, hunters, mimoBalance, isAddressProtected, feedHunter, hunt, refreshData, error, gameContract } = useGame();

@@ -3,10 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ethers } from 'ethers';
-import { useGame } from './GameContext';
-
-// Contract addresses
-const BEAR_NFT_ADDRESS = '0xFDF941c77E6Dd3eA4a714B26F91F09824C589404';
+import { useGame, BEAR_NFT_ADDRESS } from './GameContext';
 
 export default function DepositBear() {
   const { depositBear, refreshData } = useGame();

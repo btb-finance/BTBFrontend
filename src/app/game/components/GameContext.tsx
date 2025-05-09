@@ -7,12 +7,12 @@ import BearHunterEcosystemABI from '../BearHunterEcosystemabi.json';
 import BTBSwapLogicABI from '../BTBSwapLogicabi.json';
 import MiMoGaMeABI from '../MiMoGaMeabi.json';
 
-// Contract addresses
-const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0xD4feebBB3bcAD99237A3A6b495088D6d0CA78115';
-const BEAR_NFT_ADDRESS = '0xFDF941c77E6Dd3eA4a714B26F91F09824C589404';
-const BTB_TOKEN_ADDRESS = '0xE7997Bc2d74B407d2A21fDaEf0fD44824876Ef70';
-const MIMO_TOKEN_ADDRESS = '0xD2bfAAD896F70ef217a478b0908a7Ce6A65523C4';
-const BTB_SWAP_LOGIC_ADDRESS = '0xe49e40c262A8BbCb4207427bFEb7F28d71960f6F';
+// Contract addresses - export these so other components can use them
+export const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0x4C3E92f8d66C76dEf2dbA15f3F21fACFfDe55cB8';
+export const BEAR_NFT_ADDRESS = '0xd8Cb4AD6d847A0eD5FC6D2BFADb2242DF524095E';
+export const BTB_TOKEN_ADDRESS = '0x1329333db21807c56eD647D1423e2841b2f7B7F8';
+export const MIMO_TOKEN_ADDRESS = '0x2e481Be4F28aF8F0597c62fbca3f2E180B8E8AC1';
+export const BTB_SWAP_LOGIC_ADDRESS = '0xe49e40c262A8BbCb4207427bFEb7F28d71960f6F';
 
 // Types
 export type Hunter = {

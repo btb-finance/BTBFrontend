@@ -7,13 +7,13 @@ import BearHunterEcosystemABI from '../BearHunterEcosystemabi.json';
 import BTBSwapLogicABI from '../BTBSwapLogicabi.json';
 import MiMoGaMeABI from '../MiMoGaMeabi.json';
 import { BTBTokenABI } from '../../contracts/BTBToken';
-
-// Contract addresses
-const BEAR_HUNTER_ECOSYSTEM_ADDRESS = '0x9adEa91A07C1EFB76ad15aBFF9D407D2BaEa0323';
-const BEAR_NFT_ADDRESS = '0x98DfAb84a36c68dDC835bFb5681129f2b2A9e0aC';
-const BTB_TOKEN_ADDRESS = '0x7765fcea35C8f9bd79aF28413a41Bb15dE640D9B';
-const MIMO_TOKEN_ADDRESS = '0xD2bfAAD896F70ef217a478b0908a7Ce6A65523C4';
-const BTB_SWAP_LOGIC_ADDRESS = '0xe49e40c262A8BbCb4207427bFEb7F28d71960f6F';
+import { 
+  BEAR_HUNTER_ECOSYSTEM_ADDRESS,
+  BEAR_NFT_ADDRESS,
+  BTB_TOKEN_ADDRESS,
+  MIMO_TOKEN_ADDRESS,
+  BTB_SWAP_LOGIC_ADDRESS
+} from './GameContext';
 
 // Create interfaces for event parsing
 const gameInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
