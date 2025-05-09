@@ -40,7 +40,7 @@ export type GameContextType = {
   mimoToken: ethers.Contract | null;
   
   // Contract interactions
-  depositBear: (bearId: number) => Promise<void>;
+  depositBear: (bearId: number | number[]) => Promise<void>;
   feedHunter: (hunterId: number) => Promise<void>;
   hunt: (hunterId: number, target?: string) => Promise<void>;
   setAddressProtection: (status: boolean) => Promise<void>;
@@ -267,8 +267,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   // Contract interaction methods
-  const depositBear = async (bearId: number) => {
-    console.log("Attempting to deposit BEAR NFT:", bearId);
+  const depositBear = async (bearIdOrIds: number | number[]) => {
+    const isBatch = Array.isArray(bearIdOrIds);
+    const bearIds = isBatch ? bearIdOrIds : [bearIdOrIds];
+    
+    console.log(`Attempting to deposit BEAR NFT${isBatch ? 's' : ''}:`, bearIds);
     
     if (!gameContract) {
       const errorMsg = 'Game contract not initialized';
@@ -290,53 +293,82 @@ export function GameProvider({ children }: { children: ReactNode }) {
         throw new Error("No provider available to create signer");
       }
       
-      const bearContract = new ethers.Contract(
-        BEAR_NFT_ADDRESS,
-        [
-          'function approve(address to, uint256 tokenId) public',
-          'function getApproved(uint256 tokenId) view returns (address)',
-          'function ownerOf(uint256 tokenId) view returns (address)'
-        ],
-        signer
-      );
+      // We'll use the bearId directly from the parameter for single deposits
+      const bearId = isBatch ? bearIds[0] : bearIdOrIds as number;
       
-      // Check if we own the NFT
-      console.log("Checking ownership of BEAR NFT:", bearId);
-      const ownerAddress = await bearContract.ownerOf(bearId);
-      const signerAddress = await signer.getAddress();
-      
-      console.log("Owner:", ownerAddress);
-      console.log("Signer:", signerAddress);
-      
-      if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
-        throw new Error(`You don't own BEAR NFT #${bearId}`);
+      // If it's a batch operation and using setApprovalForAll, we assume it's already been called
+      // by the DepositBear component. Otherwise, we need to approve individually.
+      if (!isBatch) {
+        const bearContract = new ethers.Contract(
+          BEAR_NFT_ADDRESS,
+          [
+            'function approve(address to, uint256 tokenId) public',
+            'function getApproved(uint256 tokenId) view returns (address)',
+            'function ownerOf(uint256 tokenId) view returns (address)',
+            'function isApprovedForAll(address owner, address operator) view returns (bool)'
+          ],
+          signer
+        );
+        
+        // Check if we own the NFT
+        console.log("Checking ownership of BEAR NFT:", bearId);
+        const ownerAddress = await bearContract.ownerOf(bearId);
+        const signerAddress = await signer.getAddress();
+        
+        console.log("Owner:", ownerAddress);
+        console.log("Signer:", signerAddress);
+        
+        if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+          throw new Error(`You don't own BEAR NFT #${bearId}`);
+        }
+        
+        // Check if we already have approval for all
+        const isApprovedForAll = await bearContract.isApprovedForAll(signerAddress, BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+        if (isApprovedForAll) {
+          console.log("Already have approval for all tokens, skipping individual approval");
+        } else {
+          // Check if this specific NFT is already approved
+          const currentApproval = await bearContract.getApproved(bearId);
+          if (currentApproval.toLowerCase() === BEAR_HUNTER_ECOSYSTEM_ADDRESS.toLowerCase()) {
+            console.log("This NFT is already approved, skipping approval");
+          } else {
+            // Approve the game contract for this specific NFT
+            console.log("Approving BEAR NFT transfer to:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+            const approveTx = await bearContract.approve(BEAR_HUNTER_ECOSYSTEM_ADDRESS, bearId);
+            console.log("Approval transaction:", approveTx.hash);
+            const approveReceipt = await approveTx.wait();
+            console.log("Approval confirmed in block:", approveReceipt.blockNumber);
+            
+            // Verify approval
+            const approved = await bearContract.getApproved(bearId);
+            console.log("Approved address:", approved);
+            if (approved.toLowerCase() !== BEAR_HUNTER_ECOSYSTEM_ADDRESS.toLowerCase()) {
+              throw new Error("Approval did not succeed. Try again.");
+            }
+          }
+        }
       }
       
-      // Approve the game contract
-      console.log("Approving BEAR NFT transfer to:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
-      const approveTx = await bearContract.approve(BEAR_HUNTER_ECOSYSTEM_ADDRESS, bearId);
-      console.log("Approval transaction:", approveTx.hash);
-      const approveReceipt = await approveTx.wait();
-      console.log("Approval confirmed in block:", approveReceipt.blockNumber);
-      
-      // Verify approval
-      const approved = await bearContract.getApproved(bearId);
-      console.log("Approved address:", approved);
-      if (approved.toLowerCase() !== BEAR_HUNTER_ECOSYSTEM_ADDRESS.toLowerCase()) {
-        throw new Error("Approval did not succeed. Try again.");
+      // If it's a batch operation, use the batchDepositBears function for all NFTs at once
+      if (isBatch) {
+        console.log(`Batch depositing ${bearIds.length} BEAR NFTs in a single transaction...`);
+        const tx = await gameContract.batchDepositBears(bearIds);
+        console.log("Batch deposit transaction:", tx.hash);
+        const receipt = await tx.wait();
+        console.log(`Batch deposit confirmed in block:`, receipt.blockNumber);
+      } else {
+        // For single NFT, use regular depositBear
+        console.log("Depositing BEAR NFT...");
+        const tx = await gameContract.depositBear(bearId);
+        console.log("Deposit transaction:", tx.hash);
+        const receipt = await tx.wait();
+        console.log("Deposit confirmed in block:", receipt.blockNumber);
       }
-      
-      // Then deposit the BEAR NFT
-      console.log("Depositing BEAR NFT...");
-      const tx = await gameContract.depositBear(bearId);
-      console.log("Deposit transaction:", tx.hash);
-      const receipt = await tx.wait();
-      console.log("Deposit confirmed in block:", receipt.blockNumber);
       
       // Refresh data after transaction
       await refreshData();
       
-      console.log("BEAR NFT deposit successful!");
+      console.log(`BEAR NFT${isBatch ? 's' : ''} deposit successful!`);
     } catch (error: any) {
       console.error('Error depositing BEAR NFT:', error);
       setError(error.message || 'Failed to deposit BEAR NFT');

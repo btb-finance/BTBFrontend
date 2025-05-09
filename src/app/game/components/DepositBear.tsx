@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useGame } from './GameContext';
-import { BEAR_NFT_ADDRESS } from '../addresses';
+import { BEAR_NFT_ADDRESS, BEAR_HUNTER_ECOSYSTEM_ADDRESS } from '../addresses';
 
 interface DepositBearProps {
   onSuccess?: () => void;
@@ -14,10 +14,11 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
   
   const [loading, setLoading] = useState(true);
   const [bearNFTs, setBearNFTs] = useState<number[]>([]);
-  const [selectedBearId, setSelectedBearId] = useState<number | null>(null);
+  const [selectedBearIds, setSelectedBearIds] = useState<number[]>([]);
   const [isDepositing, setIsDepositing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
 
   // Load BEAR NFTs directly
   useEffect(() => {
@@ -92,9 +93,43 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
     setSuccess(null);
   }, [bearNFTs]);
 
+  const toggleBearSelection = (bearId: number) => {
+    setSelectedBearIds(prev => {
+      let newSelection;
+      if (prev.includes(bearId)) {
+        newSelection = prev.filter(id => id !== bearId);
+      } else {
+        newSelection = [...prev, bearId];
+      }
+      
+      // Automatically enable batch mode when multiple NFTs are selected
+      if (newSelection.length > 1 && !batchMode) {
+        setBatchMode(true);
+      }
+      
+      return newSelection;
+    });
+  };
+
+  const selectAllBears = () => {
+    if (selectedBearIds.length === bearNFTs.length) {
+      // If all are selected, deselect all
+      setSelectedBearIds([]);
+    } else {
+      // Otherwise, select all and enable batch mode if there are multiple NFTs
+      const allBearIds = [...bearNFTs];
+      setSelectedBearIds(allBearIds);
+      
+      // Automatically enable batch mode when multiple NFTs are selected
+      if (allBearIds.length > 1 && !batchMode) {
+        setBatchMode(true);
+      }
+    }
+  };
+
   const handleDeposit = async () => {
-    if (!selectedBearId) {
-      setError("Please select a BEAR NFT to deposit");
+    if (selectedBearIds.length === 0) {
+      setError("Please select at least one BEAR NFT to deposit");
       return;
     }
     
@@ -103,9 +138,69 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
     setSuccess(null);
     
     try {
-      await depositBear(selectedBearId);
-      setSuccess(`Successfully deposited BEAR #${selectedBearId} and received a Hunter NFT!`);
-      setSelectedBearId(null);
+      // If batch mode is on and multiple NFTs are selected
+      if (batchMode && selectedBearIds.length > 1) {
+        // Initialize provider and signer
+        let signer;
+        if (typeof window.ethereum === 'undefined') {
+          throw new Error("No wallet detected. Please connect your wallet.");
+        }
+        
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        const signerAddress = await signer.getAddress();
+        
+        // Setup BEAR NFT contract
+        const bearContract = new ethers.Contract(
+          BEAR_NFT_ADDRESS,
+          [
+            'function setApprovalForAll(address operator, bool approved) public',
+            'function isApprovedForAll(address owner, address operator) view returns (bool)',
+            'function ownerOf(uint256 tokenId) view returns (address)'
+          ],
+          signer
+        );
+        
+        // Verify ownership of all NFTs
+        for (const bearId of selectedBearIds) {
+          const ownerAddress = await bearContract.ownerOf(bearId);
+          if (ownerAddress.toLowerCase() !== signerAddress.toLowerCase()) {
+            throw new Error(`You don't own BEAR NFT #${bearId}`);
+          }
+        }
+        
+        // Check if already approved for all
+        const isApproved = await bearContract.isApprovedForAll(signerAddress, BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+        
+        if (!isApproved) {
+          // Use setApprovalForAll instead of individual approvals
+          console.log("Setting approval for all BEAR NFTs to:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+          const approveTx = await bearContract.setApprovalForAll(BEAR_HUNTER_ECOSYSTEM_ADDRESS, true);
+          console.log("Batch approval transaction:", approveTx.hash);
+          await approveTx.wait();
+          
+          // Verify approval was successful
+          const approvalConfirmed = await bearContract.isApprovedForAll(signerAddress, BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+          if (!approvalConfirmed) {
+            throw new Error("Batch approval did not succeed. Please try again.");
+          }
+        } else {
+          console.log("NFTs already approved for all. Skipping approval transaction.");
+        }
+        
+        // Use the updated depositBear function with the array of IDs
+        await depositBear(selectedBearIds);
+      } else {
+        // If not in batch mode or only one NFT selected, use single deposit
+        await depositBear(selectedBearIds[0]);
+      }
+      
+      const successMessage = selectedBearIds.length === 1
+        ? `Successfully deposited BEAR #${selectedBearIds[0]} and received a Hunter NFT!`
+        : `Successfully deposited ${selectedBearIds.length} BEAR NFTs and received Hunter NFTs!`;
+        
+      setSuccess(successMessage);
+      setSelectedBearIds([]);
       // Refresh data after successful deposit
       refreshData();
       // Call onSuccess callback if provided
@@ -245,6 +340,23 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
           <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-btb-primary to-blue-600 dark:from-btb-primary-light dark:to-blue-400">
             Deposit BEAR NFT
           </h2>
+          <div className="flex items-center">
+            <div className="mr-2 text-sm text-gray-600 dark:text-gray-400">
+              Batch Mode
+            </div>
+            <button 
+              onClick={() => setBatchMode(!batchMode)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                batchMode ? 'bg-btb-primary' : 'bg-gray-300 dark:bg-gray-700'
+              }`}
+            >
+              <span 
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  batchMode ? 'translate-x-6' : 'translate-x-1'
+                }`} 
+              />
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30 relative overflow-hidden">
@@ -354,20 +466,55 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
         ) : (
           <>
             <div className="mb-5">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                Select a BEAR NFT to deposit:
-              </label>
+              <div className="flex justify-between items-center mb-3">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {batchMode ? "Select BEAR NFTs to deposit:" : "Select a BEAR NFT to deposit:"}
+                </label>
+                
+                {batchMode && (
+                  <button
+                    onClick={selectAllBears}
+                    className="text-sm px-3 py-1 text-btb-primary dark:text-btb-primary-light border border-btb-primary/30 dark:border-btb-primary-light/30 rounded-lg hover:bg-btb-primary/10 transition-colors"
+                  >
+                    {selectedBearIds.length === bearNFTs.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+              </div>
+              
+              {batchMode && selectedBearIds.length > 0 && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 mb-4 text-sm text-blue-800 dark:text-blue-200">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <span>
+                      <strong>{selectedBearIds.length}</strong> of <strong>{bearNFTs.length}</strong> BEAR NFTs selected
+                    </span>
+                  </div>
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 mb-6">
                 {bearNFTs.map((bearId) => (
                   <div
                     key={bearId}
                     className={`relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 border-2 hover:-translate-y-1 hover:shadow-xl ${
-                      selectedBearId === bearId 
+                      selectedBearIds.includes(bearId) 
                         ? 'border-btb-primary ring-2 ring-btb-primary/30' 
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
-                    onClick={() => setSelectedBearId(bearId)}
+                    onClick={() => {
+                      if (batchMode) {
+                        toggleBearSelection(bearId);
+                      } else if (selectedBearIds.length === 1 && !selectedBearIds.includes(bearId)) {
+                        // If already have one NFT selected and clicking a different one, 
+                        // enable batch mode and select both
+                        setBatchMode(true);
+                        setSelectedBearIds(prev => [...prev, bearId]);
+                      } else {
+                        setSelectedBearIds([bearId]);
+                      }
+                    }}
                   >
                     <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20">
                       <div className="h-24 flex items-center justify-center">
@@ -382,7 +529,7 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
                       </div>
                     </div>
                     
-                    {selectedBearId === bearId && (
+                    {selectedBearIds.includes(bearId) && (
                       <div 
                         className="absolute top-2 right-2 h-8 w-8 bg-btb-primary text-white rounded-full flex items-center justify-center animate-scale-in"
                       >
@@ -400,9 +547,9 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
               <button
                 type="button"
                 onClick={handleDeposit}
-                disabled={isDepositing || !selectedBearId}
+                disabled={isDepositing || selectedBearIds.length === 0}
                 className={`w-full py-3 px-4 rounded-xl font-bold text-white shadow-lg flex items-center justify-center relative z-10 pointer-events-auto ${
-                  isDepositing || !selectedBearId
+                  isDepositing || selectedBearIds.length === 0
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-gradient-to-r from-btb-primary to-blue-600 hover:from-btb-primary/95 hover:to-blue-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-200'
                 }`}
@@ -419,7 +566,10 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
                         />
                       </div>
                       <span className="relative">
-                        Depositing BEAR NFT
+                        {selectedBearIds.length > 1 
+                          ? `Depositing ${selectedBearIds.length} BEAR NFTs` 
+                          : "Depositing BEAR NFT"
+                        }
                         <span 
                           className="absolute animate-typing"
                         >...</span>
@@ -431,13 +581,16 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clipRule="evenodd" />
                     </svg>
-                    Deposit BEAR NFT
+                    {selectedBearIds.length > 1 
+                      ? `Deposit ${selectedBearIds.length} BEAR NFTs` 
+                      : "Deposit BEAR NFT"
+                    }
                   </>
                 )}
               </button>
               
               <p className="text-sm text-center text-gray-500 dark:text-gray-400 mt-3">
-                Deposit is permanent and will mint a new Hunter NFT to your wallet
+                Deposit is permanent and will mint {selectedBearIds.length > 1 ? "new Hunter NFTs" : "a new Hunter NFT"} to your wallet
               </p>
             </div>
           </>
