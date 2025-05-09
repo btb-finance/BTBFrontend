@@ -60,6 +60,11 @@
   .bg-btb-gradient-dark {
     @apply bg-gradient-to-r from-btb-primary-dark to-btb-primary;
   }
+  
+  /* Utility for animated gradients */
+  .bg-size-200 {
+    background-size: 200% 100%;
+  }
 
   /* Custom text gradients */
   .text-gradient {

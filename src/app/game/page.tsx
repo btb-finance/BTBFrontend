@@ -45,14 +45,59 @@ export default function GamePage() {
       {/* Main Content */}
       {showGameInterface ? (
         <GameProvider>
-          <div className="py-4 min-h-screen bg-gradient-to-b from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-950">
-            <div className="container mx-auto px-4 mb-8">
+          <div className="py-4 min-h-screen bg-gradient-to-b from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
+            {/* Animated background elements */}
+            <div className="absolute inset-0 z-0 overflow-hidden">
+              {/* Grid pattern */}
+              <svg className="absolute inset-0 w-full h-full opacity-5 dark:opacity-10" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-btb-primary dark:text-blue-400" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+              </svg>
+              
+              {/* Animated particles */}
+              {[...Array(30)].map((_, i) => (
+                <motion.div 
+                  key={i}
+                  className="absolute rounded-full bg-btb-primary/20 dark:bg-btb-primary/30"
+                  style={{
+                    width: Math.random() * 10 + 2 + 'px',
+                    height: Math.random() * 10 + 2 + 'px',
+                    left: Math.random() * 100 + '%',
+                    top: Math.random() * 100 + '%',
+                    zIndex: 1,
+                  }}
+                  animate={{
+                    y: [0, Math.random() * -60 - 20, 0],
+                    x: [0, Math.random() * 40 - 20, 0],
+                    opacity: [0.1, 0.5, 0.1],
+                  }}
+                  transition={{
+                    duration: Math.random() * 8 + 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+              ))}
+              
+              {/* Gradient orbs */}
+              <div className="absolute top-1/4 -left-20 w-60 h-60 bg-gradient-to-r from-btb-primary/20 to-blue-400/5 blur-3xl rounded-full"></div>
+              <div className="absolute bottom-1/3 -right-20 w-80 h-80 bg-gradient-to-r from-indigo-400/10 to-btb-primary/10 blur-3xl rounded-full"></div>
+            </div>
+            
+            <div className="container mx-auto px-4 mb-8 relative z-10">
               <div className="flex justify-between items-center">
                 <motion.button
                   onClick={() => setShowGameInterface(false)}
-                  whileHover={{ x: -3 }}
+                  whileHover={{ x: -3, backgroundColor: "rgba(255, 255, 255, 0.95)" }}
                   whileTap={{ scale: 0.97 }}
-                  className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-btb-primary dark:hover:text-btb-primary-light bg-white/90 dark:bg-gray-800/90 px-4 py-2 rounded-full shadow-sm backdrop-blur-sm border border-gray-200 dark:border-gray-700 transition-all duration-200"
+                  className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-btb-primary dark:hover:text-btb-primary-light bg-white/80 dark:bg-gray-800/80 px-4 py-2 rounded-full shadow-md backdrop-blur-md border border-gray-200/80 dark:border-gray-700/80 transition-all duration-200"
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ duration: 0.5 }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
@@ -60,28 +105,55 @@ export default function GamePage() {
                   Back to Game Info
                 </motion.button>
                 
-                <div className="flex items-center px-4 py-2 bg-gradient-to-r from-btb-primary/20 to-blue-500/20 dark:from-btb-primary/30 dark:to-blue-600/30 rounded-full backdrop-blur-sm border border-blue-200/50 dark:border-blue-800/50 shadow-sm">
+                <motion.div 
+                  className="flex items-center px-5 py-2.5 bg-gradient-to-r from-btb-primary/20 to-blue-500/20 dark:from-btb-primary/30 dark:to-blue-600/30 rounded-full backdrop-blur-md border border-blue-200/70 dark:border-blue-800/50 shadow-md"
+                  initial={{ y: -20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                >
                   <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-btb-primary to-blue-600 dark:from-btb-primary-light dark:to-blue-400">MiMo Game</span>
-                  <span className="ml-2 text-sm px-2 py-0.5 bg-yellow-400/20 text-yellow-700 dark:text-yellow-300 rounded-full border border-yellow-400/30">Testnet</span>
-                </div>
+                  <motion.span 
+                    className="ml-2 text-sm px-2.5 py-0.5 bg-yellow-400/20 text-yellow-700 dark:text-yellow-300 rounded-full border border-yellow-400/30"
+                    animate={{ 
+                      boxShadow: ["0 0 0 rgba(251, 191, 36, 0)", "0 0 8px rgba(251, 191, 36, 0.5)", "0 0 0 rgba(251, 191, 36, 0)"]
+                    }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  >
+                    Testnet
+                  </motion.span>
+                </motion.div>
               </div>
               
               {/* Testnet Notice */}
-              <div className="bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/30 dark:to-amber-900/30 border border-yellow-200 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-300 p-4 rounded-xl my-4 shadow-sm backdrop-blur-sm">
+              <motion.div 
+                className="bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900/40 dark:to-amber-900/40 border border-yellow-200 dark:border-yellow-800/50 text-yellow-700 dark:text-yellow-300 p-5 rounded-xl my-5 shadow-md backdrop-blur-md"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 bg-yellow-400 rounded-full p-1.5 mt-0.5">
-                    <svg className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <div className="flex-shrink-0 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-full p-2 mt-0.5 shadow-md">
+                    <motion.svg 
+                      className="h-5 w-5 text-white" 
+                      viewBox="0 0 20 20" 
+                      fill="currentColor"
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        rotate: [0, 5, 0, -5, 0]
+                      }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    >
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
+                    </motion.svg>
                   </div>
                   <div>
                     <h3 className="font-bold text-amber-800 dark:text-amber-300">Testnet Environment</h3>
-                    <p className="text-sm mt-1">
+                    <p className="text-sm mt-1 leading-relaxed">
                       You're currently playing on Base Sepolia testnet. Game mechanics may have small adjustments on mainnet, but all core features will remain the same.
                     </p>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             </div>
             
             <GameDashboard />
@@ -227,20 +299,93 @@ export default function GamePage() {
                   </motion.div>
                   
                   {/* Launch Game Button */}
-                  <motion.button
-                    onClick={() => setShowGameInterface(true)}
-                    whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.5)" }}
-                    whileTap={{ scale: 0.95 }}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: 1 }}
-                    className="px-8 py-4 bg-gradient-to-r from-btb-primary to-blue-600 text-white font-bold text-lg rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center mx-auto"
-                  >
-                    Launch Game
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 ml-2 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </motion.button>
+                  <div className="relative mx-auto">
+                    {/* Animated background particles for the button */}
+                    <div className="absolute -inset-4 rounded-full opacity-75 pointer-events-none">
+                      {[...Array(8)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          className="absolute rounded-full bg-btb-primary/30"
+                          style={{
+                            width: Math.random() * 8 + 4 + 'px',
+                            height: Math.random() * 8 + 4 + 'px',
+                            left: `calc(50% + ${Math.random() * 100 - 50}px)`,
+                            top: `calc(50% + ${Math.random() * 60 - 30}px)`,
+                          }}
+                          animate={{
+                            scale: [1, 1.5, 1],
+                            opacity: [0.3, 0.7, 0.3],
+                            x: [0, Math.random() * 20 - 10, 0],
+                            y: [0, Math.random() * 20 - 10, 0],
+                          }}
+                          transition={{
+                            duration: Math.random() * 2 + 2,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: Math.random(),
+                          }}
+                        />
+                      ))}
+                    </div>
+                    
+                    {/* Energy ring effect */}
+                    <motion.div 
+                      className="absolute -inset-3 rounded-full border-2 border-blue-400/20 pointer-events-none"
+                      animate={{ 
+                        scale: [1, 1.1, 1],
+                        opacity: [0.4, 0.7, 0.4],
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    ></motion.div>
+                    
+                    <motion.button
+                      onClick={() => setShowGameInterface(true)}
+                      whileHover={{ 
+                        scale: 1.05, 
+                        boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.7)", 
+                        background: "linear-gradient(90deg, #3B82F6, #4F46E5, #3B82F6)"
+                      }}
+                      whileTap={{ 
+                        scale: 0.95, 
+                        boxShadow: "0 5px 15px -3px rgba(59, 130, 246, 0.5)" 
+                      }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 1 }}
+                      className="relative px-10 py-5 bg-gradient-to-r from-btb-primary to-blue-600 text-white font-bold text-xl rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center mx-auto overflow-hidden group z-10"
+                    >
+                      {/* Shine effect */}
+                      <motion.div
+                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 pointer-events-none"
+                        animate={{ x: ["0%", "200%"] }}
+                        transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 1 }}
+                      ></motion.div>
+                      
+                      {/* Button content */}
+                      <span className="mr-2 z-10">Launch Game</span>
+                      
+                      {/* Animated arrow */}
+                      <motion.div
+                        className="relative z-10"
+                        animate={{ 
+                          x: [0, 5, 0],
+                        }}
+                        transition={{ 
+                          repeat: Infinity, 
+                          duration: 1.5, 
+                          ease: "easeInOut",
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </motion.div>
+                    </motion.button>
+                  </div>
                 </div>
                 
                 {/* Action Buttons */}
@@ -343,29 +488,153 @@ export default function GamePage() {
                 className="space-y-8 scroll-mt-16"
                 id="overview"
               >
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-8 border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                  {/* Background decorative elements */}
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    {/* Grid pattern */}
+                    <svg className="absolute inset-0 w-full h-full opacity-5" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <pattern id="smallGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-btb-primary" />
+                        </pattern>
+                        <pattern id="overviewGrid" width="100" height="100" patternUnits="userSpaceOnUse">
+                          <rect width="100" height="100" fill="url(#smallGrid)" />
+                          <path d="M 100 0 L 0 0 0 100" fill="none" stroke="currentColor" strokeWidth="1" className="text-btb-primary" />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill="url(#overviewGrid)" />
+                    </svg>
+                    
+                    {/* Decorative gradients */}
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-btb-primary/5 dark:bg-btb-primary/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+                    <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
+                  </div>
+                
                   <div className="relative">
-                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-btb-primary to-blue-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
-                      <GlobeAltIcon className="h-10 w-10 text-white" />
+                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10">
+                      {/* Animated rings */}
+                      {[...Array(3)].map((_, i) => (
+                        <motion.div 
+                          key={i}
+                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-btb-primary/30 dark:border-btb-primary/40"
+                          style={{ 
+                            width: `${50 + i * 15}px`, 
+                            height: `${50 + i * 15}px`,
+                            zIndex: 10 - i
+                          }}
+                          animate={{ 
+                            scale: [1, 1.1, 1],
+                            opacity: [0.6, 0.4, 0.6]
+                          }}
+                          transition={{ 
+                            duration: 3 + i * 0.5,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: i * 0.5
+                          }}
+                        />
+                      ))}
+                      
+                      {/* Icon container */}
+                      <motion.div 
+                        className="relative w-20 h-20 bg-gradient-to-br from-btb-primary to-blue-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800 z-20"
+                        animate={{ 
+                          boxShadow: [
+                            "0 4px 12px rgba(59, 130, 246, 0.3)", 
+                            "0 8px 24px rgba(59, 130, 246, 0.5)", 
+                            "0 4px 12px rgba(59, 130, 246, 0.3)"
+                          ]
+                        }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      >
+                        <motion.div
+                          animate={{ rotate: [0, 360] }}
+                          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                          className="absolute inset-0 rounded-full overflow-hidden opacity-20"
+                        >
+                          <div className="w-full h-full bg-gradient-to-br from-transparent via-white to-transparent" />
+                        </motion.div>
+                        <GlobeAltIcon className="h-10 w-10 text-white" />
+                      </motion.div>
                     </div>
                     <div className="h-8"></div> {/* Spacer */}
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                  
+                  <motion.h2 
+                    className="text-2xl sm:text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-btb-primary via-blue-600 to-btb-primary text-center relative z-10"
+                    animate={{ 
+                      backgroundPosition: ["0% center", "100% center", "0% center"]
+                    }}
+                    transition={{ 
+                      duration: 10, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }}
+                    style={{ backgroundSize: "200% auto" }}
+                  >
                     Game Overview
-                  </h2>
+                  </motion.h2>
                   
                   <div className="mb-8">
-                    <div className="flex flex-col md:flex-row items-center justify-center bg-btb-primary/10 dark:bg-btb-primary/20 p-4 rounded-lg mb-6">
-                      <div className="w-16 h-16 bg-btb-primary/20 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mb-4 md:mb-0">
+                    <div className="flex flex-col md:flex-row items-center justify-center bg-gradient-to-r from-btb-primary/10 to-blue-500/10 dark:from-btb-primary/20 dark:to-blue-600/20 p-6 rounded-lg mb-6 backdrop-blur-sm border border-btb-primary/10 dark:border-btb-primary/20 shadow-md overflow-hidden relative">
+                      {/* Animated particles */}
+                      {[...Array(8)].map((_, i) => (
+                        <motion.div 
+                          key={i}
+                          className="absolute rounded-full bg-btb-primary/30 dark:bg-btb-primary/40"
+                          style={{
+                            width: Math.random() * 6 + 2 + 'px',
+                            height: Math.random() * 6 + 2 + 'px',
+                            left: Math.random() * 100 + '%',
+                            top: Math.random() * 100 + '%',
+                          }}
+                          animate={{
+                            y: [0, Math.random() * -30 - 10, 0],
+                            x: [0, Math.random() * 30 - 15, 0],
+                            opacity: [0.3, 0.6, 0.3],
+                          }}
+                          transition={{
+                            duration: Math.random() * 4 + 3,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          }}
+                        />
+                      ))}
+
+                      <div className="w-20 h-20 bg-gradient-to-br from-btb-primary/20 to-blue-500/20 dark:from-btb-primary/30 dark:to-blue-500/30 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mb-4 md:mb-0 shadow-inner relative z-10 backdrop-blur-md border border-white/10 dark:border-white/5">
+                        <motion.div 
+                          className="absolute inset-0 rounded-full bg-gradient-to-r from-btb-primary/20 to-blue-500/20 blur-md"
+                          animate={{ 
+                            scale: [1, 1.2, 1],
+                            opacity: [0.5, 0.8, 0.5]
+                          }}
+                          transition={{ 
+                            duration: 3, 
+                            repeat: Infinity, 
+                            ease: "easeInOut" 
+                          }}
+                        />
                         <motion.span 
-                          className="text-3xl"
-                          animate={{ scale: [1, 1.1, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
+                          className="text-4xl relative z-10"
+                          animate={{ 
+                            scale: [1, 1.15, 1],
+                            rotate: [0, 5, 0, -5, 0]
+                          }}
+                          transition={{ 
+                            scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+                            rotate: { duration: 5, repeat: Infinity, ease: "easeInOut" }
+                          }}
                         >🎮</motion.span>
                       </div>
-                      <p className="text-lg font-medium text-center md:text-left">
+                      
+                      <motion.p 
+                        className="text-lg font-medium text-center md:text-left relative z-10"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.7, delay: 0.2 }}
+                      >
                         MiMo is an exciting play-to-earn blockchain game where you hunt for rewards while ensuring your assets are well-protected.
-                      </p>
+                      </motion.p>
                     </div>
                   </div>
                   
@@ -662,100 +931,543 @@ export default function GamePage() {
                 className="space-y-8 scroll-mt-16"
                 id="protection"
               >
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-8 border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                  {/* Background shield pattern */}
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {/* Shield pattern */}
+                    <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
+                      {[...Array(10)].map((_, i) => (
+                        <svg 
+                          key={i}
+                          className="absolute"
+                          style={{
+                            width: `${Math.random() * 40 + 20}px`,
+                            height: `${Math.random() * 40 + 20}px`,
+                            left: `${Math.random() * 100}%`,
+                            top: `${Math.random() * 100}%`,
+                            opacity: Math.random() * 0.5 + 0.3,
+                            transform: `rotate(${Math.random() * 360}deg)`
+                          }}
+                          xmlns="http://www.w3.org/2000/svg" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor"
+                        >
+                          <path fillRule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.75.75 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                        </svg>
+                      ))}
+                    </div>
+                    
+                    {/* Warm glow background */}
+                    <motion.div 
+                      className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/5 dark:bg-yellow-500/10 rounded-full blur-3xl"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.5, 0.7, 0.5]
+                      }}
+                      transition={{
+                        duration: 8,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      style={{
+                        transform: "translate(20%, -30%)"
+                      }}
+                    />
+                    
+                    <motion.div 
+                      className="absolute bottom-0 left-0 w-96 h-96 bg-orange-500/5 dark:bg-orange-500/10 rounded-full blur-3xl"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.5, 0.7, 0.5]
+                      }}
+                      transition={{
+                        duration: 8,
+                        delay: 1.5,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      style={{
+                        transform: "translate(-30%, 30%)"
+                      }}
+                    />
+                  </div>
+                
                   <div className="relative">
-                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
-                      <ShieldCheckIcon className="h-10 w-10 text-white" />
+                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10">
+                      {/* Animated shield pulse */}
+                      {[...Array(3)].map((_, i) => (
+                        <motion.div 
+                          key={i}
+                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-yellow-400/50 dark:border-yellow-500/50"
+                          style={{ 
+                            width: `${50 + i * 15}px`, 
+                            height: `${50 + i * 15}px`,
+                            zIndex: 10 - i
+                          }}
+                          animate={{ 
+                            scale: [1, 1.2, 1],
+                            opacity: [0.7, 0.3, 0.7]
+                          }}
+                          transition={{ 
+                            duration: 3 + i * 0.5,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: i * 0.3
+                          }}
+                        />
+                      ))}
+                      
+                      {/* Main shield icon with glow */}
+                      <motion.div 
+                        className="relative w-20 h-20 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800 z-20 overflow-hidden"
+                        animate={{ 
+                          boxShadow: [
+                            "0 4px 12px rgba(234, 179, 8, 0.3)", 
+                            "0 8px 24px rgba(234, 179, 8, 0.5)", 
+                            "0 4px 12px rgba(234, 179, 8, 0.3)"
+                          ]
+                        }}
+                        transition={{ 
+                          duration: 3, 
+                          repeat: Infinity, 
+                          ease: "easeInOut" 
+                        }}
+                      >
+                        {/* Radial shine effect */}
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-yellow-400/0 via-yellow-400/70 to-yellow-400/0"
+                          animate={{ 
+                            rotate: [0, 360],
+                            opacity: [0.3, 0.6, 0.3]
+                          }}
+                          transition={{ 
+                            rotate: { duration: 8, repeat: Infinity, ease: "linear" },
+                            opacity: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+                          }}
+                        />
+                        
+                        {/* Shield icon with slight bobbing */}
+                        <motion.div
+                          animate={{ 
+                            y: [0, -2, 0, 2, 0],
+                            scale: [1, 1.05, 1]
+                          }}
+                          transition={{ 
+                            y: { duration: 2.5, repeat: Infinity, ease: "easeInOut" },
+                            scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+                          }}
+                        >
+                          <ShieldCheckIcon className="h-10 w-10 text-white relative z-10" />
+                        </motion.div>
+                      </motion.div>
                     </div>
                     <div className="h-8"></div> {/* Spacer */}
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                  
+                  <motion.h2 
+                    className="text-2xl sm:text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 via-amber-500 to-orange-500 text-center relative z-10"
+                    animate={{ 
+                      backgroundPosition: ["0% center", "100% center", "0% center"]
+                    }}
+                    transition={{ 
+                      duration: 8, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }}
+                    style={{ backgroundSize: "200% auto" }}
+                  >
                     Protection
-                  </h2>
+                  </motion.h2>
                   
                   <div className="mb-8">
-                    <div className="flex flex-col md:flex-row items-center justify-center bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg border-l-4 border-yellow-500">
-                      <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-800/50 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mb-4 md:mb-0">
+                    <div className="flex flex-col md:flex-row items-center justify-center bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/30 dark:to-amber-900/30 p-6 rounded-lg border-l-4 border-yellow-500 shadow-md relative overflow-hidden">
+                      {/* Animated alert particles */}
+                      {[...Array(5)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          className="absolute w-1.5 h-1.5 rounded-full bg-yellow-500"
+                          style={{
+                            left: `${Math.random() * 100}%`,
+                            top: `${Math.random() * 100}%`,
+                          }}
+                          animate={{
+                            y: [0, -15, 0],
+                            x: [0, Math.random() * 10 - 5, 0],
+                            opacity: [0, 0.8, 0],
+                            scale: [0, 1, 0]
+                          }}
+                          transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            delay: Math.random() * 5,
+                            repeatDelay: Math.random() * 3,
+                          }}
+                        />
+                      ))}
+                    
+                      <div className="relative w-20 h-20 bg-gradient-to-br from-yellow-400/20 to-amber-500/20 dark:from-yellow-400/30 dark:to-amber-500/30 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mb-4 md:mb-0 border border-yellow-400/30 dark:border-yellow-400/40 shadow-inner z-10 backdrop-blur-sm">
+                        <div className="absolute inset-0 rounded-full overflow-hidden">
+                          <motion.div
+                            className="absolute inset-0 bg-gradient-to-br from-yellow-300/20 to-amber-500/20"
+                            animate={{ 
+                              scale: [1, 1.2, 1],
+                              opacity: [0.3, 0.6, 0.3]
+                            }}
+                            transition={{ 
+                              duration: 3, 
+                              repeat: Infinity, 
+                              ease: "easeInOut" 
+                            }}
+                          />
+                        </div>
+                        
                         <motion.span 
-                          className="text-3xl"
-                          animate={{ rotate: [0, 10, 0, -10, 0] }}
-                          transition={{ duration: 2, repeat: Infinity }}
+                          className="text-4xl relative z-10"
+                          animate={{ 
+                            rotate: [0, 10, 0, -10, 0],
+                            scale: [1, 1.1, 1]
+                          }}
+                          transition={{ 
+                            rotate: { duration: 1.5, repeat: Infinity },
+                            scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                          }}
                         >⚠️</motion.span>
                       </div>
-                      <div>
-                        <h3 className="text-xl font-bold mb-2 text-yellow-800 dark:text-yellow-200">Why Protection Matters</h3>
-                        <p className="text-gray-700 dark:text-gray-300">
+                      
+                      <div className="relative z-10">
+                        <motion.h3 
+                          className="text-xl font-bold mb-2 text-yellow-800 dark:text-yellow-200"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.6, delay: 0.2 }}
+                        >
+                          Why Protection Matters
+                        </motion.h3>
+                        <motion.p 
+                          className="text-gray-700 dark:text-gray-300"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.6, delay: 0.4 }}
+                        >
                           In the MiMo game, unprotected wallets are at risk of having their MiMo tokens hunted by other players.
                           Without protection, you could lose your hard-earned tokens!
-                        </p>
+                        </motion.p>
                       </div>
                     </div>
                   </div>
                   
                   <div className="grid md:grid-cols-2 gap-10">
                     <div className="space-y-6">
-                      <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-6 shadow-sm border border-green-100 dark:border-green-800/30">
-                        <h3 className="text-xl font-bold mb-4 flex items-center text-green-700 dark:text-green-300">
-                          <ShieldCheckIcon className="h-6 w-6 mr-2" />
-                          How to Protect Your MiMo
-                        </h3>
-                        
-                        <div className="bg-white/80 dark:bg-gray-800/80 p-4 rounded-lg mb-4 shadow-sm">
-                          <p className="text-lg font-semibold mb-3 text-btb-primary dark:text-btb-primary-light">
-                            Add liquidity to one of these pairs on Aerodrome:
-                          </p>
-                          <ul className="space-y-3">
-                            <li className="flex items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md">
-                              <div className="w-8 h-8 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                                <span className="text-green-500 font-bold">1</span>
-                              </div>
-                              <span className="font-bold text-gray-800 dark:text-white">MiMo/USDC</span>
-                            </li>
-                            <li className="flex items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md">
-                              <div className="w-8 h-8 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                                <span className="text-green-500 font-bold">2</span>
-                              </div>
-                              <span className="font-bold text-gray-800 dark:text-white">MiMo/cbBTC</span>
-                            </li>
-                            <li className="flex items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md">
-                              <div className="w-8 h-8 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                                <span className="text-green-500 font-bold">3</span>
-                              </div>
-                              <span className="font-bold text-gray-800 dark:text-white">MiMo/WETH</span>
-                            </li>
-                          </ul>
+                      <motion.div 
+                        className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20 rounded-lg p-6 shadow-md border border-green-100 dark:border-green-800/30 relative overflow-hidden"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7 }}
+                        whileHover={{ 
+                          boxShadow: "0 10px 25px -5px rgba(74, 222, 128, 0.2)",
+                          borderColor: "rgba(74, 222, 128, 0.4)"
+                        }}
+                      >
+                        {/* Background patterns */}
+                        <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="absolute top-0 left-0 w-32 h-32 text-green-500 transform -translate-x-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.75.75 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                          </svg>
+                          
+                          {/* Subtle gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-green-300/5 to-blue-300/5 dark:from-green-300/10 dark:to-blue-300/10"></div>
                         </div>
-                      </div>
+                        
+                        <motion.h3 
+                          className="text-xl font-bold mb-4 flex items-center text-green-700 dark:text-green-300 relative"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.5, delay: 0.2 }}
+                        >
+                          <motion.div
+                            animate={{ 
+                              scale: [1, 1.1, 1],
+                              rotate: [0, 10, 0, -10, 0]
+                            }}
+                            transition={{ 
+                              scale: { duration: 3, repeat: Infinity, ease: "easeInOut" },
+                              rotate: { duration: 5, repeat: Infinity, ease: "easeInOut" }
+                            }}
+                          >
+                            <ShieldCheckIcon className="h-6 w-6 mr-2" />
+                          </motion.div>
+                          How to Protect Your MiMo
+                        </motion.h3>
+                        
+                        <motion.div 
+                          className="bg-white/80 dark:bg-gray-800/80 p-4 rounded-lg mb-4 shadow-md backdrop-blur-sm border border-green-100/50 dark:border-green-900/30 relative overflow-hidden"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, delay: 0.3 }}
+                        >
+                          {/* Animated particles */}
+                          {[...Array(8)].map((_, i) => (
+                            <motion.div 
+                              key={i}
+                              className="absolute rounded-full bg-green-500/30"
+                              style={{
+                                width: Math.random() * 4 + 2 + 'px',
+                                height: Math.random() * 4 + 2 + 'px',
+                                left: Math.random() * 100 + '%',
+                                top: Math.random() * 100 + '%',
+                              }}
+                              animate={{
+                                y: [0, Math.random() * -30 - 10, 0],
+                                x: [0, Math.random() * 20 - 10, 0],
+                                opacity: [0.3, 0.6, 0.3],
+                              }}
+                              transition={{
+                                duration: Math.random() * 4 + 2,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                              }}
+                            />
+                          ))}
+                        
+                          <motion.p 
+                            className="text-lg font-semibold mb-3 text-btb-primary dark:text-btb-primary-light relative z-10"
+                            animate={{ 
+                              backgroundPosition: ["0% center", "100% center", "0% center"]
+                            }}
+                            transition={{ 
+                              duration: 8, 
+                              repeat: Infinity, 
+                              ease: "easeInOut" 
+                            }}
+                            style={{ 
+                              backgroundSize: "200% auto",
+                              backgroundImage: "linear-gradient(90deg, #34D399, #3B82F6, #34D399)",
+                              WebkitBackgroundClip: "text",
+                              WebkitTextFillColor: "transparent"
+                            }}
+                          >
+                            Add liquidity to one of these pairs on Aerodrome:
+                          </motion.p>
+                          
+                          <ul className="space-y-3 relative z-10">
+                            {[
+                              { number: "1", label: "MiMo/USDC" },
+                              { number: "2", label: "MiMo/cbBTC" },
+                              { number: "3", label: "MiMo/WETH" }
+                            ].map((item, i) => (
+                              <motion.li 
+                                key={i}
+                                className="flex items-center bg-gray-50 dark:bg-gray-700/50 p-3 rounded-md border border-green-100/50 dark:border-green-900/30 overflow-hidden"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.5, delay: 0.3 + (i * 0.1) }}
+                                whileHover={{ 
+                                  backgroundColor: "rgba(240, 253, 244, 1)",
+                                  borderColor: "rgba(74, 222, 128, 0.3)"
+                                }}
+                              >
+                                <div className="relative w-8 h-8 flex-shrink-0 mr-3">
+                                  {/* Animated ring */}
+                                  <motion.div 
+                                    className="absolute inset-0 rounded-full border border-green-300"
+                                    animate={{ 
+                                      scale: [1, 1.3, 1],
+                                      opacity: [0.7, 0, 0.7]
+                                    }}
+                                    transition={{ 
+                                      duration: 2,
+                                      repeat: Infinity,
+                                      delay: i * 0.3,
+                                      ease: "easeInOut"
+                                    }}
+                                  />
+                                  
+                                  <div className="absolute inset-0 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center">
+                                    <span className="text-green-500 font-bold">{item.number}</span>
+                                  </div>
+                                </div>
+                                <span className="font-bold text-gray-800 dark:text-white">{item.label}</span>
+                                
+                                {/* Subtle highlight animation */}
+                                <motion.div
+                                  className="absolute inset-0 bg-gradient-to-r from-transparent via-green-200/20 to-transparent"
+                                  animate={{
+                                    x: ["-100%", "200%"],
+                                  }}
+                                  transition={{
+                                    duration: 3,
+                                    repeat: Infinity,
+                                    repeatDelay: 2 + i,
+                                    ease: "easeInOut"
+                                  }}
+                                />
+                              </motion.li>
+                            ))}
+                          </ul>
+                        </motion.div>
+                      </motion.div>
                     </div>
                     
                     <div className="space-y-6">
-                      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md border border-gray-200 dark:border-gray-700">
-                        <h3 className="text-xl font-bold mb-4 text-btb-primary dark:text-btb-primary-light">How Protection Works</h3>
-                        
-                        <div className="space-y-4">
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                            <h4 className="font-bold mb-2 flex items-center">
-                              <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-2">1</span>
-                              Automatic Detection
-                            </h4>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              When you provide liquidity to approved pools, your wallet address is automatically 
-                              added to the "Protected Addresses" list in the game contract.
-                            </p>
-                          </div>
+                      <motion.div 
+                        className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-md border border-gray-200 dark:border-gray-700 relative overflow-hidden"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7, delay: 0.2 }}
+                        whileHover={{ 
+                          boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.2)",
+                          borderColor: "rgba(59, 130, 246, 0.3)"
+                        }}
+                      >
+                        {/* Subtle animated background pattern */}
+                        <div className="absolute inset-0 overflow-hidden opacity-[0.03] dark:opacity-[0.05] pointer-events-none">
+                          <svg className="absolute w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                              <pattern id="protectionGrid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="0.5" className="text-btb-primary" />
+                              </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#protectionGrid)" />
+                          </svg>
                           
-                          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                            <h4 className="font-bold mb-2 flex items-center">
-                              <span className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-2">2</span>
-                              Hunting Prevention
-                            </h4>
-                            <p className="text-gray-700 dark:text-gray-300">
-                              Hunters cannot extract MiMo tokens from protected wallets. Every time a 
-                              Hunter attempts to hunt, the contract checks if the target address is protected.
-                            </p>
-                          </div>
+                          {/* Animated shield icons */}
+                          {[...Array(5)].map((_, i) => (
+                            <motion.div
+                              key={i} 
+                              className="absolute text-blue-500/10 w-16 h-16"
+                              style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                                transform: `rotate(${Math.random() * 40 - 20}deg)`
+                              }}
+                              animate={{
+                                y: [0, Math.random() * 10 - 5, 0],
+                                rotate: [0, Math.random() * 20 - 10, 0],
+                                opacity: [0.05, 0.15, 0.05]
+                              }}
+                              transition={{
+                                duration: Math.random() * 5 + 5,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                                delay: i * 0.5
+                              }}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                <path fillRule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.75.75 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                              </svg>
+                            </motion.div>
+                          ))}
                         </div>
-                      </div>
+                      
+                        <motion.h3 
+                          className="text-xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-btb-primary via-blue-600 to-btb-primary relative z-10"
+                          animate={{ 
+                            backgroundPosition: ["0% center", "100% center", "0% center"]
+                          }}
+                          transition={{ 
+                            duration: 8, 
+                            repeat: Infinity, 
+                            ease: "easeInOut" 
+                          }}
+                          style={{ 
+                            backgroundSize: "200% auto"
+                          }}
+                        >
+                          How Protection Works
+                        </motion.h3>
+                        
+                        <div className="space-y-4 relative z-10">
+                          {[
+                            {
+                              number: "1",
+                              title: "Automatic Detection",
+                              content: "When you provide liquidity to approved pools, your wallet address is automatically added to the \"Protected Addresses\" list in the game contract."
+                            },
+                            {
+                              number: "2",
+                              title: "Hunting Prevention",
+                              content: "Hunters cannot extract MiMo tokens from protected wallets. Every time a Hunter attempts to hunt, the contract checks if the target address is protected."
+                            }
+                          ].map((item, i) => (
+                            <motion.div 
+                              key={i}
+                              className="bg-gradient-to-r from-blue-50 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-900/10 p-4 rounded-lg relative overflow-hidden border border-blue-100/50 dark:border-blue-900/30"
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.5, delay: 0.5 + (i * 0.2) }}
+                              whileHover={{ 
+                                backgroundColor: "rgba(239, 246, 255, 1)",
+                                borderColor: "rgba(59, 130, 246, 0.3)"
+                              }}
+                            >
+                              {/* Animated particles */}
+                              {[...Array(3)].map((_, j) => (
+                                <motion.div 
+                                  key={j}
+                                  className="absolute rounded-full bg-blue-500/30"
+                                  style={{
+                                    width: Math.random() * 3 + 1 + 'px',
+                                    height: Math.random() * 3 + 1 + 'px',
+                                    left: Math.random() * 100 + '%',
+                                    top: Math.random() * 100 + '%',
+                                  }}
+                                  animate={{
+                                    y: [0, Math.random() * -20 - 5, 0],
+                                    x: [0, Math.random() * 10 - 5, 0],
+                                    opacity: [0.2, 0.5, 0.2],
+                                  }}
+                                  transition={{
+                                    duration: Math.random() * 3 + 2,
+                                    repeat: Infinity,
+                                    ease: "easeInOut",
+                                    delay: j * 0.3
+                                  }}
+                                />
+                              ))}
+                              
+                              <h4 className="font-bold mb-2 flex items-center relative z-10">
+                                <motion.div 
+                                  className="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm mr-2 flex-shrink-0"
+                                  animate={{ 
+                                    scale: [1, 1.1, 1],
+                                    boxShadow: [
+                                      "0 0 0 rgba(59, 130, 246, 0.5)",
+                                      "0 0 8px rgba(59, 130, 246, 0.5)",
+                                      "0 0 0 rgba(59, 130, 246, 0.5)"
+                                    ]
+                                  }}
+                                  transition={{ 
+                                    duration: 2.5,
+                                    repeat: Infinity,
+                                    ease: "easeInOut",
+                                    delay: i * 0.3
+                                  }}
+                                >
+                                  {item.number}
+                                </motion.div>
+                                {item.title}
+                              </h4>
+                              <p className="text-gray-700 dark:text-gray-300 relative z-10">
+                                {item.content}
+                              </p>
+                              
+                              {/* Subtle highlight animation */}
+                              <motion.div
+                                className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-200/30 to-transparent"
+                                animate={{
+                                  x: ["-100%", "200%"],
+                                }}
+                                transition={{
+                                  duration: 3,
+                                  repeat: Infinity,
+                                  repeatDelay: 2 + i,
+                                  ease: "easeInOut"
+                                }}
+                              />
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
                     </div>
                   </div>
                 </div>
@@ -769,29 +1481,218 @@ export default function GamePage() {
                 className="space-y-8 pb-10 scroll-mt-16"
                 id="mechanics"
               >
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-8 border border-gray-100 dark:border-gray-700">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 sm:p-8 border border-gray-100 dark:border-gray-700 relative overflow-hidden">
+                  {/* Decorative background elements */}
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {/* Animated gears in background */}
+                    <svg className="absolute opacity-[0.03] dark:opacity-[0.05] w-full h-full" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                      <motion.g
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
+                      >
+                        <path d="M501.1 395.7L384 278.6c-23.1-23.1-57.6-27.6-85.4-13.9L192 158.1V96L64 0 0 64l96 128h62.1l106.6 106.6c-13.6 27.8-9.2 62.3 13.9 85.4l117.1 117.1c14.6 14.6 38.2 14.6 52.7 0l52.7-52.7c14.5-14.6 14.5-38.2 0-52.7zM331.7 225c28.3 0 54.9 11 74.9 31l19.4 19.4c15.8-6.9 30.8-16.5 43.8-29.5 37.1-37.1 49.7-89.3 37.9-136.7-2.2-9-13.5-12.1-20.1-5.5l-74.4 74.4-42.1-11.3-11.3-42.1 74.4-74.4c6.6-6.6 3.4-17.9-5.7-20.2-47.4-11.7-99.6.9-136.6 37.9-28.5 28.5-41.9 66.1-41.2 103.6l82.1 82.1c8.1-1.9 16.5-2.9 24.7-2.9zm-103.9 82l-56.7-56.7L18.7 402.8c-25 25-25 65.5 0 90.5s65.5 25 90.5 0l123.6-123.6c-7.6-19.9-9.9-41.6-5-62.7z" />
+                      </motion.g>
+                    </svg>
+                    
+                    {/* Gradient orbs */}
+                    <motion.div 
+                      className="absolute top-1/4 -right-20 w-80 h-80 rounded-full bg-gradient-to-br from-purple-500/5 to-pink-500/5 dark:from-purple-500/10 dark:to-pink-500/10 blur-3xl"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        x: [0, -20, 0],
+                        opacity: [0.5, 0.7, 0.5]
+                      }}
+                      transition={{
+                        duration: 10,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                    
+                    <motion.div 
+                      className="absolute bottom-1/4 -left-20 w-80 h-80 rounded-full bg-gradient-to-br from-blue-500/5 to-purple-500/5 dark:from-blue-500/10 dark:to-purple-500/10 blur-3xl"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        x: [0, 20, 0],
+                        opacity: [0.5, 0.7, 0.5]
+                      }}
+                      transition={{
+                        duration: 10,
+                        delay: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                    />
+                  </div>
+                
                   <div className="relative">
-                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800">
-                      <SparklesIcon className="h-10 w-10 text-white" />
+                    <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 z-10">
+                      {/* Animated rings */}
+                      {[...Array(3)].map((_, i) => (
+                        <motion.div 
+                          key={i}
+                          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+                          style={{ 
+                            width: `${50 + i * 15}px`, 
+                            height: `${50 + i * 15}px`,
+                            zIndex: 10 - i,
+                            borderColor: `rgba(168, 85, 247, ${0.3 - i * 0.05})`
+                          }}
+                          animate={{ 
+                            scale: [1, 1.1, 1],
+                            opacity: [0.6, 0.4, 0.6],
+                            rotate: [0, 45, 0]
+                          }}
+                          transition={{ 
+                            duration: 4 + i * 0.7,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: i * 0.5
+                          }}
+                        />
+                      ))}
+                      
+                      {/* Icon container with sparkle animation */}
+                      <motion.div 
+                        className="relative w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800 z-20 overflow-hidden"
+                        animate={{ 
+                          boxShadow: [
+                            "0 4px 12px rgba(168, 85, 247, 0.3)", 
+                            "0 8px 24px rgba(168, 85, 247, 0.5)", 
+                            "0 4px 12px rgba(168, 85, 247, 0.3)"
+                          ]
+                        }}
+                        transition={{ 
+                          duration: 3, 
+                          repeat: Infinity, 
+                          ease: "easeInOut" 
+                        }}
+                      >
+                        {/* Sparkle effects */}
+                        {[...Array(5)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            className="absolute bg-white w-1 rounded-full"
+                            style={{
+                              height: Math.random() * 10 + 10 + 'px',
+                              left: `${Math.random() * 100}%`,
+                              top: `${Math.random() * 100}%`,
+                              rotate: `${Math.random() * 360}deg`,
+                              transformOrigin: 'center',
+                              opacity: 0
+                            }}
+                            animate={{
+                              opacity: [0, 0.8, 0],
+                              scale: [0, 1, 0]
+                            }}
+                            transition={{
+                              duration: 1,
+                              repeat: Infinity,
+                              delay: Math.random() * 5,
+                              repeatDelay: Math.random() * 4 + 2
+                            }}
+                          />
+                        ))}
+                        
+                        {/* Icon */}
+                        <motion.div
+                          animate={{ 
+                            scale: [1, 1.1, 1],
+                          }}
+                          transition={{ 
+                            duration: 2, 
+                            repeat: Infinity, 
+                            ease: "easeInOut" 
+                          }}
+                        >
+                          <SparklesIcon className="h-10 w-10 text-white" />
+                        </motion.div>
+                      </motion.div>
                     </div>
                     <div className="h-8"></div> {/* Spacer */}
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-btb-primary dark:text-btb-primary-light text-center">
+                  
+                  <motion.h2 
+                    className="text-2xl sm:text-3xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 text-center relative z-10"
+                    animate={{ 
+                      backgroundPosition: ["0% center", "100% center", "0% center"]
+                    }}
+                    transition={{ 
+                      duration: 10, 
+                      repeat: Infinity, 
+                      ease: "easeInOut" 
+                    }}
+                    style={{ backgroundSize: "200% auto" }}
+                  >
                     Game Mechanics
-                  </h2>
+                  </motion.h2>
                   
                   <div className="mb-8">
-                    <div className="flex flex-col md:flex-row items-center justify-center bg-btb-primary/10 dark:bg-btb-primary/20 p-4 rounded-lg mb-6">
-                      <div className="w-16 h-16 bg-btb-primary/20 rounded-full flex items-center justify-center mr-4 flex-shrink-0 mb-4 md:mb-0">
-                        <motion.span 
-                          className="text-3xl"
-                          animate={{ rotateY: [0, 360] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                        >⚙️</motion.span>
+                    <div className="flex flex-col md:flex-row items-center justify-center rounded-lg mb-6 overflow-hidden relative">
+                      {/* Animated background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 dark:from-purple-500/20 dark:to-pink-500/20 overflow-hidden">
+                        {/* Animated gear patterns */}
+                        <div className="absolute inset-0 opacity-10">
+                          {[...Array(6)].map((_, i) => (
+                            <motion.div
+                              key={i}
+                              className="absolute rounded-full border-2 border-dashed border-purple-500/30"
+                              style={{
+                                width: `${Math.random() * 100 + 50}px`,
+                                height: `${Math.random() * 100 + 50}px`,
+                                left: `${Math.random() * 100}%`,
+                                top: `${Math.random() * 100}%`,
+                              }}
+                              animate={{
+                                rotate: [0, 360],
+                              }}
+                              transition={{
+                                duration: Math.random() * 20 + 20,
+                                repeat: Infinity,
+                                ease: "linear"
+                              }}
+                            />
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-lg font-medium text-center md:text-left">
-                        The MiMo game is built on a carefully balanced ecosystem that rewards strategy and consistent engagement. Here's how it all works behind the scenes.
-                      </p>
+                      
+                      {/* Content */}
+                      <div className="backdrop-blur-sm p-6 rounded-lg shadow-md border border-purple-200/30 dark:border-purple-800/30 flex flex-col md:flex-row items-center w-full z-10">
+                        <div className="relative w-20 h-20 mr-6 flex-shrink-0 mb-4 md:mb-0">
+                          {/* Spinning gear */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                            >
+                              <svg className="w-16 h-16 text-purple-500/80 dark:text-purple-400/80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
+                                <path d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80z"/>
+                              </svg>
+                            </motion.div>
+                          </div>
+                          
+                          {/* Overlaid gear in opposite direction */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <motion.div
+                              animate={{ rotate: -360 }}
+                              transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                            >
+                              <svg className="w-12 h-12 text-pink-500/80 dark:text-pink-400/80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="currentColor">
+                                <path d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336c44.2 0 80-35.8 80-80s-35.8-80-80-80s-80 35.8-80 80s35.8 80 80 80z"/>
+                              </svg>
+                            </motion.div>
+                          </div>
+                        </div>
+                        
+                        <motion.p 
+                          className="text-lg font-medium text-center md:text-left"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 1, delay: 0.3 }}
+                        >
+                          The MiMo game is built on a carefully balanced ecosystem that rewards strategy and consistent engagement. Here's how it all works behind the scenes.
+                        </motion.p>
+                      </div>
                     </div>
                   </div>
                   
@@ -887,17 +1788,97 @@ export default function GamePage() {
                   
                   <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex justify-center">
-                      <motion.button
-                        onClick={() => setShowGameInterface(true)}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="bg-btb-primary text-white px-6 py-3 rounded-lg font-bold tracking-wide flex items-center shadow-md"
-                      >
-                        Start Playing Now
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </motion.button>
+                      <div className="relative">
+                        {/* Animated background glow */}
+                        <motion.div 
+                          className="absolute -inset-2 rounded-xl bg-gradient-to-r from-purple-500/20 via-btb-primary/30 to-blue-500/20 blur-xl opacity-70 pointer-events-none"
+                          animate={{ 
+                            rotate: [0, 180],
+                            scale: [0.9, 1.1, 0.9]
+                          }}
+                          transition={{ 
+                            rotate: { duration: 10, repeat: Infinity, ease: "linear" },
+                            scale: { duration: 5, repeat: Infinity, ease: "easeInOut" }
+                          }}
+                        ></motion.div>
+                        
+                        {/* Particles around button */}
+                        {[...Array(6)].map((_, i) => (
+                          <motion.div
+                            key={i}
+                            className="absolute rounded-full bg-btb-primary/60 dark:bg-btb-primary-light/60"
+                            style={{
+                              width: Math.random() * 6 + 2 + 'px',
+                              height: Math.random() * 6 + 2 + 'px',
+                              left: `calc(50% + ${Math.random() * 120 - 60}px)`,
+                              top: `calc(50% + ${Math.random() * 60 - 30}px)`,
+                              zIndex: 1,
+                            }}
+                            animate={{
+                              x: [0, Math.random() * 20 - 10, 0],
+                              y: [0, Math.random() * 20 - 10, 0],
+                              opacity: [0.4, 0.8, 0.4],
+                              scale: [1, Math.random() * 0.5 + 1, 1],
+                            }}
+                            transition={{
+                              duration: Math.random() * 3 + 2,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                          />
+                        ))}
+                        
+                        <motion.button
+                          onClick={() => setShowGameInterface(true)}
+                          whileHover={{ 
+                            scale: 1.05, 
+                            boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.6)"
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                          className="relative bg-gradient-to-r from-btb-primary via-blue-600 to-btb-primary bg-size-200 text-white px-8 py-3.5 rounded-xl font-bold tracking-wide flex items-center shadow-md z-10 group overflow-hidden border border-white/10"
+                        >
+                          {/* Animated gradient background */}
+                          <motion.div 
+                            className="absolute inset-0 bg-gradient-to-r from-btb-primary via-blue-600 to-btb-primary bg-size-200"
+                            animate={{
+                              backgroundPosition: ["0% center", "100% center", "0% center"],
+                            }}
+                            transition={{
+                              duration: 5,
+                              repeat: Infinity,
+                              ease: "easeInOut",
+                            }}
+                          />
+                          
+                          {/* Shine effect */}
+                          <motion.div
+                            className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:opacity-100 opacity-0 transition-opacity duration-300"
+                            animate={{ x: ["0%", "200%"] }}
+                            transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 0.5 }}
+                          ></motion.div>
+                          
+                          {/* Content */}
+                          <span className="mr-2 z-10 relative">Start Playing Now</span>
+                          
+                          <motion.svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className="h-5 w-5 z-10 relative" 
+                            viewBox="0 0 20 20" 
+                            fill="currentColor"
+                            animate={{ x: [0, 5, 0] }}
+                            transition={{ 
+                              repeat: Infinity, 
+                              duration: 1.2, 
+                              ease: "easeInOut" 
+                            }}
+                          >
+                            <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </motion.svg>
+                        </motion.button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -907,14 +1888,56 @@ export default function GamePage() {
 
           {/* Mobile Navigation Button */}
           <div className="md:hidden fixed bottom-6 right-6 z-20">
-            <button 
-              onClick={() => setShowMobileNav(!showMobileNav)}
-              className="bg-btb-primary text-white w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            <div className="relative">
+              {/* Ripple effect */}
+              <motion.div
+                className="absolute inset-0 rounded-full bg-btb-primary opacity-30"
+                initial={{ scale: 1 }}
+                animate={{ 
+                  scale: [1, 1.5, 1.5],
+                  opacity: [0.3, 0, 0],
+                }}
+                transition={{ 
+                  repeat: Infinity,
+                  duration: 2,
+                  repeatDelay: 1,
+                  ease: "easeOut"
+                }}
+              />
+              
+              {/* Second ripple with delay */}
+              <motion.div
+                className="absolute inset-0 rounded-full bg-btb-primary opacity-30"
+                initial={{ scale: 1 }}
+                animate={{ 
+                  scale: [1, 1.5, 1.5],
+                  opacity: [0.3, 0, 0],
+                }}
+                transition={{ 
+                  repeat: Infinity,
+                  duration: 2,
+                  delay: 0.6,
+                  repeatDelay: 1,
+                  ease: "easeOut"
+                }}
+              />
+              
+              <motion.button 
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowMobileNav(!showMobileNav)}
+                className="bg-gradient-to-r from-btb-primary to-blue-600 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl relative z-10 border border-white/10"
+              >
+                <motion.div
+                  animate={{ rotate: showMobileNav ? 90 : 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </motion.div>
+              </motion.button>
+            </div>
           </div>
 
           {/* Mobile Navigation Popup */}
@@ -974,15 +1997,52 @@ export default function GamePage() {
                 </div>
                 
                 <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => {
-                      setShowGameInterface(true);
-                      setShowMobileNav(false);
-                    }}
-                    className="w-full bg-btb-primary hover:bg-blue-600 text-white py-3 rounded-lg font-bold transition-colors"
-                  >
-                    Launch Game
-                  </button>
+                  <div className="relative">
+                    {/* Button glow effect */}
+                    <motion.div 
+                      className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-btb-primary to-purple-500 rounded-lg blur-md opacity-70"
+                      animate={{ 
+                        opacity: [0.5, 0.8, 0.5],
+                        backgroundPosition: ["0% center", "100% center", "0% center"] 
+                      }}
+                      transition={{ 
+                        opacity: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+                        backgroundPosition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                      }}
+                      style={{ backgroundSize: "200% 100%" }}
+                    ></motion.div>
+                    
+                    <motion.button
+                      onClick={() => {
+                        setShowGameInterface(true);
+                        setShowMobileNav(false);
+                      }}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="relative w-full bg-gradient-to-r from-btb-primary to-blue-600 text-white py-3.5 rounded-lg font-bold transition-all duration-300 z-10 border border-white/10 shadow-lg overflow-hidden"
+                    >
+                      {/* Shine effect */}
+                      <motion.div
+                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                        animate={{ x: ["0%", "200%"] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: "linear", repeatDelay: 0.5 }}
+                      ></motion.div>
+                      
+                      <span className="relative z-10 flex items-center justify-center">
+                        Launch Game
+                        <motion.svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          className="h-5 w-5 ml-2" 
+                          viewBox="0 0 20 20" 
+                          fill="currentColor"
+                          animate={{ x: [0, 4, 0] }}
+                          transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
+                        >
+                          <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </motion.svg>
+                      </span>
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             </div>
