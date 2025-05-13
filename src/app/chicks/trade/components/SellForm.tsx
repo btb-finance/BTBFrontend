@@ -31,8 +31,8 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
         // Don't disable the input field during calculation
         // setIsCalculating(true);
         const amount = await chicksService.getSellAmount(chicksAmount);
-        // Apply sell fee (2.5%)
-        const amountAfterFee = (parseFloat(amount) * 0.975).toFixed(6);
+        // Apply sell fee (1.6%)
+        const amountAfterFee = (parseFloat(amount) * 0.984).toFixed(6);
         setUsdcAmount(amountAfterFee);
       } catch (error) {
         console.error('Error calculating USDC amount:', error);
@@ -58,8 +58,8 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
         // Don't disable the input field during calculation
         // setIsCalculating(true);
         // This is just an approximation since there's no direct method to calculate this
-        // We need to account for the 2.5% fee
-        const estimatedChicks = (parseFloat(usdcAmount) / (parseFloat(chicksPrice) * 0.975)).toFixed(6);
+        // We need to account for the 1.6% fee
+        const estimatedChicks = (parseFloat(usdcAmount) / (parseFloat(chicksPrice) * 0.984)).toFixed(6);
         setChicksAmount(estimatedChicks);
       } catch (error) {
         console.error('Error calculating CHICKS amount:', error);
@@ -211,7 +211,7 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
             className={`${activeInput === 'usdc' ? 'border-blue-500 ring-1 ring-blue-500' : ''}`}
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            *Includes 2.5% sell fee
+            *Includes 1.6% sell fee
           </p>
         </div>
 

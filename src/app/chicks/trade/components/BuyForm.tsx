@@ -196,7 +196,7 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
             className={`${activeInput === 'chicks' ? 'border-blue-500 ring-1 ring-blue-500' : ''}`}
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            *Includes 2.5% buy fee
+            *Includes 1.6% buy fee
           </p>
         </div>
 

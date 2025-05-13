@@ -609,7 +609,7 @@ export default function ChicksTradePanel() {
                           Buy Fee
                         </td>
                         <td className="px-4 py-3 font-medium">
-                          2.5%
+                          1.6%
                         </td>
                       </tr>
                       <tr>
@@ -617,7 +617,7 @@ export default function ChicksTradePanel() {
                           Sell Fee
                         </td>
                         <td className="px-4 py-3 font-medium">
-                          2.5%
+                          1.6%
                         </td>
                       </tr>
                       <tr>
