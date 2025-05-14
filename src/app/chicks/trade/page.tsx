@@ -52,6 +52,7 @@ export default function ChicksTradePanel() {
   const [priceDifference, setPriceDifference] = useState<string>('0');
   const [priceDifferencePercentage, setPriceDifferencePercentage] = useState<string>('0');
   const [isLoadingMarketPrice, setIsLoadingMarketPrice] = useState<boolean>(false);
+  const [customChicksAmount, setCustomChicksAmount] = useState<string>('10000');
 
   // Fetch market price and calculate arbitrage opportunity
   const fetchMarketPrice = async (btbPrice: string) => {
@@ -61,9 +62,48 @@ export default function ChicksTradePanel() {
       setIsLoadingMarketPrice(true);
       const comparison = await openOceanService.getPriceComparison(btbPrice);
       
+      // Store the original market price
       setMarketPrice(comparison.openOceanPrice);
-      setPriceDifference(comparison.priceDifference);
-      setPriceDifferencePercentage(comparison.priceDifferencePercentage);
+      
+      // Calculate the actual difference accounting for 1.6% tax on both buy and sell
+      const btbPriceNum = parseFloat(btbPrice);
+      const openOceanPriceNum = parseFloat(comparison.openOceanPrice);
+      
+      // When buying from BTB and selling on market:
+      // Buy cost: btbPrice + 1.6% tax
+      // Sell proceeds: openOceanPrice - any market fees (not included as they vary)
+      const buyFromBTBCost = btbPriceNum * 1.016;
+      
+      // When buying from market and selling on BTB:
+      // Buy cost: openOceanPrice (+ any market fees, not included as they vary)
+      // Sell proceeds: btbPrice - 1.6% tax
+      const sellToBTBProceeds = btbPriceNum * 0.984; // 1 - 0.016 = 0.984
+      
+      // Calculate real profit/loss for both scenarios
+      const buyBTBSellMarketProfit = openOceanPriceNum - buyFromBTBCost;
+      const buyMarketSellBTBProfit = sellToBTBProceeds - openOceanPriceNum;
+      
+      // Choose the better scenario (higher profit or lower loss)
+      const bestProfit = Math.max(buyBTBSellMarketProfit, buyMarketSellBTBProfit);
+      const realPriceDifference = bestProfit.toFixed(6);
+      const realPriceDifferencePercentage = ((bestProfit / 
+                                             (bestProfit >= 0 ? buyFromBTBCost : openOceanPriceNum)) * 100).toFixed(2);
+      
+      setPriceDifference(realPriceDifference);
+      setPriceDifferencePercentage(realPriceDifferencePercentage);
+      
+      console.log('Arbitrage calculation with 1.6% tax:', {
+        btbPrice: btbPriceNum,
+        marketPrice: openOceanPriceNum,
+        buyFromBTBCost,
+        sellToBTBProceeds,
+        buyBTBSellMarketProfit,
+        buyMarketSellBTBProfit,
+        bestProfit,
+        realPriceDifference,
+        realPriceDifferencePercentage
+      });
+      
     } catch (error) {
       console.error('Error fetching market price:', error);
       setMarketPrice('0');
@@ -168,7 +208,12 @@ export default function ChicksTradePanel() {
                   <div className={`rounded-xl overflow-hidden mb-4 bg-white dark:bg-gray-900 border ${parseFloat(priceDifference) > 0 ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'} shadow-md`}>
                     {/* Header */}
                     <div className={`flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 ${parseFloat(priceDifference) > 0 ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
-                      <h3 className={`font-bold text-sm sm:text-base ${parseFloat(priceDifference) > 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>Arbitrage Alert</h3>
+                      <div>
+                        <h3 className={`font-bold text-sm sm:text-base ${parseFloat(priceDifference) > 0 ? 'text-green-800 dark:text-green-300' : 'text-red-800 dark:text-red-300'}`}>
+                          Arbitrage Alert
+                        </h3>
+                        <p className="text-[9px] sm:text-[10px] mt-0.5 opacity-80">Including 1.6% CHICKS tax</p>
+                      </div>
                       <div className={`text-xs sm:text-sm font-semibold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full ${parseFloat(priceDifference) > 0 ? 'bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100' : 'bg-red-100 text-red-800 dark:bg-red-800 dark:text-red-100'}`}>
                         {isLoadingMarketPrice ? 'Updating...' : `${parseFloat(priceDifferencePercentage) > 0 ? '+' : ''}${priceDifferencePercentage}%`}
                       </div>
@@ -307,7 +352,10 @@ export default function ChicksTradePanel() {
                                     </div>
                                     <div>
                                       <p className="font-medium text-xs sm:text-sm">Buy CHICKS on BTB</p>
-                                      <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Price: <span className="font-semibold">${chicksPrice}</span> per CHICKS</p>
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-0 sm:gap-2">
+                                        <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">List Price: <span className="font-semibold">${chicksPrice}</span></p>
+                                        <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Effective: <span className="font-semibold">${(parseFloat(chicksPrice) * 1.016).toFixed(6)}</span> <span className="opacity-70">(+1.6% tax)</span></p>
+                                      </div>
                                     </div>
                                   </div>
                                   
@@ -317,7 +365,7 @@ export default function ChicksTradePanel() {
                                     </div>
                                     <div>
                                       <p className="font-medium text-xs sm:text-sm">Sell CHICKS on Market</p>
-                                      <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Price: <span className="font-semibold">${marketPrice}</span> per CHICKS</p>
+                                      <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Price: <span className="font-semibold">${marketPrice}</span> <span className="opacity-70">(market fees may apply)</span></p>
                                     </div>
                                   </div>
                                   
@@ -330,6 +378,7 @@ export default function ChicksTradePanel() {
                                       <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">
                                         <span className="font-semibold text-green-600 dark:text-green-400">${priceDifference}</span> 
                                         (<span className="font-semibold text-green-600 dark:text-green-400">+{priceDifferencePercentage}%</span>)
+                                        <span className="opacity-70"> after all fees</span>
                                       </p>
                                     </div>
                                   </div>
@@ -342,7 +391,7 @@ export default function ChicksTradePanel() {
                                     </div>
                                     <div>
                                       <p className="font-medium text-xs sm:text-sm">Buy CHICKS on Market</p>
-                                      <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Price: <span className="font-semibold">${marketPrice}</span> per CHICKS</p>
+                                      <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Price: <span className="font-semibold">${marketPrice}</span> <span className="opacity-70">(market fees may apply)</span></p>
                                     </div>
                                   </div>
                                   
@@ -352,7 +401,10 @@ export default function ChicksTradePanel() {
                                     </div>
                                     <div>
                                       <p className="font-medium text-xs sm:text-sm">Sell CHICKS on BTB</p>
-                                      <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Price: <span className="font-semibold">${chicksPrice}</span> per CHICKS</p>
+                                      <div className="flex flex-col sm:flex-row sm:items-center gap-0 sm:gap-2">
+                                        <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">List Price: <span className="font-semibold">${chicksPrice}</span></p>
+                                        <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">Effective: <span className="font-semibold">${(parseFloat(chicksPrice) * 0.984).toFixed(6)}</span> <span className="opacity-70">(-1.6% tax)</span></p>
+                                      </div>
                                     </div>
                                   </div>
                                   
@@ -365,17 +417,66 @@ export default function ChicksTradePanel() {
                                       <p className="text-gray-600 dark:text-gray-400 text-[10px] sm:text-xs mt-0.5">
                                         <span className="font-semibold text-red-600 dark:text-red-400">${Math.abs(parseFloat(priceDifference)).toFixed(6)}</span> 
                                         (<span className="font-semibold text-red-600 dark:text-red-400">{priceDifferencePercentage}%</span>)
+                                        <span className="opacity-70"> after all fees</span>
                                       </p>
                                     </div>
                                   </div>
                                 </>
                               )}
                               
-                              {/* Calculator result for 10,000 CHICKS */}
+                              {/* Interactive calculator for custom CHICKS amount */}
                               <div className={`mt-1 p-1.5 sm:p-2 rounded text-[10px] sm:text-xs ${parseFloat(priceDifference) > 0 ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'}`}>
-                                <p className="font-medium">
-                                  Example: Trading 10,000 CHICKS = <span className="font-bold">${(Math.abs(parseFloat(priceDifference)) * 10000).toFixed(2)}</span> profit
-                                </p>
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 mb-2">
+                                  <label className="font-medium whitespace-nowrap">Calculate profit for:</label>
+                                  <div className="flex-1 flex items-center">
+                                    <input
+                                      type="text"
+                                      value={customChicksAmount}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                                        setCustomChicksAmount(value);
+                                      }}
+                                      className="w-24 px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                                    />
+                                    <span className="ml-1 font-medium">CHICKS</span>
+                                  </div>
+                                  <div className="font-bold whitespace-nowrap">
+                                    = <span className="text-sm sm:text-base ${parseFloat(priceDifference) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">
+                                      ${(parseFloat(priceDifference) * parseFloat(customChicksAmount || '0')).toFixed(2)}
+                                    </span> 
+                                    {parseFloat(priceDifference) >= 0 ? ' profit' : ' loss'}
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1 mb-2">
+                                  {[1000, 5000, 10000, 50000, 100000].map((amount) => (
+                                    <button
+                                      key={amount}
+                                      onClick={() => setCustomChicksAmount(amount.toString())}
+                                      className={`px-2 py-0.5 rounded text-[9px] sm:text-[10px] ${
+                                        customChicksAmount === amount.toString()
+                                          ? parseFloat(priceDifference) > 0 
+                                            ? 'bg-green-200 dark:bg-green-800/40 text-green-800 dark:text-green-200' 
+                                            : 'bg-red-200 dark:bg-red-800/40 text-red-800 dark:text-red-200'
+                                          : 'bg-gray-200 dark:bg-gray-700/40 text-gray-700 dark:text-gray-300'
+                                      }`}
+                                    >
+                                      {amount.toLocaleString()}
+                                    </button>
+                                  ))}
+                                  <button
+                                    onClick={() => setCustomChicksAmount(chicksBalance)}
+                                    className={`px-2 py-0.5 rounded text-[9px] sm:text-[10px] ${
+                                      customChicksAmount === chicksBalance
+                                        ? parseFloat(priceDifference) > 0 
+                                          ? 'bg-green-200 dark:bg-green-800/40 text-green-800 dark:text-green-200' 
+                                          : 'bg-red-200 dark:bg-red-800/40 text-red-800 dark:text-red-200'
+                                        : 'bg-gray-200 dark:bg-gray-700/40 text-gray-700 dark:text-gray-300'
+                                    }`}
+                                  >
+                                    Your Balance
+                                  </button>
+                                </div>
+                                <p className="opacity-80 text-[9px] sm:text-[10px]">Our calculation accounts for the 1.6% tax on BTB transactions, showing realistic profits after fees.</p>
                               </div>
                             </div>
                           </div>
