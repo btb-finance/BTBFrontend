@@ -75,7 +75,7 @@ const megapotFeatures = [
   },
   {
     title: 'Auto-Renewing Subscriptions',
-    description: 'Set up automatic daily ticket purchases with our subscription service. Never miss a draw and get special cashback benefits.',
+    description: 'Set up automatic daily ticket purchases with our subscription service. Never miss a draw!',
     icon: ArrowPathIcon,
     color: 'from-indigo-500 to-blue-600',
     highlight: true
@@ -502,7 +502,7 @@ export default function MegapotPage() {
                   animate={{ scale: [1, 1.05, 1] }}
                   transition={{ duration: 1, repeat: Infinity, repeatDelay: 3, delay: 0.5 }}
                 >
-                  get 15% USDC cashback
+                  get 10% USDC cashback
                 </motion.span> on all purchases when you buy through BTB! <span className="inline-block bg-red-500 text-white font-bold px-2 py-1 rounded-md text-sm transform -rotate-1">Limited time offer!</span>
               </motion.p>
               
@@ -524,7 +524,7 @@ export default function MegapotPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-indigo-700 dark:text-indigo-400 text-lg mb-1">NEW! Auto-Buy Subscription</h3>
-                    <p className="text-gray-700 dark:text-gray-300">Set it once and never miss a draw! Our smart contract automatically enters you daily without returning to the site. <span className="italic">Get the same 50% MegaPoints bonus and 15% cashback benefits!</span> <span className="font-bold text-green-600 dark:text-green-400">Cancel anytime</span> 🔄</p>
+                    <p className="text-gray-700 dark:text-gray-300">Set it once and never miss a draw! Our smart contract automatically enters you daily without returning to the site. <span className="italic">Get the same 50% MegaPoints bonus!</span> <span className="font-bold text-green-600 dark:text-green-400">Cancel anytime</span> 🔄</p>
                   </div>
                 </div>
               </motion.div>
@@ -831,7 +831,7 @@ export default function MegapotPage() {
             </h2>
             <div className="h-1 w-20 bg-gradient-to-r from-btb-primary to-indigo-600 mx-auto rounded-full mb-4"></div>
             <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300 max-w-3xl mx-auto">
-              Choose between one-time tickets or subscribe to auto-enter daily draws. Both options include our <span className="font-medium text-btb-primary">exclusive 15% cashback</span> benefit!
+              Choose between one-time tickets with <span className="font-medium text-btb-primary">exclusive 10% cashback</span> or subscribe to auto-enter daily draws!
             </p>
           </motion.div>
           
@@ -987,7 +987,7 @@ export default function MegapotPage() {
                   icon: TicketIcon,
                   iconBg: "from-btb-primary to-btb-primary-dark",
                   title: "Buy Tickets",
-                  description: "Purchase tickets using USDC. Each ticket costs $1 with a 15% cashback to your wallet."
+                  description: "Purchase tickets using USDC. Each ticket costs $1 with a 10% cashback to your wallet."
                 },
                 {
                   icon: ArrowPathIcon,
@@ -1122,8 +1122,8 @@ export default function MegapotPage() {
                   color: "from-green-500 to-emerald-600"
                 },
                 {
-                  question: "How does the 15% cashback work?",
-                  answer: "When you buy a Megapot ticket, you use our custom smart contract that returns the 15% fee directly to your wallet. For subscriptions, the cashback is applied per ticket purchase day during the promotional period.",
+                  question: "How does the 10% cashback work?",
+                  answer: "When you buy a Megapot ticket immediately, you use our custom smart contract that returns the 10% fee directly to your wallet. This cashback benefit is only available for immediate purchases, not for subscriptions.",
                   icon: CurrencyDollarIcon,
                   color: "from-btb-primary to-btb-primary-dark"
                 },
@@ -1147,7 +1147,7 @@ export default function MegapotPage() {
                 },
                 {
                   question: "What is the ticket price?",
-                  answer: "Each ticket costs $1 USDC. You receive 15% cashback when you purchase through BTB's referral link.",
+                  answer: "Each ticket costs $1 USDC. You receive 10% cashback when you purchase through BTB's referral link.",
                   icon: TicketIcon,
                   color: "from-rose-500 to-pink-600" 
                 },
@@ -1311,7 +1311,7 @@ export default function MegapotPage() {
                   transition={{ duration: 0.5, delay: 0.3 }}
                   viewport={{ once: true }}
                 >
-                  Buy tickets now and get <span className="font-bold text-yellow-300">15% cashback</span> on every purchase, 
+                  Buy tickets now and get <span className="font-bold text-yellow-300">10% cashback</span> on every purchase, 
                   or set up auto-buy and never miss a draw!
                 </motion.p>
                 
