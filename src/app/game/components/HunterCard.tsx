@@ -406,9 +406,10 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
           <button
             onClick={(e) => {
               e.stopPropagation();
+              e.preventDefault();
               onFeed(hunter.id);
             }}
-            className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white font-medium shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center justify-center"
+            className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white font-medium shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all duration-200 flex items-center justify-center relative z-30"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
@@ -420,10 +421,13 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onHunt(hunter.id);
+              e.preventDefault();
+              if (hunter.canHuntNow) {
+                onHunt(hunter.id);
+              }
             }}
             disabled={!hunter.canHuntNow}
-            className={`flex-1 py-2.5 px-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center ${
+            className={`flex-1 py-2.5 px-3 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center relative z-30 ${
               hunter.canHuntNow 
                 ? 'bg-gradient-to-br from-btb-primary to-blue-600 text-white hover:from-btb-primary/90 hover:to-blue-700'
                 : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'

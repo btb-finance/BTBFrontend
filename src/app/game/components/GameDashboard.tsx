@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useGame } from './GameContext';
+import { useGame, Hunter } from './GameContext';
 import { BEAR_HUNTER_ECOSYSTEM_ADDRESS as GAME_CONTRACT_ADDRESS, BEAR_NFT_ADDRESS } from '../addresses';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import HunterCard from './HunterCard';
 import DepositBear from './DepositBear';
 import RedeemBear from './RedeemBear';
 import GameOverview from './GameOverview';
+import HuntMimo from './HuntMimo';
 
 export default function GameDashboard() {
   const { loading, hunters, mimoBalance, isAddressProtected, feedHunter, hunt, refreshData, error, gameContract } = useGame();
@@ -20,6 +21,9 @@ export default function GameDashboard() {
     type: 'success' | 'error';
     message: string;
   } | null>(null);
+  
+  // Create a dedicated state for each hunter ID's modal
+  const [huntModalHunterId, setHuntModalHunterId] = useState<number | null>(null);
   
   const [connectionState, setConnectionState] = useState({
     hasProvider: false,
@@ -70,16 +74,19 @@ export default function GameDashboard() {
     }
   };
 
-  const handleHunt = async (hunterId: number) => {
-    try {
-      await hunt(hunterId);
-      setNotification({
-        type: 'success',
-        message: `Successfully hunted with Hunter #${hunterId}`,
-      });
-    } catch (err) {
-      // Error is handled by the context
-    }
+  const handleHunt = (hunterId: number) => {
+    // Simply set the hunter ID to show the modal for
+    setHuntModalHunterId(hunterId);
+  };
+  
+  const handleHuntSuccess = () => {
+    // Close the modal
+    setHuntModalHunterId(null);
+    refreshData();
+    setNotification({
+      type: 'success',
+      message: 'Successfully hunted MiMo tokens!',
+    });
   };
 
   return (
@@ -897,15 +904,36 @@ export default function GameDashboard() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {hunters.map((hunter) => (
-                  <HunterCard
-                    key={hunter.id}
-                    hunter={hunter}
-                    onFeed={handleFeed}
-                    onHunt={handleHunt}
-                  />
-                ))}
+              <div>
+                {hunters.some(hunter => hunter.canHuntNow) && (
+                  <div className="mb-6 flex justify-end">
+                    <button
+                      onClick={() => {
+                        // Find the first hunter that can hunt
+                        const readyHunter = hunters.find(h => h.canHuntNow);
+                        if (readyHunter) {
+                          setHuntModalHunterId(readyHunter.id);
+                        }
+                      }}
+                      className="bg-gradient-to-r from-btb-primary to-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                      </svg>
+                      Hunt With Any Ready Hunter
+                    </button>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {hunters.map((hunter) => (
+                    <HunterCard
+                      key={hunter.id}
+                      hunter={hunter}
+                      onFeed={handleFeed}
+                      onHunt={handleHunt}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </>
@@ -1288,6 +1316,21 @@ export default function GameDashboard() {
           </motion.div>
         )}
       </div>
+      
+      {/* Hunt Modal */}
+      {huntModalHunterId !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setHuntModalHunterId(null)}
+          ></div>
+          <HuntMimo
+            hunter={hunters.find(h => h.id === huntModalHunterId)!}
+            onClose={() => setHuntModalHunterId(null)}
+            onSuccess={handleHuntSuccess}
+          />
+        </div>
+      )}
     </div>
   );
 }
