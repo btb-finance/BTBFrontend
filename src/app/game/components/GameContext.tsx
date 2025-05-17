@@ -39,10 +39,14 @@ export type GameContextType = {
   btbSwapContract: ethers.Contract | null;
   mimoToken: ethers.Contract | null;
   
+  // Hunter selection state
+  selectedHunters: number[];
+  
   // Contract interactions
   depositBear: (bearId: number | number[]) => Promise<void>;
   feedHunter: (hunterId: number) => Promise<void>;
   hunt: (hunterId: number, target?: string) => Promise<void>;
+  huntMultiple: (hunterIds: number[], target: string) => Promise<void>;
   setAddressProtection: (status: boolean) => Promise<void>;
   redeemBear: () => Promise<any>;
   getRedemptionRequirements: () => Promise<{
@@ -55,6 +59,7 @@ export type GameContextType = {
   refreshData: () => Promise<void>;
   error: string | null;
   clearError: () => void;
+  clearSelectedHunters: () => void;
 };
 
 // Create the context with default values
@@ -66,10 +71,12 @@ const GameContext = createContext<GameContextType>({
   gameContract: null,
   btbSwapContract: null,
   mimoToken: null,
+  selectedHunters: [],
   
   depositBear: async () => {},
   feedHunter: async () => {},
   hunt: async () => {},
+  huntMultiple: async () => {},
   setAddressProtection: async () => {},
   redeemBear: async () => { return null; },
   getRedemptionRequirements: async () => ({ amount: '0', fee: '0', paused: true }),
@@ -77,6 +84,7 @@ const GameContext = createContext<GameContextType>({
   refreshData: async () => {},
   error: null,
   clearError: () => {},
+  clearSelectedHunters: () => {},
 });
 
 // Provider component
@@ -91,6 +99,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [gameContract, setGameContract] = useState<ethers.Contract | null>(null);
   const [btbSwapContract, setBtbSwapContract] = useState<ethers.Contract | null>(null);
   const [mimoToken, setMimoToken] = useState<ethers.Contract | null>(null);
+  const [selectedHunters, setSelectedHunters] = useState<number[]>([]);
 
   // Initialize contracts when provider is available
   useEffect(() => {
@@ -493,6 +502,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearSelectedHunters = () => {
+    setSelectedHunters([]);
+  };
+
+  const huntMultiple = async (hunterIds: number[], target: string) => {
+    if (!gameContract) {
+      setError('Game contract not initialized');
+      return;
+    }
+    
+    try {
+      console.log(`Bulk hunting with ${hunterIds.length} hunters targeting: ${target}`);
+      
+      // Execute hunts sequentially
+      for (const hunterId of hunterIds) {
+        console.log(`Hunter #${hunterId} hunting target: ${target}`);
+        const tx = await gameContract.hunt(hunterId, target);
+        console.log("Hunt transaction:", tx.hash);
+        const receipt = await tx.wait();
+        console.log("Hunt confirmed in block:", receipt.blockNumber);
+      }
+      
+      await refreshData();
+    } catch (error: any) {
+      console.error('Error bulk hunting:', error);
+      setError(error.message || 'Failed to perform bulk hunt');
+      throw error;
+    }
+  };
+
   // Context value
   const value = {
     loading,
@@ -502,10 +541,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     gameContract,
     btbSwapContract,
     mimoToken,
+    selectedHunters,
     
     depositBear,
     feedHunter,
     hunt,
+    huntMultiple,
     setAddressProtection,
     redeemBear,
     getRedemptionRequirements,
@@ -513,6 +554,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     refreshData,
     error,
     clearError,
+    clearSelectedHunters,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
