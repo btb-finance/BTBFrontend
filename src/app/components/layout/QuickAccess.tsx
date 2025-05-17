@@ -8,6 +8,16 @@ import { SparklesIcon } from '@heroicons/react/24/outline';
 // Define the navigation links
 const quickNavLinks = [
   {
+    name: 'Larry Ecosystem',
+    description: 'Trade, leverage & borrow with LARRY',
+    href: '/larryecosystem',
+    icon: ({ className }: { className?: string }) => (
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🐺</span>
+    ),
+    color: 'bg-emerald-100 dark:bg-emerald-900/30',
+    textColor: 'text-emerald-600 dark:text-emerald-400'
+  },
+  {
     name: 'CHICKS Trade',
     description: 'Trade, borrow & leverage CHICKS tokens',
     href: '/chicks/trade',
@@ -159,15 +169,15 @@ export default function QuickAccess() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.15 }}
-                className="absolute right-14 translate-y-0 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-5 border border-gray-100 dark:border-gray-700 w-[320px] max-w-[95vw] z-[100]"
+                className="absolute right-14 translate-y-0 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 border border-gray-100 dark:border-gray-700 w-[480px] max-w-[95vw] z-[100]"
               >
                 <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-white dark:bg-gray-800 border-r border-b border-gray-100 dark:border-gray-700"></div>
-                <div className="mb-2 text-center">
-                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Jump to Live Products</h3>
+                <div className="mb-3 text-center">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Jump to Live Products</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Quick access to our core features</p>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2">
+                <div className="grid grid-cols-3 gap-3">
                   {quickNavLinks.map((link, index) => (
                     <motion.div
                       key={index}
@@ -177,15 +187,15 @@ export default function QuickAccess() {
                     >
                       <Link
                         href={link.href}
-                        className="flex items-center p-2 sm:p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors sm:flex-col sm:text-center"
+                        className="flex flex-col items-center text-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         onClick={() => setIsNavPopupOpen(false)}
                       >
-                        <div className={`${link.color} ${link.textColor} p-1.5 sm:p-2 rounded-full mr-3 sm:mr-0 sm:mb-2`}>
+                        <div className={`${link.color} ${link.textColor} p-2 rounded-full mb-2`}>
                           {typeof link.icon === 'function' 
-                            ? <link.icon className="h-4 w-4 sm:h-5 sm:w-5" /> 
-                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-4 w-4 sm:h-5 sm:w-5" })}
+                            ? <link.icon className="h-5 w-5" /> 
+                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-5 w-5" })}
                         </div>
-                        <div className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm">{link.name}</div>
+                        <div className="font-medium text-gray-900 dark:text-white text-xs">{link.name}</div>
                       </Link>
                     </motion.div>
                   ))}
@@ -241,15 +251,15 @@ export default function QuickAccess() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
                 transition={{ duration: 0.2 }}
-                className="fixed right-4 bottom-20 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-3 sm:p-5 border border-gray-100 dark:border-gray-700 w-[280px] sm:w-[320px] z-[100]"
+                className="fixed right-4 bottom-20 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-3 border border-gray-100 dark:border-gray-700 w-[340px] max-w-[95vw] z-[100]"
               >
                 <div className="absolute -bottom-2 right-6 transform w-4 h-4 rotate-45 bg-white dark:bg-gray-800 border-b border-r border-gray-100 dark:border-gray-700"></div>
-                <div className="mb-2 text-center">
-                  <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">Jump to Live Products</h3>
+                <div className="mb-3 text-center">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Jump to Live Products</h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Quick access to our core features</p>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {quickNavLinks.map((link, index) => (
                     <motion.div
                       key={index}
@@ -259,15 +269,15 @@ export default function QuickAccess() {
                     >
                       <Link
                         href={link.href}
-                        className="flex items-center p-2 sm:p-3 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors sm:flex-col sm:text-center"
+                        className="flex flex-col items-center text-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         onClick={() => setIsNavPopupOpen(false)}
                       >
-                        <div className={`${link.color} ${link.textColor} p-1.5 sm:p-2 rounded-full mr-3 sm:mr-0 sm:mb-2`}>
+                        <div className={`${link.color} ${link.textColor} p-1.5 rounded-full mb-1`}>
                           {typeof link.icon === 'function' 
-                            ? <link.icon className="h-4 w-4 sm:h-5 sm:w-5" /> 
-                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-4 w-4 sm:h-5 sm:w-5" })}
+                            ? <link.icon className="h-4 w-4" /> 
+                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-4 w-4" })}
                         </div>
-                        <div className="font-medium text-gray-900 dark:text-white text-xs sm:text-sm">{link.name}</div>
+                        <div className="font-medium text-gray-900 dark:text-white text-xs">{link.name}</div>
                       </Link>
                     </motion.div>
                   ))}
