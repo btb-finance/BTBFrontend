@@ -185,12 +185,13 @@ export default function LoansManagement() {
     }
   };
 
-  if (!userLoan || userLoan.borrowed === '0') {
+  if (!userLoan || userLoan.borrowed === '0' || userLoan.endDate === '0') {
     return null;
   }
 
-  const daysRemaining = Math.max(0, Math.floor((Number(userLoan.endDate) - Date.now() / 1000) / 86400));
-  const isExpired = daysRemaining === 0;
+  const endDateTimestamp = Number(userLoan.endDate);
+  const daysRemaining = endDateTimestamp > 0 ? Math.max(0, Math.floor((endDateTimestamp - Date.now() / 1000) / 86400)) : 0;
+  const isExpired = endDateTimestamp === 0 || endDateTimestamp < Date.now() / 1000;
 
   return (
     <Card className="p-6">
@@ -238,7 +239,7 @@ export default function LoansManagement() {
               </span>
             </div>
             <span className="text-sm text-gray-600">
-              Expires: {new Date(Number(userLoan.endDate) * 1000).toLocaleDateString()}
+              Expires: {endDateTimestamp > 0 ? new Date(endDateTimestamp * 1000).toLocaleDateString() : 'N/A'}
             </span>
           </div>
         </div>

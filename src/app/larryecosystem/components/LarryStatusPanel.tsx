@@ -18,6 +18,33 @@ export default function LarryStatusPanel() {
     sellFee: '0'
   });
   const [loading, setLoading] = useState(true);
+  const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
+
+  // Check if we're on Ethereum mainnet
+  useEffect(() => {
+    const checkNetwork = async () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          setIsCorrectNetwork(chainId === '0x1'); // 0x1 is Ethereum mainnet
+        } catch (error) {
+          console.error('Error checking network:', error);
+        }
+      }
+    };
+    
+    checkNetwork();
+    
+    if ((window as any).ethereum) {
+      (window as any).ethereum.on('chainChanged', checkNetwork);
+    }
+
+    return () => {
+      if ((window as any).ethereum) {
+        (window as any).ethereum.removeListener('chainChanged', checkNetwork);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {

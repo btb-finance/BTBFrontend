@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWalletConnection } from '../hooks/useWalletConnection';
 import { Alert } from '../components/ui/alert';
 import { Card } from '../components/ui/card';
@@ -14,7 +14,35 @@ import StabilityDiagram from './components/StabilityDiagram';
 import PriceDisplay from './components/PriceDisplay';
 
 export default function LarryEcosystemPage() {
-  const { isConnected, isCorrectNetwork } = useWalletConnection();
+  const { isConnected } = useWalletConnection();
+  const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
+
+  // Check if we're on Ethereum mainnet (chainId 1)
+  useEffect(() => {
+    const checkNetwork = async () => {
+      if (typeof window !== 'undefined' && (window as any).ethereum) {
+        try {
+          const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
+          setIsCorrectNetwork(chainId === '0x1'); // 0x1 is Ethereum mainnet
+        } catch (error) {
+          console.error('Error checking network:', error);
+        }
+      }
+    };
+    
+    checkNetwork();
+
+    // Listen for network changes
+    if ((window as any).ethereum) {
+      (window as any).ethereum.on('chainChanged', checkNetwork);
+    }
+
+    return () => {
+      if ((window as any).ethereum) {
+        (window as any).ethereum.removeListener('chainChanged', checkNetwork);
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
