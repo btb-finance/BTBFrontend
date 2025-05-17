@@ -8,8 +8,8 @@ class LarryService {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
       return new ethers.providers.Web3Provider((window as any).ethereum);
     }
-    // Use a public RPC endpoint for Ethereum mainnet
-    return new ethers.providers.JsonRpcProvider('https://eth.llamarpc.com');
+    // Use a public RPC endpoint for Base network
+    return new ethers.providers.JsonRpcProvider('https://base.llamarpc.com');
   }
 
   private getContract(signer?: ethers.Signer) {

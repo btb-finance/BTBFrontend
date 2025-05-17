@@ -33,13 +33,13 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
   const [userBalance, setUserBalance] = useState('0');
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
 
-  // Check if we're on Ethereum mainnet
+  // Check if we're on Base network
   useEffect(() => {
     const checkNetwork = async () => {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         try {
           const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
-          setIsCorrectNetwork(chainId === '0x1'); // 0x1 is Ethereum mainnet
+          setIsCorrectNetwork(chainId === '0x2105'); // 0x2105 is Base network
         } catch (error) {
           console.error('Error checking network:', error);
         }

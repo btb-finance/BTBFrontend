@@ -20,13 +20,13 @@ export default function LarryStatusPanel() {
   const [loading, setLoading] = useState(true);
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
 
-  // Check if we're on Ethereum mainnet
+  // Check if we're on Base network
   useEffect(() => {
     const checkNetwork = async () => {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         try {
           const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
-          setIsCorrectNetwork(chainId === '0x1'); // 0x1 is Ethereum mainnet
+          setIsCorrectNetwork(chainId === '0x2105'); // 0x2105 is Base network
         } catch (error) {
           console.error('Error checking network:', error);
         }

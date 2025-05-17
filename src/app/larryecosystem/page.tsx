@@ -17,13 +17,13 @@ export default function LarryEcosystemPage() {
   const { isConnected } = useWalletConnection();
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(true);
 
-  // Check if we're on Ethereum mainnet (chainId 1)
+  // Check if we're on Base network (chainId 8453)
   useEffect(() => {
     const checkNetwork = async () => {
       if (typeof window !== 'undefined' && (window as any).ethereum) {
         try {
           const chainId = await (window as any).ethereum.request({ method: 'eth_chainId' });
-          setIsCorrectNetwork(chainId === '0x1'); // 0x1 is Ethereum mainnet
+          setIsCorrectNetwork(chainId === '0x2105'); // 0x2105 is Base network
         } catch (error) {
           console.error('Error checking network:', error);
         }
@@ -51,7 +51,7 @@ export default function LarryEcosystemPage() {
           <div className="text-center mb-12">
             <div className="inline-block px-4 py-1 mb-4 rounded-full bg-emerald-500/10 border border-emerald-500/20">
               <p className="text-sm font-medium text-emerald-600 flex items-center">
-                <ChartBarIcon className="h-4 w-4 mr-2" /> Live on Ethereum Mainnet
+                <ChartBarIcon className="h-4 w-4 mr-2" /> Live on Base Network
               </p>
             </div>
             <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent">
@@ -63,7 +63,7 @@ export default function LarryEcosystemPage() {
             
             {/* Network Check Alert */}
             {isConnected && !isCorrectNetwork && (
-              <Alert className="mb-6 bg-yellow-100 border-yellow-400 text-yellow-700">Please switch to Ethereum Mainnet to use the Larry Ecosystem.</Alert>
+              <Alert className="mb-6 bg-yellow-100 border-yellow-400 text-yellow-700">Please switch to Base Network to use the Larry Ecosystem.</Alert>
             )}
             
             {/* Price Display */}
