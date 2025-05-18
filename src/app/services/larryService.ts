@@ -120,7 +120,7 @@ class LarryService {
     try {
       const contract = this.getContract();
       const ethValue = ethers.utils.parseEther(ethAmount);
-      const tokenAmount = await contract.ETHtoLARRY(ethValue);
+      const tokenAmount = await contract.getBuyAmount(ethValue);
       const buyFee = await contract.buy_fee();
       
       return {
