@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useWalletConnection } from '@/app/hooks/useWalletConnection';
 import kyberSwapService from '@/app/services/kyberSwapService';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Alert } from '../ui/alert';
-import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Card } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
+import { Alert } from '@/app/components/ui/alert';
+import { Input } from '@/app/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { InfoIcon, RefreshCwIcon, ArrowDownIcon } from 'lucide-react';
 import { ethers } from 'ethers';
 

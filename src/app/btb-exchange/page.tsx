@@ -1,18 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useWalletConnection } from '../hooks/useWalletConnection';
-import { Alert } from '../components/ui/alert';
-import { Card } from '../components/ui/card';
+import { useWalletConnection } from '@/app/hooks/useWalletConnection';
+import { Alert } from '@/app/components/ui/alert';
+import { Card } from '@/app/components/ui/card';
 import ComingSoonBanner from '@/app/components/common/ComingSoonBanner';
 import { InfoIcon, ChartBarIcon, LockIcon, CoinsIcon, ArrowRightLeftIcon } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
-import BTBStatusPanel from '../components/btb-exchange/BTBStatusPanel';
-import TradingInterface from '../components/btb-exchange/TradingInterface';
-import KyberSwapExchange from '../components/btb-exchange/KyberSwapExchange';
-import BTBManagement from '../components/btb-exchange/BTBManagement';
-import FlywheelDiagram from '../components/btb-exchange/FlywheelDiagram';
-import TokenPriceDisplay from '../components/btb-exchange/TokenPriceDisplay';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
+import BTBStatusPanel from './components/BTBStatusPanel';
+import TradingInterface from './components/TradingInterface';
+import KyberSwapExchange from './components/KyberSwapExchange';
+import BTBManagement from './components/BTBManagement';
+import FlywheelDiagram from './components/FlywheelDiagram';
+import TokenPriceDisplay from './components/TokenPriceDisplay';
 
 export default function BTBExchangePage() {
   const { isConnected, isCorrectNetwork } = useWalletConnection();

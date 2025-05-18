@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useWallet } from '../../../context/WalletContext';
-import chicksService from '../../../services/chicksService';
+import chicksService from '../../services/chicksService';
 import openOceanService from '../../../services/openOceanService';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer } from 'recharts';
-import { PositionWithMetrics } from '../../../services/uniswapV3Service';
+import { PositionWithMetrics } from '@/app/uniswap/services/uniswapV3Service';
 
 interface ImpermanentLossVisualizerProps {
   position: PositionWithMetrics;

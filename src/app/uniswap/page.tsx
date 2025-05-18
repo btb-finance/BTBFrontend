@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Pool, Token } from '@/app/uniswap/types/uniswap';
-import UniswapV4Service from '@/app/uniswap/services/uniswapV4Service';
-import LiquidityService from '@/app/uniswap/services/liquidityService';
-import { PoolsList } from '@/app/uniswap/components/PoolsList';
-import { PoolMetrics } from '@/app/uniswap/components/PoolMetrics';
-import { TokenSearch } from '@/app/uniswap/components/TokenSearch';
-import { AddLiquidity, LiquidityData } from '@/app/uniswap/components/AddLiquidity';
+import { Pool, Token } from './types/uniswap';
+import UniswapV4Service from './services/uniswapV4Service';
+import LiquidityService from './services/liquidityService';
+import { PoolsList } from './components/PoolsList';
+import { PoolMetrics } from './components/PoolMetrics';
+import { TokenSearch } from './components/TokenSearch';
+import { AddLiquidity, LiquidityData } from './components/AddLiquidity';
 import { FiRefreshCw, FiSearch, FiDollarSign, FiPlusCircle } from 'react-icons/fi';
 import { MdError } from 'react-icons/md';
 import { AlertCircle, CheckCircle2, Info } from 'lucide-react';

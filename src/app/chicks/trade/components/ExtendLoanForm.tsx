@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '../../../context/WalletContext';
-import chicksService from '../../../services/chicksService';
+import chicksService from '../../services/chicksService';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import { ClockIcon } from '@heroicons/react/24/outline';

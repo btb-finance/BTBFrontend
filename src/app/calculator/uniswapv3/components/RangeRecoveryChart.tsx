@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Chart, registerables } from 'chart.js';
 import { useTheme } from 'next-themes';
 import { ethers } from 'ethers';
-import { PositionWithMetrics } from '../../../services/uniswapV3Service';
+import { PositionWithMetrics } from '@/app/uniswap/services/uniswapV3Service';
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 import { ResponsiveContainer, AreaChart, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Area, Line, ReferenceLine } from 'recharts';
 

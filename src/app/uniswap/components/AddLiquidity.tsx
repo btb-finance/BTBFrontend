@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Pool, Token } from '@/app/uniswap/types/uniswap';
+import { Pool, Token } from '../types/uniswap';
 import { formatCurrency, formatPercent } from '@/app/utils/formatting';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
@@ -7,7 +7,7 @@ import { Input } from '@/app/components/ui/input';
 import { Slider } from '@/app/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/app/components/ui/select';
 import { Loader2, ArrowRight, Info, AlertCircle } from 'lucide-react';
-import { TokenSearch } from '@/app/uniswap/components/TokenSearch';
+import { TokenSearch } from './TokenSearch';
 
 interface AddLiquidityProps {
   pools: Pool[];

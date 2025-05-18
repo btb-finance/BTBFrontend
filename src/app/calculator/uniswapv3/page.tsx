@@ -1,6 +1,6 @@
 'use client';
 
-import UniswapV3Calculator from '../../components/calculator/uniswapv3/UniswapV3Calculator';
+import UniswapV3Calculator from './components/UniswapV3Calculator';
 
 export default function UniswapV3CalculatorPage() {
   return (

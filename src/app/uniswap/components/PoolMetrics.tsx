@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pool } from '@/app/uniswap/types/uniswap';
+import { Pool } from '../types/uniswap';
 import { formatCurrency, formatPercent, formatAddress } from '@/app/utils/formatting';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';

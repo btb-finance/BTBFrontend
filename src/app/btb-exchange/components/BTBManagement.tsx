@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Alert } from '../ui/alert';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
-import btbExchangeService from '@/app/services/btbExchangeService';
-import { formatNumber } from '../../utils/formatNumber';
-import { useWalletConnection } from '../../hooks/useWalletConnection';
+import { Card } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { Label } from '@/app/components/ui/label';
+import { Alert } from '@/app/components/ui/alert';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
+import btbExchangeService from '../services/btbExchangeService';
+import { formatNumber } from '@/app/utils/formatNumber';
+import { useWalletConnection } from '@/app/hooks/useWalletConnection';
 import { ArrowDownIcon, ArrowUpIcon, LockIcon, UnlockIcon, WalletIcon } from 'lucide-react';
 
 export default function BTBManagement() {

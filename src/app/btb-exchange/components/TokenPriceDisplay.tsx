@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { ArrowUpIcon, ArrowDownIcon, TrendingUpIcon } from 'lucide-react';
 import kyberSwapService from '@/app/services/kyberSwapService';
-import btbExchangeService from '@/app/services/btbExchangeService';
+import btbExchangeService from '../services/btbExchangeService';
 import { ethers } from 'ethers';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 

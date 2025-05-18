@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import ILCalculator from '../components/calculator/ILCalculator';
-import PriceChart from '../components/calculator/PriceChart';
+import ILCalculator from './components/ILCalculator';
+import PriceChart from './components/PriceChart';
 
 export default function CalculatorPage() {
   return (
