@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '../../../context/WalletContext';
-import chicksService from '../../../services/chicksService';
+import chicksService from '../../services/chicksService';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { ShieldCheckIcon, CalendarIcon } from '@heroicons/react/24/outline';
 

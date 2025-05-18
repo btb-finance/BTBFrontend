@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pool } from '@/app/uniswap/types/uniswap';
+import { Pool } from '../types/uniswap';
 import { formatCurrency, formatPercent, formatAddress } from '@/app/utils/formatting';
 import { Skeleton } from '@/app/components/ui/skeleton';
 

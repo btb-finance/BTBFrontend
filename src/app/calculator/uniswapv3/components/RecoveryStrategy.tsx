@@ -1,6 +1,6 @@
 'use client';
 
-import { PositionWithMetrics } from '../../../services/uniswapV3Service';
+import { PositionWithMetrics } from '@/app/uniswap/services/uniswapV3Service';
 import { ethers } from 'ethers';
 import { ArrowPathIcon, ArrowTrendingUpIcon, ChartBarIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 

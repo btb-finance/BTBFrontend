@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '../../context/WalletContext';
-import chicksService from '../../services/chicksService';
+import chicksService from '../services/chicksService';
 import openOceanService from '../../services/openOceanService';
 import { 
   Tabs, 

@@ -1,7 +1,7 @@
 import React, { FormEvent, useState } from 'react';
-import { Token } from '@/app/uniswap/types/uniswap';
+import { Token } from '../types/uniswap';
 import { ethers } from 'ethers';
-import UniswapV4Service from '@/app/uniswap/services/uniswapV4Service';
+import UniswapV4Service from '../services/uniswapV4Service';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Label } from '@/app/components/ui/label';

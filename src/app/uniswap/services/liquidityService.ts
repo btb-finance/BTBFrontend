@@ -1,5 +1,5 @@
-import { LiquidityData } from '@/app/uniswap/components/AddLiquidity';
-import { Pool, Token } from '@/app/uniswap/types/uniswap';
+import { LiquidityData } from '../components/AddLiquidity';
+import { Pool, Token } from '../types/uniswap';
 
 // This service would integrate with various liquidity protocols
 // For now, it's a mock implementation that would be replaced with actual blockchain interactions

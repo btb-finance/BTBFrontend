@@ -8,7 +8,7 @@ import PositionSummary from './PositionSummary';
 import RecoveryStrategy from './RecoveryStrategy';
 import DynamicRangeStrategy from './DynamicRangeStrategy';
 import ImpermanentLossVisualizer from './ImpermanentLossVisualizer';
-import uniswapV3Service, { Position, PositionWithMetrics as ImportedPositionWithMetrics } from '../../../services/uniswapV3Service';
+import uniswapV3Service, { Position, PositionWithMetrics as ImportedPositionWithMetrics } from '../../../uniswap/services/uniswapV3Service';
 
 // Types for Uniswap V3 position with additional properties
 interface PositionWithMetrics extends ImportedPositionWithMetrics {

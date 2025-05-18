@@ -2,7 +2,7 @@
 
 import { ArrowTrendingUpIcon, ArrowTrendingDownIcon } from '@heroicons/react/24/outline';
 import { ethers } from 'ethers';
-import { PositionWithMetrics } from '../../../services/uniswapV3Service';
+import { PositionWithMetrics } from '@/app/uniswap/services/uniswapV3Service';
 
 interface PositionSummaryProps {
   position: PositionWithMetrics;

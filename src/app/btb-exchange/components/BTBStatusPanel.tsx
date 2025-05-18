@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '@/app/components/ui/card';
 import { formatNumber } from '@/app/utils/formatNumber';
-import btbExchangeService from '@/app/services/btbExchangeService';
+import btbExchangeService from '../services/btbExchangeService';
 import { useWalletConnection } from '@/app/hooks/useWalletConnection';
 import { Alert } from '@/app/components/ui/alert';
 import { InfoIcon, LockIcon, UnlockIcon, WalletIcon } from 'lucide-react';

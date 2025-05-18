@@ -66,6 +66,7 @@ export interface PositionWithMetrics extends Position {
   token0Percentage: number; // Percentage of position value in token0
 }
 
+
 export interface IUniswapV3Service {
   getCurrentEthPrice(): Promise<number>;
   getPositions(walletAddress: string): Promise<Position[]>;

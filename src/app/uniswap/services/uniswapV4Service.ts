@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import GraphQLService from '@/app/services/graphQLService';
-import { Pool, Token } from '@/app/uniswap/types/uniswap';
+import { Pool, Token } from '../types/uniswap';
 
 // Constants
 const UNISWAP_V4_SUBGRAPH_ID = '2L6yxqUZ7dT6GWoTy9qxNBkf9kEk65me3XPMvbGsmJUZ';

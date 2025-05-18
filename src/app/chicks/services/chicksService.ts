@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 // Fix the import to use the ABI directly
-import chicksABI from '../contracts/Chicks/chicksabi.json';
+import chicksABI from '../contracts/chicksabi.json';
 
 interface ContractError extends Error {
   data?: {
