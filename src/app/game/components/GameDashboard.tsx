@@ -15,7 +15,6 @@ export default function GameDashboard() {
   const { loading, hunters, mimoBalance, isAddressProtected, feedHunter, hunt, refreshData, error, gameContract } = useGame();
   const { provider, address, connectWallet } = useWalletConnection();
   
-  const [showDeposit, setShowDeposit] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
@@ -141,7 +140,7 @@ export default function GameDashboard() {
             
             {/* Stats Bar */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 cursor-default pointer-events-auto">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-100 text-sm">MiMo Balance</p>
@@ -156,7 +155,7 @@ export default function GameDashboard() {
                 </div>
               </div>
               
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 cursor-default pointer-events-auto">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-100 text-sm">Protection</p>
@@ -172,7 +171,7 @@ export default function GameDashboard() {
                 </div>
               </div>
               
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 cursor-default pointer-events-auto">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-100 text-sm">Network</p>
@@ -195,16 +194,17 @@ export default function GameDashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="mb-6 flex flex-wrap gap-4"
+        className="mb-6 flex flex-wrap gap-4 relative z-10"
       >
         <motion.button
-          onClick={() => {
-            setShowDeposit(true);
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('Deposit button clicked');
             setActiveTab('deposit');
           }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-btb-primary to-blue-600 text-white py-3 px-6 rounded-xl shadow-lg flex items-center font-medium"
+          className="bg-gradient-to-r from-btb-primary to-blue-600 text-white py-3 px-6 rounded-xl shadow-lg flex items-center font-medium relative z-20 cursor-pointer"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
@@ -213,10 +213,14 @@ export default function GameDashboard() {
         </motion.button>
         
         <motion.button
-          onClick={() => setActiveTab('redeem')}
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('Redeem button clicked');
+            setActiveTab('redeem');
+          }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-6 rounded-xl shadow-lg flex items-center font-medium"
+          className="bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-6 rounded-xl shadow-lg flex items-center font-medium relative z-20 cursor-pointer"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -226,7 +230,9 @@ export default function GameDashboard() {
         
         {address && window.ethereum && (
           <motion.button 
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Add MiMo button clicked');
               if (window.ethereum) {
                 window.ethereum.request({
                   method: 'wallet_watchAsset',
@@ -239,12 +245,12 @@ export default function GameDashboard() {
                       image: 'https://i.imgur.com/9hNQXRQ.png'
                     }
                   }
-                });
+                }).catch((err) => console.error('Error adding MiMo to wallet:', err));
               }
             }}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-6 rounded-xl shadow-lg flex items-center font-medium"
+            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-6 rounded-xl shadow-lg flex items-center font-medium relative z-20 cursor-pointer"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
@@ -337,7 +343,6 @@ export default function GameDashboard() {
             <button
               onClick={() => {
                 setActiveTab('hunters');
-                setShowDeposit(true);
               }}
               className={`relative py-3 px-4 text-sm font-medium transition-colors ${
                 activeTab === 'hunters'
@@ -573,7 +578,6 @@ export default function GameDashboard() {
                 </p>
                 <button
                   onClick={() => {
-                    setShowDeposit(true);
                     setActiveTab('deposit');
                   }}
                   className="bg-btb-primary hover:bg-blue-600 text-white py-2 px-6 rounded-lg transition-colors"
