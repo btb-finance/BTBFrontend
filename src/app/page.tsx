@@ -88,6 +88,17 @@ const products = [
     borderColor: 'border-amber-200 dark:border-amber-800'
   },
   {
+    name: 'Larry Ecosystem',
+    description: 'The rebase-less stability token. Trade, leverage up to 100x, and borrow ETH against LARRY collateral.',
+    detailedDescription: 'Larry is our revolutionary stability token with a unique mechanism where the price can only go up, never down. Trade LARRY/ETH pairs, open leveraged positions up to 100x, or use LARRY as collateral to borrow ETH. Our innovative stability mechanism ensures price appreciation with every transaction.',
+    features: ['Price only goes up, never down', '100x leverage trading', 'Borrow ETH against LARRY', 'No rebase mechanism'],
+    icon: ShieldCheckIcon,
+    href: '/larryecosystem',
+    bgColor: 'bg-gradient-to-br from-emerald-600/10 to-green-800/10',
+    iconColor: 'text-emerald-600 dark:text-emerald-400',
+    borderColor: 'border-emerald-200 dark:border-emerald-800'
+  },
+  {
     name: 'BTB Token',
     description: 'Our governance token that powers the ecosystem. BTB holders vote on pools and receive 10% of LP fees from those pools.',
     detailedDescription: 'BTB is the core governance token of our ecosystem with voting rights that directly impact which pools receive impermanent loss protection. Token holders vote on pools (like USDC/ETH) and receive 10% of the LP fees from those pools. In return, liquidity providers in these pools receive impermanent loss refunds from the BTB treasury, ensuring they never lose money.',
@@ -216,6 +227,16 @@ const quickNavLinks = [
     ),
     color: 'bg-purple-100 dark:bg-purple-900/30',
     textColor: 'text-purple-600 dark:text-purple-400'
+  },
+  {
+    name: 'Larry',
+    description: 'Trade & leverage the stability token',
+    href: '/larryecosystem',
+    icon: ({ className }: { className?: string }) => (
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>💚</span>
+    ),
+    color: 'bg-emerald-100 dark:bg-emerald-900/30',
+    textColor: 'text-emerald-600 dark:text-emerald-400'
   },
   {
     name: 'Megapot',
@@ -914,92 +935,108 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Enhanced IL Calculator Section */}
+      {/* Larry Ecosystem Section */}
       <div className="py-16 bg-white dark:bg-gray-900">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
-                Advanced Impermanent Loss Calculator
+                Larry: The Rebase-less Stability Token
               </h2>
               <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
-                Our sophisticated IL calculator helps liquidity providers understand and mitigate risks when providing liquidity to AMM pools.
+                Trade, leverage up to 100x, and borrow against LARRY with our innovative stability mechanism where the price can only go up, never down.
               </p>
               
               <div className="space-y-4 mb-8">
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 mr-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 mr-4">
                     <span className="text-lg font-semibold">1</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Real-time Calculations</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Instantly see how price changes affect your liquidity position</p>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Guaranteed Price Stability</h3>
+                    <p className="text-gray-600 dark:text-gray-300">Price only goes up with every transaction, never down</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 mr-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 mr-4">
                     <span className="text-lg font-semibold">2</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Multiple AMM Support</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Compare IL across different protocols and pool types</p>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">100x Leverage Trading</h3>
+                    <p className="text-gray-600 dark:text-gray-300">Open leveraged positions up to 100x with LARRY collateral</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 mr-4">
+                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 mr-4">
                     <span className="text-lg font-semibold">3</span>
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Visual Analytics</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Interactive charts help visualize potential outcomes</p>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Borrow ETH Against LARRY</h3>
+                    <p className="text-gray-600 dark:text-gray-300">Use LARRY as collateral to borrow ETH at competitive rates</p>
                   </div>
                 </div>
               </div>
               
               <Link 
-                href="/calculator"
+                href="/larryecosystem"
                 className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:shadow-lg transition-all duration-300"
               >
-                Try the Calculator <ArrowRightIcon className="ml-2 h-4 w-4" />
+                Trade Larry <ArrowRightIcon className="ml-2 h-4 w-4" />
               </Link>
             </div>
             
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-xl transform rotate-1"></div>
               <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-                <div className="aspect-w-16 aspect-h-9 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden mb-6">
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-full h-64 bg-gradient-to-b from-emerald-500/20 to-green-500/20 rounded-lg flex items-center justify-center">
-                      <div className="text-center">
-                        <ChartBarIcon className="h-16 w-16 mx-auto text-emerald-500 dark:text-emerald-400 mb-4" />
-                        <p className="text-gray-700 dark:text-gray-300 font-medium">Interactive IL Chart Visualization</p>
-                      </div>
+                <div className="aspect-w-16 aspect-h-9 bg-gradient-to-b from-emerald-500/5 to-emerald-600/10 rounded-lg overflow-hidden mb-6 p-6">
+                  <div className="w-full h-full flex flex-col justify-center">
+                    {/* Price Chart Visualization */}
+                    <div className="flex-1 flex items-end justify-between max-w-xs mx-auto w-full">
+                      {[1.00, 1.02, 1.04, 1.06, 1.08, 1.10, 1.12, 1.15].map((price, index) => (
+                        <div key={index} className="flex-1 mx-0.5 relative group">
+                          <div 
+                            className="bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-sm transition-all duration-300 group-hover:from-emerald-600 group-hover:to-emerald-500"
+                            style={{ height: `${(price - 1.00) * 800}%`, minHeight: '8px' }}
+                          />
+                          <span className="absolute bottom-[-20px] left-1/2 transform -translate-x-1/2 text-xs text-gray-500 dark:text-gray-400 hidden group-hover:block">
+                            ${price}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4 text-center">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Price trajectory (only up)</p>
                     </div>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Price Change</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">+50%</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Max Leverage</p>
+                    <p className="text-2xl font-bold text-emerald-600">100x</p>
                   </div>
                   <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Impermanent Loss</p>
-                    <p className="text-xl font-bold text-red-500">-2.02%</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Borrow APR</p>
+                    <p className="text-2xl font-bold text-emerald-600">3.9%</p>
                   </div>
                 </div>
                 
-                <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex justify-between mb-2">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Fee APR</p>
-                    <p className="text-sm font-medium text-green-500">+5.2%</p>
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
+                  <div className="flex items-center justify-center">
+                    <div className="flex items-center space-x-4">
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Trade Fees</p>
+                        <p className="text-lg font-bold text-emerald-600">Dynamic</p>
+                      </div>
+                      <div className="h-8 w-px bg-emerald-300 dark:bg-emerald-700"></div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Protocol Status</p>
+                        <p className="text-lg font-bold text-emerald-600">Active</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                    <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '65%' }}></div>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Fee income offsets IL after 4.7 months</p>
                 </div>
               </div>
             </div>
