@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap'); REMOVED */
 
 :root {
   --btb-primary: #8B0000;
@@ -18,11 +18,11 @@
   }
   
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--font-montserrat), sans-serif;
   }
   
   body {
-    font-family: 'Inter', 'Roboto', sans-serif;
+    font-family: var(--font-inter), var(--font-roboto), sans-serif;
     @apply antialiased text-gray-900 dark:text-white bg-white dark:bg-gray-900;
   }
 

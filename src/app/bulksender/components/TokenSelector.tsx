@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
 import { ethers } from 'ethers';
@@ -278,7 +279,9 @@ export default function TokenSelector({
                   onClick={() => handleSelectToken(token.address)}
                 >
                   <div className="flex items-center">
-                    {token.logo ? (
+                    {token.logo && token.logo === '/images/btblogo.jpg' ? (
+                      <Image src={token.logo} alt={token.symbol} width={32} height={32} className="mr-3 rounded-full" />
+                    ) : token.logo ? (
                       <img src={token.logo} alt={token.symbol} className="w-8 h-8 mr-3 rounded-full" />
                     ) : (
                       <div className="w-8 h-8 mr-3 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">

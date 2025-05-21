@@ -72,74 +72,57 @@ export class KyberSwapService {
     }
 
     try {
-      // Normalize token addresses
       const normalizedFromToken = this.normalizeTokenAddress(fromToken);
       const normalizedToToken = this.normalizeTokenAddress(toToken);
       
       console.log(`Getting formatted quote: ${amount} ${fromToken}(${normalizedFromToken}) -> ${toToken}(${normalizedToToken})`);
       
-      // Use a default address if userAddress is not provided
       const address = userAddress || await this.signer.getAddress();
       
-      // Try to get decimals from contracts if not provided
-      let actualFromDecimals = fromDecimals;
-      let actualToDecimals = toDecimals;
-      
-      if (!actualFromDecimals || !actualToDecimals) {
-        try {
-          if (!actualFromDecimals) {
-            // If from token is native ETH
-            if (normalizedFromToken === this.NATIVE_TOKEN_ADDRESS) {
-              actualFromDecimals = 18;
-            } else {
-              // For ERC20 tokens
-              const fromTokenContract = new ethers.Contract(
-                normalizedFromToken,
-                ['function decimals() view returns (uint8)'],
-                this.provider
-              );
-              try {
-                actualFromDecimals = await fromTokenContract.decimals();
-              } catch (error) {
-                console.warn(`Failed to get decimals for token ${normalizedFromToken}, using default of 18:`, error);
-                actualFromDecimals = 18;
-              }
-            }
+      let finalFromDecimals = fromDecimals;
+      let finalToDecimals = toDecimals;
+
+      // Fallback to fetching decimals if not provided
+      if (finalFromDecimals === undefined) {
+        console.log(`Fetching decimals for FROM token ${normalizedFromToken} as it was not provided.`);
+        if (normalizedFromToken === this.NATIVE_TOKEN_ADDRESS) {
+          finalFromDecimals = 18;
+        } else {
+          try {
+            const contract = new ethers.Contract(normalizedFromToken, ['function decimals() view returns (uint8)'], this.provider);
+            finalFromDecimals = await contract.decimals();
+          } catch (e) {
+            console.warn(`Failed to fetch decimals for ${normalizedFromToken}, defaulting to 18. Error: ${e}`);
+            finalFromDecimals = 18;
           }
-          
-          if (!actualToDecimals) {
-            // If to token is native ETH
-            if (normalizedToToken === this.NATIVE_TOKEN_ADDRESS) {
-              actualToDecimals = 18;
-            } else {
-              // For ERC20 tokens
-              const toTokenContract = new ethers.Contract(
-                normalizedToToken,
-                ['function decimals() view returns (uint8)'],
-                this.provider
-              );
-              try {
-                actualToDecimals = await toTokenContract.decimals();
-              } catch (error) {
-                console.warn(`Failed to get decimals for token ${normalizedToToken}, using default of 18:`, error);
-                actualToDecimals = 18;
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('Error getting token decimals, using defaults:', error);
-          // Use default decimals if we couldn't get them
-          if (!actualFromDecimals) actualFromDecimals = 18;
-          if (!actualToDecimals) actualToDecimals = 18;
         }
       }
       
-      console.log(`Using decimals: from=${actualFromDecimals}, to=${actualToDecimals}`);
+      if (finalToDecimals === undefined) {
+        console.log(`Fetching decimals for TO token ${normalizedToToken} as it was not provided.`);
+        if (normalizedToToken === this.NATIVE_TOKEN_ADDRESS) {
+          finalToDecimals = 18;
+        } else {
+          try {
+            const contract = new ethers.Contract(normalizedToToken, ['function decimals() view returns (uint8)'], this.provider);
+            finalToDecimals = await contract.decimals();
+          } catch (e) {
+            console.warn(`Failed to fetch decimals for ${normalizedToToken}, defaulting to 18. Error: ${e}`);
+            finalToDecimals = 18;
+          }
+        }
+      }
       
+      console.log(`Using decimals: from=${finalFromDecimals}, to=${finalToDecimals}`);
+      
+      if (typeof finalFromDecimals !== 'number' || typeof finalToDecimals !== 'number') {
+        throw new Error('Failed to determine token decimals.');
+      }
+
       const response = await fetch(
         `${this.baseUrl}/${this.CHAIN_NAME}/api/v1/routes?tokenIn=${normalizedFromToken}&tokenOut=${normalizedToToken}&amountIn=${ethers.utils.parseUnits(
           amount,
-          actualFromDecimals
+          finalFromDecimals
         )}&to=${address}`,
         {
           method: 'GET',
@@ -172,7 +155,7 @@ export class KyberSwapService {
       const data = responseData.data;
       
       // Format the output amount
-      const formattedOutputAmount = ethers.utils.formatUnits(data.routeSummary.amountOut, actualToDecimals);
+      const formattedOutputAmount = ethers.utils.formatUnits(data.routeSummary.amountOut, finalToDecimals);
       
       return {
         ...data,
@@ -343,7 +326,8 @@ export class KyberSwapService {
     amount: string,
     slippageTolerance: number,
     userAddress: string,
-    fromDecimals: number = 18
+    fromDecimalsProvided?: number, // Renamed to avoid conflict with internal var if any
+    toDecimalsProvided?: number   // Added toDecimals for completeness
   ): Promise<any> {
     if (!this.provider || !this.signer) {
       throw new Error('Provider and signer are not set');
@@ -353,11 +337,12 @@ export class KyberSwapService {
       console.log(`Executing swap: ${amount} ${fromToken} -> ${toToken}`);
       console.log(`Parameters: slippage=${slippageTolerance}, user=${userAddress}`);
       
-      // Get the quote first
-      const quote = await this.getFormattedQuote(fromToken, toToken, amount, userAddress, fromDecimals);
+      // Get the quote first, passing through the potentially pre-fetched decimals
+      const quote = await this.getFormattedQuote(fromToken, toToken, amount, userAddress, fromDecimalsProvided, toDecimalsProvided);
       
       // Check and approve token if needed
-      await this.checkAndApproveToken(fromToken, amount, userAddress);
+      // checkAndApproveToken internally fetches decimals if needed, or could be refactored similarly
+      await this.checkAndApproveToken(fromToken, amount, userAddress); 
       
       // Encode the swap transaction
       const encodedSwapData = await this.encodeSwapTransaction(

@@ -5,19 +5,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
-    "@babel/runtime": "7.27.0",
     "@coinbase/onchainkit": "^0.37.8",
     "@coinbase/wallet-sdk": "^4.3.1",
     "@ethersproject/abstract-provider": "^5.7.0",
     "@headlessui/react": "^2.0.0",
     "@heroicons/react": "^2.0.0",
-    "@layerzerolabs/lz-evm-protocol-v2": "^3.0.90",
-    "@layerzerolabs/oapp-evm": "^0.3.2",
-    "@layerzerolabs/oft-evm": "^3.1.4",
     "@openzeppelin/contracts": "5.2.0",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-label": "^2.1.2",
@@ -39,7 +36,6 @@
     "chart.js": "^4.4.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cookie": "1.0.2",
     "date-fns": "2.30.0",
     "framer-motion": "^12.4.7",
     "graphql": "^16.10.0",
@@ -58,16 +54,17 @@
     "tailwindcss-animate": "^1.0.7",
     "urql": "^4.2.1",
     "viem": "^1.21.4",
-    "wagmi": "^1.4.13",
-    "ws": "8.18.1"
+    "wagmi": "^1.4.13"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.0.0",
     "@netlify/functions": "^3.0.4",
+    "@next/bundle-analyzer": "^15.3.2",
     "@shadcn/ui": "^0.0.4",
     "@types/node": "^20.17.19",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "depcheck": "^1.4.7",
     "eslint": "^8.0.0",
     "eslint-config-next": "15.1.6",
     "ethers": "^5.8.0",

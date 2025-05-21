@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWalletConnection } from '@/app/hooks/useWalletConnection';
+import { useTokenDecimals } from '@/app/hooks/useTokenDecimals'; // Import the new hook
 import kyberSwapService from '@/app/services/kyberSwapService';
 import { Card } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
@@ -40,7 +41,7 @@ const TOKENS = {
 };
 
 export default function KyberSwapExchange() {
-  const { isConnected, address: account } = useWalletConnection();
+  const { isConnected, address: account, provider } = useWalletConnection(); // Assuming provider is available from useWalletConnection
   const [fromToken, setFromToken] = useState<keyof typeof TOKENS>('ETH');
   const [toToken, setToToken] = useState<keyof typeof TOKENS>('BTB');
   const [fromAmount, setFromAmount] = useState('');
@@ -56,6 +57,18 @@ export default function KyberSwapExchange() {
     BTB: '0',
     BTBY: '0'
   });
+
+  // Fetch decimals using the new hook
+  const { data: fromTokenDecimals, isLoading: isLoadingFromDecimals } = useTokenDecimals(TOKENS[fromToken]?.address);
+  const { data: toTokenDecimals, isLoading: isLoadingToDecimals } = useTokenDecimals(TOKENS[toToken]?.address);
+
+  const tokenSelectItems = useMemo(() => {
+    return Object.entries(TOKENS).map(([symbol, token]) => (
+      <SelectItem key={symbol} value={symbol}>
+        {token.name}
+      </SelectItem>
+    ));
+  }, []);
 
   // Initialize provider and signer when component mounts
   useEffect(() => {
@@ -145,8 +158,15 @@ export default function KyberSwapExchange() {
       const slippageValue = Number(slippageTolerance) / 100;
       
       if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        kyberSwapService.setProviderAndSigner(provider);
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum as any);
+        kyberSwapService.setProviderAndSigner(web3Provider);
+        
+        // Ensure decimals are loaded before executing swap
+        if (typeof fromTokenDecimals !== 'number' || typeof toTokenDecimals !== 'number') {
+          setError('Token decimals are still loading or failed to load.');
+          setIsSwapping(false);
+          return;
+        }
         
         const result = await kyberSwapService.executeSwap(
           fromTokenObj.address,
@@ -154,7 +174,8 @@ export default function KyberSwapExchange() {
           fromAmount,
           slippageValue,
           account,
-          fromTokenObj.decimals
+          fromTokenDecimals, // Pass fetched decimals
+          toTokenDecimals    // Pass fetched decimals
         );
         
         console.log('Swap executed successfully:', result);
@@ -199,9 +220,15 @@ export default function KyberSwapExchange() {
   };
 
   const fetchQuote = async () => {
-    if (!fromAmount || !fromToken || !toToken) {
+    if (!fromAmount || !fromToken || !toToken || typeof fromTokenDecimals !== 'number' || typeof toTokenDecimals !== 'number') {
       setQuote(null);
       setToAmount('');
+      // Optionally set an error or loading state if decimals are missing
+      if (isLoadingFromDecimals || isLoadingToDecimals) {
+        console.log("Decimals are loading, skipping quote fetch.");
+      } else if (typeof fromTokenDecimals !== 'number' || typeof toTokenDecimals !== 'number') {
+        setError("Failed to load token decimals. Cannot fetch quote.");
+      }
       return;
     }
 
@@ -211,23 +238,24 @@ export default function KyberSwapExchange() {
 
       // Ensure provider and signer are set before fetching quote
       if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        kyberSwapService.setProviderAndSigner(provider);
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum as any);
+        kyberSwapService.setProviderAndSigner(web3Provider);
       } else {
         throw new Error('Ethereum provider not available');
       }
 
-      const quote = await kyberSwapService.getFormattedQuote(
+      const quoteResult = await kyberSwapService.getFormattedQuote(
         TOKENS[fromToken].address,
         TOKENS[toToken].address,
         fromAmount,
         account || undefined,
-        TOKENS[fromToken].decimals
+        fromTokenDecimals, // Pass fetched decimals
+        toTokenDecimals    // Pass fetched decimals
       );
 
-      setQuote(quote);
-      if (quote.formattedOutputAmount) {
-        setToAmount(quote.formattedOutputAmount);
+      setQuote(quoteResult);
+      if (quoteResult.formattedOutputAmount) {
+        setToAmount(quoteResult.formattedOutputAmount);
       } else {
         setToAmount('');
       }
@@ -242,8 +270,11 @@ export default function KyberSwapExchange() {
   };
 
   useEffect(() => {
-    fetchQuote();
-  }, [fromToken, toToken, fromAmount, account]);
+    // Fetch quote only if decimals are available
+    if (typeof fromTokenDecimals === 'number' && typeof toTokenDecimals === 'number') {
+      fetchQuote();
+    }
+  }, [fromToken, toToken, fromAmount, account, fromTokenDecimals, toTokenDecimals]); // Add decimals to dependency array
 
   return (
     <Card className="p-6 w-full max-w-md mx-auto bg-btb-background border-btb-border">
@@ -320,11 +351,7 @@ export default function KyberSwapExchange() {
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(TOKENS).map(([symbol, token]) => (
-                  <SelectItem key={symbol} value={symbol}>
-                    {token.name}
-                  </SelectItem>
-                ))}
+                {tokenSelectItems}
               </SelectContent>
             </Select>
             <Input
@@ -369,11 +396,7 @@ export default function KyberSwapExchange() {
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(TOKENS).map(([symbol, token]) => (
-                  <SelectItem key={symbol} value={symbol}>
-                    {token.name}
-                  </SelectItem>
-                ))}
+                {tokenSelectItems}
               </SelectContent>
             </Select>
             <Input

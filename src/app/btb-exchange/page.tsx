@@ -9,10 +9,21 @@ import { InfoIcon, ChartBarIcon, LockIcon, CoinsIcon, ArrowRightLeftIcon } from 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/tabs';
 import BTBStatusPanel from './components/BTBStatusPanel';
 import TradingInterface from './components/TradingInterface';
-import KyberSwapExchange from './components/KyberSwapExchange';
+// import KyberSwapExchange from './components/KyberSwapExchange'; // To be dynamically imported
 import BTBManagement from './components/BTBManagement';
-import FlywheelDiagram from './components/FlywheelDiagram';
+// import FlywheelDiagram from './components/FlywheelDiagram'; // To be dynamically imported
 import TokenPriceDisplay from './components/TokenPriceDisplay';
+import dynamic from 'next/dynamic';
+
+const KyberSwapExchange = dynamic(() => import('./components/KyberSwapExchange'), {
+  ssr: false,
+  loading: () => <p>Loading KyberSwap...</p> 
+});
+
+const FlywheelDiagram = dynamic(() => import('./components/FlywheelDiagram'), {
+  ssr: false,
+  loading: () => <p>Loading Diagram...</p>
+});
 
 export default function BTBExchangePage() {
   const { isConnected, isCorrectNetwork } = useWalletConnection();
