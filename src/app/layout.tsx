@@ -19,6 +19,9 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
     apple: '/images/btblogo.jpg',
   },
+  other: {
+    'virtual-protocol-site-verification': '6a2c526068d60888d8d526158c661454'
+  }
 };
 
 export default function RootLayout({
