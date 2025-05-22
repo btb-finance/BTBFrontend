@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { ThemeScript } from './theme-script';
+import Head from 'next/head';
 import Navbar from './components/layout/Navbar';
 import Logo from './components/common/Logo';
 import BackgroundWrapper from './components/layout/BackgroundWrapper';
@@ -17,8 +18,7 @@ export const metadata: Metadata = {
   description: 'Experience the future of decentralized finance with BTB Finance. Explore our comprehensive ecosystem of digital assets and yield farming solutions.',
   icons: {
     icon: '/favicon.ico',
-    apple: '/images/btblogo.jpg'
-  }
+    apple: '/images/btblogo.jpg',
 };
 
 export default function RootLayout({
@@ -28,6 +28,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="virtual-protocol-site-verification" content="1349cde476de3b8e24fd7f4559e11480" />
+      </head>
       <body className={`${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
         <Providers>
           <ThemeScript />
