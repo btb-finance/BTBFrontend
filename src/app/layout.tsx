@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { ThemeScript } from './theme-script';
+import Head from 'next/head';
 import Navbar from './components/layout/Navbar';
 import Logo from './components/common/Logo';
 import BackgroundWrapper from './components/layout/BackgroundWrapper';
@@ -19,9 +20,6 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
     apple: '/images/btblogo.jpg',
   },
-  other: {
-    'virtual-protocol-site-verification': '6a2c526068d60888d8d526158c661454'
-  }
 };
 
 export default function RootLayout({
@@ -31,6 +29,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="virtual-protocol-site-verification" content="6a2c526068d60888d8d526158c661454" />
+      </head>
       <body className={`${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
         <Providers>
           <ThemeScript />
