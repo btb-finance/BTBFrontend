@@ -17,10 +17,7 @@ export const metadata: Metadata = {
   description: 'Experience the future of decentralized finance with BTB Finance. Explore our comprehensive ecosystem of digital assets and yield farming solutions.',
   icons: {
     icon: '/favicon.ico',
-    apple: '/images/btblogo.jpg',
-  },
-  other: {
-    'virtual-protocol-site-verification': '6a2c526068d60888d8d526158c661454'
+    apple: '/images/btblogo.jpg'
   }
 };
 
