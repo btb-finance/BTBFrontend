@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useWalletConnection } from '../hooks/useWalletConnection';
 import { Alert } from '../components/ui/alert';
 import { Card } from '../components/ui/card';
-import { ChartBarIcon, LockIcon, CoinsIcon, ArrowRightLeftIcon, TrendingUpIcon, ShieldIcon } from 'lucide-react';
+import { ChartBarIcon, LockIcon, ArrowRightLeftIcon, TrendingUpIcon, ShieldIcon } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import LarryStatusPanel from './components/LarryStatusPanel';
 import TradingInterface from './components/TradingInterface';

@@ -150,25 +150,30 @@ class LarryService {
     }
   }
 
-  async quoteLeverage(ethAmount: string, leverage: string, days: string) {
+  async quoteLeverage(ethAmount: string, days: string) {
     try {
       const contract = this.getContract();
       const ethValue = ethers.utils.parseEther(ethAmount);
-      const leverageValue = Number(leverage);
-      const positionSize = ethValue.mul(leverageValue);
       
-      const fee = await contract.leverageFee(positionSize, days);
-      const larryAmount = await contract.ETHtoLARRYLev(positionSize, fee);
+      // Calculate leverage fee for this ETH amount and days
+      const fee = await contract.leverageFee(ethValue, days);
+      
+      // Calculate LARRY tokens that will be minted for this leverage position
+      const userETH = ethValue.sub(fee);
+      const subValue = fee.mul(3).div(10).add(ethValue.div(100)); // 30% of fee + 1% overcollateralization
+      const larryAmount = await contract.ETHtoLARRYLev(userETH, subValue);
+      
+      // Calculate how much user needs to pay (fee + 1% overcollateralization)
+      const requiredEth = fee.add(ethValue.div(100));
       
       const apr = 3.9; // Base APR
-      const liquidationPrice = ethers.utils.formatEther(ethValue.mul(99).div(100).div(leverageValue));
       
       return {
-        positionSize: ethers.utils.formatEther(positionSize),
+        ethPosition: ethers.utils.formatEther(ethValue),
         larryAmount: ethers.utils.formatEther(larryAmount),
         totalFee: ethers.utils.formatEther(fee),
-        requiredEth: ethers.utils.formatEther(fee.add(ethValue.div(100))), // 1% overcollateralization
-        liquidationPrice,
+        requiredEth: ethers.utils.formatEther(requiredEth),
+        borrowAmount: ethers.utils.formatEther(userETH.mul(99).div(100)), // 99% of userETH
         apr: apr.toFixed(2)
       };
     } catch (error) {
@@ -219,20 +224,18 @@ class LarryService {
     return contract.sell(amount);
   }
 
-  async leverage(ethAmount: string, leverage: string, days: string) {
+  async leverage(ethAmount: string, days: string) {
     const provider = this.getProvider();
     const signer = provider.getSigner();
     const contract = this.getContract(signer);
     
     const ethValue = ethers.utils.parseEther(ethAmount);
-    const leverageValue = Number(leverage);
-    const positionSize = ethValue.mul(leverageValue);
     
-    // Calculate required fee
-    const fee = await contract.leverageFee(positionSize, days);
-    const totalRequired = fee.add(ethValue.div(100)); // 1% overcollateralization
+    // Calculate required fee and payment
+    const fee = await contract.leverageFee(ethValue, days);
+    const totalRequired = fee.add(ethValue.div(100)); // fee + 1% overcollateralization
     
-    return contract.leverage(positionSize, days, { value: totalRequired });
+    return contract.leverage(ethValue, days, { value: totalRequired });
   }
 
   async borrow(ethAmount: string, days: string) {

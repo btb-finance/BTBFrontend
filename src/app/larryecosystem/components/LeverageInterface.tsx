@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Alert } from '../../components/ui/alert';
-import { Slider } from '../../components/ui/slider';
+// Removed unused Slider import
 import { formatNumber } from '../../utils/formatNumber';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import { TrendingUpIcon, AlertTriangleIcon } from 'lucide-react';
@@ -14,8 +14,7 @@ import larryService from '../../services/larryService';
 
 export default function LeverageInterface() {
   const { isConnected } = useWalletConnection();
-  const [ethAmount, setEthAmount] = useState('');
-  const [leverage, setLeverage] = useState(2);
+  const [ethAmount, setEthAmount] = useState(''); // This is the ETH position size to leverage (not just collateral)
   const [days, setDays] = useState('30');
   const [leverageQuote, setLeverageQuote] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -30,7 +29,8 @@ export default function LeverageInterface() {
       }
       
       try {
-        const quote = await larryService.quoteLeverage(ethAmount, leverage.toString(), days);
+        // Get the leverage fee for the ETH amount and days
+        const quote = await larryService.quoteLeverage(ethAmount, days);
         setLeverageQuote(quote);
       } catch (error) {
         console.error('Error getting leverage quote:', error);
@@ -38,7 +38,7 @@ export default function LeverageInterface() {
       }
     };
     getQuote();
-  }, [ethAmount, leverage, days]);
+  }, [ethAmount, days]);
 
   const handleLeverage = async () => {
     if (!isConnected) {
@@ -52,7 +52,7 @@ export default function LeverageInterface() {
 
     try {
       setTxStatus('Opening leveraged position...');
-      const tx = await larryService.leverage(ethAmount, leverage.toString(), days);
+      const tx = await larryService.leverage(ethAmount, days);
       await tx.wait();
       
       setTxStatus('Position opened successfully!');
@@ -97,38 +97,22 @@ export default function LeverageInterface() {
 
       <div className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="ethAmount">ETH Amount</Label>
+          <Label htmlFor="ethAmount">ETH Position Size</Label>
           <Input
             id="ethAmount"
             type="number"
             value={ethAmount}
             onChange={(e) => setEthAmount(e.target.value)}
-            placeholder="Enter ETH amount"
+            placeholder="Enter ETH amount for leveraged position"
             disabled={isProcessing || !isConnected}
           />
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            This is the total ETH position size you want to leverage. You'll only pay fees + 1% collateral.
+          </p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="leverage">Leverage: {leverage}x</Label>
-          <Slider
-            id="leverage"
-            min={2}
-            max={100}
-            step={1}
-            value={[leverage]}
-            onValueChange={(value) => setLeverage(value[0])}
-            disabled={isProcessing || !isConnected}
-            className="w-full"
-          />
-          <div className="flex justify-between text-xs text-gray-600">
-            <span>2x</span>
-            <span>50x</span>
-            <span>100x</span>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="days">Duration (days)</Label>
+          <Label htmlFor="days">Loan Duration (days)</Label>
           <Input
             id="days"
             type="number"
@@ -142,26 +126,37 @@ export default function LeverageInterface() {
         </div>
 
         {leverageQuote && (
-          <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-3">
+          <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700 space-y-3">
             <div className="flex justify-between">
               <span>Position Size:</span>
-              <span className="font-medium">{formatNumber(leverageQuote.positionSize)} ETH</span>
+              <span className="font-medium text-emerald-600">{formatNumber(leverageQuote.ethPosition)} ETH</span>
             </div>
             <div className="flex justify-between">
-              <span>LARRY Minted:</span>
+              <span>Your Payment:</span>
+              <span className="font-medium">{formatNumber(leverageQuote.requiredEth)} ETH</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold text-lg">Leverage:</span>
+              <span className="font-bold text-lg text-emerald-600">
+                {(Number(leverageQuote.ethPosition) / Number(leverageQuote.requiredEth)).toFixed(1)}x
+              </span>
+            </div>
+            <hr className="border-emerald-200 dark:border-emerald-700" />
+            <div className="flex justify-between">
+              <span>LARRY Collateral:</span>
               <span className="font-medium">{formatNumber(leverageQuote.larryAmount)} LARRY</span>
+            </div>
+            <div className="flex justify-between">
+              <span>ETH You'll Borrow:</span>
+              <span className="font-medium">{formatNumber(leverageQuote.borrowAmount)} ETH</span>
             </div>
             <div className="flex justify-between">
               <span>Total Fee:</span>
               <span className="font-medium">{formatNumber(leverageQuote.totalFee)} ETH</span>
             </div>
-            <div className="flex justify-between">
-              <span>Required ETH:</span>
-              <span className="font-medium">{formatNumber(leverageQuote.requiredEth)} ETH</span>
-            </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              <p>Liquidation Price: {formatNumber(leverageQuote.liquidationPrice)} ETH</p>
-              <p>APR: {leverageQuote.apr}%</p>
+            <div className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              <p>Interest APR: {leverageQuote.apr}%</p>
+              <p>Loan Duration: {days} days</p>
             </div>
           </div>
         )}
@@ -170,8 +165,8 @@ export default function LeverageInterface() {
           <div className="flex items-start space-x-3">
             <AlertTriangleIcon className="h-5 w-5 text-yellow-600 mt-0.5" />
             <div className="text-sm text-yellow-700 dark:text-yellow-300">
-              <p className="font-semibold mb-1">Risk Warning</p>
-              <p>Leveraged positions can be liquidated if the collateral value drops below the borrowed amount. Higher leverage increases your risk.</p>
+              <p className="font-semibold mb-1">How LARRY Leverage Works</p>
+              <p>You specify an ETH position size. The protocol mints LARRY as collateral and borrows most of the ETH for your position. You only pay fees + 1% collateral. If the loan expires, your LARRY collateral is liquidated.</p>
             </div>
           </div>
         </div>
@@ -181,7 +176,7 @@ export default function LeverageInterface() {
           disabled={!ethAmount || !leverageQuote || isProcessing || !isConnected}
           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
         >
-          {isProcessing ? 'Processing...' : `Open ${leverage}x Position`}
+          {isProcessing ? 'Processing...' : 'Open Leveraged Position'}
         </Button>
       </div>
     </Card>

@@ -9,7 +9,7 @@ import { Alert } from '../../components/ui/alert';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { formatNumber } from '../../utils/formatNumber';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
-import { LockIcon, TrendingUpIcon, CalendarIcon } from 'lucide-react';
+import { LockIcon, CalendarIcon } from 'lucide-react';
 import larryService from '../../services/larryService';
 
 export default function LoansManagement() {
@@ -255,20 +255,39 @@ export default function LoansManagement() {
         <TabsContent value="repay" className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="repayAmount">Repay Amount (ETH)</Label>
-            <Input
-              id="repayAmount"
-              type="number"
-              value={repayAmount}
-              onChange={(e) => setRepayAmount(e.target.value)}
-              placeholder="Enter ETH amount"
-              disabled={isProcessing}
-            />
+            <div className="relative">
+              <Input
+                id="repayAmount"
+                type="number"
+                value={repayAmount}
+                onChange={(e) => setRepayAmount(e.target.value)}
+                placeholder="Enter ETH amount"
+                disabled={isProcessing}
+                className="pr-16"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setRepayAmount(userLoan.borrowed)}
+                disabled={isProcessing}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-emerald-600 hover:text-emerald-700"
+              >
+                MAX
+              </Button>
+            </div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              <p>Total borrowed: {formatNumber(userLoan.borrowed)} ETH</p>
+              {repayAmount && Number(repayAmount) > 0 && (
+                <p>Remaining after repay: {formatNumber((Number(userLoan.borrowed) - Number(repayAmount)).toString())} ETH</p>
+              )}
+            </div>
             <Button
               onClick={handleRepay}
               disabled={!repayAmount || isProcessing}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {isProcessing ? 'Processing...' : 'Repay'}
+              {isProcessing ? 'Processing...' : `Repay ${repayAmount || '0'} ETH`}
             </Button>
           </div>
           
@@ -305,12 +324,18 @@ export default function LoansManagement() {
               placeholder="Enter ETH amount"
               disabled={isProcessing || isExpired}
             />
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              <p>Current borrowed: {formatNumber(userLoan.borrowed)} ETH</p>
+              {borrowMore && Number(borrowMore) > 0 && (
+                <p>New total borrowed: {formatNumber((Number(userLoan.borrowed) + Number(borrowMore)).toString())} ETH</p>
+              )}
+            </div>
             <Button
               onClick={handleBorrowMore}
               disabled={!borrowMore || isProcessing || isExpired}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {isProcessing ? 'Processing...' : 'Borrow More'}
+              {isProcessing ? 'Processing...' : `Borrow ${borrowMore || '0'} ETH More`}
             </Button>
           </div>
           
@@ -324,12 +349,18 @@ export default function LoansManagement() {
               placeholder="Enter LARRY amount"
               disabled={isProcessing || isExpired}
             />
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              <p>Current collateral: {formatNumber(userLoan.collateral)} LARRY</p>
+              {removeCollateral && Number(removeCollateral) > 0 && (
+                <p>Remaining collateral: {formatNumber((Number(userLoan.collateral) - Number(removeCollateral)).toString())} LARRY</p>
+              )}
+            </div>
             <Button
               onClick={handleRemoveCollateral}
               disabled={!removeCollateral || isProcessing || isExpired}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {isProcessing ? 'Processing...' : 'Remove Collateral'}
+              {isProcessing ? 'Processing...' : `Remove ${removeCollateral || '0'} LARRY`}
             </Button>
           </div>
         </TabsContent>
