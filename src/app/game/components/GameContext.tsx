@@ -6,7 +6,7 @@ import { useWalletConnection } from '../../hooks/useWalletConnection';
 import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
 import MiMoGaMeABI from '../abi/MiMoGaMe.json';
 import { 
-  BEAR_HUNTER_ECOSYSTEM_ADDRESS,
+  ECOSYSTEM_ADDRESS,
   BEAR_NFT_ADDRESS,
   BTB_TOKEN_ADDRESS,
   MIMO_TOKEN_ADDRESS,
@@ -50,7 +50,7 @@ export type GameContextType = {
   huntMultiple: (hunterIds: number[], target: string) => Promise<void>;
   huntMultipleTargets: (hunterId: number, targets: string[]) => Promise<void>;
   setAddressProtection: (status: boolean) => Promise<void>;
-  redeemBear: () => Promise<any>;
+  redeemBear: (count?: number) => Promise<any>;
   getRedemptionRequirements: () => Promise<{
     amount: string;
     fee: string;
@@ -136,8 +136,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
         
         // Initialize Bear Hunter Ecosystem contract
-        console.log("Initializing Bear Hunter Ecosystem contract with address:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
-        const bearHunterContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+        console.log("Initializing Bear Hunter Ecosystem contract with address:", ECOSYSTEM_ADDRESS);
+        const bearHunterContract = new ethers.Contract(ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
         setGameContract(bearHunterContract);
         
         // Initialize BTB Swap Logic contract - using same ABI as the main contract since it contains the swap functions
@@ -340,18 +340,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
         
         // Check if we already have approval for all
-        const isApprovedForAll = await bearContract.isApprovedForAll(signerAddress, BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+        const isApprovedForAll = await bearContract.isApprovedForAll(signerAddress, ECOSYSTEM_ADDRESS);
         if (isApprovedForAll) {
           console.log("Already have approval for all tokens, skipping individual approval");
         } else {
           // Check if this specific NFT is already approved
           const currentApproval = await bearContract.getApproved(bearId);
-          if (currentApproval.toLowerCase() === BEAR_HUNTER_ECOSYSTEM_ADDRESS.toLowerCase()) {
+          if (currentApproval.toLowerCase() === ECOSYSTEM_ADDRESS.toLowerCase()) {
             console.log("This NFT is already approved, skipping approval");
           } else {
             // Approve the game contract for this specific NFT
-            console.log("Approving BEAR NFT transfer to:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
-            const approveTx = await bearContract.approve(BEAR_HUNTER_ECOSYSTEM_ADDRESS, bearId);
+            console.log("Approving BEAR NFT transfer to:", ECOSYSTEM_ADDRESS);
+            const approveTx = await bearContract.approve(ECOSYSTEM_ADDRESS, bearId);
             console.log("Approval transaction:", approveTx.hash);
             const approveReceipt = await approveTx.wait();
             console.log("Approval confirmed in block:", approveReceipt.blockNumber);
@@ -359,28 +359,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
             // Verify approval
             const approved = await bearContract.getApproved(bearId);
             console.log("Approved address:", approved);
-            if (approved.toLowerCase() !== BEAR_HUNTER_ECOSYSTEM_ADDRESS.toLowerCase()) {
+            if (approved.toLowerCase() !== ECOSYSTEM_ADDRESS.toLowerCase()) {
               throw new Error("Approval did not succeed. Try again.");
             }
           }
         }
       }
       
-      // If it's a batch operation, use the batchDepositBears function for all NFTs at once
-      if (isBatch) {
-        console.log(`Batch depositing ${bearIds.length} BEAR NFTs in a single transaction...`);
-        const tx = await gameContract.batchDepositBears(bearIds);
-        console.log("Batch deposit transaction:", tx.hash);
-        const receipt = await tx.wait();
-        console.log(`Batch deposit confirmed in block:`, receipt.blockNumber);
-      } else {
-        // For single NFT, use regular depositBear
-        console.log("Depositing BEAR NFT...");
-        const tx = await gameContract.depositBear(bearId);
-        console.log("Deposit transaction:", tx.hash);
-        const receipt = await tx.wait();
-        console.log("Deposit confirmed in block:", receipt.blockNumber);
-      }
+      // Use the new depositBears function that takes an array (works for both single and batch)
+      console.log(`Depositing ${bearIds.length} BEAR NFT${bearIds.length > 1 ? 's' : ''} using depositBears function...`);
+      const tx = await gameContract.depositBears(bearIds);
+      console.log("Deposit transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log(`Deposit confirmed in block:`, receipt.blockNumber);
       
       // Refresh data after transaction
       await refreshData();
@@ -400,8 +391,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      console.log(`Feeding hunter #${hunterId}...`);
-      const tx = await gameContract.feedHunter(hunterId);
+      console.log(`Feeding hunter #${hunterId} using feedHunters function...`);
+      // Use the new feedHunters function that takes an array (even for single hunter)
+      const tx = await gameContract.feedHunters([hunterId]);
       console.log("Feed transaction:", tx.hash);
       const receipt = await tx.wait();
       console.log("Feed confirmed in block:", receipt.blockNumber);
@@ -423,13 +415,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Make sure we have a target address - default to self if not provided
       const targetAddress = target || address;
       
-      console.log(`Hunter #${hunterId} hunting target: ${targetAddress}`);
-      console.log(`Parameters: tokenId=${hunterId}, target=${targetAddress}`);
+      console.log(`Hunter #${hunterId} hunting target: ${targetAddress} using new hunt function...`);
+      console.log(`Parameters: tokenIds=[${hunterId}], targets=[${targetAddress}]`);
       
-      // Call hunt function with both required parameters:
-      // 1. tokenId (uint256): The hunter NFT ID
-      // 2. target (address): The address to hunt from
-      const tx = await gameContract.hunt(hunterId, targetAddress);
+      // Call hunt function with new signature:
+      // 1. tokenIds (uint256[]): Array of hunter NFT IDs
+      // 2. targets (address[]): Array of target addresses
+      const tx = await gameContract.hunt([hunterId], [targetAddress]);
       console.log("Hunt transaction:", tx.hash);
       const receipt = await tx.wait();
       console.log("Hunt confirmed in block:", receipt.blockNumber);
@@ -462,15 +454,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const clearError = () => setError(null);
 
   // Redeem BEAR NFT (spend MiMo tokens to get a BEAR)
-  const redeemBear = async () => {
+  const redeemBear = async (count: number = 1) => {
     if (!gameContract) {
       setError('Game contract not initialized');
       return;
     }
     
     try {
-      console.log("Attempting to redeem a BEAR NFT...");
-      const tx = await gameContract.redeemBear();
+      console.log(`Attempting to redeem ${count} BEAR NFT${count > 1 ? 's' : ''} using redeemBears function...`);
+      const tx = await gameContract.redeemBears(count);
       console.log("Redemption transaction:", tx.hash);
       const receipt = await tx.wait();
       console.log("Redemption confirmed in block:", receipt.blockNumber);
@@ -478,7 +470,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Refresh data after transaction
       await refreshData();
       
-      console.log("BEAR NFT redemption successful!");
+      console.log(`BEAR NFT${count > 1 ? 's' : ''} redemption successful!`);
       return receipt;
     } catch (error: any) {
       console.error('Error redeeming BEAR NFT:', error);
@@ -536,10 +528,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      console.log(`Feeding ${hunterIds.length} hunters:`, hunterIds);
+      console.log(`Feeding ${hunterIds.length} hunters using feedHunters function:`, hunterIds);
       
-      // Use the new feedMultipleHunters function from the ABI
-      const tx = await gameContract.feedMultipleHunters(hunterIds);
+      // Use the new feedHunters function from the ABI
+      const tx = await gameContract.feedHunters(hunterIds);
       console.log("Multiple feed transaction:", tx.hash);
       const receipt = await tx.wait();
       console.log("Multiple feed confirmed in block:", receipt.blockNumber);
@@ -559,23 +551,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      console.log(`Bulk hunting with ${hunterIds.length} hunters targeting: ${target}`);
-      console.log('Note: Contract requires separate transactions for each hunter hunting the same target');
+      console.log(`Bulk hunting with ${hunterIds.length} hunters targeting: ${target} using new hunt function`);
       
-      // The contract doesn't have a batch function for multiple hunters hunting one target
-      // So we need to execute hunts sequentially - each will be a separate transaction
-      for (let i = 0; i < hunterIds.length; i++) {
-        const hunterId = hunterIds[i];
-        console.log(`Hunter #${hunterId} hunting target: ${target} (${i + 1}/${hunterIds.length})`);
-        
-        const tx = await gameContract.hunt(hunterId, target);
-        console.log(`Hunt transaction ${i + 1}/${hunterIds.length}:`, tx.hash);
-        
-        const receipt = await tx.wait();
-        console.log(`Hunt ${i + 1}/${hunterIds.length} confirmed in block:`, receipt.blockNumber);
-      }
+      // Create arrays of same length with the same target for each hunter
+      const targets = Array(hunterIds.length).fill(target);
       
-      console.log('All hunts completed successfully!');
+      console.log(`Parameters: tokenIds=[${hunterIds.join(', ')}], targets=[${targets.join(', ')}]`);
+      
+      // Use the new hunt function that accepts arrays
+      const tx = await gameContract.hunt(hunterIds, targets);
+      console.log("Bulk hunt transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Bulk hunt confirmed in block:", receipt.blockNumber);
+      
+      console.log('Bulk hunt completed successfully!');
       await refreshData();
     } catch (error: any) {
       console.error('Error bulk hunting:', error);
@@ -591,10 +580,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      console.log(`Hunter #${hunterId} hunting multiple targets:`, targets);
+      console.log(`Hunter #${hunterId} hunting multiple targets using new hunt function:`, targets);
       
-      // Use the new huntMultiple function from the ABI (one hunter, multiple targets)
-      const tx = await gameContract.huntMultiple(hunterId, targets);
+      // Create arrays with same hunter for each target
+      const hunterIds = Array(targets.length).fill(hunterId);
+      
+      console.log(`Parameters: tokenIds=[${hunterIds.join(', ')}], targets=[${targets.join(', ')}]`);
+      
+      // Use the new hunt function that accepts arrays
+      const tx = await gameContract.hunt(hunterIds, targets);
       console.log("Multiple target hunt transaction:", tx.hash);
       const receipt = await tx.wait();
       console.log("Multiple target hunt confirmed in block:", receipt.blockNumber);

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useGame } from './GameContext';
-import { BEAR_NFT_ADDRESS, BEAR_HUNTER_ECOSYSTEM_ADDRESS } from '../addresses';
+import { BEAR_NFT_ADDRESS, ECOSYSTEM_ADDRESS } from '../addresses';
 
 interface DepositBearProps {
   onSuccess?: () => void;
@@ -170,17 +170,17 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
         }
         
         // Check if already approved for all
-        const isApproved = await bearContract.isApprovedForAll(signerAddress, BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+        const isApproved = await bearContract.isApprovedForAll(signerAddress, ECOSYSTEM_ADDRESS);
         
         if (!isApproved) {
           // Use setApprovalForAll instead of individual approvals
-          console.log("Setting approval for all BEAR NFTs to:", BEAR_HUNTER_ECOSYSTEM_ADDRESS);
-          const approveTx = await bearContract.setApprovalForAll(BEAR_HUNTER_ECOSYSTEM_ADDRESS, true);
+          console.log("Setting approval for all BEAR NFTs to:", ECOSYSTEM_ADDRESS);
+          const approveTx = await bearContract.setApprovalForAll(ECOSYSTEM_ADDRESS, true);
           console.log("Batch approval transaction:", approveTx.hash);
           await approveTx.wait();
           
           // Verify approval was successful
-          const approvalConfirmed = await bearContract.isApprovedForAll(signerAddress, BEAR_HUNTER_ECOSYSTEM_ADDRESS);
+          const approvalConfirmed = await bearContract.isApprovedForAll(signerAddress, ECOSYSTEM_ADDRESS);
           if (!approvalConfirmed) {
             throw new Error("Batch approval did not succeed. Please try again.");
           }
@@ -188,7 +188,7 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
           console.log("NFTs already approved for all. Skipping approval transaction.");
         }
         
-        // Use the updated depositBear function with the array of IDs
+        // Use the updated depositBears function with the array of IDs
         await depositBear(selectedBearIds);
       } else {
         // If not in batch mode or only one NFT selected, use single deposit

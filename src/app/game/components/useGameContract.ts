@@ -7,7 +7,7 @@ import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
 import MiMoGaMeABI from '../abi/MiMoGaMe.json';
 import { BTBTokenABI } from '../../btb-exchange/contracts/BTBToken';
 import { 
-  BEAR_HUNTER_ECOSYSTEM_ADDRESS,
+  ECOSYSTEM_ADDRESS,
   BEAR_NFT_ADDRESS,
   BTB_TOKEN_ADDRESS,
   MIMO_TOKEN_ADDRESS,
@@ -50,7 +50,7 @@ export function useHunterNFTs() {
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+      const gameContract = new ethers.Contract(ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setContract(gameContract);
     } catch (err) {
       console.error('Failed to initialize game contract:', err);
@@ -124,7 +124,8 @@ export function useHunterNFTs() {
     if (!contract) return false;
     
     try {
-      const tx = await contract.feedHunter(hunterId);
+      // Use the new feedHunters function that takes an array
+      const tx = await contract.feedHunters([hunterId]);
       await tx.wait();
       return true;
     } catch (err) {
@@ -137,11 +138,11 @@ export function useHunterNFTs() {
     if (!contract) return false;
     
     try {
-      // Call hunt with both required parameters:
-      // tokenId (hunterId): The ID of the hunter NFT
-      // target (targetAddress): The address to hunt
-      console.log(`Hunting with parameters: tokenId=${hunterId}, target=${target}`);
-      const tx = await contract.hunt(hunterId, target);
+      // Call hunt with new array parameters:
+      // tokenIds: Array of hunter NFT IDs
+      // targets: Array of target addresses
+      console.log(`Hunting with parameters: tokenIds=[${hunterId}], targets=[${target}]`);
+      const tx = await contract.hunt([hunterId], [target]);
       await tx.wait();
       return true;
     } catch (err) {
@@ -176,7 +177,7 @@ export function useBearDeposit() {
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+      const gameContract = new ethers.Contract(ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setContract(gameContract);
       
       // Simple ERC721 interface for BEAR NFT
@@ -236,11 +237,11 @@ export function useBearDeposit() {
       }
       
       // First approve the game contract to transfer the BEAR NFT
-      const approveTx = await bearContract.approve(BEAR_HUNTER_ECOSYSTEM_ADDRESS, bearId);
+      const approveTx = await bearContract.approve(ECOSYSTEM_ADDRESS, bearId);
       await approveTx.wait();
       
-      // Then deposit the BEAR NFT
-      const depositTx = await contract.depositBear(bearId);
+      // Then deposit the BEAR NFT using the new depositBears function
+      const depositTx = await contract.depositBears([bearId]);
       await depositTx.wait();
       
       return true;
@@ -273,7 +274,7 @@ export function useMimoToken() {
     
     try {
       const signer = provider.getSigner();
-      const bearHunterContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+      const bearHunterContract = new ethers.Contract(ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setGameContract(bearHunterContract);
       
       // MiMo token contract
@@ -366,7 +367,7 @@ export function useAddressProtection() {
     
     try {
       const signer = provider.getSigner();
-      const gameContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
+      const gameContract = new ethers.Contract(ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, signer);
       setContract(gameContract);
     } catch (err) {
       console.error('Failed to initialize game contract:', err);
@@ -464,7 +465,7 @@ export function useBTBSwapLogic() {
       
       // Parse the event logs to get the minted NFT IDs
       const events = receipt.logs
-        .filter((log: any) => log.address === BEAR_HUNTER_ECOSYSTEM_ADDRESS)
+        .filter((log: any) => log.address === ECOSYSTEM_ADDRESS)
         .map((log: any) => {
           try {
             return gameInterface.parseLog(log);
@@ -492,7 +493,7 @@ export function useBTBSwapLogic() {
     
     try {
       // First approve the swap contract for each NFT
-      const hunterContract = new ethers.Contract(BEAR_HUNTER_ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, provider.getSigner());
+      const hunterContract = new ethers.Contract(ECOSYSTEM_ADDRESS, BearHunterEcosystemABI, provider.getSigner());
       
       for (const tokenId of tokenIds) {
         const approveTx = await hunterContract.approve(BTB_SWAP_LOGIC_ADDRESS, tokenId);
