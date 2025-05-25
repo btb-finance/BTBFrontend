@@ -128,10 +128,10 @@ export default function MultipleHuntModal({ onClose, onSuccess }: MultipleHuntMo
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className="w-full max-w-lg relative z-50"
+      className="w-full max-w-md relative z-50 max-h-[80vh] overflow-y-auto"
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full p-6"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full p-4"
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-btb-primary dark:text-btb-primary-light">
@@ -186,6 +186,9 @@ export default function MultipleHuntModal({ onClose, onSuccess }: MultipleHuntMo
             <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
               <p className="italic">When you hunt, your hunters will extract MiMo tokens from the target's wallet.</p>
               <p>Targets need to have MiMo tokens and cannot be protected addresses.</p>
+              <p className="text-yellow-600 dark:text-yellow-400 mt-1 font-medium">
+                ⚠️ Each hunter requires a separate transaction (gas fee per hunter)
+              </p>
             </div>
           </div>
         </div>

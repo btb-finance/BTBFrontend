@@ -21,12 +21,15 @@ import {
   CubeTransparentIcon,
   GlobeAltIcon
 } from '@heroicons/react/24/outline';
-import Testimonials from './components/home/Testimonials';
-import ChainSelector from './components/home/ChainSelector';
-import Stats from './components/home/Stats';
+import LazyWrapper from './components/common/LazyWrapper';
 import Logo from './components/common/Logo';
-import UniswapHooks from './components/home/UniswapHooks';
-import ImpermanentLossProtection from './components/home/ImpermanentLossProtection';
+import { lazy } from 'react';
+
+const Testimonials = lazy(() => import('./components/home/Testimonials'));
+const ChainSelector = lazy(() => import('./components/home/ChainSelector'));
+const Stats = lazy(() => import('./components/home/Stats'));
+const UniswapHooks = lazy(() => import('./components/home/UniswapHooks'));
+const ImpermanentLossProtection = lazy(() => import('./components/home/ImpermanentLossProtection'));
 import { Button, MotionButton } from './components/ui/button';
 import { Card, MotionCard, CardContent, CardTitle, CardDescription } from './components/ui/card';
 import TypewriterEffect from './components/ui/typewriter-effect';
@@ -315,7 +318,9 @@ export default function Home() {
                 transition={{ delay: 0.2, duration: 0.5 }}
                 className="-mt-20"
               >
-                <ChainSelector />
+                <LazyWrapper>
+                  <ChainSelector />
+                </LazyWrapper>
               </motion.div>
               
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -737,10 +742,14 @@ export default function Home() {
       </div>
 
       {/* Uniswap Hooks Section */}
-      <UniswapHooks />
+      <LazyWrapper>
+        <UniswapHooks />
+      </LazyWrapper>
 
       {/* Impermanent Loss Protection Section */}
-      <ImpermanentLossProtection />
+      <LazyWrapper>
+        <ImpermanentLossProtection />
+      </LazyWrapper>
 
       {/* BTB Game Ecosystem Section */}
       <div className="py-16 bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-950 dark:to-gray-900 relative overflow-hidden">
@@ -1529,10 +1538,14 @@ export default function Home() {
       </div>
 
       {/* Stats Section */}
-      <Stats />
+      <LazyWrapper>
+        <Stats />
+      </LazyWrapper>
 
       {/* Testimonials */}
-      <Testimonials />
+      <LazyWrapper>
+        <Testimonials />
+      </LazyWrapper>
     </div>
   );
 }

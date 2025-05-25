@@ -2,18 +2,32 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useGame, Hunter } from './GameContext';
-import { BEAR_HUNTER_ECOSYSTEM_ADDRESS as GAME_CONTRACT_ADDRESS, BEAR_NFT_ADDRESS } from '../addresses';
+import { useGame } from './GameContext';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import HunterCard from './HunterCard';
 import DepositBear from './DepositBear';
 import RedeemBear from './RedeemBear';
 import GameOverview from './GameOverview';
 import HuntMimo from './HuntMimo';
+import MultipleHuntModal from './MultipleHuntModal';
+import MultipleFeedModal from './MultipleFeedModal';
+import MultipleTargetHuntModal from './MultipleTargetHuntModal';
 
 export default function GameDashboard() {
-  const { loading, hunters, mimoBalance, isAddressProtected, feedHunter, hunt, refreshData, error, gameContract } = useGame();
-  const { provider, address, connectWallet } = useWalletConnection();
+  const { 
+    loading, 
+    hunters, 
+    mimoBalance, 
+    isAddressProtected, 
+    feedHunter, 
+    refreshData, 
+    error,
+    selectedHunters,
+    clearSelectedHunters,
+    toggleHunterSelection,
+    selectAllHunters
+  } = useGame();
+  const { address, connectWallet } = useWalletConnection();
   
   const [activeTab, setActiveTab] = useState('overview');
   const [notification, setNotification] = useState<{
@@ -23,6 +37,9 @@ export default function GameDashboard() {
   
   // Create a dedicated state for each hunter ID's modal
   const [huntModalHunterId, setHuntModalHunterId] = useState<number | null>(null);
+  const [showMultipleHuntModal, setShowMultipleHuntModal] = useState(false);
+  const [showMultipleFeedModal, setShowMultipleFeedModal] = useState(false);
+  const [multipleTargetHunterId, setMultipleTargetHunterId] = useState<number | null>(null);
   
 
   // Clear notification after 5 seconds
@@ -71,6 +88,33 @@ export default function GameDashboard() {
     setNotification({
       type: 'success',
       message: 'Successfully hunted MiMo tokens!',
+    });
+  };
+
+  const handleMultipleHuntSuccess = () => {
+    setShowMultipleHuntModal(false);
+    refreshData();
+    setNotification({
+      type: 'success',
+      message: 'Successfully performed bulk hunt!',
+    });
+  };
+
+  const handleMultipleFeedSuccess = () => {
+    setShowMultipleFeedModal(false);
+    refreshData();
+    setNotification({
+      type: 'success',
+      message: 'Successfully fed multiple hunters!',
+    });
+  };
+
+  const handleMultipleTargetHuntSuccess = () => {
+    setMultipleTargetHunterId(null);
+    refreshData();
+    setNotification({
+      type: 'success',
+      message: 'Successfully hunted multiple targets!',
     });
   };
 
@@ -587,33 +631,123 @@ export default function GameDashboard() {
               </div>
             ) : (
               <div>
-                {hunters.some(hunter => hunter.canHuntNow) && (
-                  <div className="mb-6 flex justify-end">
-                    <button
-                      onClick={() => {
-                        // Find the first hunter that can hunt
-                        const readyHunter = hunters.find(h => h.canHuntNow);
-                        if (readyHunter) {
-                          setHuntModalHunterId(readyHunter.id);
-                        }
-                      }}
-                      className="bg-gradient-to-r from-btb-primary to-blue-600 text-white px-4 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-                      </svg>
-                      Hunt With Any Ready Hunter
-                    </button>
+                {/* Multi-selection controls */}
+                <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {selectedHunters.length} of {hunters.length} hunters selected
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          console.log('Select All clicked');
+                          selectAllHunters();
+                        }}
+                        className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded transition-colors"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log('Clear clicked');
+                          clearSelectedHunters();
+                        }}
+                        className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-3 py-1 rounded transition-colors"
+                        disabled={selectedHunters.length === 0}
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
-                )}
+                  
+                  {/* Multi-action buttons - Fixed positioning */}
+                  <div className="flex flex-wrap gap-2" style={{ position: 'relative', zIndex: 10 }}>
+                    {selectedHunters.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => {
+                            console.log('Feed Multiple clicked! Selected hunters:', selectedHunters);
+                            setShowMultipleFeedModal(true);
+                          }}
+                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm flex items-center transition-colors"
+                          style={{ pointerEvents: 'auto' }}
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Feed Multiple ({selectedHunters.length})
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            console.log('Hunt Multiple clicked! Selected hunters:', selectedHunters);
+                            setShowMultipleHuntModal(true);
+                          }}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm flex items-center transition-colors"
+                          style={{ pointerEvents: 'auto' }}
+                        >
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Hunt Multiple ({selectedHunters.length})
+                        </button>
+                      </>
+                    )}
+                    
+                    {hunters.some(hunter => hunter.canHuntNow) && (
+                      <button
+                        onClick={() => {
+                          const readyHunter = hunters.find(h => h.canHuntNow);
+                          if (readyHunter) {
+                            setHuntModalHunterId(readyHunter.id);
+                          }
+                        }}
+                        className="bg-gradient-to-r from-btb-primary to-blue-600 text-white px-3 py-2 rounded-lg text-sm flex items-center transition-colors"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Quick Hunt
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {hunters.map((hunter) => (
-                    <HunterCard
-                      key={hunter.id}
-                      hunter={hunter}
-                      onFeed={handleFeed}
-                      onHunt={handleHunt}
-                    />
+                    <div key={hunter.id} className="relative">
+                      {/* Selection checkbox */}
+                      <div className="absolute top-2 left-2 z-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedHunters.includes(hunter.id)}
+                          onChange={() => toggleHunterSelection(hunter.id)}
+                          className="w-4 h-4 text-btb-primary bg-gray-100 border-gray-300 rounded focus:ring-btb-primary dark:focus:ring-btb-primary dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                        />
+                      </div>
+                      
+                      {/* Enhanced HunterCard with multi-target hunt option */}
+                      <div className="relative">
+                        <HunterCard
+                          hunter={hunter}
+                          onFeed={handleFeed}
+                          onHunt={handleHunt}
+                        />
+                        
+                        {/* Multi-target hunt button for individual hunters */}
+                        {hunter.canHuntNow && (
+                          <button
+                            onClick={() => setMultipleTargetHunterId(hunter.id)}
+                            className="absolute bottom-2 right-2 bg-orange-500 hover:bg-orange-600 text-white p-2 rounded-lg text-xs flex items-center transition-colors"
+                            title="Hunt Multiple Targets"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1010,6 +1144,49 @@ export default function GameDashboard() {
             hunter={hunters.find(h => h.id === huntModalHunterId)!}
             onClose={() => setHuntModalHunterId(null)}
             onSuccess={handleHuntSuccess}
+          />
+        </div>
+      )}
+
+      {/* Multiple Hunt Modal */}
+      {showMultipleHuntModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setShowMultipleHuntModal(false)}
+          ></div>
+          <MultipleHuntModal
+            onClose={() => setShowMultipleHuntModal(false)}
+            onSuccess={handleMultipleHuntSuccess}
+          />
+        </div>
+      )}
+
+      {/* Multiple Feed Modal */}
+      {showMultipleFeedModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setShowMultipleFeedModal(false)}
+          ></div>
+          <MultipleFeedModal
+            onClose={() => setShowMultipleFeedModal(false)}
+            onSuccess={handleMultipleFeedSuccess}
+          />
+        </div>
+      )}
+
+      {/* Multiple Target Hunt Modal */}
+      {multipleTargetHunterId !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setMultipleTargetHunterId(null)}
+          ></div>
+          <MultipleTargetHuntModal
+            hunter={hunters.find(h => h.id === multipleTargetHunterId)!}
+            onClose={() => setMultipleTargetHunterId(null)}
+            onSuccess={handleMultipleTargetHuntSuccess}
           />
         </div>
       )}

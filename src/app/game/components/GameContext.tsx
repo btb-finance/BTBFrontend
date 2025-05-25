@@ -45,8 +45,10 @@ export type GameContextType = {
   // Contract interactions
   depositBear: (bearId: number | number[]) => Promise<void>;
   feedHunter: (hunterId: number) => Promise<void>;
+  feedMultipleHunters: (hunterIds: number[]) => Promise<void>;
   hunt: (hunterId: number, target?: string) => Promise<void>;
   huntMultiple: (hunterIds: number[], target: string) => Promise<void>;
+  huntMultipleTargets: (hunterId: number, targets: string[]) => Promise<void>;
   setAddressProtection: (status: boolean) => Promise<void>;
   redeemBear: () => Promise<any>;
   getRedemptionRequirements: () => Promise<{
@@ -60,6 +62,8 @@ export type GameContextType = {
   error: string | null;
   clearError: () => void;
   clearSelectedHunters: () => void;
+  toggleHunterSelection: (hunterId: number) => void;
+  selectAllHunters: () => void;
 };
 
 // Create the context with default values
@@ -75,8 +79,10 @@ const GameContext = createContext<GameContextType>({
   
   depositBear: async () => {},
   feedHunter: async () => {},
+  feedMultipleHunters: async () => {},
   hunt: async () => {},
   huntMultiple: async () => {},
+  huntMultipleTargets: async () => {},
   setAddressProtection: async () => {},
   redeemBear: async () => { return null; },
   getRedemptionRequirements: async () => ({ amount: '0', fee: '0', paused: true }),
@@ -85,6 +91,8 @@ const GameContext = createContext<GameContextType>({
   error: null,
   clearError: () => {},
   clearSelectedHunters: () => {},
+  toggleHunterSelection: () => {},
+  selectAllHunters: () => {},
 });
 
 // Provider component
@@ -506,6 +514,44 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSelectedHunters([]);
   };
 
+  const toggleHunterSelection = (hunterId: number) => {
+    setSelectedHunters(prev => {
+      if (prev.includes(hunterId)) {
+        return prev.filter(id => id !== hunterId);
+      } else {
+        return [...prev, hunterId];
+      }
+    });
+  };
+
+  const selectAllHunters = () => {
+    const allHunterIds = hunters.map(hunter => hunter.id);
+    setSelectedHunters(allHunterIds);
+  };
+
+  const feedMultipleHunters = async (hunterIds: number[]) => {
+    if (!gameContract) {
+      setError('Game contract not initialized');
+      return;
+    }
+    
+    try {
+      console.log(`Feeding ${hunterIds.length} hunters:`, hunterIds);
+      
+      // Use the new feedMultipleHunters function from the ABI
+      const tx = await gameContract.feedMultipleHunters(hunterIds);
+      console.log("Multiple feed transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Multiple feed confirmed in block:", receipt.blockNumber);
+      
+      await refreshData();
+    } catch (error: any) {
+      console.error('Error feeding multiple hunters:', error);
+      setError(error.message || 'Failed to feed multiple hunters');
+      throw error;
+    }
+  };
+
   const huntMultiple = async (hunterIds: number[], target: string) => {
     if (!gameContract) {
       setError('Game contract not initialized');
@@ -514,20 +560,49 @@ export function GameProvider({ children }: { children: ReactNode }) {
     
     try {
       console.log(`Bulk hunting with ${hunterIds.length} hunters targeting: ${target}`);
+      console.log('Note: Contract requires separate transactions for each hunter hunting the same target');
       
-      // Execute hunts sequentially
-      for (const hunterId of hunterIds) {
-        console.log(`Hunter #${hunterId} hunting target: ${target}`);
+      // The contract doesn't have a batch function for multiple hunters hunting one target
+      // So we need to execute hunts sequentially - each will be a separate transaction
+      for (let i = 0; i < hunterIds.length; i++) {
+        const hunterId = hunterIds[i];
+        console.log(`Hunter #${hunterId} hunting target: ${target} (${i + 1}/${hunterIds.length})`);
+        
         const tx = await gameContract.hunt(hunterId, target);
-        console.log("Hunt transaction:", tx.hash);
+        console.log(`Hunt transaction ${i + 1}/${hunterIds.length}:`, tx.hash);
+        
         const receipt = await tx.wait();
-        console.log("Hunt confirmed in block:", receipt.blockNumber);
+        console.log(`Hunt ${i + 1}/${hunterIds.length} confirmed in block:`, receipt.blockNumber);
       }
       
+      console.log('All hunts completed successfully!');
       await refreshData();
     } catch (error: any) {
       console.error('Error bulk hunting:', error);
       setError(error.message || 'Failed to perform bulk hunt');
+      throw error;
+    }
+  };
+
+  const huntMultipleTargets = async (hunterId: number, targets: string[]) => {
+    if (!gameContract) {
+      setError('Game contract not initialized');
+      return;
+    }
+    
+    try {
+      console.log(`Hunter #${hunterId} hunting multiple targets:`, targets);
+      
+      // Use the new huntMultiple function from the ABI (one hunter, multiple targets)
+      const tx = await gameContract.huntMultiple(hunterId, targets);
+      console.log("Multiple target hunt transaction:", tx.hash);
+      const receipt = await tx.wait();
+      console.log("Multiple target hunt confirmed in block:", receipt.blockNumber);
+      
+      await refreshData();
+    } catch (error: any) {
+      console.error('Error hunting multiple targets:', error);
+      setError(error.message || 'Failed to hunt multiple targets');
       throw error;
     }
   };
@@ -545,8 +620,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     
     depositBear,
     feedHunter,
+    feedMultipleHunters,
     hunt,
     huntMultiple,
+    huntMultipleTargets,
     setAddressProtection,
     redeemBear,
     getRedemptionRequirements,
@@ -555,6 +632,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     error,
     clearError,
     clearSelectedHunters,
+    toggleHunterSelection,
+    selectAllHunters,
   };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
