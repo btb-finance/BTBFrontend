@@ -9,9 +9,9 @@ export default function HooksHeader() {
   return (
     <div className="w-full">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-4 text-gradient">Discover UniV4 Hooks</h1>
+        <h1 className="text-4xl font-bold mb-4 text-gradient">BTB Protocol Hooks</h1>
         <p className="text-xl text-gray-600 dark:text-gray-300 font-roboto mb-4">
-          Explore and analyze the most innovative Uniswap V4 hooks across different protocols
+          Explore and analyze the innovative hooks and protocols within the BTB ecosystem
         </p>
         <div className="flex items-center gap-2 mb-8">
           <span className="text-yellow-400">⚠️</span>
