@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 import { useWalletConnection } from '../../hooks/useWalletConnection';
 import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
 import MiMoGaMeABI from '../abi/MiMoGaMe.json';
-import { BTBTokenABI } from '../../btb-exchange/contracts/BTBToken';
+import { BTBTokenABI } from '../../contracts/BTBToken';
 import { 
   ECOSYSTEM_ADDRESS,
   BEAR_NFT_ADDRESS,

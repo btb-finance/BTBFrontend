@@ -59,26 +59,13 @@ export default function Navbar() {
         { name: 'Larry Ecosystem', href: '/larryecosystem' },
         { name: 'CHICKS', href: '/chicks' },
         { name: 'Megapot Lottery', href: '/megapot' },
-      ]
-    },
-    {
-      name: 'Coming Soon',
-      icon: ChartBarIcon,
-      children: [
-        { name: 'Uniswap 🔜', href: '/uniswap' },
-        { name: 'Staking 🔜', href: '/staking' },
-        { name: 'BTB Exchange 🔜', href: '/btb-exchange' },
-        { name: 'Yield Trading 🔜', href: '/yield-trading' },
-        { name: 'Hooks 🔜', href: '/hooks' },
-        { name: 'Learn 🔜', href: '/education' },
-        { name: 'Community 🔜', href: '/community' }
+        { name: 'Hooks', href: '/hooks' },
       ]
     },
     {
       name: 'Tools',
       icon: CalculatorIcon,
       children: [
-        { name: 'Calculator', href: '/calculator' },
         { name: 'Dashboard', href: '/dashboard' },
         { name: 'Bulk Sender', href: '/bulksender' },
         { name: 'Token Creator', href: '/token-creator' }

@@ -14,307 +14,176 @@ interface Article {
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
 }
 
-const uniswapV4Articles: Article[] = [
+const btbArticles: Article[] = [
   {
-    id: 'uniswap-v4-revolution',
-    category: 'uniswap',
-    title: 'The Uniswap V4 Revolution: Transforming DeFi Trading',
-    description: "Discover how Uniswap V4 is revolutionizing DeFi with groundbreaking features and unprecedented flexibility.",
+    id: 'btb-ecosystem-overview',
+    category: 'btb',
+    title: 'BTB Finance: Comprehensive DeFi Ecosystem',
+    description: "Discover how BTB Finance is building a comprehensive DeFi toolkit with advanced analytics and yield optimization.",
     content: `
-      Welcome to the Future of DeFi
+      Welcome to BTB Finance
 
-      Uniswap V4 represents a paradigm shift in decentralized trading, introducing revolutionary features that will transform how we interact with DeFi protocols.
+      BTB Finance represents a comprehensive approach to DeFi, offering a complete toolkit for traders, liquidity providers, and DeFi enthusiasts.
 
-      Key Innovations
+      Core Components
 
-      1. Singleton Architecture
+      1. Larry Ecosystem
       ————————————————————————
-      • All pools managed by a single contract
-      • Dramatically reduced deployment costs
-      • Simplified protocol integration
-      • Enhanced capital efficiency
+      • Stability-focused lending protocol
+      • Automated risk management
+      • Leverage trading capabilities
+      • Yield optimization
 
-      2. Dynamic Fee Tiers
+      2. CHICKS Protocol
       ————————————————————————
-      • Flexible fee structures
-      • Market-responsive pricing
-      • Optimized liquidity provider returns
-      • Competitive trading costs
+      • NFT-based gaming system
+      • Reward mechanisms
+      • Community engagement
+      • Yield generation
 
-      3. Native ETH Support
+      3. Megapot Lottery
       ————————————————————————
-      • Direct ETH trading without wrapping
-      • Improved user experience
-      • Lower transaction costs
-      • Seamless integration
+      • Decentralized lottery system
+      • Fair ticket distribution
+      • Community rewards
+      • Transparent operations
 
-      Why It Matters
+      Why BTB Finance Matters
 
-      • Enhanced Capital Efficiency
-      • Lower Trading Costs
-      • Better User Experience
-      • More Trading Opportunities
-      • Increased Protocol Innovation
+      • Comprehensive DeFi Solutions
+      • User-Friendly Interface
+      • Community-Driven Development
+      • Innovative Features
+      • Cross-Chain Compatibility
 
       Impact on DeFi
       
-      Uniswap V4 sets new standards for:
-      • Trading Efficiency
-      • Protocol Flexibility
-      • Market Making
-      • Liquidity Provision
-      • Cross-chain Integration
+      BTB Finance sets new standards for:
+      • User Experience
+      • Protocol Integration
+      • Community Engagement
+      • Yield Generation
+      • Risk Management
     `,
     readTime: '8 min',
     difficulty: 'Beginner'
   },
   {
-    id: 'uniswap-v4-hooks-explained',
-    category: 'uniswap',
-    title: 'Mastering Uniswap V4 Hooks: The Power of Customization',
-    description: "Explore how Uniswap V4 hooks enable unprecedented customization and unlock new possibilities in DeFi trading.",
+    id: 'larry-ecosystem-guide',
+    category: 'btb',
+    title: 'Larry Ecosystem: Stability-Focused DeFi',
+    description: "Explore the Larry Ecosystem's approach to stable lending, leverage trading, and automated risk management.",
     content: `
-      Understanding Hooks in Uniswap V4
+      Understanding Larry Ecosystem
 
-      Hooks are the secret sauce that makes Uniswap V4 incredibly powerful and flexible. Let's explore how they transform DeFi trading.
+      The Larry Ecosystem is designed to provide stable, reliable DeFi services with a focus on risk management and user protection.
 
-      Types of Hooks
+      Key Features
       ————————————————————————
 
-      1. Before Swap Hooks
-      • Customize trade execution
-      • Implement advanced order types
-      • Add custom validation logic
-      • Enable dynamic pricing
-
-      2. After Swap Hooks
-      • Track trading metrics
-      • Implement rewards
-      • Update external systems
-      • Trigger follow-up actions
-
-      3. Liquidity Management Hooks
-      • Custom liquidity rules
-      • Advanced position management
+      1. Lending Protocol
+      • Stable interest rates
+      • Collateral management
+      • Liquidation protection
       • Automated rebalancing
-      • Risk management
 
-      Real-World Applications
-      ————————————————————————
+      2. Leverage Trading
+      • Risk-controlled leverage
+      • Position monitoring
+      • Automated stop-losses
+      • Portfolio management
 
-      1. Dynamic Market Making
-      • Time-weighted average pricing
-      • Volatility-based fees
-      • Custom liquidity curves
-      • Multi-token pools
-
-      2. Advanced Trading Features
-      • Limit orders
-      • Stop-loss orders
-      • Dollar-cost averaging
-      • Portfolio rebalancing
-
-      3. Risk Management
-      • Price impact protection
-      • Slippage controls
-      • Position size limits
-      • Market manipulation prevention
+      3. Yield Optimization
+      • Strategy automation
+      • Risk assessment
+      • Reward maximization
+      • Capital efficiency
 
       Benefits for Users
+      ————————————————————————
+
+      1. Stability Focus
+      • Predictable returns
+      • Risk mitigation
+      • Capital protection
+      • Consistent performance
+
+      2. User Experience
+      • Simple interface
+      • Clear information
+      • Easy navigation
+      • Comprehensive tools
+
+      Real-World Applications
       
-      • More trading options
-      • Better prices
-      • Reduced risks
-      • Custom strategies
-      • Enhanced returns
+      • Safe lending and borrowing
+      • Controlled leverage trading
+      • Yield farming optimization
+      • Risk management tools
+      • Portfolio diversification
     `,
     readTime: '12 min',
-    difficulty: 'Advanced'
-  },
-  {
-    id: 'uniswap-v4-flash',
-    category: 'uniswap',
-    title: 'Flash Accounting: The Future of DeFi Efficiency',
-    description: "Learn how Uniswap V4's Flash Accounting system revolutionizes transaction efficiency and reduces costs.",
-    content: `
-      Flash Accounting Revolution
-
-      Flash Accounting in Uniswap V4 represents a quantum leap in DeFi efficiency. Let's explore this game-changing feature.
-
-      How It Works
-      ————————————————————————
-
-      1. Smart Token Management
-      • Delayed settlements
-      • Batch processing
-      • Optimized transfers
-      • Net position calculations
-
-      2. Gas Optimization
-      • Reduced token transfers
-      • Efficient state updates
-      • Optimized memory usage
-      • Minimal storage operations
-
-      Key Benefits
-      ————————————————————————
-
-      1. Cost Savings
-      • Lower transaction fees
-      • Reduced gas costs
-      • Optimized operations
-      • Better capital efficiency
-
-      2. Enhanced Trading
-      • Faster execution
-      • Complex strategies
-      • Multi-step operations
-      • Arbitrage opportunities
-
-      Real-World Impact
-      ————————————————————————
-
-      • Up to 50% gas savings
-      • Instant settlement
-      • Improved liquidity
-      • Better price execution
-      • Enhanced user experience
-
-      Future Possibilities
-      
-      • Cross-chain integration
-      • Layer 2 optimization
-      • MEV protection
-      • Advanced trading strategies
-    `,
-    readTime: '10 min',
     difficulty: 'Intermediate'
   },
   {
-    id: 'uniswap-v4-strategies',
-    category: 'uniswap',
-    title: 'Advanced Trading Strategies in Uniswap V4',
-    description: "Explore sophisticated trading strategies made possible by Uniswap V4's innovative features.",
+    id: 'chicks-gaming-protocol',
+    category: 'btb',
+    title: 'CHICKS Protocol: Gaming Meets DeFi',
+    description: "Learn how CHICKS Protocol combines NFT gaming with yield generation for an engaging DeFi experience.",
     content: `
-      Advanced Trading in Uniswap V4
+      CHICKS Protocol Innovation
 
-      Discover how Uniswap V4's features enable sophisticated trading strategies previously impossible in DeFi.
+      CHICKS Protocol represents the intersection of gaming and DeFi, creating an engaging platform that rewards participation and skill.
 
-      Strategy Types
+      Gaming Elements
       ————————————————————————
 
-      1. Range Trading
-      • Dynamic range selection
-      • Automated rebalancing
-      • Volatility harvesting
-      • Risk management
+      1. NFT Characters
+      • Unique character traits
+      • Skill development
+      • Trading capabilities
+      • Reward multipliers
 
-      2. Yield Optimization
-      • Fee tier selection
-      • Liquidity concentration
-      • Reward maximization
-      • Risk-adjusted returns
+      2. Game Mechanics
+      • Strategic gameplay
+      • Competitive elements
+      • Skill-based rewards
+      • Community interaction
 
-      3. Arbitrage Strategies
-      • Cross-pool arbitrage
-      • MEV capture
-      • Flash loan integration
-      • Price inefficiency capture
-
-      Advanced Features
+      DeFi Integration
       ————————————————————————
 
-      1. Custom Orders
-      • Limit orders
-      • Stop-loss
-      • Take-profit
-      • Time-weighted orders
+      1. Yield Generation
+      • Gaming rewards
+      • Staking benefits
+      • Trading income
+      • Performance bonuses
 
-      2. Risk Management
-      • Position sizing
-      • Slippage protection
-      • Impermanent loss mitigation
-      • Portfolio hedging
+      2. Token Economics
+      • Fair distribution
+      • Utility tokens
+      • Governance rights
+      • Economic incentives
 
-      Optimization Techniques
+      Benefits
       ————————————————————————
 
-      • Fee optimization
-      • Gas efficiency
-      • Timing strategies
-      • Position management
-      • Market analysis
+      • Engaging user experience
+      • Multiple revenue streams
+      • Community building
+      • Skill development
+      • Financial rewards
 
-      Strategy Benefits
+      Future Development
       
-      • Higher returns
-      • Lower risks
-      • Better execution
-      • More opportunities
-      • Enhanced control
-    `,
-    readTime: '15 min',
-    difficulty: 'Advanced'
-  },
-  {
-    id: 'uniswap-v4-future',
-    category: 'uniswap',
-    title: 'The Future of DeFi: Uniswap V4 and Beyond',
-    description: "Explore the future possibilities and potential impact of Uniswap V4 on the DeFi ecosystem.",
-    content: `
-      Vision for the Future
-
-      Uniswap V4 is laying the groundwork for the next generation of DeFi innovation. Let's explore what the future holds.
-
-      Ecosystem Impact
-      ————————————————————————
-
-      1. Market Evolution
-      • New trading paradigms
-      • Enhanced efficiency
-      • Greater accessibility
-      • Innovative products
-
-      2. Protocol Integration
-      • Cross-chain bridges
-      • Layer 2 scaling
-      • Protocol composability
-      • Ecosystem expansion
-
-      Emerging Opportunities
-      ————————————————————————
-
-      1. New Markets
-      • Exotic pairs
-      • Synthetic assets
-      • Real-world assets
-      • Complex derivatives
-
-      2. Innovation Areas
-      • AI integration
-      • Automated strategies
-      • Custom pool types
-      • Advanced analytics
-
-      Future Developments
-      ————————————————————————
-
-      • Cross-chain expansion
-      • Institutional adoption
-      • Regulatory compliance
-      • Enhanced security
-      • User experience improvements
-
-      Long-term Vision
-      
-      • Global accessibility
-      • Mainstream adoption
-      • Financial inclusion
-      • Ecosystem growth
-      • Continuous innovation
+      • Enhanced gameplay
+      • New character types
+      • Advanced strategies
+      • Cross-platform integration
+      • Competitive tournaments
     `,
     readTime: '10 min',
-    difficulty: 'Intermediate'
+    difficulty: 'Beginner'
   }
 ];
 
@@ -342,7 +211,7 @@ export default function ArticleList({ category, searchQuery }: ArticleListProps)
     visible: { opacity: 1, y: 0 }
   };
 
-  const filteredArticles = uniswapV4Articles.filter((article) => {
+  const filteredArticles = btbArticles.filter((article) => {
     const matchesCategory = category === 'all' || article.category === category;
     const matchesSearch = searchQuery === '' || 
       article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
