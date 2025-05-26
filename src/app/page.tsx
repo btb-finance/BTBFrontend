@@ -13,7 +13,6 @@ import {
   ShieldCheckIcon,
   UserGroupIcon,
   ArrowRightIcon,
-  CalculatorIcon,
   BeakerIcon,
   LightBulbIcon,
   SparklesIcon,
@@ -28,8 +27,6 @@ import { lazy } from 'react';
 const Testimonials = lazy(() => import('./components/home/Testimonials'));
 const ChainSelector = lazy(() => import('./components/home/ChainSelector'));
 const Stats = lazy(() => import('./components/home/Stats'));
-const UniswapHooks = lazy(() => import('./components/home/UniswapHooks'));
-const ImpermanentLossProtection = lazy(() => import('./components/home/ImpermanentLossProtection'));
 import { Button, MotionButton } from './components/ui/button';
 import { Card, MotionCard, CardContent, CardTitle, CardDescription } from './components/ui/card';
 import TypewriterEffect from './components/ui/typewriter-effect';
@@ -37,17 +34,10 @@ import TypewriterEffect from './components/ui/typewriter-effect';
 const features = [
   {
     name: 'Unified DeFi Interface',
-    description: 'Access all your favorite DeFi apps in one place - Aave, Uniswap, yield farming, and more through a single intuitive interface.',
+    description: 'Access all your favorite DeFi apps in one place - Aave, Compound, yield farming, and more through a single intuitive interface.',
     icon: GlobeAltIcon,
     href: '/unified-interface',
     color: 'from-blue-500 to-blue-600'
-  },
-  {
-    name: 'Impermanent Loss Protection',
-    description: 'Never lose money in DeFi again. Our revolutionary liquidity hub ensures users are protected from impermanent loss with weekly refunds.',
-    icon: ShieldCheckIcon,
-    href: '/il-protection',
-    color: 'from-green-500 to-emerald-600'
   },
   {
     name: 'BTB Governance',
@@ -114,8 +104,8 @@ const products = [
   },
   {
     name: 'All-in-One DeFi Dashboard',
-    description: 'Access all your favorite DeFi protocols through a single intuitive interface - Aave, Uniswap, and more.',
-    detailedDescription: "Our unified dashboard brings together the best DeFi protocols in one place. No more juggling between different websites and interfaces. Whether you're providing liquidity on Uniswap, lending on Aave, or yield farming elsewhere, manage everything through our streamlined, user-friendly interface.",
+    description: 'Access all your favorite DeFi protocols through a single intuitive interface - Aave, Compound, and more.',
+    detailedDescription: "Our unified dashboard brings together the best DeFi protocols in one place. No more juggling between different websites and interfaces. Whether you're providing liquidity, lending on Aave, or yield farming elsewhere, manage everything through our streamlined, user-friendly interface.",
     features: ['Multi-protocol integration', 'Single-view portfolio tracking', 'Cross-protocol yield optimization', 'Simplified user experience'],
     icon: GlobeAltIcon,
     href: '/dashboard',
@@ -367,7 +357,7 @@ export default function Home() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl"
               >
-                Access all your favorite DeFi apps in one place - Aave, Uniswap, yield farming, and more through a single intuitive interface, while never worrying about impermanent loss again.
+                Access all your favorite DeFi apps in one place - Aave, Compound, yield farming, and more through a single intuitive interface, while never worrying about impermanent loss again.
               </motion.p>
               
               <motion.p 
@@ -724,7 +714,7 @@ export default function Home() {
                 </p>
                 
                 <p>
-                  <span className="font-semibold">Carol</span> uses BTB's single interface to manage her positions across multiple DeFi protocols - lending on Aave, yield farming on another platform, and providing liquidity on Uniswap - all without switching between different applications.
+                  <span className="font-semibold">Carol</span> uses BTB's single interface to manage her positions across multiple DeFi protocols - lending on Aave, yield farming on another platform, and providing liquidity to various pools - all without switching between different applications.
                 </p>
               </div>
               
@@ -741,15 +731,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Uniswap Hooks Section */}
-      <LazyWrapper>
-        <UniswapHooks />
-      </LazyWrapper>
 
-      {/* Impermanent Loss Protection Section */}
-      <LazyWrapper>
-        <ImpermanentLossProtection />
-      </LazyWrapper>
 
       {/* BTB Game Ecosystem Section */}
       <div className="py-16 bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-950 dark:to-gray-900 relative overflow-hidden">
