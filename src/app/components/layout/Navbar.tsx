@@ -59,7 +59,6 @@ export default function Navbar() {
         { name: 'Larry Ecosystem', href: '/larryecosystem' },
         { name: 'CHICKS', href: '/chicks' },
         { name: 'Megapot Lottery', href: '/megapot' },
-        { name: 'Hooks', href: '/hooks' },
       ]
     },
     {
