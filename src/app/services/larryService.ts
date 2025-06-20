@@ -299,6 +299,41 @@ class LarryService {
     return contract.closePosition({ value: loan.borrowed });
   }
 
+  async quoteFlashClose(address: string) {
+    try {
+      const contract = this.getContract();
+      const loan = await contract.Loans(address);
+      
+      if (loan.collateral.toString() === '0') {
+        return null;
+      }
+      
+      // Calculate what user will get from flash close
+      const collateralInETH = await contract.LARRYtoETH(loan.collateral);
+      const collateralInETHAfterFee = collateralInETH.mul(99).div(100); // 99% after 1% fee
+      const borrowed = loan.borrowed;
+      
+      // Fee breakdown
+      const fee = collateralInETH.div(100); // 1% fee
+      const feeAddressFee = fee.mul(3).div(10); // 30% of fee goes to fee address
+      
+      // What user gets
+      const toUser = collateralInETHAfterFee.sub(borrowed);
+      
+      return {
+        collateralValue: ethers.utils.formatEther(collateralInETH),
+        borrowed: ethers.utils.formatEther(borrowed),
+        totalFee: ethers.utils.formatEther(fee),
+        feeAddressFee: ethers.utils.formatEther(feeAddressFee),
+        userReceives: ethers.utils.formatEther(toUser),
+        canClose: collateralInETHAfterFee.gte(borrowed)
+      };
+    } catch (error) {
+      console.error('Error getting flash close quote:', error);
+      return null;
+    }
+  }
+
   async flashClosePosition() {
     const provider = this.getProvider();
     const signer = provider.getSigner();
