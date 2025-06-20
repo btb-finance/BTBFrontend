@@ -6,6 +6,7 @@ import { Alert } from '../components/ui/alert';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/tabs';
 import { 
   ChartBarIcon, 
@@ -41,7 +42,10 @@ export default function LarryEcosystemPage() {
   const [leverageEthAmount, setLeverageEthAmount] = useState('');
   const [leverageDays, setLeverageDays] = useState('30');
   const [borrowEthAmount, setBorrowEthAmount] = useState('');
-  const [borrowDays, setBorrowDays] = useState('30');
+  const [borrowDays, setBorrowDays] = useState('365');
+  const [borrowQuote, setBorrowQuote] = useState<any>(null);
+  const [repayAmount, setRepayAmount] = useState('');
+  const [flashCloseQuote, setFlashCloseQuote] = useState<any>(null);
   
   // Real contract data
   const [larryStats, setLarryStats] = useState({
@@ -60,7 +64,6 @@ export default function LarryEcosystemPage() {
   const [buyQuote, setBuyQuote] = useState<any>(null);
   const [sellQuote, setSellQuote] = useState<any>(null);
   const [leverageQuote, setLeverageQuote] = useState<any>(null);
-  const [borrowQuote, setBorrowQuote] = useState<any>(null);
   
   // User loan data
   const [userLoan, setUserLoan] = useState({
@@ -286,6 +289,25 @@ export default function LarryEcosystemPage() {
     getQuote();
   }, [borrowEthAmount, borrowDays]);
 
+  // Get flash close quote
+  useEffect(() => {
+    const getQuote = async () => {
+      if (!isConnected || !address || parseFloat(userLoan.collateral) === 0) {
+        setFlashCloseQuote(null);
+        return;
+      }
+      
+      try {
+        const quote = await larryService.quoteFlashClose(address);
+        setFlashCloseQuote(quote);
+      } catch (error) {
+        console.error('Error getting flash close quote:', error);
+        setFlashCloseQuote(null);
+      }
+    };
+    getQuote();
+  }, [isConnected, address, userLoan.collateral, userLoan.borrowed]);
+
   const connectWallet = async () => {
     setLoading(true);
     setError('');
@@ -371,13 +393,26 @@ export default function LarryEcosystemPage() {
     setLoading(true);
     setError('');
     try {
-      const tx = await larryService.borrow(borrowEthAmount, borrowDays);
-      await tx.wait();
-      setSuccess('Loan created successfully!');
+      // Check if user already has a loan
+      const hasExistingLoan = parseFloat(userLoan.collateral) > 0 || parseFloat(userLoan.borrowed) > 0;
+      
+      if (hasExistingLoan) {
+        // Borrow more on existing loan
+        const tx = await larryService.borrowMore(borrowEthAmount);
+        await tx.wait();
+        setSuccess(`Borrowed more successfully! Added ${borrowEthAmount} ETH to your existing loan.`);
+      } else {
+        // Create new loan
+        const tx = await larryService.borrow(borrowEthAmount, borrowDays);
+        await tx.wait();
+        setSuccess('New loan created successfully!');
+      }
+      
       setBorrowEthAmount('');
       setBorrowQuote(null);
+      await refreshData(); // Refresh loan data
     } catch (error: any) {
-      setError(error.message || 'Failed to create loan');
+      setError(error.message || 'Failed to process loan');
     } finally {
       setLoading(false);
     }
@@ -389,9 +424,13 @@ export default function LarryEcosystemPage() {
     setLoading(true);
     setError('');
     try {
-      const tx = await larryService.repay('0'); // Repay full amount
+      // If repayAmount is empty or 0, repay full amount, otherwise repay specific amount
+      const amountToRepay = !repayAmount || parseFloat(repayAmount) === 0 ? '0' : repayAmount;
+      const tx = await larryService.repay(amountToRepay);
       await tx.wait();
-      setSuccess('Loan repaid successfully!');
+      setSuccess(`Loan repaid successfully! Amount: ${amountToRepay === '0' ? 'Full amount' : amountToRepay + ' ETH'}`);
+      setRepayAmount(''); // Clear input after successful repay
+      await refreshData(); // Refresh loan data
     } catch (error: any) {
       setError(error.message || 'Failed to repay loan');
     } finally {
@@ -405,9 +444,10 @@ export default function LarryEcosystemPage() {
     setLoading(true);
     setError('');
     try {
-      const tx = await larryService.closePosition();
+      const tx = await larryService.flashClosePosition();
       await tx.wait();
-      setSuccess('Position closed successfully!');
+      setSuccess('Position closed successfully with flash loan!');
+      await refreshData(); // Refresh loan data
     } catch (error: any) {
       setError(error.message || 'Failed to close position');
     } finally {
@@ -891,10 +931,16 @@ export default function LarryEcosystemPage() {
                       </TabsContent>
 
                       <TabsContent value="borrow" className="mt-6 space-y-4">
+                        <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30 mb-4">
+                          <div className="text-sm text-blue-300">
+                            <strong>📝 How it works:</strong> You provide LARRY tokens as collateral → Get ETH to borrow
+                          </div>
+                        </div>
+
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-sm font-medium text-gray-300">
-                              Borrow Amount (ETH)
+                              ETH Amount to Borrow
                             </label>
                             <Button
                               size="sm"
@@ -921,7 +967,7 @@ export default function LarryEcosystemPage() {
                             </div>
                           </div>
                           <div className="mt-1 text-xs text-gray-400">
-                            Max borrowable based on LARRY collateral
+                            💰 You'll receive this ETH amount (you provide LARRY as collateral)
                           </div>
                         </div>
 
@@ -945,21 +991,22 @@ export default function LarryEcosystemPage() {
                         </div>
 
                         {borrowQuote && (
-                          <div className="p-4 bg-gray-800/30 rounded-lg">
+                          <div className="p-4 bg-gray-800/30 rounded-lg border border-blue-500/20">
+                            <div className="text-xs text-blue-300 mb-3 font-medium">📊 Loan Summary:</div>
                             <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-400">Required Collateral:</span>
-                              <span className="text-white">{formatNumber(borrowQuote.requiredCollateral, 2)} LARRY</span>
+                              <span className="text-gray-400">📤 LARRY Collateral Required:</span>
+                              <span className="text-yellow-400 font-medium">{formatNumber(borrowQuote.requiredCollateral, 2)} LARRY</span>
                             </div>
                             <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-400">Interest Fee:</span>
+                              <span className="text-gray-400">💸 Interest Fee:</span>
                               <span className="text-red-400">{formatNumber(borrowQuote.interestFee, 4)} ETH</span>
                             </div>
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-400">Net Amount:</span>
-                              <span className="text-green-400">{formatNumber(borrowQuote.netAmount, 4)} ETH</span>
+                            <div className="flex justify-between text-sm mb-1 border-t border-gray-600 pt-2">
+                              <span className="text-gray-300 font-medium">📥 ETH You'll Receive:</span>
+                              <span className="text-green-400 font-bold">{formatNumber(borrowQuote.netAmount, 4)} ETH</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                              <span className="text-gray-400">APR:</span>
+                              <span className="text-gray-400">🔢 APR:</span>
                               <span className="text-blue-400">{borrowQuote.apr}%</span>
                             </div>
                           </div>
@@ -970,7 +1017,9 @@ export default function LarryEcosystemPage() {
                           className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-semibold py-3"
                           disabled={loading || !borrowEthAmount || parseFloat(borrowEthAmount) <= 0 || !isCorrectNetwork}
                         >
-                          {loading ? 'Processing...' : 'Create Loan'}
+                          {loading ? 'Processing...' : 
+                           (parseFloat(userLoan.collateral) > 0 || parseFloat(userLoan.borrowed) > 0) ? 
+                           'Borrow More' : 'Create Loan'}
                         </Button>
                       </TabsContent>
                     </Tabs>
@@ -1048,20 +1097,72 @@ export default function LarryEcosystemPage() {
                         </div>
                       </div>
 
+                      {/* Repay Amount Input */}
+                      <div className="mt-4 space-y-3">
+                        <div>
+                          <Label className="text-sm text-gray-400 mb-2 block">Repay Amount (ETH)</Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              placeholder="Enter amount to repay (leave empty for full repay)"
+                              value={repayAmount}
+                              onChange={(e) => setRepayAmount(e.target.value)}
+                              className="w-full bg-gray-800/50 border-gray-600 text-white placeholder-gray-400 focus:border-green-500 pr-16"
+                              step="0.0001"
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => setRepayAmount(userLoan.borrowed)}
+                              className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1 h-7"
+                            >
+                              MAX
+                            </Button>
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1">
+                            Leave empty to repay full amount ({userLoan.borrowed} ETH)
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Flash Close Quote */}
+                      {flashCloseQuote && (
+                        <div className="mt-4 p-4 bg-red-900/20 rounded-lg border border-red-500/30">
+                          <div className="text-xs text-red-300 mb-3 font-medium">⚡ Flash Close Preview:</div>
+                          <div className="text-sm space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">💰 Collateral Value:</span>
+                              <span className="text-white">{formatNumber(flashCloseQuote.collateralValue, 4)} ETH</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">💸 Loan to Repay:</span>
+                              <span className="text-red-400">-{formatNumber(flashCloseQuote.borrowed, 4)} ETH</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-400">🔥 Flash Close Fee:</span>
+                              <span className="text-orange-400">-{formatNumber(flashCloseQuote.totalFee, 4)} ETH</span>
+                            </div>
+                            <div className="flex justify-between border-t border-gray-600 pt-2 font-bold">
+                              <span className="text-gray-300">📥 You'll Receive:</span>
+                              <span className="text-green-400">{formatNumber(flashCloseQuote.userReceives, 4)} ETH</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2 mt-4">
                         <Button
                           onClick={repayLoan}
                           className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold"
                           disabled={loading}
                         >
-                          Repay
+                          {repayAmount ? `Repay ${repayAmount} ETH` : 'Repay Full'}
                         </Button>
                         <Button
                           onClick={closePosition}
                           className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-semibold"
-                          disabled={loading}
+                          disabled={loading || (flashCloseQuote && !flashCloseQuote.canClose)}
                         >
-                          Close
+                          Flash Close
                         </Button>
                       </div>
                     </div>
