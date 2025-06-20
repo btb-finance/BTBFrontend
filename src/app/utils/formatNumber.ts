@@ -1,10 +1,18 @@
-export function formatNumber(value: string | number): string {
+export function formatNumber(value: string | number, decimals?: number): string {
   // Convert string to number if needed
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
   // Handle invalid numbers
   if (isNaN(numValue)) {
     return '0';
+  }
+
+  // Use provided decimals or default behavior
+  if (decimals !== undefined) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals,
+    }).format(numValue);
   }
 
   // For numbers less than 1, show up to 6 decimal places
