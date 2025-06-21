@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useGame, Hunter } from './GameContext';
+import { Hunter } from './GameContext';
 import { formatDistanceToNow } from 'date-fns';
-import { useWalletConnection } from '../../hooks/useWalletConnection';
 
 interface HunterCardProps {
   hunter: Hunter;
@@ -114,79 +113,144 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
   // Render the card
   return (
     <motion.div 
-      className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30 hover:border-btb-primary/50 dark:hover:border-btb-primary/50 transition-all duration-300"
-      whileHover={{ y: -8, boxShadow: "0 15px 30px -10px rgba(59, 130, 246, 0.3)" }}
-      animate={{ scale: isExpanded ? 1.02 : 1 }}
+      className="group bg-gradient-to-br from-white via-blue-50/50 to-purple-50/30 dark:from-gray-800 dark:via-gray-800/90 dark:to-purple-900/20 rounded-2xl overflow-hidden shadow-2xl border-2 border-transparent hover:border-gradient-to-r hover:from-purple-400 hover:to-pink-400 transition-all duration-500 cursor-pointer"
+      whileHover={{ 
+        y: -12, 
+        boxShadow: "0 25px 50px -15px rgba(139, 69, 247, 0.4)",
+        scale: 1.02
+      }}
+      animate={{ 
+        scale: isExpanded ? 1.05 : 1,
+        rotateY: isExpanded ? 2 : 0
+      }}
       onClick={() => setIsExpanded(!isExpanded)}
+      style={{
+        background: isExpanded 
+          ? 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(168,85,247,0.1) 50%, rgba(236,72,153,0.1) 100%)'
+          : undefined
+      }}
     >
       {/* Card Header */}
       <div className="relative">
-        <div className="h-28 bg-gradient-to-r from-btb-primary via-blue-500 to-indigo-600 relative overflow-hidden">
-          {/* Animated particle effects in header */}
+        <div className="h-32 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 relative overflow-hidden group-hover:from-purple-700 group-hover:via-pink-600 group-hover:to-orange-600 transition-all duration-500">
+          {/* Enhanced animated particle effects in header */}
           <div className="absolute inset-0">
-            {[...Array(15)].map((_, i) => (
+            {[...Array(20)].map((_, i) => (
               <motion.div 
                 key={i}
-                className="absolute rounded-full bg-white/20"
+                className={`absolute rounded-full ${i % 4 === 0 ? 'bg-yellow-300/40' : i % 4 === 1 ? 'bg-white/30' : i % 4 === 2 ? 'bg-pink-300/40' : 'bg-purple-300/40'}`}
                 style={{
-                  width: Math.random() * 6 + 2 + 'px',
-                  height: Math.random() * 6 + 2 + 'px',
+                  width: Math.random() * 8 + 3 + 'px',
+                  height: Math.random() * 8 + 3 + 'px',
                   left: Math.random() * 100 + '%',
                   top: Math.random() * 100 + '%',
                 }}
                 animate={{
-                  y: [0, Math.random() * -20 - 5, 0],
-                  x: [0, Math.random() * 10 - 5, 0],
-                  opacity: [0.2, 0.6, 0.2],
+                  y: [0, Math.random() * -30 - 10, 0],
+                  x: [0, Math.random() * 20 - 10, 0],
+                  opacity: [0.3, 0.8, 0.3],
+                  scale: [0.8, 1.2, 0.8],
                 }}
                 transition={{
-                  duration: Math.random() * 3 + 2,
+                  duration: Math.random() * 4 + 3,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
               />
             ))}
           </div>
+          
+          {/* Animated gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse"></div>
+          
+          {/* Gaming-style corner decoration */}
+          <div className="absolute top-2 left-2">
+            <div className="w-6 h-6 border-l-2 border-t-2 border-white/50"></div>
+          </div>
+          <div className="absolute top-2 right-2">
+            <div className="w-6 h-6 border-r-2 border-t-2 border-white/50"></div>
+          </div>
+          <div className="absolute bottom-2 left-2">
+            <div className="w-6 h-6 border-l-2 border-b-2 border-white/50"></div>
+          </div>
+          <div className="absolute bottom-2 right-2">
+            <div className="w-6 h-6 border-r-2 border-b-2 border-white/50"></div>
+          </div>
         </div>
         
-        <div className="absolute -bottom-12 left-6">
+        <div className="absolute -bottom-14 left-6">
           <motion.div 
-            className="rounded-full h-24 w-24 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-700 dark:to-amber-800 flex items-center justify-center shadow-xl"
+            className="relative rounded-full h-28 w-28 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-amber-100 via-yellow-200 to-orange-300 dark:from-amber-700 dark:to-amber-800 flex items-center justify-center shadow-2xl"
             animate={{ 
-              boxShadow: ["0 10px 25px -15px rgba(251, 191, 36, 0.4)", "0 15px 35px -15px rgba(251, 191, 36, 0.6)", "0 10px 25px -15px rgba(251, 191, 36, 0.4)"]
+              boxShadow: [
+                "0 15px 35px -15px rgba(251, 191, 36, 0.6)", 
+                "0 20px 45px -15px rgba(168, 85, 247, 0.4)", 
+                "0 15px 35px -15px rgba(251, 191, 36, 0.6)"
+              ]
             }}
             transition={{ 
-              duration: 3, 
+              duration: 4, 
               repeat: Infinity, 
               ease: "easeInOut" 
             }}
+            whileHover={{ scale: 1.1 }}
           >
+            {/* Power level indicator ring */}
+            <div className="absolute inset-0 rounded-full border-2 border-transparent bg-gradient-to-r from-purple-400 to-pink-400 opacity-75"></div>
+            <div className="absolute inset-1 rounded-full bg-gradient-to-br from-amber-100 via-yellow-200 to-orange-300 dark:from-amber-700 dark:to-amber-800"></div>
+            
             <motion.span 
-              className="text-5xl"
-              animate={{ rotate: [0, 10, 0, -10, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+              className="text-6xl relative z-10"
+              animate={{ 
+                rotate: [0, 15, 0, -15, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 6, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              }}
             >
               🐻
             </motion.span>
+            
+            {/* Power level badge */}
+            <div className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+              Lv.{Math.floor(parseFloat(hunter.power) / 10) + 1}
+            </div>
           </motion.div>
         </div>
         
         <div className="absolute top-4 right-4 flex items-center">
-          <div className={`h-4 w-4 rounded-full ${getStatusColor()} ring-2 ring-white shadow-lg flex items-center justify-center text-white text-[8px] font-bold`}>
-            {hunter.inHibernation ? "!" : ""}
-          </div>
-          <span className="ml-2 text-xs font-semibold bg-black/30 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
+          <motion.div 
+            className={`h-5 w-5 rounded-full ${getStatusColor()} ring-2 ring-white shadow-lg flex items-center justify-center text-white text-[10px] font-bold`}
+            animate={{ 
+              scale: hunter.inHibernation ? [1, 1.2, 1] : [1],
+              opacity: hunter.inHibernation ? [1, 0.7, 1] : [1]
+            }}
+            transition={{ 
+              duration: 1.5, 
+              repeat: hunter.inHibernation ? Infinity : 0,
+              ease: "easeInOut" 
+            }}
+          >
+            {hunter.inHibernation ? "💤" : hunter.recoveryStartTime > 0 ? "🔄" : "⚡"}
+          </motion.div>
+          <motion.span 
+            className="ml-2 text-xs font-semibold bg-black/40 text-white px-3 py-1 rounded-full backdrop-blur-md border border-white/20"
+            whileHover={{ scale: 1.05 }}
+          >
             {hunter.inHibernation 
-              ? 'Hibernating' 
+              ? '😴 Hibernating' 
               : hunter.recoveryStartTime > 0 
-                ? 'Recovering' 
-                : 'Active'}
-          </span>
+                ? '🔄 Recovering' 
+                : '⚡ Active'}
+          </motion.span>
         </div>
       </div>
       
       {/* Card Content */}
-      <div className="pt-14 pb-5 px-6">
+      <div className="pt-16 pb-6 px-6">
         <div className="flex justify-between items-center mb-4">
           <div>
             <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-btb-primary to-blue-600 dark:from-btb-primary-light dark:to-blue-400">
