@@ -127,21 +127,61 @@ export default function GameDashboard() {
         transition={{ duration: 0.5 }}
         className="mb-8"
       >
-        <div className="relative bg-gradient-to-r from-btb-primary via-blue-600 to-indigo-600 rounded-2xl shadow-xl overflow-hidden">
-          <div className="absolute inset-0 bg-black opacity-20"></div>
+        <div className="relative bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 rounded-3xl shadow-2xl overflow-hidden border-2 border-white/20">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+          
+          {/* Enhanced animated background elements */}
+          <div className="absolute inset-0">
+            {[...Array(25)].map((_, i) => (
+              <motion.div 
+                key={i}
+                className={`absolute rounded-full ${i % 3 === 0 ? 'bg-yellow-300/30' : i % 3 === 1 ? 'bg-white/20' : 'bg-pink-300/30'}`}
+                style={{
+                  width: Math.random() * 10 + 4 + 'px',
+                  height: Math.random() * 10 + 4 + 'px',
+                  left: Math.random() * 100 + '%',
+                  top: Math.random() * 100 + '%',
+                }}
+                animate={{
+                  y: [0, Math.random() * -20 - 10, 0],
+                  x: [0, Math.random() * 15 - 7.5, 0],
+                  opacity: [0.3, 0.7, 0.3],
+                  scale: [0.8, 1.2, 0.8],
+                }}
+                transition={{
+                  duration: Math.random() * 5 + 4,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            ))}
+          </div>
           
           <div className="relative p-6 text-white">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
               <div className="flex items-center">
-                <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl mr-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M13 7H7v6h6V7z" />
-                    <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
-                  </svg>
-                </div>
+                <motion.div 
+                  className="bg-white/25 backdrop-blur-md p-4 rounded-2xl mr-5 border border-white/30"
+                  whileHover={{ scale: 1.05, rotate: 5 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <span className="text-4xl">🎮</span>
+                </motion.div>
                 <div>
-                  <h1 className="text-3xl font-bold">MiMo Game</h1>
-                  <p className="text-blue-100 text-sm">Hunt, earn, and grow your ecosystem</p>
+                  <motion.h1 
+                    className="text-4xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-white via-yellow-200 to-orange-300"
+                    animate={{ 
+                      backgroundPosition: ['0% 50%', '100% 50%', '0% 50%']
+                    }}
+                    transition={{ 
+                      duration: 3, 
+                      repeat: Infinity, 
+                      ease: "linear" 
+                    }}
+                  >
+                    MiMo Game
+                  </motion.h1>
+                  <p className="text-gray-200 text-base font-medium">🏹 Hunt, 🍖 Feed, 💰 Earn - Build Your Digital Empire</p>
                 </div>
               </div>
               

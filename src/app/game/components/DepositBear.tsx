@@ -141,13 +141,12 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
       // If batch mode is on and multiple NFTs are selected
       if (batchMode && selectedBearIds.length > 1) {
         // Initialize provider and signer
-        let signer;
         if (typeof window.ethereum === 'undefined') {
           throw new Error("No wallet detected. Please connect your wallet.");
         }
         
         const provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
+        const signer = provider.getSigner();
         const signerAddress = await signer.getAddress();
         
         // Setup BEAR NFT contract
@@ -207,9 +206,10 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
       if (onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Deposit error:", err);
-      setError(err.message || "Failed to deposit BEAR NFT");
+      const errorMessage = err instanceof Error ? err.message : "Failed to deposit BEAR NFT";
+      setError(errorMessage);
     } finally {
       setIsDepositing(false);
     }
@@ -217,11 +217,11 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
 
   return (
     <div 
-      className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30"
+      className="bg-gradient-to-br from-white via-purple-50/30 to-pink-50/20 dark:from-gray-800 dark:via-purple-900/20 dark:to-pink-900/10 rounded-2xl overflow-hidden shadow-2xl border-2 border-gradient-to-r from-purple-400/30 to-pink-400/30"
     >
-      {/* Card Header */}
+      {/* Enhanced Card Header */}
       <div className="relative">
-        <div className="h-24 bg-gradient-to-r from-btb-primary via-blue-500 to-indigo-600 relative overflow-hidden">
+        <div className="h-28 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 relative overflow-hidden">
           {/* Animated particle effects in header */}
           <div className="absolute inset-0">
             {[...Array(15)].map((_, i) => (
@@ -239,16 +239,35 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
           </div>
         </div>
         
-        <div className="absolute -bottom-10 left-6">
-          <div 
-            className="rounded-full h-20 w-20 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-amber-100 to-amber-200 dark:from-amber-700 dark:to-amber-800 flex items-center justify-center shadow-xl"
-          >
-            <span 
-              className="text-4xl"
-            >
-              🐻
-            </span>
+        <div className="absolute -bottom-12 left-6">
+          <div className="relative rounded-full h-24 w-24 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 flex items-center justify-center shadow-2xl animate-gaming-pulse">
+            {/* Power level indicator ring */}
+            <div className="absolute inset-0 rounded-full border-2 border-transparent bg-gradient-to-r from-purple-400 to-pink-400 opacity-60"></div>
+            <div className="absolute inset-1 rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600"></div>
+            <span className="text-5xl relative z-10">🐻</span>
           </div>
+        </div>
+        
+        {/* Enhanced Title */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+          <div className="text-white font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-white via-yellow-200 to-orange-300">
+            Deposit BEAR NFT
+          </div>
+          <div className="text-white/80 text-sm mt-2 font-medium">🐻➡️🏹 Convert to Hunter</div>
+        </div>
+        
+        {/* Gaming-style corner decorations */}
+        <div className="absolute top-2 left-2">
+          <div className="w-8 h-8 border-l-2 border-t-2 border-white/60"></div>
+        </div>
+        <div className="absolute top-2 right-2">
+          <div className="w-8 h-8 border-r-2 border-t-2 border-white/60"></div>
+        </div>
+        <div className="absolute bottom-2 left-2">
+          <div className="w-8 h-8 border-l-2 border-b-2 border-white/60"></div>
+        </div>
+        <div className="absolute bottom-2 right-2">
+          <div className="w-8 h-8 border-r-2 border-b-2 border-white/60"></div>
         </div>
         
         <div className="absolute top-4 right-4">
@@ -335,11 +354,16 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
       </div>
       
       {/* Card Content */}
-      <div className="pt-14 px-6 pb-6">
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-btb-primary to-blue-600 dark:from-btb-primary-light dark:to-blue-400">
-            Deposit BEAR NFT
-          </h2>
+      <div className="pt-16 px-6 pb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-xl">
+              <span className="text-xl">🔄</span>
+            </div>
+            <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+              Deposit BEAR NFT
+            </h2>
+          </div>
           <div className="flex items-center">
             <div className="mr-2 text-sm text-gray-600 dark:text-gray-400">
               Batch Mode
@@ -359,25 +383,26 @@ export default function DepositBear({ onSuccess }: DepositBearProps) {
           </div>
         </div>
 
-        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/30 relative overflow-hidden">
-          <div className="relative z-10 flex items-start">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-btb-primary dark:text-btb-primary-light mr-2 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="text-blue-800 dark:text-blue-200 mb-1 font-medium">
+        <div className="mb-6 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-5 rounded-2xl border-2 border-purple-200/50 dark:border-purple-700/50 relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-xl">
+                <span className="text-xl">🏹</span>
+              </div>
+              <h3 className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
                 Become a Hunter and Earn Rewards
-              </p>
-              <p className="text-sm text-blue-700/80 dark:text-blue-300/80">
-                Deposit your BEAR NFT to create a Hunter with a base power of 10 MiMo.
-                You'll also receive 1,000,000 MiMo tokens as an initial reward!
-              </p>
+              </h3>
             </div>
+            <p className="text-sm text-purple-700/80 dark:text-purple-300/80 leading-relaxed">
+              🐻 Deposit your BEAR NFT to create a Hunter with a base power of 10 MiMo.<br/>
+              💰 You'll also receive <span className="font-bold text-yellow-600 dark:text-yellow-400">1,000,000 MiMo tokens</span> as an initial reward!<br/>
+              ⚡ Start hunting immediately and earn more tokens through gameplay.
+            </p>
           </div>
           
-          {/* Decorative elements */}
-          <div className="absolute -right-4 -bottom-4 h-16 w-16 rounded-full bg-blue-400/10 dark:bg-blue-400/5"></div>
-          <div className="absolute right-8 -top-6 h-12 w-12 rounded-full bg-indigo-400/10 dark:bg-indigo-400/5"></div>
+          {/* Enhanced decorative elements */}
+          <div className="absolute -right-2 -bottom-2 h-20 w-20 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-xl"></div>
+          <div className="absolute right-4 -top-4 h-16 w-16 rounded-full bg-gradient-to-br from-yellow-400/10 to-orange-400/10 blur-xl"></div>
         </div>
         
         {loading ? (

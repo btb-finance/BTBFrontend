@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
 import { useGame } from './GameContext';
 
 interface RedeemBearProps {
@@ -85,9 +84,10 @@ export default function RedeemBear({ onSuccess }: RedeemBearProps) {
       if (onSuccess) {
         onSuccess();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error redeeming BEAR NFT:", err);
-      setError(err.message || "Failed to redeem BEAR NFT");
+      const errorMessage = err instanceof Error ? err.message : "Failed to redeem BEAR NFT";
+      setError(errorMessage);
     } finally {
       setIsRedeeming(false);
     }
@@ -95,11 +95,11 @@ export default function RedeemBear({ onSuccess }: RedeemBearProps) {
 
   return (
     <div 
-      className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30 transform transition-all duration-500 opacity-100"
+      className="bg-gradient-to-br from-white via-purple-50/30 to-pink-50/20 dark:from-gray-800 dark:via-purple-900/20 dark:to-pink-900/10 rounded-2xl overflow-hidden shadow-2xl border-2 border-gradient-to-r from-purple-400/30 to-pink-400/30 transform transition-all duration-500 opacity-100"
     >
-      {/* Card Header */}
+      {/* Enhanced Card Header */}
       <div className="relative">
-        <div className="h-24 bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-600 relative overflow-hidden">
+        <div className="h-28 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 relative overflow-hidden">
           {/* Animated particle effects in header */}
           <div className="absolute inset-0">
             {[...Array(15)].map((_, i) => (
@@ -116,33 +116,50 @@ export default function RedeemBear({ onSuccess }: RedeemBearProps) {
             ))}
           </div>
           
-          {/* MiMo Token Emblem */}
+          {/* Enhanced Title */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-            <div className="text-white font-bold text-2xl animate-pulse">MiMo</div>
-            <div className="text-white/70 text-xs mt-1">token</div>
+            <div className="text-white font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-white via-yellow-200 to-orange-300">
+              Redeem BEAR NFT
+            </div>
+            <div className="text-white/80 text-sm mt-2 font-medium">💰➡️🐻 Convert MiMo Tokens</div>
+          </div>
+          
+          {/* Gaming-style corner decorations */}
+          <div className="absolute top-2 left-2">
+            <div className="w-8 h-8 border-l-2 border-t-2 border-white/60"></div>
+          </div>
+          <div className="absolute top-2 right-2">
+            <div className="w-8 h-8 border-r-2 border-t-2 border-white/60"></div>
+          </div>
+          <div className="absolute bottom-2 left-2">
+            <div className="w-8 h-8 border-l-2 border-b-2 border-white/60"></div>
+          </div>
+          <div className="absolute bottom-2 right-2">
+            <div className="w-8 h-8 border-r-2 border-b-2 border-white/60"></div>
           </div>
         </div>
         
-        <div className="absolute -bottom-10 left-6">
-          <div 
-            className="rounded-full h-20 w-20 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-indigo-100 to-blue-200 dark:from-indigo-700 dark:to-blue-800 flex items-center justify-center shadow-xl animate-pulse"
-          >
-            <span 
-              className="text-4xl animate-bounce"
-              style={{ animationDuration: '5s' }}
-            >
-              🐻
-            </span>
+        <div className="absolute -bottom-12 left-6">
+          <div className="relative rounded-full h-24 w-24 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 flex items-center justify-center shadow-2xl animate-gaming-pulse">
+            {/* Power level indicator ring */}
+            <div className="absolute inset-0 rounded-full border-2 border-transparent bg-gradient-to-r from-purple-400 to-pink-400 opacity-60"></div>
+            <div className="absolute inset-1 rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600"></div>
+            <span className="text-5xl relative z-10">🐻</span>
           </div>
         </div>
       </div>
       
-      {/* Card Content */}
-      <div className="pt-14 px-6 pb-6">
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-blue-600 dark:from-indigo-400 dark:to-blue-400">
-            Redeem BEAR NFT
-          </h2>
+      {/* Enhanced Card Content */}
+      <div className="pt-16 px-6 pb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-xl">
+              <span className="text-xl">💰</span>
+            </div>
+            <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+              Redeem BEAR NFT
+            </h2>
+          </div>
           
           {isPaused && (
             <div 

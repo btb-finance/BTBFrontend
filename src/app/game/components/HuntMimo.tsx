@@ -97,8 +97,9 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
       } else {
         throw new Error("No target address specified");
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to hunt");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to hunt";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -112,90 +113,143 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
       className="w-full max-w-md relative z-50"
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full p-6"
+        className="bg-gradient-to-br from-white via-purple-50/30 to-pink-50/20 dark:from-gray-800 dark:via-purple-900/20 dark:to-pink-900/10 rounded-2xl shadow-2xl w-full p-6 border-2 border-gradient-to-r from-purple-400/30 to-pink-400/30 backdrop-blur-md"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-btb-primary dark:text-btb-primary-light">
-            Hunt with Hunter #{hunter.id}
-          </h2>
-          <button 
+        {/* Enhanced Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-2 rounded-xl">
+              <span className="text-xl">🏹</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+                Hunt with Hunter #{hunter.id}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Deploy your hunter for the hunt</p>
+            </div>
+          </div>
+          <motion.button 
             onClick={(e) => {
               e.stopPropagation();
               onClose();
             }}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            className="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </button>
+          </motion.button>
         </div>
         
-        <div className="mb-5">
-          <div className="flex justify-between items-center mb-3">
-            <div className="text-gray-600 dark:text-gray-400">Hunter Power</div>
-            <div className="font-bold">{parseFloat(hunter.power).toFixed(2)} MiMo</div>
+        {/* Enhanced Power Display */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-4 p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border border-purple-200/50 dark:border-purple-700/50">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">⚡</span>
+              <div className="text-gray-600 dark:text-gray-400 font-medium">Hunter Power</div>
+            </div>
+            <div className="font-bold text-2xl bg-clip-text text-transparent bg-gradient-to-r from-yellow-500 to-orange-500">
+              {parseFloat(hunter.power).toFixed(2)} MiMo
+            </div>
           </div>
           
-          <div className="bg-gray-100 dark:bg-gray-900 rounded-lg p-4 mb-4">
-            <h3 className="font-bold mb-3 text-center">Hunting Rewards Distribution</h3>
+          {/* Enhanced Rewards Display */}
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50 rounded-2xl p-5 mb-4 border border-gray-200/50 dark:border-gray-700/50">
+            <h3 className="font-bold mb-4 text-center flex items-center justify-center gap-2">
+              <span className="text-2xl">💰</span>
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
+                Hunting Rewards Distribution
+              </span>
+            </h3>
             
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-btb-primary/10 dark:bg-btb-primary/20 rounded-lg p-3 text-center">
-                <div className="text-xl font-bold text-btb-primary dark:text-btb-primary-light">
+            <div className="grid grid-cols-3 gap-3">
+              <motion.div 
+                className="bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl p-4 text-center border border-green-200/50 dark:border-green-700/50"
+                whileHover={{ scale: 1.05, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="text-2xl mb-1">💎</div>
+                <div className="text-xl font-bold text-green-600 dark:text-green-400">
                   {rewards.toOwner.toFixed(2)}
                 </div>
-                <div className="text-xs font-medium mt-1">To You (50%)</div>
-              </div>
+                <div className="text-xs font-medium mt-1 text-green-700 dark:text-green-300">To You (50%)</div>
+              </motion.div>
               
-              <div className="bg-red-500/10 dark:bg-red-500/20 rounded-lg p-3 text-center">
+              <motion.div 
+                className="bg-gradient-to-br from-red-100 to-pink-100 dark:from-red-900/30 dark:to-pink-900/30 rounded-xl p-4 text-center border border-red-200/50 dark:border-red-700/50"
+                whileHover={{ scale: 1.05, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="text-2xl mb-1">🔥</div>
                 <div className="text-xl font-bold text-red-500">
                   {rewards.burned.toFixed(2)}
                 </div>
-                <div className="text-xs font-medium mt-1">Burned (25%)</div>
-              </div>
+                <div className="text-xs font-medium mt-1 text-red-700 dark:text-red-300">Burned (25%)</div>
+              </motion.div>
               
-              <div className="bg-blue-500/10 dark:bg-blue-500/20 rounded-lg p-3 text-center">
+              <motion.div 
+                className="bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl p-4 text-center border border-blue-200/50 dark:border-blue-700/50"
+                whileHover={{ scale: 1.05, y: -2 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="text-2xl mb-1">🌊</div>
                 <div className="text-xl font-bold text-blue-500">
                   {rewards.toLiquidity.toFixed(2)}
                 </div>
-                <div className="text-xs font-medium mt-1">To Liquidity (25%)</div>
-              </div>
+                <div className="text-xs font-medium mt-1 text-blue-700 dark:text-blue-300">To Liquidity (25%)</div>
+              </motion.div>
             </div>
             
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
-              <p className="italic">When you hunt, your hunter will extract MiMo tokens from the target's wallet.</p>
-              <p>Targets need to have MiMo tokens and cannot be protected addresses.</p>
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4 p-3 bg-white/50 dark:bg-gray-800/50 rounded-xl border border-gray-200/30 dark:border-gray-700/30">
+              <p className="italic flex items-center justify-center gap-1 mb-1">
+                <span>🎯</span>
+                When you hunt, your hunter will extract MiMo tokens from the target's wallet.
+              </p>
+              <p className="flex items-center justify-center gap-1">
+                <span>🛡️</span>
+                Targets need to have MiMo tokens and cannot be protected addresses.
+              </p>
             </div>
           </div>
         </div>
         
-        {/* Target selection */}
-        <div className="mb-5">
-          <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Target Selection</h3>
+        {/* Enhanced Target selection */}
+        <div className="mb-6">
+          <h3 className="font-medium text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+            <span className="text-xl">🎯</span>
+            Target Selection
+          </h3>
           
-          <div className="flex gap-3 mb-3">
-            <button
+          <div className="flex gap-3 mb-4">
+            <motion.button
               onClick={() => setIsSelfHunt(true)}
-              className={`flex-1 py-2 px-3 rounded-lg border ${
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex-1 py-3 px-4 rounded-xl border-2 font-medium transition-all duration-200 ${
                 isSelfHunt 
-                  ? 'bg-btb-primary/10 border-btb-primary text-btb-primary dark:text-btb-primary-light' 
+                  ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-purple-400 text-purple-700 dark:from-purple-900/30 dark:to-pink-900/30 dark:text-purple-300 dark:border-purple-500' 
                   : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
+              <span className="mr-2">🔄</span>
               Self Hunt
-            </button>
+            </motion.button>
             
-            <button
+            <motion.button
               onClick={() => setIsSelfHunt(false)}
-              className={`flex-1 py-2 px-3 rounded-lg border ${
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex-1 py-3 px-4 rounded-xl border-2 font-medium transition-all duration-200 ${
                 !isSelfHunt 
-                  ? 'bg-btb-primary/10 border-btb-primary text-btb-primary dark:text-btb-primary-light' 
+                  ? 'bg-gradient-to-r from-purple-100 to-pink-100 border-purple-400 text-purple-700 dark:from-purple-900/30 dark:to-pink-900/30 dark:text-purple-300 dark:border-purple-500' 
                   : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
+              <span className="mr-2">🏹</span>
               Hunt Other
-            </button>
+            </motion.button>
           </div>
           
           {isSelfHunt ? (
@@ -287,28 +341,43 @@ export default function HuntMimo({ hunter, onClose, onSuccess }: HuntMimoProps) 
           </div>
         )}
         
-        <div className="flex gap-3">
-          <button
+        <div className="flex gap-4">
+          <motion.button
             onClick={(e) => {
               e.stopPropagation();
               onClose();
             }}
-            className="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex-1 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 font-medium"
           >
+            <span className="mr-2">❌</span>
             Cancel
-          </button>
+          </motion.button>
           
-          <button
+          <motion.button
             onClick={handleHunt}
             disabled={loading || !canHunt()}
-            className={`flex-1 py-2 rounded-lg text-white ${
+            whileHover={loading || !canHunt() ? {} : { scale: 1.02 }}
+            whileTap={loading || !canHunt() ? {} : { scale: 0.98 }}
+            className={`flex-1 py-3 rounded-xl text-white font-bold transition-all duration-200 ${
               loading || !canHunt()
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-btb-primary hover:bg-blue-600 transition-colors'
+                : 'bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 hover:from-purple-700 hover:via-pink-600 hover:to-orange-600 shadow-lg hover:shadow-xl'
             }`}
           >
-            {loading ? 'Hunting...' : isSelfHunt ? 'Self Hunt' : 'Hunt Target'}
-          </button>
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                Hunting...
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                <span>{isSelfHunt ? '🔄' : '🏹'}</span>
+                {isSelfHunt ? 'Self Hunt' : 'Hunt Target'}
+              </span>
+            )}
+          </motion.button>
         </div>
       </div>
     </motion.div>

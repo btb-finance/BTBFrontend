@@ -168,6 +168,74 @@
   animation: float 3s ease-in-out infinite;
 }
 
+/* Gaming-style animations */
+@keyframes neon-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(168, 85, 247, 0.5), 0 0 20px rgba(168, 85, 247, 0.3), 0 0 30px rgba(168, 85, 247, 0.2); }
+  50% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.8), 0 0 30px rgba(168, 85, 247, 0.5), 0 0 40px rgba(168, 85, 247, 0.3); }
+}
+
+.animate-neon-glow {
+  animation: neon-glow 2s ease-in-out infinite;
+}
+
+@keyframes gaming-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(139, 69, 247, 0.7);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(139, 69, 247, 0);
+  }
+}
+
+.animate-gaming-pulse {
+  animation: gaming-pulse 2s infinite;
+}
+
+@keyframes power-charge {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.power-charge-animation {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: power-charge 2s ease-in-out infinite;
+}
+
+/* Enhanced gaming card styles */
+.gaming-card {
+  @apply bg-gradient-to-br from-gray-900 via-purple-900 to-pink-900 rounded-2xl border-2 border-transparent hover:border-purple-400 transition-all duration-500;
+  background-size: 200% 200%;
+  animation: gradient-shift 4s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Hunter level indicator */
+.hunter-level-ring {
+  position: relative;
+  overflow: hidden;
+}
+
+.hunter-level-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(45deg, #8B5CF6, #EC4899, #F59E0B, #8B5CF6);
+  background-size: 300% 300%;
+  animation: gradient-shift 3s ease infinite;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
 @keyframes blob {
   0% { transform: scale(1); }
   33% { transform: scale(1.1); }

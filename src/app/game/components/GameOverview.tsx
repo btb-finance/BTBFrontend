@@ -131,39 +131,59 @@ export default function GameOverview() {
   return (
     <div className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-800/90 rounded-xl overflow-hidden shadow-xl border border-blue-100 dark:border-blue-800/30">
       <FloatingAnimation />
-      {/* Card Header */}
+      {/* Enhanced Card Header */}
       <div className="relative">
-        <div className="h-24 bg-gradient-to-r from-blue-600 via-indigo-500 to-blue-600 relative overflow-hidden">
-          {/* Animated particle effects in header */}
+        <div className="h-28 bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 relative overflow-hidden">
+          {/* Enhanced animated particle effects in header */}
           <div className="absolute inset-0">
-            {[...Array(12)].map((_, i) => (
+            {[...Array(20)].map((_, i) => (
               <div 
                 key={i}
-                className="absolute rounded-full bg-white/20"
+                className={`absolute rounded-full ${i % 4 === 0 ? 'bg-yellow-300/40' : i % 4 === 1 ? 'bg-white/30' : i % 4 === 2 ? 'bg-pink-300/40' : 'bg-purple-300/40'}`}
                 style={{
-                  width: Math.random() * 6 + 2 + 'px',
-                  height: Math.random() * 6 + 2 + 'px',
+                  width: Math.random() * 8 + 3 + 'px',
+                  height: Math.random() * 8 + 3 + 'px',
                   left: Math.random() * 100 + '%',
                   top: Math.random() * 100 + '%',
-                  animation: `float ${Math.random() * 4 + 3}s ease-in-out infinite`,
-                  animationDelay: `${Math.random() * 2}s`
+                  animation: `float ${Math.random() * 5 + 4}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 3}s`
                 }}
               />
             ))}
           </div>
           
-          {/* Title */}
+          {/* Animated gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent power-charge-animation"></div>
+          
+          {/* Enhanced Title */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-            <div className="text-white font-bold text-2xl">Game Overview</div>
-            <div className="text-white/70 text-xs mt-1">BEAR Hunter Ecosystem</div>
+            <div className="text-white font-extrabold text-3xl bg-clip-text text-transparent bg-gradient-to-r from-white via-yellow-200 to-orange-300">
+              Game Overview
+            </div>
+            <div className="text-white/80 text-sm mt-2 font-medium">🐻 BEAR Hunter Ecosystem 🎯</div>
+          </div>
+          
+          {/* Gaming-style corner decorations */}
+          <div className="absolute top-2 left-2">
+            <div className="w-8 h-8 border-l-2 border-t-2 border-white/60"></div>
+          </div>
+          <div className="absolute top-2 right-2">
+            <div className="w-8 h-8 border-r-2 border-t-2 border-white/60"></div>
+          </div>
+          <div className="absolute bottom-2 left-2">
+            <div className="w-8 h-8 border-l-2 border-b-2 border-white/60"></div>
+          </div>
+          <div className="absolute bottom-2 right-2">
+            <div className="w-8 h-8 border-r-2 border-b-2 border-white/60"></div>
           </div>
         </div>
         
-        <div className="absolute -bottom-10 left-6">
-          <div 
-            className="rounded-full h-20 w-20 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-blue-100 to-indigo-200 dark:from-blue-700 dark:to-indigo-800 flex items-center justify-center shadow-xl"
-          >
-            <span className="text-4xl">🎮</span>
+        <div className="absolute -bottom-12 left-6">
+          <div className="relative rounded-full h-24 w-24 border-4 border-white dark:border-gray-800 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 flex items-center justify-center shadow-2xl animate-gaming-pulse">
+            {/* Power level indicator ring */}
+            <div className="absolute inset-0 rounded-full border-2 border-transparent bg-gradient-to-r from-purple-400 to-pink-400 opacity-60"></div>
+            <div className="absolute inset-1 rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600"></div>
+            <span className="text-5xl relative z-10">🎮</span>
           </div>
         </div>
       </div>
