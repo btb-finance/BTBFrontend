@@ -30,9 +30,9 @@ import BTBDefiProtocolABI from './BTBDefiProtocol.json';
 
 // Contract Addresses on Base Sepolia
 const CONTRACTS = {
-  BTB_TOKEN: '0xDC7327019698a68e21a639e06ED9eA262cd47413',
-  BURN_ADDRESS: '0x2de8ECBF27A0EeD90f6fB165E01e4fdaDf1773e1',
-  DEFI_PROTOCOL: '0xB54Ada9DfdB425921869fA60d1129f9321214D5E',
+  BTB_TOKEN: '0x802F93D0EB6826E2489D6cD2ded70f15E9CE77F3',
+  BURN_ADDRESS: '0xdabb36D297b83adF57039a0B140e6c81471e30ff',
+  DEFI_PROTOCOL: '0x055019bD201E1F90B5b61D327797f2aBDd0A19Fd',
   BASE_SEPOLIA_CHAIN_ID: 84532
 };
 
@@ -544,6 +544,100 @@ export default function BTBPage() {
       calculateLoopParameters();
     }
   }, [loopAmount, loopDays]);
+
+  // Simple calculation function for buy amounts
+  const [estimatedTokens, setEstimatedTokens] = useState('0');
+  const [estimatedETH, setEstimatedETH] = useState('0');
+
+  const calculatePurchaseEstimate = async () => {
+    if (!purchaseAmount || !account || parseFloat(purchaseAmount) <= 0) {
+      setEstimatedTokens('0');
+      return;
+    }
+
+    try {
+      const provider = new providers.Web3Provider((window as any).ethereum);
+      const defiContract = new Contract(CONTRACTS.DEFI_PROTOCOL, BTBDefiProtocolABI, provider);
+      
+      const ethAmount = ethers.utils.parseEther(purchaseAmount);
+      console.log('Calculating for ETH amount:', purchaseAmount, 'Wei:', ethAmount.toString());
+      
+      // Try estimatePurchaseTokens first (includes fees)
+      try {
+        const result = await defiContract.estimatePurchaseTokens(ethAmount);
+        const tokensOut = ethers.utils.formatEther(result);
+        console.log('estimatePurchaseTokens result:', tokensOut);
+        setEstimatedTokens(tokensOut);
+        return;
+      } catch (err) {
+        console.log('estimatePurchaseTokens failed, trying calculateETHtoTokens:', err);
+      }
+
+      // Fallback to calculateETHtoTokens
+      try {
+        const result = await defiContract.calculateETHtoTokens(ethAmount);
+        const tokensOut = ethers.utils.formatEther(result);
+        console.log('calculateETHtoTokens result:', tokensOut);
+        setEstimatedTokens(tokensOut);
+        return;
+      } catch (err) {
+        console.log('calculateETHtoTokens failed:', err);
+      }
+
+      setEstimatedTokens('0');
+    } catch (error) {
+      console.error('Purchase calculation error:', error);
+      setEstimatedTokens('0');
+    }
+  };
+
+  const calculateSellEstimate = async () => {
+    if (!sellAmount || !account || parseFloat(sellAmount) <= 0) {
+      setEstimatedETH('0');
+      return;
+    }
+
+    try {
+      const provider = new providers.Web3Provider((window as any).ethereum);
+      const defiContract = new Contract(CONTRACTS.DEFI_PROTOCOL, BTBDefiProtocolABI, provider);
+      
+      const tokenAmount = ethers.utils.parseEther(sellAmount);
+      console.log('Calculating sell for token amount:', sellAmount, 'Wei:', tokenAmount.toString());
+      
+      try {
+        const result = await defiContract.calculateTokensToETH(tokenAmount);
+        const ethOut = ethers.utils.formatEther(result);
+        console.log('calculateTokensToETH result:', ethOut);
+        setEstimatedETH(ethOut);
+        return;
+      } catch (err) {
+        console.log('calculateTokensToETH failed:', err);
+      }
+
+      setEstimatedETH('0');
+    } catch (error) {
+      console.error('Sell calculation error:', error);
+      setEstimatedETH('0');
+    }
+  };
+
+  // Auto-calculate when purchase amount changes
+  useEffect(() => {
+    if (purchaseAmount && parseFloat(purchaseAmount) > 0) {
+      calculatePurchaseEstimate();
+    } else {
+      setEstimatedTokens('0');
+    }
+  }, [purchaseAmount, account]);
+
+  // Auto-calculate when sell amount changes
+  useEffect(() => {
+    if (sellAmount && parseFloat(sellAmount) > 0) {
+      calculateSellEstimate();
+    } else {
+      setEstimatedETH('0');
+    }
+  }, [sellAmount, account]);
 
   const borrowAgainstCollateral = async () => {
     if (!borrowAmount) return;
@@ -1108,13 +1202,65 @@ export default function BTBPage() {
                               onChange={(e) => setPurchaseAmount(e.target.value)}
                               disabled={loading}
                             />
+                            <div className="flex gap-2 mt-2">
+                              <Button 
+                                onClick={() => setPurchaseAmount('0.01')}
+                                disabled={loading}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                0.01 ETH
+                              </Button>
+                              <Button 
+                                onClick={() => setPurchaseAmount('0.05')}
+                                disabled={loading}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                0.05 ETH
+                              </Button>
+                              <Button 
+                                onClick={() => setPurchaseAmount('0.1')}
+                                disabled={loading}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                0.1 ETH
+                              </Button>
+                            </div>
                           </div>
+
+                          {/* Purchase Preview */}
+                          {purchaseAmount && parseFloat(estimatedTokens) > 0 && (
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                              <h4 className="font-semibold text-green-700 dark:text-green-300 mb-2">💰 You'll receive:</h4>
+                              <div className="text-sm space-y-1">
+                                <div className="flex justify-between">
+                                  <span>BTB Tokens:</span>
+                                  <span className="font-bold text-green-600">{formatNumber(estimatedTokens)} BTB</span>
+                                </div>
+                                <div className="flex justify-between font-semibold border-t border-green-200 pt-1">
+                                  <span>You pay:</span>
+                                  <span className="text-blue-600">{purchaseAmount} ETH</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <Button 
                             onClick={purchaseTokens} 
                             disabled={loading || !purchaseAmount}
                             className="w-full btn-primary"
                           >
-                            {loading ? 'Processing...' : 'Buy BTB Tokens'}
+                            {loading ? 'Processing...' : 
+                              (parseFloat(estimatedTokens) > 0 ? 
+                                `Buy ${formatNumber(estimatedTokens)} BTB Tokens` : 
+                                'Buy BTB Tokens'
+                              )
+                            }
                           </Button>
                         </div>
                       </div>
@@ -1137,13 +1283,70 @@ export default function BTBPage() {
                               onChange={(e) => setSellAmount(e.target.value)}
                               disabled={loading}
                             />
+                            <div className="flex gap-2 mt-2">
+                              <Button 
+                                onClick={() => setSellAmount('100')}
+                                disabled={loading}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                100 BTB
+                              </Button>
+                              <Button 
+                                onClick={() => setSellAmount('500')}
+                                disabled={loading}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                500 BTB
+                              </Button>
+                              <Button 
+                                onClick={() => {
+                                  const balance = parseFloat(btbBalance);
+                                  if (balance > 0) {
+                                    setSellAmount((balance * 0.5).toFixed(2));
+                                  }
+                                }}
+                                disabled={loading || parseFloat(btbBalance) <= 0}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                50% Balance
+                              </Button>
+                            </div>
                           </div>
+
+                          {/* Sell Preview */}
+                          {sellAmount && parseFloat(estimatedETH) > 0 && (
+                            <div className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                              <h4 className="font-semibold text-red-700 dark:text-red-300 mb-2">💸 You'll receive:</h4>
+                              <div className="text-sm space-y-1">
+                                <div className="flex justify-between">
+                                  <span>ETH Amount:</span>
+                                  <span className="font-bold text-red-600">{formatNumber(estimatedETH)} ETH</span>
+                                </div>
+                                <div className="flex justify-between font-semibold border-t border-red-200 pt-1">
+                                  <span>You sell:</span>
+                                  <span className="text-blue-600">{sellAmount} BTB</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           <Button 
                             onClick={sellTokens} 
                             disabled={loading || !sellAmount}
                             className="w-full btn-secondary"
                           >
-                            {loading ? 'Processing...' : 'Sell BTB Tokens'}
+                            {loading ? 'Processing...' : 
+                              (parseFloat(estimatedETH) > 0 ? 
+                                `Sell for ${formatNumber(estimatedETH)} ETH` : 
+                                'Sell BTB Tokens'
+                              )
+                            }
                           </Button>
                         </div>
                       </div>
