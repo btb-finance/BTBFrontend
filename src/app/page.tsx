@@ -560,8 +560,8 @@ export default function Home() {
                 className={`group relative overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border ${product.highlight ? 'border-red-500 dark:border-red-500 ring-2 ring-red-500/50' : 'border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red'}`}
               >
                 {product.highlight && (
-                  <div className="absolute right-0 top-0 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
-                    NEXT BIG THING
+                  <div className="absolute right-0 top-0 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
+                    NEW
                   </div>
                 )}
                 <div className="absolute -right-10 -top-10 h-20 w-20 rounded-full bg-optimism-red opacity-10 group-hover:opacity-20 transition-opacity" />
@@ -782,7 +782,7 @@ export default function Home() {
               >
                 <div className="inline-flex items-center px-4 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium mb-4">
                   <SparklesIcon className="h-4 w-4 mr-2" />
-                  <span>Our Next Big Thing</span>
+                  <span>Gaming Ecosystem</span>
                 </div>
                 <h2 className="text-3xl md:text-5xl font-bold mb-6 inline-flex items-center">
                   <span className="bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent">
