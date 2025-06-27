@@ -112,6 +112,19 @@ const products = [
     bgColor: 'bg-gradient-to-br from-emerald-600/10 to-green-800/10',
     iconColor: 'text-emerald-600 dark:text-emerald-400',
     borderColor: 'border-emerald-200 dark:border-emerald-800'
+  },
+  {
+    name: 'Aero Booster',
+    description: 'Professional AERO voting service for projects. Tiered rates: 5% for 1k, 4% for 5k, 2% for 10k+ AERO weekly fees.',
+    detailedDescription: "BTB owns significant locked AERO tokens and provides weekly voting support for projects' liquidity pools. Tiered pricing structure: 5% weekly fee for 1k AERO, 4% for 5k AERO, 2% for 10k+ AERO. Better rates as you scale up! Contact us via X, Telegram, Discord, or email.",
+    features: ['Weekly voting power', 'Scalable pricing structure', 'Multiple contact methods', 'Guaranteed LP boost'],
+    icon: ArrowTrendingUpIcon,
+    href: '/aero-booster',
+    bgColor: 'bg-gradient-to-br from-sky-600/10 to-cyan-800/10',
+    iconColor: 'text-sky-600 dark:text-sky-400',
+    borderColor: 'border-sky-200 dark:border-sky-800',
+    isNew: true,
+    highlight: true
   }
 ];
 
@@ -250,6 +263,17 @@ const quickNavLinks = [
     ),
     color: 'bg-amber-100 dark:bg-amber-900/30',
     textColor: 'text-amber-600 dark:text-amber-400'
+  },
+  {
+    name: 'Aero Booster',
+    description: 'Professional AERO voting service',
+    href: '/aero-booster',
+    icon: ({ className }: { className?: string }) => (
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🚀</span>
+    ),
+    color: 'bg-sky-100 dark:bg-sky-900/30',
+    textColor: 'text-sky-600 dark:text-sky-400',
+    isNew: true
   }
 ];
 

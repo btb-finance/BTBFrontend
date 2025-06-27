@@ -67,7 +67,8 @@ export default function Navbar() {
       children: [
         { name: 'Dashboard', href: '/dashboard' },
         { name: 'Bulk Sender', href: '/bulksender' },
-        { name: 'Token Creator', href: '/token-creator' }
+        { name: 'Token Creator', href: '/token-creator' },
+        { name: 'Aero Booster', href: '/aero-booster' }
       ]
     },
     {
