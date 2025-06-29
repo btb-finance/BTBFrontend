@@ -22,6 +22,7 @@ export default function LoopForm({ ethBalance, btbBalance, onSuccess }: LoopForm
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [estimate, setEstimate] = useState<{tokens: string, totalRequired: string}>({ tokens: '0', totalRequired: '0' });
   const [maxLoop, setMaxLoop] = useState<{maxETH: string, userBorrow: string, totalRequired: string}>({ maxETH: '0', userBorrow: '0', totalRequired: '0' });
+  const [canLoop, setCanLoop] = useState<{canLoop: boolean, reason: string}>({ canLoop: true, reason: '' });
 
   // Get loop estimation when amount or days change
   useEffect(() => {
@@ -39,20 +40,24 @@ export default function LoopForm({ ethBalance, btbBalance, onSuccess }: LoopForm
     getEstimate();
   }, [ethAmount, days]);
 
-  // Get max loop amount when days change
+  // Get max loop amount and check eligibility when days change
   useEffect(() => {
-    const getMaxLoop = async () => {
+    const getMaxLoopAndEligibility = async () => {
       if (days && isConnected) {
         try {
-          const max = await btbFinanceService.getMaxLoop(parseInt(days));
+          const [max, eligibility] = await Promise.all([
+            btbFinanceService.getMaxLoop(parseInt(days)),
+            btbFinanceService.canUserLoop()
+          ]);
           setMaxLoop(max);
+          setCanLoop(eligibility);
         } catch (error) {
-          console.error('Error getting max loop:', error);
+          console.error('Error getting max loop or eligibility:', error);
         }
       }
     };
 
-    getMaxLoop();
+    getMaxLoopAndEligibility();
   }, [days, isConnected]);
 
   const handleMaxClick = () => {
@@ -83,9 +88,17 @@ export default function LoopForm({ ethBalance, btbBalance, onSuccess }: LoopForm
   };
 
   const canAffordLoop = parseFloat(ethBalance) >= parseFloat(estimate.totalRequired);
+  const isEligibleToLoop = canLoop.canLoop;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {!isEligibleToLoop && (
+        <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+            {canLoop.reason || 'You are not eligible to create loop positions at this time.'}
+          </p>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="ethAmount">ETH Amount to Loop</Label>
         <div className="flex gap-2">
@@ -151,7 +164,7 @@ export default function LoopForm({ ethBalance, btbBalance, onSuccess }: LoopForm
       <Button 
         type="submit" 
         className="w-full" 
-        disabled={!isConnected || !ethAmount || parseFloat(ethAmount) <= 0 || isLoading || !canAffordLoop}
+        disabled={!isConnected || !ethAmount || parseFloat(ethAmount) <= 0 || isLoading || !canAffordLoop || !isEligibleToLoop}
       >
         {isLoading ? 'Creating Loop Position...' : 'Create Loop Position'}
       </Button>

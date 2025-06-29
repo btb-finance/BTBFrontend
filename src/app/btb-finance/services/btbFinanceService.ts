@@ -266,12 +266,12 @@ class BTBFinanceService {
     
     try {
       const parsedAmount = ethers.utils.parseEther(ethAmount);
-      // Get the total required amount including fees
-      const { totalRequired } = await this.contract!.getLoopOutput(parsedAmount, numberOfDays);
+      // Get the total required amount directly from contract (returns BigNumber)
+      const [, totalRequiredBN] = await this.contract!.getLoopOutput(parsedAmount, numberOfDays);
       
       // Execute loop transaction with required payment
       const tx = await this.contract!.createLoopPosition(parsedAmount, numberOfDays, {
-        value: totalRequired
+        value: totalRequiredBN
       });
       return tx;
     } catch (error) {
@@ -440,6 +440,19 @@ class BTBFinanceService {
     } catch (error) {
       console.error('Error getting max loop:', error);
       return { maxETH: '0', userBorrow: '0', totalRequired: '0' };
+    }
+  }
+
+  // Check if user can create loop position
+  public async canUserLoop(): Promise<{canLoop: boolean, reason: string}> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const [canLoop, reason] = await this.contract!.canUserLoop(address);
+      return { canLoop, reason };
+    } catch (error) {
+      console.error('Error checking if user can loop:', error);
+      return { canLoop: false, reason: 'Error checking loop eligibility' };
     }
   }
 
