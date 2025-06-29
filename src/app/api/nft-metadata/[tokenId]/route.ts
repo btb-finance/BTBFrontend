@@ -3,6 +3,7 @@ import { fetchMetadataWithFallback, transformMetadata } from '../utils';
 
 // Add revalidation period - 7 days (in seconds)
 export const revalidate = 604800; // 7 days
+export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
 type Params = { params: { tokenId: string } };
 

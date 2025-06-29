@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ArrowRightIcon, ExclamationCircleIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 import nftswapabi from '../nftswapabi.json';
-import { erc20ABI } from 'wagmi';
+import { erc20Abi } from 'viem';
 
 interface SwapBTBForNFTProps {
   btbTokenAddress: string;
@@ -66,7 +66,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
         // Create BTB token contract instance
         const btbContract = new ethers.Contract(
           btbTokenAddress,
-          erc20ABI,
+          erc20Abi,
           signer
         );
 
@@ -124,7 +124,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
       // Create BTB token contract instance
       const btbContract = new ethers.Contract(
         btbTokenAddress,
-        erc20ABI,
+        erc20Abi,
         signer
       );
 
@@ -168,7 +168,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
       // Create contract instances
       const btbContract = new ethers.Contract(
         btbTokenAddress,
-        erc20ABI,
+        erc20Abi,
         signer
       );
       
@@ -213,7 +213,7 @@ export default function SwapBTBForNFT({ btbTokenAddress, nftSwapAddress, swapRat
           // Create BTB token contract instance
           const btbContract = new ethers.Contract(
             btbTokenAddress,
-            erc20ABI,
+            erc20Abi,
             signer
           );
 

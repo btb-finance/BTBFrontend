@@ -21,6 +21,7 @@ import Logo from '../common/Logo';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../ui/dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../../context/WalletContext';
+import { ConnectKitButton } from 'connectkit';
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -269,26 +270,26 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center space-x-1">
-          {/* Desktop Connect Wallet Button */}
-          <motion.button
-            onClick={() => {
-              try {
-                isConnected ? disconnectWallet() : connectWallet();
-              } catch (err) {
-                console.error("Desktop connection error:", err);
-              }
-            }}
-            type="button"
-            className="hidden md:inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm mr-2"
-            whileTap={{ scale: 0.95 }}
-          >
-            <WalletIcon className="mr-1.5 h-3.5 w-3.5" />
-            <span className="font-semibold">
-              {isConnecting ? 'Connecting...' : isConnected ? 
-                `${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
-                'Connect Wallet'}
-            </span>
-          </motion.button>
+          {/* Desktop Connect Wallet Button - Using ConnectKit */}
+          <div className="hidden md:block">
+            <ConnectKitButton.Custom>
+              {({ isConnected, isConnecting, show, address }) => (
+                <motion.button
+                  onClick={show}
+                  type="button"
+                  className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm mr-2"
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <WalletIcon className="mr-1.5 h-3.5 w-3.5" />
+                  <span className="font-semibold">
+                    {isConnecting ? 'Connecting...' : isConnected ? 
+                      `${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
+                      'Connect Wallet'}
+                  </span>
+                </motion.button>
+              )}
+            </ConnectKitButton.Custom>
+          </div>
           
           {/* View Transactions Button - Only when connected */}
           {isConnected && (
@@ -307,26 +308,26 @@ export default function Navbar() {
             </motion.a>
           )}
 
-          {/* Mobile Wallet Connect Button - Always visible */}
-          <motion.button
-            onClick={() => {
-              try {
-                isConnected ? disconnectWallet() : connectWallet();
-              } catch (err) {
-                console.error("Mobile connection error:", err);
-              }
-            }}
-            type="button"
-            className="md:hidden inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm"
-            whileTap={{ scale: 0.95 }}
-          >
-            <WalletIcon className="mr-1 h-3.5 w-3.5" />
-            <span className="text-xs font-semibold">
-              {isConnecting ? 'Connecting...' : isConnected ? 
-                `${address?.substring(0, 3)}...${address?.substring(address.length - 2)}` : 
-                'Connect'}
-            </span>
-          </motion.button>
+          {/* Mobile Wallet Connect Button - Using ConnectKit */}
+          <div className="md:hidden">
+            <ConnectKitButton.Custom>
+              {({ isConnected, isConnecting, show, address }) => (
+                <motion.button
+                  onClick={show}
+                  type="button"
+                  className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-md bg-white text-btb-primary hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all duration-300 shadow-sm"
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <WalletIcon className="mr-1 h-3.5 w-3.5" />
+                  <span className="text-xs font-semibold">
+                    {isConnecting ? 'Connecting...' : isConnected ? 
+                      `${address?.substring(0, 3)}...${address?.substring(address.length - 2)}` : 
+                      'Connect'}
+                  </span>
+                </motion.button>
+              )}
+            </ConnectKitButton.Custom>
+          </div>
           
           {/* Mobile menu button */}
           <motion.button
@@ -364,21 +365,19 @@ export default function Navbar() {
                   transition={{ delay: 0.1 }}
                   className="py-2 border-b border-gray-200 dark:border-gray-700 mb-2"
                 >
-                  <button
-                    onClick={() => {
-                      try {
-                        isConnected ? disconnectWallet() : connectWallet();
-                      } catch (err) {
-                        console.error("Mobile connection error:", err);
-                      }
-                    }}
-                    className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${isConnected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-btb-primary hover:bg-btb-primary-dark text-white'} transition-all duration-300 shadow-sm`}
-                  >
-                    <WalletIcon className="mr-2 h-4 w-4" />
-                    {isConnecting ? 'Connecting...' : isConnected ? 
-                      `Connected: ${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
-                      'Connect Wallet'}
-                  </button>
+                  <ConnectKitButton.Custom>
+                    {({ isConnected, isConnecting, show, address }) => (
+                      <button
+                        onClick={show}
+                        className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${isConnected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-btb-primary hover:bg-btb-primary-dark text-white'} transition-all duration-300 shadow-sm`}
+                      >
+                        <WalletIcon className="mr-2 h-4 w-4" />
+                        {isConnecting ? 'Connecting...' : isConnected ? 
+                          `Connected: ${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
+                          'Connect Wallet'}
+                      </button>
+                    )}
+                  </ConnectKitButton.Custom>
                   
                   {isConnected && (
                     <a

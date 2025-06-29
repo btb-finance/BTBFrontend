@@ -1,9 +1,16 @@
 'use client';
 
 import { ThemeProvider } from 'next-themes';
-import { WalletProvider } from './context/WalletContext';
+import { Web3Provider } from './components/providers/Web3Provider';
+import { WalletProvider } from './context/ModernWalletContext';
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ 
+  children, 
+  cookie 
+}: { 
+  children: React.ReactNode;
+  cookie?: string | null;
+}) {
   return (
     <ThemeProvider 
       attribute="class"
@@ -12,9 +19,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       storageKey="btb-theme"
       disableTransitionOnChange
     >
-      <WalletProvider>
-        {children}
-      </WalletProvider>
+      <Web3Provider cookie={cookie || undefined}>
+        <WalletProvider>
+          {children}
+        </WalletProvider>
+      </Web3Provider>
     </ThemeProvider>
   );
 }

@@ -9,6 +9,7 @@ import BackgroundWrapper from './components/layout/BackgroundWrapper';
 import QuickAccess from './components/layout/QuickAccess';
 import NetworkChangeAlert from './components/layout/NetworkChangeAlert';
 import { FaXTwitter, FaTelegram, FaGithub, FaDiscord } from 'react-icons/fa6';
+import { headers } from 'next/headers';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -21,15 +22,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const cookie = headersList.get('cookie');
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
-        <Providers>
+        <Providers cookie={cookie}>
           <ThemeScript />
           <BackgroundWrapper>
             <div className="min-h-screen">

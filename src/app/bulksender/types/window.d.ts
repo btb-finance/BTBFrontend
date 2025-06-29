@@ -6,6 +6,7 @@ declare global {
       on: (event: string, callback: (...args: any[]) => void) => void;
       removeListener: (event: string, callback: (...args: any[]) => void) => void;
       isPhantom?: boolean;
+      isRabby?: boolean;
       isTronLink?: boolean;
       isTrust?: boolean;
       isCoinbaseWallet?: boolean;
