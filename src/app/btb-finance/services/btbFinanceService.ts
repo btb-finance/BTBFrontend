@@ -260,16 +260,40 @@ class BTBFinanceService {
     }
   }
 
+  // Create loop position (advanced ETH multiplier)
+  public async createLoopPosition(ethAmount: string, numberOfDays: number): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    
+    try {
+      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      // Get the total required amount including fees
+      const { totalRequired } = await this.contract!.getLoopOutput(parsedAmount, numberOfDays);
+      
+      // Execute loop transaction with required payment
+      const tx = await this.contract!.createLoopPosition(parsedAmount, numberOfDays, {
+        value: totalRequired
+      });
+      return tx;
+    } catch (error) {
+      console.error('Error creating loop position:', error);
+      throw error;
+    }
+  }
+
   // Create leveraged position
   public async createLeveragePosition(ethAmount: string, numberOfDays: number): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
       const parsedAmount = ethers.utils.parseEther(ethAmount);
+      // Get leverage cost
+      const leverageCost = await this.contract!.calculateLeverageCost(parsedAmount, numberOfDays);
+      const overcollateralAmount = parsedAmount.div(100); // 1% overcollateral
+      const totalRequired = leverageCost.add(overcollateralAmount);
       
       // Execute leverage transaction
       const tx = await this.contract!.createLeveragePosition(parsedAmount, numberOfDays, {
-        value: parsedAmount
+        value: totalRequired
       });
       return tx;
     } catch (error) {
@@ -294,32 +318,58 @@ class BTBFinanceService {
     }
   }
 
-  // Repay loan
-  public async repayLoan(amount?: string): Promise<ethers.ContractTransaction> {
+  // Make partial payment on loan
+  public async makePayment(amount: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
-      let tx;
-      if (amount) {
-        const parsedAmount = ethers.utils.parseEther(amount);
-        tx = await this.contract!.makePayment({ value: parsedAmount });
-      } else {
-        tx = await this.contract!.closePosition({ value: ethers.utils.parseEther('0') });
-      }
+      const parsedAmount = ethers.utils.parseEther(amount);
+      const tx = await this.contract!.makePayment({ value: parsedAmount });
       return tx;
     } catch (error) {
-      console.error('Error repaying loan:', error);
+      console.error('Error making payment:', error);
+      throw error;
+    }
+  }
+
+  // Close position by repaying full loan amount
+  public async closePosition(repayAmount: string): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    
+    try {
+      const parsedAmount = ethers.utils.parseEther(repayAmount);
+      const tx = await this.contract!.closePosition({ value: parsedAmount });
+      return tx;
+    } catch (error) {
+      console.error('Error closing position:', error);
+      throw error;
+    }
+  }
+
+  // Instantly close position by selling collateral
+  public async instantClosePosition(): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    
+    try {
+      const tx = await this.contract!.instantClosePosition();
+      return tx;
+    } catch (error) {
+      console.error('Error instant closing position:', error);
       throw error;
     }
   }
 
   // Extend loan duration
-  public async extendLoan(additionalDays: number): Promise<ethers.ContractTransaction> {
+  public async extendLoanDuration(additionalDays: number): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
+      // Get user loan info to calculate extension fee
+      const address = await this.signer!.getAddress();
+      const [, borrowedAmount] = await this.contract!.getUserLoanInfo(address);
+      
       // Calculate extension fee
-      const extensionFee = await this.contract!.extendLoanDuration(additionalDays);
+      const extensionFee = await this.contract!.getInterestCost(borrowedAmount, additionalDays);
       
       // Execute extend loan transaction
       const tx = await this.contract!.extendLoanDuration(additionalDays, { value: extensionFee });
@@ -330,20 +380,66 @@ class BTBFinanceService {
     }
   }
 
-  // Flash loan
-  public async flashLoan(amount: string): Promise<ethers.ContractTransaction> {
+  // Expand existing loan with more ETH
+  public async expandLoan(ethAmount: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(amount);
-      
-      // Execute flash loan transaction (implementation depends on your contract)
-      // This is a placeholder - you'll need to implement based on your contract's flash loan function
-      const tx = await this.contract!.flashLoan(parsedAmount);
+      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const tx = await this.contract!.expandLoan(parsedAmount);
       return tx;
     } catch (error) {
-      console.error('Error executing flash loan:', error);
+      console.error('Error expanding loan:', error);
       throw error;
+    }
+  }
+
+  // Get loop output estimation
+  public async getLoopOutput(ethAmount: string, numberOfDays: number): Promise<{tokens: string, totalRequired: string}> {
+    try {
+      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const [tokens, totalRequired] = await this.contract!.getLoopOutput(parsedAmount, numberOfDays);
+      return {
+        tokens: ethers.utils.formatUnits(tokens, 18),
+        totalRequired: ethers.utils.formatEther(totalRequired)
+      };
+    } catch (error) {
+      console.error('Error getting loop output:', error);
+      return { tokens: '0', totalRequired: '0' };
+    }
+  }
+
+  // Get max borrow amount for user
+  public async getMaxBorrow(numberOfDays: number): Promise<{userETH: string, userBorrow: string, interestFee: string}> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const [userETH, userBorrow, interestFee] = await this.contract!.getMaxBorrow(address, numberOfDays);
+      return {
+        userETH: ethers.utils.formatEther(userETH),
+        userBorrow: ethers.utils.formatEther(userBorrow),
+        interestFee: ethers.utils.formatEther(interestFee)
+      };
+    } catch (error) {
+      console.error('Error getting max borrow:', error);
+      return { userETH: '0', userBorrow: '0', interestFee: '0' };
+    }
+  }
+
+  // Get max loop amount for user  
+  public async getMaxLoop(numberOfDays: number): Promise<{maxETH: string, userBorrow: string, totalRequired: string}> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const [maxETH, userBorrow, totalRequired] = await this.contract!.getMaxLoop(address, numberOfDays);
+      return {
+        maxETH: ethers.utils.formatEther(maxETH),
+        userBorrow: ethers.utils.formatEther(userBorrow),
+        totalRequired: ethers.utils.formatEther(totalRequired)
+      };
+    } catch (error) {
+      console.error('Error getting max loop:', error);
+      return { maxETH: '0', userBorrow: '0', totalRequired: '0' };
     }
   }
 

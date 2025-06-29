@@ -25,7 +25,10 @@ import {
 } from '@heroicons/react/24/outline';
 import {
   BuyForm,
-  SellForm
+  SellForm,
+  LoopForm,
+  BorrowForm,
+  LoanManager
 } from './components/trade';
 
 export default function BTBFinanceTradePanel() {
@@ -218,7 +221,7 @@ export default function BTBFinanceTradePanel() {
             <Card>
               <CardContent className="p-6">
                 <Tabs defaultValue="buy" className="w-full">
-                  <TabsList className="grid grid-cols-2 mb-6">
+                  <TabsList className="grid grid-cols-5 mb-6">
                     <TabsTrigger value="buy" className="flex items-center gap-1">
                       <BanknotesIcon className="h-4 w-4" />
                       <span>Buy BTB</span>
@@ -226,6 +229,18 @@ export default function BTBFinanceTradePanel() {
                     <TabsTrigger value="sell" className="flex items-center gap-1">
                       <ArrowsRightLeftIcon className="h-4 w-4" />
                       <span>Sell BTB</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="loop" className="flex items-center gap-1">
+                      <ArrowsRightLeftIcon className="h-4 w-4" />
+                      <span>Loop</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="borrow" className="flex items-center gap-1">
+                      <BanknotesIcon className="h-4 w-4" />
+                      <span>Borrow</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="manage" className="flex items-center gap-1">
+                      <BanknotesIcon className="h-4 w-4" />
+                      <span>Manage</span>
                     </TabsTrigger>
                   </TabsList>
                   
@@ -241,6 +256,27 @@ export default function BTBFinanceTradePanel() {
                     <SellForm 
                       btbPrice={btbPrice}
                       btbBalance={btbBalance}
+                      onSuccess={handleRefresh}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="loop">
+                    <LoopForm 
+                      ethBalance={ethBalance}
+                      btbBalance={btbBalance}
+                      onSuccess={handleRefresh}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="borrow">
+                    <BorrowForm 
+                      btbBalance={btbBalance}
+                      onSuccess={handleRefresh}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="manage">
+                    <LoanManager 
                       onSuccess={handleRefresh}
                     />
                   </TabsContent>
