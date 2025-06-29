@@ -57,13 +57,7 @@ export function Web3Provider({
           options={{
             initialChainId: 8453, // Base mainnet
             enforceSupportedChains: true,
-            disclaimer: "Welcome to BTB Finance - The most capital efficient token in DeFi",
-            hideQuickConnect: false,
-            hideNoWalletCTA: false,
-            walletConnectCTA: "link",
-            reducedMotion: false,
-            hideRecentBadge: false,
-            theme: "auto"
+            disclaimer: "Welcome to BTB Finance - The most capital efficient token in DeFi"
           }}
         >
           {children}
