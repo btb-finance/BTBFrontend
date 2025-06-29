@@ -1,7 +1,35 @@
 'use client';
 
 import { useState } from 'react';
-import { CHAIN_CONFIG } from '../services/simpleBridgeService';
+
+// Chain configuration for network switching
+const CHAIN_CONFIG = {
+  BASE: {
+    chainId: 8453,
+    name: 'Base Mainnet',
+    symbol: 'ETH',
+  },
+  BASE_SEPOLIA: {
+    chainId: 84532,
+    name: 'Base Sepolia',
+    symbol: 'ETH',
+  },
+  ARBITRUM: {
+    chainId: 42161,
+    name: 'Arbitrum',
+    symbol: 'ETH',
+  },
+  OPTIMISM: {
+    chainId: 10,
+    name: 'Optimism',
+    symbol: 'ETH',
+  },
+  AVALANCHE: {
+    chainId: 43114,
+    name: 'Avalanche',
+    symbol: 'AVAX',
+  },
+};
 
 // Network switching hook
 export default function useNetworkSwitcher() {

@@ -28,11 +28,11 @@ const quickNavLinks = [
     textColor: 'text-blue-600 dark:text-blue-400'
   },
   {
-    name: 'BTB Bridge',
-    description: 'Bridge your BTB tokens across multiple blockchains',
-    href: '/btb-bridge',
+    name: 'BTB Finance',
+    description: 'Trade, loop, and borrow with BTB tokens - Full DeFi platform',
+    href: '/btb-finance',
     icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🌉</span>
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>💰</span>
     ),
     color: 'bg-purple-100 dark:bg-purple-900/30',
     textColor: 'text-purple-600 dark:text-purple-400'

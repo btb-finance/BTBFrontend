@@ -75,9 +75,7 @@ export default function Navbar() {
       name: 'Token',
       icon: CurrencyDollarIcon,
       children: [
-        { name: 'Token Info', href: '/token' },
-        { name: 'Buy Token', href: '/buy-token' },
-        { name: 'BTB Bridge', href: '/btb-bridge' },
+        { name: 'BTB Finance', href: '/btb-finance' },
         { name: 'NFT Swap', href: '/nftswap' }
       ]
     }
