@@ -28,12 +28,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/ta
 import BTBTokenABI from './btbtokenabi.json';
 import BTBDefiProtocolABI from './BTBDefiProtocol.json';
 
-// Contract Addresses on Base Sepolia
+// Contract Addresses on Base Mainnet
 const CONTRACTS = {
-  BTB_TOKEN: '0x69Bb578a95dDe9Ba29E4b7fB26BEEEd4c68Bbd87',
-  BURN_ADDRESS: '0x10B84F2dB96B8E0c1f2a28dDDD1d2c5c431A8FA1',
-  DEFI_PROTOCOL: '0x17eEd958Ee2B63b7a5CF90E3ae8997127f7feF8A',
-  BASE_SEPOLIA_CHAIN_ID: 84532
+  BTB_TOKEN: '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488',
+  BURN_ADDRESS: '0x222bd26759A34fBf2fBC732fFA113b93D2fB678E',
+  DEFI_PROTOCOL: '0x5EE1360f47D2ecd266aD8d69cF7D04AEFdBfe9d5',
+  BASE_MAINNET_CHAIN_ID: 8453
 };
 
 // ERC20 ABI for basic token interactions
@@ -151,22 +151,22 @@ export default function BTBPage() {
       const provider = new providers.Web3Provider(ethereum);
       const network = await provider.getNetwork();
       
-      if (Number(network.chainId) !== CONTRACTS.BASE_SEPOLIA_CHAIN_ID) {
+      if (Number(network.chainId) !== CONTRACTS.BASE_MAINNET_CHAIN_ID) {
         try {
           await ethereum.request({
             method: 'wallet_switchEthereumChain',
-            params: [{ chainId: `0x${CONTRACTS.BASE_SEPOLIA_CHAIN_ID.toString(16)}` }],
+            params: [{ chainId: `0x${CONTRACTS.BASE_MAINNET_CHAIN_ID.toString(16)}` }],
           });
         } catch (switchError: any) {
           if (switchError.code === 4902) {
             await ethereum.request({
               method: 'wallet_addEthereumChain',
               params: [{
-                chainId: `0x${CONTRACTS.BASE_SEPOLIA_CHAIN_ID.toString(16)}`,
-                chainName: 'Base Sepolia',
+                chainId: `0x${CONTRACTS.BASE_MAINNET_CHAIN_ID.toString(16)}`,
+                chainName: 'Base Mainnet',
                 nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-                rpcUrls: ['https://sepolia.base.org'],
-                blockExplorerUrls: ['https://sepolia.basescan.org']
+                rpcUrls: ['https://mainnet.base.org'],
+                blockExplorerUrls: ['https://basescan.org']
               }]
             });
           }
@@ -195,7 +195,7 @@ export default function BTBPage() {
       }
       
       const network = await provider.getNetwork();
-      if (Number(network.chainId) !== CONTRACTS.BASE_SEPOLIA_CHAIN_ID) {
+      if (Number(network.chainId) !== CONTRACTS.BASE_MAINNET_CHAIN_ID) {
         console.log('Wrong network');
         return;
       }
@@ -882,7 +882,7 @@ export default function BTBPage() {
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <span className="font-semibold">Base Sepolia Testnet - All features available for testing</span>
+                <span className="font-semibold">LIVE ON BASE MAINNET</span>
               </div>
             </motion.div>
           </motion.div>
