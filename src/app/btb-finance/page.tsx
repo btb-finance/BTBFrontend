@@ -145,7 +145,7 @@ export default function BTBFinanceTradePanel() {
                         BTB Price
                       </p>
                       <div className="flex items-center">
-                        <p className="text-xs sm:text-sm md:text-base font-bold">${parseFloat(btbPrice).toFixed(6)}</p>
+                        <p className="text-xs sm:text-sm md:text-base font-bold">{parseFloat(btbPrice).toFixed(12)} ETH</p>
                       </div>
                     </div>
                   </div>
@@ -264,7 +264,7 @@ export default function BTBFinanceTradePanel() {
                           BTB Price
                         </td>
                         <td className="px-4 py-3 font-medium">
-                          {parseFloat(btbPrice).toFixed(6)} ETH
+                          {parseFloat(btbPrice).toFixed(12)} ETH
                         </td>
                       </tr>
                       <tr>
@@ -288,7 +288,7 @@ export default function BTBFinanceTradePanel() {
                           Total Collateral
                         </td>
                         <td className="px-4 py-3 font-medium">
-                          {parseFloat(totalCollateral).toFixed(4)} ETH
+                          {parseFloat(totalCollateral).toFixed(4)} BTB
                         </td>
                       </tr>
                     </tbody>

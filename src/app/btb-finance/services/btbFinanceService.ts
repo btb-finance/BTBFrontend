@@ -170,13 +170,11 @@ class BTBFinanceService {
     }
   }
 
-  // Get total collateral amount (converted to ETH value)
+  // Get total collateral amount (in BTB tokens)
   public async getTotalCollateral(): Promise<string> {
     try {
-      const totalCollateralTokens = await this.contract!.getTotalCollateralAmount();
-      // Convert BTB tokens to ETH value
-      const totalCollateralETH = await this.contract!.calculateTokensToETH(totalCollateralTokens);
-      return ethers.utils.formatEther(totalCollateralETH);
+      const totalCollateral = await this.contract!.getTotalCollateralAmount();
+      return ethers.utils.formatUnits(totalCollateral, 18);
     } catch (error) {
       console.error('Error getting total collateral:', error);
       return '0';
