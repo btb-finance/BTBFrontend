@@ -204,7 +204,7 @@ class BTBFinanceService {
       
       return {
         collateral: ethers.utils.formatUnits(loan[0], 18),
-        borrowed: ethers.utils.formatUnits(loan[1], 6),
+        borrowed: ethers.utils.formatEther(loan[1]),
         expirationDate: loan[2].toNumber()
       };
     } catch (error) {
