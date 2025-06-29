@@ -1,14 +1,5 @@
 import { lazy } from 'react';
 
-// Dashboard components
-export const PortfolioOverview = lazy(() => import('../dashboard/PortfolioOverview'));
-export const MarketOverview = lazy(() => import('../dashboard/MarketOverview'));
-export const TokensList = lazy(() => import('../dashboard/TokensList'));
-export const PositionsList = lazy(() => import('../dashboard/PositionsList'));
-export const LoansList = lazy(() => import('../dashboard/LoansList'));
-export const AlertsPanel = lazy(() => import('../dashboard/AlertsPanel'));
-export const TokenSwap = lazy(() => import('../dashboard/TokenSwap'));
-
 // Trading interfaces
 export const LeverageInterface = lazy(() => import('../../larryecosystem/components/LeverageInterface'));
 
