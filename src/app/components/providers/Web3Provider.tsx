@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { WagmiProvider, cookieToInitialState } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConnectKitProvider } from 'connectkit';
@@ -15,6 +15,31 @@ export function Web3Provider({
 }) {
   const [queryClient] = useState(() => new QueryClient());
   const initialState = cookieToInitialState(config, cookie);
+
+  useEffect(() => {
+    // Listen for network changes and refresh page when switching to Base
+    const handleChainChanged = (chainId: string) => {
+      const baseChainId = '0x2105'; // Base mainnet (8453)
+      const baseSepoliaChainId = '0x14a34'; // Base Sepolia (84532)
+      
+      if (chainId === baseChainId || chainId === baseSepoliaChainId) {
+        // Small delay to ensure the network switch is complete
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.ethereum) {
+      window.ethereum.on('chainChanged', handleChainChanged);
+      
+      return () => {
+        if (window.ethereum?.removeListener) {
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        }
+      };
+    }
+  }, []);
 
   return (
     <WagmiProvider config={config} initialState={initialState}>
@@ -32,7 +57,13 @@ export function Web3Provider({
           options={{
             initialChainId: 8453, // Base mainnet
             enforceSupportedChains: true,
-            disclaimer: "Welcome to BTB Finance - The most capital efficient token in DeFi"
+            disclaimer: "Welcome to BTB Finance - The most capital efficient token in DeFi",
+            hideQuickConnect: false,
+            hideNoWalletCTA: false,
+            walletConnectCTA: "link",
+            reducedMotion: false,
+            hideRecentBadge: false,
+            theme: "auto"
           }}
         >
           {children}
