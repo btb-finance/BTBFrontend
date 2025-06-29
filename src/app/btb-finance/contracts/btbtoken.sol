@@ -17,7 +17,7 @@ pragma solidity ^0.8.27;
 ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝╚══════╝
 */
 
-import {ERC1363} from "erc1363-payable-token/contracts/token/ERC1363/ERC1363.sol";
+import {ERC1363} from "@openzeppelin/contracts/token/ERC20/extensions/ERC1363.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 

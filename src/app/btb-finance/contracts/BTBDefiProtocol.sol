@@ -159,8 +159,8 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
     uint256 private constant PRICE_ROUNDING_TOLERANCE = 1000;
     uint256 private immutable DEPLOYMENT_TIMESTAMP;
     uint256 private immutable DEPLOYMENT_BLOCK_NUMBER;
-    uint16 public tradingFeePercentage = 9_950;
-    uint16 public purchaseFeePercentage = 9_950;
+    uint16 public tradingFeePercentage = 9_990;  // 0.1% total fee (99.9% to user)
+    uint16 public purchaseFeePercentage = 9_990;  // 0.1% total fee (99.9% to user)
     uint16 public leverageFeePercentage = 100;
     uint16 public loopFeePercentage = 142;
     mapping(address => bool) public arbitrageWhitelist;
@@ -171,6 +171,12 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
     uint256 public totalCollateralAmount;
     uint256 public lastLiquidationTimestamp;
     uint256 public activationFee = 0.001 ether;
+
+    // Timelock for emergency fund withdrawal
+    uint256 public constant TIMELOCK_DURATION = 7 days;
+    uint256 public withdrawalUnlockTime;
+    bool public withdrawalInitiated;
+    address public pendingWithdrawReceiver;
 
     struct LoanPosition {
         uint128 collateralAmount;
@@ -207,6 +213,10 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
     event ArbitragePurchase(address indexed user, uint256 ethAmount, uint256 tokensReceived);
     event ArbitrageSale(address indexed user, uint256 tokensAmount, uint256 ethReceived);
     event BatchLiquidation(uint256 usersLiquidated, uint256 totalCollateralLiquidated, address[] liquidatedUsers);
+    event FeeSplit(address indexed user, uint256 totalFee, uint256 feeToReceiver, uint256 feeToContract, string txType);
+    event WithdrawalInitiated(address indexed receiver, uint256 unlockTime);
+    event WithdrawalCancelled();
+    event EmergencyWithdrawal(address indexed receiver, uint256 ethAmount, uint256 tokenAmount);
 
     mapping(address => uint256) private lastTransactionBlock;
     uint256 private constant FLASH_LOAN_PROTECTION_BLOCKS = 1;
@@ -217,7 +227,6 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         _;
     }
 
-    uint256 private constant MAX_LIQUIDATION_BATCHES = 50;
     uint256 private constant MAX_BATCH_LIQUIDATIONS = 100;
 
     constructor(address _btbToken) Ownable(msg.sender) {
@@ -239,7 +248,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         if (PROTOCOL_FEE_RECEIVER == address(0)) revert FeeReceiverNotSet();
         if (msg.value != activationFee) revert IncorrectETHAmount();
 
-        uint256 initialTokens = 2_500 * 10 ** 18;
+        uint256 initialTokens = 1_000 * 10 ** 18;
         if (VIRTUAL_BURN_ADDRESS.getTokenBalance() < initialTokens) revert InsufficientTokenReserves();
         VIRTUAL_BURN_ADDRESS.withdrawTokens(address(this), initialTokens);
         currentPrice = (getProtocolBacking() * 1 ether) / getEffectiveSupply();
@@ -256,13 +265,13 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
     }
 
     function updateTradingFee(uint16 _feePercentage) external onlyOwner {
-        if (_feePercentage < 9_500 || _feePercentage > 9_995) revert FeeRangeInvalid();
+        if (_feePercentage < 9_900 || _feePercentage > 9_999) revert FeeRangeInvalid();
         tradingFeePercentage = _feePercentage;
         emit TradingFeeUpdated(_feePercentage);
     }
 
     function updatePurchaseFee(uint16 _feePercentage) external onlyOwner {
-        if (_feePercentage < 9_500 || _feePercentage > 9_995) revert FeeRangeInvalid();
+        if (_feePercentage < 9_900 || _feePercentage > 9_999) revert FeeRangeInvalid();
         purchaseFeePercentage = _feePercentage;
         emit PurchaseFeeUpdated(_feePercentage);
     }
@@ -302,11 +311,19 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         uint256 userTokens = (tokensToSend * getPurchaseFeeRate()) / PRECISION;
         if (VIRTUAL_BURN_ADDRESS.getTokenBalance() < userTokens) revert InsufficientTokenReserves();
         VIRTUAL_BURN_ADDRESS.withdrawTokens(_recipient, userTokens);
-        uint256 protocolFee = msg.value * (PRECISION - purchaseFeePercentage) / PRECISION;
+        
+        // Split the 0.1% fee: 0.05% to fee receiver, 0.05% remains in contract
+        // Use precise calculation: 0.05% = 5 basis points out of 10000
+        uint256 totalFee = Math.mulDiv(msg.value, (PRECISION - purchaseFeePercentage), PRECISION);
+        // For fee split, add 1 to numerator to round up the fee to receiver
+        uint256 feeToReceiver = (totalFee + 1) / 2;
+        uint256 feeToContract = totalFee - feeToReceiver;  // Remaining 0.05%
+        
         if (msg.value < MINIMUM_AMOUNT) revert TradeAmountTooSmall();
-        transferETH(PROTOCOL_FEE_RECEIVER, protocolFee);
+        transferETH(PROTOCOL_FEE_RECEIVER, feeToReceiver);
         performSafetyCheck(msg.value);
         emit TokensPurchased(_recipient, msg.value, userTokens);
+        emit FeeSplit(_recipient, totalFee, feeToReceiver, feeToContract, "PURCHASE");
     }
 
     function sellTokens(uint256 _tokenAmount) external nonReentrant {
@@ -315,12 +332,20 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         uint256 ethToSend = calculateTokensToETH(_tokenAmount);
         BTB_TOKEN.transferFrom(msg.sender, address(VIRTUAL_BURN_ADDRESS), _tokenAmount);
         uint256 userETH = (ethToSend * tradingFeePercentage) / PRECISION;
-        uint256 protocolFee = ethToSend - userETH;
+        
+        // Split the 0.1% fee: 0.05% to fee receiver, 0.05% remains in contract
+        // Use precise calculation: 0.05% = 5 basis points out of 10000
+        uint256 totalFee = Math.mulDiv(ethToSend, (PRECISION - tradingFeePercentage), PRECISION);
+        // For fee split, add 1 to numerator to round up the fee to receiver
+        uint256 feeToReceiver = (totalFee + 1) / 2;
+        uint256 feeToContract = totalFee - feeToReceiver;  // Remaining 0.05%
+        
         transferETH(msg.sender, userETH);
         if (ethToSend < MINIMUM_AMOUNT) revert TradeAmountTooSmall();
-        transferETH(PROTOCOL_FEE_RECEIVER, protocolFee);
+        transferETH(PROTOCOL_FEE_RECEIVER, feeToReceiver);
         performSafetyCheck(ethToSend);
         emit TokensSold(msg.sender, _tokenAmount, userETH);
+        emit FeeSplit(msg.sender, totalFee, feeToReceiver, feeToContract, "SELL");
     }
 
     function arbitragePurchase(address _recipient) external payable nonReentrant noFlashLoan {
@@ -402,7 +427,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         VIRTUAL_BURN_ADDRESS.withdrawTokens(address(this), userTokens);
 
 
-        uint256 protocolFee = (loopFee + interestFee) * 35 / 100;
+        uint256 protocolFee = ((loopFee + interestFee) * 35 + 99) / 100;
         if (_ethAmount < MINIMUM_AMOUNT) revert TradeAmountTooSmall();
         transferETH(PROTOCOL_FEE_RECEIVER, protocolFee);
 
@@ -482,7 +507,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
 
         unchecked {
             netETH = _ethAmount - totalCost;
-            protocolFee = (totalCost * 3) / 10;
+            protocolFee = (totalCost * 3 + 9) / 10;
             userBorrowAmount = (netETH * 99) / 100;
             overcollateralAmount = netETH / 100;
         }
@@ -535,7 +560,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         processLiquidations();
         uint256 expirationDate = getDayStartTimestamp(block.timestamp + (_days * 1 days));
         uint256 interestCost = getInterestCost(_ethAmount, _days);
-        uint256 protocolFee = (interestCost * 3) / 10;
+        uint256 protocolFee = (interestCost * 3 + 9) / 10;
 
         uint256 requiredCollateral = calculateETHtoTokensViewCeil(_ethAmount);
         uint256 netBorrowAmount = (_ethAmount * 99) / 100;
@@ -568,6 +593,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         LoanPosition memory userPosition = userLoanPositions[msg.sender];
 
         uint256 todayStart = getDayStartTimestamp(block.timestamp);
+        if (userPosition.expirationDate <= todayStart) revert PositionExpired();
         uint256 remainingDays = (userPosition.expirationDate - todayStart) / 1 days;
         uint256 interestCost = getInterestCost(_ethAmount, remainingDays);
 
@@ -580,7 +606,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
             ? requiredCollateral - (collateralValue - borrowedInTokens)
             : 0;
 
-        uint256 protocolFee = (interestCost * 3) / 10;
+        uint256 protocolFee = (interestCost * 3 + 9) / 10;
         uint256 netBorrowAmount = (_ethAmount * 99) / 100;
 
 
@@ -669,7 +695,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         if (afterFeeValue < borrowed) revert InsufficientCollateralValue();
 
         uint256 userReturn = afterFeeValue - borrowed;
-        uint256 protocolFee = (feeAmount * 3) / 10;
+        uint256 protocolFee = (feeAmount * 3 + 9) / 10;
 
         transferETH(msg.sender, userReturn);
         if (borrowed < MINIMUM_AMOUNT) revert TradeAmountTooSmall();
@@ -693,7 +719,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         if (isPositionExpired(msg.sender)) revert PositionExpired();
         if (extensionFee != msg.value) revert IncorrectExtensionFee();
 
-        uint256 protocolFee = (extensionFee * 3) / 10;
+        uint256 protocolFee = (extensionFee * 3 + 9) / 10;
         if (msg.value < MINIMUM_AMOUNT) revert TradeAmountTooSmall();
         transferETH(PROTOCOL_FEE_RECEIVER, protocolFee);
 
@@ -703,6 +729,7 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
         userLoanPositions[msg.sender].expirationDate = uint64(newExpiration);
         userLoanPositions[msg.sender].loanDurationDays = uint32(_additionalDays + currentDuration);
 
+        if (newExpiration <= block.timestamp) revert PositionExpired();
         if ((newExpiration - block.timestamp) / 1 days >= MAX_DAYS + 1) revert TotalDurationExceedsLimit();
 
         performSafetyCheck(msg.value);
@@ -710,31 +737,57 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
     }
 
     function processLiquidations() public {
+        uint256 currentDayStart = getDayStartTimestamp(block.timestamp);
+        
+        // If we're already up to date, nothing to do
+        if (lastLiquidationTimestamp >= currentDayStart) {
+            return;
+        }
+        
         uint256 totalBorrowed;
         uint256 totalCollateral;
-        uint256 liquidationCount = 0;
-        uint256 batchesProcessed = 0;
-        unchecked {
-            while (lastLiquidationTimestamp < block.timestamp && batchesProcessed < MAX_LIQUIDATION_BATCHES) {
-                totalCollateral += dailyCollateralAmounts[lastLiquidationTimestamp];
-                totalBorrowed += dailyBorrowedAmounts[lastLiquidationTimestamp];
-                lastLiquidationTimestamp += 1 days;
-                ++liquidationCount;
-                ++batchesProcessed;
+        uint256 daysProcessed = 0;
+        uint256 maxDaysPerCall = 10; // Process max 10 days per call to control gas
+        
+        uint256 processDate = lastLiquidationTimestamp;
+        
+        // Process up to maxDaysPerCall days, starting from where we left off
+        while (processDate < currentDayStart && daysProcessed < maxDaysPerCall) {
+            processDate += 1 days;
+            
+            uint256 dayCollateral = dailyCollateralAmounts[processDate];
+            uint256 dayBorrowed = dailyBorrowedAmounts[processDate];
+            
+            if (dayCollateral > 0 || dayBorrowed > 0) {
+                totalCollateral += dayCollateral;
+                totalBorrowed += dayBorrowed;
+                
+                // Clear the daily amounts as we process them
+                dailyCollateralAmounts[processDate] = 0;
+                dailyBorrowedAmounts[processDate] = 0;
             }
+            
+            daysProcessed++;
         }
+        
+        // Update timestamp to where we processed up to
+        lastLiquidationTimestamp = processDate;
+        
+        // Process accumulated liquidations
         if (totalCollateral > 0) {
             unchecked {
                 totalCollateralAmount -= totalCollateral;
             }
             BTB_TOKEN.transfer(address(VIRTUAL_BURN_ADDRESS), totalCollateral);
         }
+        
         if (totalBorrowed > 0) {
             unchecked {
                 totalBorrowedAmount -= totalBorrowed;
             }
-            emit LiquidationProcessed(lastLiquidationTimestamp - 1 days, totalBorrowed, liquidationCount);
+            emit LiquidationProcessed(processDate, totalBorrowed, daysProcessed);
         }
+        
         emit ProtocolTotalsUpdated(totalCollateralAmount, totalBorrowedAmount, lastLiquidationTimestamp);
     }
 
@@ -813,6 +866,35 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
 
     function getExpiringLoans(uint256 _date) external view returns (uint256, uint256) {
         return (dailyBorrowedAmounts[getDayStartTimestamp(_date)], dailyCollateralAmounts[getDayStartTimestamp(_date)]);
+    }
+
+    /**
+     * @notice Check liquidation processing status
+     * @return isUpToDate True if liquidations are current
+     * @return daysBehind Number of days behind current
+     * @return callsNeeded Estimated calls needed to catch up (at 10 days per call)
+     * @return nextBatchEnd The date the next processLiquidations() call will process up to
+     */
+    function getLiquidationStatus() external view returns (
+        bool isUpToDate,
+        uint256 daysBehind,
+        uint256 callsNeeded,
+        uint256 nextBatchEnd
+    ) {
+        uint256 currentDayStart = getDayStartTimestamp(block.timestamp);
+        
+        if (lastLiquidationTimestamp >= currentDayStart) {
+            return (true, 0, 0, 0);
+        }
+        
+        daysBehind = (currentDayStart - lastLiquidationTimestamp) / 1 days;
+        callsNeeded = (daysBehind + 9) / 10; // Round up
+        
+        uint256 maxDaysPerCall = 10;
+        uint256 daysToProcess = daysBehind > maxDaysPerCall ? maxDaysPerCall : daysBehind;
+        nextBatchEnd = lastLiquidationTimestamp + (daysToProcess * 1 days);
+        
+        return (false, daysBehind, callsNeeded, nextBatchEnd);
     }
 
     function getUserLoanInfo(address _user) external view returns (uint256, uint256, uint256) {
@@ -901,8 +983,12 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
     }
 
     function estimatePurchaseTokens(uint256 _ethAmount) external view returns (uint256) {
-
-        return Math.mulDiv(_ethAmount * getEffectiveSupply(), purchaseFeePercentage, getProtocolBacking() * PRECISION);
+        // Calculate tokens user will receive with 0.1% total fee (99.9% to user)
+        // Use Math.mulDiv to prevent overflow: (_ethAmount * getEffectiveSupply()) might overflow
+        // Reorganize: (_ethAmount * getEffectiveSupply() * purchaseFeePercentage) / (getProtocolBacking() * PRECISION)
+        // = (_ethAmount * purchaseFeePercentage) * getEffectiveSupply() / (getProtocolBacking() * PRECISION)
+        uint256 numeratorPart1 = Math.mulDiv(_ethAmount, purchaseFeePercentage, PRECISION);
+        return Math.mulDiv(numeratorPart1, getEffectiveSupply(), getProtocolBacking());
     }
 
 
@@ -1012,6 +1098,114 @@ contract BTBDefiProtocol is Ownable2Step, ReentrancyGuard {
 
     function getPriceRoundingTolerance() external pure returns (uint256 tolerance) {
         return PRICE_ROUNDING_TOLERANCE;
+    }
+
+    /**
+     * @notice Get current fee structure
+     * @return tradingFee Current trading fee percentage (basis points)
+     * @return purchaseFee Current purchase fee percentage (basis points)
+     * @return feeToReceiver Percentage of total fee that goes to fee receiver (50%)
+     * @return feeToContract Percentage of total fee that stays in contract (50%)
+     */
+    function getFeeStructure() external view returns (
+        uint16 tradingFee,
+        uint16 purchaseFee,
+        uint16 feeToReceiver,
+        uint16 feeToContract
+    ) {
+        return (tradingFeePercentage, purchaseFeePercentage, 5000, 5000); // 50% each
+    }
+
+    /**
+     * @notice Initiate emergency withdrawal timelock (7 days)
+     * @param _receiver Address to receive the funds after timelock
+     */
+    function initiateEmergencyWithdrawal(address _receiver) external onlyOwner {
+        if (_receiver == address(0)) revert InvalidRecipient();
+        
+        withdrawalInitiated = true;
+        withdrawalUnlockTime = block.timestamp + TIMELOCK_DURATION;
+        pendingWithdrawReceiver = _receiver;
+        
+        emit WithdrawalInitiated(_receiver, withdrawalUnlockTime);
+    }
+
+    /**
+     * @notice Cancel pending emergency withdrawal
+     */
+    function cancelEmergencyWithdrawal() external onlyOwner {
+        withdrawalInitiated = false;
+        withdrawalUnlockTime = 0;
+        pendingWithdrawReceiver = address(0);
+        
+        emit WithdrawalCancelled();
+    }
+
+    /**
+     * @notice Execute emergency withdrawal after timelock period
+     * @dev Withdraws all ETH and ALL BTB tokens from both protocol contract and virtual burn address
+     */
+    function executeEmergencyWithdrawal() external onlyOwner {
+        if (!withdrawalInitiated) revert("No withdrawal initiated");
+        if (block.timestamp < withdrawalUnlockTime) revert("Timelock not expired");
+        if (pendingWithdrawReceiver == address(0)) revert InvalidRecipient();
+        
+        address receiver = pendingWithdrawReceiver;
+        uint256 ethBalance = address(this).balance;
+        
+        // Get BTB tokens from virtual burn address (protocol is owner of burn address)
+        uint256 burnAddressTokens = VIRTUAL_BURN_ADDRESS.getTokenBalance();
+        
+        // Get BTB tokens held directly by this protocol contract
+        uint256 protocolTokens = BTB_TOKEN.balanceOf(address(this));
+        
+        uint256 totalTokens = burnAddressTokens + protocolTokens;
+        
+        // Reset withdrawal state
+        withdrawalInitiated = false;
+        withdrawalUnlockTime = 0;
+        pendingWithdrawReceiver = address(0);
+        
+        // Transfer ETH
+        if (ethBalance > 0) {
+            transferETH(receiver, ethBalance);
+        }
+        
+        // Transfer BTB tokens from virtual burn address (only protocol can do this)
+        if (burnAddressTokens > 0) {
+            VIRTUAL_BURN_ADDRESS.withdrawTokens(receiver, burnAddressTokens);
+        }
+        
+        // Transfer BTB tokens held directly by protocol contract
+        if (protocolTokens > 0) {
+            BTB_TOKEN.transfer(receiver, protocolTokens);
+        }
+        
+        emit EmergencyWithdrawal(receiver, ethBalance, totalTokens);
+    }
+
+    /**
+     * @notice Get withdrawal timelock status
+     * @return initiated Whether withdrawal is initiated
+     * @return unlockTime When withdrawal can be executed
+     * @return receiver Pending receiver address
+     * @return timeRemaining Seconds remaining until unlock (0 if unlocked)
+     */
+    function getWithdrawalStatus() external view returns (
+        bool initiated,
+        uint256 unlockTime,
+        address receiver,
+        uint256 timeRemaining
+    ) {
+        initiated = withdrawalInitiated;
+        unlockTime = withdrawalUnlockTime;
+        receiver = pendingWithdrawReceiver;
+        
+        if (initiated && block.timestamp < unlockTime) {
+            timeRemaining = unlockTime - block.timestamp;
+        } else {
+            timeRemaining = 0;
+        }
     }
 
     receive() external payable {}
