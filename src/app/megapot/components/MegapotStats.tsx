@@ -230,6 +230,45 @@ export default function MegapotStats({
         </div>
         
         <div className="mt-4 md:mt-6">
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg p-4 text-white">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <div className="bg-white/20 rounded-full p-2 mr-3">
+                  <TrophyIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white/90">Guaranteed Daily Prizes</h4>
+                  <p className="text-xs text-white/70">Every ticket wins a chance at $100 daily!</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold">$100</p>
+                <p className="text-xs text-white/70">Daily Pool</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-white/10 rounded p-2">
+                <p className="text-xs text-white/70">1x</p>
+                <p className="text-sm font-bold">$25</p>
+              </div>
+              <div className="bg-white/10 rounded p-2">
+                <p className="text-xs text-white/70">5x</p>
+                <p className="text-sm font-bold">$5</p>
+              </div>
+              <div className="bg-white/10 rounded p-2">
+                <p className="text-xs text-white/70">25x</p>
+                <p className="text-sm font-bold">$2</p>
+              </div>
+            </div>
+            <div className="mt-3 text-center">
+              <p className="text-xs text-white/80">
+                31 winners daily • Paid in USDC on Base • No signup required
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-4 md:mt-6">
           <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-3 md:p-4">
             <div className="flex items-center justify-between mb-2 md:mb-3">
               <h4 className="text-sm md:text-base font-medium text-gray-900 dark:text-white flex items-center">
