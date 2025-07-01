@@ -82,8 +82,8 @@ const products = [
   },
   {
     name: 'Larry Ecosystem',
-    description: 'The rebase-less stability token. Trade, leverage up to 100x, and borrow ETH against LARRY collateral.',
-    detailedDescription: 'Larry is our revolutionary stability token with a unique mechanism where the price can only go up, never down. Trade LARRY/ETH pairs, open leveraged positions up to 100x, or use LARRY as collateral to borrow ETH. Our innovative stability mechanism ensures price appreciation with every transaction.',
+    description: 'Larry is a meme coin that is fully audited and battle tested. The rebase-less stability token lets you trade, leverage up to 100x, and borrow ETH against LARRY collateral. Always remember - it\'s a meme coin.',
+    detailedDescription: 'Larry is a meme coin with a revolutionary stability mechanism where the price can only go up, never down. Larry is fully audited and battle tested, but always remember it\'s a meme coin. Trade LARRY/ETH pairs, open leveraged positions up to 100x, or use LARRY as collateral to borrow ETH.',
     features: ['Price only goes up, never down', '100x leverage trading', 'Borrow ETH against LARRY', 'No rebase mechanism'],
     icon: ShieldCheckIcon,
     href: '/larryecosystem',
@@ -225,7 +225,7 @@ const quickNavLinks = [
   },
   {
     name: 'Larry',
-    description: 'Trade & leverage the stability token',
+    description: 'Trade & leverage the audited meme coin',
     href: '/larryecosystem',
     icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>💚</span>
@@ -980,11 +980,16 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
-                Larry: The Rebase-less Stability Token
+                Larry: The Meme Coin with Stability Features
               </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-300 mb-6">
-                Trade, leverage up to 100x, and borrow against LARRY with our innovative stability mechanism where the price can only go up, never down.
+              <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
+                Larry is a meme coin that is fully audited and battle tested. Trade, leverage up to 100x, and borrow against LARRY with our innovative stability mechanism where the price can only go up, never down.
               </p>
+              <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700/50">
+                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
+                  ⚠️ Important: Always remember - Larry is a meme coin. Fully audited and battle tested, but still a meme coin.
+                </p>
+              </div>
               
               <div className="space-y-4 mb-8">
                 <div className="flex items-start">
