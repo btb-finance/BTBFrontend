@@ -137,13 +137,12 @@ const stats = [
 
 // BTB Liquidity Hub Flywheel steps
 const flywheelSteps = [
-  { step: "Hold BTB Tokens", desc: "BTB holders vote on which pools receive IL protection" },
-  { step: "Earn LP Fees", desc: "BTB voters receive 10% of the LP fees from those pools" },
-  { step: "Provide Liquidity", desc: "Users provide liquidity to protected pools across multiple protocols" },
-  { step: "IL Protection", desc: "Liquidity providers receive IL refunds from BTB treasury" },
-  { step: "Risk-Free Farming", desc: "Users enjoy yield farming without fear of impermanent loss" },
-  { step: "Deeper Liquidity", desc: "More liquidity providers join protected pools" },
-  { step: "Ecosystem Growth", desc: "The liquidity hub expands to more protocols and pools" }
+  { step: "ETH Movement", desc: "Price changes trigger BTB repricing" },
+  { step: "Arbitrage Created", desc: "Price gaps appear on DEXs" },
+  { step: "Exclusive Capture", desc: "Our bots mint BTB and capture spreads" },
+  { step: "Profit Accumulation", desc: "Each trade adds to IL refund pool" },
+  { step: "Automatic Refunds", desc: "LPs receive exact IL compensation" },
+  { step: "Sustainable Cycle", desc: "Volatility creates profits, not losses" }
 ];
 
 // Animation keyframes for the flywheel
@@ -216,7 +215,7 @@ const quickNavLinks = [
   },
   {
     name: 'BTB Finance',
-    description: 'The most capital efficient token in DeFi - Full DeFi platform',
+    description: 'Revolutionary protocol that profits from volatility instead of suffering from it. Through exclusive minting rights and first-mover arbitrage, we transform impermanent loss into sustainable yields for liquidity providers.',
     href: '/btb-finance',
     icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>💰</span>
@@ -380,13 +379,13 @@ export default function Home() {
                 transition={{ delay: 1.0, duration: 0.5 }}
                 className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1"
               >
-                <span className="font-bold">Our Mission:</span> To create the ultimate liquidity hub where BTB token holders vote on pools and receive 10% of LP fees, while liquidity providers get impermanent loss refunds from the BTB treasury, ensuring nobody ever loses money in DeFi again.
+                <span className="font-bold">Our Mission:</span> Users provide liquidity on USDC/BTB pairs on Uniswap and Aerodrome. When ETH price moves, BTB automatically reprices on our protocol, creating instant arbitrage opportunities between our protocol and these DEX pools. We capture the spreads first, using profits to eliminate IL - zero losses for LPs.
               </motion.p>
               
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.0, duration: 0.5 }}
+                transition={{ delay: 1.2, duration: 0.5 }}
                 className="mt-6 flex items-center gap-3 flex-wrap"
               >
                 <motion.div
@@ -592,17 +591,16 @@ export default function Home() {
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="w-full md:w-1/2">
                     <h3 className="text-lg font-bold text-btb-primary mb-2">How The Liquidity Hub Works</h3>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Our ecosystem creates a powerful self-reinforcing cycle that eliminates impermanent loss and benefits all participants:</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3">Our mechanism turns volatility into profit through exclusive minting and first-mover arbitrage:</p>
                     
                     <ol className="space-y-2">
                       {[
-                        { step: "BTB Governance", desc: "BTB holders vote on pools that receive IL protection" },
-                        { step: "Voter Rewards", desc: "BTB voters receive 10% of LP fees from those pools" },
-                        { step: "Multi-Protocol Access", desc: "Users access all DeFi protocols through one interface" },
-                        { step: "Protected Liquidity", desc: "Users provide liquidity to protected pools without risk" },
-                        { step: "IL Refunds", desc: "Liquidity providers receive refunds from BTB treasury" },
-                        { step: "Deeper Liquidity", desc: "Protected pools attract more liquidity" },
-                        { step: "Ecosystem Expansion", desc: "More protocols and pools join the ecosystem" }
+                        { step: "ETH Price Movement", desc: "Triggers BTB repricing" },
+                        { step: "Instant Arbitrage", desc: "Price difference between our protocol and DEXs" },
+                        { step: "Exclusive Capture", desc: "Only we can mint BTB to arbitrage" },
+                        { step: "Profit Accumulation", desc: "Each movement adds to IL refund pool" },
+                        { step: "Automatic Refunds", desc: "LPs receive exact IL compensation" },
+                        { step: "Sustainable Model", desc: "Volatility creates profits, not losses" }
                       ].map((item, i) => (
                         <li key={i} className="flex items-start">
                           <span className="flex-shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-btb-primary text-white text-xs font-medium mr-2">{i+1}</span>
@@ -701,22 +699,36 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Real-world Example */}
+            {/* Technical Arbitrage Example */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-5 border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-btb-primary mb-3">Real-World Example</h3>
+              <h3 className="text-lg font-bold text-btb-primary mb-3">Technical Arbitrage Example</h3>
               
               <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 text-sm">
-                <p className="mb-2">
-                  <span className="font-semibold">Alice</span> holds BTB tokens and votes for the USDC/ETH pool to receive impermanent loss protection. As a BTB voter, she now receives 10% of all LP fees generated by this pool.
+                <p className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border-l-4 border-btb-primary">
+                  <span className="font-semibold text-btb-primary">Real Example:</span> When ETH drops 5%, BTB reprices on our protocol but USDC/BTB pools on Uniswap and Aerodrome lag behind. Our bots mint fresh BTB at the new rate and sell into the old pool prices, capturing the 5% spread. If an LP in USDC/BTB would lose $100 to IL, we've already captured $500+ in arbitrage profits to eliminate their losses completely.
                 </p>
                 
-                <p className="mb-2">
-                  <span className="font-semibold">Bob</span> provides liquidity to the USDC/ETH pool through BTB's unified interface. When the market experiences volatility, Bob would normally face impermanent loss, but instead receives full compensation from the BTB treasury, funded by the platform's revenue.
-                </p>
-                
-                <p>
-                  <span className="font-semibold">Carol</span> uses BTB's single interface to manage her positions across multiple DeFi protocols - lending on Aave, yield farming on another platform, and providing liquidity to various pools - all without switching between different applications.
-                </p>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                    <h4 className="font-semibold text-red-800 dark:text-red-300 mb-2">Traditional USDC/BTB LP</h4>
+                    <ul className="text-xs space-y-1">
+                      <li>• LP would lose $100 to IL</li>
+                      <li>• Random arbitrageurs profit</li>
+                      <li>• LP bears the full loss</li>
+                      <li>• Unsustainable for LPs</li>
+                    </ul>
+                  </div>
+                  
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
+                    <h4 className="font-semibold text-green-800 dark:text-green-300 mb-2">BTB Protected USDC/BTB LP</h4>
+                    <ul className="text-xs space-y-1">
+                      <li>• BTB captures $500+ arbitrage first</li>
+                      <li>• LP would lose $100 to IL</li>
+                      <li>• LP receives $100 refund = 0 IL</li>
+                      <li>• $400+ profit for treasury</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
               
               <div className="mt-5 text-center">
@@ -726,6 +738,41 @@ export default function Home() {
                 >
                   Experience the BTB Liquidity Hub <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
                 </Link>
+              </div>
+            </div>
+
+            {/* The IL Refund Guarantee Section */}
+            <div className="mt-8 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-6 border border-green-200 dark:border-green-700">
+              <h3 className="text-lg font-bold text-green-800 dark:text-green-300 mb-4 flex items-center">
+                <ShieldCheckIcon className="h-5 w-5 mr-2" />
+                The IL Refund Guarantee
+              </h3>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">We profit from the SAME price movements</span> that cause IL</p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">Every oscillation within LP ranges</span> creates arbitrage</p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">100+ daily price movements</span> = 100+ profit opportunities</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">We're not protecting against IL</span> - we're harvesting it</p>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 flex-shrink-0"></div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300"><span className="font-semibold">USDC/BTB LPs provide exit liquidity</span> to OUR bots, not random arbitrageurs</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1068,7 +1115,7 @@ export default function Home() {
                   <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">BTB Finance</span>
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 max-w-xl">
-                  The most capital efficient token in DeFi. Complete DeFi platform with trading, loop positions, borrowing, and advanced loan management.
+                  Revolutionary protocol that profits from volatility instead of suffering from it. Through exclusive minting rights and first-mover arbitrage, we transform impermanent loss into sustainable yields for liquidity providers.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Link 
@@ -1191,6 +1238,91 @@ export default function Home() {
                 <p className="text-gray-700 dark:text-gray-300 text-sm">Market Access</p>
               </motion.div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Understanding Volatility Farming Section */}
+      <div className="py-16 sm:py-24 bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 relative overflow-hidden">
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center justify-center">
+                  <LightBulbIcon className="h-8 w-8 mr-2 text-orange-500" />
+                  <span className="bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent">Understanding Volatility Farming</span>
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                  How USDC/BTB liquidity providers on Uniswap and Aerodrome achieve zero impermanent loss
+                </p>
+              </motion.div>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-8 mb-12">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-red-200 dark:border-red-800"
+              >
+                <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4 flex items-center">
+                  <span className="mr-2">❌</span> Traditional LPs
+                </h3>
+                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <li>• USDC/BTB LPs lose money to arbitrageurs</li>
+                  <li>• Suffer from impermanent loss on price changes</li>
+                  <li>• No control over who profits from their liquidity</li>
+                  <li>• Bear all the market volatility risk</li>
+                  <li>• Random traders capture spreads from their pools</li>
+                </ul>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-green-200 dark:border-green-800"
+              >
+                <h3 className="text-xl font-bold text-green-600 dark:text-green-400 mb-4 flex items-center">
+                  <span className="mr-2">✅</span> BTB Protocol
+                </h3>
+                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <li>• BTB reprices creating arbitrage on USDC/BTB pools</li>
+                  <li>• Our bots capture spreads on Uniswap/Aerodrome first</li>
+                  <li>• Price movements generate 3-5% arbitrage profits</li>
+                  <li>• These profits fund 100% IL refunds for LPs</li>
+                  <li>• More volatility = more refund capacity</li>
+                </ul>
+              </motion.div>
+            </div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-xl p-8 border border-yellow-300 dark:border-yellow-700"
+            >
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">The Innovation</h3>
+              <div className="text-center space-y-4">
+                <p className="text-gray-700 dark:text-gray-300 font-medium">
+                  <span className="font-bold text-orange-600">Traditional USDC/BTB LPs:</span> Lose money to random arbitrageurs
+                </p>
+                <div className="flex justify-center my-4">
+                  <ArrowTrendingUpIcon className="h-6 w-6 text-orange-500" />
+                </div>
+                <p className="text-gray-700 dark:text-gray-300 font-medium">
+                  <span className="font-bold text-green-600">BTB Protected LPs:</span> We capture arbitrage profits and eliminate their IL
+                </p>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
@@ -1517,6 +1649,65 @@ export default function Home() {
               </motion.div>
             </div>
           </motion.div>
+        </div>
+      </div>
+
+      {/* Important Disclaimers Section */}
+      <div className="py-12 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="text-center mb-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center justify-center">
+                <ShieldCheckIcon className="h-6 w-6 mr-2 text-yellow-500" />
+                Important Disclaimers
+              </h2>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-6 border border-yellow-200 dark:border-yellow-700/50"
+            >
+              <div className="grid md:grid-cols-2 gap-6 text-sm text-gray-700 dark:text-gray-300">
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <p><span className="font-semibold">Experimental DeFi protocol</span> - invest only what you can afford to lose</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <p><span className="font-semibold">IL refunds depend</span> on continued arbitrage opportunities</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <p><span className="font-semibold">Smart contract risks exist</span> despite audits</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <p><span className="font-semibold">Past performance</span> doesn't guarantee future results</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <p><span className="font-semibold">This is not investment advice</span> - do your own research</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <p><span className="font-semibold">Market conditions</span> can impact mechanism effectiveness</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
 
