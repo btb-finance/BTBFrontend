@@ -202,6 +202,34 @@ export default function ChicksTradePanel() {
             <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mb-2 md:mb-4">
               Buy, sell, leverage, borrow, and manage your CHICKS positions
             </p>
+            
+            {/* Rebrand Warning */}
+            <div className="mb-4 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
+              <div className="flex items-start space-x-3">
+                <div className="flex-shrink-0">
+                  <ShieldCheckIcon className="h-6 w-6 text-amber-600 dark:text-amber-400 mt-0.5" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-amber-800 dark:text-amber-300 mb-2">
+                    ⚠️ Important Notice: CHICKS Rebrand to USDBTB
+                  </h3>
+                  <div className="text-sm text-amber-700 dark:text-amber-300 space-y-2">
+                    <p className="font-semibold">
+                      🚨 We do NOT recommend opening new trading positions at this time.
+                    </p>
+                    <p>
+                      CHICKS is being rebranded to <span className="font-semibold">USDBTB</span> - a stablecoin with higher yield opportunities.
+                    </p>
+                    <p>
+                      <span className="font-semibold">If you already have an open position:</span> Don't worry! We will automatically upgrade your position to the rebranded USDBTB v2 without any action required from you.
+                    </p>
+                    <p className="text-xs mt-2 opacity-90">
+                      The rebrand will bring enhanced stability, better yields, and improved tokenomics for all users.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
             {isConnected && (
               <>
                 {parseFloat(marketPrice) > 0 && parseFloat(priceDifference) !== 0 && (
