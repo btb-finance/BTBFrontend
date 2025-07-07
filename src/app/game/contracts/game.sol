@@ -80,6 +80,9 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     
     // BTBSwapLogic contract instance
     BTBSwapLogic public btbSwapContract;
+    
+    // Hunter NFT counter - prevents ID collisions when tokens are burned
+    uint256 private _nextHunterId = 1;
 
     // Events
     // MiMo Token events
@@ -457,10 +460,11 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
             if (huntAmount == 0) return 0;
         }
         
-        // Calculate reward distribution
+        // Calculate reward distribution with proper rounding
         uint256 ownerReward = (huntAmount * ownerRewardPercentage) / 10000;
         uint256 burnAmount = (huntAmount * burnPercentage) / 10000;
-        uint256 liquidityAmount = (huntAmount * liquidityPercentage) / 10000;
+        // Calculate liquidity by subtraction to prevent dust accumulation
+        uint256 liquidityAmount = huntAmount - ownerReward - burnAmount;
         
         // Transfer owner reward
         _mimoTransfer(targetAddress, msg.sender, ownerReward);
@@ -497,10 +501,11 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
         
         uint256 huntAmountUint = uint256(huntAmount);
         
-        // Calculate reward distribution
+        // Calculate reward distribution with proper rounding
         uint256 ownerReward = (huntAmountUint * ownerRewardPercentage) / 10000;
         uint256 burnAmount = (huntAmountUint * burnPercentage) / 10000;
-        uint256 liquidityAmount = (huntAmountUint * liquidityPercentage) / 10000;
+        // Calculate liquidity by subtraction to prevent dust accumulation
+        uint256 liquidityAmount = huntAmountUint - ownerReward - burnAmount;
         
         // Transfer owner reward
         _mimoTransfer(targetAddress, msg.sender, ownerReward);
@@ -717,7 +722,8 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
      * @dev Mint a new Hunter NFT
      */
     function _mintHunter(address to) internal returns (uint256) {
-        uint256 tokenId = totalSupply() + 1; 
+        uint256 tokenId = _nextHunterId;
+        _nextHunterId++; // Increment counter to prevent ID collisions
         
         // Initialize hunter position with base attributes
         // This will use the inherited positions mapping and constants from HunterStorage
@@ -737,6 +743,14 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
         emit HunterCreated(tokenId, to, uint128(BASE_POWER)); // HunterCreated is from HunterStorage
         
         return tokenId;
+    }
+    
+    /**
+     * @dev Get the next Hunter ID that will be minted
+     * @return nextId The next Hunter NFT ID
+     */
+    function getNextHunterId() external view returns (uint256) {
+        return _nextHunterId;
     }
     
     /**
@@ -835,6 +849,11 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     function setAdminFeeShare(uint256 newAdminFeeShare) external onlyOwner {
         _checkBTBSwapConfigured();
         btbSwapContract.setAdminFeeShare(newAdminFeeShare);
+    }
+
+    function setBuyPremium(uint256 newPremium) external onlyOwner {
+        _checkBTBSwapConfigured();
+        btbSwapContract.setBuyPremium(newPremium);
     }
 
     // Liquidity management for BTBSwapLogic - to be added if BearHunterEcosystem manages it.
