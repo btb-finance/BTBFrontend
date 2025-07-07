@@ -264,7 +264,18 @@ class GameService {
         return '0'; // Return 0 to indicate no valid rate
       }
       
-      return ethers.utils.formatUnits(rate, 18); // BTB has 18 decimals
+      // getSwapRate() returns baseRate + buyPremium, we need to subtract premium to get base rate
+      const buyPremium = await this.getBuyPremium();
+      const buyPremiumWei = ethers.utils.parseUnits(buyPremium, 18);
+      
+      let baseRate = rate;
+      if (rate.gt(buyPremiumWei)) {
+        baseRate = rate.sub(buyPremiumWei);
+      } else {
+        baseRate = ethers.BigNumber.from('0');
+      }
+      
+      return ethers.utils.formatUnits(baseRate, 18); // BTB has 18 decimals
     } catch (error) {
       console.error('Error getting swap rate:', error);
       return '0';
@@ -454,13 +465,28 @@ class GameService {
     error?: string;
   }> {
     try {
-      const swapRate = await this.getSwapRate();
+      // For buying, we need the full contract rate (baseRate + premium)
+      const contractRate = await this.contract!.getSwapRate();
+      const maxUint256 = ethers.constants.MaxUint256;
+      
+      if (contractRate.eq(maxUint256) || contractRate.eq(0)) {
+        return {
+          baseRate: '0',
+          premium: '5000',
+          subtotal: '0',
+          fee: '0',
+          total: '0',
+          isValid: false,
+          error: 'No liquidity available for buying NFTs'
+        };
+      }
+      
+      const baseRate = await this.getSwapRate(); // This is base rate only (after subtracting premium)
       const buyPremium = await this.getBuyPremium();
       
-      const baseRatePerNFT = parseFloat(swapRate);
+      const baseRatePerNFT = parseFloat(baseRate);
       const premiumPerNFT = parseFloat(buyPremium);
       
-      // Check if we have a valid swap rate
       if (baseRatePerNFT === 0) {
         return {
           baseRate: '0',
@@ -473,9 +499,10 @@ class GameService {
         };
       }
       
-      const subtotalPerNFT = baseRatePerNFT + premiumPerNFT;
-      const subtotal = subtotalPerNFT * nftAmount;
-      const fee = subtotal * 0.01; // 1% fee
+      // Contract calculation: baseAmount = contractRate * amount, then add 1% fee
+      const contractRateFormatted = parseFloat(ethers.utils.formatUnits(contractRate, 18));
+      const subtotal = contractRateFormatted * nftAmount; // This includes base + premium
+      const fee = subtotal * 0.01; // 1% fee on (base + premium)
       const total = subtotal + fee;
       
       return {
@@ -510,10 +537,11 @@ class GameService {
     error?: string;
   }> {
     try {
-      const swapRate = await this.getSwapRate();
+      // For selling, we use the base rate (without buy premium) and apply sell discount
+      const baseRate = await this.getSwapRate(); // This is the actual base rate
       const sellDiscount = 5000; // 5000 BTB discount when selling
       
-      const baseRatePerNFT = parseFloat(swapRate);
+      const baseRatePerNFT = parseFloat(baseRate);
       const discountPerNFT = sellDiscount; // 5000 BTB discount per NFT
       
       // Check if we have a valid swap rate
@@ -529,17 +557,18 @@ class GameService {
         };
       }
       
+      // For selling: baseRate - sellDiscount - fee
       const subtotalPerNFT = Math.max(0, baseRatePerNFT - discountPerNFT);
       const subtotal = subtotalPerNFT * nftAmount;
-      const fee = subtotal * 0.01; // 1% fee
-      const userReceives = subtotal - fee;
+      const fee = subtotal * 0.01; // 1% fee on remaining amount after discount
+      const userReceives = Math.max(0, subtotal - fee);
       
       return {
         baseRate: (baseRatePerNFT * nftAmount).toFixed(4),
         discount: (discountPerNFT * nftAmount).toFixed(4),
         subtotal: subtotal.toFixed(4),
         fee: fee.toFixed(4),
-        userReceives: Math.max(0, userReceives).toFixed(4),
+        userReceives: userReceives.toFixed(4),
         isValid: true
       };
     } catch (error) {
