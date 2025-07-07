@@ -81,7 +81,7 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
   const huntableHunters = hunterTokens.filter(hunter => hunter.canHunt && hunter.isActive && hunter.daysRemaining > 0);
   const totalPower = selectedHunters.reduce((total, hunterId) => {
     const hunter = hunterTokens.find(h => h.tokenId === hunterId);
-    return total + parseInt(hunter?.power || '0');
+    return total + parseFloat(hunter?.power || '0');
   }, 0);
 
   if (!isConnected) {
@@ -217,7 +217,7 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
                             <div>
                               <p className="font-medium">Hunter #{hunter.tokenId}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Power: {hunter.power || '0'}
+                                Power: {parseFloat(hunter.power || '0').toString()}
                               </p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Total Hunted: {parseFloat(hunter.totalHunted || '0').toLocaleString()}

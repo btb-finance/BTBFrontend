@@ -143,7 +143,7 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
             <div className="grid grid-cols-2 gap-2 text-xs mb-3">
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Power</p>
-                <p className="font-semibold">{hunter.power || '0'}</p>
+                <p className="font-semibold">{parseFloat(hunter.power || '0').toString()}</p>
               </div>
               <div>
                 <p className="text-gray-500 dark:text-gray-400">Days Left</p>
