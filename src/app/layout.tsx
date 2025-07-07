@@ -63,8 +63,6 @@ export default async function RootLayout({
                     <div className="flex space-x-4 text-xs">
                       <a href="/" className="text-gray-600 dark:text-gray-400 hover:text-btb-primary transition-colors">Home</a>
                       <a href="/dashboard" className="text-gray-600 dark:text-gray-400 hover:text-btb-primary transition-colors">Dashboard</a>
-                      <a href="/docs" className="text-gray-600 dark:text-gray-400 hover:text-btb-primary transition-colors">Docs</a>
-                      <a href="/community" className="text-gray-600 dark:text-gray-400 hover:text-btb-primary transition-colors">Community</a>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 md:mt-0">
                       &copy; {new Date().getFullYear()} BTB Finance

@@ -24,21 +24,12 @@ import LazyWrapper from './components/common/LazyWrapper';
 import Logo from './components/common/Logo';
 import { lazy } from 'react';
 
-const Testimonials = lazy(() => import('./components/home/Testimonials'));
 const ChainSelector = lazy(() => import('./components/home/ChainSelector'));
-const Stats = lazy(() => import('./components/home/Stats'));
 import { Button, MotionButton } from './components/ui/button';
 import { Card, MotionCard, CardContent, CardTitle, CardDescription } from './components/ui/card';
 import TypewriterEffect from './components/ui/typewriter-effect';
 
 const features = [
-  {
-    name: 'Unified DeFi Interface',
-    description: 'Access all your favorite DeFi apps in one place - Aave, Compound, yield farming, and more through a single intuitive interface.',
-    icon: GlobeAltIcon,
-    href: '/unified-interface',
-    color: 'from-blue-500 to-blue-600'
-  },
   {
     name: 'BTB Governance',
     description: 'BTB token holders vote on supported pools and influence how the 10% weekly rewards are distributed across the ecosystem.',
@@ -731,14 +722,6 @@ export default function Home() {
                 </div>
               </div>
               
-              <div className="mt-5 text-center">
-                <Link 
-                  href="/unified-interface"
-                  className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-md transition-all duration-300"
-                >
-                  Experience the BTB Liquidity Hub <ArrowRightIcon className="ml-1.5 h-3.5 w-3.5" />
-                </Link>
-              </div>
             </div>
 
             {/* The IL Refund Guarantee Section */}
@@ -1406,7 +1389,7 @@ export default function Home() {
                 
                 <div className="text-center md:text-left mt-8">
                   <Link 
-                    href="/contracts/megapot" 
+                    href="/megapot" 
                     className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition-all duration-300"
                   >
                     Play Now <ArrowRightIcon className="ml-2 h-4 w-4" />
@@ -1716,15 +1699,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Stats Section */}
-      <LazyWrapper>
-        <Stats />
-      </LazyWrapper>
-
-      {/* Testimonials */}
-      <LazyWrapper>
-        <Testimonials />
-      </LazyWrapper>
     </div>
   );
 }
