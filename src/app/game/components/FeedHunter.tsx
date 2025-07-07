@@ -171,7 +171,7 @@ export default function FeedHunter({ hunterTokens, onSuccess }: FeedHunterProps)
                             <div>
                               <p className="font-medium">Hunter #{hunter.tokenId}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
-                                Power: {parseFloat(hunter.power || '0').toLocaleString()}
+                                Power: {hunter.power || '0'}
                               </p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
                                 Days Left: {hunter.daysRemaining || 0}

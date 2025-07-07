@@ -171,9 +171,9 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
             <div className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
               {parseFloat(gameStats.swapRate || '0') > 0 ? (
                 <>
-                  <p>Base Rate: {parseFloat(gameStats.swapRate || '0').toLocaleString()} BTB per NFT</p>
-                  <p className="text-orange-700 dark:text-orange-300">Buy Price: {(parseFloat(gameStats.swapRate || '0') + 5000).toLocaleString()} BTB per NFT (+5K premium)</p>
-                  <p className="text-red-700 dark:text-red-300">Sell Price: {Math.max(0, parseFloat(gameStats.swapRate || '0') - 5000).toLocaleString()} BTB per NFT (-5K discount)</p>
+                  <p>Base Rate: {parseFloat(gameStats.swapRate || '0').toFixed(6)} BTB per NFT</p>
+                  <p className="text-orange-700 dark:text-orange-300">Buy Price: {(parseFloat(gameStats.swapRate || '0') + 5000).toFixed(6)} BTB per NFT (+5K premium)</p>
+                  <p className="text-red-700 dark:text-red-300">Sell Price: {Math.max(0, parseFloat(gameStats.swapRate || '0') - 5000) < 0.000001 ? '~0' : Math.max(0, parseFloat(gameStats.swapRate || '0') - 5000).toFixed(6)} BTB per NFT (-5K discount)</p>
                 </>
               ) : (
                 <p className="text-red-700 dark:text-red-300">No pricing available - insufficient liquidity</p>
@@ -207,25 +207,25 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span>Base Rate ({nftCount} NFT{parseInt(nftCount) !== 1 ? 's' : ''}):</span>
-                        <span className="font-medium">{parseFloat(costBreakdown.baseRate).toLocaleString()} BTB</span>
+                        <span className="font-medium">{parseFloat(costBreakdown.baseRate).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Buy Premium (+5000 BTB per NFT):</span>
-                        <span className="font-medium text-orange-600">+{parseFloat(costBreakdown.premium).toLocaleString()} BTB</span>
+                        <span className="font-medium text-orange-600">+{parseFloat(costBreakdown.premium).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span className="font-medium">{parseFloat(costBreakdown.subtotal).toLocaleString()} BTB</span>
+                        <span className="font-medium">{parseFloat(costBreakdown.subtotal).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Swap Fee (1%):</span>
-                        <span className="font-medium">+{parseFloat(costBreakdown.fee).toLocaleString()} BTB</span>
+                        <span className="font-medium">+{parseFloat(costBreakdown.fee).toFixed(6)} BTB</span>
                       </div>
                       <hr className="border-gray-300 dark:border-gray-600" />
                       <div className="flex justify-between font-bold">
                         <span>Total Cost:</span>
                         <span className={`${parseFloat(costBreakdown.total) > parseFloat(gameStats.btbBalance) ? 'text-red-600' : 'text-green-600'}`}>
-                          {parseFloat(costBreakdown.total).toLocaleString()} BTB
+                          {parseFloat(costBreakdown.total).toFixed(6)} BTB
                         </span>
                       </div>
                     </div>
@@ -281,25 +281,25 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
                         <span>Base Rate ({nftCount} NFT{parseInt(nftCount) !== 1 ? 's' : ''}):</span>
-                        <span className="font-medium">{parseFloat(returnBreakdown.baseRate).toLocaleString()} BTB</span>
+                        <span className="font-medium">{parseFloat(returnBreakdown.baseRate).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Sell Discount (-5000 BTB per NFT):</span>
-                        <span className="font-medium text-red-600">-{parseFloat(returnBreakdown.discount).toLocaleString()} BTB</span>
+                        <span className="font-medium text-red-600">-{parseFloat(returnBreakdown.discount).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span className="font-medium">{parseFloat(returnBreakdown.subtotal).toLocaleString()} BTB</span>
+                        <span className="font-medium">{parseFloat(returnBreakdown.subtotal).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Swap Fee (1%):</span>
-                        <span className="font-medium">-{parseFloat(returnBreakdown.fee).toLocaleString()} BTB</span>
+                        <span className="font-medium">-{parseFloat(returnBreakdown.fee).toFixed(6)} BTB</span>
                       </div>
                       <hr className="border-gray-300 dark:border-gray-600" />
                       <div className="flex justify-between font-bold">
                         <span>You'll Receive:</span>
                         <span className="text-green-600">
-                          {parseFloat(returnBreakdown.userReceives).toLocaleString()} BTB
+                          {parseFloat(returnBreakdown.userReceives).toFixed(6)} BTB
                         </span>
                       </div>
                       {parseFloat(returnBreakdown.userReceives) <= 0 && (
@@ -366,7 +366,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
           <div className="space-y-4 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Base Swap Rate:</span>
-              <span className="font-medium">{parseFloat(gameStats.swapRate || '0').toLocaleString()} BTB per NFT</span>
+              <span className="font-medium">{parseFloat(gameStats.swapRate || '0').toFixed(6)} BTB per NFT</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Buy Premium:</span>

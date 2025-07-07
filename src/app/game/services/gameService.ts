@@ -471,11 +471,11 @@ class GameService {
       
       if (contractRate.eq(maxUint256) || contractRate.eq(0)) {
         return {
-          baseRate: '0',
-          premium: '5000',
-          subtotal: '0',
-          fee: '0',
-          total: '0',
+          baseRate: '0.000000',
+          premium: '5000.000000',
+          subtotal: '0.000000',
+          fee: '0.000000',
+          total: '0.000000',
           isValid: false,
           error: 'No liquidity available for buying NFTs'
         };
@@ -489,11 +489,11 @@ class GameService {
       
       if (baseRatePerNFT === 0) {
         return {
-          baseRate: '0',
-          premium: premiumPerNFT.toFixed(4),
-          subtotal: '0',
-          fee: '0',
-          total: '0',
+          baseRate: '0.000000',
+          premium: premiumPerNFT.toFixed(6),
+          subtotal: '0.000000',
+          fee: '0.000000',
+          total: '0.000000',
           isValid: false,
           error: 'No liquidity available for buying NFTs'
         };
@@ -506,21 +506,21 @@ class GameService {
       const total = subtotal + fee;
       
       return {
-        baseRate: (baseRatePerNFT * nftAmount).toFixed(4),
-        premium: (premiumPerNFT * nftAmount).toFixed(4),
-        subtotal: subtotal.toFixed(4),
-        fee: fee.toFixed(4),
-        total: total.toFixed(4),
+        baseRate: (baseRatePerNFT * nftAmount).toFixed(6),
+        premium: (premiumPerNFT * nftAmount).toFixed(6),
+        subtotal: subtotal.toFixed(6),
+        fee: fee.toFixed(6),
+        total: total.toFixed(6),
         isValid: true
       };
     } catch (error) {
       console.error('Error calculating BTB cost:', error);
       return {
-        baseRate: '0',
-        premium: '5000',
-        subtotal: '0',
-        fee: '0',
-        total: '0',
+        baseRate: '0.000000',
+        premium: '5000.000000',
+        subtotal: '0.000000',
+        fee: '0.000000',
+        total: '0.000000',
         isValid: false,
         error: 'Error calculating costs'
       };
@@ -547,11 +547,11 @@ class GameService {
       // Check if we have a valid swap rate
       if (baseRatePerNFT === 0) {
         return {
-          baseRate: '0',
-          discount: (discountPerNFT * nftAmount).toFixed(4),
-          subtotal: '0',
-          fee: '0',
-          userReceives: '0',
+          baseRate: '0.000000',
+          discount: (discountPerNFT * nftAmount).toFixed(6),
+          subtotal: '0.000000',
+          fee: '0.000000',
+          userReceives: '0.000000',
           isValid: false,
           error: 'No liquidity available for selling NFTs'
         };
@@ -564,21 +564,21 @@ class GameService {
       const userReceives = Math.max(0, subtotal - fee);
       
       return {
-        baseRate: (baseRatePerNFT * nftAmount).toFixed(4),
-        discount: (discountPerNFT * nftAmount).toFixed(4),
-        subtotal: subtotal.toFixed(4),
-        fee: fee.toFixed(4),
-        userReceives: userReceives.toFixed(4),
+        baseRate: (baseRatePerNFT * nftAmount).toFixed(6),
+        discount: (discountPerNFT * nftAmount).toFixed(6),
+        subtotal: subtotal.toFixed(6),
+        fee: fee.toFixed(6),
+        userReceives: userReceives.toFixed(6),
         isValid: true
       };
     } catch (error) {
       console.error('Error calculating BTB return:', error);
       return {
-        baseRate: '0',
-        discount: '5000',
-        subtotal: '0',
-        fee: '0',
-        userReceives: '0',
+        baseRate: '0.000000',
+        discount: '5000.000000',
+        subtotal: '0.000000',
+        fee: '0.000000',
+        userReceives: '0.000000',
         isValid: false,
         error: 'Error calculating returns'
       };
@@ -607,7 +607,7 @@ class GameService {
             creationTime: stats[0].toString(),
             lastFeedTime: stats[1].toString(),
             lastHuntTime: stats[2].toString(),
-            power: ethers.utils.formatUnits(stats[3], 0), // Power is stored as integer
+            power: stats[3].toString(), // Power is stored as integer
             missedFeedings: stats[4].toString(),
             inHibernation: stats[5],
             recoveryStartTime: stats[6].toString(),
@@ -678,7 +678,7 @@ class GameService {
         creationTime: stats[0].toString(),
         lastFeedTime: stats[1].toString(),
         lastHuntTime: stats[2].toString(),
-        power: ethers.utils.formatUnits(stats[3], 0),
+        power: stats[3].toString(),
         missedFeedings: stats[4].toString(),
         inHibernation: stats[5],
         recoveryStartTime: stats[6].toString(),
