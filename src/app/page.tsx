@@ -226,7 +226,7 @@ const quickNavLinks = [
   },
   {
     name: 'Megapot',
-    description: 'Win big with daily USDC jackpots',
+    description: 'Win $1M+ daily USDC jackpots with 10% cashback',
     href: '/megapot',
     icon: ({ className }: { className?: string }) => (
       <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎰</span>
@@ -1315,135 +1315,316 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Megapot Lottery Section */}
-      <div className="py-16 sm:py-24 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
-        {/* Background decorative elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-20 pointer-events-none">
-          <div className="absolute -top-24 -left-24 w-96 h-96 bg-purple-300 dark:bg-purple-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob"></div>
-          <div className="absolute top-80 -right-24 w-96 h-96 bg-pink-300 dark:bg-pink-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-24 left-1/2 w-96 h-96 bg-indigo-300 dark:bg-indigo-900 rounded-full mix-blend-multiply dark:mix-blend-lighten filter blur-xl animate-blob animation-delay-4000"></div>
+      {/* Megapot Lottery Section - Premium Design */}
+      <div className="relative py-24 overflow-hidden">
+        {/* Dynamic Gradient Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(120,119,198,0.3),transparent)]" />
+        </div>
+        
+        {/* Animated Background Orbs */}
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div 
+            className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-gradient-to-r from-cyan-400/20 to-blue-500/20 blur-3xl"
+            animate={{ 
+              scale: [1, 1.2, 1],
+              opacity: [0.3, 0.6, 0.3],
+              rotate: [0, 90, 0]
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div 
+            className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-3xl"
+            animate={{ 
+              scale: [1.2, 1, 1.2],
+              opacity: [0.2, 0.4, 0.2],
+              rotate: [0, -90, 0]
+            }}
+            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
+          />
+          <motion.div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-white/10"
+            animate={{ 
+              rotate: [0, 360],
+              scale: [1, 1.1, 1]
+            }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+          />
         </div>
         
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-12">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
+            {/* Header Section */}
+            <motion.div 
+              className="text-center mb-16"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="inline-flex items-center justify-center mb-6">
+                <motion.div
+                  className="relative"
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                >
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 p-1">
+                    <div className="w-full h-full rounded-full bg-gradient-to-r from-indigo-900 to-purple-900 flex items-center justify-center">
+                      <span className="text-2xl">🎰</span>
+                    </div>
+                  </div>
+                  <motion.div 
+                    className="absolute -inset-2 rounded-full border-2 border-yellow-400/30"
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </motion.div>
+              </div>
+              
+              <h2 className="text-5xl md:text-6xl font-bold mb-6">
+                <span className="bg-gradient-to-r from-yellow-300 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                  MEGAPOT
+                </span>
+                <br />
+                <span className="text-white text-3xl md:text-4xl">Lottery</span>
+              </h2>
+              
+              <motion.div 
+                className="inline-block"
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ duration: 3, repeat: Infinity }}
               >
-                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center">
-                  <SparklesIcon className="h-8 w-8 mr-2 text-purple-500" />
-                  <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">Megapot Lottery</span>
-                </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                  Win big with daily USDC jackpots! Buy tickets for a chance to win and earn 50% extra MegaPoints.
-                </p>
-              </motion.div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="space-y-6"
-              >
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
-                  <div className="flex items-center mb-4">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center mr-4">
-                      <TrophyIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">Daily Jackpots</h3>
-                      <p className="text-gray-600 dark:text-gray-300">New lottery runs every 24 hours</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
-                  <div className="flex items-center mb-4">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-600 flex items-center justify-center mr-4">
-                      <CurrencyDollarIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">USDC-Backed Prizes</h3>
-                      <p className="text-gray-600 dark:text-gray-300">All prizes paid in stable USDC</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-purple-100 dark:border-purple-900/30 transform hover:-translate-y-1 transition-all duration-300">
-                  <div className="flex items-center mb-4">
-                    <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center mr-4">
-                      <SparklesIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white">50% MegaPoints Bonus</h3>
-                      <p className="text-gray-600 dark:text-gray-300">Get 50% extra points with BTB referral</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="text-center md:text-left mt-8">
-                  <Link 
-                    href="/megapot" 
-                    className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg transition-all duration-300"
-                  >
-                    Play Now <ArrowRightIcon className="ml-2 h-4 w-4" />
-                  </Link>
+                <div className="bg-gradient-to-r from-green-400 to-emerald-500 text-black px-8 py-4 rounded-full text-xl md:text-2xl font-bold shadow-2xl">
+                  💰 $1,000,000+ Daily Jackpot
                 </div>
               </motion.div>
               
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
+              <p className="text-xl text-white/90 mt-6 max-w-3xl mx-auto leading-relaxed">
+                Win <span className="font-bold text-yellow-300">life-changing money</span> with daily USDC jackpots. 
+                Get <span className="font-bold text-green-400">10% instant cashback</span> + <span className="font-bold text-purple-300">50% bonus MegaPoints</span> through BTB!
+              </p>
+            </motion.div>
+            
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+              {/* Left Column - Features */}
+              <motion.div 
+                className="xl:col-span-1 space-y-6"
+                initial={{ opacity: 0, x: -50 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="relative"
+                transition={{ duration: 0.8, delay: 0.2 }}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl transform rotate-1"></div>
-                <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="aspect-w-16 aspect-h-9 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg overflow-hidden mb-6 p-4">
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="relative w-32 h-32 mx-auto mb-4">
-                          <motion.div 
-                            className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 opacity-75"
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                          />
-                          <div className="absolute inset-2 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
-                            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">WIN!</span>
-                          </div>
+                {[
+                  {
+                    icon: TrophyIcon,
+                    title: "$1M+ Jackpots",
+                    description: "Massive daily prizes in stable USDC",
+                    gradient: "from-yellow-400 to-orange-500",
+                    glow: "shadow-yellow-500/25"
+                  },
+                  {
+                    icon: BanknotesIcon,
+                    title: "10% Cashback",
+                    description: "Instant USDC returns on every ticket",
+                    gradient: "from-green-400 to-emerald-500",
+                    glow: "shadow-green-500/25"
+                  },
+                  {
+                    icon: SparklesIcon,
+                    title: "50% Bonus Points",
+                    description: "Extra MegaPoints with BTB referral",
+                    gradient: "from-purple-400 to-pink-500",
+                    glow: "shadow-purple-500/25"
+                  }
+                ].map((feature, index) => (
+                  <motion.div
+                    key={index}
+                    className="group"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <div className="relative overflow-hidden rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-6 hover:bg-white/15 transition-all duration-300">
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      
+                      <div className="flex items-center space-x-4">
+                        <div className={`p-3 rounded-xl bg-gradient-to-r ${feature.gradient} ${feature.glow} shadow-xl`}>
+                          <feature.icon className="w-6 h-6 text-white" />
                         </div>
-                        <p className="text-gray-700 dark:text-gray-300 font-medium">Daily USDC Jackpot</p>
+                        <div>
+                          <h3 className="text-xl font-bold text-white mb-1">{feature.title}</h3>
+                          <p className="text-white/80 text-sm">{feature.description}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
+                ))}
+              </motion.div>
+              
+              {/* Center Column - Jackpot Display */}
+              <motion.div 
+                className="xl:col-span-1"
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.4 }}
+              >
+                <div className="relative">
+                  {/* Outer Glow */}
+                  <motion.div 
+                    className="absolute -inset-4 bg-gradient-to-r from-yellow-400/20 via-orange-500/20 to-red-500/20 rounded-3xl blur-xl"
+                    animate={{ 
+                      scale: [1, 1.05, 1],
+                      opacity: [0.5, 0.8, 0.5]
+                    }}
+                    transition={{ duration: 4, repeat: Infinity }}
+                  />
                   
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ticket Price</p>
-                      <p className="text-xl font-bold text-gray-900 dark:text-white">$1 USDC</p>
+                  <div className="relative bg-gradient-to-br from-white/20 to-white/5 backdrop-blur-xl rounded-3xl border border-white/30 p-8 shadow-2xl">
+                    {/* Jackpot Amount */}
+                    <div className="text-center mb-8">
+                      <motion.div
+                        animate={{ scale: [1, 1.02, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <div className="text-6xl md:text-7xl font-black mb-2">
+                          <span className="bg-gradient-to-r from-yellow-300 via-orange-400 to-red-400 bg-clip-text text-transparent">
+                            $1M+
+                          </span>
+                        </div>
+                        <div className="text-white/90 text-lg font-medium">Daily Jackpot</div>
+                      </motion.div>
                     </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Jackpot</p>
-                      <p className="text-xl font-bold text-green-500">$250,000+</p>
+                    
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-black/20 rounded-xl p-4 border border-white/10">
+                        <div className="text-white/70 text-sm font-medium mb-1">Ticket Price</div>
+                        <div className="text-white text-2xl font-bold">$1</div>
+                        <div className="text-green-400 text-xs font-medium">+10% back</div>
+                      </div>
+                      <div className="bg-black/20 rounded-xl p-4 border border-white/10">
+                        <div className="text-white/70 text-sm font-medium mb-1">Next Draw</div>
+                        <div className="text-white text-lg font-bold">24h</div>
+                        <div className="text-purple-400 text-xs font-medium">Daily draws</div>
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="p-4 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 rounded-lg">
-                    <div className="flex items-center">
-                      <SparklesIcon className="h-5 w-5 text-purple-600 dark:text-purple-400 mr-2" />
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">Get 50% extra MegaPoints when using BTB website as your referrer!</p>
-                    </div>
+                    
+                    {/* CTA Button */}
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Link 
+                        href="/megapot"
+                        className="block w-full bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-black font-bold py-4 px-6 rounded-xl text-center text-lg shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1"
+                      >
+                        🎲 Play Now - Win Big!
+                      </Link>
+                    </motion.div>
                   </div>
                 </div>
               </motion.div>
+              
+              {/* Right Column - Benefits */}
+              <motion.div 
+                className="xl:col-span-1 space-y-6"
+                initial={{ opacity: 0, x: 50 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.6 }}
+              >
+                {/* Auto-Buy Feature */}
+                <motion.div 
+                  className="bg-gradient-to-br from-indigo-500/20 to-purple-600/20 backdrop-blur-md rounded-2xl border border-indigo-300/30 p-6"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex items-center mb-4">
+                    <div className="p-2 bg-indigo-500 rounded-lg mr-3">
+                      <ArrowRightIcon className="w-5 h-5 text-white transform rotate-90" />
+                    </div>
+                    <h3 className="text-white font-bold text-lg">Auto-Buy Subscription</h3>
+                  </div>
+                  <p className="text-white/80 text-sm leading-relaxed">
+                    Never miss a draw! Set up automatic daily entries and wake up to potential millions.
+                  </p>
+                </motion.div>
+                
+                {/* Security Badge */}
+                <motion.div 
+                  className="bg-gradient-to-br from-green-500/20 to-emerald-600/20 backdrop-blur-md rounded-2xl border border-green-300/30 p-6"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex items-center mb-4">
+                    <div className="p-2 bg-green-500 rounded-lg mr-3">
+                      <ShieldCheckIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-white font-bold text-lg">100% Secure</h3>
+                  </div>
+                  <p className="text-white/80 text-sm leading-relaxed">
+                    Smart contracts audited. Prizes guaranteed. Transparent draws using Pyth Network entropy.
+                  </p>
+                </motion.div>
+                
+                {/* Instant Payouts */}
+                <motion.div 
+                  className="bg-gradient-to-br from-yellow-500/20 to-orange-600/20 backdrop-blur-md rounded-2xl border border-yellow-300/30 p-6"
+                  whileHover={{ scale: 1.02 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="flex items-center mb-4">
+                    <div className="p-2 bg-yellow-500 rounded-lg mr-3">
+                      <BoltIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-white font-bold text-lg">Instant Payouts</h3>
+                  </div>
+                  <p className="text-white/80 text-sm leading-relaxed">
+                    Winners receive USDC prizes immediately after each draw. No waiting, no delays.
+                  </p>
+                </motion.div>
+              </motion.div>
             </div>
+            
+            {/* Bottom CTA Strip */}
+            <motion.div 
+              className="mt-16 text-center"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.8 }}
+            >
+              <div className="bg-gradient-to-r from-white/10 to-white/5 backdrop-blur-md rounded-2xl border border-white/20 p-8">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="text-left">
+                    <h3 className="text-2xl font-bold text-white mb-2">Ready to Win $1,000,000?</h3>
+                    <p className="text-white/80">Join thousands of players competing for life-changing prizes every day.</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Link 
+                        href="/megapot"
+                        className="bg-gradient-to-r from-green-400 to-emerald-500 text-black font-bold py-3 px-8 rounded-xl whitespace-nowrap shadow-lg hover:shadow-xl transition-all duration-300"
+                      >
+                        💸 Buy Tickets (10% Back)
+                      </Link>
+                    </motion.div>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Link 
+                        href="/megapot#subscription"
+                        className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold py-3 px-8 rounded-xl whitespace-nowrap shadow-lg hover:shadow-xl transition-all duration-300"
+                      >
+                        🔄 Auto-Subscribe
+                      </Link>
+                    </motion.div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </div>
