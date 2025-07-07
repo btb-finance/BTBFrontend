@@ -228,6 +228,19 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                           {parseFloat(costBreakdown.total).toFixed(6)} BTB
                         </span>
                       </div>
+                      {parseFloat(costBreakdown.total) > parseFloat(gameStats.btbBalance) && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
+                          <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">
+                            💰 Insufficient BTB balance. You need {(parseFloat(costBreakdown.total) - parseFloat(gameStats.btbBalance)).toFixed(6)} more BTB.
+                          </p>
+                          <a 
+                            href="/btb-finance" 
+                            className="text-xs text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-200"
+                          >
+                            🔗 Buy BTB tokens here →
+                          </a>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center py-4">
