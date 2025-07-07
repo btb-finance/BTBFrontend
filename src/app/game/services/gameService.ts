@@ -529,7 +529,6 @@ class GameService {
 
   public async calculateBTBReturnForNFTs(nftAmount: number): Promise<{
     baseRate: string;
-    discount: string;
     subtotal: string;
     fee: string;
     userReceives: string;
@@ -537,18 +536,15 @@ class GameService {
     error?: string;
   }> {
     try {
-      // For selling, we use the base rate (without buy premium) and apply sell discount
+      // For selling, we use the base rate (no discount applied)
       const baseRate = await this.getSwapRate(); // This is the actual base rate
-      const sellDiscount = 5000; // 5000 BTB discount when selling
       
       const baseRatePerNFT = parseFloat(baseRate);
-      const discountPerNFT = sellDiscount; // 5000 BTB discount per NFT
       
       // Check if we have a valid swap rate
       if (baseRatePerNFT === 0) {
         return {
           baseRate: '0.000000',
-          discount: (discountPerNFT * nftAmount).toFixed(6),
           subtotal: '0.000000',
           fee: '0.000000',
           userReceives: '0.000000',
@@ -557,15 +553,13 @@ class GameService {
         };
       }
       
-      // For selling: baseRate - sellDiscount - fee
-      const subtotalPerNFT = Math.max(0, baseRatePerNFT - discountPerNFT);
-      const subtotal = subtotalPerNFT * nftAmount;
-      const fee = subtotal * 0.01; // 1% fee on remaining amount after discount
-      const userReceives = Math.max(0, subtotal - fee);
+      // For selling: baseRate - fee (no discount)
+      const subtotal = baseRatePerNFT * nftAmount;
+      const fee = subtotal * 0.01; // 1% fee on base rate
+      const userReceives = subtotal - fee;
       
       return {
         baseRate: (baseRatePerNFT * nftAmount).toFixed(6),
-        discount: (discountPerNFT * nftAmount).toFixed(6),
         subtotal: subtotal.toFixed(6),
         fee: fee.toFixed(6),
         userReceives: userReceives.toFixed(6),
@@ -575,7 +569,6 @@ class GameService {
       console.error('Error calculating BTB return:', error);
       return {
         baseRate: '0.000000',
-        discount: '5000.000000',
         subtotal: '0.000000',
         fee: '0.000000',
         userReceives: '0.000000',

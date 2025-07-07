@@ -173,7 +173,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                 <>
                   <p>Base Rate: {parseFloat(gameStats.swapRate || '0').toFixed(6)} BTB per NFT</p>
                   <p className="text-orange-700 dark:text-orange-300">Buy Price: {(parseFloat(gameStats.swapRate || '0') + 5000).toFixed(6)} BTB per NFT (+5K premium)</p>
-                  <p className="text-red-700 dark:text-red-300">Sell Price: {Math.max(0, parseFloat(gameStats.swapRate || '0') - 5000) < 0.000001 ? '~0' : Math.max(0, parseFloat(gameStats.swapRate || '0') - 5000).toFixed(6)} BTB per NFT (-5K discount)</p>
+                  <p className="text-green-700 dark:text-green-300">Sell Price: {parseFloat(gameStats.swapRate || '0').toFixed(6)} BTB per NFT (base rate)</p>
                 </>
               ) : (
                 <p className="text-red-700 dark:text-red-300">No pricing available - insufficient liquidity</p>
@@ -284,10 +284,6 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                         <span className="font-medium">{parseFloat(returnBreakdown.baseRate).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Sell Discount (-5000 BTB per NFT):</span>
-                        <span className="font-medium text-red-600">-{parseFloat(returnBreakdown.discount).toFixed(6)} BTB</span>
-                      </div>
-                      <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span className="font-medium">{parseFloat(returnBreakdown.subtotal).toFixed(6)} BTB</span>
                       </div>
@@ -373,8 +369,8 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
               <span className="font-medium text-orange-600">+5,000 BTB per NFT</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Sell Discount:</span>
-              <span className="font-medium text-red-600">-5,000 BTB per NFT</span>
+              <span className="text-gray-600 dark:text-gray-400">Sell Price:</span>
+              <span className="font-medium text-green-600">Base rate (no discount)</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Swap Fee:</span>
