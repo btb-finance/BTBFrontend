@@ -397,6 +397,20 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
             </p>
           </div>
           
+          <div className="mt-2 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
+            <p className="text-xs text-orange-800 dark:text-orange-200 mb-2">
+              🛒 <strong>Alternative:</strong> Looking for cheaper Bear NFTs? You can buy them directly from OpenSea and bring them to the game!
+            </p>
+            <a 
+              href="https://opensea.io/collection/btb-bears" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-orange-600 dark:text-orange-400 underline hover:text-orange-800 dark:hover:text-orange-200"
+            >
+              🔗 View BTB Bears on OpenSea →
+            </a>
+          </div>
+          
           <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <p className="text-xs text-yellow-800 dark:text-yellow-200">
               ⚠️ Base swap rates are dynamic and based on liquidity pool balances. Rates may change between preview and execution.
