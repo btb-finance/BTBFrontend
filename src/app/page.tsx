@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
@@ -259,6 +259,7 @@ const quickNavLinks = [
 
 export default function Home() {
   const [currentFeature, setCurrentFeature] = useState(0);
+  const [isScrolled, setIsScrolled] = useState(false);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -268,6 +269,9 @@ export default function Home() {
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.8]);
   const y = useTransform(scrollYProgress, [0, 0.5], [0, 100]);
+
+  // Page scroll progress for navigation
+  const { scrollYProgress: pageProgress } = useScroll();
   
   
   useEffect(() => {
@@ -280,11 +284,67 @@ export default function Home() {
     };
   }, []);
 
+  // Track scroll position for enhanced UX
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 100);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
     <div className="relative isolate">
+      {/* Scroll Progress Indicator */}
+      <motion.div
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light z-50 origin-left"
+        style={{ 
+          scaleX: pageProgress,
+          opacity: isScrolled ? 1 : 0
+        }}
+        transition={{ opacity: { duration: 0.3 } }}
+      />
 
-      {/* Hero section */}
-      <div className="relative min-h-[90vh] flex flex-col justify-center" ref={heroRef}>
+      {/* Quick Navigation */}
+      <AnimatePresence>
+        {isScrolled && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-4 right-4 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700"
+          >
+            <nav className="flex items-center space-x-3" aria-label="Quick navigation">
+              <Link 
+                href="/game" 
+                className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                aria-label="Go to BTB Game"
+              >
+                🎮 Game
+              </Link>
+              <Link 
+                href="/btb-finance" 
+                className="text-xs font-medium text-btb-primary hover:text-btb-primary-dark dark:text-btb-primary-light transition-colors"
+                aria-label="Go to BTB Finance"
+              >
+                💰 Finance
+              </Link>
+              <Link 
+                href="/megapot" 
+                className="text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 transition-colors"
+                aria-label="Go to Megapot Lottery"
+              >
+                🎰 Lottery
+              </Link>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+              {/* Hero section */}
+        <main className="relative min-h-[90vh] flex flex-col justify-center" ref={heroRef} role="main" aria-label="BTB Finance homepage hero section">
         {/* Background elements */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute inset-x-0 -top-40 transform-gpu overflow-hidden blur-3xl sm:-top-80">
@@ -312,9 +372,13 @@ export default function Home() {
                 transition={{ delay: 0.2, duration: 0.5 }}
                 className="-mt-20"
               >
-                <LazyWrapper>
-                  <ChainSelector />
-                </LazyWrapper>
+                <Suspense fallback={
+                  <div className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+                }>
+                  <LazyWrapper>
+                    <ChainSelector />
+                  </LazyWrapper>
+                </Suspense>
               </motion.div>
               
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -507,25 +571,29 @@ export default function Home() {
             </motion.div>
           </motion.div>
         </div>
-      </div>
+      </main>
 
       {/* Product showcase section */}
-      <div className="py-16 sm:py-20 bg-gray-50 dark:bg-gray-900">
+      <section className="py-16 sm:py-20 bg-gray-50 dark:bg-gray-900" aria-label="BTB Finance ecosystem products">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <div className="mx-auto max-w-xl text-center mb-6">
+          <header className="mx-auto max-w-xl text-center mb-6">
             <h2 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-2xl font-heading">
               Explore the BTB Finance ecosystem
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Powerful tools for decentralized finance
             </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {products.map((product, index) => (
-              <div 
-                key={index} 
-                className={`group relative overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border ${product.highlight ? 'border-red-500 dark:border-red-500 ring-2 ring-red-500/50' : 'border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red'}`}
-              >
+          </header>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {products.map((product, index) => (
+                <motion.article 
+                  key={index} 
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className={`group relative overflow-hidden bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 border ${product.highlight ? 'border-red-500 dark:border-red-500 ring-2 ring-red-500/50' : 'border-gray-100 dark:border-gray-700 hover:border-optimism-red dark:hover:border-optimism-red'}`}
+                >
                 {product.highlight && (
                   <div className="absolute right-0 top-0 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg z-10">
                     NEW
@@ -553,14 +621,14 @@ export default function Home() {
                       className={`flex-shrink-0 inline-flex items-center text-sm font-medium transition-colors ${product.highlight ? 'text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300' : 'text-optimism-red hover:text-optimism-red/80'}`}
                     >
                       <span className="hidden sm:inline">Learn more</span> <ArrowRightIcon className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </div>
+                                      </Link>
                 </div>
               </div>
+            </motion.article>
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* BTB Exchange Flywheel Section */}
       <div className="py-16 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
@@ -1879,6 +1947,23 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Back to Top Button */}
+      <AnimatePresence>
+        {isScrolled && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.3 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fixed bottom-8 right-8 z-40 bg-btb-primary hover:bg-btb-primary-dark text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
+            aria-label="Back to top"
+          >
+            <ArrowRightIcon className="h-5 w-5 transform -rotate-90 group-hover:-translate-y-1 transition-transform duration-300" />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
     </div>
   );
