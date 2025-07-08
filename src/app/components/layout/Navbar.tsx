@@ -15,7 +15,8 @@ import {
   CurrencyDollarIcon, 
   UserGroupIcon, 
   WalletIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  MapIcon
 } from '@heroicons/react/24/outline';
 import Logo from '../common/Logo';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../ui/dropdown-menu';
@@ -52,6 +53,11 @@ export default function Navbar() {
       name: 'Home',
       href: '/',
       icon: HomeIcon
+    },
+    {
+      name: 'Roadmap',
+      href: '/roadmap',
+      icon: MapIcon
     },
     {
       name: 'Live Products',
