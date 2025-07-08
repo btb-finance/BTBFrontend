@@ -29,9 +29,9 @@ const RoadmapPage = () => {
   const upcomingMilestones = [
     {
       title: "BTB RISC-V Blockchain",
-      description: "The world's first RISC-V powered blockchain featuring native onchain function scheduling, automatic execution, and web-speed performance that makes current blockchains obsolete",
+      description: "The world's first IL-free RISC-V blockchain built exclusively for liquidity providers. Features native onchain scheduling, automatic execution, and guaranteed zero impermanent loss",
       icon: "⚡",
-      details: "The blockchain that finally works like the internet should"
+      details: "The first blockchain where LPs never lose money - guaranteed"
     },
     {
       title: "USDBTB Stable Coin",
@@ -41,9 +41,9 @@ const RoadmapPage = () => {
     },
     {
       title: "BTB Uniswap V4 Hook",
-      description: "Intelligent LP management system that automatically handles rebalancing, eliminates impermanent loss, and reinvests rewards - making liquidity provision completely passive and profitable",
+      description: "Revolutionary LP management system with 100% IL protection guarantee. Auto-rebalances, reinvests rewards, and ensures LPs never face impermanent loss risk",
       icon: "🔄",
-      details: "Set it and forget it LP management perfection"
+      details: "Risk-free liquidity provision with guaranteed profits"
     },
     {
       title: "BTB Launch Pad",
@@ -71,10 +71,20 @@ const RoadmapPage = () => {
                 BTB Roadmap
               </h1>
             </div>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto">
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-4">
               Pioneering the world's first RISC-V blockchain with onchain function automation, 
               web-speed performance, and built-in impermanent loss protection for all
             </p>
+            <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 dark:from-green-500/20 dark:to-blue-500/20 rounded-2xl p-6 max-w-4xl mx-auto">
+              <div className="flex items-center justify-center mb-3">
+                <div className="text-2xl mr-2">🛡️</div>
+                <h2 className="text-2xl font-bold text-green-600 dark:text-green-400">100% IL-FREE GUARANTEE</h2>
+              </div>
+              <p className="text-lg text-gray-700 dark:text-gray-300 text-center">
+                Our blockchain is fully IL-free and designed exclusively for liquidity providers. 
+                The chain only survives when LPs thrive - we're building the first truly risk-free LP ecosystem.
+              </p>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -212,6 +222,120 @@ const RoadmapPage = () => {
             <div className="ml-16 md:ml-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-2xl shadow-xl text-center">
               <div className="text-2xl font-bold mb-2">🌟 THE FUTURE OF DEFI</div>
               <div className="text-sm opacity-90">Where blockchain finally works like magic</div>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* IL-Free Chain Architecture */}
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/10 dark:to-blue-900/10 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="text-center mb-16"
+          >
+            <div className="flex items-center justify-center mb-6">
+              <div className="text-4xl mr-3">🛡️</div>
+              <h2 className="text-4xl font-bold text-gray-900 dark:text-white">
+                The IL-Free Promise
+              </h2>
+            </div>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto">
+              Our blockchain architecture is fundamentally designed around one principle: 
+              liquidity providers should never lose money. Period.
+            </p>
+          </motion.div>
+
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border border-green-200 dark:border-green-700 text-center"
+            >
+              <div className="text-4xl mb-4">💯</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                100% IL Protection
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Mathematical guarantee that LPs never face impermanent loss. Built into the protocol level.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border border-green-200 dark:border-green-700 text-center"
+            >
+              <div className="text-4xl mb-4">⛓️</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                LP-First Chain
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                The chain only survives when LPs profit. Every function designed to benefit liquidity providers first.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border border-green-200 dark:border-green-700 text-center"
+            >
+              <div className="text-4xl mb-4">🔒</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                Risk-Free Liquidity
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Provide liquidity with zero risk. Earn rewards without worrying about market movements or IL.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl border border-green-200 dark:border-green-700 text-center"
+            >
+              <div className="text-4xl mb-4">📈</div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                Guaranteed Profits
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                LPs are guaranteed to profit. The blockchain architecture ensures positive returns for all providers.
+              </p>
+            </motion.div>
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="mt-16 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl p-8 text-white text-center"
+          >
+            <h3 className="text-2xl font-bold mb-4">
+              🏆 The LP Revolution Starts Here
+            </h3>
+            <p className="text-lg mb-6 max-w-3xl mx-auto">
+              For the first time in DeFi history, liquidity providers can earn without risk. 
+              Our blockchain doesn't just protect against IL - it makes IL mathematically impossible.
+            </p>
+            <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto text-center">
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="text-3xl mb-2">🚫</div>
+                <div className="font-semibold">Zero Impermanent Loss</div>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="text-3xl mb-2">✅</div>
+                <div className="font-semibold">Guaranteed Returns</div>
+              </div>
+              <div className="bg-white/10 rounded-lg p-4">
+                <div className="text-3xl mb-2">🎯</div>
+                <div className="font-semibold">LP-Only Focus</div>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -366,27 +490,27 @@ const RoadmapPage = () => {
             Our Revolutionary Vision
           </h3>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-4xl mx-auto mb-6">
-            We're not just building another blockchain - we're creating the future of decentralized computing. Our RISC-V powered architecture delivers what the crypto world has been waiting for: automatic execution, native scheduling, instant transactions, and built-in protections that make DeFi truly accessible to everyone.
+            We're not just building another blockchain - we're creating the first LP-centric ecosystem where liquidity providers never lose money. Our RISC-V powered architecture is designed around one principle: the chain only survives when LPs thrive. Every function, every feature, every innovation is built to guarantee risk-free liquidity provision.
           </p>
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto text-left">
             <div className="bg-white/50 dark:bg-gray-700/50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">😤 Today's Blockchain Frustrations:</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">😤 Current LP Nightmares:</h4>
               <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <li>• "Oops, forgot to liquidate that position"</li>
-                <li>• "Lost money to impermanent loss again"</li>
-                <li>• "Why is this transaction taking forever?"</li>
-                <li>• "Need to build everything from zero"</li>
-                <li>• "Wish I could schedule this function"</li>
+                <li>• "Lost 30% to impermanent loss"</li>
+                <li>• "LPs always get the worst deal"</li>
+                <li>• "Too risky to provide liquidity"</li>
+                <li>• "Protocols don't care about LPs"</li>
+                <li>• "Only whales can afford the risk"</li>
               </ul>
             </div>
             <div className="bg-white/50 dark:bg-gray-700/50 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">🚀 The BTB RISC-V Experience:</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">🛡️ BTB LP Paradise:</h4>
               <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <li>• "Functions execute themselves automatically"</li>
-                <li>• "IL protection? That's built-in now"</li>
-                <li>• "Faster than my web browser!"</li>
-                <li>• "Deploy and go - everything's ready"</li>
-                <li>• "Schedule any function, anytime"</li>
+                <li>• "Zero risk, guaranteed profits"</li>
+                <li>• "LPs are the #1 priority"</li>
+                <li>• "IL is mathematically impossible"</li>
+                <li>• "Chain built for LP success"</li>
+                <li>• "Everyone can LP safely"</li>
               </ul>
             </div>
           </div>
