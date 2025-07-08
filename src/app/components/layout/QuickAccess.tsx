@@ -56,6 +56,16 @@ const quickNavLinks = [
     ),
     color: 'bg-amber-100 dark:bg-amber-900/30',
     textColor: 'text-amber-600 dark:text-amber-400'
+  },
+  {
+    name: 'Game',
+    description: 'Play games and earn rewards',
+    href: '/game',
+    icon: ({ className }: { className?: string }) => (
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎮</span>
+    ),
+    color: 'bg-pink-100 dark:bg-pink-900/30',
+    textColor: 'text-pink-600 dark:text-pink-400'
   }
 ];
 
