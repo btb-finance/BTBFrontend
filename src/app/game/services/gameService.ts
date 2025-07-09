@@ -16,11 +16,11 @@ class GameService {
   private isInitialized = false;
 
   // Contract addresses
-  private readonly gameContractAddress = '0xc371c5B552F772b0Db406BD32212f9717DbEA6d3'; // BearHunterEcosystem
-  private readonly mimoTokenAddress = '0xC96Bb66Cbc6a2e29Fc58A59407Cb8c9067016BaE'; // MiMoGaMe Token
+  private readonly gameContractAddress = '0x63478c2822874AaB175F4c96cc024E85e0213d52'; // BearHunterEcosystem
+  private readonly mimoTokenAddress = '0x7c1604981bE181e856c458F3d604f15bc97c7661'; // MiMoGaMe Token
   private readonly btbTokenAddress = '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488'; // BTB Token
   private readonly bearNFTAddress = '0x000081733751860A8E5BA00FdCF7000b53E90dDD'; // BTB NFT
-  private readonly btbSwapLogicAddress = '0x770E93Be2830DB16c153c825aA31427c59242249'; // BTBSwapLogic
+  private readonly btbSwapLogicAddress = '0x4F3B9b9e423170C811bCAEDDC661f00A8D208755'; // BTBSwapLogic
 
   constructor() {
     // Initialize the read-only provider

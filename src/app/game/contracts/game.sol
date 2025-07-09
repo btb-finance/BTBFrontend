@@ -869,6 +869,54 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
         btbSwapContract.withdrawBearNFTs(to, tokenIds);
     }
 
+    // ========================== PROTECTION FUNCTIONS ==========================
+    
+    /**
+     * @dev Set or remove protection for a single address
+     * @param protectedAddress The address to set protection for
+     * @param isProtected True to protect the address, false to remove protection
+     */
+    function setProtectedAddress(address protectedAddress, bool isProtected) external onlyOwner {
+        if (protectedAddress == address(0)) revert ZeroAddressNotAllowed();
+        
+        protectedAddresses[protectedAddress] = isProtected;
+        emit AddressProtectionUpdated(protectedAddress, isProtected);
+    }
+    
+    /**
+     * @dev Set or remove protection for multiple addresses at once
+     * @param addresses Array of addresses to set protection for
+     * @param isProtected True to protect the addresses, false to remove protection
+     */
+    function setProtectedAddresses(address[] calldata addresses, bool isProtected) external onlyOwner {
+        for (uint256 i = 0; i < addresses.length; i++) {
+            if (addresses[i] == address(0)) revert ZeroAddressNotAllowed();
+            
+            protectedAddresses[addresses[i]] = isProtected;
+            emit AddressProtectionUpdated(addresses[i], isProtected);
+        }
+    }
+    
+    /**
+     * @dev Check if an address is protected from being hunted
+     * @param account The address to check
+     * @return True if the address is protected
+     */
+    function isProtectedAddress(address account) external view returns (bool) {
+        return protectedAddresses[account];
+    }
+    
+    /**
+     * @dev Remove protection from an address (convenience function)
+     * @param protectedAddress The address to remove protection from
+     */
+    function removeProtectedAddress(address protectedAddress) external onlyOwner {
+        if (protectedAddress == address(0)) revert ZeroAddressNotAllowed();
+        
+        protectedAddresses[protectedAddress] = false;
+        emit AddressProtectionUpdated(protectedAddress, false);
+    }
+    
     // ========================== ADMIN / OWNER FUNCTIONS ==========================
     // ... (withdrawBTB, withdrawERC20, withdrawETH, withdrawNFTs - these currently operate on BearHunterEcosystem's own balance)
     // If they are meant for swap module liquidity, they should call BTBSwapLogic deposit/funding functions (not yet defined in BTBSwapLogic beyond constructor)
