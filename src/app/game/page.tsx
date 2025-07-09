@@ -32,7 +32,8 @@ import {
   HuntMimo,
   RedeemBear,
   HunterCard,
-  GameOverview
+  GameOverview,
+  MiMoProtectionWarning
 } from './components';
 
 export default function GamePanel() {
@@ -249,6 +250,13 @@ export default function GamePanel() {
             </Button>
           </div>
         </div>
+        
+        {/* MiMo Protection Warning */}
+        {isConnected && parseFloat(gameStats.mimoBalance) > 0 && (
+          <MiMoProtectionWarning 
+            mimoBalance={gameStats.mimoBalance}
+          />
+        )}
         
         {/* Main Game Interface */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
