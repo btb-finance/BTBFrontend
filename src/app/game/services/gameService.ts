@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
+import StakingABI from '../abi/staking.json';
 
 // Base network configuration
 const BASE_NETWORK = {
@@ -11,6 +12,7 @@ const BASE_NETWORK = {
 
 class GameService {
   private contract: ethers.Contract | null = null;
+  private stakingContract: ethers.Contract | null = null;
   private provider: ethers.providers.StaticJsonRpcProvider | null = null;
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
@@ -25,6 +27,8 @@ class GameService {
   private readonly btbTokenAddress = '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488'; // BTB Token
   private readonly bearNFTAddress = '0x000081733751860A8E5BA00FdCF7000b53E90dDD'; // BTB NFT
   private readonly btbSwapLogicAddress = '0x4F3B9b9e423170C811bCAEDDC661f00A8D208755'; // BTBSwapLogic
+  private readonly stakingContractAddress = '0xb52bDEa1c5940C07f3c243d5dF6F3ca05e267365'; // Staking Contract
+  private readonly lpTokenAddress = '0x60ac27d9E15E4115FF5c6Cd3e2Ac24e2EB5266C2'; // LP Token
 
   constructor() {
     // Initialize the read-only provider
@@ -37,10 +41,16 @@ class GameService {
       }
     );
 
-    // Initialize contract with provider
+    // Initialize contracts with provider
     this.contract = new ethers.Contract(
       this.gameContractAddress,
       BearHunterEcosystemABI,
+      this.provider
+    );
+
+    this.stakingContract = new ethers.Contract(
+      this.stakingContractAddress,
+      StakingABI,
       this.provider
     );
   }
@@ -93,10 +103,16 @@ class GameService {
       
       this.signer = injectedProvider.getSigner();
       
-      // Initialize contract with signer
+      // Initialize contracts with signer
       this.contract = new ethers.Contract(
         this.gameContractAddress,
         BearHunterEcosystemABI,
+        this.signer
+      );
+
+      this.stakingContract = new ethers.Contract(
+        this.stakingContractAddress,
+        StakingABI,
         this.signer
       );
 
@@ -111,6 +127,11 @@ class GameService {
     this.contract = new ethers.Contract(
       this.gameContractAddress,
       BearHunterEcosystemABI,
+      this.provider!
+    );
+    this.stakingContract = new ethers.Contract(
+      this.stakingContractAddress,
+      StakingABI,
       this.provider!
     );
     this.signer = null;
@@ -1145,8 +1166,186 @@ class GameService {
       mimoToken: this.mimoTokenAddress,
       btbToken: this.btbTokenAddress,
       bearNFT: this.bearNFTAddress,
-      btbSwapLogic: this.btbSwapLogicAddress
+      btbSwapLogic: this.btbSwapLogicAddress,
+      stakingContract: this.stakingContractAddress,
+      lpToken: this.lpTokenAddress
     };
+  }
+
+  // ==================== STAKING FUNCTIONS ====================
+
+  public async getLPTokenBalance(): Promise<string> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const lpContract = new ethers.Contract(
+        this.lpTokenAddress,
+        ['function balanceOf(address) view returns (uint256)'],
+        this.signer!
+      );
+      const balance = await lpContract.balanceOf(address);
+      return ethers.utils.formatUnits(balance, 18);
+    } catch (error) {
+      console.error('Error getting LP token balance:', error);
+      return '0';
+    }
+  }
+
+  public async getStakingInfo(): Promise<{
+    totalStaked: string;
+    rewardRate: string;
+    periodFinish: string;
+    rewardPerToken: string;
+    apr: string;
+  }> {
+    try {
+      const cacheKey = 'staking_global_info';
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+
+      // Get global info first
+      const globalInfo = await this.stakingContract!.getGlobalInfo();
+      
+      // Calculate APR manually since contract getAPR() might be failing
+      const totalStaked = globalInfo._totalStaked;
+      const rewardRate = globalInfo._rewardRate;
+      
+      let calculatedAPR = '0';
+      if (!totalStaked.isZero() && !rewardRate.isZero()) {
+        // APR = (rewardRate * seconds per year) / totalStaked * 100
+        const secondsPerYear = ethers.BigNumber.from('31536000'); // 365 * 24 * 3600
+        const annualRewards = rewardRate.mul(secondsPerYear);
+        
+        // Calculate percentage: (annualRewards / totalStaked) * 100
+        // Using precision scaling to avoid floating point issues
+        const aprBasisPoints = annualRewards.mul(10000).div(totalStaked); // multiply by 10000 for basis points
+        calculatedAPR = ethers.utils.formatUnits(aprBasisPoints, 2); // divide by 100 to get percentage
+      }
+
+      const result = {
+        totalStaked: ethers.utils.formatUnits(globalInfo._totalStaked, 18),
+        rewardRate: ethers.utils.formatUnits(globalInfo._rewardRate, 18),
+        periodFinish: globalInfo._periodFinish.toString(),
+        rewardPerToken: ethers.utils.formatUnits(globalInfo._rewardPerToken, 18),
+        apr: calculatedAPR
+      };
+
+      this.setCachedData(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('Error getting staking info:', error);
+      return {
+        totalStaked: '0',
+        rewardRate: '0',
+        periodFinish: '0',
+        rewardPerToken: '0',
+        apr: '0'
+      };
+    }
+  }
+
+  public async getUserStakingInfo(): Promise<{
+    stakedAmount: string;
+    earnedRewards: string;
+    pendingRewards: string;
+  }> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const userInfo = await this.stakingContract!.getUserInfo(address);
+      
+      return {
+        stakedAmount: ethers.utils.formatUnits(userInfo.staked, 18),
+        earnedRewards: ethers.utils.formatUnits(userInfo.earnedRewards, 18),
+        pendingRewards: ethers.utils.formatUnits(userInfo.pendingRewards, 18)
+      };
+    } catch (error) {
+      console.error('Error getting user staking info:', error);
+      return {
+        stakedAmount: '0',
+        earnedRewards: '0',
+        pendingRewards: '0'
+      };
+    }
+  }
+
+  public async stake(amount: string): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    try {
+      // First approve LP tokens
+      const lpContract = new ethers.Contract(
+        this.lpTokenAddress,
+        [
+          'function approve(address spender, uint256 amount) external returns (bool)',
+          'function allowance(address owner, address spender) view returns (uint256)'
+        ],
+        this.signer!
+      );
+      
+      const address = await this.signer!.getAddress();
+      const stakeAmount = ethers.utils.parseUnits(amount, 18);
+      const allowance = await lpContract.allowance(address, this.stakingContractAddress);
+      
+      if (allowance.lt(stakeAmount)) {
+        const approveTx = await lpContract.approve(this.stakingContractAddress, stakeAmount);
+        await approveTx.wait();
+      }
+      
+      // Stake LP tokens
+      const tx = await this.stakingContract!.stake(stakeAmount);
+      return tx;
+    } catch (error) {
+      console.error('Error staking:', error);
+      throw error;
+    }
+  }
+
+  public async unstake(amount: string): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    try {
+      const unstakeAmount = ethers.utils.parseUnits(amount, 18);
+      const tx = await this.stakingContract!.unstake(unstakeAmount);
+      return tx;
+    } catch (error) {
+      console.error('Error unstaking:', error);
+      throw error;
+    }
+  }
+
+  public async claimRewards(): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    try {
+      const tx = await this.stakingContract!.claimRewards();
+      return tx;
+    } catch (error) {
+      console.error('Error claiming rewards:', error);
+      throw error;
+    }
+  }
+
+  public async emergencyUnstake(): Promise<ethers.ContractTransaction> {
+    await this.ensureInitialized();
+    try {
+      const tx = await this.stakingContract!.emergencyUnstake();
+      return tx;
+    } catch (error) {
+      console.error('Error emergency unstaking:', error);
+      throw error;
+    }
+  }
+
+  public async getEarnedRewards(): Promise<string> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const earned = await this.stakingContract!.earned(address);
+      return ethers.utils.formatUnits(earned, 18);
+    } catch (error) {
+      console.error('Error getting earned rewards:', error);
+      return '0';
+    }
   }
 }
 

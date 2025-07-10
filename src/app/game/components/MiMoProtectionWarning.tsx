@@ -32,7 +32,7 @@ export default function MiMoProtectionWarning({ mimoBalance, onDismiss }: MiMoPr
 
   const handleAddLiquidity = () => {
     window.open(
-      'https://aerodrome.finance/deposit?token0=eth&token1=0x7c1604981be181e856c458f3d604f15bc97c7661&type=-1&chain0=8453&chain1=8453',
+      'https://aerodrome.finance/deposit?token0=0x7c1604981be181e856c458f3d604f15bc97c7661&token1=0x888e85c95c84ca41eef3e4c8c89e8dce03e41488&type=-1&chain0=8453&chain1=8453',
       '_blank'
     );
   };

@@ -23,7 +23,8 @@ import {
   FireIcon,
   GiftIcon,
   ArrowsRightLeftIcon,
-  ShieldExclamationIcon
+  ShieldExclamationIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import {
   GameDashboard,
@@ -33,7 +34,8 @@ import {
   RedeemBear,
   HunterCard,
   GameOverview,
-  MiMoProtectionWarning
+  MiMoProtectionWarning,
+  StakingPanel
 } from './components';
 
 export default function GamePanel() {
@@ -43,6 +45,7 @@ export default function GamePanel() {
     bearNFTBalance: '0',
     hunterNFTBalance: '0',
     btbBalance: '0',
+    lpBalance: '0',
     totalHunted: '0',
     swapRate: '0'
   });
@@ -76,6 +79,9 @@ export default function GamePanel() {
           
           const btbBalance = await gameService.getBTBBalance();
           await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const lpBalance = await gameService.getLPTokenBalance();
+          await new Promise(resolve => setTimeout(resolve, 100));
 
           // Update stats immediately with balances
           setGameStats({
@@ -83,6 +89,7 @@ export default function GamePanel() {
             bearNFTBalance: bearBalance,
             hunterNFTBalance: hunterBalance,
             btbBalance,
+            lpBalance,
             totalHunted: '0',
             swapRate
           });
@@ -170,6 +177,9 @@ export default function GamePanel() {
       const btbBalance = await gameService.getBTBBalance();
       await new Promise(resolve => setTimeout(resolve, 100));
       
+      const lpBalance = await gameService.getLPTokenBalance();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const swapRate = await gameService.getSwapRate();
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -187,6 +197,7 @@ export default function GamePanel() {
         bearNFTBalance: bearBalance,
         hunterNFTBalance: hunterBalance,
         btbBalance,
+        lpBalance,
         totalHunted: hunters.reduce((total: number, hunter: any) => total + parseFloat(hunter.totalHunted || '0'), 0).toString(),
         swapRate
       });
@@ -240,7 +251,7 @@ export default function GamePanel() {
 
           {/* Stats Grid - Better Mobile Layout */}
           {isConnected && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7 gap-3 lg:gap-4">
               <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                   <div className="flex items-center gap-2">
@@ -312,6 +323,18 @@ export default function GamePanel() {
                   <p className="text-sm sm:text-base font-bold text-right">{parseFloat(gameStats.swapRate).toFixed(0)}</p>
                 </div>
               </div>
+              
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-indigo-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">LP</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{parseFloat(gameStats.lpBalance).toFixed(2)}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -362,36 +385,47 @@ export default function GamePanel() {
                         <span>Swap</span>
                       </TabsTrigger>
                     </TabsList>
+                    <TabsList className="grid grid-cols-1 gap-1 h-auto p-1 mt-1">
+                      <TabsTrigger value="staking" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <CurrencyDollarIcon className="h-3 w-3" />
+                        <span>Staking</span>
+                      </TabsTrigger>
+                    </TabsList>
                   </div>
 
-                  {/* Tablet and Desktop: Original layout */}
-                  <TabsList className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-6 mb-4 lg:mb-6 h-auto p-1">
-                    <TabsTrigger value="overview" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                  {/* Tablet and Desktop: Updated layout with staking */}
+                  <TabsList className="hidden sm:grid sm:grid-cols-4 lg:grid-cols-7 mb-4 lg:mb-6 h-auto p-1">
+                    <TabsTrigger value="overview" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
                       <SparklesIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span className="hidden lg:inline">Overview</span>
                       <span className="lg:hidden">Over</span>
                     </TabsTrigger>
-                    <TabsTrigger value="deposit" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                    <TabsTrigger value="deposit" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
                       <GiftIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span className="hidden lg:inline">Deposit</span>
                       <span className="lg:hidden">Dep</span>
                     </TabsTrigger>
-                    <TabsTrigger value="feed" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                    <TabsTrigger value="feed" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
                       <FireIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span>Feed</span>
                     </TabsTrigger>
-                    <TabsTrigger value="hunt" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                    <TabsTrigger value="hunt" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
                       <ShieldExclamationIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span>Hunt</span>
                     </TabsTrigger>
-                    <TabsTrigger value="redeem" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                    <TabsTrigger value="redeem" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
                       <ArrowsRightLeftIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span className="hidden lg:inline">Redeem</span>
                       <span className="lg:hidden">Red</span>
                     </TabsTrigger>
-                    <TabsTrigger value="swap" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                    <TabsTrigger value="swap" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
                       <ArrowsRightLeftIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span>Swap</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="staking" className="flex items-center justify-center gap-1 px-1 lg:px-2 py-2 text-xs lg:text-sm">
+                      <CurrencyDollarIcon className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden lg:inline">Staking</span>
+                      <span className="lg:hidden">Stake</span>
                     </TabsTrigger>
                   </TabsList>
                   
@@ -436,6 +470,12 @@ export default function GamePanel() {
                   <TabsContent value="swap">
                     <GameDashboard 
                       gameStats={gameStats}
+                      onSuccess={handleRefresh}
+                    />
+                  </TabsContent>
+                  
+                  <TabsContent value="staking">
+                    <StakingPanel 
                       onSuccess={handleRefresh}
                     />
                   </TabsContent>

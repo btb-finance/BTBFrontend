@@ -8,3 +8,4 @@ export { default as GameOverview } from './GameOverview';
 export { default as GameContext } from './GameContext';
 export { default as useGameContract } from './useGameContract';
 export { default as MiMoProtectionWarning } from './MiMoProtectionWarning';
+export { default as StakingPanel } from './StakingPanel';
