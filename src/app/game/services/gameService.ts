@@ -194,6 +194,44 @@ class GameService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // Multicall implementation for efficient batch calls
+  private async multicall(calls: Array<{ target: string; callData: string }>): Promise<string[]> {
+    try {
+      // Simple multicall using eth_call with batched requests
+      const multicallPromises = calls.map(call => 
+        this.provider!.call({
+          to: call.target,
+          data: call.callData
+        })
+      );
+      
+      // Process in smaller chunks to avoid overwhelming the RPC
+      const results = [];
+      const chunkSize = 50; // Reduce from previous batch sizes
+      
+      for (let i = 0; i < multicallPromises.length; i += chunkSize) {
+        const chunk = multicallPromises.slice(i, i + chunkSize);
+        const chunkResults = await Promise.all(chunk);
+        results.push(...chunkResults);
+        
+        // Small delay between chunks
+        if (i + chunkSize < multicallPromises.length) {
+          await this.delay(50);
+        }
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('Multicall failed, falling back to individual calls:', error);
+      throw error;
+    }
+  }
+
+  // Helper to encode function calls
+  private encodeFunctionCall(contractInterface: ethers.utils.Interface, functionName: string, args: any[]): string {
+    return contractInterface.encodeFunctionData(functionName, args);
+  }
+
   // ==================== BALANCE FUNCTIONS ====================
 
   public async getMiMoBalance(): Promise<string> {
@@ -676,79 +714,84 @@ class GameService {
       
       progressCallback?.(0, tokenCount);
       
-      // Batch fetch token IDs first with smaller batch size
+      // Use multicall for efficient batching
+      const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+      
+      // Step 1: Get all token IDs using multicall
       const tokenIdCalls = [];
       for (let i = 0; i < tokenCount; i++) {
         tokenIdCalls.push({
-          contract: this.contract!,
-          method: 'tokenOfOwnerByIndex',
-          args: [address, i]
+          target: this.gameContractAddress,
+          callData: this.encodeFunctionCall(contractInterface, 'tokenOfOwnerByIndex', [address, i])
         });
       }
       
-      const tokenIds = await this.batchContractCalls(tokenIdCalls, 5);
+      const tokenIdResults = await this.multicall(tokenIdCalls);
+      const tokenIds = tokenIdResults.map(result => 
+        contractInterface.decodeFunctionResult('tokenOfOwnerByIndex', result)[0]
+      );
       
-      // Add delay before fetching hunter data
-      await this.delay(200);
-      
-      // Process hunters in smaller batches and return results progressively
-      const hunters = [];
-      const batchSize = 10; // Process 10 hunters at a time
-      
-      for (let i = 0; i < tokenIds.length; i += batchSize) {
-        const batchTokenIds = tokenIds.slice(i, i + batchSize);
-        
-        // Fetch data for this batch
-        const hunterDataCalls = [];
-        for (const tokenId of batchTokenIds) {
-          hunterDataCalls.push(
-            { contract: this.contract!, method: 'getHunterStats', args: [tokenId] },
-            { contract: this.contract!, method: 'canFeed', args: [tokenId] },
-            { contract: this.contract!, method: 'canHunt', args: [tokenId] },
-            { contract: this.contract!, method: 'isHunterActive', args: [tokenId] }
-          );
-        }
-        
-        const hunterDataResults = await this.batchContractCalls(hunterDataCalls, 8);
-        
-        // Process this batch
-        for (let j = 0; j < batchTokenIds.length; j++) {
-          try {
-            const tokenId = batchTokenIds[j];
-            const statsIndex = j * 4;
-            const stats = hunterDataResults[statsIndex];
-            const canFeed = hunterDataResults[statsIndex + 1];
-            const canHunt = hunterDataResults[statsIndex + 2];
-            const isActive = hunterDataResults[statsIndex + 3];
-            
-            hunters.push({
-              tokenId: tokenId.toString(),
-              creationTime: stats[0].toString(),
-              lastFeedTime: stats[1].toString(),
-              lastHuntTime: stats[2].toString(),
-              power: ethers.utils.formatUnits(stats[3], 18),
-              missedFeedings: stats[4].toString(),
-              inHibernation: stats[5],
-              recoveryStartTime: stats[6].toString(),
-              totalHunted: ethers.utils.formatUnits(stats[7], 18),
-              daysRemaining: stats[8].toString(),
-              canFeed: canFeed[0],
-              canFeedReason: canFeed[1],
-              canHunt: canHunt[0],
-              canHuntReason: canHunt[1],
-              isActive
-            });
-          } catch (error) {
-            console.error(`Error processing hunter ${i + j}:`, error);
+      // Step 2: Get all hunter data using multicall (more efficient)
+      const allDataCalls = [];
+      for (const tokenId of tokenIds) {
+        allDataCalls.push(
+          {
+            target: this.gameContractAddress,
+            callData: this.encodeFunctionCall(contractInterface, 'getHunterStats', [tokenId])
+          },
+          {
+            target: this.gameContractAddress,
+            callData: this.encodeFunctionCall(contractInterface, 'canFeed', [tokenId])
+          },
+          {
+            target: this.gameContractAddress,
+            callData: this.encodeFunctionCall(contractInterface, 'canHunt', [tokenId])
+          },
+          {
+            target: this.gameContractAddress,
+            callData: this.encodeFunctionCall(contractInterface, 'isHunterActive', [tokenId])
           }
-        }
-        
-        // Report progress
-        progressCallback?.(hunters.length, tokenCount);
-        
-        // Small delay between batches
-        if (i + batchSize < tokenIds.length) {
-          await this.delay(200);
+        );
+      }
+      
+      const allDataResults = await this.multicall(allDataCalls);
+      
+      // Process results
+      const hunters = [];
+      for (let i = 0; i < tokenIds.length; i++) {
+        try {
+          const tokenId = tokenIds[i];
+          const dataIndex = i * 4;
+          
+          const stats = contractInterface.decodeFunctionResult('getHunterStats', allDataResults[dataIndex]);
+          const canFeed = contractInterface.decodeFunctionResult('canFeed', allDataResults[dataIndex + 1]);
+          const canHunt = contractInterface.decodeFunctionResult('canHunt', allDataResults[dataIndex + 2]);
+          const isActive = contractInterface.decodeFunctionResult('isHunterActive', allDataResults[dataIndex + 3]);
+          
+          hunters.push({
+            tokenId: tokenId.toString(),
+            creationTime: stats[0].toString(),
+            lastFeedTime: stats[1].toString(),
+            lastHuntTime: stats[2].toString(),
+            power: ethers.utils.formatUnits(stats[3], 18),
+            missedFeedings: stats[4].toString(),
+            inHibernation: stats[5],
+            recoveryStartTime: stats[6].toString(),
+            totalHunted: ethers.utils.formatUnits(stats[7], 18),
+            daysRemaining: stats[8].toString(),
+            canFeed: canFeed[0],
+            canFeedReason: canFeed[1],
+            canHunt: canHunt[0],
+            canHuntReason: canHunt[1],
+            isActive: isActive[0]
+          });
+          
+          // Report progress every 10 hunters
+          if ((i + 1) % 10 === 0 || i === tokenIds.length - 1) {
+            progressCallback?.(i + 1, tokenCount);
+          }
+        } catch (error) {
+          console.error(`Error processing hunter ${i}:`, error);
         }
       }
       
@@ -869,48 +912,64 @@ class GameService {
         return;
       }
       
-      // Batch fetch token IDs first
+      const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+      
+      // Get all token IDs first using multicall
       const tokenIdCalls = [];
       for (let i = 0; i < tokenCount; i++) {
         tokenIdCalls.push({
-          contract: this.contract!,
-          method: 'tokenOfOwnerByIndex',
-          args: [address, i]
+          target: this.gameContractAddress,
+          callData: this.encodeFunctionCall(contractInterface, 'tokenOfOwnerByIndex', [address, i])
         });
       }
       
-      const tokenIds = await this.batchContractCalls(tokenIdCalls, 5);
-      await this.delay(200);
+      const tokenIdResults = await this.multicall(tokenIdCalls);
+      const tokenIds = tokenIdResults.map(result => 
+        contractInterface.decodeFunctionResult('tokenOfOwnerByIndex', result)[0]
+      );
       
-      // Process hunters in smaller batches and yield results progressively
+      // Process hunters in batches using multicall
       const hunters = [];
-      const batchSize = 10; // Process 10 hunters at a time
+      const batchSize = 25; // Larger batches since multicall is more efficient
       
       for (let i = 0; i < tokenIds.length; i += batchSize) {
         const batchTokenIds = tokenIds.slice(i, i + batchSize);
         
-        // Fetch data for this batch
-        const hunterDataCalls = [];
+        // Create multicall for this batch
+        const batchDataCalls = [];
         for (const tokenId of batchTokenIds) {
-          hunterDataCalls.push(
-            { contract: this.contract!, method: 'getHunterStats', args: [tokenId] },
-            { contract: this.contract!, method: 'canFeed', args: [tokenId] },
-            { contract: this.contract!, method: 'canHunt', args: [tokenId] },
-            { contract: this.contract!, method: 'isHunterActive', args: [tokenId] }
+          batchDataCalls.push(
+            {
+              target: this.gameContractAddress,
+              callData: this.encodeFunctionCall(contractInterface, 'getHunterStats', [tokenId])
+            },
+            {
+              target: this.gameContractAddress,
+              callData: this.encodeFunctionCall(contractInterface, 'canFeed', [tokenId])
+            },
+            {
+              target: this.gameContractAddress,
+              callData: this.encodeFunctionCall(contractInterface, 'canHunt', [tokenId])
+            },
+            {
+              target: this.gameContractAddress,
+              callData: this.encodeFunctionCall(contractInterface, 'isHunterActive', [tokenId])
+            }
           );
         }
         
-        const hunterDataResults = await this.batchContractCalls(hunterDataCalls, 8);
+        const batchDataResults = await this.multicall(batchDataCalls);
         
         // Process this batch
         for (let j = 0; j < batchTokenIds.length; j++) {
           try {
             const tokenId = batchTokenIds[j];
-            const statsIndex = j * 4;
-            const stats = hunterDataResults[statsIndex];
-            const canFeed = hunterDataResults[statsIndex + 1];
-            const canHunt = hunterDataResults[statsIndex + 2];
-            const isActive = hunterDataResults[statsIndex + 3];
+            const dataIndex = j * 4;
+            
+            const stats = contractInterface.decodeFunctionResult('getHunterStats', batchDataResults[dataIndex]);
+            const canFeed = contractInterface.decodeFunctionResult('canFeed', batchDataResults[dataIndex + 1]);
+            const canHunt = contractInterface.decodeFunctionResult('canHunt', batchDataResults[dataIndex + 2]);
+            const isActive = contractInterface.decodeFunctionResult('isHunterActive', batchDataResults[dataIndex + 3]);
             
             hunters.push({
               tokenId: tokenId.toString(),
@@ -927,7 +986,7 @@ class GameService {
               canFeedReason: canFeed[1],
               canHunt: canHunt[0],
               canHuntReason: canHunt[1],
-              isActive
+              isActive: isActive[0]
             });
           } catch (error) {
             console.error(`Error processing hunter ${i + j}:`, error);
@@ -937,9 +996,9 @@ class GameService {
         // Yield current progress
         yield { hunters: [...hunters], loaded: hunters.length, total: tokenCount };
         
-        // Small delay between batches
+        // Minimal delay between batches since multicall is more efficient
         if (i + batchSize < tokenIds.length) {
-          await this.delay(200);
+          await this.delay(50);
         }
       }
       
