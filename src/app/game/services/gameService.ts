@@ -5,7 +5,7 @@ import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
 const BASE_NETWORK = {
   chainId: 8453,
   name: 'Base Mainnet',
-  rpcUrl: 'https://mainnet.base.org',
+  rpcUrl: 'https://base-mainnet.g.alchemy.com/v2/UqLpjGTYscN_cI1VF7MRq',
   blockExplorer: 'https://basescan.org',
 };
 
@@ -14,6 +14,10 @@ class GameService {
   private provider: ethers.providers.StaticJsonRpcProvider | null = null;
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
+  
+  // Caching mechanism
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private readonly CACHE_DURATION = 30000; // 30 seconds
 
   // Contract addresses
   private readonly gameContractAddress = '0x63478c2822874AaB175F4c96cc024E85e0213d52'; // BearHunterEcosystem
@@ -117,6 +121,77 @@ class GameService {
     if (!this.isInitialized) {
       await this.connect();
     }
+  }
+
+  // Cache utility methods
+  private getCachedData(key: string): any | null {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+      return cached.data;
+    }
+    return null;
+  }
+
+  private setCachedData(key: string, data: any): void {
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  private clearCache(): void {
+    this.cache.clear();
+  }
+
+  // Batch contract calls utility with rate limiting and retry logic
+  private async batchContractCalls(calls: Array<{ contract: ethers.Contract; method: string; args: any[] }>, batchSize: number = 10): Promise<any[]> {
+    const results = [];
+    
+    // Process calls in chunks to avoid rate limits
+    for (let i = 0; i < calls.length; i += batchSize) {
+      const chunk = calls.slice(i, i + batchSize);
+      
+      // Retry logic for rate limit errors
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          const promises = chunk.map(call => call.contract[call.method](...call.args));
+          const chunkResults = await Promise.all(promises);
+          results.push(...chunkResults);
+          break; // Success, exit retry loop
+        } catch (error: any) {
+          retryCount++;
+          
+          if (error.message?.includes('Request limit exceeded') || error.message?.includes('rate limit')) {
+            console.warn(`Rate limit hit, retrying chunk ${i}-${i + batchSize} (attempt ${retryCount}/${maxRetries})`);
+            
+            // Exponential backoff: 500ms, 1s, 2s
+            const delay = 500 * Math.pow(2, retryCount - 1);
+            await this.delay(delay);
+            
+            if (retryCount === maxRetries) {
+              console.error('Max retries reached for batch calls');
+              throw error;
+            }
+          } else {
+            // Non-rate-limit error, don't retry
+            console.error('Error in batch contract calls:', error);
+            throw error;
+          }
+        }
+      }
+      
+      // Add delay between chunks to prevent rate limiting
+      if (i + batchSize < calls.length) {
+        await this.delay(150);
+      }
+    }
+    
+    return results;
+  }
+
+  // Utility to add delays between operations
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // ==================== BALANCE FUNCTIONS ====================
@@ -580,42 +655,105 @@ class GameService {
 
   // ==================== NFT DATA FUNCTIONS ====================
 
-  public async getUserHunters(): Promise<any[]> {
+  public async getUserHunters(progressCallback?: (loaded: number, total: number) => void): Promise<any[]> {
     await this.ensureInitialized();
     try {
       const address = await this.signer!.getAddress();
-      const balance = await this.contract!.balanceOf(address);
-      const hunters = [];
+      const cacheKey = `hunters_${address}`;
       
-      for (let i = 0; i < balance.toNumber(); i++) {
-        try {
-          const tokenId = await this.contract!.tokenOfOwnerByIndex(address, i);
-          const stats = await this.contract!.getHunterStats(tokenId);
-          const canFeed = await this.contract!.canFeed(tokenId);
-          const canHunt = await this.contract!.canHunt(tokenId);
-          const isActive = await this.contract!.isHunterActive(tokenId);
-          
-          hunters.push({
-            tokenId: tokenId.toString(),
-            creationTime: stats[0].toString(),
-            lastFeedTime: stats[1].toString(),
-            lastHuntTime: stats[2].toString(),
-            power: ethers.utils.formatUnits(stats[3], 18), // Power needs to be converted from wei
-            missedFeedings: stats[4].toString(),
-            inHibernation: stats[5],
-            recoveryStartTime: stats[6].toString(),
-            totalHunted: ethers.utils.formatUnits(stats[7], 18),
-            daysRemaining: stats[8].toString(),
-            canFeed: canFeed[0],
-            canFeedReason: canFeed[1],
-            canHunt: canHunt[0],
-            canHuntReason: canHunt[1],
-            isActive
-          });
-        } catch (error) {
-          console.error(`Error getting hunter ${i}:`, error);
+      // Check cache first
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+      
+      const balance = await this.contract!.balanceOf(address);
+      const tokenCount = balance.toNumber();
+      
+      if (tokenCount === 0) {
+        return [];
+      }
+      
+      progressCallback?.(0, tokenCount);
+      
+      // Batch fetch token IDs first with smaller batch size
+      const tokenIdCalls = [];
+      for (let i = 0; i < tokenCount; i++) {
+        tokenIdCalls.push({
+          contract: this.contract!,
+          method: 'tokenOfOwnerByIndex',
+          args: [address, i]
+        });
+      }
+      
+      const tokenIds = await this.batchContractCalls(tokenIdCalls, 5);
+      
+      // Add delay before fetching hunter data
+      await this.delay(200);
+      
+      // Process hunters in smaller batches and return results progressively
+      const hunters = [];
+      const batchSize = 10; // Process 10 hunters at a time
+      
+      for (let i = 0; i < tokenIds.length; i += batchSize) {
+        const batchTokenIds = tokenIds.slice(i, i + batchSize);
+        
+        // Fetch data for this batch
+        const hunterDataCalls = [];
+        for (const tokenId of batchTokenIds) {
+          hunterDataCalls.push(
+            { contract: this.contract!, method: 'getHunterStats', args: [tokenId] },
+            { contract: this.contract!, method: 'canFeed', args: [tokenId] },
+            { contract: this.contract!, method: 'canHunt', args: [tokenId] },
+            { contract: this.contract!, method: 'isHunterActive', args: [tokenId] }
+          );
+        }
+        
+        const hunterDataResults = await this.batchContractCalls(hunterDataCalls, 8);
+        
+        // Process this batch
+        for (let j = 0; j < batchTokenIds.length; j++) {
+          try {
+            const tokenId = batchTokenIds[j];
+            const statsIndex = j * 4;
+            const stats = hunterDataResults[statsIndex];
+            const canFeed = hunterDataResults[statsIndex + 1];
+            const canHunt = hunterDataResults[statsIndex + 2];
+            const isActive = hunterDataResults[statsIndex + 3];
+            
+            hunters.push({
+              tokenId: tokenId.toString(),
+              creationTime: stats[0].toString(),
+              lastFeedTime: stats[1].toString(),
+              lastHuntTime: stats[2].toString(),
+              power: ethers.utils.formatUnits(stats[3], 18),
+              missedFeedings: stats[4].toString(),
+              inHibernation: stats[5],
+              recoveryStartTime: stats[6].toString(),
+              totalHunted: ethers.utils.formatUnits(stats[7], 18),
+              daysRemaining: stats[8].toString(),
+              canFeed: canFeed[0],
+              canFeedReason: canFeed[1],
+              canHunt: canHunt[0],
+              canHuntReason: canHunt[1],
+              isActive
+            });
+          } catch (error) {
+            console.error(`Error processing hunter ${i + j}:`, error);
+          }
+        }
+        
+        // Report progress
+        progressCallback?.(hunters.length, tokenCount);
+        
+        // Small delay between batches
+        if (i + batchSize < tokenIds.length) {
+          await this.delay(200);
         }
       }
+      
+      // Cache the results
+      this.setCachedData(cacheKey, hunters);
       
       return hunters;
     } catch (error) {
@@ -628,6 +766,14 @@ class GameService {
     await this.ensureInitialized();
     try {
       const address = await this.signer!.getAddress();
+      const cacheKey = `bears_${address}`;
+      
+      // Check cache first
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+      
       const bearContract = new ethers.Contract(
         this.bearNFTAddress,
         [
@@ -638,18 +784,29 @@ class GameService {
       );
       
       const balance = await bearContract.balanceOf(address);
-      const bears = [];
+      const tokenCount = balance.toNumber();
       
-      for (let i = 0; i < balance.toNumber(); i++) {
-        try {
-          const tokenId = await bearContract.tokenOfOwnerByIndex(address, i);
-          bears.push({
-            tokenId: tokenId.toString()
-          });
-        } catch (error) {
-          console.error(`Error getting bear ${i}:`, error);
-        }
+      if (tokenCount === 0) {
+        return [];
       }
+      
+      // Batch fetch token IDs with smaller batch size
+      const tokenIdCalls = [];
+      for (let i = 0; i < tokenCount; i++) {
+        tokenIdCalls.push({
+          contract: bearContract,
+          method: 'tokenOfOwnerByIndex',
+          args: [address, i]
+        });
+      }
+      
+      const tokenIds = await this.batchContractCalls(tokenIdCalls, 5);
+      const bears = tokenIds.map(tokenId => ({
+        tokenId: tokenId.toString()
+      }));
+      
+      // Cache the results
+      this.setCachedData(cacheKey, bears);
       
       return bears;
     } catch (error) {
@@ -687,6 +844,238 @@ class GameService {
       console.error('Error getting hunter stats:', error);
       throw error;
     }
+  }
+
+  // ==================== PROGRESSIVE LOADING FUNCTIONS ====================
+
+  public async *getUserHuntersProgressive(): AsyncGenerator<{ hunters: any[], loaded: number, total: number }> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const cacheKey = `hunters_${address}`;
+      
+      // Check cache first
+      const cachedData = this.getCachedData(cacheKey);
+      if (cachedData) {
+        yield { hunters: cachedData, loaded: cachedData.length, total: cachedData.length };
+        return;
+      }
+      
+      const balance = await this.contract!.balanceOf(address);
+      const tokenCount = balance.toNumber();
+      
+      if (tokenCount === 0) {
+        yield { hunters: [], loaded: 0, total: 0 };
+        return;
+      }
+      
+      // Batch fetch token IDs first
+      const tokenIdCalls = [];
+      for (let i = 0; i < tokenCount; i++) {
+        tokenIdCalls.push({
+          contract: this.contract!,
+          method: 'tokenOfOwnerByIndex',
+          args: [address, i]
+        });
+      }
+      
+      const tokenIds = await this.batchContractCalls(tokenIdCalls, 5);
+      await this.delay(200);
+      
+      // Process hunters in smaller batches and yield results progressively
+      const hunters = [];
+      const batchSize = 10; // Process 10 hunters at a time
+      
+      for (let i = 0; i < tokenIds.length; i += batchSize) {
+        const batchTokenIds = tokenIds.slice(i, i + batchSize);
+        
+        // Fetch data for this batch
+        const hunterDataCalls = [];
+        for (const tokenId of batchTokenIds) {
+          hunterDataCalls.push(
+            { contract: this.contract!, method: 'getHunterStats', args: [tokenId] },
+            { contract: this.contract!, method: 'canFeed', args: [tokenId] },
+            { contract: this.contract!, method: 'canHunt', args: [tokenId] },
+            { contract: this.contract!, method: 'isHunterActive', args: [tokenId] }
+          );
+        }
+        
+        const hunterDataResults = await this.batchContractCalls(hunterDataCalls, 8);
+        
+        // Process this batch
+        for (let j = 0; j < batchTokenIds.length; j++) {
+          try {
+            const tokenId = batchTokenIds[j];
+            const statsIndex = j * 4;
+            const stats = hunterDataResults[statsIndex];
+            const canFeed = hunterDataResults[statsIndex + 1];
+            const canHunt = hunterDataResults[statsIndex + 2];
+            const isActive = hunterDataResults[statsIndex + 3];
+            
+            hunters.push({
+              tokenId: tokenId.toString(),
+              creationTime: stats[0].toString(),
+              lastFeedTime: stats[1].toString(),
+              lastHuntTime: stats[2].toString(),
+              power: ethers.utils.formatUnits(stats[3], 18),
+              missedFeedings: stats[4].toString(),
+              inHibernation: stats[5],
+              recoveryStartTime: stats[6].toString(),
+              totalHunted: ethers.utils.formatUnits(stats[7], 18),
+              daysRemaining: stats[8].toString(),
+              canFeed: canFeed[0],
+              canFeedReason: canFeed[1],
+              canHunt: canHunt[0],
+              canHuntReason: canHunt[1],
+              isActive
+            });
+          } catch (error) {
+            console.error(`Error processing hunter ${i + j}:`, error);
+          }
+        }
+        
+        // Yield current progress
+        yield { hunters: [...hunters], loaded: hunters.length, total: tokenCount };
+        
+        // Small delay between batches
+        if (i + batchSize < tokenIds.length) {
+          await this.delay(200);
+        }
+      }
+      
+      // Cache the final results
+      this.setCachedData(cacheKey, hunters);
+      
+    } catch (error) {
+      console.error('Error getting user hunters:', error);
+      yield { hunters: [], loaded: 0, total: 0 };
+    }
+  }
+
+  // ==================== PAGINATION FUNCTIONS ====================
+
+  public async loadMoreHunters(currentCount: number, batchSize: number = 25): Promise<any[]> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const balance = await this.contract!.balanceOf(address);
+      
+      if (currentCount >= balance.toNumber()) {
+        return [];
+      }
+      
+      const endCount = Math.min(currentCount + batchSize, balance.toNumber());
+      const tokenIdCalls = [];
+      
+      for (let i = currentCount; i < endCount; i++) {
+        tokenIdCalls.push({
+          contract: this.contract!,
+          method: 'tokenOfOwnerByIndex',
+          args: [address, i]
+        });
+      }
+      
+      const tokenIds = await this.batchContractCalls(tokenIdCalls);
+      
+      // Batch fetch all hunter data
+      const hunterDataCalls = [];
+      for (const tokenId of tokenIds) {
+        hunterDataCalls.push(
+          { contract: this.contract!, method: 'getHunterStats', args: [tokenId] },
+          { contract: this.contract!, method: 'canFeed', args: [tokenId] },
+          { contract: this.contract!, method: 'canHunt', args: [tokenId] },
+          { contract: this.contract!, method: 'isHunterActive', args: [tokenId] }
+        );
+      }
+      
+      const hunterDataResults = await this.batchContractCalls(hunterDataCalls);
+      
+      // Process the results
+      const hunters = [];
+      for (let i = 0; i < tokenIds.length; i++) {
+        try {
+          const tokenId = tokenIds[i];
+          const statsIndex = i * 4;
+          const stats = hunterDataResults[statsIndex];
+          const canFeed = hunterDataResults[statsIndex + 1];
+          const canHunt = hunterDataResults[statsIndex + 2];
+          const isActive = hunterDataResults[statsIndex + 3];
+          
+          hunters.push({
+            tokenId: tokenId.toString(),
+            creationTime: stats[0].toString(),
+            lastFeedTime: stats[1].toString(),
+            lastHuntTime: stats[2].toString(),
+            power: ethers.utils.formatUnits(stats[3], 18),
+            missedFeedings: stats[4].toString(),
+            inHibernation: stats[5],
+            recoveryStartTime: stats[6].toString(),
+            totalHunted: ethers.utils.formatUnits(stats[7], 18),
+            daysRemaining: stats[8].toString(),
+            canFeed: canFeed[0],
+            canFeedReason: canFeed[1],
+            canHunt: canHunt[0],
+            canHuntReason: canHunt[1],
+            isActive
+          });
+        } catch (error) {
+          console.error(`Error processing hunter ${i}:`, error);
+        }
+      }
+      
+      return hunters;
+    } catch (error) {
+      console.error('Error loading more hunters:', error);
+      return [];
+    }
+  }
+
+  public async loadMoreBears(currentCount: number, batchSize: number = 25): Promise<any[]> {
+    await this.ensureInitialized();
+    try {
+      const address = await this.signer!.getAddress();
+      const bearContract = new ethers.Contract(
+        this.bearNFTAddress,
+        [
+          'function balanceOf(address) view returns (uint256)',
+          'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)'
+        ],
+        this.signer!
+      );
+      
+      const balance = await bearContract.balanceOf(address);
+      
+      if (currentCount >= balance.toNumber()) {
+        return [];
+      }
+      
+      const endCount = Math.min(currentCount + batchSize, balance.toNumber());
+      const tokenIdCalls = [];
+      
+      for (let i = currentCount; i < endCount; i++) {
+        tokenIdCalls.push({
+          contract: bearContract,
+          method: 'tokenOfOwnerByIndex',
+          args: [address, i]
+        });
+      }
+      
+      const tokenIds = await this.batchContractCalls(tokenIdCalls);
+      const bears = tokenIds.map(tokenId => ({
+        tokenId: tokenId.toString()
+      }));
+      
+      return bears;
+    } catch (error) {
+      console.error('Error loading more bears:', error);
+      return [];
+    }
+  }
+
+  // ==================== CACHE MANAGEMENT ====================
+
+  public invalidateCache(): void {
+    this.clearCache();
   }
 
   // ==================== CONTRACT INFO FUNCTIONS ====================

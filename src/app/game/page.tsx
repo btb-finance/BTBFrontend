@@ -49,6 +49,9 @@ export default function GamePanel() {
   const [hunterTokens, setHunterTokens] = useState<any[]>([]);
   const [bearTokens, setBearTokens] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingHunters, setIsLoadingHunters] = useState<boolean>(false);
+  const [isLoadingBears, setIsLoadingBears] = useState<boolean>(false);
+  const [loadingProgress, setLoadingProgress] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,36 +62,79 @@ export default function GamePanel() {
         const swapRate = await gameService.getSwapRate();
         
         if (isConnected) {
-          // Get user balances
-          const [mimoBalance, bearBalance, hunterBalance, btbBalance] = await Promise.all([
-            gameService.getMiMoBalance(),
-            gameService.getBearNFTBalance(),
-            gameService.getHunterNFTBalance(),
-            gameService.getBTBBalance()
-          ]);
+          // Get user balances first and show immediately
+          setLoadingProgress('Loading balances...');
+          
+          const mimoBalance = await gameService.getMiMoBalance();
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const bearBalance = await gameService.getBearNFTBalance();
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const hunterBalance = await gameService.getHunterNFTBalance();
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          const btbBalance = await gameService.getBTBBalance();
+          await new Promise(resolve => setTimeout(resolve, 100));
 
-          // Get user's Hunter NFTs with stats
-          const hunters = await gameService.getUserHunters();
-          
-          // Get user's Bear NFTs
-          const bears = await gameService.getUserBears();
-          
+          // Update stats immediately with balances
           setGameStats({
             mimoBalance,
             bearNFTBalance: bearBalance,
             hunterNFTBalance: hunterBalance,
             btbBalance,
-            totalHunted: '0', // Will be calculated from hunters
+            totalHunted: '0',
             swapRate
           });
           
-          setHunterTokens(hunters);
-          setBearTokens(bears);
+          // Set main loading to false so UI shows with balances
+          setIsLoading(false);
+          
+          // Load NFTs in background
+          setIsLoadingHunters(true);
+          setIsLoadingBears(true);
+          
+          // Load hunters progressively
+          const loadHuntersProgressively = async () => {
+            try {
+              for await (const { hunters, loaded, total } of gameService.getUserHuntersProgressive()) {
+                setHunterTokens(hunters);
+                setLoadingProgress(`Loading hunters: ${loaded}/${total}`);
+                
+                if (loaded === total) {
+                  setIsLoadingHunters(false);
+                  setLoadingProgress('');
+                }
+              }
+            } catch (error) {
+              console.error('Error loading hunters:', error);
+              setIsLoadingHunters(false);
+              setLoadingProgress('');
+            }
+          };
+          
+          // Load bears normally (they're usually fewer)
+          const loadBears = async () => {
+            try {
+              const bears = await gameService.getUserBears();
+              setBearTokens(bears);
+              setIsLoadingBears(false);
+            } catch (error) {
+              console.error('Error loading bears:', error);
+              setIsLoadingBears(false);
+            }
+          };
+          
+          // Start both operations
+          loadHuntersProgressively();
+          loadBears();
+          
         } else {
           setGameStats(prev => ({
             ...prev,
             swapRate
           }));
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -99,8 +145,8 @@ export default function GamePanel() {
 
     fetchData();
     
-    // Set up interval to refresh data every 30 seconds
-    const interval = setInterval(fetchData, 30000);
+    // Set up interval to refresh data every 60 seconds
+    const interval = setInterval(fetchData, 60000);
     
     return () => clearInterval(interval);
   }, [isConnected]);
@@ -111,15 +157,25 @@ export default function GamePanel() {
     try {
       setIsLoading(true);
       
-      // Get updated balances
-      const [mimoBalance, bearBalance, hunterBalance, btbBalance, swapRate] = await Promise.all([
-        gameService.getMiMoBalance(),
-        gameService.getBearNFTBalance(),
-        gameService.getHunterNFTBalance(),
-        gameService.getBTBBalance(),
-        gameService.getSwapRate()
-      ]);
+      // Get updated balances with delays
+      const mimoBalance = await gameService.getMiMoBalance();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const bearBalance = await gameService.getBearNFTBalance();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const hunterBalance = await gameService.getHunterNFTBalance();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const btbBalance = await gameService.getBTBBalance();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const swapRate = await gameService.getSwapRate();
+      await new Promise(resolve => setTimeout(resolve, 100));
 
+      // Invalidate cache to ensure fresh data
+      gameService.invalidateCache();
+      
       // Get updated Hunter NFTs with stats
       const hunters = await gameService.getUserHunters();
       
@@ -143,6 +199,7 @@ export default function GamePanel() {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -351,6 +408,17 @@ export default function GamePanel() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {isLoadingHunters && loadingProgress && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-blue-700 dark:text-blue-300">
+                        {loadingProgress}
+                      </span>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-700"></div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="space-y-4 max-h-96 overflow-y-auto">
                   {hunterTokens.length > 0 ? (
                     hunterTokens.map((hunter, index) => (
@@ -361,14 +429,14 @@ export default function GamePanel() {
                         onHunt={() => handleRefresh()}
                       />
                     ))
-                  ) : (
+                  ) : !isLoadingHunters ? (
                     <div className="text-center py-8">
                       <SparklesIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
                       <p className="text-gray-500 dark:text-gray-400">
                         {isConnected ? 'No hunters yet. Deposit a Bear NFT to get started!' : 'Connect wallet to view your hunters'}
                       </p>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
