@@ -17,16 +17,15 @@ export function Web3Provider({
   const initialState = cookieToInitialState(config, cookie);
 
   useEffect(() => {
-    // Listen for network changes and refresh page when switching to Base
+    // Listen for network changes - remove auto refresh for better mobile UX
     const handleChainChanged = (chainId: string) => {
       const baseChainId = '0x2105'; // Base mainnet (8453)
       const baseSepoliaChainId = '0x14a34'; // Base Sepolia (84532)
       
       if (chainId === baseChainId || chainId === baseSepoliaChainId) {
-        // Small delay to ensure the network switch is complete
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
+        // Network switched to Base - let React state handle the updates
+        // Removed window.location.reload() to prevent mobile wallet disconnection
+        console.log('Network switched to Base:', chainId);
       }
     };
 
