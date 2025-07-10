@@ -202,110 +202,118 @@ export default function GamePanel() {
 
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-2">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">MiMoGaMe Arena</h1>
-            <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base mb-2 md:mb-4">
-              Hunt, feed, and battle in the Bear Hunter Ecosystem
-            </p>
-            {isConnected && (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3 mt-2 sm:mt-3">
-                  <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-2 sm:p-3 rounded-lg sm:rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <span className="flex h-4 sm:h-5 w-4 sm:w-5 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30 mr-1 sm:mr-1.5">
-                          <span className="h-1.5 sm:h-2 w-1.5 sm:w-2 rounded-full bg-purple-500"></span>
-                        </span>
-                        MiMo
-                      </p>
-                      <p className="text-xs sm:text-sm md:text-base font-bold">{parseFloat(gameStats.mimoBalance).toFixed(0)}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-2 sm:p-3 rounded-lg sm:rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <span className="flex h-4 sm:h-5 w-4 sm:w-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30 mr-1 sm:mr-1.5">
-                          <span className="h-1.5 sm:h-2 w-1.5 sm:w-2 rounded-full bg-orange-500"></span>
-                        </span>
-                        Bears
-                      </p>
-                      <p className="text-xs sm:text-sm md:text-base font-bold">{gameStats.bearNFTBalance}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-2 sm:p-3 rounded-lg sm:rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <span className="flex h-4 sm:h-5 w-4 sm:w-5 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 mr-1 sm:mr-1.5">
-                          <span className="h-1.5 sm:h-2 w-1.5 sm:w-2 rounded-full bg-red-500"></span>
-                        </span>
-                        Hunters
-                      </p>
-                      <p className="text-xs sm:text-sm md:text-base font-bold">{gameStats.hunterNFTBalance}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-2 sm:p-3 rounded-lg sm:rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <span className="flex h-4 sm:h-5 w-4 sm:w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 mr-1 sm:mr-1.5">
-                          <span className="h-1.5 sm:h-2 w-1.5 sm:w-2 rounded-full bg-blue-500"></span>
-                        </span>
-                        BTB
-                      </p>
-                      <p className="text-xs sm:text-sm md:text-base font-bold">{parseFloat(gameStats.btbBalance).toFixed(2)}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-2 sm:p-3 rounded-lg sm:rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <span className="flex h-4 sm:h-5 w-4 sm:w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 mr-1 sm:mr-1.5">
-                          <span className="h-1.5 sm:h-2 w-1.5 sm:w-2 rounded-full bg-green-500"></span>
-                        </span>
-                        Hunted
-                      </p>
-                      <p className="text-xs sm:text-sm md:text-base font-bold">{parseFloat(gameStats.totalHunted).toFixed(0)}</p>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-2 sm:p-3 rounded-lg sm:rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <span className="flex h-4 sm:h-5 w-4 sm:w-5 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30 mr-1 sm:mr-1.5">
-                          <span className="h-1.5 sm:h-2 w-1.5 sm:w-2 rounded-full bg-yellow-500"></span>
-                        </span>
-                        Rate
-                      </p>
-                      <p className="text-xs sm:text-sm md:text-base font-bold">{parseFloat(gameStats.swapRate).toFixed(0)}</p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-2">
-            <Button 
-              onClick={handleRefresh} 
-              variant="outline" 
-              className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/60 dark:to-gray-900/60 backdrop-blur-md border border-white/20 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 hover:bg-white/20 dark:hover:bg-gray-700/40 shadow-sm flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
-              disabled={isLoading}
-            >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                className={`h-4 w-4 transition-transform ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
+        <div className="flex flex-col gap-4 mb-6">
+          {/* Header Section */}
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2">MiMoGaMe Arena</h1>
+              <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base leading-relaxed">
+                Hunt, feed, and battle in the Bear Hunter Ecosystem
+              </p>
+            </div>
+            
+            <div className="flex-shrink-0 w-full sm:w-auto">
+              <Button 
+                onClick={handleRefresh} 
+                variant="outline" 
+                className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/60 dark:to-gray-900/60 backdrop-blur-md border border-white/20 dark:border-gray-700/50 text-gray-800 dark:text-gray-200 hover:bg-white/20 dark:hover:bg-gray-700/40 shadow-sm flex items-center justify-center gap-2 px-4 py-2 rounded-xl transition-all w-full sm:w-auto"
+                disabled={isLoading}
               >
-                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-              </svg>
-              <span>{isLoading ? 'Refreshing...' : 'Refresh'}</span>
-            </Button>
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className={`h-4 w-4 transition-transform ${isLoading ? 'animate-spin' : 'group-hover:rotate-180'}`} 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                >
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+                <span className="text-sm font-medium">{isLoading ? 'Refreshing...' : 'Refresh'}</span>
+              </Button>
+            </div>
           </div>
+
+          {/* Stats Grid - Better Mobile Layout */}
+          {isConnected && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-purple-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">MiMo</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{parseFloat(gameStats.mimoBalance).toFixed(0)}</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-orange-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">Bears</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{gameStats.bearNFTBalance}</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">Hunters</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{gameStats.hunterNFTBalance}</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-blue-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">BTB</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{parseFloat(gameStats.btbBalance).toFixed(2)}</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">Hunted</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{parseFloat(gameStats.totalHunted).toFixed(0)}</p>
+                </div>
+              </div>
+              
+              <div className="bg-gradient-to-br from-white/10 to-white/5 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-md p-3 sm:p-4 rounded-xl border border-white/20 dark:border-gray-700/70 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex-shrink-0">
+                      <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
+                    </span>
+                    <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">Rate</p>
+                  </div>
+                  <p className="text-sm sm:text-base font-bold text-right">{parseFloat(gameStats.swapRate).toFixed(0)}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         
         {/* MiMo Protection Warning */}
@@ -316,35 +324,73 @@ export default function GamePanel() {
         )}
         
         {/* Main Game Interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
           {/* Left Column - Game Actions */}
           <div className="lg:col-span-2">
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-3 sm:p-4 lg:p-6">
                 <Tabs defaultValue="overview" className="w-full">
-                  <TabsList className="grid grid-cols-6 mb-6">
-                    <TabsTrigger value="overview" className="flex items-center gap-1">
-                      <SparklesIcon className="h-4 w-4" />
-                      <span>Overview</span>
+                  {/* Mobile: Dropdown style tabs for small screens */}
+                  <div className="block sm:hidden mb-4">
+                    <TabsList className="grid grid-cols-2 gap-1 h-auto p-1">
+                      <TabsTrigger value="overview" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <SparklesIcon className="h-3 w-3" />
+                        <span>Overview</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="deposit" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <GiftIcon className="h-3 w-3" />
+                        <span>Deposit</span>
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsList className="grid grid-cols-2 gap-1 h-auto p-1 mt-1">
+                      <TabsTrigger value="feed" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <FireIcon className="h-3 w-3" />
+                        <span>Feed</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="hunt" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <ShieldExclamationIcon className="h-3 w-3" />
+                        <span>Hunt</span>
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsList className="grid grid-cols-2 gap-1 h-auto p-1 mt-1">
+                      <TabsTrigger value="redeem" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <ArrowsRightLeftIcon className="h-3 w-3" />
+                        <span>Redeem</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="swap" className="flex items-center justify-center gap-1 px-2 py-2 text-xs">
+                        <ArrowsRightLeftIcon className="h-3 w-3" />
+                        <span>Swap</span>
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  {/* Tablet and Desktop: Original layout */}
+                  <TabsList className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-6 mb-4 lg:mb-6 h-auto p-1">
+                    <TabsTrigger value="overview" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                      <SparklesIcon className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden lg:inline">Overview</span>
+                      <span className="lg:hidden">Over</span>
                     </TabsTrigger>
-                    <TabsTrigger value="deposit" className="flex items-center gap-1">
-                      <GiftIcon className="h-4 w-4" />
-                      <span>Deposit</span>
+                    <TabsTrigger value="deposit" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                      <GiftIcon className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden lg:inline">Deposit</span>
+                      <span className="lg:hidden">Dep</span>
                     </TabsTrigger>
-                    <TabsTrigger value="feed" className="flex items-center gap-1">
-                      <FireIcon className="h-4 w-4" />
+                    <TabsTrigger value="feed" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                      <FireIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span>Feed</span>
                     </TabsTrigger>
-                    <TabsTrigger value="hunt" className="flex items-center gap-1">
-                      <ShieldExclamationIcon className="h-4 w-4" />
+                    <TabsTrigger value="hunt" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                      <ShieldExclamationIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span>Hunt</span>
                     </TabsTrigger>
-                    <TabsTrigger value="redeem" className="flex items-center gap-1">
-                      <ArrowsRightLeftIcon className="h-4 w-4" />
-                      <span>Redeem</span>
+                    <TabsTrigger value="redeem" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                      <ArrowsRightLeftIcon className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden lg:inline">Redeem</span>
+                      <span className="lg:hidden">Red</span>
                     </TabsTrigger>
-                    <TabsTrigger value="swap" className="flex items-center gap-1">
-                      <ArrowsRightLeftIcon className="h-4 w-4" />
+                    <TabsTrigger value="swap" className="flex items-center justify-center gap-1 px-2 lg:px-3 py-2 text-xs lg:text-sm">
+                      <ArrowsRightLeftIcon className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span>Swap</span>
                     </TabsTrigger>
                   </TabsList>
@@ -401,13 +447,13 @@ export default function GamePanel() {
           {/* Right Column - Hunter Cards */}
           <div>
             <Card>
-              <CardHeader>
-                <CardTitle>Your Hunters</CardTitle>
-                <CardDescription>
+              <CardHeader className="p-3 sm:p-4 lg:p-6">
+                <CardTitle className="text-lg sm:text-xl">Your Hunters</CardTitle>
+                <CardDescription className="text-sm">
                   Manage your Hunter NFTs and view their stats
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 lg:p-6 pt-0">
                 {isLoadingHunters && loadingProgress && (
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div className="flex items-center justify-between">
@@ -419,7 +465,7 @@ export default function GamePanel() {
                   </div>
                 )}
                 
-                <div className="space-y-4 max-h-96 overflow-y-auto">
+                <div className="space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
                   {hunterTokens.length > 0 ? (
                     hunterTokens.map((hunter, index) => (
                       <HunterCard 
@@ -430,9 +476,9 @@ export default function GamePanel() {
                       />
                     ))
                   ) : !isLoadingHunters ? (
-                    <div className="text-center py-8">
-                      <SparklesIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                      <p className="text-gray-500 dark:text-gray-400">
+                    <div className="text-center py-6 sm:py-8">
+                      <SparklesIcon className="h-8 w-8 sm:h-12 sm:w-12 mx-auto text-gray-400 mb-3 sm:mb-4" />
+                      <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 px-2">
                         {isConnected ? 'No hunters yet. Deposit a Bear NFT to get started!' : 'Connect wallet to view your hunters'}
                       </p>
                     </div>
