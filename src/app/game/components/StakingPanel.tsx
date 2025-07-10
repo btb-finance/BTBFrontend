@@ -19,6 +19,9 @@ interface StakingPanelProps {
 }
 
 export default function StakingPanel({ onSuccess }: StakingPanelProps) {
+  // Staking is temporarily disabled due to contract issues
+  const STAKING_DISABLED = true;
+  
   const [stakingInfo, setStakingInfo] = useState({
     totalStaked: '0',
     apr: '0',
@@ -39,7 +42,9 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
   const [loadingAction, setLoadingAction] = useState('');
 
   useEffect(() => {
-    fetchStakingData();
+    if (!STAKING_DISABLED) {
+      fetchStakingData();
+    }
   }, []);
 
   const fetchStakingData = async () => {
@@ -155,6 +160,50 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
   const formatAPR = (apr: string) => {
     return (parseFloat(apr) * 100).toFixed(2);
   };
+
+  // Show "Coming Soon" message if staking is disabled
+  if (STAKING_DISABLED) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 space-y-6">
+        <div className="text-center space-y-4">
+          <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full w-fit mx-auto">
+            <CurrencyDollarIcon className="h-12 w-12 text-blue-600 dark:text-blue-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+              Staking Coming Soon
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+              We're putting the finishing touches on our staking feature. LP token staking will be available soon with exciting MiMo rewards!
+            </p>
+          </div>
+        </div>
+        
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Feature Status:</span>
+                <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs rounded-full">
+                  In Development
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Expected Launch:</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Soon™</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <div className="text-center">
+          <p className="text-xs text-gray-500 dark:text-gray-500">
+            Follow our updates for the latest news on staking launch
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
