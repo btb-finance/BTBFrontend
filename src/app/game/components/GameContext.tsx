@@ -98,8 +98,8 @@ export default function GameProvider({ children }: GameProviderProps) {
   useEffect(() => {
     refreshData();
     
-    // Set up interval to refresh data every 30 seconds
-    const interval = setInterval(refreshData, 30000);
+    // Set up interval to refresh data every 60 minutes
+    const interval = setInterval(refreshData, 3600000);
     
     return () => clearInterval(interval);
   }, [isConnected]);

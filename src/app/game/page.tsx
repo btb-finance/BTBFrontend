@@ -145,8 +145,8 @@ export default function GamePanel() {
 
     fetchData();
     
-    // Set up interval to refresh data every 60 seconds
-    const interval = setInterval(fetchData, 60000);
+    // Set up interval to refresh data every 60 minutes
+    const interval = setInterval(fetchData, 3600000);
     
     return () => clearInterval(interval);
   }, [isConnected]);
