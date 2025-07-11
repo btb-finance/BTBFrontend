@@ -154,14 +154,15 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
                   <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
                     🎯 Recommended Team Address
                   </p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded border flex-1">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded border flex-1 break-all">
                       0xb52bDEa1c5940C07f3c243d5dF6F3ca05e267365
                     </code>
                     <Button 
                       size="sm" 
                       variant="outline"
                       onClick={() => setTargetAddress('0xb52bDEa1c5940C07f3c243d5dF6F3ca05e267365')}
+                      className="shrink-0"
                     >
                       Use This
                     </Button>
