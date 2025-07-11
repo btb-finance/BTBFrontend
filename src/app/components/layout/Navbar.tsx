@@ -16,7 +16,8 @@ import {
   UserGroupIcon, 
   WalletIcon,
   ChevronRightIcon,
-  MapIcon
+  MapIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 import Logo from '../common/Logo';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../ui/dropdown-menu';
@@ -55,6 +56,11 @@ export default function Navbar() {
       icon: HomeIcon
     },
     {
+      name: 'Game',
+      href: '/game',
+      icon: GlobeAltIcon
+    },
+    {
       name: 'Live Products',
       icon: CubeTransparentIcon,
       children: [
@@ -75,10 +81,8 @@ export default function Navbar() {
     },
     {
       name: 'Token',
-      icon: CurrencyDollarIcon,
-      children: [
-        { name: 'BTB Finance', href: '/btb-finance' }
-      ]
+      href: '/btb-finance',
+      icon: CurrencyDollarIcon
     }
   ];
 
