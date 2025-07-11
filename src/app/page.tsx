@@ -61,17 +61,6 @@ const products = [
     highlight: true
   },
   {
-    name: 'BTB Bear NFT Swap',
-    description: 'Swap between BTB tokens and Bear NFTs with instant liquidity. Our unique tokenomics ensures the price always goes up!',
-    detailedDescription: "Our innovative BTB Bear NFT Swap creates a revolutionary tokenomics model where the price always increases, regardless of whether you're buying or selling. Swap your BTB tokens for unique Bear NFTs or convert your NFTs back to BTB tokens with instant liquidity, all while benefiting from our ever-increasing price floor mechanism.",
-    features: ['Instant NFT liquidity', 'Ever-increasing price floor', 'Seamless token-to-NFT swaps', 'Progressive UI loading'],
-    icon: CubeTransparentIcon,
-    href: '/nftswap',
-    bgColor: 'bg-gradient-to-br from-amber-600/10 to-orange-800/10',
-    iconColor: 'text-amber-600 dark:text-amber-400',
-    borderColor: 'border-amber-200 dark:border-amber-800'
-  },
-  {
     name: 'Larry Ecosystem',
     description: 'Larry is a meme coin that is fully audited and battle tested. The rebase-less stability token lets you trade, leverage up to 100x, and borrow ETH against LARRY collateral. Always remember - it\'s a meme coin.',
     detailedDescription: 'Larry is a meme coin with a revolutionary stability mechanism where the price can only go up, never down. Larry is fully audited and battle tested, but always remember it\'s a meme coin. Trade LARRY/ETH pairs, open leveraged positions up to 100x, or use LARRY as collateral to borrow ETH.',
@@ -233,16 +222,6 @@ const quickNavLinks = [
     ),
     color: 'bg-green-100 dark:bg-green-900/30',
     textColor: 'text-green-600 dark:text-green-400'
-  },
-  {
-    name: 'NFT Swap',
-    description: 'Swap between BTB tokens and Bear NFTs',
-    href: '/nftswap',
-    icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🔄</span>
-    ),
-    color: 'bg-amber-100 dark:bg-amber-900/30',
-    textColor: 'text-amber-600 dark:text-amber-400'
   },
   {
     name: 'Aero Booster',
@@ -1861,16 +1840,6 @@ export default function Home() {
                   </p>
                   
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mt-8 sm:mt-12">
-                    <MotionButton
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="bg-btb-primary hover:bg-btb-primary-dark text-white font-semibold py-3 px-6 rounded-lg shadow-lg shadow-btb-primary/20 dark:shadow-btb-primary/10"
-                      asChild
-                    >
-                      <Link href="/nftswap">
-                        Try BTB Bear NFT Swap
-                      </Link>
-                    </MotionButton>
                     <MotionButton
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}

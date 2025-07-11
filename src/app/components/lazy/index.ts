@@ -8,10 +8,6 @@ export const GameDashboard = lazy(() => import('../../game/components/GameDashbo
 export const GameOverview = lazy(() => import('../../game/components/GameOverview'));
 export const HuntMimo = lazy(() => import('../../game/components/HuntMimo'));
 
-// NFT components  
-export const NFTDisplay = lazy(() => import('../../nftswap/components/NFTDisplay'));
-export const SwapBTBForNFT = lazy(() => import('../../nftswap/components/SwapBTBForNFT'));
-export const SwapNFTForBTB = lazy(() => import('../../nftswap/components/SwapNFTForBTB'));
 
 // Bulk sender
 export const BulkSenderForm = lazy(() => import('../../bulksender/components/BulkSenderForm'));
