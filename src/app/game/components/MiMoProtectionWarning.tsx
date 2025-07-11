@@ -32,7 +32,7 @@ export default function MiMoProtectionWarning({ mimoBalance, onDismiss }: MiMoPr
 
   const handleAddLiquidity = () => {
     window.open(
-      'https://aerodrome.finance/deposit?token0=0x7c1604981be181e856c458f3d604f15bc97c7661&token1=0x888e85c95c84ca41eef3e4c8c89e8dce03e41488&type=-1&chain0=8453&chain1=8453',
+      'https://app.uniswap.org/positions/v2/base/0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC',
       '_blank'
     );
   };
@@ -67,7 +67,7 @@ export default function MiMoProtectionWarning({ mimoBalance, onDismiss }: MiMoPr
                     <span className="font-medium text-amber-900 dark:text-amber-100">Protection Solution</span>
                   </div>
                   <p className="text-sm text-amber-800 dark:text-amber-200">
-                    Add your MiMo tokens to a liquidity pool on Aerodrome Finance. LP tokens are protected from being hunted, 
+                    Add your MiMo tokens to a liquidity pool on Uniswap. LP tokens are protected from being hunted, 
                     keeping your tokens safe while earning trading fees.
                   </p>
                 </div>

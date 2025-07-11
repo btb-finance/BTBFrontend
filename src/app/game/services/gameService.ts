@@ -27,8 +27,8 @@ class GameService {
   private readonly btbTokenAddress = '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488'; // BTB Token
   private readonly bearNFTAddress = '0x000081733751860A8E5BA00FdCF7000b53E90dDD'; // BTB NFT
   private readonly btbSwapLogicAddress = '0x4F3B9b9e423170C811bCAEDDC661f00A8D208755'; // BTBSwapLogic
-  private readonly stakingContractAddress = '0xb52bDEa1c5940C07f3c243d5dF6F3ca05e267365'; // Staking Contract
-  private readonly lpTokenAddress = '0x60ac27d9E15E4115FF5c6Cd3e2Ac24e2EB5266C2'; // LP Token
+  private readonly stakingContractAddress = '0x891dBd50DAeB51BFeDf1cEB51ED30E0C4846b330'; // Staking Contract
+  private readonly lpTokenAddress = '0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC'; // LP Token
 
   constructor() {
     // Initialize the read-only provider
