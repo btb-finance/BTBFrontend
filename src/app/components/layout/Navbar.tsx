@@ -55,11 +55,6 @@ export default function Navbar() {
       icon: HomeIcon
     },
     {
-      name: 'Roadmap',
-      href: '/roadmap',
-      icon: MapIcon
-    },
-    {
       name: 'Live Products',
       icon: CubeTransparentIcon,
       children: [
