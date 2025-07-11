@@ -32,7 +32,7 @@ export default function MiMoProtectionWarning({ mimoBalance, onDismiss }: MiMoPr
 
   const handleAddLiquidity = () => {
     window.open(
-      'https://app.uniswap.org/positions/v2/base/0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC',
+      'https://app.uniswap.org/explore/pools/base/0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC',
       '_blank'
     );
   };

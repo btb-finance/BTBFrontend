@@ -228,7 +228,7 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
               Stake LP Tokens
             </CardTitle>
             <CardDescription>
-              First provide liquidity at <a href="https://app.uniswap.org/positions/v2/base/0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Uniswap</a>, then stake your LP tokens here to earn MiMo rewards
+              First provide liquidity at <a href="https://app.uniswap.org/explore/pools/base/0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">Uniswap</a>, then stake your LP tokens here to earn MiMo rewards
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
