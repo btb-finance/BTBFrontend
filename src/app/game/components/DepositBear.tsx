@@ -103,7 +103,15 @@ export default function DepositBear({ bearTokens, onSuccess }: DepositBearProps)
                 You don't have any Bear NFTs to deposit
               </p>
               <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                Purchase Bear NFTs first to start playing the game
+                <a 
+                  href="https://opensea.io/collection/btb-bears"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-orange-500 hover:text-orange-600 underline"
+                >
+                  Purchase Bear NFTs first
+                </a>
+                {' '}to start playing the game
               </p>
             </div>
           ) : (
