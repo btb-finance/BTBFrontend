@@ -150,6 +150,27 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
 
             {huntMode === 'target' && (
               <div>
+                <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    🎯 Recommended Team Address
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs bg-white dark:bg-gray-800 px-2 py-1 rounded border flex-1">
+                      0xb52bDEa1c5940C07f3c243d5dF6F3ca05e267365
+                    </code>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setTargetAddress('0xb52bDEa1c5940C07f3c243d5dF6F3ca05e267365')}
+                    >
+                      Use This
+                    </Button>
+                  </div>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    Safe team address - protects user funds from hunting
+                  </p>
+                </div>
+                
                 <Input
                   placeholder="Enter target wallet address (0x...)"
                   value={targetAddress}
