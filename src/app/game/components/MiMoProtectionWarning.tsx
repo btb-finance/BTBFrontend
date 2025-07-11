@@ -68,7 +68,7 @@ export default function MiMoProtectionWarning({ mimoBalance, onDismiss }: MiMoPr
                   </div>
                   <p className="text-sm text-amber-800 dark:text-amber-200">
                     Add your MiMo tokens to a liquidity pool on Uniswap. LP tokens are protected from being hunted, 
-                    keeping your tokens safe while earning trading fees.
+                    keeping your tokens safe while earning trading fees. By staking your LP tokens, you also earn additional rewards!
                   </p>
                 </div>
                 
