@@ -1093,9 +1093,9 @@ export default function Home() {
                       2
                     </div>
                     <div>
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Multi-DEX Liquidity Provision</h4>
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Internal DEX vs External Markets</h4>
                       <p className="text-gray-600 dark:text-gray-300">
-                        BTB/USDC liquidity deployed on <strong>Aerodrome</strong> and <strong>Uniswap</strong> → Creates price differences between exchanges
+                        Your BTB Protocol DEX creates different prices vs external markets (<strong>Aerodrome</strong>, <strong>Uniswap</strong>) → Natural arbitrage opportunities emerge
                       </p>
                     </div>
                   </div>
@@ -1186,8 +1186,8 @@ export default function Home() {
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 text-center border border-blue-200 dark:border-blue-800 shadow-lg">
                   <div className="text-4xl mb-4">📊</div>
                   <h4 className="font-bold text-gray-900 dark:text-white mb-2">Price Gaps Created</h4>
-                  <p className="text-blue-600 dark:text-blue-400 text-lg font-bold">Multi-DEX</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Aerodrome vs Uniswap</p>
+                  <p className="text-blue-600 dark:text-blue-400 text-lg font-bold">Internal DEX</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">BTB Protocol vs External DEXs</p>
                 </div>
                 
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-6 text-center border border-indigo-200 dark:border-indigo-800 shadow-lg">
