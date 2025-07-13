@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { useWallet } from '@/app/context/WalletContext';
 import gameService from '../services/gameService';
+import HuntTimer from './HuntTimer';
 import { ShieldExclamationIcon, ClockIcon, ExclamationTriangleIcon, UserIcon } from '@heroicons/react/24/outline';
 
 interface HuntMimoProps {
@@ -21,6 +22,47 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
   const [huntMode, setHuntMode] = useState<'self' | 'target'>('self');
   const [isLoading, setIsLoading] = useState(false);
   const [txHash, setTxHash] = useState<string>('');
+  const [huntTimings, setHuntTimings] = useState<{[hunterId: string]: {
+    timeUntilNextHunt: number;
+    canHuntNow: boolean;
+  }}>({});
+
+  // Load hunt timings for all hunters
+  useEffect(() => {
+    const loadHuntTimings = async () => {
+      if (hunterTokens.length === 0) return;
+      
+      try {
+        const tokenIds = hunterTokens.map(hunter => parseInt(hunter.tokenId));
+        const timings = await gameService.getHuntTimingForHunters(tokenIds);
+        
+        const formattedTimings: {[hunterId: string]: any} = {};
+        Object.entries(timings).forEach(([tokenId, timing]) => {
+          formattedTimings[tokenId] = {
+            timeUntilNextHunt: timing.timeUntilNextHunt,
+            canHuntNow: timing.canHuntNow
+          };
+        });
+        
+        setHuntTimings(formattedTimings);
+      } catch (error) {
+        console.error('Error loading hunt timings:', error);
+      }
+    };
+
+    loadHuntTimings();
+  }, [hunterTokens]);
+
+  const handleTimerComplete = (hunterId: number) => {
+    setHuntTimings(prev => ({
+      ...prev,
+      [hunterId.toString()]: {
+        timeUntilNextHunt: 0,
+        canHuntNow: true
+      }
+    }));
+    onSuccess(); // Refresh hunter data
+  };
 
   const handleSelectHunter = (tokenId: string) => {
     setSelectedHunters(prev => 
@@ -253,6 +295,19 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
                             </span>
                           </div>
                         </div>
+                        
+                        {/* Hunt Timer for hunters on cooldown */}
+                        {!hunter.canHunt && hunter.isActive && hunter.daysRemaining > 0 && huntTimings[hunter.tokenId] && (
+                          <div className="mt-3">
+                            <HuntTimer
+                              hunterId={parseInt(hunter.tokenId)}
+                              initialTimeRemaining={huntTimings[hunter.tokenId].timeUntilNextHunt}
+                              onTimerComplete={() => handleTimerComplete(parseInt(hunter.tokenId))}
+                              showIcon={false}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
                         
                         {selectedHunters.includes(hunter.tokenId) && (
                           <div className="mt-2 w-4 h-4 mx-auto bg-purple-500 rounded-full flex items-center justify-center">

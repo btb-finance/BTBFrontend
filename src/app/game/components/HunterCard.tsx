@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent } from '@/app/components/ui/card';
 import gameService from '../services/gameService';
+import HuntTimer from './HuntTimer';
 import { 
   FireIcon, 
   ShieldExclamationIcon, 
@@ -21,6 +22,34 @@ interface HunterCardProps {
 export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) {
   const [isFeeding, setIsFeeding] = useState(false);
   const [isHunting, setIsHunting] = useState(false);
+  const [huntTiming, setHuntTiming] = useState<{
+    timeUntilNextHunt: number;
+    canHuntNow: boolean;
+  } | null>(null);
+
+  // Load hunt timing when component mounts or hunter changes
+  useEffect(() => {
+    const loadHuntTiming = async () => {
+      if (!hunter?.tokenId) return;
+      
+      try {
+        const timing = await gameService.getNextHuntTime(parseInt(hunter.tokenId));
+        setHuntTiming({
+          timeUntilNextHunt: timing.timeUntilNextHunt,
+          canHuntNow: timing.canHuntNow
+        });
+      } catch (error) {
+        console.error('Error loading hunt timing:', error);
+      }
+    };
+
+    loadHuntTiming();
+  }, [hunter?.tokenId]);
+
+  const handleTimerComplete = () => {
+    setHuntTiming(prev => prev ? { ...prev, canHuntNow: true, timeUntilNextHunt: 0 } : null);
+    onHunt(); // Refresh hunter data
+  };
 
   const handleFeed = async () => {
     if (!hunter.canFeed || hunter.inHibernation) return;
@@ -163,6 +192,19 @@ export default function HunterCard({ hunter, onFeed, onHunt }: HunterCardProps) 
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
               {statusInfo.description}
             </p>
+
+            {/* Hunt Timer */}
+            {huntTiming && !huntTiming.canHuntNow && hunter.isActive && hunter.daysRemaining > 0 && (
+              <div className="mb-3">
+                <HuntTimer
+                  hunterId={parseInt(hunter.tokenId)}
+                  initialTimeRemaining={huntTiming.timeUntilNextHunt}
+                  onTimerComplete={handleTimerComplete}
+                  showIcon={false}
+                  className="w-full"
+                />
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-2">

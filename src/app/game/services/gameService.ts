@@ -1347,6 +1347,146 @@ class GameService {
       return '0';
     }
   }
+
+  // ==================== HUNT TIMING FUNCTIONS ====================
+
+  public async getHuntCooldown(): Promise<number> {
+    await this.ensureInitialized();
+    try {
+      const cooldown = await this.contract!.HUNT_COOLDOWN();
+      return cooldown.toNumber();
+    } catch (error) {
+      console.error('Error getting hunt cooldown:', error);
+      return 0;
+    }
+  }
+
+  public async getNextHuntTime(tokenId: number): Promise<{
+    nextHuntTime: number;
+    timeUntilNextHunt: number;
+    canHuntNow: boolean;
+    formattedTimeRemaining: string;
+  }> {
+    await this.ensureInitialized();
+    try {
+      const [hunterStats, cooldown] = await Promise.all([
+        this.contract!.getHunterStats(tokenId),
+        this.contract!.HUNT_COOLDOWN()
+      ]);
+
+      const lastHuntTime = hunterStats.lastHuntTime.toNumber();
+      const cooldownSeconds = cooldown.toNumber();
+      const nextHuntTime = lastHuntTime + cooldownSeconds;
+      const currentTime = Math.floor(Date.now() / 1000);
+      const timeUntilNextHunt = Math.max(0, nextHuntTime - currentTime);
+      const canHuntNow = timeUntilNextHunt === 0;
+
+      // Format remaining time
+      let formattedTimeRemaining = '';
+      if (timeUntilNextHunt > 0) {
+        const hours = Math.floor(timeUntilNextHunt / 3600);
+        const minutes = Math.floor((timeUntilNextHunt % 3600) / 60);
+        const seconds = timeUntilNextHunt % 60;
+        
+        if (hours > 0) {
+          formattedTimeRemaining = `${hours}h ${minutes}m ${seconds}s`;
+        } else if (minutes > 0) {
+          formattedTimeRemaining = `${minutes}m ${seconds}s`;
+        } else {
+          formattedTimeRemaining = `${seconds}s`;
+        }
+      } else {
+        formattedTimeRemaining = 'Ready to hunt!';
+      }
+
+      return {
+        nextHuntTime,
+        timeUntilNextHunt,
+        canHuntNow,
+        formattedTimeRemaining
+      };
+    } catch (error) {
+      console.error('Error calculating next hunt time:', error);
+      return {
+        nextHuntTime: 0,
+        timeUntilNextHunt: 0,
+        canHuntNow: false,
+        formattedTimeRemaining: 'Error'
+      };
+    }
+  }
+
+  public async getHuntTimingForHunters(tokenIds: number[]): Promise<{[tokenId: number]: {
+    nextHuntTime: number;
+    timeUntilNextHunt: number;
+    canHuntNow: boolean;
+    formattedTimeRemaining: string;
+  }}> {
+    await this.ensureInitialized();
+    try {
+      const cooldown = await this.contract!.HUNT_COOLDOWN();
+      const cooldownSeconds = cooldown.toNumber();
+      const currentTime = Math.floor(Date.now() / 1000);
+
+      // Batch get hunter stats
+      const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+      const calls = tokenIds.map(tokenId => ({
+        target: this.gameContractAddress,
+        callData: this.encodeFunctionCall(contractInterface, 'getHunterStats', [tokenId])
+      }));
+
+      const results = await this.multicall(calls);
+      const huntTiming: {[tokenId: number]: any} = {};
+
+      tokenIds.forEach((tokenId, index) => {
+        try {
+          const stats = contractInterface.decodeFunctionResult('getHunterStats', results[index]);
+          const lastHuntTime = stats.lastHuntTime.toNumber();
+          const nextHuntTime = lastHuntTime + cooldownSeconds;
+          const timeUntilNextHunt = Math.max(0, nextHuntTime - currentTime);
+          const canHuntNow = timeUntilNextHunt === 0;
+
+          // Format remaining time
+          let formattedTimeRemaining = '';
+          if (timeUntilNextHunt > 0) {
+            const hours = Math.floor(timeUntilNextHunt / 3600);
+            const minutes = Math.floor((timeUntilNextHunt % 3600) / 60);
+            const seconds = timeUntilNextHunt % 60;
+            
+            if (hours > 0) {
+              formattedTimeRemaining = `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+              formattedTimeRemaining = `${minutes}m ${seconds}s`;
+            } else {
+              formattedTimeRemaining = `${seconds}s`;
+            }
+          } else {
+            formattedTimeRemaining = 'Ready to hunt!';
+          }
+
+          huntTiming[tokenId] = {
+            nextHuntTime,
+            timeUntilNextHunt,
+            canHuntNow,
+            formattedTimeRemaining
+          };
+        } catch (error) {
+          console.error(`Error processing hunt timing for hunter ${tokenId}:`, error);
+          huntTiming[tokenId] = {
+            nextHuntTime: 0,
+            timeUntilNextHunt: 0,
+            canHuntNow: false,
+            formattedTimeRemaining: 'Error'
+          };
+        }
+      });
+
+      return huntTiming;
+    } catch (error) {
+      console.error('Error getting hunt timing for hunters:', error);
+      return {};
+    }
+  }
 }
 
 // Create a singleton instance
