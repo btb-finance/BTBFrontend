@@ -499,12 +499,9 @@ class GameService {
 
   public async getBuyPremium(): Promise<string> {
     try {
-      // Get the BTBSwapLogic contract address from the main contract
-      const swapContractAddress = await this.contract!.btbSwapContract();
-      
-      // Create a direct contract instance for BTBSwapLogic
+      // Use the BTBSwapLogic contract address directly
       const swapContract = new ethers.Contract(
-        swapContractAddress,
+        this.btbSwapLogicAddress,
         [
           'function buyPremium() view returns (uint256)'
         ],
@@ -536,7 +533,7 @@ class GameService {
       const feeAmount = baseAmount.mul(100).div(10000); // 1% fee
       const totalAmount = baseAmount.add(feeAmount);
       
-      // First approve BTB tokens
+      // First approve BTB tokens for the BTBSwapLogic contract
       const btbContract = new ethers.Contract(
         this.btbTokenAddress,
         [
@@ -547,14 +544,21 @@ class GameService {
       );
       
       const address = await this.signer!.getAddress();
-      const allowance = await btbContract.allowance(address, this.gameContractAddress);
+      const allowance = await btbContract.allowance(address, this.btbSwapLogicAddress);
       
       if (allowance.lt(totalAmount)) {
-        const approveTx = await btbContract.approve(this.gameContractAddress, totalAmount);
+        const approveTx = await btbContract.approve(this.btbSwapLogicAddress, totalAmount);
         await approveTx.wait();
       }
       
-      const tx = await this.contract!.swapBTBForNFT(nftAmount);
+      // Call BTBSwapLogic contract directly
+      const swapContract = new ethers.Contract(
+        this.btbSwapLogicAddress,
+        ['function swapBTBForNFT(uint256 amount) external returns (uint256[])'],
+        this.signer!
+      );
+      
+      const tx = await swapContract.swapBTBForNFT(nftAmount);
       return tx;
     } catch (error) {
       console.error('Error swapping BTB for NFT:', error);
@@ -565,7 +569,7 @@ class GameService {
   public async swapNFTForBTB(tokenIds: number[]): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     try {
-      // First approve NFTs
+      // First approve NFTs for the BTBSwapLogic contract
       const bearContract = new ethers.Contract(
         this.bearNFTAddress,
         [
@@ -576,14 +580,21 @@ class GameService {
       );
       
       const address = await this.signer!.getAddress();
-      const isApproved = await bearContract.isApprovedForAll(address, this.gameContractAddress);
+      const isApproved = await bearContract.isApprovedForAll(address, this.btbSwapLogicAddress);
       
       if (!isApproved) {
-        const approveTx = await bearContract.setApprovalForAll(this.gameContractAddress, true);
+        const approveTx = await bearContract.setApprovalForAll(this.btbSwapLogicAddress, true);
         await approveTx.wait();
       }
       
-      const tx = await this.contract!.swapNFTForBTB(tokenIds);
+      // Call BTBSwapLogic contract directly
+      const swapContract = new ethers.Contract(
+        this.btbSwapLogicAddress,
+        ['function swapNFTForBTB(uint256[] tokenIds) external returns (uint256)'],
+        this.signer!
+      );
+      
+      const tx = await swapContract.swapNFTForBTB(tokenIds);
       return tx;
     } catch (error) {
       console.error('Error swapping NFT for BTB:', error);
@@ -598,38 +609,22 @@ class GameService {
     status: string;
   }> {
     try {
-      // Get the BTBSwapLogic contract address from the main contract
-      const swapContractAddress = await this.contract!.btbSwapContract();
-      
-      // Create a direct contract instance for BTBSwapLogic
-      const swapContract = new ethers.Contract(
-        swapContractAddress,
-        [
-          'function btbToken() view returns (address)',
-          'function bearNFT() view returns (address)'
-        ],
-        this.provider!
-      );
-      
-      // Get BTB and NFT contracts
-      const btbTokenAddress = await swapContract.btbToken();
-      const bearNFTAddress = await swapContract.bearNFT();
-      
+      // Use the BTBSwapLogic contract address directly
       const btbContract = new ethers.Contract(
-        btbTokenAddress,
+        this.btbTokenAddress,
         ['function balanceOf(address) view returns (uint256)'],
         this.provider!
       );
       
       const nftContract = new ethers.Contract(
-        bearNFTAddress,
+        this.bearNFTAddress,
         ['function balanceOf(address) view returns (uint256)'],
         this.provider!
       );
       
-      // Get balances
-      const btbBalance = await btbContract.balanceOf(swapContractAddress);
-      const nftBalance = await nftContract.balanceOf(swapContractAddress);
+      // Get balances of the BTBSwapLogic contract
+      const btbBalance = await btbContract.balanceOf(this.btbSwapLogicAddress);
+      const nftBalance = await nftContract.balanceOf(this.btbSwapLogicAddress);
       
       const btbBalanceFormatted = ethers.utils.formatUnits(btbBalance, 18);
       const nftBalanceFormatted = nftBalance.toString();
