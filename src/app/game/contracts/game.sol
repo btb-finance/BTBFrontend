@@ -49,6 +49,7 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     error AddressIsProtected();
     error HunterNotExpired();
     error BTBSwapNotConfigured();
+    error InsufficientHunterBalance();
 
     // External contract interfaces
     IERC721 public bearNFT;  // Existing BEAR NFT contract
@@ -81,6 +82,9 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     // BTBSwapLogic contract instance
     BTBSwapLogic public btbSwapContract;
     
+    // Burn address for Hunter NFTs during redemption
+    address public constant BURN_ADDRESS = 0x0000000000000000000000000000000000000000;
+    
     // Hunter NFT counter - prevents ID collisions when tokens are burned
     uint256 private _nextHunterId = 1;
 
@@ -92,6 +96,7 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     // Hunter & Cave events
     event BearDeposited(address indexed user, uint256 bearId, uint256 hunterId);
     event BearRedeemed(address indexed user, uint256 bearId, uint256 mimoAmount);
+    event HunterBurnedForRedemption(address indexed user, uint256 hunterId, uint256 bearId);
     event MiMoBurned(address indexed user, uint256 amount);
     event DepositStateChanged(bool paused);
     event RedemptionStateChanged(bool paused);
@@ -671,6 +676,29 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     /**
      * @dev Deposit BEAR NFTs to receive MiMo tokens and Hunter NFTs (supports single or multiple)
      * @param bearIds Array of BEAR NFT IDs to deposit (can be single element)
+     * @param beneficiary Address that will receive the MiMo tokens and Hunter NFTs
+     * @return hunterIds Array of newly created Hunter NFT IDs
+     */
+    function depositBears(uint256[] calldata bearIds, address beneficiary) external nonReentrant whenNotPaused returns (uint256[] memory) {
+        if (depositPaused) revert DepositPaused();
+        if (beneficiary == address(0)) revert ZeroAddressNotAllowed();
+        
+        uint256 length = bearIds.length;
+        if (length == 0) revert InvalidAmount();
+        
+        uint256[] memory hunterIds = new uint256[](length);
+        
+        for (uint256 i = 0; i < length; i++) {
+            // Process each deposit and capture the returned Hunter ID
+            hunterIds[i] = _depositBear(bearIds[i], beneficiary);
+        }
+        
+        return hunterIds;
+    }
+
+    /**
+     * @dev Deposit BEAR NFTs to receive MiMo tokens and Hunter NFTs (beneficiary = msg.sender)
+     * @param bearIds Array of BEAR NFT IDs to deposit (can be single element)
      * @return hunterIds Array of newly created Hunter NFT IDs
      */
     function depositBears(uint256[] calldata bearIds) external nonReentrant whenNotPaused returns (uint256[] memory) {
@@ -683,7 +711,7 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
         
         for (uint256 i = 0; i < length; i++) {
             // Process each deposit and capture the returned Hunter ID
-            hunterIds[i] = _depositBear(bearIds[i]);
+            hunterIds[i] = _depositBear(bearIds[i], msg.sender);
         }
         
         return hunterIds;
@@ -692,10 +720,11 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     /**
      * @dev Internal function to deposit a BEAR NFT
      * @param bearId ID of the BEAR NFT to deposit
+     * @param beneficiary Address that will receive the MiMo tokens and Hunter NFT
      * @return hunterId ID of the created Hunter NFT
      */
-    function _depositBear(uint256 bearId) internal returns (uint256) {
-        // Check ownership of BEAR NFT
+    function _depositBear(uint256 bearId, address beneficiary) internal returns (uint256) {
+        // Check ownership of BEAR NFT (msg.sender must own it)
         if (bearNFT.ownerOf(bearId) != msg.sender) revert InsufficientNFTBalance();
         
         // Transfer BEAR NFT to this contract first
@@ -707,13 +736,13 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
         // Since this contract just received it, it can transfer it out.
         bearNFT.safeTransferFrom(address(this), address(btbSwapContract), bearId);
         
-        // Mint MiMo tokens to depositor
-        _mimoMint(msg.sender, DEPOSIT_MIMO_REWARD);
+        // Mint MiMo tokens to beneficiary
+        _mimoMint(beneficiary, DEPOSIT_MIMO_REWARD);
         
-        // Create Hunter NFT for depositor
-        uint256 hunterId = _mintHunter(msg.sender);
+        // Create Hunter NFT for beneficiary
+        uint256 hunterId = _mintHunter(beneficiary);
         
-        emit BearDeposited(msg.sender, bearId, hunterId);
+        emit BearDeposited(beneficiary, bearId, hunterId);
         
         return hunterId;
     }
@@ -756,11 +785,19 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
     /**
      * @dev Redeem MiMo tokens for BEAR NFTs (supports single or multiple)
      * @param count Number of BEAR NFTs to redeem
+     * @param hunterIds Array of Hunter NFT IDs to burn (must equal count)
      * @return bearIds Array of redeemed BEAR NFT IDs
      */
-    function redeemBears(uint256 count) external nonReentrant whenNotPaused returns (uint256[] memory) {
+    function redeemBears(uint256 count, uint256[] calldata hunterIds) external nonReentrant whenNotPaused returns (uint256[] memory) {
         if (redemptionPaused) revert RedemptionPaused();
         if (count == 0) revert InvalidAmount();
+        if (hunterIds.length != count) revert InvalidAmount();
+        
+        // Check if user has enough Hunter NFTs and owns them
+        if (balanceOf(msg.sender) < count) revert InsufficientHunterBalance();
+        for (uint256 i = 0; i < count; i++) {
+            if (ownerOf(hunterIds[i]) != msg.sender) revert NotHunterOwner();
+        }
         
         // Calculate total amount needed (base amount + fee) for all NFTs
         uint256 feeAmountPerNFT = (REDEMPTION_MIMO_AMOUNT * REDEMPTION_FEE_PERCENTAGE) / 100;
@@ -793,6 +830,12 @@ contract BearHunterEcosystem is ERC721, ERC721URIStorage, ERC721Enumerable, ERC7
         } else {
             // Multiple redemption
             bearIds = btbSwapContract.retrieveMultipleNFTsForRedemption(msg.sender, count);
+        }
+        
+        // Burn Hunter NFTs - use _burn instead of _transfer to address(0)
+        for (uint256 i = 0; i < count; i++) {
+            _burn(hunterIds[i]);
+            emit HunterBurnedForRedemption(msg.sender, hunterIds[i], bearIds[i]);
         }
         
         // Emit events for each NFT redeemed

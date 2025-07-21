@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { useWallet } from '@/app/context/WalletContext';
 import gameService from '../services/gameService';
-import { ArrowsRightLeftIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ArrowsRightLeftIcon, ExclamationTriangleIcon, FireIcon } from '@heroicons/react/24/outline';
 
 interface RedeemBearProps {
   mimoBalance: string;
@@ -19,35 +19,81 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
   const [bearCount, setBearCount] = useState<string>('1');
   const [isLoading, setIsLoading] = useState(false);
   const [txHash, setTxHash] = useState<string>('');
+  const [hunters, setHunters] = useState<any[]>([]);
+  const [selectedHunterIds, setSelectedHunterIds] = useState<number[]>([]);
+  const [loadingHunters, setLoadingHunters] = useState(true);
 
   const REDEMPTION_COST = 1000000; // 1M MiMo per Bear
   const REDEMPTION_FEE = 0.1; // 10% fee
+  
+  // Fetch hunters when component mounts
+  useEffect(() => {
+    if (isConnected) {
+      fetchHunters();
+    }
+  }, [isConnected]);
+
+  const fetchHunters = async () => {
+    try {
+      setLoadingHunters(true);
+      const hunterData = await gameService.getUserHunters();
+      setHunters(hunterData);
+    } catch (error) {
+      console.error('Error fetching hunters:', error);
+    } finally {
+      setLoadingHunters(false);
+    }
+  };
   
   const totalCost = parseInt(bearCount || '0') * REDEMPTION_COST;
   const feeAmount = totalCost * REDEMPTION_FEE;
   const totalWithFee = totalCost + feeAmount;
   const hasEnoughBalance = parseFloat(mimoBalance) >= totalWithFee;
   const maxAffordable = Math.floor(parseFloat(mimoBalance) / (REDEMPTION_COST * (1 + REDEMPTION_FEE)));
+  const requiredHunters = parseInt(bearCount || '0');
+  const hasEnoughHunters = selectedHunterIds.length >= requiredHunters;
+  const canRedeem = hasEnoughBalance && hasEnoughHunters && parseInt(bearCount || '0') > 0;
 
   const handleRedeem = async () => {
-    if (!isConnected || !bearCount || parseInt(bearCount) <= 0) return;
+    if (!canRedeem) return;
 
     try {
       setIsLoading(true);
       setTxHash('');
       
       const count = parseInt(bearCount);
-      const tx = await gameService.redeemBears(count);
+      const huntersToUse = selectedHunterIds.slice(0, count);
+      const tx = await gameService.redeemBears(count, huntersToUse);
       
       setTxHash(tx.hash);
       await tx.wait();
       
       setBearCount('1');
+      setSelectedHunterIds([]);
+      await fetchHunters(); // Refresh hunters list
       onSuccess();
     } catch (error) {
       console.error('Error redeeming bears:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleHunterSelection = (hunterId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedHunterIds(prev => [...prev, hunterId]);
+    } else {
+      setSelectedHunterIds(prev => prev.filter(id => id !== hunterId));
+    }
+  };
+
+  const handleSelectOptimalHunters = () => {
+    const count = parseInt(bearCount || '0');
+    if (count > 0 && hunters.length > 0) {
+      // Select hunters with lowest power first (optimal to burn)
+      const sortedHunters = [...hunters].sort((a, b) => parseFloat(a.power) - parseFloat(b.power));
+      const optimalIds = sortedHunters.slice(0, count).map(h => parseInt(h.tokenId));
+      setSelectedHunterIds(optimalIds);
     }
   };
 
@@ -80,6 +126,7 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
           </CardTitle>
         </CardHeader>
         <CardContent>
+
           <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-lg mb-6">
             <h4 className="font-semibold text-green-800 dark:text-green-200 mb-2">Redemption Details:</h4>
             <ul className="space-y-2 text-sm text-green-700 dark:text-green-300">
@@ -132,6 +179,16 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 You need at least 1,100,000 MiMo tokens to redeem a Bear NFT
+              </p>
+            </div>
+          ) : hunters.length === 0 && !loadingHunters ? (
+            <div className="text-center py-8">
+              <FireIcon className="h-12 w-12 mx-auto text-red-400 mb-4" />
+              <p className="text-red-600 dark:text-red-400 mb-2">
+                No Hunters available
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                You need Hunter NFTs to burn in exchange for Bear redemptions
               </p>
             </div>
           ) : (
@@ -203,13 +260,90 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
                     </div>
                   </div>
                 )}
+
+                {/* Hunter Selection */}
+                {bearCount && parseInt(bearCount) > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">
+                        Select Hunters to Burn ({selectedHunterIds.length} of {requiredHunters} required)
+                      </label>
+                      {hunters.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSelectOptimalHunters}
+                          disabled={loadingHunters}
+                        >
+                          Select Optimal
+                        </Button>
+                      )}
+                    </div>
+
+                    {loadingHunters ? (
+                      <div className="text-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
+                        <p className="text-sm text-gray-500 mt-2">Loading hunters...</p>
+                      </div>
+                    ) : (
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <FireIcon className="h-4 w-4 text-red-500" />
+                          <p className="text-sm text-red-800 dark:text-red-200 font-medium">
+                            ⚠️ Warning: Selected hunters will be permanently burned!
+                          </p>
+                        </div>
+                        
+                        <div className="max-h-48 overflow-y-auto space-y-2">
+                          {hunters.map((hunter) => (
+                            <div
+                              key={hunter.tokenId}
+                              className={`flex items-center gap-3 p-2 rounded border ${
+                                selectedHunterIds.includes(parseInt(hunter.tokenId))
+                                  ? 'border-red-400 bg-red-100 dark:bg-red-900/30'
+                                  : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedHunterIds.includes(parseInt(hunter.tokenId))}
+                                onChange={(e) => 
+                                  handleHunterSelection(parseInt(hunter.tokenId), e.target.checked)
+                                }
+                                className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                              />
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">Hunter #{hunter.tokenId}</span>
+                                  <span className="text-xs text-gray-500">Power: {parseFloat(hunter.power).toFixed(2)}</span>
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  {hunter.inHibernation && <span className="text-red-500">Hibernating • </span>}
+                                  Status: {hunter.isActive ? 'Active' : 'Inactive'}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {!hasEnoughHunters && (
+                          <div className="mt-3 p-2 bg-red-100 dark:bg-red-900/30 rounded border border-red-300 dark:border-red-700">
+                            <p className="text-sm text-red-800 dark:text-red-200">
+                              You need to select {requiredHunters - selectedHunterIds.length} more hunter(s).
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Redeem Button */}
               <div className="pt-4">
                 <Button
                   onClick={handleRedeem}
-                  disabled={isLoading || !bearCount || parseInt(bearCount) <= 0 || !hasEnoughBalance}
+                  disabled={isLoading || !canRedeem || loadingHunters}
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
                   size="lg"
                 >
@@ -218,8 +352,10 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       Redeeming...
                     </div>
+                  ) : loadingHunters ? (
+                    'Loading Hunters...'
                   ) : (
-                    `Redeem ${bearCount || 0} Bear NFT${parseInt(bearCount || '0') !== 1 ? 's' : ''}`
+                    `Redeem ${bearCount || 0} Bear NFT${parseInt(bearCount || '0') !== 1 ? 's' : ''} (Burn ${selectedHunterIds.length} Hunter${selectedHunterIds.length !== 1 ? 's' : ''})`
                   )}
                 </Button>
               </div>

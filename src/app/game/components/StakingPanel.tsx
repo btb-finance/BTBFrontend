@@ -160,6 +160,26 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
 
   return (
     <div className="space-y-6">
+      {/* Migration Warning */}
+      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-1">
+                ⚠️ Important: Staking System Update
+              </h4>
+              <p className="text-sm text-amber-700 dark:text-amber-300 mb-2">
+                <strong>Please remove your LP tokens within one week.</strong> A new updated staking system will be live soon with improved features and rewards.
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                Version: 0.9.2 - PRODUCTION READY
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Staking Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

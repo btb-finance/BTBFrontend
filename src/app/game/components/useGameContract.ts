@@ -67,10 +67,10 @@ export default function useGameContract() {
     );
   };
 
-  const redeemBears = async (count: number) => {
+  const redeemBears = async (count: number, hunterIds: number[]) => {
     return executeTransaction(
-      () => gameService.redeemBears(count),
-      `Successfully redeemed ${count} Bear NFT(s)`
+      () => gameService.redeemBears(count, hunterIds),
+      `Successfully redeemed ${count} Bear NFT(s) using ${hunterIds.length} Hunter(s)`
     );
   };
 

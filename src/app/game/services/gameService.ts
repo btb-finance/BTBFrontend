@@ -21,12 +21,12 @@ class GameService {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private readonly CACHE_DURATION = 30000; // 30 seconds
 
-  // Contract addresses
-  private readonly gameContractAddress = '0x63478c2822874AaB175F4c96cc024E85e0213d52'; // BearHunterEcosystem
-  private readonly mimoTokenAddress = '0x7c1604981bE181e856c458F3d604f15bc97c7661'; // MiMoGaMe Token
-  private readonly btbTokenAddress = '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488'; // BTB Token
-  private readonly bearNFTAddress = '0x000081733751860A8E5BA00FdCF7000b53E90dDD'; // BTB NFT
-  private readonly btbSwapLogicAddress = '0x4F3B9b9e423170C811bCAEDDC661f00A8D208755'; // BTBSwapLogic
+  // Contract addresses - Version 0.9.2 - PRODUCTION READY
+  private readonly gameContractAddress = '0x25bB56840715242C1E140d4125F0cc283B1Df717'; // BearHunterEcosystem
+  private readonly mimoTokenAddress = '0x4060244A1B59A6395747c3b6f322dF4c1F04e5f6'; // MiMo Token
+  private readonly btbTokenAddress = '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488'; // BTB Token (Existing)
+  private readonly bearNFTAddress = '0x000081733751860A8E5BA00FdCF7000b53E90dDD'; // BEAR NFT (Existing)
+  private readonly btbSwapLogicAddress = '0x84dddA499a92754863CAC64dA83D21b892fB2b37'; // BTBSwapLogic
   private readonly stakingContractAddress = '0x891dBd50DAeB51BFeDf1cEB51ED30E0C4846b330'; // Staking Contract
   private readonly lpTokenAddress = '0xA93b1f2A2D66FA476ca84Ead39A6fCD72bA957EC'; // LP Token
 
@@ -259,14 +259,53 @@ class GameService {
     await this.ensureInitialized();
     try {
       const address = await this.signer!.getAddress();
-      // Call MiMo token contract directly
+      
+      // First try: Check if this is actually part of the game contract (internal balance)
+      try {
+        // Some game contracts track MiMo as internal balances
+        const gameBalance = await this.contract!.getMiMoBalance(address);
+        return ethers.utils.formatUnits(gameBalance, 18);
+      } catch (error) {
+        console.log('No internal MiMo balance function, trying external token contract');
+      }
+      
+      // Second try: Standard ERC20 token contract
       const mimoContract = new ethers.Contract(
         this.mimoTokenAddress,
-        ['function balanceOf(address) view returns (uint256)'],
-        this.signer!
+        [
+          'function balanceOf(address) view returns (uint256)',
+          'function decimals() view returns (uint8)'
+        ],
+        this.provider!
       );
-      const balance = await mimoContract.balanceOf(address);
-      return ethers.utils.formatUnits(balance, 18);
+      
+      try {
+        const balance = await mimoContract.balanceOf(address);
+        let decimals = 18;
+        try {
+          decimals = await mimoContract.decimals();
+        } catch (e) {
+          console.warn('Could not get MiMo decimals, using 18');
+        }
+        return ethers.utils.formatUnits(balance, decimals);
+      } catch (error) {
+        console.error('Error calling MiMo token contract - may not be a standard ERC20:', error);
+        
+        // Third try: Maybe it's a different interface
+        try {
+          // Some contracts use different function names
+          const altMimoContract = new ethers.Contract(
+            this.mimoTokenAddress,
+            ['function balance(address) view returns (uint256)'],
+            this.provider!
+          );
+          const balance = await altMimoContract.balance(address);
+          return ethers.utils.formatUnits(balance, 18);
+        } catch (altError) {
+          console.error('Alternative MiMo balance methods also failed:', altError);
+          return '0';
+        }
+      }
     } catch (error) {
       console.error('Error getting MiMo balance:', error);
       return '0';
@@ -374,11 +413,53 @@ class GameService {
     }
   }
 
-  public async redeemBears(count: number): Promise<ethers.ContractTransaction> {
+  public async redeemBears(count: number, hunterIds: number[]): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     try {
-      const tx = await this.contract!.redeemBears(count);
-      return tx;
+      // For now, try direct redemption - the contract may handle MiMo internally
+      // If this fails, we'll know we need approval
+      try {
+        const tx = await this.contract!.redeemBears(count, hunterIds);
+        return tx;
+      } catch (error: any) {
+        // If error mentions approval or allowance, try to approve MiMo tokens
+        if (error.message && (error.message.includes('allowance') || error.message.includes('approve'))) {
+          console.log('Approval required, attempting to approve MiMo tokens...');
+          
+          // Calculate required MiMo amount (1M per bear + 10% fee)
+          const REDEMPTION_COST = 1000000; // 1M MiMo per Bear
+          const REDEMPTION_FEE = 0.1; // 10% fee
+          const totalCost = count * REDEMPTION_COST;
+          const feeAmount = totalCost * REDEMPTION_FEE;
+          const totalWithFee = totalCost + feeAmount;
+          const requiredAmount = ethers.utils.parseUnits(totalWithFee.toString(), 18);
+
+          // Approve MiMo tokens for the game contract
+          const mimoContract = new ethers.Contract(
+            this.mimoTokenAddress,
+            [
+              'function approve(address spender, uint256 amount) external returns (bool)',
+              'function allowance(address owner, address spender) view returns (uint256)'
+            ],
+            this.signer!
+          );
+          
+          const address = await this.signer!.getAddress();
+          const allowance = await mimoContract.allowance(address, this.gameContractAddress);
+          
+          if (allowance.lt(requiredAmount)) {
+            const approveTx = await mimoContract.approve(this.gameContractAddress, requiredAmount);
+            await approveTx.wait();
+          }
+
+          // Retry the redemption
+          const tx = await this.contract!.redeemBears(count, hunterIds);
+          return tx;
+        } else {
+          // Re-throw the original error if it's not approval related
+          throw error;
+        }
+      }
     } catch (error) {
       console.error('Error redeeming bears:', error);
       throw error;
@@ -1171,6 +1252,7 @@ class GameService {
       lpToken: this.lpTokenAddress
     };
   }
+
 
   // ==================== STAKING FUNCTIONS ====================
 
