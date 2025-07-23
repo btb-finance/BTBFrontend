@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
 import BearHunterEcosystemABI from '../abi/BearHunterEcosystem.json';
 import StakingABI from '../abi/staking.json';
+import BTBSwapLogicABI from '../abi/BTBSwapLogic.json';
 
 // Base network configuration
 const BASE_NETWORK = {
@@ -551,14 +552,14 @@ class GameService {
         await approveTx.wait();
       }
       
-      // Call BTBSwapLogic contract directly
+      // Call BTBSwapLogic contract with correct signature
       const swapContract = new ethers.Contract(
         this.btbSwapLogicAddress,
-        ['function swapBTBForNFT(uint256 amount) external returns (uint256[])'],
+        BTBSwapLogicABI,
         this.signer!
       );
       
-      const tx = await swapContract.swapBTBForNFT(nftAmount);
+      const tx = await swapContract.swapBTBForNFT(address, nftAmount);
       return tx;
     } catch (error) {
       console.error('Error swapping BTB for NFT:', error);
@@ -587,14 +588,14 @@ class GameService {
         await approveTx.wait();
       }
       
-      // Call BTBSwapLogic contract directly
+      // Call BTBSwapLogic contract with correct signature
       const swapContract = new ethers.Contract(
         this.btbSwapLogicAddress,
-        ['function swapNFTForBTB(uint256[] tokenIds) external returns (uint256)'],
+        BTBSwapLogicABI,
         this.signer!
       );
       
-      const tx = await swapContract.swapNFTForBTB(tokenIds);
+      const tx = await swapContract.swapNFTForBTB(address, tokenIds);
       return tx;
     } catch (error) {
       console.error('Error swapping NFT for BTB:', error);

@@ -25,6 +25,9 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
   const [costBreakdown, setCostBreakdown] = useState<any>(null);
   const [returnBreakdown, setReturnBreakdown] = useState<any>(null);
   const [liquidityInfo, setLiquidityInfo] = useState<any>(null);
+  const [userBears, setUserBears] = useState<any[]>([]);
+  const [selectedBearIds, setSelectedBearIds] = useState<number[]>([]);
+  const [loadingBears, setLoadingBears] = useState(false);
 
   const handleSwapBTBForNFT = async () => {
     if (!isConnected || !nftCount) return;
@@ -49,22 +52,21 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
   };
 
   const handleSwapNFTForBTB = async () => {
-    if (!isConnected || !nftCount) return;
+    if (!isConnected || selectedBearIds.length === 0) return;
 
     try {
       setIsLoading(true);
       setTxHash('');
       
-      // This would need NFT token IDs - simplified for demo
-      const count = parseInt(nftCount);
-      // In real implementation, you'd need to get user's NFT IDs
-      const tokenIds = Array.from({ length: count }, (_, i) => i + 1);
-      const tx = await gameService.swapNFTForBTB(tokenIds);
+      // Use the actual selected Bear NFT token IDs
+      const tx = await gameService.swapNFTForBTB(selectedBearIds);
       
       setTxHash(tx.hash);
       await tx.wait();
       
+      setSelectedBearIds([]);
       setNftCount('1');
+      await fetchUserBears(); // Refresh the bear list
       onSuccess();
     } catch (error) {
       console.error('Error swapping NFT for BTB:', error);
@@ -73,26 +75,54 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
     }
   };
 
-  // Calculate costs and returns when nftCount changes
-  useEffect(() => {
-    if (nftCount && parseInt(nftCount) > 0) {
-      const count = parseInt(nftCount);
-      
-      // Calculate cost for buying NFTs
-      gameService.calculateBTBCostForNFTs(count).then(setCostBreakdown);
-      
-      // Calculate return for selling NFTs
-      gameService.calculateBTBReturnForNFTs(count).then(setReturnBreakdown);
-    } else {
-      setCostBreakdown(null);
-      setReturnBreakdown(null);
+  // Fetch user's Bear NFTs
+  const fetchUserBears = async () => {
+    if (!isConnected) return;
+    
+    try {
+      setLoadingBears(true);
+      const bears = await gameService.getUserBears();
+      setUserBears(bears);
+    } catch (error) {
+      console.error('Error fetching user bears:', error);
+    } finally {
+      setLoadingBears(false);
     }
-  }, [nftCount]);
+  };
+
+  // Handle Bear NFT selection
+  const handleBearSelection = (tokenId: number, checked: boolean) => {
+    if (checked) {
+      setSelectedBearIds(prev => [...prev, tokenId]);
+    } else {
+      setSelectedBearIds(prev => prev.filter(id => id !== tokenId));
+    }
+  };
+
+  // Calculate costs and returns when nftCount or selectedBears changes
+  useEffect(() => {
+    if (swapMode === 'btb-to-nft' && nftCount && parseInt(nftCount) > 0) {
+      const count = parseInt(nftCount);
+      gameService.calculateBTBCostForNFTs(count).then(setCostBreakdown);
+    } else if (swapMode === 'nft-to-btb' && selectedBearIds.length > 0) {
+      gameService.calculateBTBReturnForNFTs(selectedBearIds.length).then(setReturnBreakdown);
+    } else {
+      if (swapMode === 'btb-to-nft') setCostBreakdown(null);
+      if (swapMode === 'nft-to-btb') setReturnBreakdown(null);
+    }
+  }, [nftCount, selectedBearIds, swapMode]);
 
   // Get liquidity info on component mount
   useEffect(() => {
     gameService.getSwapLiquidityInfo().then(setLiquidityInfo);
   }, []);
+
+  // Fetch user's Bears when connected
+  useEffect(() => {
+    if (isConnected) {
+      fetchUserBears();
+    }
+  }, [isConnected]);
 
   if (!isConnected) {
     return (
@@ -272,19 +302,44 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Number of Bear NFTs to Swap
+                  Select Bear NFTs to Swap ({selectedBearIds.length} selected)
                 </label>
-                <Input
-                  type="number"
-                  value={nftCount}
-                  onChange={(e) => setNftCount(e.target.value)}
-                  placeholder="Enter NFT count"
-                  min="1"
-                  step="1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Note: You need to own the Bear NFTs to swap them
-                </p>
+                
+                {loadingBears ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600 mx-auto"></div>
+                    <p className="text-sm text-gray-500 mt-2">Loading your Bear NFTs...</p>
+                  </div>
+                ) : userBears.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm">You don't own any Bear NFTs to swap</p>
+                  </div>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    {userBears.map((bear) => (
+                      <div
+                        key={bear.tokenId}
+                        className={`flex items-center gap-3 p-2 rounded border ${
+                          selectedBearIds.includes(parseInt(bear.tokenId))
+                            ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedBearIds.includes(parseInt(bear.tokenId))}
+                          onChange={(e) => 
+                            handleBearSelection(parseInt(bear.tokenId), e.target.checked)
+                          }
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div className="flex-1">
+                          <span className="font-medium text-sm">Bear #{bear.tokenId}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {returnBreakdown && (
@@ -293,7 +348,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                   {returnBreakdown.isValid ? (
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span>Base Rate ({nftCount} NFT{parseInt(nftCount) !== 1 ? 's' : ''}):</span>
+                        <span>Base Rate ({selectedBearIds.length} NFT{selectedBearIds.length !== 1 ? 's' : ''}):</span>
                         <span className="font-medium">{parseFloat(returnBreakdown.baseRate).toFixed(6)} BTB</span>
                       </div>
                       <div className="flex justify-between">
@@ -331,7 +386,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
 
               <Button
                 onClick={handleSwapNFTForBTB}
-                disabled={isLoading || !nftCount || parseInt(nftCount) <= 0 || (returnBreakdown && !returnBreakdown.isValid)}
+                disabled={isLoading || selectedBearIds.length === 0 || (returnBreakdown && !returnBreakdown.isValid)}
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
                 size="lg"
               >
@@ -341,7 +396,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                     Selling...
                   </div>
                 ) : (
-                  <span>Sell {nftCount || '0'} Bear NFT{parseInt(nftCount || '0') !== 1 ? 's' : ''}</span>
+                  <span>Sell {selectedBearIds.length} Bear NFT{selectedBearIds.length !== 1 ? 's' : ''}</span>
                 )}
               </Button>
             </div>
