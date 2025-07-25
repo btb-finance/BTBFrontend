@@ -7,7 +7,7 @@ import BTBSwapLogicABI from '../abi/BTBSwapLogic.json';
 const BASE_NETWORK = {
   chainId: 8453,
   name: 'Base Mainnet',
-  rpcUrl: 'https://base-mainnet.g.alchemy.com/v2/UqLpjGTYscN_cI1VF7MRq',
+  rpcUrl: 'https://mainnet-preconf.base.org',
   blockExplorer: 'https://basescan.org',
 };
 
