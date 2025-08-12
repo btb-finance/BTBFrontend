@@ -104,6 +104,18 @@ class GameService {
       
       this.signer = injectedProvider.getSigner();
       
+      // Debug ABI import
+      console.log('BearHunterEcosystemABI type:', typeof BearHunterEcosystemABI);
+      console.log('BearHunterEcosystemABI isArray:', Array.isArray(BearHunterEcosystemABI));
+      console.log('BearHunterEcosystemABI length:', BearHunterEcosystemABI?.length);
+      
+      // Find depositBears in ABI
+      const depositBearsFuncs = BearHunterEcosystemABI.filter((item: any) => 
+        item.type === 'function' && item.name === 'depositBears'
+      );
+      console.log('depositBears functions found in ABI:', depositBearsFuncs.length);
+      console.log('depositBears function details:', depositBearsFuncs);
+
       // Initialize contracts with signer
       this.contract = new ethers.Contract(
         this.gameContractAddress,
@@ -116,6 +128,21 @@ class GameService {
         StakingABI,
         this.signer
       );
+
+      // Debug contract methods
+      console.log('Contract created. Checking for depositBears method...');
+      console.log('typeof contract.depositBears:', typeof this.contract.depositBears);
+      console.log('depositBears exists:', 'depositBears' in this.contract);
+      
+      // List all available functions on the contract
+      const contractMethods = Object.getOwnPropertyNames(this.contract)
+        .filter(prop => typeof this.contract[prop] === 'function')
+        .sort();
+      console.log('Available contract methods:', contractMethods);
+
+      // Check if we can find depositBears in different ways
+      console.log('contract["depositBears"]:', this.contract["depositBears"]);
+      console.log('contract.functions.depositBears:', this.contract.functions?.depositBears);
 
       this.isInitialized = true;
     } catch (error) {
@@ -365,6 +392,15 @@ class GameService {
   public async depositBears(bearIds: number[]): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     try {
+      // Validate inputs
+      if (!bearIds || bearIds.length === 0) {
+        throw new Error('No bear IDs provided');
+      }
+
+      console.log('Starting depositBears with IDs:', bearIds);
+      console.log('Contract available:', !!this.contract);
+      console.log('Signer available:', !!this.signer);
+
       // First approve the game contract to transfer Bear NFTs
       const bearContract = new ethers.Contract(
         this.bearNFTAddress,
@@ -379,16 +415,70 @@ class GameService {
       const isApproved = await bearContract.isApprovedForAll(address, this.gameContractAddress);
       
       if (!isApproved) {
+        console.log('Setting approval for Bear NFTs...');
         const approveTx = await bearContract.setApprovalForAll(this.gameContractAddress, true);
         await approveTx.wait();
+        console.log('Approval set successfully');
       }
       
-      // Deposit bears
-      const tx = await this.contract!.depositBears(bearIds);
+      // Try different approaches to call depositBears
+      let tx: ethers.ContractTransaction;
+      
+      // Method 1: Direct function call - handle overloaded function
+      if (typeof this.contract!.depositBears === 'function') {
+        console.log('Using direct method call');
+        try {
+          // Try the single parameter version first
+          tx = await this.contract!['depositBears(uint256[])'](bearIds);
+        } catch (e) {
+          // Fallback to basic call
+          tx = await this.contract!.depositBears(bearIds);
+        }
+      }
+      // Method 2: Using contract.functions with specific signature
+      else if (this.contract!.functions && this.contract!.functions['depositBears(uint256[])']) {
+        console.log('Using contract.functions approach');
+        tx = await this.contract!.functions['depositBears(uint256[])'](bearIds);
+      }
+      // Method 3: Using bracket notation with specific signature
+      else if (this.contract!['depositBears(uint256[])']) {
+        console.log('Using bracket notation with signature');
+        tx = await this.contract!['depositBears(uint256[])'](bearIds);
+      }
+      // Method 3b: Using bracket notation without signature
+      else if (this.contract!["depositBears"]) {
+        console.log('Using bracket notation');
+        tx = await this.contract!["depositBears"](bearIds);
+      }
+      // Method 4: Try with interface encoding (specify the exact function signature)
+      else {
+        console.log('Using interface encoding approach');
+        const iface = new ethers.utils.Interface(BearHunterEcosystemABI);
+        
+        // Use the single-parameter version: depositBears(uint256[])
+        const data = iface.encodeFunctionData('depositBears(uint256[])', [bearIds]);
+        
+        tx = await this.signer!.sendTransaction({
+          to: this.gameContractAddress,
+          data: data
+        });
+      }
+      
+      console.log('Transaction created:', tx.hash);
       return tx;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error depositing bears:', error);
-      throw error;
+      
+      // Provide more specific error messages
+      if (error.message?.includes('function selector was not recognized')) {
+        throw new Error('Contract does not support depositBears function. Please check the contract address.');
+      } else if (error.message?.includes('user rejected')) {
+        throw new Error('Transaction was cancelled by user');
+      } else if (error.message?.includes('insufficient funds')) {
+        throw new Error('Insufficient funds for transaction');
+      } else {
+        throw new Error(`Failed to deposit bears: ${error.message || 'Unknown error'}`);
+      }
     }
   }
 
