@@ -135,9 +135,9 @@ class GameService {
       console.log('depositBears exists:', 'depositBears' in this.contract);
       
       // List all available functions on the contract
-      const contractMethods = Object.getOwnPropertyNames(this.contract)
-        .filter(prop => typeof this.contract[prop] === 'function')
-        .sort();
+      const contractMethods = this.contract ? Object.getOwnPropertyNames(this.contract)
+        .filter(prop => typeof this.contract![prop] === 'function')
+        .sort() : [];
       console.log('Available contract methods:', contractMethods);
 
       // Check if we can find depositBears in different ways
