@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useChainId } from 'wagmi';
+import { Alert } from '../components/ui/alert';
+import { AlertCircleIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -18,6 +21,16 @@ import TradingPanel from './components/TradingPanel';
 import leverageTokenService, { TokenInfo } from './services/leverageTokenService';
 
 export default function LeverageExchange() {
+  const chainId = useChainId();
+  const getNetworkName = (id: number) => {
+    switch(id) {
+      case 84532: return 'Base Sepolia';
+      case 1: return 'Ethereum Mainnet';
+      case 8453: return 'Base Mainnet';
+      default: return 'Unknown Network';
+    }
+  };
+
   // Initialize provider on component mount
   useEffect(() => {
     leverageTokenService.initializeProvider();
@@ -29,6 +42,7 @@ export default function LeverageExchange() {
   const [sortBy, setSortBy] = useState('volume');
   const [filterActive, setFilterActive] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [globalError, setGlobalError] = useState<string | null>(null);
   const [platformStats, setPlatformStats] = useState({
     totalVolume: '$1.2M',
     totalTokens: 2,
@@ -36,12 +50,18 @@ export default function LeverageExchange() {
     activeTokens: 2
   });
 
-  // Load tokens on component mount
+  // Load tokens on component mount and set up periodic refresh
   useEffect(() => {
     const loadTokens = async () => {
       setIsLoading(true);
+      setGlobalError(null);
       try {
+        console.log('Loading tokens for chainId:', chainId, 'Network:', getNetworkName(chainId));
+        if (chainId !== 84532) {
+          throw new Error(`Please switch to Base Sepolia network (chain ID 84532). Current: ${getNetworkName(chainId)}`);
+        }
         const tokenList = await leverageTokenService.getAllTokens();
+        console.log('Loaded tokens:', tokenList.length, tokenList);
         setTokens(tokenList);
         if (tokenList.length > 0 && !selectedToken) {
           setSelectedToken(tokenList[0]);
@@ -49,21 +69,30 @@ export default function LeverageExchange() {
         
         // Load platform stats
         const stats = await leverageTokenService.getPlatformStats();
+        const totalTVL = tokenList
+          .filter(token => token.active)
+          .reduce((sum, token) => {
+            const tvlNum = parseFloat(token.tvl?.replace(/[$,]/g, '') || '0');
+            return sum + tvlNum;
+          }, 0);
         setPlatformStats({
           totalVolume: `$${(Number(stats.totalVolume) / 1000000).toFixed(1)}M`,
           totalTokens: stats.totalTokens,
-          totalTVL: '$3.2M', // Calculate from token data
+          totalTVL: `$${totalTVL.toLocaleString()}`,
           activeTokens: stats.activeTokens
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading tokens:', error);
+        setGlobalError(error.message || 'Failed to load tokens. Please check console for details.');
       } finally {
         setIsLoading(false);
       }
     };
 
     loadTokens();
-  }, []);
+    const interval = setInterval(loadTokens, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [chainId]);
 
   const filteredTokens = tokens.filter(token => 
     (token.symbol.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -93,10 +122,16 @@ export default function LeverageExchange() {
       setTokens(tokenList);
       
       const stats = await leverageTokenService.getPlatformStats();
+      const totalTVL = tokenList
+        .filter(token => token.active)
+        .reduce((sum, token) => {
+          const tvlNum = parseFloat(token.tvl?.replace(/[$,]/g, '') || '0');
+          return sum + tvlNum;
+        }, 0);
       setPlatformStats({
         totalVolume: `$${(Number(stats.totalVolume) / 1000000).toFixed(1)}M`,
         totalTokens: stats.totalTokens,
-        totalTVL: '$3.2M',
+        totalTVL: `$${totalTVL.toLocaleString()}`,
         activeTokens: stats.activeTokens
       });
     } catch (error) {
@@ -142,7 +177,7 @@ export default function LeverageExchange() {
               <div className="text-sm text-gray-500">Total TVL</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-btb-primary">Base Sepolia</div>
+              <div className="text-2xl font-bold text-btb-primary">{getNetworkName(chainId)}</div>
               <div className="text-sm text-gray-500">Network</div>
             </div>
           </motion.div>
@@ -152,6 +187,21 @@ export default function LeverageExchange() {
           {/* Token List */}
           <div className="lg:col-span-2">
             <Card className="p-6">
+              {globalError && (
+                <Alert className="border-red-200 bg-red-50 text-red-800 mb-6">
+                  <AlertCircleIcon className="w-4 h-4" />
+                  <div className="font-medium">Load Error</div>
+                  <div>{globalError}</div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.location.reload()}
+                    className="mt-2"
+                  >
+                    Reload Page
+                  </Button>
+                </Alert>
+              )}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-bold">Available Tokens</h2>
@@ -201,7 +251,7 @@ export default function LeverageExchange() {
                   </Button>
                 </div>
               </div>
-
+        
               {isLoading ? (
                 <div className="text-center py-12">
                   <RefreshCcwIcon className="w-8 h-8 animate-spin mx-auto mb-4 text-btb-primary" />
@@ -210,10 +260,14 @@ export default function LeverageExchange() {
               ) : sortedTokens.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-gray-500 mb-4">No tokens found</p>
-                  <Button onClick={refreshData} variant="outline">
-                    <RefreshCcwIcon className="w-4 h-4 mr-2" />
-                    Refresh
-                  </Button>
+                  {globalError ? (
+                    <div className="text-red-600 mb-4">{globalError}</div>
+                  ) : (
+                    <Button onClick={refreshData} variant="outline">
+                      <RefreshCcwIcon className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3">

@@ -41,7 +41,8 @@ export default function TradingPanel({ selectedToken }: TradingPanelProps) {
   // Leverage specific states
   const [leverageAmount, setLeverageAmount] = useState('');
   const [leverageDays, setLeverageDays] = useState('30');
-  const [leverageMultiplier, setLeverageMultiplier] = useState('2');
+  const [leverageFee, setLeverageFee] = useState('0');
+  const [isLeverageProcessing, setIsLeverageProcessing] = useState(false);
   
   // Transaction states
   const [isProcessing, setIsProcessing] = useState(false);
@@ -102,6 +103,26 @@ export default function TradingPanel({ selectedToken }: TradingPanelProps) {
     getQuote();
   }, [amount, tradeType, selectedToken]);
 
+  // Get leverage fee quote
+  useEffect(() => {
+    const getLeverageFeeQuote = async () => {
+      if (!leverageAmount || isNaN(Number(leverageAmount)) || Number(leverageAmount) <= 0 || !leverageDays || parseInt(leverageDays) < 1 || parseInt(leverageDays) > 365) {
+        setLeverageFee('0');
+        return;
+      }
+
+      try {
+        const fee = await leverageTokenService.getLeverageFee(selectedToken.leverageContract, leverageAmount, leverageDays);
+        setLeverageFee(fee);
+      } catch (err) {
+        console.error('Error getting leverage fee:', err);
+        setLeverageFee('0');
+      }
+    };
+
+    getLeverageFeeQuote();
+  }, [leverageAmount, leverageDays, selectedToken]);
+
   const handleTrade = async () => {
     if (!isConnected || !address) return;
     
@@ -129,6 +150,33 @@ export default function TradingPanel({ selectedToken }: TradingPanelProps) {
       setError(err.message || 'Transaction failed');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleLeverage = async () => {
+    if (!isConnected || !address) return;
+    if (!leverageAmount || Number(leverageAmount) <= 0 || !leverageDays || (parseInt(leverageDays) < 1 || parseInt(leverageDays) > 365)) {
+      setError('Invalid amount or days. Amount must be > 0, days 1-365.');
+      return;
+    }
+
+    setIsLeverageProcessing(true);
+    setError(null);
+
+    try {
+      const txHash = await leverageTokenService.executeLeverage(
+        selectedToken.leverageContract,
+        leverageAmount,
+        leverageDays,
+        address
+      );
+      setTxHash(txHash);
+      setLeverageAmount('');
+      setLeverageDays('30');
+    } catch (err: any) {
+      setError(err.message || 'Leverage transaction failed');
+    } finally {
+      setIsLeverageProcessing(false);
     }
   };
 
@@ -381,16 +429,99 @@ export default function TradingPanel({ selectedToken }: TradingPanelProps) {
 
           {/* Leverage Tab */}
           <TabsContent value="leverage" className="space-y-4 mt-6">
-            <div className="text-center py-8">
-              <h3 className="text-lg font-semibold mb-2">Leverage Trading</h3>
-              <p className="text-gray-500 mb-4">
-                Open leveraged positions with automated management
-              </p>
-              <Badge variant="warning" className="mb-4">
-                Coming Soon
-              </Badge>
-              <div className="text-sm text-gray-500">
-                Advanced leverage trading features are currently under development
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Open Leverage Position</h3>
+              <p className="text-sm text-gray-500 mb-4">Deposit backing tokens to open a leveraged position with automatic rebalancing</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm">Backing Amount ({getTokenSymbolFromAddress(selectedToken.backingToken)})</Label>
+                  <Input
+                    placeholder="0.0"
+                    value={leverageAmount}
+                    onChange={(e) => setLeverageAmount(e.target.value)}
+                    type="number"
+                    step="0.0001"
+                    className="mt-1"
+                  />
+                  <div className="flex space-x-2 mt-2">
+                    {[25, 50, 75, 100].map((percentage) => (
+                      <Button
+                        key={percentage}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLeverageAmount((Number(backingBalance) * percentage / 100).toString())}
+                        className="flex-1 text-xs"
+                      >
+                        {percentage}%
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Balance: {Number(backingBalance).toFixed(4)} {getTokenSymbolFromAddress(selectedToken.backingToken)}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-sm">Position Duration (Days)</Label>
+                  <Input
+                    placeholder="30"
+                    value={leverageDays}
+                    onChange={(e) => setLeverageDays(e.target.value)}
+                    type="number"
+                    min="1"
+                    max="365"
+                    className="mt-1"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    Max 365 days. Position will auto-liquidate after expiration.
+                  </div>
+                </div>
+
+                {leverageFee !== '0' && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex justify-between text-sm">
+                      <span>Estimated Fees</span>
+                      <span className="font-semibold">{leverageFee} {getTokenSymbolFromAddress(selectedToken.backingToken)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Includes minting and interest fees
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <Alert className="border-red-200 bg-red-50 text-red-800">
+                    <AlertCircleIcon className="w-4 h-4" />
+                    <div>{error}</div>
+                  </Alert>
+                )}
+
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={handleLeverage}
+                  disabled={isLeverageProcessing || !leverageAmount || Number(leverageAmount) <= 0 || !leverageDays || (parseInt(leverageDays) < 1 || parseInt(leverageDays) > 365)}
+                >
+                  {isLeverageProcessing ? (
+                    <>
+                      <LoaderIcon className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    `Open ${selectedToken.leverage}x Position`
+                  )}
+                </Button>
+              </div>
+
+              <div className="mt-6 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <div className="flex items-center mb-2">
+                  <InfoIcon className="w-4 h-4 mr-2 text-blue-600" />
+                  <span className="font-medium text-blue-800 dark:text-blue-200">Important</span>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Leverage positions require 100% collateralization. Positions auto-liquidate daily after expiration.
+                  Monitor your position regularly to avoid liquidation.
+                </p>
               </div>
             </div>
           </TabsContent>
