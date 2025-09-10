@@ -96,13 +96,52 @@ const products = [
   {
     name: 'Aero Booster',
     description: 'Professional AERO voting service for projects. Tiered rates: 5% for 1k, 4% for 5k, 2% for 10k+ AERO weekly fees.',
-    detailedDescription: "BTB owns significant locked AERO tokens and provides weekly voting support for projects' liquidity pools. Tiered pricing structure: 5% weekly fee for 1k AERO, 4% for 5k AERO, 2% for 10k+ AERO. Better rates as you scale up! Contact us via X, Telegram, Discord, or email.",
+    detailedDescription: "BTB owns significant locked AERO tokens and provides weekly voting support for projects' liquidity pools. Tiered pricing structure: 5% weekly fee for 1k AERO, 4% for 5k AERO, 2% for 10k+ AERO. Better rates as you scale up! Contact us via X, Telegram, or email.",
     features: ['Weekly voting power', 'Scalable pricing structure', 'Multiple contact methods', 'Guaranteed LP boost'],
     icon: ArrowTrendingUpIcon,
     href: '/aero-booster',
     bgColor: 'bg-gradient-to-br from-sky-600/10 to-cyan-800/10',
     iconColor: 'text-sky-600 dark:text-sky-400',
     borderColor: 'border-sky-200 dark:border-sky-800',
+    isNew: true,
+    highlight: true
+  },
+  {
+    name: 'Custom Game Creation',
+    description: 'Launch your own Hunt-to-Earn game ecosystem like BTB Game. We build complete tokenomics, deflationary mechanics, and LP reward systems tailored to your vision.',
+    detailedDescription: 'Want to create the next BTB Game or something entirely unique? Our team builds custom gaming ecosystems with sophisticated tokenomics, NFT integration, and deflationary mechanics. From concept to deployment, we handle smart contracts, frontend development, and multi-token price pressure systems that ensure sustainable growth. 🎉 **100% FREE SERVICE** - Just contact us via X, Telegram, or email with your idea and we\'ll build it for you at no cost!',
+    features: ['Custom tokenomics design', 'NFT integration systems', 'Deflationary mechanics', 'Multi-network deployment', '💯 Completely FREE service'],
+    icon: BeakerIcon,
+    href: '/custom-game-creation',
+    bgColor: 'bg-gradient-to-br from-purple-600/10 to-indigo-800/10',
+    iconColor: 'text-purple-600 dark:text-purple-400',
+    borderColor: 'border-purple-200 dark:border-purple-800',
+    isNew: true,
+    highlight: true
+  },
+  {
+    name: 'Custom Token Creation',
+    description: 'Create your own token with Larry-style stability features. Price-only-up mechanics, leverage trading capabilities, and borrowing systems - all customized to your project.',
+    detailedDescription: 'Launch your own meme coin or utility token with advanced stability mechanisms like Larry. We implement price-only-up systems, 100x leverage capabilities, collateral borrowing features, and custom tokenomics. From audited smart contracts to trading interfaces, we bring your token vision to reality. 🎉 **100% FREE SERVICE** - Just reach out to us via X, Telegram, or email and we\'ll create your custom token at no charge!',
+    features: ['Price stability mechanisms', 'Leverage trading integration', 'Collateral borrowing systems', 'Full audit included', '💯 Completely FREE service'],
+    icon: CubeTransparentIcon,
+    href: '/custom-token-creation',
+    bgColor: 'bg-gradient-to-br from-orange-600/10 to-red-800/10',
+    iconColor: 'text-orange-600 dark:text-orange-400',
+    borderColor: 'border-orange-200 dark:border-orange-800',
+    isNew: true,
+    highlight: true
+  },
+  {
+    name: 'Third-Party Integration',
+    description: 'Already have a project like Megapot? We integrate your existing games, tokens, or DApps into the BTB ecosystem with our unified interface and cross-protocol features.',
+    detailedDescription: 'Got an existing project that you want to supercharge? We integrate third-party games, tokens, and DApps into our BTB ecosystem. Your users get access to our unified dashboard, cross-protocol features, leverage systems, and multi-network support while maintaining your project\'s unique identity. 🎉 **100% FREE SERVICE** - Contact us via X, Telegram, or email to integrate your project into BTB at absolutely no cost!',
+    features: ['Existing project integration', 'Cross-protocol compatibility', 'Unified dashboard access', 'Multi-network support', '💯 Completely FREE service'],
+    icon: LightBulbIcon,
+    href: '/third-party-integration',
+    bgColor: 'bg-gradient-to-br from-teal-600/10 to-emerald-800/10',
+    iconColor: 'text-teal-600 dark:text-teal-400',
+    borderColor: 'border-teal-200 dark:border-teal-800',
     isNew: true,
     highlight: true
   }
@@ -374,11 +413,11 @@ export default function Home() {
                 >
                   <TypewriterEffect 
                     words={[
-                      'Introducing Our New Game Ecosystem!', 
-                      'Hunt, Feed, and Earn in GameFi',
-                      'Revolutionizing DeFi on Base', 
-                      'Join the DeFi Evolution',
-                      'Yield Farming Reimagined'
+                      'Multi-Network Services for Everyone!', 
+                      'Gaming • Bonding • Price Stability',
+                      'Bringing Your Ideas to Life', 
+                      'Business-to-Business Excellence',
+                      'Leverage Tokens That Never Fall'
                     ]} 
                     typingSpeed={60}
                     deletingSpeed={30}
@@ -394,7 +433,7 @@ export default function Home() {
                 transition={{ delay: 0.8, duration: 0.5 }}
                 className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl"
               >
-                Access all your favorite DeFi apps in one place - Aave, Compound, yield farming, and more through a single intuitive interface, while never worrying about impermanent loss again.
+                BTB provides services across any blockchain network - from gaming ecosystems and bonding protocols to innovative ideas that keep prices stable and never go down. We bring any concept to life with our leverage token system designed for business-to-business excellence.
               </motion.p>
               
               <motion.p 
@@ -403,7 +442,7 @@ export default function Home() {
                 transition={{ delay: 1.0, duration: 0.5 }}
                 className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1"
               >
-                <span className="font-bold">Our Mission:</span> Users provide liquidity on USDC/BTB pairs on Uniswap and Aerodrome. When ETH price moves, BTB automatically reprices on our protocol, creating instant arbitrage opportunities between our protocol and these DEX pools. We capture the spreads first, using profits to eliminate IL - zero losses for LPs.
+                <span className="font-bold">Our Mission:</span> BTB (Business-to-Business) delivers cutting-edge services across every blockchain network. We specialize in gaming ecosystems, bonding mechanisms, and revolutionary leverage tokens designed to maintain price stability - prices never go down. From concept to reality, we bring any innovative idea to life with our comprehensive multi-network platform.
               </motion.p>
               
               <motion.div 
