@@ -326,7 +326,7 @@ class LarryService {
         totalFee: ethers.formatEther(fee),
         feeAddressFee: ethers.formatEther(feeAddressFee),
         userReceives: ethers.formatEther(toUser),
-        canClose: collateralInETHAfterFee.gte(borrowed)
+        canClose: collateralInETHAfterFee >= borrowed
       };
     } catch (error) {
       console.error('Error getting flash close quote:', error);

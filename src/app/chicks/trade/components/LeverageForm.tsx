@@ -141,10 +141,12 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
         setIsSubmitting(false);
         return;
       }
-      
-      console.log('Transaction submitted:', tx.hash);
-      setError(`Transaction submitted. Waiting for confirmation... (${tx.hash.substring(0, 10)}...)`);
-      
+
+      const receipt = await tx.wait();
+      const txHash = receipt?.hash || 'pending';
+      console.log('Transaction submitted:', txHash);
+      setError(`Transaction submitted. Waiting for confirmation... (${txHash.substring(0, 10)}...)`);
+
       try {
         console.log('Transaction confirmed:', receipt);
         
