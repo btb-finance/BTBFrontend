@@ -142,7 +142,6 @@ class GameService {
 
       // Check if we can find depositBears in different ways
       console.log('contract["depositBears"]:', this.contract["depositBears"]);
-      console.log('contract.functions.depositBears:', this.contract.functions?.depositBears);
 
       this.isInitialized = true;
     } catch (error) {
