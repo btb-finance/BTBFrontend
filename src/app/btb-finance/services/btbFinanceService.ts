@@ -246,7 +246,7 @@ class BTBFinanceService {
       const currentAllowance = await this.btbTokenContract!.allowance(address, this.protocolAddress);
       
       // If allowance is insufficient, approve first
-      if (currentAllowance.LT_TEMP(parsedAmount)) {
+      if (currentAllowance < parsedAmount) {
         const approveTx = await this.btbTokenContract!.approve(this.protocolAddress, parsedAmount);
         await approveTx.wait();
       }
@@ -289,7 +289,7 @@ class BTBFinanceService {
       // Get leverage cost
       const leverageCost = await this.contract!.calculateLeverageCost(parsedAmount, numberOfDays);
       const overcollateralAmount = parsedAmount / BigInt(100); // 1% overcollateral
-      const totalRequired = leverageCost.ADD_TEMP(overcollateralAmount);
+      const totalRequired = (leverageCost + overcollateralAmount);
       
       // Execute leverage transaction
       const tx = await this.contract!.createLeveragePosition(parsedAmount, numberOfDays, {
@@ -476,7 +476,7 @@ class BTBFinanceService {
       const ethToSend = await this.contract!.calculateTokensToETH(parsedAmount);
       // Apply trading fee - user gets tradingFeePercentage/10000 (default 9990/10000 = 99.9%)
       const tradingFeePercentage = await this.contract!.tradingFeePercentage();
-      const userETH = ethToSend.MUL_TEMP(tradingFeePercentage).div(10000);
+      const userETH = (ethToSend * tradingFeePercentage) / BigInt(10000);
       return ethers.formatEther(userETH);
     } catch (error) {
       console.error('Error getting sell estimate:', error);

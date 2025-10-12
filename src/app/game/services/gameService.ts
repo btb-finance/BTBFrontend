@@ -538,7 +538,7 @@ class GameService {
           const address = await this.signer!.getAddress();
           const allowance = await mimoContract.allowance(address, this.gameContractAddress);
           
-          if (allowance.LT_TEMP(requiredAmount)) {
+          if (allowance < requiredAmount) {
             const approveTx = await mimoContract.approve(this.gameContractAddress, requiredAmount);
             await approveTx.wait();
           }
@@ -564,8 +564,8 @@ class GameService {
       const rate = await this.contract!.getSwapRate();
       
       // Check if rate is type(uint256).max (indicates no liquidity or edge case)
-      const maxUint256 = ethers.constants.MaxUint256;
-      if (rate.eq(maxUint256)) {
+      const maxUint256 = ethers.MaxUint256;
+      if (rate === BigInt(maxUint256)) {
         console.warn('Swap rate is at maximum value, indicating liquidity issues');
         return '0'; // Return 0 to indicate no valid rate
       }
@@ -576,7 +576,7 @@ class GameService {
       
       let baseRate = rate;
       if (rate.gt(buyPremiumWei)) {
-        baseRate = rate.sub(buyPremiumWei);
+        baseRate = rate - BigInt(buyPremiumWei);
       } else {
         baseRate = BigInt('0');
       }
@@ -621,8 +621,8 @@ class GameService {
       );
       
       // Add 1% swap fee
-      const feeAmount = baseAmount.MUL_TEMP(100).div(10000); // 1% fee
-      const totalAmount = baseAmount.ADD_TEMP(feeAmount);
+      const feeAmount = (baseAmount * 100) / BigInt(10000); // 1% fee
+      const totalAmount = (baseAmount + feeAmount);
       
       // First approve BTB tokens for the BTBSwapLogic contract
       const btbContract = new ethers.Contract(
@@ -637,7 +637,7 @@ class GameService {
       const address = await this.signer!.getAddress();
       const allowance = await btbContract.allowance(address, this.btbSwapLogicAddress);
       
-      if (allowance.LT_TEMP(totalAmount)) {
+      if (allowance < totalAmount) {
         const approveTx = await btbContract.approve(this.btbSwapLogicAddress, totalAmount);
         await approveTx.wait();
       }
@@ -768,9 +768,9 @@ class GameService {
     try {
       // For buying, we need the full contract rate (baseRate + premium)
       const contractRate = await this.contract!.getSwapRate();
-      const maxUint256 = ethers.constants.MaxUint256;
+      const maxUint256 = ethers.MaxUint256;
       
-      if (contractRate.eq(maxUint256) || contractRate.eq(0)) {
+      if (contractRate === BigInt(maxUint256) || contractRate === BigInt(0)) {
         return {
           baseRate: '0.000000',
           premium: '5000.000000',
@@ -1381,14 +1381,14 @@ class GameService {
       const rewardRate = globalInfo._rewardRate;
       
       let calculatedAPR = '0';
-      if (!totalStaked.isZero() && !rewardRate.isZero()) {
+      if (!totalStaked === 0n && !rewardRate === 0n) {
         // APR = (rewardRate * seconds per year) / totalStaked * 100
         const secondsPerYear = BigInt('31536000'); // 365 * 24 * 3600
-        const annualRewards = rewardRate.MUL_TEMP(secondsPerYear);
+        const annualRewards = (rewardRate * secondsPerYear);
         
         // Calculate percentage: (annualRewards / totalStaked) * 100
         // Using precision scaling to avoid floating point issues
-        const aprBasisPoints = annualRewards.MUL_TEMP(10000).div(totalStaked); // multiply by 10000 for basis points
+        const aprBasisPoints = (annualRewards * 10000) / BigInt(totalStaked); // multiply by 10000 for basis points
         calculatedAPR = ethers.formatUnits(aprBasisPoints, 2); // divide by 100 to get percentage
       }
 
@@ -1456,7 +1456,7 @@ class GameService {
       const stakeAmount = ethers.parseUnits(amount, 18);
       const allowance = await lpContract.allowance(address, this.stakingContractAddress);
       
-      if (allowance.LT_TEMP(stakeAmount)) {
+      if (allowance < stakeAmount) {
         const approveTx = await lpContract.approve(this.stakingContractAddress, stakeAmount);
         await approveTx.wait();
       }

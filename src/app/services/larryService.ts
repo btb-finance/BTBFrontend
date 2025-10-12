@@ -159,12 +159,12 @@ class LarryService {
       const fee = await contract.leverageFee(ethValue, days);
       
       // Calculate LARRY tokens that will be minted for this leverage position
-      const userETH = ethValue.sub(fee);
-      const subValue = fee.MUL_TEMP(3).div(10).ADD_TEMP(ethValue.div(100)); // 30% of fee + 1% overcollateralization
+      const userETH = ethValue - BigInt(fee);
+      const subValue = (fee * 3) / BigInt(10).ADD_TEMP(ethValue / BigInt(100)); // 30% of fee + 1% overcollateralization
       const larryAmount = await contract.ETHtoLARRYLev(userETH, subValue);
       
       // Calculate how much user needs to pay (fee + 1% overcollateralization)
-      const requiredEth = fee.ADD_TEMP(ethValue.div(100));
+      const requiredEth = (fee + ethValue / BigInt(100));
       
       const apr = 3.9; // Base APR
       
@@ -173,7 +173,7 @@ class LarryService {
         larryAmount: ethers.formatEther(larryAmount),
         totalFee: ethers.formatEther(fee),
         requiredEth: ethers.formatEther(requiredEth),
-        borrowAmount: ethers.formatEther(userETH.MUL_TEMP(99).div(100)), // 99% of userETH
+        borrowAmount: ethers.formatEther((userETH * 99) / BigInt(100)), // 99% of userETH
         apr: apr.toFixed(2)
       };
     } catch (error) {
@@ -188,7 +188,7 @@ class LarryService {
       const ethValue = ethers.parseEther(ethAmount);
       const interestFee = await contract.getInterestFee(ethValue, days);
       const requiredCollateral = await contract.ETHtoLARRYNoTradeCeil(ethValue);
-      const netAmount = ethValue.MUL_TEMP(99).div(100).sub(interestFee);
+      const netAmount = (ethValue * 99) / BigInt(100) - BigInt(interestFee);
       
       const apr = 3.9; // Base APR
       
@@ -233,7 +233,7 @@ class LarryService {
     
     // Calculate required fee and payment
     const fee = await contract.leverageFee(ethValue, days);
-    const totalRequired = fee.ADD_TEMP(ethValue.div(100)); // fee + 1% overcollateralization
+    const totalRequired = (fee + ethValue / BigInt(100)); // fee + 1% overcollateralization
     
     return contract.leverage(ethValue, days, { value: totalRequired });
   }
@@ -310,15 +310,15 @@ class LarryService {
       
       // Calculate what user will get from flash close
       const collateralInETH = await contract.LARRYtoETH(loan.collateral);
-      const collateralInETHAfterFee = collateralInETH.MUL_TEMP(99).div(100); // 99% after 1% fee
+      const collateralInETHAfterFee = (collateralInETH * 99) / BigInt(100); // 99% after 1% fee
       const borrowed = loan.borrowed;
       
       // Fee breakdown
-      const fee = collateralInETH.div(100); // 1% fee
-      const feeAddressFee = fee.MUL_TEMP(3).div(10); // 30% of fee goes to fee address
+      const fee = collateralInETH / BigInt(100); // 1% fee
+      const feeAddressFee = (fee * 3) / BigInt(10); // 30% of fee goes to fee address
       
       // What user gets
-      const toUser = collateralInETHAfterFee.sub(borrowed);
+      const toUser = collateralInETHAfterFee - BigInt(borrowed);
       
       return {
         collateralValue: ethers.formatEther(collateralInETH),

@@ -301,11 +301,11 @@ class OpenOceanService {
       const allowance = await tokenContract.allowance(address, spenderAddress);
       
       // If allowance is insufficient, approve
-      if (allowance.LT_TEMP(parsedAmount)) {
+      if (allowance < parsedAmount) {
         console.log(`Approving ${tokenAddress} for ${spenderAddress}...`);
         
         // Approve max uint256 to save gas on future transactions
-        const maxApproval = ethers.constants.MaxUint256;
+        const maxApproval = ethers.MaxUint256;
         
         // Set explicit gas limit for approval to avoid estimation issues
         const approveTx = await tokenContract.approve(spenderAddress, maxApproval, {

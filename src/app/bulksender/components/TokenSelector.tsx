@@ -114,7 +114,7 @@ export default function TokenSelector({
     setIsLoading(true);
     try {
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
 
@@ -154,7 +154,7 @@ export default function TokenSelector({
 
   // Add custom token
   const addCustomToken = async () => {
-    if (!ethers.utils.isAddress(customTokenAddress)) {
+    if (!ethers.isAddress(customTokenAddress)) {
       setError('Invalid token address');
       return;
     }
@@ -164,7 +164,7 @@ export default function TokenSelector({
 
     try {
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
       const tokenContract = new ethers.Contract(customTokenAddress, erc20ABI, provider);
       
       const [name, symbol, decimals] = await Promise.all([

@@ -471,7 +471,7 @@ export default function TokenCreator() {
       
       // Check if the generated wallet has enough funds
       const balance = await provider.getBalance(wallet.address);
-      if (balance.eq(0)) {
+      if (balance === BigInt(0)) {
         // Create a message showing all required tokens for selected chains
         const requiredTokens = tokenDetails.chainIds.map(chainId => {
           const chain = SUPPORTED_CHAINS.find(c => c.id === chainId);
@@ -648,7 +648,7 @@ export default function TokenCreator() {
         
         // Set gas price and limit explicitly for more reliable deployment
         const gasPrice = await provider.getGasPrice();
-        const adjustedGasPrice = gasPrice.MUL_TEMP(120).div(100); // 20% higher than current gas price
+        const adjustedGasPrice = (gasPrice * 120) / BigInt(100); // 20% higher than current gas price
         
         // Set deployment options
         const deployOptions = {

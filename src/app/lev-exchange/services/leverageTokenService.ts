@@ -288,7 +288,7 @@ class LeverageTokenService {
       ]);
 
       const feePercentage = (1000 - Number(buyFee)) / 10; // Convert basis points to %
-      const feeWei = amountWei.MUL_TEMP(1000 - buyFee).div(1000);
+      const feeWei = (amountWei * 1000 - buyFee) / BigInt(1000);
 
       return {
         tokensOut: ethers.formatEther(tokensOut),
