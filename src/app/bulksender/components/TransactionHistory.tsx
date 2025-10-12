@@ -57,7 +57,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
         try {
           const web3Provider = new ethers.BrowserProvider(window.ethereum);
           const network = await web3Provider.getNetwork();
-          currentChainId = network.chainId;
+          currentChainId = Number(network.chainId);
           
           if (currentChainId === 84532) {
             providerUrl = 'https://sepolia.base.org'; // Use Base Sepolia provider if on testnet
@@ -95,21 +95,28 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
       const latestBlockNumber = await provider.getBlockNumber();
       const searchFromBlock = Math.max(0, latestBlockNumber - 1000); // Last 1000 blocks
       
-      // Get the most recent blocks
+      // Get the most recent blocks with transactions
       const blocks = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => provider.getBlock(latestBlockNumber - i))
+        Array.from({ length: 5 }, (_, i) => provider.getBlock(latestBlockNumber - i, true)) // true = prefetch transactions
       );
-      
-      // Filter transactions related to the user address
-      const history = blocks
-        .flatMap(block => block.transactions)
-        .filter(tx => 
-          tx.from?.toLowerCase() === userAddress?.toLowerCase() || 
-          tx.to?.toLowerCase() === userAddress?.toLowerCase()
-        );
-      
+
+      // Get full transaction objects
+      const allTxs: ethers.TransactionResponse[] = [];
+      for (const block of blocks) {
+        if (block && block.prefetchedTransactions) {
+          for (const tx of block.prefetchedTransactions) {
+            if (
+              tx.from?.toLowerCase() === userAddress?.toLowerCase() ||
+              tx.to?.toLowerCase() === userAddress?.toLowerCase()
+            ) {
+              allTxs.push(tx);
+            }
+          }
+        }
+      }
+
       // Filter for transactions to the bulkSender contract
-      const relevantTxs = history.filter(tx => 
+      const relevantTxs = allTxs.filter(tx =>
         tx.to?.toLowerCase() === bulkSenderContract.toLowerCase()
       );
       
@@ -142,7 +149,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
             // Make sure tx.data exists and is a string
             if (tx.data && typeof tx.data === 'string') {
               decodedData = iface.parseTransaction({ data: tx.data });
-              if (decodedData.name === 'bulkTransfer' && Array.isArray(decodedData.args)) {
+              if (decodedData && decodedData.name === 'bulkTransfer' && Array.isArray(decodedData.args)) {
                 // Type safety for the decoded args
                 token = decodedData.args[0]?.toString() || ''; // First arg should be token address
                 recipientCount = Array.isArray(decodedData.args[1]) ? decodedData.args[1].length : 0; // Second arg should be recipients array
