@@ -87,8 +87,8 @@ class OpenOceanService {
         name: BASE_NETWORK.name,
         ensAddress: undefined
       });
-      
-      this.signer = injectedProvider.getSigner();
+
+      this.signer = await injectedProvider.getSigner();
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to connect wallet:', error);

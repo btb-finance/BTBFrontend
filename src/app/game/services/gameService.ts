@@ -388,7 +388,7 @@ class GameService {
 
   // ==================== GAME FUNCTIONS ====================
 
-  public async depositBears(bearIds: number[]): Promise<ethers.ContractTransactionResponse> {
+  public async depositBears(bearIds: number[]): Promise<ethers.ContractTransactionResponse | ethers.TransactionResponse> {
     await this.ensureInitialized();
     try {
       // Validate inputs
@@ -420,43 +420,18 @@ class GameService {
         console.log('Approval set successfully');
       }
       
-      // Try different approaches to call depositBears
-      let tx: ethers.ContractTransaction;
-      
-      // Method 1: Direct function call - handle overloaded function
-      if (typeof this.contract!.depositBears === 'function') {
-        console.log('Using direct method call');
-        try {
-          // Try the single parameter version first
-          tx = await this.contract!['depositBears(uint256[])'](bearIds);
-        } catch (e) {
-          // Fallback to basic call
-          tx = await this.contract!.depositBears(bearIds);
-        }
-      }
-      // Method 2: Using contract.functions with specific signature
-      else if (this.contract!.functions && this.contract!.functions['depositBears(uint256[])']) {
-        console.log('Using contract.functions approach');
-        tx = await this.contract!.functions['depositBears(uint256[])'](bearIds);
-      }
-      // Method 3: Using bracket notation with specific signature
-      else if (this.contract!['depositBears(uint256[])']) {
-        console.log('Using bracket notation with signature');
-        tx = await this.contract!['depositBears(uint256[])'](bearIds);
-      }
-      // Method 3b: Using bracket notation without signature
-      else if (this.contract!["depositBears"]) {
-        console.log('Using bracket notation');
-        tx = await this.contract!["depositBears"](bearIds);
-      }
-      // Method 4: Try with interface encoding (specify the exact function signature)
-      else {
-        console.log('Using interface encoding approach');
+      // Call depositBears - in ethers v6, direct method call should work
+      let tx: ethers.ContractTransactionResponse | ethers.TransactionResponse;
+
+      try {
+        // Try direct method call first
+        tx = await this.contract!.depositBears(bearIds);
+      } catch (e) {
+        console.log('Direct call failed, trying with interface encoding');
+        // Fallback: Use interface encoding
         const iface = new ethers.Interface(BearHunterEcosystemABI);
-        
-        // Use the single-parameter version: depositBears(uint256[])
-        const data = iface.encodeFunctionData('depositBears(uint256[])', [bearIds]);
-        
+        const data = iface.encodeFunctionData('depositBears', [bearIds]);
+
         tx = await this.signer!.sendTransaction({
           to: this.gameContractAddress,
           data: data
@@ -574,7 +549,7 @@ class GameService {
       const buyPremiumWei = ethers.parseUnits(buyPremium, 18);
       
       let baseRate = rate;
-      if (rate.gt(buyPremiumWei)) {
+      if (rate > BigInt(buyPremiumWei)) {
         baseRate = rate - BigInt(buyPremiumWei);
       } else {
         baseRate = BigInt('0');
@@ -721,14 +696,14 @@ class GameService {
       
       let status = 'Unknown';
       let isLiquidityAvailable = false;
-      
-      if (btbBalance.gt(0) && nftBalance.gt(0)) {
+
+      if (btbBalance > 0n && nftBalance > 0n) {
         status = 'Both BTB and NFT liquidity available';
         isLiquidityAvailable = true;
-      } else if (btbBalance.gt(0)) {
+      } else if (btbBalance > 0n) {
         status = 'Only BTB liquidity available (can sell NFTs)';
         isLiquidityAvailable = false;
-      } else if (nftBalance.gt(0)) {
+      } else if (nftBalance > 0n) {
         status = 'Only NFT liquidity available (can buy NFTs)';
         isLiquidityAvailable = false;
       } else {
@@ -1387,7 +1362,7 @@ class GameService {
         
         // Calculate percentage: (annualRewards / totalStaked) * 100
         // Using precision scaling to avoid floating point issues
-        const aprBasisPoints = (annualRewards * 10000) / BigInt(totalStaked); // multiply by 10000 for basis points
+        const aprBasisPoints = (annualRewards * BigInt(10000)) / totalStaked; // multiply by 10000 for basis points
         calculatedAPR = ethers.formatUnits(aprBasisPoints, 2); // divide by 100 to get percentage
       }
 

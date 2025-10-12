@@ -82,11 +82,11 @@ export default function UserTickets({
               // Force provider to update its accounts
               await walletProvider.send('eth_accounts', []);
               
-              const signer = walletProvider.getSigner();
+              const signer = await walletProvider.getSigner();
               // Use the correct hardcoded address
               subscriptionContract = new ethers.Contract(
-                CORRECT_SUB_CONTRACT, 
-                subscriptionJackpotABI, 
+                CORRECT_SUB_CONTRACT,
+                subscriptionJackpotABI,
                 signer
               );
               console.log("Using Web3Provider with signer for subscription contract at", CORRECT_SUB_CONTRACT);
@@ -219,8 +219,8 @@ export default function UserTickets({
           // Create a fresh provider instance
           const walletProvider = new ethers.BrowserProvider(window.ethereum as any, 'any');
           await walletProvider.send('eth_accounts', []);
-          
-          const signer = walletProvider.getSigner();
+
+          const signer = await walletProvider.getSigner();
           const account = await signer.getAddress();
           console.log('Current signer account:', account);
           

@@ -324,7 +324,7 @@ export default function TokenCreator() {
             
             // Check if we're on the right network
             const network = await provider.getNetwork();
-            if (network.chainId === chainId) {
+            if (Number(network.chainId) === chainId) {
               const balance = await provider.getBalance(address);
               return ethers.formatEther(balance);
             }

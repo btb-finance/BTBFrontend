@@ -298,7 +298,7 @@ export default function MegapotPage() {
           
           const provider = new ethers.BrowserProvider(window.ethereum);
           const network = await provider.getNetwork();
-          if (network.chainId !== 8453) { // If not on Base
+          if (Number(network.chainId) !== 8453) { // If not on Base
             switchNetwork('BASE'); // Silently switch
           }
         };
