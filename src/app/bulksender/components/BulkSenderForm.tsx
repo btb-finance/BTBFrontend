@@ -286,8 +286,9 @@ export default function BulkSenderForm({
       
       // Update message to waiting for confirmation
       setSuccessMessage('Approval transaction submitted. Waiting for confirmation...');
-      
+
       // Wait for transaction to be confirmed
+      const receipt = await tx.wait();
       console.log('Approval transaction confirmed:', receipt);
       
       // Verify the allowance was set correctly
@@ -452,13 +453,14 @@ export default function BulkSenderForm({
       
       // Show pending message
       setSuccessMessage(`Transaction pending on ${networkName}...`);
-      
+
       // Wait for transaction confirmation
+      const receipt = await tx.wait();
       console.log('Transaction confirmed:', receipt);
       
       // Generate explorer link based on network
-      const explorerBaseUrl = network.chainId === 84532 
-        ? 'https://sepolia.basescan.org/tx/' 
+      const explorerBaseUrl = Number(network.chainId) === 84532
+        ? 'https://sepolia.basescan.org/tx/'
         : 'https://basescan.org/tx/';
       
       const explorerLink = `${explorerBaseUrl}${tx.hash}`;
