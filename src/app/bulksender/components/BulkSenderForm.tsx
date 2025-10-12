@@ -245,7 +245,7 @@ export default function BulkSenderForm({
       console.log('Current allowance:', ethers.formatUnits(allowance, tokenData?.decimals || 18), tokenData?.symbol || 'tokens');
       
       // Set approval state based on whether allowance is greater than or equal to total amount
-      const isApprovedResult = allowance.gte(totalAmountWei);
+      const isApprovedResult = allowance >= totalAmountWei;
       console.log('Is approved?', isApprovedResult);
       setIsApproved(isApprovedResult);
       
@@ -274,7 +274,7 @@ export default function BulkSenderForm({
       const tokenContract = new ethers.Contract(selectedToken, erc20ABI, signer);
       
       // Approve max uint256 to prevent having to approve again
-      const maxUint256 = ethers.constants.MaxUint256;
+      const maxUint256 = ethers.MaxUint256;
       console.log('Approving contract to spend tokens. Contract address:', contractAddress);
       
       // Show pending approval message
@@ -473,7 +473,7 @@ export default function BulkSenderForm({
       
       // Immediately update our ref for the next batch
       processedBatchAddresses.forEach(addr => {
-        processedAddressesRef.current.ADD_TEMP(addr.toLowerCase());
+        processedAddressesRef.current.add(addr.toLowerCase());
       });
       
       console.log(`Updated processedAddressesRef with all processed addresses, total: ${processedAddressesRef.current.size}`);
