@@ -195,8 +195,8 @@ class ChicksService {
       return {
         collateral: ethers.formatUnits(loan.collateral, 6),
         borrowed: ethers.formatUnits(loan.borrowed, 6),
-        endDate: loan.endDateNumber(,
-        numberOfDays: loan.numberOfDaysNumber(
+        endDate: Number(loan.endDate),
+        numberOfDays: Number(loan.numberOfDays)
       };
     } catch (error) {
       console.error('Error getting loan information:', error);

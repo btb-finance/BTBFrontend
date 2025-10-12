@@ -205,7 +205,7 @@ class BTBFinanceService {
       return {
         collateral: ethers.formatUnits(loan[0], 18),
         borrowed: ethers.formatEther(loan[1]),
-        expirationDate: loan[2]Number(
+        expirationDate: Number(loan[2])
       };
     } catch (error) {
       console.error('Error getting loan information:', error);

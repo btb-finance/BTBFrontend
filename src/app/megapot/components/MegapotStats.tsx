@@ -131,8 +131,8 @@ export default function MegapotStats({
         
         // Get tickets count total
         const ticketCountTotalBps = await contract.ticketCountTotalBps();
-        // Convert from basis points (multiply by 10000)
-        const actualTicketCount = ticketCountTotalBps.div(10000)Number(;
+        // Convert from basis points (divide by 10000)
+        const actualTicketCount = Number(ticketCountTotalBps / 10000n);
         setTicketsSold(actualTicketCount);
         
         // Set max tickets to a reasonable value above current count

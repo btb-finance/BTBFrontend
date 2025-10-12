@@ -115,7 +115,7 @@ export default function UserTickets({
           
           // Convert from basis points (1 bps = 0.01%)
           // ticketsPurchasedTotalBps is in basis points, divide by 10000 to get actual count
-          const ticketsBps = userInfo.ticketsPurchasedTotalBpsNumber(;
+          const ticketsBps = Number(userInfo.ticketsPurchasedTotalBps);
           setTicketCount(Math.ceil(ticketsBps / 10000));
           
           // Get claimable winnings
@@ -138,16 +138,16 @@ export default function UserTickets({
               console.log("Fetching subscription details...");
               const subInfo = await subscriptionContract.getSubscription(userAddress);
               console.log("Subscription details:", {
-                ticketsPerDay: subInfo[0]Number(,
-                daysRemaining: subInfo[1]Number(,
-                lastProcessedBatchDay: subInfo[2]Number(,
+                ticketsPerDay: Number(subInfo[0]),
+                daysRemaining: Number(subInfo[1]),
+                lastProcessedBatchDay: Number(subInfo[2]),
                 isActive: subInfo[3]
               });
               
               setSubscriptionDetails({
-                ticketsPerDay: subInfo[0]Number(,
-                daysRemaining: subInfo[1]Number(,
-                lastProcessedBatchDay: subInfo[2]Number(,
+                ticketsPerDay: Number(subInfo[0]),
+                daysRemaining: Number(subInfo[1]),
+                lastProcessedBatchDay: Number(subInfo[2]),
                 isActive: subInfo[3]
               });
             } else {
@@ -232,7 +232,7 @@ export default function UserTickets({
           const userInfo = await contract.usersInfo(account);
           
           // Convert from basis points and set state
-          const ticketsBps = userInfo.ticketsPurchasedTotalBpsNumber(;
+          const ticketsBps = userInfo.Number(userInfo.ticketsPurchasedTotalBps);
           setTicketCount(Math.ceil(ticketsBps / 10000));
           
           // Get claimable winnings
@@ -262,16 +262,16 @@ export default function UserTickets({
               const subInfo = await subscriptionContract.getSubscription(account);
               
               setSubscriptionDetails({
-                ticketsPerDay: subInfo[0]Number(,
-                daysRemaining: subInfo[1]Number(,
-                lastProcessedBatchDay: subInfo[2]Number(,
+                ticketsPerDay: Number(subInfo[0]),
+                daysRemaining: Number(subInfo[1]),
+                lastProcessedBatchDay: Number(subInfo[2]),
                 isActive: subInfo[3]
               });
               
               console.log("Subscription details refreshed successfully:", {
-                ticketsPerDay: subInfo[0]Number(,
-                daysRemaining: subInfo[1]Number(,
-                lastProcessedBatchDay: subInfo[2]Number(,
+                ticketsPerDay: Number(subInfo[0]),
+                daysRemaining: Number(subInfo[1]),
+                lastProcessedBatchDay: Number(subInfo[2]),
                 isActive: subInfo[3]
               });
             }
@@ -294,9 +294,9 @@ export default function UserTickets({
               if (hasSubscription) {
                 const subInfo = await subscriptionContract.getSubscription(account);
                 setSubscriptionDetails({
-                  ticketsPerDay: subInfo[0]Number(,
-                  daysRemaining: subInfo[1]Number(,
-                  lastProcessedBatchDay: subInfo[2]Number(,
+                  ticketsPerDay: Number(subInfo[0]),
+                  daysRemaining: Number(subInfo[1]),
+                  lastProcessedBatchDay: Number(subInfo[2]),
                   isActive: subInfo[3]
                 });
               }
@@ -335,7 +335,7 @@ export default function UserTickets({
       const userInfo = await contract.usersInfo(userAddress);
       
       // Convert from basis points and set state
-      const ticketsBps = userInfo.ticketsPurchasedTotalBpsNumber(;
+      const ticketsBps = userInfo.Number(userInfo.ticketsPurchasedTotalBps);
       setTicketCount(Math.ceil(ticketsBps / 10000));
       
       // Get claimable winnings
@@ -359,9 +359,9 @@ export default function UserTickets({
       if (hasSubscription) {
         const subInfo = await subscriptionContract.getSubscription(userAddress);
         setSubscriptionDetails({
-          ticketsPerDay: subInfo[0]Number(,
-          daysRemaining: subInfo[1]Number(,
-          lastProcessedBatchDay: subInfo[2]Number(,
+          ticketsPerDay: Number(subInfo[0]),
+          daysRemaining: Number(subInfo[1]),
+          lastProcessedBatchDay: Number(subInfo[2]),
           isActive: subInfo[3]
         });
       }

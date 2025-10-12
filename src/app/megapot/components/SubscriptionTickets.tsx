@@ -195,8 +195,8 @@ export default function SubscriptionTickets({
             console.log('Cashback from contract (basis points):', subscriberCashbackPercentage.toString());
             // Convert from basis points (1/100 of a percent) to actual percentage
             // 10000 basis points = 100%, so divide by 100 to get percentage
-            setCashbackPercentage(subscriberCashbackPercentageNumber( / 100);
-            console.log('Converted cashback percentage:', subscriberCashbackPercentageNumber( / 100);
+            setCashbackPercentage(Number(subscriberCashbackPercentage) / 100);
+            console.log('Converted cashback percentage:', Number(subscriberCashbackPercentage) / 100);
             
             // Check if user has an active subscription
             const hasSubscription = await subscriptionContract.hasActiveSubscription(userAddress);
@@ -206,9 +206,9 @@ export default function SubscriptionTickets({
               // Get subscription details
               const subscriptionDetails = await subscriptionContract.getSubscription(userAddress);
               setSubscription({
-                ticketsPerDay: subscriptionDetails[0]Number(,
-                daysRemaining: subscriptionDetails[1]Number(,
-                lastProcessedBatchDay: subscriptionDetails[2]Number(,
+                ticketsPerDay: Number(subscriptionDetails[0]),
+                daysRemaining: Number(subscriptionDetails[1]),
+                lastProcessedBatchDay: Number(subscriptionDetails[2]),
                 isActive: subscriptionDetails[3]
               });
             }
@@ -465,7 +465,7 @@ export default function SubscriptionTickets({
         const requiredAmount = ethers.parseUnits(totalPrice.toString(), 6);
         
         // If not approved, handle approval first
-        if (allowance.LT_TEMP(requiredAmount)) {
+        if (allowance < requiredAmount) {
           setIsSubscribing(false);
           await handleApproveUsdc();
           return;
@@ -480,9 +480,9 @@ export default function SubscriptionTickets({
         setHasActiveSubscription(true);
         const subscriptionDetails = await subscriptionContract.getSubscription(userAddress);
         setSubscription({
-          ticketsPerDay: subscriptionDetails[0]Number(,
-          daysRemaining: subscriptionDetails[1]Number(,
-          lastProcessedBatchDay: subscriptionDetails[2]Number(,
+          ticketsPerDay: Number(subscriptionDetails[0]),
+          daysRemaining: Number(subscriptionDetails[1]),
+          lastProcessedBatchDay: Number(subscriptionDetails[2]),
           isActive: subscriptionDetails[3]
         });
         
@@ -613,7 +613,7 @@ export default function SubscriptionTickets({
         const allowance = await usdcContract.allowance(userAddress, SUBSCRIPTION_CONTRACT_ADDRESS);
         
         // If not approved, handle approval first
-        if (allowance.LT_TEMP(upgradeCost)) {
+        if (allowance < upgradeCost) {
           setIsSubscribing(false);
           await handleApproveUsdc();
           return;
@@ -627,9 +627,9 @@ export default function SubscriptionTickets({
         // Update subscription status
         const subscriptionDetails = await subscriptionContract.getSubscription(userAddress);
         setSubscription({
-          ticketsPerDay: subscriptionDetails[0]Number(,
-          daysRemaining: subscriptionDetails[1]Number(,
-          lastProcessedBatchDay: subscriptionDetails[2]Number(,
+          ticketsPerDay: Number(subscriptionDetails[0]),
+          daysRemaining: Number(subscriptionDetails[1]),
+          lastProcessedBatchDay: Number(subscriptionDetails[2]),
           isActive: subscriptionDetails[3]
         });
         

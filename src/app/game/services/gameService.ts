@@ -892,10 +892,10 @@ class GameService {
       if (cachedData) {
         return cachedData;
       }
-      
+
       const balance = await this.contract!.balanceOf(address);
-      const tokenCount = balanceNumber(;
-      
+      const tokenCount = Number(balance);
+
       if (tokenCount === 0) {
         return [];
       }
@@ -1013,10 +1013,10 @@ class GameService {
         ],
         this.signer!
       );
-      
+
       const balance = await bearContract.balanceOf(address);
-      const tokenCount = balanceNumber(;
-      
+      const tokenCount = Number(balance);
+
       if (tokenCount === 0) {
         return [];
       }
@@ -1091,15 +1091,15 @@ class GameService {
         yield { hunters: cachedData, loaded: cachedData.length, total: cachedData.length };
         return;
       }
-      
+
       const balance = await this.contract!.balanceOf(address);
-      const tokenCount = balanceNumber(;
-      
+      const tokenCount = Number(balance);
+
       if (tokenCount === 0) {
         yield { hunters: [], loaded: 0, total: 0 };
         return;
       }
-      
+
       const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
       
       // Get all token IDs first using multicall
@@ -1206,12 +1206,12 @@ class GameService {
     try {
       const address = await this.signer!.getAddress();
       const balance = await this.contract!.balanceOf(address);
-      
-      if (currentCount >= balanceNumber() {
+
+      if (currentCount >= Number(balance)) {
         return [];
       }
-      
-      const endCount = Math.min(currentCount + batchSize, balanceNumber();
+
+      const endCount = Math.min(currentCount + batchSize, Number(balance));
       const tokenIdCalls = [];
       
       for (let i = currentCount; i < endCount; i++) {
@@ -1289,14 +1289,14 @@ class GameService {
         ],
         this.signer!
       );
-      
+
       const balance = await bearContract.balanceOf(address);
-      
-      if (currentCount >= balanceNumber() {
+
+      if (currentCount >= Number(balance)) {
         return [];
       }
-      
-      const endCount = Math.min(currentCount + batchSize, balanceNumber();
+
+      const endCount = Math.min(currentCount + batchSize, Number(balance));
       const tokenIdCalls = [];
       
       for (let i = currentCount; i < endCount; i++) {
@@ -1522,7 +1522,7 @@ class GameService {
     await this.ensureInitialized();
     try {
       const cooldown = await this.contract!.HUNT_COOLDOWN();
-      return cooldownNumber(;
+      return Number(cooldown);
     } catch (error) {
       console.error('Error getting hunt cooldown:', error);
       return 0;
@@ -1542,8 +1542,8 @@ class GameService {
         this.contract!.HUNT_COOLDOWN()
       ]);
 
-      const lastHuntTime = hunterStats.lastHuntTimeNumber(;
-      const cooldownSeconds = cooldownNumber(;
+      const lastHuntTime = Number(hunterStats.lastHuntTime);
+      const cooldownSeconds = Number(cooldown);
       const nextHuntTime = lastHuntTime + cooldownSeconds;
       const currentTime = Math.floor(Date.now() / 1000);
       const timeUntilNextHunt = Math.max(0, nextHuntTime - currentTime);
@@ -1593,7 +1593,7 @@ class GameService {
     await this.ensureInitialized();
     try {
       const cooldown = await this.contract!.HUNT_COOLDOWN();
-      const cooldownSeconds = cooldownNumber(;
+      const cooldownSeconds = Number(cooldown);
       const currentTime = Math.floor(Date.now() / 1000);
 
       // Batch get hunter stats
@@ -1609,7 +1609,7 @@ class GameService {
       tokenIds.forEach((tokenId, index) => {
         try {
           const stats = contractInterface.decodeFunctionResult('getHunterStats', results[index]);
-          const lastHuntTime = stats.lastHuntTimeNumber(;
+          const lastHuntTime = Number(stats.lastHuntTime);
           const nextHuntTime = lastHuntTime + cooldownSeconds;
           const timeUntilNextHunt = Math.max(0, nextHuntTime - currentTime);
           const canHuntNow = timeUntilNextHunt === 0;

@@ -346,7 +346,7 @@ export default function MegapotPage() {
         // Get active participants count - using ticketCountTotal instead of userLimit
         const ticketCountTotalBps = await contract.ticketCountTotalBps();
         // Convert from basis points and divide by 10000 to get actual count
-        const actualParticipants = Math.ceil(ticketCountTotalBps.div(10000)Number( / 3); // Assuming average 3 tickets per user
+        const actualParticipants = Math.ceil(Number(ticketCountTotalBps / 10000n) / 3); // Assuming average 3 tickets per user
         setParticipants(actualParticipants);
         
         setIsLoading(false);

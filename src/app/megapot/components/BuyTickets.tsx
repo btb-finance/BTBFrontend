@@ -181,7 +181,7 @@ export default function BuyTickets({
         const allowance = await usdcContract.allowance(userAddress, CASHBACK_CONTRACT_ADDRESS);
         
         // If not approved, handle approval first
-        if (allowance.LT_TEMP(purchaseAmount)) {
+        if (allowance<(purchaseAmount)) {
           setIsBuying(false);
           await handleApproveUsdc();
           return;

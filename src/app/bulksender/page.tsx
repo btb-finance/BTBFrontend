@@ -120,7 +120,7 @@ export default function BulkSenderPage() {
         
         // Get max transfers
         const max = await contract.maxTransfersPerBulk();
-        setMaxTransfers(maxNumber();
+        setMaxTransfers(Number(max));
         
         setIsLoading(false);
       } catch (error) {

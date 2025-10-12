@@ -168,7 +168,7 @@ export default function BulkSenderForm({
     try {
       // Type assertion for ethereum property
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
       const tokenContract = new ethers.Contract(selectedToken, erc20ABI, provider);
 
       const [name, symbol, decimals, balance] = await Promise.all([
@@ -189,7 +189,7 @@ export default function BulkSenderForm({
       let providerUrl = 'https://mainnet.base.org'; // Default to Base Mainnet
       try {
         const network = await provider.getNetwork();
-        if (network.chainId === 84532) {
+        if (Number(network.chainId) === 84532) {
           providerUrl = 'https://sepolia.base.org'; // Use Base Sepolia provider if on testnet
           console.log('Using Base Sepolia for fee checking');
         }
@@ -228,7 +228,7 @@ export default function BulkSenderForm({
       setIsCheckingAllowance(true);
       // Type assertion for ethereum property
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as any);
       const tokenContract = new ethers.Contract(selectedToken, erc20ABI, provider);
       
       // Calculate total amount needed for approval
@@ -393,7 +393,7 @@ export default function BulkSenderForm({
       
       // Determine which network we're on
       const network = await provider.getNetwork();
-      const networkName = network.chainId === 84532 ? 'Base Sepolia Testnet' : 'Base Mainnet';
+      const networkName = Number(network.chainId) === 84532 ? 'Base Sepolia Testnet' : 'Base Mainnet';
       console.log(`Sending transaction on ${networkName}`);
       
       const bulkSenderContract = new ethers.Contract(contractAddress, bulksenderABI, signer);
@@ -670,9 +670,9 @@ export default function BulkSenderForm({
   // Validate a single recipient
   const validateRecipient = (recipient: Recipient): string | undefined => {
     if (!recipient.address) return 'Address is required';
-    if (!ethers.utils.isAddress(recipient.address)) return 'Invalid address';
+    if (!ethers.isAddress(recipient.address)) return 'Invalid address';
     if (!recipient.amount) return 'Amount is required';
-    if (isNaN(parseFloat(recipient.amount)) || parseFloat(recipient.amount) <= 0) 
+    if (isNaN(parseFloat(recipient.amount)) || parseFloat(recipient.amount) <= 0)
       return 'Amount must be a positive number';
     return undefined;
   };
@@ -1021,11 +1021,11 @@ export default function BulkSenderForm({
           }
           
           // Only add if we have a valid address
-          if (address && ethers.utils.isAddress(address)) {
-            newRecipients.push({ 
-              address, 
-              amount, 
-              error: undefined 
+          if (address && ethers.isAddress(address)) {
+            newRecipients.push({
+              address,
+              amount,
+              error: undefined
             });
           } else {
             invalidCount++;

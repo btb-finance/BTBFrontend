@@ -132,10 +132,10 @@ class LeverageTokenService {
       console.log('Fetching platform stats...');
       const stats = await this.factoryContract.getPlatformStats();
       console.log('Raw platform stats:', stats);
-      
+
       return {
-        totalTokens: stats.totalTokensNumber(,
-        activeTokens: stats.activeTokensNumber(,
+        totalTokens: Number(stats.totalTokens),
+        activeTokens: Number(stats.activeTokens),
         totalVolume: ethers.formatEther(stats.totalVolume),
         totalFeesCollected: ethers.formatEther(stats.totalFeesCollected)
       };
@@ -181,7 +181,7 @@ class LeverageTokenService {
           leverageContract: info.leverageContract,
           name: info.name,
           symbol: info.symbol,
-          deployedAt: info.deployedAtNumber(,
+          deployedAt: Number(info.deployedAt),
           active: info.active
         };
       })
@@ -364,7 +364,7 @@ class LeverageTokenService {
       return {
         collateral: ethers.formatEther(collateral),
         borrowed: ethers.formatEther(borrowed),
-        endDate: endDateNumber(,
+        endDate: Number(endDate),
         isExpired
       };
     } catch (error) {

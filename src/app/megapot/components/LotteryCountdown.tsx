@@ -32,8 +32,8 @@ export default function LotteryCountdown({ contractAddress }: LotteryCountdownPr
         const roundDuration = await contract.roundDurationInSeconds();
         
         // Calculate next draw time
-        const nextDrawTimestamp = lastJackpotEndTime.ADD_TEMP(roundDuration);
-        const nextDrawDate = new Date(nextDrawTimestampNumber( * 1000);
+        const nextDrawTimestamp = lastJackpotEndTime + roundDuration;
+        const nextDrawDate = new Date(Number(nextDrawTimestamp) * 1000);
         
         setNextDrawTime(nextDrawDate);
       } catch (error) {
