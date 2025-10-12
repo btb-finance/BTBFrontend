@@ -233,7 +233,7 @@ class ChicksService {
   }
 
   // Buy CHICKS with USDC
-  public async buyChicks(usdcAmount: string): Promise<ethers.ContractTransaction> {
+  public async buyChicks(usdcAmount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -270,7 +270,7 @@ class ChicksService {
   }
 
   // Sell CHICKS for USDC
-  public async sellChicks(chicksAmount: string): Promise<ethers.ContractTransaction> {
+  public async sellChicks(chicksAmount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -373,7 +373,7 @@ class ChicksService {
   }
 
   // Create a leveraged position
-  public async leverage(usdcAmount: string, numberOfDays: number): Promise<ethers.ContractTransaction> {
+  public async leverage(usdcAmount: string, numberOfDays: number): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -487,7 +487,7 @@ class ChicksService {
   }
 
   // Borrow USDC against CHICKS
-  public async borrow(usdcAmount: string, numberOfDays: number): Promise<ethers.ContractTransaction> {
+  public async borrow(usdcAmount: string, numberOfDays: number): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -513,7 +513,7 @@ class ChicksService {
   }
 
   // Borrow more USDC against existing collateral
-  public async borrowMore(usdcAmount: string): Promise<ethers.ContractTransaction> {
+  public async borrowMore(usdcAmount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -529,7 +529,7 @@ class ChicksService {
   }
 
   // Repay part of a loan
-  public async repay(usdcAmount: string): Promise<ethers.ContractTransaction> {
+  public async repay(usdcAmount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -574,7 +574,7 @@ class ChicksService {
   }
 
   // Close a position by repaying the full loan amount
-  public async closePosition(usdcAmount?: string): Promise<ethers.ContractTransaction> {
+  public async closePosition(usdcAmount?: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -619,7 +619,7 @@ class ChicksService {
   }
 
   // Flash close position (repay loan using flash loan)
-  public async flashClosePosition(): Promise<ethers.ContractTransaction> {
+  public async flashClosePosition(): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -656,7 +656,7 @@ class ChicksService {
   }
 
   // Remove collateral from a position
-  public async removeCollateral(chicksAmount: string): Promise<ethers.ContractTransaction> {
+  public async removeCollateral(chicksAmount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -672,7 +672,7 @@ class ChicksService {
   }
 
   // Extend loan duration
-  public async extendLoan(numberOfDays: number, extensionFee: string): Promise<ethers.ContractTransaction> {
+  public async extendLoan(numberOfDays: number, extensionFee: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -718,7 +718,7 @@ class ChicksService {
   }
 
   // Liquidate a position
-  public async liquidate(): Promise<ethers.ContractTransaction> {
+  public async liquidate(): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -732,7 +732,7 @@ class ChicksService {
   }
 
   // Add collateral to a position
-  public async addCollateral(chicksAmount: string): Promise<ethers.ContractTransaction> {
+  public async addCollateral(chicksAmount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     
     try {
@@ -794,11 +794,12 @@ class ChicksService {
       
       // Get current price
       const price = await this.contract!.lastPrice();
-      
+
       // Calculate health factor
       // Health factor = (collateral * price) / (borrowed + interest)
-      const collateralValue = (loan.collateral * price) / ethers.parseUnits('1', 6);
-      const totalDebt = loan.borrowed + loan.interest;
+      const ONE_UNIT = ethers.parseUnits('1', 6); // 1 with 6 decimals
+      const collateralValue = (BigInt(loan.collateral) * BigInt(price)) / ONE_UNIT;
+      const totalDebt = BigInt(loan.borrowed) + BigInt(loan.interest);
       const healthFactor = (collateralValue * BigInt(100)) / totalDebt;
       
       return ethers.formatUnits(healthFactor, 2);

@@ -389,7 +389,7 @@ class GameService {
 
   // ==================== GAME FUNCTIONS ====================
 
-  public async depositBears(bearIds: number[]): Promise<ethers.ContractTransaction> {
+  public async depositBears(bearIds: number[]): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       // Validate inputs
@@ -482,7 +482,7 @@ class GameService {
     }
   }
 
-  public async feedHunters(hunterIds: number[]): Promise<ethers.ContractTransaction> {
+  public async feedHunters(hunterIds: number[]): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       const tx = await this.contract!.feedHunters(hunterIds);
@@ -493,7 +493,7 @@ class GameService {
     }
   }
 
-  public async hunt(hunterIds: number[], targets: string[]): Promise<ethers.ContractTransaction> {
+  public async hunt(hunterIds: number[], targets: string[]): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       const tx = await this.contract!.hunt(hunterIds, targets);
@@ -504,7 +504,7 @@ class GameService {
     }
   }
 
-  public async redeemBears(count: number, hunterIds: number[]): Promise<ethers.ContractTransaction> {
+  public async redeemBears(count: number, hunterIds: number[]): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       // For now, try direct redemption - the contract may handle MiMo internally
@@ -607,7 +607,7 @@ class GameService {
     }
   }
 
-  public async swapBTBForNFT(nftAmount: number): Promise<ethers.ContractTransaction> {
+  public async swapBTBForNFT(nftAmount: number): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       // Calculate required BTB amount (base rate + premium + fees)
@@ -657,7 +657,7 @@ class GameService {
     }
   }
 
-  public async swapNFTForBTB(tokenIds: number[]): Promise<ethers.ContractTransaction> {
+  public async swapNFTForBTB(tokenIds: number[]): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       // First approve NFTs for the BTBSwapLogic contract
@@ -1439,7 +1439,7 @@ class GameService {
     }
   }
 
-  public async stake(amount: string): Promise<ethers.ContractTransaction> {
+  public async stake(amount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       // First approve LP tokens
@@ -1470,7 +1470,7 @@ class GameService {
     }
   }
 
-  public async unstake(amount: string): Promise<ethers.ContractTransaction> {
+  public async unstake(amount: string): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       const unstakeAmount = ethers.parseUnits(amount, 18);
@@ -1482,7 +1482,7 @@ class GameService {
     }
   }
 
-  public async claimRewards(): Promise<ethers.ContractTransaction> {
+  public async claimRewards(): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       const tx = await this.stakingContract!.claimRewards();
@@ -1493,7 +1493,7 @@ class GameService {
     }
   }
 
-  public async emergencyUnstake(): Promise<ethers.ContractTransaction> {
+  public async emergencyUnstake(): Promise<ethers.ContractTransactionResponse> {
     await this.ensureInitialized();
     try {
       const tx = await this.stakingContract!.emergencyUnstake();
