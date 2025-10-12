@@ -572,7 +572,7 @@ export default function TokenCreator() {
           
           // Verify the switch was successful
           const updatedNetwork = await provider.getNetwork();
-          if (updatedNetwork.chainId !== tokenDetails.mainChainId) {
+          if (Number(updatedNetwork.chainId) !== tokenDetails.mainChainId) {
             throw new Error(`Failed to switch to ${SUPPORTED_CHAINS.find(c => c.id === tokenDetails.mainChainId)?.name}`);
           }
           
@@ -647,8 +647,9 @@ export default function TokenCreator() {
         });
         
         // Set gas price and limit explicitly for more reliable deployment
-        const gasPrice = await provider.getGasPrice();
-        const adjustedGasPrice = (gasPrice * 120) / BigInt(100); // 20% higher than current gas price
+        const feeData = await provider.getFeeData();
+        const gasPrice = feeData.gasPrice || ethers.parseUnits('5', 'gwei'); // Fallback to 5 gwei if null
+        const adjustedGasPrice = (gasPrice * BigInt(120)) / BigInt(100); // 20% higher than current gas price
         
         // Set deployment options
         const deployOptions = {
@@ -724,20 +725,22 @@ export default function TokenCreator() {
         toast.info(`Waiting for transaction confirmation on ${mainChain.name}...`);
         console.log('Waiting for deployment confirmation...');
         
+        let contractAddress: string;
         try {
           // Add a timeout to prevent waiting indefinitely
-          const deploymentPromise = mainContract.deployed();
+          const deploymentPromise = mainContract.waitForDeployment();
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Deployment confirmation timeout after 60 seconds')), 60000);
           });
-          
+
           // Race between deployment and timeout
           await Promise.race([deploymentPromise, timeoutPromise]);
-          console.log('Contract deployed successfully at address:', mainContract.address);
+          contractAddress = await mainContract.getAddress();
+          console.log('Contract deployed successfully at address:', contractAddress);
         } catch (confirmationError) {
           console.error('Deployment confirmation error:', confirmationError);
           toast.error(`Confirmation error: ${(confirmationError as Error).message}`);
-          
+
           // Even if confirmation times out, the transaction might still be processing
           toast.info(
             <div>
@@ -748,9 +751,9 @@ export default function TokenCreator() {
           );
           throw confirmationError;
         }
-        
+
         // Success message with explorer link for the main chain
-        const mainExplorerUrl = `${mainChain.explorerUrl}/address/${mainContract.address}`;
+        const mainExplorerUrl = `${mainChain.explorerUrl}/address/${contractAddress}`;
         toast.success(
           <div>
             Token deployed successfully on {mainChain.name}!
@@ -759,12 +762,12 @@ export default function TokenCreator() {
             </a>
           </div>
         );
-        
+
         // Verify contract if Etherscan API key is provided (for main chain)
         if (tokenDetails.etherscanApiKey && tokenDetails.etherscanApiKey.length > 0 && mainChain.explorerUrl.includes('etherscan')) {
           try {
             toast.info(`Submitting contract for verification on ${mainChain.name}...`);
-            
+
             // In a real implementation, we would call the Etherscan API to verify the contract
             // This is a simplified version that just shows a success message
             setTimeout(() => {
@@ -775,16 +778,16 @@ export default function TokenCreator() {
             toast.error(`Failed to verify contract on ${mainChain.name}, but deployment was successful`);
           }
         }
-        
+
         // Display summary of deployments
         toast.success(
           <div className="space-y-2">
             <p className="font-semibold">Deployment Summary:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>
-                {mainChain.name} (Main Chain): 
+                {mainChain.name} (Main Chain):
                 <a href={mainExplorerUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                  {mainContract.address.substring(0, 6)}...{mainContract.address.substring(38)}  
+                  {contractAddress.substring(0, 6)}...{contractAddress.substring(38)}
                 </a>
               </li>
               <li>
