@@ -147,22 +147,22 @@ export default function ChicksTokenPage() {
       y: {
         repeat: Infinity,
         duration: 3 + delay,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       },
       x: {
         repeat: Infinity,
         duration: 4 + delay,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       },
       rotate: {
         repeat: Infinity,
         duration: 5 + delay,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       },
       scale: {
         repeat: Infinity,
         duration: 4 + delay,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       }
     }
   });
