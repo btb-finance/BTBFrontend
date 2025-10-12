@@ -125,13 +125,13 @@ export default function TokenCreator() {
     // Generate a random wallet
     const wallet = ethers.Wallet.createRandom();
     const nonce = 0; // First transaction nonce
-    const contractAddress = ethers.utils.getContractAddress({
+    const contractAddress = ethers.getCreateAddress({
       from: wallet.address,
       nonce: nonce
     });
     
     // Check if the address matches our criteria
-    const checksumAddress = ethers.utils.getAddress(contractAddress);
+    const checksumAddress = ethers.getAddress(contractAddress);
     const compareAddress = config.caseSensitive ? checksumAddress : checksumAddress.toLowerCase();
     
     // Remove the '0x' prefix for comparison
@@ -299,7 +299,7 @@ export default function TokenCreator() {
       // Use direct RPC URL from the chain configuration to avoid CORS and provider issues
       try {
         // Create a provider using the chain's RPC URL directly
-        const provider = new ethers.providers.JsonRpcProvider(chain.rpcUrl);
+        const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
         
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise<string>((_, reject) => {
@@ -308,7 +308,7 @@ export default function TokenCreator() {
         
         // Race between actual balance check and timeout
         const balancePromise = provider.getBalance(address)
-          .then(balance => ethers.utils.formatEther(balance));
+          .then(balance => ethers.formatEther(balance));
           
         const result = await Promise.race([balancePromise, timeoutPromise]);
         return result;
@@ -320,13 +320,13 @@ export default function TokenCreator() {
           try {
             // Use the connected wallet's provider
             const ethereumProvider = window.ethereum as any;
-            const provider = new ethers.providers.Web3Provider(ethereumProvider);
+            const provider = new ethers.BrowserProvider(ethereumProvider);
             
             // Check if we're on the right network
             const network = await provider.getNetwork();
             if (network.chainId === chainId) {
               const balance = await provider.getBalance(address);
-              return ethers.utils.formatEther(balance);
+              return ethers.formatEther(balance);
             }
           } catch (walletError) {
             console.warn('Error using wallet provider:', walletError);
@@ -339,7 +339,7 @@ export default function TokenCreator() {
             const response = await fetch(`https://api-sepolia.etherscan.io/api?module=account&action=balance&address=${address}&tag=latest`);
             const data = await response.json();
             if (data.status === '1') {
-              return ethers.utils.formatEther(data.result);
+              return ethers.formatEther(data.result);
             }
           } catch (etherscanError) {
             console.warn('Etherscan API error:', etherscanError);
@@ -439,7 +439,7 @@ export default function TokenCreator() {
       }
 
       // Create a provider using the RPC URL directly to avoid CORS issues
-      const provider = new ethers.providers.JsonRpcProvider(mainChain.rpcUrl);
+      const provider = new ethers.JsonRpcProvider(mainChain.rpcUrl);
       
       // Request accounts from MetaMask
       await ethereumProvider.request({ method: 'eth_requestAccounts' });
@@ -602,7 +602,7 @@ export default function TokenCreator() {
       };
       
       // Convert total supply to the correct format with decimals
-      const totalSupplyWithDecimals = ethers.utils.parseUnits(
+      const totalSupplyWithDecimals = ethers.parseUnits(
         tokenDetails.totalSupply,
         tokenDetails.decimals
       );
@@ -613,7 +613,7 @@ export default function TokenCreator() {
           mainChainId: tokenDetails.mainChainId,
           chainIds: tokenDetails.chainIds,
           walletAddress: wallet.address,
-          balance: ethers.utils.formatEther(await provider.getBalance(wallet.address)) + ' ' + mainChain.symbol
+          balance: ethers.formatEther(await provider.getBalance(wallet.address)) + ' ' + mainChain.symbol
         });
         
         // First deploy to the main chain
@@ -648,7 +648,7 @@ export default function TokenCreator() {
         
         // Set gas price and limit explicitly for more reliable deployment
         const gasPrice = await provider.getGasPrice();
-        const adjustedGasPrice = gasPrice.mul(120).div(100); // 20% higher than current gas price
+        const adjustedGasPrice = gasPrice.MUL_TEMP(120).div(100); // 20% higher than current gas price
         
         // Set deployment options
         const deployOptions = {
@@ -657,7 +657,7 @@ export default function TokenCreator() {
         };
         
         console.log('Deployment options:', {
-          gasPrice: ethers.utils.formatUnits(adjustedGasPrice, 'gwei') + ' gwei',
+          gasPrice: ethers.formatUnits(adjustedGasPrice, 'gwei') + ' gwei',
           gasLimit: deployOptions.gasLimit
         });
         
@@ -828,7 +828,7 @@ export default function TokenCreator() {
           // Generate a preview wallet after a short delay to avoid too many generations
           const previewTimer = setTimeout(() => {
             const wallet = ethers.Wallet.createRandom();
-            const contractAddress = ethers.utils.getContractAddress({
+            const contractAddress = ethers.getCreateAddress({
               from: wallet.address,
               nonce: 0
             });
@@ -1069,7 +1069,7 @@ export default function TokenCreator() {
                                   
                                   const wallet = new ethers.Wallet(privateKeyWithPrefix);
                                   const nonce = 0; // First transaction nonce
-                                  const contractAddress = ethers.utils.getContractAddress({
+                                  const contractAddress = ethers.getCreateAddress({
                                     from: wallet.address,
                                     nonce: nonce
                                   });
@@ -1078,7 +1078,7 @@ export default function TokenCreator() {
                                   setGeneratedWallet({
                                     address: wallet.address,
                                     privateKey: wallet.privateKey,
-                                    contractAddress: ethers.utils.getAddress(contractAddress),
+                                    contractAddress: ethers.getAddress(contractAddress),
                                     isImported: true
                                   });
                                   

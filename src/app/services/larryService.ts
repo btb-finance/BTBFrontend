@@ -6,10 +6,10 @@ const LARRY_CONTRACT_ADDRESS = '0x888d81e3ea5E8362B5f69188CBCF34Fa8da4b888';
 class LarryService {
   private getProvider() {
     if (typeof window !== 'undefined' && (window as any).ethereum) {
-      return new ethers.providers.Web3Provider((window as any).ethereum);
+      return new ethers.BrowserProvider((window as any).ethereum);
     }
     // Use a public RPC endpoint for Base network
-    return new ethers.providers.JsonRpcProvider('https://base.llamarpc.com');
+    return new ethers.JsonRpcProvider('https://base.llamarpc.com');
   }
 
   private getContract(signer?: ethers.Signer) {
@@ -25,7 +25,7 @@ class LarryService {
     try {
       const contract = this.getContract();
       const price = await contract.lastPrice();
-      return ethers.utils.formatEther(price);
+      return ethers.formatEther(price);
     } catch (error) {
       console.error('Error fetching price:', error);
       return '0';
@@ -42,9 +42,9 @@ class LarryService {
       ]);
 
       return {
-        backing: ethers.utils.formatEther(backing),
-        totalSupply: ethers.utils.formatEther(totalSupply),
-        price: ethers.utils.formatEther(price)
+        backing: ethers.formatEther(backing),
+        totalSupply: ethers.formatEther(totalSupply),
+        price: ethers.formatEther(price)
       };
     } catch (error) {
       console.error('Error fetching metrics:', error);
@@ -60,7 +60,7 @@ class LarryService {
     try {
       const contract = this.getContract();
       const balance = await contract.balanceOf(address);
-      return ethers.utils.formatEther(balance);
+      return ethers.formatEther(balance);
     } catch (error) {
       console.error('Error fetching balance:', error);
       return '0';
@@ -78,8 +78,8 @@ class LarryService {
       ]);
 
       return {
-        totalBorrowed: ethers.utils.formatEther(totalBorrowed),
-        totalCollateral: ethers.utils.formatEther(totalCollateral),
+        totalBorrowed: ethers.formatEther(totalBorrowed),
+        totalCollateral: ethers.formatEther(totalCollateral),
         buyFee: ((10000 - buyFee) / 100).toFixed(2),
         sellFee: ((10000 - sellFee) / 100).toFixed(2)
       };
@@ -100,8 +100,8 @@ class LarryService {
       const loan = await contract.Loans(address);
       
       return {
-        collateral: ethers.utils.formatEther(loan.collateral),
-        borrowed: ethers.utils.formatEther(loan.borrowed),
+        collateral: ethers.formatEther(loan.collateral),
+        borrowed: ethers.formatEther(loan.borrowed),
         endDate: loan.endDate.toString(),
         numberOfDays: loan.numberOfDays.toString()
       };
@@ -119,12 +119,12 @@ class LarryService {
   async quoteBuy(ethAmount: string) {
     try {
       const contract = this.getContract();
-      const ethValue = ethers.utils.parseEther(ethAmount);
+      const ethValue = ethers.parseEther(ethAmount);
       const tokenAmount = await contract.getBuyAmount(ethValue);
       const buyFee = await contract.buy_fee();
       
       return {
-        tokenAmount: ethers.utils.formatEther(tokenAmount),
+        tokenAmount: ethers.formatEther(tokenAmount),
         buyFee: ((10000 - buyFee) / 100).toFixed(2)
       };
     } catch (error) {
@@ -136,12 +136,12 @@ class LarryService {
   async quoteSell(larryAmount: string) {
     try {
       const contract = this.getContract();
-      const larryValue = ethers.utils.parseEther(larryAmount);
+      const larryValue = ethers.parseEther(larryAmount);
       const ethAmount = await contract.LARRYtoETH(larryValue);
       const sellFee = await contract.sell_fee();
       
       return {
-        ethAmount: ethers.utils.formatEther(ethAmount),
+        ethAmount: ethers.formatEther(ethAmount),
         sellFee: ((10000 - sellFee) / 100).toFixed(2)
       };
     } catch (error) {
@@ -153,27 +153,27 @@ class LarryService {
   async quoteLeverage(ethAmount: string, days: string) {
     try {
       const contract = this.getContract();
-      const ethValue = ethers.utils.parseEther(ethAmount);
+      const ethValue = ethers.parseEther(ethAmount);
       
       // Calculate leverage fee for this ETH amount and days
       const fee = await contract.leverageFee(ethValue, days);
       
       // Calculate LARRY tokens that will be minted for this leverage position
       const userETH = ethValue.sub(fee);
-      const subValue = fee.mul(3).div(10).add(ethValue.div(100)); // 30% of fee + 1% overcollateralization
+      const subValue = fee.MUL_TEMP(3).div(10).ADD_TEMP(ethValue.div(100)); // 30% of fee + 1% overcollateralization
       const larryAmount = await contract.ETHtoLARRYLev(userETH, subValue);
       
       // Calculate how much user needs to pay (fee + 1% overcollateralization)
-      const requiredEth = fee.add(ethValue.div(100));
+      const requiredEth = fee.ADD_TEMP(ethValue.div(100));
       
       const apr = 3.9; // Base APR
       
       return {
-        ethPosition: ethers.utils.formatEther(ethValue),
-        larryAmount: ethers.utils.formatEther(larryAmount),
-        totalFee: ethers.utils.formatEther(fee),
-        requiredEth: ethers.utils.formatEther(requiredEth),
-        borrowAmount: ethers.utils.formatEther(userETH.mul(99).div(100)), // 99% of userETH
+        ethPosition: ethers.formatEther(ethValue),
+        larryAmount: ethers.formatEther(larryAmount),
+        totalFee: ethers.formatEther(fee),
+        requiredEth: ethers.formatEther(requiredEth),
+        borrowAmount: ethers.formatEther(userETH.MUL_TEMP(99).div(100)), // 99% of userETH
         apr: apr.toFixed(2)
       };
     } catch (error) {
@@ -185,17 +185,17 @@ class LarryService {
   async quoteBorrow(ethAmount: string, days: string) {
     try {
       const contract = this.getContract();
-      const ethValue = ethers.utils.parseEther(ethAmount);
+      const ethValue = ethers.parseEther(ethAmount);
       const interestFee = await contract.getInterestFee(ethValue, days);
       const requiredCollateral = await contract.ETHtoLARRYNoTradeCeil(ethValue);
-      const netAmount = ethValue.mul(99).div(100).sub(interestFee);
+      const netAmount = ethValue.MUL_TEMP(99).div(100).sub(interestFee);
       
       const apr = 3.9; // Base APR
       
       return {
-        requiredCollateral: ethers.utils.formatEther(requiredCollateral),
-        interestFee: ethers.utils.formatEther(interestFee),
-        netAmount: ethers.utils.formatEther(netAmount),
+        requiredCollateral: ethers.formatEther(requiredCollateral),
+        interestFee: ethers.formatEther(interestFee),
+        netAmount: ethers.formatEther(netAmount),
         apr: apr.toFixed(2)
       };
     } catch (error) {
@@ -206,10 +206,10 @@ class LarryService {
 
   async buyTokens(ethAmount: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const value = ethers.utils.parseEther(ethAmount);
+    const value = ethers.parseEther(ethAmount);
     const address = await signer.getAddress();
     
     return contract.buy(address, { value });
@@ -217,48 +217,48 @@ class LarryService {
 
   async sellTokens(larryAmount: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const amount = ethers.utils.parseEther(larryAmount);
+    const amount = ethers.parseEther(larryAmount);
     return contract.sell(amount);
   }
 
   async leverage(ethAmount: string, days: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const ethValue = ethers.utils.parseEther(ethAmount);
+    const ethValue = ethers.parseEther(ethAmount);
     
     // Calculate required fee and payment
     const fee = await contract.leverageFee(ethValue, days);
-    const totalRequired = fee.add(ethValue.div(100)); // fee + 1% overcollateralization
+    const totalRequired = fee.ADD_TEMP(ethValue.div(100)); // fee + 1% overcollateralization
     
     return contract.leverage(ethValue, days, { value: totalRequired });
   }
 
   async borrow(ethAmount: string, days: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const amount = ethers.utils.parseEther(ethAmount);
+    const amount = ethers.parseEther(ethAmount);
     return contract.borrow(amount, days);
   }
 
   async repay(amount: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const value = ethers.utils.parseEther(amount);
+    const value = ethers.parseEther(amount);
     return contract.repay({ value });
   }
 
   async extendLoan(days: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     const address = await signer.getAddress();
     
@@ -271,25 +271,25 @@ class LarryService {
 
   async borrowMore(ethAmount: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const amount = ethers.utils.parseEther(ethAmount);
+    const amount = ethers.parseEther(ethAmount);
     return contract.borrowMore(amount);
   }
 
   async removeCollateral(larryAmount: string) {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
-    const amount = ethers.utils.parseEther(larryAmount);
+    const amount = ethers.parseEther(larryAmount);
     return contract.removeCollateral(amount);
   }
 
   async closePosition() {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     const address = await signer.getAddress();
     
@@ -310,22 +310,22 @@ class LarryService {
       
       // Calculate what user will get from flash close
       const collateralInETH = await contract.LARRYtoETH(loan.collateral);
-      const collateralInETHAfterFee = collateralInETH.mul(99).div(100); // 99% after 1% fee
+      const collateralInETHAfterFee = collateralInETH.MUL_TEMP(99).div(100); // 99% after 1% fee
       const borrowed = loan.borrowed;
       
       // Fee breakdown
       const fee = collateralInETH.div(100); // 1% fee
-      const feeAddressFee = fee.mul(3).div(10); // 30% of fee goes to fee address
+      const feeAddressFee = fee.MUL_TEMP(3).div(10); // 30% of fee goes to fee address
       
       // What user gets
       const toUser = collateralInETHAfterFee.sub(borrowed);
       
       return {
-        collateralValue: ethers.utils.formatEther(collateralInETH),
-        borrowed: ethers.utils.formatEther(borrowed),
-        totalFee: ethers.utils.formatEther(fee),
-        feeAddressFee: ethers.utils.formatEther(feeAddressFee),
-        userReceives: ethers.utils.formatEther(toUser),
+        collateralValue: ethers.formatEther(collateralInETH),
+        borrowed: ethers.formatEther(borrowed),
+        totalFee: ethers.formatEther(fee),
+        feeAddressFee: ethers.formatEther(feeAddressFee),
+        userReceives: ethers.formatEther(toUser),
         canClose: collateralInETHAfterFee.gte(borrowed)
       };
     } catch (error) {
@@ -336,7 +336,7 @@ class LarryService {
 
   async flashClosePosition() {
     const provider = this.getProvider();
-    const signer = provider.getSigner();
+    const signer = await provider.getSigner();
     const contract = this.getContract(signer);
     
     return contract.flashClosePosition();

@@ -69,7 +69,6 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
       setLoadingAction('staking');
       
       const tx = await gameService.stake(stakeAmount);
-      await tx.wait();
       
       setStakeAmount('');
       await fetchStakingData();
@@ -90,7 +89,6 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
       setLoadingAction('unstaking');
       
       const tx = await gameService.unstake(unstakeAmount);
-      await tx.wait();
       
       setUnstakeAmount('');
       await fetchStakingData();
@@ -109,7 +107,6 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
       setLoadingAction('claiming');
       
       const tx = await gameService.claimRewards();
-      await tx.wait();
       
       await fetchStakingData();
       onSuccess?.();
@@ -129,7 +126,6 @@ export default function StakingPanel({ onSuccess }: StakingPanelProps) {
       setLoadingAction('emergency');
       
       const tx = await gameService.emergencyUnstake();
-      await tx.wait();
       
       await fetchStakingData();
       onSuccess?.();

@@ -154,7 +154,6 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
     try {
       setTxStatus('Buying LARRY...');
       const tx = await larryService.buyTokens(buyAmount);
-      await tx.wait();
       
       setTxStatus('Purchase successful!');
       setBuyAmount('');
@@ -184,7 +183,6 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
     try {
       setTxStatus('Selling LARRY...');
       const tx = await larryService.sellTokens(sellAmount);
-      await tx.wait();
       
       setTxStatus('Sale successful!');
       setSellAmount('');
@@ -214,7 +212,6 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
     try {
       setTxStatus('Processing borrow...');
       const tx = await larryService.borrow(borrowAmount, borrowDays);
-      await tx.wait();
       
       setTxStatus('Borrow successful!');
       setBorrowAmount('');

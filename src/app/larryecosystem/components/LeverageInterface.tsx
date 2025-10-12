@@ -53,7 +53,6 @@ export default function LeverageInterface() {
     try {
       setTxStatus('Opening leveraged position...');
       const tx = await larryService.leverage(ethAmount, days);
-      await tx.wait();
       
       setTxStatus('Position opened successfully!');
       setEthAmount('');

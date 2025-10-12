@@ -55,7 +55,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
         
       if (typeof window.ethereum !== 'undefined') {
         try {
-          const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+          const web3Provider = new ethers.BrowserProvider(window.ethereum);
           const network = await web3Provider.getNetwork();
           currentChainId = network.chainId;
           
@@ -71,7 +71,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
       }
         
       // Use appropriate provider based on current network
-      const provider = new ethers.providers.JsonRpcProvider(providerUrl);
+      const provider = new ethers.JsonRpcProvider(providerUrl);
       
       // Get the contract instance
       const bulkSenderContract = '0xb636bEc2F6a035123445d148d06B2A2401Ce72C5';

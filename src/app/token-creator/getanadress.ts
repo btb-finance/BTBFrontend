@@ -48,14 +48,14 @@ function runWorker(workerId: number, config: VanityConfig) {
                 while (true) {
                     const wallet = ethers.Wallet.createRandom();
                     const nonce = 0; // First transaction nonce
-                    const address = ethers.utils.getContractAddress({
+                    const address = ethers.getCreateAddress({
                         from: wallet.address,
                         nonce: nonce
                     });
                     
                     attempts++;
                     
-                    const checksumAddress = ethers.utils.getAddress(address);
+                    const checksumAddress = ethers.getAddress(address);
                     const compareAddress = config.caseSensitive ? checksumAddress : checksumAddress.toLowerCase();
                     
                     // Check if address matches our pattern

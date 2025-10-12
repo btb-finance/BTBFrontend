@@ -126,13 +126,13 @@ export default function MegapotStats({
   useEffect(() => {
     const fetchTicketsSold = async () => {
       try {
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         const contract = new ethers.Contract(contractAddress, megapotABI, provider);
         
         // Get tickets count total
         const ticketCountTotalBps = await contract.ticketCountTotalBps();
         // Convert from basis points (multiply by 10000)
-        const actualTicketCount = ticketCountTotalBps.div(10000).toNumber();
+        const actualTicketCount = ticketCountTotalBps.div(10000)Number(;
         setTicketsSold(actualTicketCount);
         
         // Set max tickets to a reasonable value above current count

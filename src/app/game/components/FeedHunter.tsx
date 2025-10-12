@@ -48,7 +48,6 @@ export default function FeedHunter({ hunterTokens, onSuccess }: FeedHunterProps)
       const tx = await gameService.feedHunters(hunterIds);
       
       setTxHash(tx.hash);
-      await tx.wait();
       
       setSelectedHunters([]);
       onSuccess();

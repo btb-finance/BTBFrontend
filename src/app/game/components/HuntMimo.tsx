@@ -96,7 +96,6 @@ export default function HuntMimo({ hunterTokens, mimoBalance, onSuccess }: HuntM
       const tx = await gameService.hunt(hunterIds, targets);
       
       setTxHash(tx.hash);
-      await tx.wait();
       
       setSelectedHunters([]);
       onSuccess();

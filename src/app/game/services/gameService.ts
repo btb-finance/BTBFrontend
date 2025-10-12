@@ -14,7 +14,7 @@ const BASE_NETWORK = {
 class GameService {
   private contract: ethers.Contract | null = null;
   private stakingContract: ethers.Contract | null = null;
-  private provider: ethers.providers.StaticJsonRpcProvider | null = null;
+  private provider: ethers.JsonRpcProvider | null = null;
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
   
@@ -33,7 +33,7 @@ class GameService {
 
   constructor() {
     // Initialize the read-only provider
-    this.provider = new ethers.providers.StaticJsonRpcProvider(
+    this.provider = new ethers.JsonRpcProvider(
       BASE_NETWORK.rpcUrl,
       {
         chainId: BASE_NETWORK.chainId,
@@ -96,7 +96,7 @@ class GameService {
       }
 
       // Create Web3Provider and signer
-      const injectedProvider = new ethers.providers.Web3Provider(window.ethereum, {
+      const injectedProvider = new ethers.BrowserProvider(window.ethereum, {
         chainId: BASE_NETWORK.chainId,
         name: BASE_NETWORK.name,
         ensAddress: undefined
@@ -292,7 +292,7 @@ class GameService {
       try {
         // Some game contracts track MiMo as internal balances
         const gameBalance = await this.contract!.getMiMoBalance(address);
-        return ethers.utils.formatUnits(gameBalance, 18);
+        return ethers.formatUnits(gameBalance, 18);
       } catch (error) {
         console.log('No internal MiMo balance function, trying external token contract');
       }
@@ -315,7 +315,7 @@ class GameService {
         } catch (e) {
           console.warn('Could not get MiMo decimals, using 18');
         }
-        return ethers.utils.formatUnits(balance, decimals);
+        return ethers.formatUnits(balance, decimals);
       } catch (error) {
         console.error('Error calling MiMo token contract - may not be a standard ERC20:', error);
         
@@ -328,7 +328,7 @@ class GameService {
             this.provider!
           );
           const balance = await altMimoContract.balance(address);
-          return ethers.utils.formatUnits(balance, 18);
+          return ethers.formatUnits(balance, 18);
         } catch (altError) {
           console.error('Alternative MiMo balance methods also failed:', altError);
           return '0';
@@ -351,7 +351,7 @@ class GameService {
         this.signer!
       );
       const balance = await btbContract.balanceOf(address);
-      return ethers.utils.formatUnits(balance, 18);
+      return ethers.formatUnits(balance, 18);
     } catch (error) {
       console.error('Error getting BTB balance:', error);
       return '0';
@@ -523,7 +523,7 @@ class GameService {
           const totalCost = count * REDEMPTION_COST;
           const feeAmount = totalCost * REDEMPTION_FEE;
           const totalWithFee = totalCost + feeAmount;
-          const requiredAmount = ethers.utils.parseUnits(totalWithFee.toString(), 18);
+          const requiredAmount = ethers.parseUnits(totalWithFee.toString(), 18);
 
           // Approve MiMo tokens for the game contract
           const mimoContract = new ethers.Contract(
@@ -538,7 +538,7 @@ class GameService {
           const address = await this.signer!.getAddress();
           const allowance = await mimoContract.allowance(address, this.gameContractAddress);
           
-          if (allowance.lt(requiredAmount)) {
+          if (allowance.LT_TEMP(requiredAmount)) {
             const approveTx = await mimoContract.approve(this.gameContractAddress, requiredAmount);
             await approveTx.wait();
           }
@@ -572,16 +572,16 @@ class GameService {
       
       // getSwapRate() returns baseRate + buyPremium, we need to subtract premium to get base rate
       const buyPremium = await this.getBuyPremium();
-      const buyPremiumWei = ethers.utils.parseUnits(buyPremium, 18);
+      const buyPremiumWei = ethers.parseUnits(buyPremium, 18);
       
       let baseRate = rate;
       if (rate.gt(buyPremiumWei)) {
         baseRate = rate.sub(buyPremiumWei);
       } else {
-        baseRate = ethers.BigNumber.from('0');
+        baseRate = BigInt('0');
       }
       
-      return ethers.utils.formatUnits(baseRate, 18); // BTB has 18 decimals
+      return ethers.formatUnits(baseRate, 18); // BTB has 18 decimals
     } catch (error) {
       console.error('Error getting swap rate:', error);
       return '0';
@@ -600,7 +600,7 @@ class GameService {
       );
       
       const premium = await swapContract.buyPremium();
-      return ethers.utils.formatUnits(premium, 18); // BTB has 18 decimals
+      return ethers.formatUnits(premium, 18); // BTB has 18 decimals
     } catch (error) {
       console.error('Error getting buy premium:', error);
       return '5000'; // Default to 5000 BTB as mentioned
@@ -615,14 +615,14 @@ class GameService {
       const buyPremium = await this.getBuyPremium();
       
       // Base amount = (swapRate + premium) * nftAmount
-      const baseAmount = ethers.utils.parseUnits(
+      const baseAmount = ethers.parseUnits(
         ((parseFloat(swapRate) + parseFloat(buyPremium)) * nftAmount).toString(), 
         18
       );
       
       // Add 1% swap fee
-      const feeAmount = baseAmount.mul(100).div(10000); // 1% fee
-      const totalAmount = baseAmount.add(feeAmount);
+      const feeAmount = baseAmount.MUL_TEMP(100).div(10000); // 1% fee
+      const totalAmount = baseAmount.ADD_TEMP(feeAmount);
       
       // First approve BTB tokens for the BTBSwapLogic contract
       const btbContract = new ethers.Contract(
@@ -637,7 +637,7 @@ class GameService {
       const address = await this.signer!.getAddress();
       const allowance = await btbContract.allowance(address, this.btbSwapLogicAddress);
       
-      if (allowance.lt(totalAmount)) {
+      if (allowance.LT_TEMP(totalAmount)) {
         const approveTx = await btbContract.approve(this.btbSwapLogicAddress, totalAmount);
         await approveTx.wait();
       }
@@ -717,7 +717,7 @@ class GameService {
       const btbBalance = await btbContract.balanceOf(this.btbSwapLogicAddress);
       const nftBalance = await nftContract.balanceOf(this.btbSwapLogicAddress);
       
-      const btbBalanceFormatted = ethers.utils.formatUnits(btbBalance, 18);
+      const btbBalanceFormatted = ethers.formatUnits(btbBalance, 18);
       const nftBalanceFormatted = nftBalance.toString();
       
       let status = 'Unknown';
@@ -801,7 +801,7 @@ class GameService {
       }
       
       // Contract calculation: baseAmount = contractRate * amount, then add 1% fee
-      const contractRateFormatted = parseFloat(ethers.utils.formatUnits(contractRate, 18));
+      const contractRateFormatted = parseFloat(ethers.formatUnits(contractRate, 18));
       const subtotal = contractRateFormatted * nftAmount; // This includes base + premium
       const fee = subtotal * 0.01; // 1% fee on (base + premium)
       const total = subtotal + fee;
@@ -894,7 +894,7 @@ class GameService {
       }
       
       const balance = await this.contract!.balanceOf(address);
-      const tokenCount = balance.toNumber();
+      const tokenCount = balanceNumber(;
       
       if (tokenCount === 0) {
         return [];
@@ -961,11 +961,11 @@ class GameService {
             creationTime: stats[0].toString(),
             lastFeedTime: stats[1].toString(),
             lastHuntTime: stats[2].toString(),
-            power: ethers.utils.formatUnits(stats[3], 18),
+            power: ethers.formatUnits(stats[3], 18),
             missedFeedings: stats[4].toString(),
             inHibernation: stats[5],
             recoveryStartTime: stats[6].toString(),
-            totalHunted: ethers.utils.formatUnits(stats[7], 18),
+            totalHunted: ethers.formatUnits(stats[7], 18),
             daysRemaining: stats[8].toString(),
             canFeed: canFeed[0],
             canFeedReason: canFeed[1],
@@ -1015,7 +1015,7 @@ class GameService {
       );
       
       const balance = await bearContract.balanceOf(address);
-      const tokenCount = balance.toNumber();
+      const tokenCount = balanceNumber(;
       
       if (tokenCount === 0) {
         return [];
@@ -1059,11 +1059,11 @@ class GameService {
         creationTime: stats[0].toString(),
         lastFeedTime: stats[1].toString(),
         lastHuntTime: stats[2].toString(),
-        power: ethers.utils.formatUnits(stats[3], 18),
+        power: ethers.formatUnits(stats[3], 18),
         missedFeedings: stats[4].toString(),
         inHibernation: stats[5],
         recoveryStartTime: stats[6].toString(),
-        totalHunted: ethers.utils.formatUnits(stats[7], 18),
+        totalHunted: ethers.formatUnits(stats[7], 18),
         daysRemaining: stats[8].toString(),
         canFeed: canFeed[0],
         canFeedReason: canFeed[1],
@@ -1093,7 +1093,7 @@ class GameService {
       }
       
       const balance = await this.contract!.balanceOf(address);
-      const tokenCount = balance.toNumber();
+      const tokenCount = balanceNumber(;
       
       if (tokenCount === 0) {
         yield { hunters: [], loaded: 0, total: 0 };
@@ -1164,11 +1164,11 @@ class GameService {
               creationTime: stats[0].toString(),
               lastFeedTime: stats[1].toString(),
               lastHuntTime: stats[2].toString(),
-              power: ethers.utils.formatUnits(stats[3], 18),
+              power: ethers.formatUnits(stats[3], 18),
               missedFeedings: stats[4].toString(),
               inHibernation: stats[5],
               recoveryStartTime: stats[6].toString(),
-              totalHunted: ethers.utils.formatUnits(stats[7], 18),
+              totalHunted: ethers.formatUnits(stats[7], 18),
               daysRemaining: stats[8].toString(),
               canFeed: canFeed[0],
               canFeedReason: canFeed[1],
@@ -1207,11 +1207,11 @@ class GameService {
       const address = await this.signer!.getAddress();
       const balance = await this.contract!.balanceOf(address);
       
-      if (currentCount >= balance.toNumber()) {
+      if (currentCount >= balanceNumber() {
         return [];
       }
       
-      const endCount = Math.min(currentCount + batchSize, balance.toNumber());
+      const endCount = Math.min(currentCount + batchSize, balanceNumber();
       const tokenIdCalls = [];
       
       for (let i = currentCount; i < endCount; i++) {
@@ -1253,11 +1253,11 @@ class GameService {
             creationTime: stats[0].toString(),
             lastFeedTime: stats[1].toString(),
             lastHuntTime: stats[2].toString(),
-            power: ethers.utils.formatUnits(stats[3], 18),
+            power: ethers.formatUnits(stats[3], 18),
             missedFeedings: stats[4].toString(),
             inHibernation: stats[5],
             recoveryStartTime: stats[6].toString(),
-            totalHunted: ethers.utils.formatUnits(stats[7], 18),
+            totalHunted: ethers.formatUnits(stats[7], 18),
             daysRemaining: stats[8].toString(),
             canFeed: canFeed[0],
             canFeedReason: canFeed[1],
@@ -1292,11 +1292,11 @@ class GameService {
       
       const balance = await bearContract.balanceOf(address);
       
-      if (currentCount >= balance.toNumber()) {
+      if (currentCount >= balanceNumber() {
         return [];
       }
       
-      const endCount = Math.min(currentCount + batchSize, balance.toNumber());
+      const endCount = Math.min(currentCount + batchSize, balanceNumber();
       const tokenIdCalls = [];
       
       for (let i = currentCount; i < endCount; i++) {
@@ -1352,7 +1352,7 @@ class GameService {
         this.signer!
       );
       const balance = await lpContract.balanceOf(address);
-      return ethers.utils.formatUnits(balance, 18);
+      return ethers.formatUnits(balance, 18);
     } catch (error) {
       console.error('Error getting LP token balance:', error);
       return '0';
@@ -1383,20 +1383,20 @@ class GameService {
       let calculatedAPR = '0';
       if (!totalStaked.isZero() && !rewardRate.isZero()) {
         // APR = (rewardRate * seconds per year) / totalStaked * 100
-        const secondsPerYear = ethers.BigNumber.from('31536000'); // 365 * 24 * 3600
-        const annualRewards = rewardRate.mul(secondsPerYear);
+        const secondsPerYear = BigInt('31536000'); // 365 * 24 * 3600
+        const annualRewards = rewardRate.MUL_TEMP(secondsPerYear);
         
         // Calculate percentage: (annualRewards / totalStaked) * 100
         // Using precision scaling to avoid floating point issues
-        const aprBasisPoints = annualRewards.mul(10000).div(totalStaked); // multiply by 10000 for basis points
-        calculatedAPR = ethers.utils.formatUnits(aprBasisPoints, 2); // divide by 100 to get percentage
+        const aprBasisPoints = annualRewards.MUL_TEMP(10000).div(totalStaked); // multiply by 10000 for basis points
+        calculatedAPR = ethers.formatUnits(aprBasisPoints, 2); // divide by 100 to get percentage
       }
 
       const result = {
-        totalStaked: ethers.utils.formatUnits(globalInfo._totalStaked, 18),
-        rewardRate: ethers.utils.formatUnits(globalInfo._rewardRate, 18),
+        totalStaked: ethers.formatUnits(globalInfo._totalStaked, 18),
+        rewardRate: ethers.formatUnits(globalInfo._rewardRate, 18),
         periodFinish: globalInfo._periodFinish.toString(),
-        rewardPerToken: ethers.utils.formatUnits(globalInfo._rewardPerToken, 18),
+        rewardPerToken: ethers.formatUnits(globalInfo._rewardPerToken, 18),
         apr: calculatedAPR
       };
 
@@ -1425,9 +1425,9 @@ class GameService {
       const userInfo = await this.stakingContract!.getUserInfo(address);
       
       return {
-        stakedAmount: ethers.utils.formatUnits(userInfo.staked, 18),
-        earnedRewards: ethers.utils.formatUnits(userInfo.earnedRewards, 18),
-        pendingRewards: ethers.utils.formatUnits(userInfo.pendingRewards, 18)
+        stakedAmount: ethers.formatUnits(userInfo.staked, 18),
+        earnedRewards: ethers.formatUnits(userInfo.earnedRewards, 18),
+        pendingRewards: ethers.formatUnits(userInfo.pendingRewards, 18)
       };
     } catch (error) {
       console.error('Error getting user staking info:', error);
@@ -1453,10 +1453,10 @@ class GameService {
       );
       
       const address = await this.signer!.getAddress();
-      const stakeAmount = ethers.utils.parseUnits(amount, 18);
+      const stakeAmount = ethers.parseUnits(amount, 18);
       const allowance = await lpContract.allowance(address, this.stakingContractAddress);
       
-      if (allowance.lt(stakeAmount)) {
+      if (allowance.LT_TEMP(stakeAmount)) {
         const approveTx = await lpContract.approve(this.stakingContractAddress, stakeAmount);
         await approveTx.wait();
       }
@@ -1473,7 +1473,7 @@ class GameService {
   public async unstake(amount: string): Promise<ethers.ContractTransaction> {
     await this.ensureInitialized();
     try {
-      const unstakeAmount = ethers.utils.parseUnits(amount, 18);
+      const unstakeAmount = ethers.parseUnits(amount, 18);
       const tx = await this.stakingContract!.unstake(unstakeAmount);
       return tx;
     } catch (error) {
@@ -1509,7 +1509,7 @@ class GameService {
     try {
       const address = await this.signer!.getAddress();
       const earned = await this.stakingContract!.earned(address);
-      return ethers.utils.formatUnits(earned, 18);
+      return ethers.formatUnits(earned, 18);
     } catch (error) {
       console.error('Error getting earned rewards:', error);
       return '0';
@@ -1522,7 +1522,7 @@ class GameService {
     await this.ensureInitialized();
     try {
       const cooldown = await this.contract!.HUNT_COOLDOWN();
-      return cooldown.toNumber();
+      return cooldownNumber(;
     } catch (error) {
       console.error('Error getting hunt cooldown:', error);
       return 0;
@@ -1542,8 +1542,8 @@ class GameService {
         this.contract!.HUNT_COOLDOWN()
       ]);
 
-      const lastHuntTime = hunterStats.lastHuntTime.toNumber();
-      const cooldownSeconds = cooldown.toNumber();
+      const lastHuntTime = hunterStats.lastHuntTimeNumber(;
+      const cooldownSeconds = cooldownNumber(;
       const nextHuntTime = lastHuntTime + cooldownSeconds;
       const currentTime = Math.floor(Date.now() / 1000);
       const timeUntilNextHunt = Math.max(0, nextHuntTime - currentTime);
@@ -1593,7 +1593,7 @@ class GameService {
     await this.ensureInitialized();
     try {
       const cooldown = await this.contract!.HUNT_COOLDOWN();
-      const cooldownSeconds = cooldown.toNumber();
+      const cooldownSeconds = cooldownNumber(;
       const currentTime = Math.floor(Date.now() / 1000);
 
       // Batch get hunter stats
@@ -1609,7 +1609,7 @@ class GameService {
       tokenIds.forEach((tokenId, index) => {
         try {
           const stats = contractInterface.decodeFunctionResult('getHunterStats', results[index]);
-          const lastHuntTime = stats.lastHuntTime.toNumber();
+          const lastHuntTime = stats.lastHuntTimeNumber(;
           const nextHuntTime = lastHuntTime + cooldownSeconds;
           const timeUntilNextHunt = Math.max(0, nextHuntTime - currentTime);
           const canHuntNow = timeUntilNextHunt === 0;

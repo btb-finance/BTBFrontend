@@ -132,7 +132,6 @@ export default function SellForm({ chicksPrice, chicksBalance, onSuccess }: Sell
 
       // Execute sell transaction
       const tx = await chicksService.sellChicks(chicksAmount);
-      await tx.wait();
 
       // Reset form
       setChicksAmount('');

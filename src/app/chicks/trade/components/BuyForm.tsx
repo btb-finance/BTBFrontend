@@ -117,7 +117,6 @@ export default function BuyForm({ chicksPrice, usdcBalance, onSuccess }: BuyForm
 
       // Execute buy transaction
       const tx = await chicksService.buyChicks(usdcAmount);
-      await tx.wait();
 
       // Reset form
       setUsdcAmount('');

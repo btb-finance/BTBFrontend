@@ -168,7 +168,7 @@ export default function BulkSenderForm({
     try {
       // Type assertion for ethereum property
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.providers.Web3Provider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
       const tokenContract = new ethers.Contract(selectedToken, erc20ABI, provider);
 
       const [name, symbol, decimals, balance] = await Promise.all([
@@ -182,7 +182,7 @@ export default function BulkSenderForm({
         name,
         symbol,
         decimals,
-        balance: ethers.utils.formatUnits(balance, decimals)
+        balance: ethers.formatUnits(balance, decimals)
       });
       
       // Get current network for RPC provider
@@ -198,7 +198,7 @@ export default function BulkSenderForm({
       }
       
       // Use the appropriate RPC provider
-      const rpcProvider = new ethers.providers.JsonRpcProvider(providerUrl);
+      const rpcProvider = new ethers.JsonRpcProvider(providerUrl);
       
       // Get current fee
       const bulkSenderContract = new ethers.Contract(contractAddress, bulksenderABI, rpcProvider);
@@ -209,8 +209,8 @@ export default function BulkSenderForm({
           bulkSenderContract.getFeeForSender(userAddress)
         ]);
         
-        console.log('General fee per bulk:', ethers.utils.formatEther(generalFee), 'ETH');
-        console.log('Fee for this sender:', ethers.utils.formatEther(senderFee), 'ETH');
+        console.log('General fee per bulk:', ethers.formatEther(generalFee), 'ETH');
+        console.log('Fee for this sender:', ethers.formatEther(senderFee), 'ETH');
       } catch (feeError) {
         console.error('Error fetching fee data:', feeError);
       }
@@ -228,21 +228,21 @@ export default function BulkSenderForm({
       setIsCheckingAllowance(true);
       // Type assertion for ethereum property
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.providers.Web3Provider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
       const tokenContract = new ethers.Contract(selectedToken, erc20ABI, provider);
       
       // Calculate total amount needed for approval
       // If no amount entered yet, use a minimum value for initial check
-      const totalAmountWei = ethers.utils.parseUnits(
+      const totalAmountWei = ethers.parseUnits(
         totalAmount === '0' ? '1' : totalAmount, 
         tokenData?.decimals || 18
       );
       
-      console.log('Checking allowance for:', userAddress, 'to spend', ethers.utils.formatUnits(totalAmountWei, tokenData?.decimals || 18), tokenData?.symbol || 'tokens');
+      console.log('Checking allowance for:', userAddress, 'to spend', ethers.formatUnits(totalAmountWei, tokenData?.decimals || 18), tokenData?.symbol || 'tokens');
       
       // Check if contract is allowed to spend tokens
       const allowance = await tokenContract.allowance(userAddress, contractAddress);
-      console.log('Current allowance:', ethers.utils.formatUnits(allowance, tokenData?.decimals || 18), tokenData?.symbol || 'tokens');
+      console.log('Current allowance:', ethers.formatUnits(allowance, tokenData?.decimals || 18), tokenData?.symbol || 'tokens');
       
       // Set approval state based on whether allowance is greater than or equal to total amount
       const isApprovedResult = allowance.gte(totalAmountWei);
@@ -269,8 +269,8 @@ export default function BulkSenderForm({
       setSuccessMessage('');
       
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       const tokenContract = new ethers.Contract(selectedToken, erc20ABI, signer);
       
       // Approve max uint256 to prevent having to approve again
@@ -288,12 +288,11 @@ export default function BulkSenderForm({
       setSuccessMessage('Approval transaction submitted. Waiting for confirmation...');
       
       // Wait for transaction to be confirmed
-      const receipt = await tx.wait();
       console.log('Approval transaction confirmed:', receipt);
       
       // Verify the allowance was set correctly
       const allowance = await tokenContract.allowance(userAddress, contractAddress);
-      console.log('New allowance:', ethers.utils.formatUnits(allowance, tokenData.decimals), tokenData.symbol);
+      console.log('New allowance:', ethers.formatUnits(allowance, tokenData.decimals), tokenData.symbol);
       
       // Set approval state and show success message
       setIsApproved(true);
@@ -389,8 +388,8 @@ export default function BulkSenderForm({
       setErrorMessage('');
       
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const signer = provider.getSigner();
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
       
       // Determine which network we're on
       const network = await provider.getNetwork();
@@ -437,11 +436,11 @@ export default function BulkSenderForm({
         : filteredRecipients;
       
       const addresses = recipientsToProcess.map(r => r.address);
-      const amounts = recipientsToProcess.map(r => ethers.utils.parseUnits(r.amount, tokenData.decimals));
+      const amounts = recipientsToProcess.map(r => ethers.parseUnits(r.amount, tokenData.decimals));
       
       // Get fee for this sender specifically
       const fee = await bulkSenderContract.getFeeForSender(userAddress);
-      console.log('Fee for bulk transfer:', ethers.utils.formatEther(fee), 'ETH');
+      console.log('Fee for bulk transfer:', ethers.formatEther(fee), 'ETH');
       
       // Execute bulk transfer with the fee included as ETH value in the transaction
       const tx = await bulkSenderContract.bulkTransfer(
@@ -455,7 +454,6 @@ export default function BulkSenderForm({
       setSuccessMessage(`Transaction pending on ${networkName}...`);
       
       // Wait for transaction confirmation
-      const receipt = await tx.wait();
       console.log('Transaction confirmed:', receipt);
       
       // Generate explorer link based on network
@@ -475,7 +473,7 @@ export default function BulkSenderForm({
       
       // Immediately update our ref for the next batch
       processedBatchAddresses.forEach(addr => {
-        processedAddressesRef.current.add(addr.toLowerCase());
+        processedAddressesRef.current.ADD_TEMP(addr.toLowerCase());
       });
       
       console.log(`Updated processedAddressesRef with all processed addresses, total: ${processedAddressesRef.current.size}`);

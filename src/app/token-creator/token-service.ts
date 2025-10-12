@@ -100,7 +100,7 @@ export async function generateVanityAddress(
   while (attempts < maxAttempts) {
     const wallet = ethers.Wallet.createRandom();
     const nonce = 0; // First transaction nonce
-    const contractAddress = ethers.utils.getContractAddress({
+    const contractAddress = ethers.getCreateAddress({
       from: wallet.address,
       nonce: nonce
     });
@@ -148,7 +148,7 @@ export async function deployToken(
     if (statusCallback) statusCallback('Connecting to network...');
     
     // Connect to the network
-    const provider = new ethers.providers.JsonRpcProvider(chain.rpcUrl);
+    const provider = new ethers.JsonRpcProvider(chain.rpcUrl);
     const walletWithProvider = new ethers.Wallet(wallet.privateKey, provider);
     
     if (statusCallback) statusCallback('Preparing contract deployment...');
@@ -161,7 +161,7 @@ export async function deployToken(
     );
     
     // Calculate the total supply with decimals
-    const totalSupply = ethers.utils.parseUnits(
+    const totalSupply = ethers.parseUnits(
       tokenDetails.totalSupply, 
       tokenDetails.decimals
     );

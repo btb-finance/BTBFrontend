@@ -65,11 +65,11 @@ export default function BTBFinanceTradePanel() {
           
           // Get ETH balance
           if (window.ethereum) {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
             const address = await signer.getAddress();
             const ethBal = await provider.getBalance(address);
-            const ethFormatted = ethers.utils.formatEther(ethBal);
+            const ethFormatted = ethers.formatEther(ethBal);
             setEthBalance(ethFormatted);
           }
           
@@ -107,11 +107,11 @@ export default function BTBFinanceTradePanel() {
       
       // Get ETH balance
       if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
         const address = await signer.getAddress();
         const ethBal = await provider.getBalance(address);
-        const ethFormatted = ethers.utils.formatEther(ethBal);
+        const ethFormatted = ethers.formatEther(ethBal);
         setEthBalance(ethFormatted);
       }
       

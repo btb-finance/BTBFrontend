@@ -7,7 +7,7 @@ export interface WalletState {
   address: string | null;
   chainId: number | null;
   isCorrectNetwork: boolean;
-  provider: ethers.providers.Web3Provider | null;
+  provider: ethers.BrowserProvider | null;
 }
 
 const BASE_CHAIN_ID = 8453;
@@ -25,13 +25,13 @@ export function useWalletConnection() {
   const checkConnection = async () => {
     if (typeof window.ethereum !== 'undefined') {
       try {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const provider = new ethers.BrowserProvider(window.ethereum);
         const network = await provider.getNetwork();
         const accounts = await provider.listAccounts();
         
         setWalletState({
           isConnected: accounts.length > 0,
-          address: accounts.length > 0 ? ethers.utils.getAddress(accounts[0]) : null,
+          address: accounts.length > 0 ? ethers.getAddress(accounts[0]) : null,
           chainId: network.chainId,
           isCorrectNetwork: network.chainId === BASE_CHAIN_ID,
           provider,

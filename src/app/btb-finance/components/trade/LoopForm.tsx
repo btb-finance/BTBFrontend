@@ -74,7 +74,6 @@ export default function LoopForm({ ethBalance, btbBalance, onSuccess }: LoopForm
       await btbFinanceService.connect();
       
       const tx = await btbFinanceService.createLoopPosition(ethAmount, parseInt(days));
-      await tx.wait();
       
       onSuccess();
       setEthAmount('');

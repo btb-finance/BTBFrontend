@@ -26,17 +26,17 @@ const getNextProcessingTime = async (contract: ethers.Contract): Promise<{
     const processingInterval = await contract.PROCESSING_INTERVAL();
     
     // Calculate the next valid processing time
-    const nextValidTimestamp = lastBatchTimestamp.add(processingInterval).toNumber() * 1000; // Convert to JS timestamp
+    const nextValidTimestamp = Number(lastBatchTimestamp + processingInterval) * 1000; // Convert to JS timestamp
     const nextValidTime = new Date(nextValidTimestamp);
-    
+
     // Check if we can process now
     const now = Date.now();
     const canProcessNow = now >= nextValidTimestamp;
     const secondsUntilNextValid = canProcessNow ? 0 : Math.ceil((nextValidTimestamp - now) / 1000);
-    
+
     return {
-      lastBatchTimestamp: lastBatchTimestamp.toNumber(),
-      processingInterval: processingInterval.toNumber(),
+      lastBatchTimestamp: Number(lastBatchTimestamp),
+      processingInterval: Number(processingInterval),
       nextValidTime,
       canProcessNow,
       secondsUntilNextValid
@@ -87,7 +87,7 @@ const parseTooSoonError = (errorMessage: string): number | null => {
 const processBatchWithPreciseTiming = async (
   contract: ethers.Contract,
   wallet: ethers.Wallet,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.JsonRpcProvider,
 ): Promise<{
   success: boolean;
   result: any;
@@ -145,7 +145,7 @@ const processBatchWithPreciseTiming = async (
 const processBatch = async (
   contract: ethers.Contract,
   wallet: ethers.Wallet,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.JsonRpcProvider,
   testGasOnly: boolean = false
 ): Promise<{
   success: boolean;
@@ -175,8 +175,8 @@ const processBatch = async (
     // Dynamically estimate required gas with timeout
     console.log('Estimating gas required for batch processing (max 5 seconds)...');
     // Explicitly type gasLimit to handle potential unknown from Promise.race
-    let gasLimit: ethers.BigNumber;
-    const estimateGasPromise = contract.estimateGas.processDailyBatch(batchIndex);
+    let gasLimit: bigint;
+    const estimateGasPromise = contract.processDailyBatch.estimateGas(batchIndex);
     const timeoutPromise = new Promise<never>((_, reject) => // Use <never> for type safety
       setTimeout(() => reject(new Error('Gas estimation timed out after 5 seconds')), 5000)
     );
@@ -185,7 +185,7 @@ const processBatch = async (
       // Wait for either gas estimation or timeout
       const estimatedGas = await Promise.race([estimateGasPromise, timeoutPromise]);
       // Ensure the result is a BigNumber before assigning
-      gasLimit = ethers.BigNumber.from(estimatedGas); 
+      gasLimit = BigInt(estimatedGas); 
       console.log(`Using exact estimated gas: ${gasLimit.toString()}`);
     } catch (error: any) {
       console.error('Error or timeout estimating gas:', error.message);
@@ -193,12 +193,12 @@ const processBatch = async (
       // If it timed out or failed for other reasons (unless testing 'too soon')
       if (error.message.includes('Gas estimation timed out') || !(testGasOnly && error.message.includes("Processing too soon"))) {
         console.log("Using default gas estimate due to error or timeout.");
-        gasLimit = ethers.BigNumber.from("300000"); // default estimate
+        gasLimit = BigInt("300000"); // default estimate
       } 
       // Handle the specific case for gas testing when it's 'too soon'
       else if (testGasOnly && error.message.includes("Processing too soon")) {
         console.log("Using default gas estimate for test since processing is not allowed yet");
-        gasLimit = ethers.BigNumber.from("300000"); // default estimate
+        gasLimit = BigInt("300000"); // default estimate
       } 
       // For any other unhandled estimation error in non-test mode
       else {
@@ -215,31 +215,31 @@ const processBatch = async (
     }
     
     // Get current gas price from provider
-    const gasPrice = await provider.getGasPrice();
+    const gasPrice = await provider.getFeeData().then(f => f.gasPrice || BigInt(0));
     
     // Get network fee data for dynamic gas pricing
     const feeData = await provider.getFeeData();
     
     // Use minimal priority fee - just enough to be included eventually
     // On Base, even 0.01 gwei is often enough since it's not congested
-    const minPriorityFee = ethers.utils.parseUnits("0.01", "gwei");
+    const minPriorityFee = ethers.parseUnits("0.01", "gwei");
     
     // Base fee is the minimum required from network
-    const baseFee = feeData.lastBaseFeePerGas || gasPrice;
+    const baseFee = feeData.maxFeePerGas || gasPrice;
     
     // Ensure maxFeePerGas is at least equal to maxPriorityFeePerGas to avoid EIP-1559 errors
     // The maxFeePerGas must be at least baseFee + priorityFee
     const maxPriorityFeePerGas = minPriorityFee;
-    const maxFeePerGas = baseFee.add(maxPriorityFeePerGas);
-    
+    const maxFeePerGas = baseFee + maxPriorityFeePerGas;
+
     // Log the gas prices being used
-    console.log(`Using baseFee: ${ethers.utils.formatUnits(baseFee, 'gwei')} gwei`);
-    console.log(`Using maxPriorityFeePerGas: ${ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
-    console.log(`Using maxFeePerGas: ${ethers.utils.formatUnits(maxFeePerGas, 'gwei')} gwei (ensures maxFee ≥ priorityFee)`);
-    
+    console.log(`Using baseFee: ${ethers.formatUnits(baseFee, 'gwei')} gwei`);
+    console.log(`Using maxPriorityFeePerGas: ${ethers.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`);
+    console.log(`Using maxFeePerGas: ${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei (ensures maxFee ≥ priorityFee)`);
+
     // Calculate estimated transaction cost
-    const estimatedGasCost = maxFeePerGas.mul(gasLimit);
-    const formattedEstimatedGasCost = ethers.utils.formatEther(estimatedGasCost);
+    const estimatedGasCost = maxFeePerGas * gasLimit;
+    const formattedEstimatedGasCost = ethers.formatEther(estimatedGasCost);
     console.log(`Estimated transaction cost: ${formattedEstimatedGasCost} ETH`);
     
     // If this is a gas test only, return the gas estimates without sending transaction
@@ -250,18 +250,18 @@ const processBatch = async (
           message: 'Gas estimation test completed successfully',
           gasEstimates: {
             gasLimit: gasLimit.toString(),
-            maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
-            maxPriorityFeePerGas: ethers.utils.formatUnits(maxPriorityFeePerGas, 'gwei') + ' gwei',
+            maxFeePerGas: ethers.formatUnits(maxFeePerGas, 'gwei') + ' gwei',
+            maxPriorityFeePerGas: ethers.formatUnits(maxPriorityFeePerGas, 'gwei') + ' gwei',
             estimatedCost: formattedEstimatedGasCost + ' ETH',
-            currentWalletBalance: ethers.utils.formatEther(await wallet.getBalance()) + ' ETH'
+            currentWalletBalance: ethers.formatEther(await provider.getBalance(wallet.address)) + ' ETH'
           },
           batchIndex: batchIndex,
           networkDetails: {
             network: await provider.getNetwork().then(n => `${n.name} (chainId: ${n.chainId})`),
             currentBlock: await provider.getBlockNumber(),
-            gasPrice: ethers.utils.formatUnits(gasPrice, 'gwei') + ' gwei',
-            baseFeePerGas: feeData.lastBaseFeePerGas ? 
-              ethers.utils.formatUnits(feeData.lastBaseFeePerGas, 'gwei') + ' gwei' : 'Not available'
+            gasPrice: ethers.formatUnits(gasPrice, 'gwei') + ' gwei',
+            baseFeePerGas: feeData.maxFeePerGas ? 
+              ethers.formatUnits(feeData.maxFeePerGas, 'gwei') + ' gwei' : 'Not available'
           }
         }
       };
@@ -287,13 +287,13 @@ const processBatch = async (
         if (attempt > 1) {
           // Minimal increase to priority fee only on retry attempts
           // Keep base fee the same - it's the network minimum
-          attemptPriorityFeePerGas = ethers.utils.parseUnits((0.01 * attempt).toString(), "gwei");
-          console.log(`Retry attempt ${attempt} - using minimal priority fee: ${ethers.utils.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
+          attemptPriorityFeePerGas = ethers.parseUnits((0.01 * attempt).toString(), "gwei");
+          console.log(`Retry attempt ${attempt} - using minimal priority fee: ${ethers.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
         }
         
         console.log(`Gas limit: ${gasLimit.toString()}`);
-        console.log(`Max fee: ${ethers.utils.formatUnits(attemptMaxFeePerGas, 'gwei')} gwei (base fee only)`);
-        console.log(`Priority fee: ${ethers.utils.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
+        console.log(`Max fee: ${ethers.formatUnits(attemptMaxFeePerGas, 'gwei')} gwei (base fee only)`);
+        console.log(`Priority fee: ${ethers.formatUnits(attemptPriorityFeePerGas, 'gwei')} gwei`);
         
         // Call the processDailyBatch function with dynamically adjusted gas settings
         tx = await contract.processDailyBatch(batchIndex, {
@@ -358,8 +358,8 @@ const processBatch = async (
     }
     
     // Calculate total cost including L1 and L2 fees - Cannot calculate without receipt
-    // const totalCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-    // const formattedTotalCost = ethers.utils.formatEther(totalCost);
+    // const totalCost = receipt.gasUsed.mul_TEMP(receipt.effectiveGasPrice);
+    // const formattedTotalCost = ethers.formatEther(totalCost);
     
     return {
       success: true,
@@ -368,7 +368,7 @@ const processBatch = async (
         batchIndex: batchIndex,
         transactionHash: tx.hash, // Return the hash of the sent transaction
         // gasUsed: receipt.gasUsed.toString(), // Unavailable
-        // effectiveGasPrice: ethers.utils.formatUnits(receipt.effectiveGasPrice, 'gwei') + ' gwei', // Unavailable
+        // effectiveGasPrice: ethers.formatUnits(receipt.effectiveGasPrice, 'gwei') + ' gwei', // Unavailable
         // totalCost: formattedTotalCost + ' ETH' // Unavailable
         hint: 'Check block explorer for actual confirmation status.'
       }
@@ -390,7 +390,7 @@ const processBatch = async (
 const runGasTest = async (
   contract: ethers.Contract,
   wallet: ethers.Wallet,
-  provider: ethers.providers.JsonRpcProvider,
+  provider: ethers.JsonRpcProvider,
   processingTimeInfo: any
 ): Promise<{
   statusCode: number;
@@ -402,12 +402,12 @@ const runGasTest = async (
   const batchIndex = calculateBatchIndex();
   
   // Get current gas price and fee data
-  const gasPrice = await provider.getGasPrice();
+  const gasPrice = await provider.getFeeData().then(f => f.gasPrice || BigInt(0));
   const feeData = await provider.getFeeData();
   
   // Use minimum gas fees possible
-  const maxFeePerGas = feeData.lastBaseFeePerGas || gasPrice;
-  const minPriorityFee = ethers.utils.parseUnits("0.01", "gwei");
+  const maxFeePerGas = feeData.maxFeePerGas || gasPrice;
+  const minPriorityFee = ethers.parseUnits("0.01", "gwei");
   
   // Try to estimate gas, but use default if it fails due to timing
   let gasLimit;
@@ -415,14 +415,14 @@ const runGasTest = async (
   
   try {
     // Try to get actual gas estimate
-    gasLimit = await contract.estimateGas.processDailyBatch(batchIndex);
+    gasLimit = await contract.processDailyBatch.estimateGas(batchIndex);
     console.log(`Successfully estimated actual gas: ${gasLimit.toString()}`);
   } catch (error: any) {
     // If we get "too soon" error, use default value
     console.log("Gas estimation failed:", error.message);
     
     if (error.message && error.message.includes("Processing too soon")) {
-      gasLimit = ethers.BigNumber.from("300000"); // typical gas for this transaction
+      gasLimit = BigInt("300000"); // typical gas for this transaction
       isEstimateReal = false;
       console.log(`Using default gas estimate of ${gasLimit.toString()} (could not get actual value yet)`);
     } else {
@@ -445,7 +445,7 @@ const runGasTest = async (
   }
   
   // Calculate estimated cost
-  const estimatedGasCost = maxFeePerGas.mul(gasLimit);
+  const estimatedGasCost = maxFeePerGas * gasLimit;
   
   return {
     statusCode: 200,
@@ -453,18 +453,18 @@ const runGasTest = async (
       message: "Gas estimation test completed successfully",
       gasEstimates: {
         gasLimit: gasLimit.toString() + (isEstimateReal ? " (actual)" : " (default estimate)"),
-        maxFeePerGas: ethers.utils.formatUnits(maxFeePerGas, "gwei") + " gwei (base fee only)",
-        maxPriorityFeePerGas: ethers.utils.formatUnits(minPriorityFee, "gwei") + " gwei (minimal)",
-        estimatedCost: ethers.utils.formatEther(estimatedGasCost) + " ETH",
+        maxFeePerGas: ethers.formatUnits(maxFeePerGas, "gwei") + " gwei (base fee only)",
+        maxPriorityFeePerGas: ethers.formatUnits(minPriorityFee, "gwei") + " gwei (minimal)",
+        estimatedCost: ethers.formatEther(estimatedGasCost) + " ETH",
         estimateType: isEstimateReal ? "accurate" : "using default gas limit until processing time",
-        currentWalletBalance: ethers.utils.formatEther(await wallet.getBalance()) + " ETH"
+        currentWalletBalance: ethers.formatEther(await provider.getBalance(wallet.address)) + " ETH"
       },
       networkDetails: {
         network: await provider.getNetwork().then(n => `${n.name} (chainId: ${n.chainId})`),
         currentBlock: await provider.getBlockNumber(),
-        gasPrice: ethers.utils.formatUnits(gasPrice, "gwei") + " gwei",
-        baseFeePerGas: feeData.lastBaseFeePerGas ? 
-          ethers.utils.formatUnits(feeData.lastBaseFeePerGas, "gwei") + " gwei" : "Not available"
+        gasPrice: ethers.formatUnits(gasPrice, "gwei") + " gwei",
+        baseFeePerGas: feeData.maxFeePerGas ? 
+          ethers.formatUnits(feeData.maxFeePerGas, "gwei") + " gwei" : "Not available"
       },
       site: "BTB Finance (btb.finance)",
       testMode: true,
@@ -488,7 +488,7 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
   if (isStatusCheck) {
     try {
       // Initialize provider with Base mainnet RPC URL
-      const provider = new ethers.providers.JsonRpcProvider(process.env.ETH_RPC_URL);
+      const provider = new ethers.JsonRpcProvider(process.env.ETH_RPC_URL);
       
       // Create contract instance (read-only is fine for status check)
       const contract = new ethers.Contract(
@@ -564,20 +564,20 @@ const handler: Handler = async (event: ScheduledEvent, context: HandlerContext) 
 
   try {
     // Initialize provider with Base mainnet RPC URL
-    const provider = new ethers.providers.JsonRpcProvider(process.env.ETH_RPC_URL);
+    const provider = new ethers.JsonRpcProvider(process.env.ETH_RPC_URL);
     
     // Initialize wallet with private key from environment variable
     const wallet = new ethers.Wallet(process.env.PRIVATE_KEY as string, provider);
     
     // Check wallet balance before proceeding
-    const balance = await wallet.getBalance();
-    const formattedBalance = ethers.utils.formatEther(balance);
+    const balance = await provider.getBalance(wallet.address);
+    const formattedBalance = ethers.formatEther(balance);
     console.log(`Wallet ${wallet.address} balance: ${formattedBalance} ETH`);
     
     // Lower minimum required gas threshold based on actual usage (21,000 gas)
-    const minGasRequired = ethers.utils.parseEther("0.00005"); // 0.00005 ETH is plenty for this tx
+    const minGasRequired = ethers.parseEther("0.00005"); // 0.00005 ETH is plenty for this tx
     
-    if (balance.lt(minGasRequired)) {
+    if (balance < minGasRequired) {
       console.error(`Insufficient wallet balance: ${formattedBalance} ETH. Need at least 0.00005 ETH for gas.`);
       return response;
     }

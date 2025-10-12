@@ -30,7 +30,7 @@ const ERC20_ABI = [
 
 class ChicksService {
   private contract: ethers.Contract | null = null;
-  private provider: ethers.providers.StaticJsonRpcProvider | null = null;
+  private provider: ethers.JsonRpcProvider | null = null;
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
 
@@ -39,7 +39,7 @@ class ChicksService {
 
   constructor() {
     // Initialize the read-only provider
-    this.provider = new ethers.providers.StaticJsonRpcProvider(
+    this.provider = new ethers.JsonRpcProvider(
       BASE_NETWORK.rpcUrl,
       {
         chainId: BASE_NETWORK.chainId,
@@ -96,7 +96,7 @@ class ChicksService {
       }
 
       // Create Web3Provider and signer
-      const injectedProvider = new ethers.providers.Web3Provider(window.ethereum, {
+      const injectedProvider = new ethers.BrowserProvider(window.ethereum, {
         chainId: BASE_NETWORK.chainId,
         name: BASE_NETWORK.name,
         ensAddress: undefined
@@ -139,7 +139,7 @@ class ChicksService {
     try {
       // No need to ensure initialized - use the read-only contract
       const price = await this.contract!.lastPrice();
-      return ethers.utils.formatUnits(price, 6);
+      return ethers.formatUnits(price, 6);
     } catch (error) {
       console.error('Error getting current price:', error);
       throw error;
@@ -151,7 +151,7 @@ class ChicksService {
     try {
       // No need to ensure initialized - use the read-only contract
       const backing = await this.contract!.getBacking();
-      return ethers.utils.formatUnits(backing, 6);
+      return ethers.formatUnits(backing, 6);
     } catch (error) {
       console.error('Error getting backing:', error);
       throw error;
@@ -164,7 +164,7 @@ class ChicksService {
     try {
       const address = await this.signer!.getAddress();
       const balance = await this.contract!.balanceOf(address);
-      return ethers.utils.formatUnits(balance, 6); // CHICKS has 6 decimals
+      return ethers.formatUnits(balance, 6); // CHICKS has 6 decimals
     } catch (error) {
       console.error('Error getting CHICKS balance:', error);
       throw error;
@@ -178,7 +178,7 @@ class ChicksService {
       const address = await this.signer!.getAddress();
       const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, this.provider!);
       const balance = await usdcContract.balanceOf(address);
-      return ethers.utils.formatUnits(balance, 6); // USDC has 6 decimals
+      return ethers.formatUnits(balance, 6); // USDC has 6 decimals
     } catch (error) {
       console.error('Error getting USDC balance:', error);
       throw error;
@@ -193,10 +193,10 @@ class ChicksService {
       const loan = await this.contract!.Loans(address);
       
       return {
-        collateral: ethers.utils.formatUnits(loan.collateral, 6),
-        borrowed: ethers.utils.formatUnits(loan.borrowed, 6),
-        endDate: loan.endDate.toNumber(),
-        numberOfDays: loan.numberOfDays.toNumber()
+        collateral: ethers.formatUnits(loan.collateral, 6),
+        borrowed: ethers.formatUnits(loan.borrowed, 6),
+        endDate: loan.endDateNumber(,
+        numberOfDays: loan.numberOfDaysNumber(
       };
     } catch (error) {
       console.error('Error getting loan information:', error);
@@ -238,11 +238,11 @@ class ChicksService {
     
     try {
       // Minimum trade amount (0.13 USDC for mainnet)
-      const MIN_TRADE_AMOUNT = ethers.utils.parseUnits('0.13', 6); // 0.13 USDC minimum
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const MIN_TRADE_AMOUNT = ethers.parseUnits('0.13', 6); // 0.13 USDC minimum
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Check if the amount meets the minimum requirement
-      if (parsedAmount.lt(MIN_TRADE_AMOUNT)) {
+      if (parsedAmount.LT_TEMP(MIN_TRADE_AMOUNT)) {
         throw new Error(`Minimum trade amount is 0.13 USDC. You entered ${usdcAmount} USDC.`);
       }
       
@@ -255,7 +255,7 @@ class ChicksService {
       const allowance = await usdcContract.allowance(address, this.contractAddress);
       
       // If allowance is insufficient, approve first
-      if (allowance.lt(parsedAmount)) {
+      if (allowance.LT_TEMP(parsedAmount)) {
         const approveTx = await usdcContract.approve(this.contractAddress, parsedAmount);
         await approveTx.wait();
       }
@@ -274,7 +274,7 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
+      const parsedAmount = ethers.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
       
       // Check if the amount will result in a USDC value that meets the minimum requirement
       // We need to check if the resulting USDC amount / FEES_SELL > MIN
@@ -282,7 +282,7 @@ class ChicksService {
       // So we need to ensure the USDC equivalent is at least 0.13 USDC
       const usdcAmount = await this.contract!.ChicksToUSDC(parsedAmount);
       const feeAddressAmount = usdcAmount.div(125); // FEES_SELL is 125
-      const MIN = ethers.utils.parseUnits('1000', 0); // MIN is 1000 in the contract
+      const MIN = ethers.parseUnits('1000', 0); // MIN is 1000 in the contract
       
       if (feeAddressAmount.lte(MIN)) {
         const minChicksNeeded = await this.getMinSellAmount();
@@ -306,7 +306,7 @@ class ChicksService {
       // MIN is 1000, FEES_SELL is 125
       // So minimum USDC is 1000 * 125 = 125,000 (or 0.125 USDC with 6 decimals)
       // Add a small buffer to be safe: 0.13 USDC
-      const minUsdcAmount = ethers.utils.parseUnits('0.13', 6);
+      const minUsdcAmount = ethers.parseUnits('0.13', 6);
       
       // Now convert this USDC amount to CHICKS
       // We need to use the contract's price to convert accurately
@@ -317,8 +317,8 @@ class ChicksService {
       
       // Calculate minimum CHICKS: minUsdcAmount / price
       // Since both have 6 decimals, we can divide directly
-      const minChicksAmount = minUsdcAmount.mul(ethers.utils.parseUnits('1', 6)).div(price);
-      return ethers.utils.formatUnits(minChicksAmount, 6);
+      const minChicksAmount = minUsdcAmount.MUL_TEMP(ethers.parseUnits('1', 6)).div(price);
+      return ethers.formatUnits(minChicksAmount, 6);
     } catch (error) {
       console.error('Error calculating minimum sell amount:', error);
       return '0.13'; // Return a reasonable default if calculation fails
@@ -328,9 +328,9 @@ class ChicksService {
   // Get the amount of CHICKS that would be received for a given USDC amount
   public async getBuyAmount(usdcAmount: string): Promise<string> {
     try {
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       const chicksAmount = await this.contract!.getBuyAmount(parsedAmount);
-      return ethers.utils.formatUnits(chicksAmount, 6); // CHICKS has 6 decimals
+      return ethers.formatUnits(chicksAmount, 6); // CHICKS has 6 decimals
     } catch (error) {
       console.error('Error getting buy amount:', error);
       throw error;
@@ -340,9 +340,9 @@ class ChicksService {
   // Get the amount of USDC that would be received for a given CHICKS amount
   public async getSellAmount(chicksAmount: string): Promise<string> {
     try {
-      const parsedAmount = ethers.utils.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
+      const parsedAmount = ethers.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
       const usdcAmount = await this.contract!.ChicksToUSDC(parsedAmount);
-      return ethers.utils.formatUnits(usdcAmount, 6); // USDC has 6 decimals
+      return ethers.formatUnits(usdcAmount, 6); // USDC has 6 decimals
     } catch (error) {
       console.error('Error getting sell amount:', error);
       throw error;
@@ -363,9 +363,9 @@ class ChicksService {
         throw new Error('Invalid number of days');
       }
       
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       const fee = await this.contract!.leverageFee(parsedAmount, numberOfDays);
-      return ethers.utils.formatUnits(fee, 6); // USDC has 6 decimals
+      return ethers.formatUnits(fee, 6); // USDC has 6 decimals
     } catch (error) {
       console.error('Error calculating leverage fee:', error);
       throw error;
@@ -393,28 +393,28 @@ class ChicksService {
         throw new Error('You already have an active loan. Please repay or close your existing position before creating a new one.');
       }
       
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Calculate the fee
       const fee = await this.contract!.leverageFee(parsedAmount, numberOfDays);
       
       // Get total amount needed (USDC amount + fee)
-      const totalAmount = parsedAmount.add(fee);
+      const totalAmount = parsedAmount.ADD_TEMP(fee);
       
       // Get USDC contract
       const usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, this.signer!);
       
       // Check USDC balance
       const balance = await usdcContract.balanceOf(address);
-      if (balance.lt(totalAmount)) {
-        throw new Error(`Insufficient USDC balance. You need ${ethers.utils.formatUnits(totalAmount, 6)} USDC but have ${ethers.utils.formatUnits(balance, 6)} USDC.`);
+      if (balance.LT_TEMP(totalAmount)) {
+        throw new Error(`Insufficient USDC balance. You need ${ethers.formatUnits(totalAmount, 6)} USDC but have ${ethers.formatUnits(balance, 6)} USDC.`);
       }
       
       // Check allowance
       const allowance = await usdcContract.allowance(address, this.contractAddress);
       
       // If allowance is insufficient, approve first
-      if (allowance.lt(totalAmount)) {
+      if (allowance.LT_TEMP(totalAmount)) {
         console.log('Approving USDC spend...');
         try {
           const approveTx = await usdcContract.approve(this.contractAddress, ethers.constants.MaxUint256);
@@ -448,7 +448,7 @@ class ChicksService {
         try {
           const tx = await this.contract!.leverage(parsedAmount, numberOfDays, {
             gasLimit: 2000000,
-            gasPrice: ethers.utils.parseUnits('50', 'gwei')
+            gasPrice: ethers.parseUnits('50', 'gwei')
           });
           console.log('Leverage transaction submitted (second attempt):', tx.hash);
           return tx;
@@ -491,7 +491,7 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Execute borrow transaction
       const tx = await this.contract!.borrow(parsedAmount, numberOfDays);
@@ -517,7 +517,7 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Execute borrowMore transaction
       const tx = await this.contract!.borrowMore(parsedAmount);
@@ -549,7 +549,7 @@ class ChicksService {
         usdcAmount = borrowedAmount.toString();
       }
       
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Get USDC contract
       const address = await this.signer!.getAddress();
@@ -559,7 +559,7 @@ class ChicksService {
       const allowance = await usdcContract.allowance(address, this.contractAddress);
       
       // If allowance is insufficient, approve first
-      if (allowance.lt(parsedAmount)) {
+      if (allowance.LT_TEMP(parsedAmount)) {
         const approveTx = await usdcContract.approve(this.contractAddress, parsedAmount);
         await approveTx.wait();
       }
@@ -583,7 +583,7 @@ class ChicksService {
       const borrowedAmount = loan.borrowed;
       
       // Parse the borrowed amount
-      const parsedAmount = ethers.utils.parseUnits(borrowedAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(borrowedAmount, 6); // USDC has 6 decimals
       
       // Get USDC contract
       const address = await this.signer!.getAddress();
@@ -593,7 +593,7 @@ class ChicksService {
       const allowance = await usdcContract.allowance(address, this.contractAddress);
       
       // If allowance is insufficient, approve first
-      if (allowance.lt(parsedAmount)) {
+      if (allowance.LT_TEMP(parsedAmount)) {
         const approveTx = await usdcContract.approve(this.contractAddress, parsedAmount);
         await approveTx.wait();
       }
@@ -660,7 +660,7 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
+      const parsedAmount = ethers.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
       
       // Execute removeCollateral transaction
       const tx = await this.contract!.removeCollateral(parsedAmount);
@@ -676,7 +676,7 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedFee = ethers.utils.parseUnits(extensionFee, 6); // USDC has 6 decimals
+      const parsedFee = ethers.parseUnits(extensionFee, 6); // USDC has 6 decimals
       
       // Get USDC contract
       const address = await this.signer!.getAddress();
@@ -686,7 +686,7 @@ class ChicksService {
       const allowance = await usdcContract.allowance(address, this.contractAddress);
       
       // If allowance is insufficient, approve first
-      if (allowance.lt(parsedFee)) {
+      if (allowance.LT_TEMP(parsedFee)) {
         const approveTx = await usdcContract.approve(this.contractAddress, parsedFee);
         await approveTx.wait();
       }
@@ -705,12 +705,12 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(usdcAmount, 6); // USDC has 6 decimals
+      const parsedAmount = ethers.parseUnits(usdcAmount, 6); // USDC has 6 decimals
       
       // Calculate the fee using the correct function name getInterestFee
       const fee = await this.contract!.getInterestFee(parsedAmount, numberOfDays);
       
-      return ethers.utils.formatUnits(fee, 6);
+      return ethers.formatUnits(fee, 6);
     } catch (error) {
       console.error('Error calculating borrow fee:', error);
       throw error;
@@ -736,7 +736,7 @@ class ChicksService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
+      const parsedAmount = ethers.parseUnits(chicksAmount, 6); // CHICKS has 6 decimals
       
       // Execute addCollateral transaction
       const tx = await this.contract!.addCollateral(parsedAmount);
@@ -766,11 +766,11 @@ class ChicksService {
       // Liquidation happens when collateral value = debt * liquidation threshold (usually 110%)
       // So: collateral * liquidation_price = debt * 1.1
       // liquidation_price = (debt * 1.1) / collateral
-      const totalDebt = loan.borrowed.add(loan.interest);
-      const liquidationThreshold = ethers.BigNumber.from(110).mul(totalDebt).div(100);
-      const liquidationPrice = liquidationThreshold.mul(ethers.utils.parseUnits('1', 6)).div(loan.collateral);
+      const totalDebt = loan.borrowed.ADD_TEMP(loan.interest);
+      const liquidationThreshold = BigInt(110).MUL_TEMP(totalDebt).div(100);
+      const liquidationPrice = liquidationThreshold.MUL_TEMP(ethers.parseUnits('1', 6)).div(loan.collateral);
       
-      return ethers.utils.formatUnits(liquidationPrice, 6);
+      return ethers.formatUnits(liquidationPrice, 6);
     } catch (error) {
       console.error('Error calculating liquidation price:', error);
       throw error;
@@ -797,11 +797,11 @@ class ChicksService {
       
       // Calculate health factor
       // Health factor = (collateral * price) / (borrowed + interest)
-      const collateralValue = loan.collateral.mul(price).div(ethers.utils.parseUnits('1', 6));
-      const totalDebt = loan.borrowed.add(loan.interest);
-      const healthFactor = collateralValue.mul(100).div(totalDebt);
+      const collateralValue = loan.collateral.MUL_TEMP(price).div(ethers.parseUnits('1', 6));
+      const totalDebt = loan.borrowed.ADD_TEMP(loan.interest);
+      const healthFactor = collateralValue.MUL_TEMP(100).div(totalDebt);
       
-      return ethers.utils.formatUnits(healthFactor, 2);
+      return ethers.formatUnits(healthFactor, 2);
     } catch (error) {
       console.error('Error calculating health factor:', error);
       throw error;

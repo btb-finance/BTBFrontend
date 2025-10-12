@@ -67,8 +67,7 @@ export default function BorrowForm({ btbBalance, onSuccess }: BorrowFormProps) {
       setIsLoading(true);
       await btbFinanceService.connect();
       
-      const tx = await btbFinanceService.borrowAgainstCollateral(ethAmount, parseInt(days));
-      await tx.wait();
+      await btbFinanceService.borrowAgainstCollateral(ethAmount, parseInt(days));
       
       onSuccess();
       setEthAmount('');

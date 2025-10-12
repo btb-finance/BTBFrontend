@@ -120,7 +120,6 @@ export default function ExtendLoanForm({ hasLoan, loanData, usdcBalance, onSucce
       const tx = await chicksService.extendLoan(additionalDays, extensionFee);
       
       // Wait for transaction to be mined
-      await tx.wait();
       
       // Call onSuccess callback to refresh data
       onSuccess();

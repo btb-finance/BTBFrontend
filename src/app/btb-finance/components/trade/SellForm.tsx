@@ -73,7 +73,6 @@ export default function SellForm({ btbPrice, btbBalance, onSuccess }: SellFormPr
 
     try {
       const tx = await btbFinanceService.sellBTB(btbAmount);
-      await tx.wait();
       
       // Reset form
       setBtbAmount('');

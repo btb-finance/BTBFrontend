@@ -24,7 +24,7 @@ export default function LotteryCountdown({ contractAddress }: LotteryCountdownPr
   useEffect(() => {
     const fetchNextDrawTime = async () => {
       try {
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         const contract = new ethers.Contract(contractAddress, megapotABI, provider);
         
         // Get last jackpot end time and round duration
@@ -32,8 +32,8 @@ export default function LotteryCountdown({ contractAddress }: LotteryCountdownPr
         const roundDuration = await contract.roundDurationInSeconds();
         
         // Calculate next draw time
-        const nextDrawTimestamp = lastJackpotEndTime.add(roundDuration);
-        const nextDrawDate = new Date(nextDrawTimestamp.toNumber() * 1000);
+        const nextDrawTimestamp = lastJackpotEndTime.ADD_TEMP(roundDuration);
+        const nextDrawDate = new Date(nextDrawTimestampNumber( * 1000);
         
         setNextDrawTime(nextDrawDate);
       } catch (error) {

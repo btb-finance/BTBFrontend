@@ -51,7 +51,6 @@ export default function LoansManagement() {
     try {
       setTxStatus('Repaying loan...');
       const tx = await larryService.repay(repayAmount);
-      await tx.wait();
       
       setTxStatus('Repayment successful!');
       setRepayAmount('');
@@ -75,7 +74,6 @@ export default function LoansManagement() {
     try {
       setTxStatus('Extending loan...');
       const tx = await larryService.extendLoan(extendDays);
-      await tx.wait();
       
       setTxStatus('Extension successful!');
       setExtendDays('30');
@@ -99,7 +97,6 @@ export default function LoansManagement() {
     try {
       setTxStatus('Borrowing more...');
       const tx = await larryService.borrowMore(borrowMore);
-      await tx.wait();
       
       setTxStatus('Additional borrow successful!');
       setBorrowMore('');
@@ -123,7 +120,6 @@ export default function LoansManagement() {
     try {
       setTxStatus('Removing collateral...');
       const tx = await larryService.removeCollateral(removeCollateral);
-      await tx.wait();
       
       setTxStatus('Collateral removed successfully!');
       setRemoveCollateral('');
@@ -147,7 +143,6 @@ export default function LoansManagement() {
     try {
       setTxStatus('Closing position...');
       const tx = await larryService.closePosition();
-      await tx.wait();
       
       setTxStatus('Position closed successfully!');
     } catch (error: any) {
@@ -170,7 +165,6 @@ export default function LoansManagement() {
     try {
       setTxStatus('Flash closing position...');
       const tx = await larryService.flashClosePosition();
-      await tx.wait();
       
       setTxStatus('Position flash closed successfully!');
     } catch (error: any) {

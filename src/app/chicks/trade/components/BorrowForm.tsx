@@ -218,7 +218,6 @@ export default function BorrowForm({ chicksPrice, chicksBalance, onSuccess }: Bo
         tx = await chicksService.borrow(usdcAmount, days);
       }
       
-      await tx.wait();
 
       // Reset form
       setUsdcAmount('');

@@ -68,7 +68,6 @@ export default function LeverageForm({ btbPrice, usdcBalance, onSuccess }: Lever
 
     try {
       const tx = await btbFinanceService.createLeveragePosition(ethAmount, numberOfDays);
-      await tx.wait();
       
       // Reset form
       setEthAmount('');

@@ -114,8 +114,8 @@ export default function TokenSelector({
     setIsLoading(true);
     try {
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.providers.Web3Provider(window.ethereum as ethers.providers.ExternalProvider);
-      const signer = provider.getSigner();
+      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
+      const signer = await provider.getSigner();
       const address = await signer.getAddress();
 
       const updatedTokens = await Promise.all(
@@ -127,7 +127,7 @@ export default function TokenSelector({
             
             return {
               ...token,
-              balance: ethers.utils.formatUnits(balance, decimals),
+              balance: ethers.formatUnits(balance, decimals),
               decimals
             };
           } catch (error) {
@@ -164,7 +164,7 @@ export default function TokenSelector({
 
     try {
       if (!window.ethereum) throw new Error("Ethereum provider not found");
-      const provider = new ethers.providers.Web3Provider(window.ethereum as ethers.providers.ExternalProvider);
+      const provider = new ethers.BrowserProvider(window.ethereum as ethers.providers.ExternalProvider);
       const tokenContract = new ethers.Contract(customTokenAddress, erc20ABI, provider);
       
       const [name, symbol, decimals] = await Promise.all([
@@ -175,10 +175,10 @@ export default function TokenSelector({
 
       let balance = '0';
       if (isConnected) {
-        const signer = provider.getSigner();
+        const signer = await provider.getSigner();
         const address = await signer.getAddress();
         const balanceWei = await tokenContract.balanceOf(address);
-        balance = ethers.utils.formatUnits(balanceWei, decimals);
+        balance = ethers.formatUnits(balanceWei, decimals);
       }
 
       // Check if token already exists in the list

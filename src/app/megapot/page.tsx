@@ -158,10 +158,10 @@ export default function MegapotPage() {
           await window.ethereum.request({ method: 'eth_requestAccounts' });
           
           // Create a fresh provider
-          const provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+          const provider = new ethers.BrowserProvider(window.ethereum, 'any');
           // Force provider to update its accounts
           await provider.send('eth_accounts', []);
-          const signer = provider.getSigner();
+          const signer = await provider.getSigner();
           const account = await signer.getAddress();
           console.log('Current signer account:', account);
           
@@ -189,15 +189,15 @@ export default function MegapotPage() {
           
           // Check USDC balance with the current signer account
           const balance = await usdcContract.balanceOf(account);
-          console.log('USDC balance refreshed successfully (web3):', ethers.utils.formatUnits(balance, 6));
+          console.log('USDC balance refreshed successfully (web3):', ethers.formatUnits(balance, 6));
           
-          return parseFloat(ethers.utils.formatUnits(balance, 6));
+          return parseFloat(ethers.formatUnits(balance, 6));
         } catch (error) {
           console.error('Error fetching balance with Web3Provider:', error);
           
           // Fallback to JsonRpcProvider
           console.log('Falling back to JsonRpcProvider for USDC balance');
-          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
           
           // Use minimal ABI
           const minABI = [
@@ -215,14 +215,14 @@ export default function MegapotPage() {
           
           // Check USDC balance with explicit address
           const balance = await usdcContract.balanceOf(address);
-          console.log('USDC balance refreshed successfully (rpc):', ethers.utils.formatUnits(balance, 6));
+          console.log('USDC balance refreshed successfully (rpc):', ethers.formatUnits(balance, 6));
           
-          return parseFloat(ethers.utils.formatUnits(balance, 6));
+          return parseFloat(ethers.formatUnits(balance, 6));
         }
       } else {
         // Use JsonRpcProvider if window.ethereum not available
         console.log('No window.ethereum, using JsonRpcProvider');
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         
         // Use minimal ABI
         const minABI = [
@@ -240,9 +240,9 @@ export default function MegapotPage() {
         
         // Check USDC balance with explicit address
         const balance = await usdcContract.balanceOf(address);
-        console.log('USDC balance refreshed successfully (fallback):', ethers.utils.formatUnits(balance, 6));
+        console.log('USDC balance refreshed successfully (fallback):', ethers.formatUnits(balance, 6));
         
-        return parseFloat(ethers.utils.formatUnits(balance, 6));
+        return parseFloat(ethers.formatUnits(balance, 6));
       }
     } catch (error) {
       console.error('Error explicitly fetching USDC balance:', error);
@@ -296,7 +296,7 @@ export default function MegapotPage() {
           // Add type guard to make TypeScript happy
           if (!window.ethereum) return;
           
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const provider = new ethers.BrowserProvider(window.ethereum);
           const network = await provider.getNetwork();
           if (network.chainId !== 8453) { // If not on Base
             switchNetwork('BASE'); // Silently switch
@@ -328,16 +328,16 @@ export default function MegapotPage() {
     const fetchContractData = async () => {
       try {
         // Use public provider for Base network
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         const contract = new ethers.Contract(CONTRACT_ADDRESS, megapotABI, provider);
         
         // Get jackpot pool size
         const lpPoolTotal = await contract.lpPoolTotal();
-        setJackpotAmount(parseFloat(ethers.utils.formatUnits(lpPoolTotal, 6)));
+        setJackpotAmount(parseFloat(ethers.formatUnits(lpPoolTotal, 6)));
         
         // Get ticket price
         const price = await contract.ticketPrice();
-        setTicketPrice(parseFloat(ethers.utils.formatUnits(price, 6)));
+        setTicketPrice(parseFloat(ethers.formatUnits(price, 6)));
         
         // Get last winner
         const winner = await contract.lastWinnerAddress();
@@ -346,7 +346,7 @@ export default function MegapotPage() {
         // Get active participants count - using ticketCountTotal instead of userLimit
         const ticketCountTotalBps = await contract.ticketCountTotalBps();
         // Convert from basis points and divide by 10000 to get actual count
-        const actualParticipants = Math.ceil(ticketCountTotalBps.div(10000).toNumber() / 3); // Assuming average 3 tickets per user
+        const actualParticipants = Math.ceil(ticketCountTotalBps.div(10000)Number( / 3); // Assuming average 3 tickets per user
         setParticipants(actualParticipants);
         
         setIsLoading(false);

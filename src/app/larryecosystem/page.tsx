@@ -338,7 +338,6 @@ export default function LarryEcosystemPage() {
     setError('');
     try {
       const tx = await larryService.buyTokens(ethAmount);
-      await tx.wait();
       setSuccess('LARRY tokens purchased successfully!');
       setEthAmount('');
       setBuyQuote(null);
@@ -356,7 +355,6 @@ export default function LarryEcosystemPage() {
     setError('');
     try {
       const tx = await larryService.sellTokens(larryAmount);
-      await tx.wait();
       setSuccess('LARRY tokens sold successfully!');
       setLarryAmount('');
       setSellQuote(null);
@@ -376,7 +374,6 @@ export default function LarryEcosystemPage() {
       // Use the calculated position size, not the fee amount entered by user
       const positionSize = leverageQuote.calculatedPositionSize || leverageQuote.ethPosition;
       const tx = await larryService.leverage(positionSize, leverageDays);
-      await tx.wait();
       setSuccess(`Leverage position opened! Paid ${leverageEthAmount} ETH fee for ${parseFloat(positionSize).toFixed(4)} ETH position.`);
       setLeverageEthAmount('');
       setLeverageQuote(null);
@@ -399,12 +396,10 @@ export default function LarryEcosystemPage() {
       if (hasExistingLoan) {
         // Borrow more on existing loan
         const tx = await larryService.borrowMore(borrowEthAmount);
-        await tx.wait();
         setSuccess(`Borrowed more successfully! Added ${borrowEthAmount} ETH to your existing loan.`);
       } else {
         // Create new loan
         const tx = await larryService.borrow(borrowEthAmount, borrowDays);
-        await tx.wait();
         setSuccess('New loan created successfully!');
       }
       
@@ -427,7 +422,6 @@ export default function LarryEcosystemPage() {
       // If repayAmount is empty or 0, repay full amount, otherwise repay specific amount
       const amountToRepay = !repayAmount || parseFloat(repayAmount) === 0 ? '0' : repayAmount;
       const tx = await larryService.repay(amountToRepay);
-      await tx.wait();
       setSuccess(`Loan repaid successfully! Amount: ${amountToRepay === '0' ? 'Full amount' : amountToRepay + ' ETH'}`);
       setRepayAmount(''); // Clear input after successful repay
       await refreshData(); // Refresh loan data
@@ -445,7 +439,6 @@ export default function LarryEcosystemPage() {
     setError('');
     try {
       const tx = await larryService.flashClosePosition();
-      await tx.wait();
       setSuccess('Position closed successfully with flash loan!');
       await refreshData(); // Refresh loan data
     } catch (error: any) {

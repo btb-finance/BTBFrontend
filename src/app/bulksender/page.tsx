@@ -94,7 +94,7 @@ export default function BulkSenderPage() {
         let currentChainId = 8453; // Default to Base Mainnet
         
         if (typeof window.ethereum !== 'undefined') {
-          const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+          const web3Provider = new ethers.BrowserProvider(window.ethereum);
           const network = await web3Provider.getNetwork();
           currentChainId = network.chainId;
         }
@@ -106,7 +106,7 @@ export default function BulkSenderPage() {
           providerUrl = 'https://sepolia.base.org'; // Use Base Sepolia provider if on testnet
         }
         
-        const provider = new ethers.providers.JsonRpcProvider(providerUrl);
+        const provider = new ethers.JsonRpcProvider(providerUrl);
         
         // Use appropriate contract address based on the network
         const networkContractAddress = CONTRACT_ADDRESSES[currentChainId] || DEFAULT_CONTRACT_ADDRESS;
@@ -116,11 +116,11 @@ export default function BulkSenderPage() {
         
         // Get fee per bulk
         const fee = await contract.feePerBulk();
-        setCurrentFee(ethers.utils.formatEther(fee));
+        setCurrentFee(ethers.formatEther(fee));
         
         // Get max transfers
         const max = await contract.maxTransfersPerBulk();
-        setMaxTransfers(max.toNumber());
+        setMaxTransfers(maxNumber();
         
         setIsLoading(false);
       } catch (error) {
@@ -140,7 +140,7 @@ export default function BulkSenderPage() {
           // Add type guard
           if (!window.ethereum) return;
           
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const provider = new ethers.BrowserProvider(window.ethereum);
           const network = await provider.getNetwork();
           
           // Check if the network is either Base Mainnet (8453) or Base Sepolia (84532)

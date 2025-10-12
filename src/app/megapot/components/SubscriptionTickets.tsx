@@ -74,8 +74,8 @@ export default function SubscriptionTickets({
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
             // Get contract instance
-            const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-            const signer = provider.getSigner();
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
+            const signer = await provider.getSigner();
             const subscriptionContract = new ethers.Contract(
               SUBSCRIPTION_CONTRACT_ADDRESS,
               subscriptionJackpotABI,
@@ -91,14 +91,14 @@ export default function SubscriptionTickets({
                   numericTicketsPerDay,
                   numericDaysCount
                 );
-                setTotalPrice(parseFloat(ethers.utils.formatUnits(upgradeCost, 6)));
+                setTotalPrice(parseFloat(ethers.formatUnits(upgradeCost, 6)));
               } else {
                 // Use contract method to calculate subscription cost
                 const subscriptionCost = await subscriptionContract.calculateSubscriptionCost(
                   numericTicketsPerDay,
                   numericDaysCount
                 );
-                setTotalPrice(parseFloat(ethers.utils.formatUnits(subscriptionCost, 6)));
+                setTotalPrice(parseFloat(ethers.formatUnits(subscriptionCost, 6)));
               }
             } else {
               setTotalPrice(0); // Zero days means zero cost
@@ -155,7 +155,7 @@ export default function SubscriptionTickets({
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
             console.log('SubscriptionTickets: Refreshing USDC balance for', userAddress);
-            const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
             
             // Force provider to update its accounts
             await provider.send('eth_accounts', []);
@@ -171,7 +171,7 @@ export default function SubscriptionTickets({
               return; // Don't proceed until reconnection is complete
             }
             
-            const signer = provider.getSigner();
+            const signer = await provider.getSigner();
             const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
             const subscriptionContract = new ethers.Contract(
               SUBSCRIPTION_CONTRACT_ADDRESS,
@@ -181,13 +181,13 @@ export default function SubscriptionTickets({
             
             // Check USDC balance
             const balance = await usdcContract.balanceOf(userAddress);
-            const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+            const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
             console.log('SubscriptionTickets: USDC balance refreshed:', formattedBalance);
             setUsdcBalance(formattedBalance);
 
             // Check if USDC is approved for the subscription contract
             const allowance = await usdcContract.allowance(userAddress, SUBSCRIPTION_CONTRACT_ADDRESS);
-            const requiredAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
+            const requiredAmount = ethers.parseUnits(totalPrice.toString(), 6);
             setIsApproved(allowance.gte(requiredAmount));
             
             // Get cashback percentage
@@ -195,8 +195,8 @@ export default function SubscriptionTickets({
             console.log('Cashback from contract (basis points):', subscriberCashbackPercentage.toString());
             // Convert from basis points (1/100 of a percent) to actual percentage
             // 10000 basis points = 100%, so divide by 100 to get percentage
-            setCashbackPercentage(subscriberCashbackPercentage.toNumber() / 100);
-            console.log('Converted cashback percentage:', subscriberCashbackPercentage.toNumber() / 100);
+            setCashbackPercentage(subscriberCashbackPercentageNumber( / 100);
+            console.log('Converted cashback percentage:', subscriberCashbackPercentageNumber( / 100);
             
             // Check if user has an active subscription
             const hasSubscription = await subscriptionContract.hasActiveSubscription(userAddress);
@@ -206,9 +206,9 @@ export default function SubscriptionTickets({
               // Get subscription details
               const subscriptionDetails = await subscriptionContract.getSubscription(userAddress);
               setSubscription({
-                ticketsPerDay: subscriptionDetails[0].toNumber(),
-                daysRemaining: subscriptionDetails[1].toNumber(),
-                lastProcessedBatchDay: subscriptionDetails[2].toNumber(),
+                ticketsPerDay: subscriptionDetails[0]Number(,
+                daysRemaining: subscriptionDetails[1]Number(,
+                lastProcessedBatchDay: subscriptionDetails[2]Number(,
                 isActive: subscriptionDetails[3]
               });
             }
@@ -238,16 +238,16 @@ export default function SubscriptionTickets({
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
             // Force a fresh provider instance
-            const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+            const provider = new ethers.BrowserProvider(window.ethereum as any, 'any');
             // Force provider to update its accounts
             await provider.send('eth_accounts', []);
             
-            const signer = provider.getSigner();
+            const signer = await provider.getSigner();
             const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
             
             // Explicitly check USDC balance again
             const balance = await usdcContract.balanceOf(userAddress);
-            const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+            const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
             console.log('SubscriptionTickets: USDC balance explicitly refreshed:', formattedBalance);
             setUsdcBalance(formattedBalance);
           }
@@ -265,7 +265,7 @@ export default function SubscriptionTickets({
     const verifyWalletConnection = async () => {
       if (isConnected && typeof window !== 'undefined' && window.ethereum) {
         try {
-          const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+          const provider = new ethers.BrowserProvider(window.ethereum as any);
           const accounts = await provider.listAccounts();
           
           // If wallet says it's connected but has no accounts, we need to reconnect
@@ -292,7 +292,7 @@ export default function SubscriptionTickets({
       // Force provider to update when window gains focus
       if (typeof window !== 'undefined' && window.ethereum) {
         try {
-          const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          const provider = new ethers.BrowserProvider(window.ethereum as any, 'any');
           await provider.send('eth_accounts', []);
         } catch (err) {
           console.error("Error refreshing accounts on focus:", err);
@@ -321,10 +321,10 @@ export default function SubscriptionTickets({
           await window.ethereum.request({ method: 'eth_requestAccounts' });
           
           // Create a fresh provider instance
-          const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          const provider = new ethers.BrowserProvider(window.ethereum as any, 'any');
           await provider.send('eth_accounts', []);
           
-          const signer = provider.getSigner();
+          const signer = await provider.getSigner();
           const account = await signer.getAddress();
           console.log('Current signer account:', account);
           
@@ -344,7 +344,7 @@ export default function SubscriptionTickets({
           
           // Get balance with explicit address
           const balance = await usdcContract.balanceOf(account);
-          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
           console.log('SubscriptionTickets: USDC balance manually refreshed (web3):', formattedBalance);
           setUsdcBalance(formattedBalance);
         } catch (error) {
@@ -352,7 +352,7 @@ export default function SubscriptionTickets({
           
           // Fallback to JsonRpcProvider
           console.log("Falling back to JsonRpcProvider for balance check");
-          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
           
           // Use minimal ABI
           const minABI = [
@@ -370,14 +370,14 @@ export default function SubscriptionTickets({
           
           // Explicitly use user address
           const balance = await usdcContract.balanceOf(userAddress);
-          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
           console.log('SubscriptionTickets: USDC balance manually refreshed (rpc):', formattedBalance);
           setUsdcBalance(formattedBalance);
         }
       } else {
         // Fallback to JsonRpcProvider if window.ethereum not available
         console.log("No window.ethereum, using JsonRpcProvider");
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         
         // Use minimal ABI
         const minABI = [
@@ -395,7 +395,7 @@ export default function SubscriptionTickets({
         
         // Explicitly use user address
         const balance = await usdcContract.balanceOf(userAddress);
-        const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+        const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
         console.log('SubscriptionTickets: USDC balance manually refreshed (fallback):', formattedBalance);
         setUsdcBalance(formattedBalance);
       }
@@ -415,15 +415,14 @@ export default function SubscriptionTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         
         // Approve a large amount for future transactions
-        const approvalAmount = ethers.utils.parseUnits(totalPrice.toString(), 6); // Only approve exact amount needed
+        const approvalAmount = ethers.parseUnits(totalPrice.toString(), 6); // Only approve exact amount needed
         const tx = await usdcContract.approve(SUBSCRIPTION_CONTRACT_ADDRESS, approvalAmount);
         
-        await tx.wait();
         setIsApproved(true);
         setSuccess('USDC approved successfully for subscription!');
         
@@ -452,8 +451,8 @@ export default function SubscriptionTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const subscriptionContract = new ethers.Contract(
           SUBSCRIPTION_CONTRACT_ADDRESS,
           subscriptionJackpotABI,
@@ -463,10 +462,10 @@ export default function SubscriptionTickets({
         // Check approval status again before proceeding
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         const allowance = await usdcContract.allowance(userAddress, SUBSCRIPTION_CONTRACT_ADDRESS);
-        const requiredAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
+        const requiredAmount = ethers.parseUnits(totalPrice.toString(), 6);
         
         // If not approved, handle approval first
-        if (allowance.lt(requiredAmount)) {
+        if (allowance.LT_TEMP(requiredAmount)) {
           setIsSubscribing(false);
           await handleApproveUsdc();
           return;
@@ -476,15 +475,14 @@ export default function SubscriptionTickets({
         const tx = await subscriptionContract.createSubscription(ticketsPerDay, daysCount);
         
         setTxHash(tx.hash);
-        await tx.wait();
         
         // Update subscription status
         setHasActiveSubscription(true);
         const subscriptionDetails = await subscriptionContract.getSubscription(userAddress);
         setSubscription({
-          ticketsPerDay: subscriptionDetails[0].toNumber(),
-          daysRemaining: subscriptionDetails[1].toNumber(),
-          lastProcessedBatchDay: subscriptionDetails[2].toNumber(),
+          ticketsPerDay: subscriptionDetails[0]Number(,
+          daysRemaining: subscriptionDetails[1]Number(,
+          lastProcessedBatchDay: subscriptionDetails[2]Number(,
           isActive: subscriptionDetails[3]
         });
         
@@ -519,8 +517,8 @@ export default function SubscriptionTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const subscriptionContract = new ethers.Contract(
           SUBSCRIPTION_CONTRACT_ADDRESS,
           subscriptionJackpotABI,
@@ -531,7 +529,6 @@ export default function SubscriptionTickets({
         const tx = await subscriptionContract.cancelSubscription();
         
         setTxHash(tx.hash);
-        await tx.wait();
         
         // Update subscription status
         setHasActiveSubscription(false);
@@ -569,8 +566,8 @@ export default function SubscriptionTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const subscriptionContract = new ethers.Contract(
           SUBSCRIPTION_CONTRACT_ADDRESS,
           subscriptionJackpotABI,
@@ -592,7 +589,7 @@ export default function SubscriptionTickets({
           numericDaysCount
         );
         
-        const formattedCost = ethers.utils.formatUnits(upgradeCost, 6);
+        const formattedCost = ethers.formatUnits(upgradeCost, 6);
         
         // Calculate explanation for user
         const currentValue = subscription.daysRemaining * subscription.ticketsPerDay * ticketPrice;
@@ -616,7 +613,7 @@ export default function SubscriptionTickets({
         const allowance = await usdcContract.allowance(userAddress, SUBSCRIPTION_CONTRACT_ADDRESS);
         
         // If not approved, handle approval first
-        if (allowance.lt(upgradeCost)) {
+        if (allowance.LT_TEMP(upgradeCost)) {
           setIsSubscribing(false);
           await handleApproveUsdc();
           return;
@@ -626,14 +623,13 @@ export default function SubscriptionTickets({
         const tx = await subscriptionContract.upgradeSubscription(numericTicketsPerDay, numericDaysCount);
         
         setTxHash(tx.hash);
-        await tx.wait();
         
         // Update subscription status
         const subscriptionDetails = await subscriptionContract.getSubscription(userAddress);
         setSubscription({
-          ticketsPerDay: subscriptionDetails[0].toNumber(),
-          daysRemaining: subscriptionDetails[1].toNumber(),
-          lastProcessedBatchDay: subscriptionDetails[2].toNumber(),
+          ticketsPerDay: subscriptionDetails[0]Number(,
+          daysRemaining: subscriptionDetails[1]Number(,
+          lastProcessedBatchDay: subscriptionDetails[2]Number(,
           isActive: subscriptionDetails[3]
         });
         

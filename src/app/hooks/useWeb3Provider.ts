@@ -4,7 +4,7 @@ import { useWallet } from '../context/WalletContext';
 
 export function useWeb3Provider() {
   const { address, isConnected } = useWallet();
-  const [provider, setProvider] = useState<ethers.providers.Web3Provider | null>(null);
+  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const [networkVersion, setNetworkVersion] = useState<string | null>(null);
 
@@ -18,7 +18,7 @@ export function useWeb3Provider() {
           
           // Create Web3Provider instance with explicit network
           // Need to cast window.ethereum to any to avoid type errors with ethers v5
-          const web3Provider = new ethers.providers.Web3Provider(
+          const web3Provider = new ethers.BrowserProvider(
             window.ethereum as any,
             {
               name: 'unknown',
@@ -53,7 +53,7 @@ export function useWeb3Provider() {
       // Re-initialize provider with new network
       if (isConnected && window.ethereum) {
         try {
-          const web3Provider = new ethers.providers.Web3Provider(
+          const web3Provider = new ethers.BrowserProvider(
             window.ethereum as any,
             {
               name: 'unknown',

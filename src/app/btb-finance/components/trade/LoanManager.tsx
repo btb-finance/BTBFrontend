@@ -51,7 +51,6 @@ export default function LoanManager({ onSuccess }: LoanManagerProps) {
       await btbFinanceService.connect();
       
       const tx = await btbFinanceService.makePayment(paymentAmount);
-      await tx.wait();
       
       onSuccess();
       setPaymentAmount('');
@@ -72,7 +71,6 @@ export default function LoanManager({ onSuccess }: LoanManagerProps) {
       await btbFinanceService.connect();
       
       const tx = await btbFinanceService.closePosition(loanInfo.borrowed);
-      await tx.wait();
       
       onSuccess();
       alert('Position closed successfully!');
@@ -92,7 +90,6 @@ export default function LoanManager({ onSuccess }: LoanManagerProps) {
       await btbFinanceService.connect();
       
       const tx = await btbFinanceService.instantClosePosition();
-      await tx.wait();
       
       onSuccess();
       alert('Position closed instantly!');
@@ -113,7 +110,6 @@ export default function LoanManager({ onSuccess }: LoanManagerProps) {
       await btbFinanceService.connect();
       
       const tx = await btbFinanceService.extendLoanDuration(parseInt(extensionDays));
-      await tx.wait();
       
       onSuccess();
       setExtensionDays('30');
@@ -135,7 +131,6 @@ export default function LoanManager({ onSuccess }: LoanManagerProps) {
       await btbFinanceService.connect();
       
       const tx = await btbFinanceService.expandLoan(expandAmount);
-      await tx.wait();
       
       onSuccess();
       setExpandAmount('');

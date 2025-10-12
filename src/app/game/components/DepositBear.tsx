@@ -46,7 +46,6 @@ export default function DepositBear({ bearTokens, onSuccess }: DepositBearProps)
       const tx = await gameService.depositBears(bearIds);
       
       setTxHash(tx.hash);
-      await tx.wait();
       
       setSelectedBears([]);
       onSuccess();

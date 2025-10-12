@@ -15,7 +15,7 @@ const BASE_NETWORK = {
 class BTBFinanceService {
   private contract: ethers.Contract | null = null;
   private btbTokenContract: ethers.Contract | null = null;
-  private provider: ethers.providers.StaticJsonRpcProvider | null = null;
+  private provider: ethers.JsonRpcProvider | null = null;
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
 
@@ -25,7 +25,7 @@ class BTBFinanceService {
 
   constructor() {
     // Initialize the read-only provider
-    this.provider = new ethers.providers.StaticJsonRpcProvider(
+    this.provider = new ethers.JsonRpcProvider(
       BASE_NETWORK.rpcUrl,
       {
         chainId: BASE_NETWORK.chainId,
@@ -88,13 +88,13 @@ class BTBFinanceService {
       }
 
       // Create Web3Provider and signer
-      const injectedProvider = new ethers.providers.Web3Provider(window.ethereum, {
+      const injectedProvider = new ethers.BrowserProvider(window.ethereum, {
         chainId: BASE_NETWORK.chainId,
         name: BASE_NETWORK.name,
         ensAddress: undefined
       });
       
-      this.signer = injectedProvider.getSigner();
+      this.signer = await injectedProvider.getSigner();
       
       // Initialize contracts with signer
       this.contract = new ethers.Contract(
@@ -141,7 +141,7 @@ class BTBFinanceService {
   public async getCurrentPrice(): Promise<string> {
     try {
       const price = await this.contract!.currentPrice();
-      return ethers.utils.formatEther(price);
+      return ethers.formatEther(price);
     } catch (error) {
       console.error('Error getting current price:', error);
       return '0.000001';
@@ -152,7 +152,7 @@ class BTBFinanceService {
   public async getBacking(): Promise<string> {
     try {
       const backing = await this.contract!.getProtocolBacking();
-      return ethers.utils.formatEther(backing);
+      return ethers.formatEther(backing);
     } catch (error) {
       console.error('Error getting backing:', error);
       return '0';
@@ -163,7 +163,7 @@ class BTBFinanceService {
   public async getTotalBorrowed(): Promise<string> {
     try {
       const totalBorrowed = await this.contract!.getTotalBorrowedAmount();
-      return ethers.utils.formatEther(totalBorrowed);
+      return ethers.formatEther(totalBorrowed);
     } catch (error) {
       console.error('Error getting total borrowed:', error);
       return '0';
@@ -174,7 +174,7 @@ class BTBFinanceService {
   public async getTotalCollateral(): Promise<string> {
     try {
       const totalCollateral = await this.contract!.getTotalCollateralAmount();
-      return ethers.utils.formatUnits(totalCollateral, 18);
+      return ethers.formatUnits(totalCollateral, 18);
     } catch (error) {
       console.error('Error getting total collateral:', error);
       return '0';
@@ -187,7 +187,7 @@ class BTBFinanceService {
     try {
       const address = await this.signer!.getAddress();
       const balance = await this.btbTokenContract!.balanceOf(address);
-      return ethers.utils.formatUnits(balance, 18); // BTB tokens typically have 18 decimals
+      return ethers.formatUnits(balance, 18); // BTB tokens typically have 18 decimals
     } catch (error) {
       console.error('Error getting BTB balance:', error);
       throw error;
@@ -203,9 +203,9 @@ class BTBFinanceService {
       const loan = await this.contract!.getUserLoanInfo(address);
       
       return {
-        collateral: ethers.utils.formatUnits(loan[0], 18),
-        borrowed: ethers.utils.formatEther(loan[1]),
-        expirationDate: loan[2].toNumber()
+        collateral: ethers.formatUnits(loan[0], 18),
+        borrowed: ethers.formatEther(loan[1]),
+        expirationDate: loan[2]Number(
       };
     } catch (error) {
       console.error('Error getting loan information:', error);
@@ -222,7 +222,7 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       const address = await this.signer!.getAddress();
       
       // Execute buy transaction - send ETH directly with recipient address
@@ -239,14 +239,14 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseUnits(btbAmount, 18); // BTB has 18 decimals
+      const parsedAmount = ethers.parseUnits(btbAmount, 18); // BTB has 18 decimals
       const address = await this.signer!.getAddress();
       
       // Check current allowance
       const currentAllowance = await this.btbTokenContract!.allowance(address, this.protocolAddress);
       
       // If allowance is insufficient, approve first
-      if (currentAllowance.lt(parsedAmount)) {
+      if (currentAllowance.LT_TEMP(parsedAmount)) {
         const approveTx = await this.btbTokenContract!.approve(this.protocolAddress, parsedAmount);
         await approveTx.wait();
       }
@@ -265,7 +265,7 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       // Get the total required amount directly from contract (returns BigNumber)
       const [, totalRequiredBN] = await this.contract!.getLoopOutput(parsedAmount, numberOfDays);
       
@@ -285,11 +285,11 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       // Get leverage cost
       const leverageCost = await this.contract!.calculateLeverageCost(parsedAmount, numberOfDays);
-      const overcollateralAmount = parsedAmount.div(100); // 1% overcollateral
-      const totalRequired = leverageCost.add(overcollateralAmount);
+      const overcollateralAmount = parsedAmount / BigInt(100); // 1% overcollateral
+      const totalRequired = leverageCost.ADD_TEMP(overcollateralAmount);
       
       // Execute leverage transaction
       const tx = await this.contract!.createLeveragePosition(parsedAmount, numberOfDays, {
@@ -307,7 +307,7 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       
       // Execute borrow transaction
       const tx = await this.contract!.borrowAgainstCollateral(parsedAmount, numberOfDays);
@@ -323,7 +323,7 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(amount);
+      const parsedAmount = ethers.parseEther(amount);
       const tx = await this.contract!.makePayment({ value: parsedAmount });
       return tx;
     } catch (error) {
@@ -337,7 +337,7 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(repayAmount);
+      const parsedAmount = ethers.parseEther(repayAmount);
       const tx = await this.contract!.closePosition({ value: parsedAmount });
       return tx;
     } catch (error) {
@@ -385,7 +385,7 @@ class BTBFinanceService {
     await this.ensureInitialized();
     
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       const tx = await this.contract!.expandLoan(parsedAmount);
       return tx;
     } catch (error) {
@@ -397,11 +397,11 @@ class BTBFinanceService {
   // Get loop output estimation
   public async getLoopOutput(ethAmount: string, numberOfDays: number): Promise<{tokens: string, totalRequired: string}> {
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       const [tokens, totalRequired] = await this.contract!.getLoopOutput(parsedAmount, numberOfDays);
       return {
-        tokens: ethers.utils.formatUnits(tokens, 18),
-        totalRequired: ethers.utils.formatEther(totalRequired)
+        tokens: ethers.formatUnits(tokens, 18),
+        totalRequired: ethers.formatEther(totalRequired)
       };
     } catch (error) {
       console.error('Error getting loop output:', error);
@@ -416,9 +416,9 @@ class BTBFinanceService {
       const address = await this.signer!.getAddress();
       const [userETH, userBorrow, interestFee] = await this.contract!.getMaxBorrow(address, numberOfDays);
       return {
-        userETH: ethers.utils.formatEther(userETH),
-        userBorrow: ethers.utils.formatEther(userBorrow),
-        interestFee: ethers.utils.formatEther(interestFee)
+        userETH: ethers.formatEther(userETH),
+        userBorrow: ethers.formatEther(userBorrow),
+        interestFee: ethers.formatEther(interestFee)
       };
     } catch (error) {
       console.error('Error getting max borrow:', error);
@@ -433,9 +433,9 @@ class BTBFinanceService {
       const address = await this.signer!.getAddress();
       const [maxETH, userBorrow, totalRequired] = await this.contract!.getMaxLoop(address, numberOfDays);
       return {
-        maxETH: ethers.utils.formatEther(maxETH),
-        userBorrow: ethers.utils.formatEther(userBorrow),
-        totalRequired: ethers.utils.formatEther(totalRequired)
+        maxETH: ethers.formatEther(maxETH),
+        userBorrow: ethers.formatEther(userBorrow),
+        totalRequired: ethers.formatEther(totalRequired)
       };
     } catch (error) {
       console.error('Error getting max loop:', error);
@@ -459,9 +459,9 @@ class BTBFinanceService {
   // Get purchase amount estimation
   public async getPurchaseEstimate(ethAmount: string): Promise<string> {
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       const estimate = await this.contract!.estimatePurchaseTokens(parsedAmount);
-      return ethers.utils.formatUnits(estimate, 18);
+      return ethers.formatUnits(estimate, 18);
     } catch (error) {
       console.error('Error getting purchase estimate:', error);
       return '0';
@@ -471,13 +471,13 @@ class BTBFinanceService {
   // Get sell amount estimation (what user will actually receive after 0.1% fee)
   public async getSellEstimate(btbAmount: string): Promise<string> {
     try {
-      const parsedAmount = ethers.utils.parseUnits(btbAmount, 18);
+      const parsedAmount = ethers.parseUnits(btbAmount, 18);
       // Use the same calculation as sellTokens function: calculateTokensToETH
       const ethToSend = await this.contract!.calculateTokensToETH(parsedAmount);
       // Apply trading fee - user gets tradingFeePercentage/10000 (default 9990/10000 = 99.9%)
       const tradingFeePercentage = await this.contract!.tradingFeePercentage();
-      const userETH = ethToSend.mul(tradingFeePercentage).div(10000);
-      return ethers.utils.formatEther(userETH);
+      const userETH = ethToSend.MUL_TEMP(tradingFeePercentage).div(10000);
+      return ethers.formatEther(userETH);
     } catch (error) {
       console.error('Error getting sell estimate:', error);
       return '0';
@@ -487,9 +487,9 @@ class BTBFinanceService {
   // Get leverage cost
   public async getLeverageCost(ethAmount: string, numberOfDays: number): Promise<string> {
     try {
-      const parsedAmount = ethers.utils.parseEther(ethAmount);
+      const parsedAmount = ethers.parseEther(ethAmount);
       const cost = await this.contract!.calculateLeverageCost(parsedAmount, numberOfDays);
-      return ethers.utils.formatEther(cost);
+      return ethers.formatEther(cost);
     } catch (error) {
       console.error('Error getting leverage cost:', error);
       return '0';
@@ -499,9 +499,9 @@ class BTBFinanceService {
   // Get interest cost for borrowing
   public async getInterestCost(amount: string, numberOfDays: number): Promise<string> {
     try {
-      const parsedAmount = ethers.utils.parseEther(amount);
+      const parsedAmount = ethers.parseEther(amount);
       const cost = await this.contract!.getInterestCost(parsedAmount, numberOfDays);
-      return ethers.utils.formatEther(cost);
+      return ethers.formatEther(cost);
     } catch (error) {
       console.error('Error getting interest cost:', error);
       return '0';

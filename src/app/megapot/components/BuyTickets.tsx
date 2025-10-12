@@ -66,21 +66,21 @@ export default function BuyTickets({
           if (typeof window !== 'undefined' && window.ethereum) {
             console.log('BuyTickets: Refreshing USDC balance for', userAddress);
             // Force provider to update its accounts
-            const provider = new ethers.providers.Web3Provider(window.ethereum as any);
+            const provider = new ethers.BrowserProvider(window.ethereum as any);
             await provider.send('eth_accounts', []);
             
-            const signer = provider.getSigner();
+            const signer = await provider.getSigner();
             const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
             
             // Check USDC balance
             const balance = await usdcContract.balanceOf(userAddress);
-            const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+            const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
             console.log('BuyTickets: USDC balance refreshed:', formattedBalance);
             setUsdcBalance(formattedBalance);
             
             // Check if USDC is approved for the cashback helper contract
             const allowance = await usdcContract.allowance(userAddress, CASHBACK_CONTRACT_ADDRESS);
-            const requiredAmount = ethers.utils.parseUnits((totalPrice).toString(), 6);
+            const requiredAmount = ethers.parseUnits((totalPrice).toString(), 6);
             setIsApproved(allowance.gte(requiredAmount));
           }
         } catch (error) {
@@ -100,16 +100,16 @@ export default function BuyTickets({
         try {
           if (typeof window !== 'undefined' && window.ethereum) {
             // Force a fresh provider instance
-            const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+            const provider = new ethers.BrowserProvider(window.ethereum as any, 'any');
             // Force provider to update its accounts
             await provider.send('eth_accounts', []);
             
-            const signer = provider.getSigner();
+            const signer = await provider.getSigner();
             const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
             
             // Explicitly check USDC balance again
             const balance = await usdcContract.balanceOf(userAddress);
-            const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+            const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
             console.log('BuyTickets: USDC balance explicitly refreshed:', formattedBalance);
             setUsdcBalance(formattedBalance);
           }
@@ -133,15 +133,14 @@ export default function BuyTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         
         // Only approve the exact amount needed for the purchase
-        const approvalAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
+        const approvalAmount = ethers.parseUnits(totalPrice.toString(), 6);
         const tx = await usdcContract.approve(CASHBACK_CONTRACT_ADDRESS, approvalAmount);
         
-        await tx.wait();
         setIsApproved(true);
         setSuccess(`USDC approved successfully for ${ticketCount} ticket${ticketCount !== 1 ? 's' : ''}!`);
         
@@ -170,19 +169,19 @@ export default function BuyTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const usdcContract = new ethers.Contract(usdcAddress, usdcABI, signer);
         const cashbackContract = new ethers.Contract(CASHBACK_CONTRACT_ADDRESS, buyticketABI, signer);
         
         // Calculate the exact amount in wei
-        const purchaseAmount = ethers.utils.parseUnits(totalPrice.toString(), 6);
+        const purchaseAmount = ethers.parseUnits(totalPrice.toString(), 6);
         
         // Check approval status again before proceeding
         const allowance = await usdcContract.allowance(userAddress, CASHBACK_CONTRACT_ADDRESS);
         
         // If not approved, handle approval first
-        if (allowance.lt(purchaseAmount)) {
+        if (allowance.LT_TEMP(purchaseAmount)) {
           setIsBuying(false);
           await handleApproveUsdc();
           return;
@@ -192,7 +191,6 @@ export default function BuyTickets({
         const tx = await cashbackContract.purchaseTicketsWithCashback(purchaseAmount);
         
         setTxHash(tx.hash);
-        await tx.wait();
         
         setSuccess(`Successfully purchased ${ticketCount} ticket${ticketCount !== 1 ? 's' : ''} with 10% cashback!`);
         
@@ -246,10 +244,10 @@ export default function BuyTickets({
           await window.ethereum.request({ method: 'eth_requestAccounts' });
           
           // Create a fresh provider instance
-          const provider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          const provider = new ethers.BrowserProvider(window.ethereum as any, 'any');
           await provider.send('eth_accounts', []);
           
-          const signer = provider.getSigner();
+          const signer = await provider.getSigner();
           const account = await signer.getAddress();
           console.log('Current signer account:', account);
           
@@ -269,7 +267,7 @@ export default function BuyTickets({
           
           // Get balance with explicit address
           const balance = await usdcContract.balanceOf(account);
-          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
           console.log('BuyTickets: USDC balance manually refreshed (web3):', formattedBalance);
           setUsdcBalance(formattedBalance);
         } catch (error) {
@@ -277,7 +275,7 @@ export default function BuyTickets({
           
           // Fallback to JsonRpcProvider
           console.log("Falling back to JsonRpcProvider for balance check");
-          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
           
           // Use minimal ABI
           const minABI = [
@@ -295,14 +293,14 @@ export default function BuyTickets({
           
           // Explicitly use user address
           const balance = await usdcContract.balanceOf(userAddress);
-          const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+          const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
           console.log('BuyTickets: USDC balance manually refreshed (rpc):', formattedBalance);
           setUsdcBalance(formattedBalance);
         }
       } else {
         // Fallback to JsonRpcProvider if window.ethereum not available
         console.log("No window.ethereum, using JsonRpcProvider");
-        const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         
         // Use minimal ABI
         const minABI = [
@@ -320,7 +318,7 @@ export default function BuyTickets({
         
         // Explicitly use user address
         const balance = await usdcContract.balanceOf(userAddress);
-        const formattedBalance = parseFloat(ethers.utils.formatUnits(balance, 6));
+        const formattedBalance = parseFloat(ethers.formatUnits(balance, 6));
         console.log('BuyTickets: USDC balance manually refreshed (fallback):', formattedBalance);
         setUsdcBalance(formattedBalance);
       }

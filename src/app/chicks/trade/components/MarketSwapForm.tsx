@@ -71,7 +71,7 @@ export default function MarketSwapForm({
           if (quoteData.data) {
             // The API returns outAmount with decimals already applied
             setEstimatedOutput(
-              parseFloat(ethers.utils.formatUnits(quoteData.data.outAmount, 6)).toFixed(6)
+              parseFloat(ethers.formatUnits(quoteData.data.outAmount, 6)).toFixed(6)
             );
           }
         } else {
@@ -85,7 +85,7 @@ export default function MarketSwapForm({
           if (quoteData.data) {
             // The API returns outAmount with decimals already applied
             setEstimatedOutput(
-              parseFloat(ethers.utils.formatUnits(quoteData.data.outAmount, 6)).toFixed(6)
+              parseFloat(ethers.formatUnits(quoteData.data.outAmount, 6)).toFixed(6)
             );
           }
         }
@@ -188,7 +188,6 @@ export default function MarketSwapForm({
         );
       }
 
-      await tx.wait();
 
       // Reset form
       setAmount('');

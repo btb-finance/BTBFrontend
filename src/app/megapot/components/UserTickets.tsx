@@ -66,7 +66,7 @@ export default function UserTickets({
           console.log("Fetching user info for address:", userAddress);
           
           // Use public provider for Base network for read-only operations
-          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
           const contract = new ethers.Contract(contractAddress, megapotABI, provider);
           
           // Ensure we're using the correct subscription contract address, with a hardcoded fallback
@@ -78,7 +78,7 @@ export default function UserTickets({
           if (typeof window !== 'undefined' && window.ethereum) {
             try {
               // Force a fresh provider instance
-              const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+              const walletProvider = new ethers.BrowserProvider(window.ethereum as any, 'any');
               // Force provider to update its accounts
               await walletProvider.send('eth_accounts', []);
               
@@ -115,11 +115,11 @@ export default function UserTickets({
           
           // Convert from basis points (1 bps = 0.01%)
           // ticketsPurchasedTotalBps is in basis points, divide by 10000 to get actual count
-          const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+          const ticketsBps = userInfo.ticketsPurchasedTotalBpsNumber(;
           setTicketCount(Math.ceil(ticketsBps / 10000));
           
           // Get claimable winnings
-          const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+          const winnings = parseFloat(ethers.formatUnits(userInfo.winningsClaimable, 6));
           setWinningsClaimable(winnings);
           
           // Get active status
@@ -138,16 +138,16 @@ export default function UserTickets({
               console.log("Fetching subscription details...");
               const subInfo = await subscriptionContract.getSubscription(userAddress);
               console.log("Subscription details:", {
-                ticketsPerDay: subInfo[0].toNumber(),
-                daysRemaining: subInfo[1].toNumber(),
-                lastProcessedBatchDay: subInfo[2].toNumber(),
+                ticketsPerDay: subInfo[0]Number(,
+                daysRemaining: subInfo[1]Number(,
+                lastProcessedBatchDay: subInfo[2]Number(,
                 isActive: subInfo[3]
               });
               
               setSubscriptionDetails({
-                ticketsPerDay: subInfo[0].toNumber(),
-                daysRemaining: subInfo[1].toNumber(),
-                lastProcessedBatchDay: subInfo[2].toNumber(),
+                ticketsPerDay: subInfo[0]Number(,
+                daysRemaining: subInfo[1]Number(,
+                lastProcessedBatchDay: subInfo[2]Number(,
                 isActive: subInfo[3]
               });
             } else {
@@ -217,7 +217,7 @@ export default function UserTickets({
           await window.ethereum.request({ method: 'eth_requestAccounts' });
           
           // Create a fresh provider instance
-          const walletProvider = new ethers.providers.Web3Provider(window.ethereum as any, 'any');
+          const walletProvider = new ethers.BrowserProvider(window.ethereum as any, 'any');
           await walletProvider.send('eth_accounts', []);
           
           const signer = walletProvider.getSigner();
@@ -225,18 +225,18 @@ export default function UserTickets({
           console.log('Current signer account:', account);
           
           // Use RPC provider for reliable read operations
-          const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+          const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
           const contract = new ethers.Contract(contractAddress, megapotABI, provider);
           
           // Get user info
           const userInfo = await contract.usersInfo(account);
           
           // Convert from basis points and set state
-          const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+          const ticketsBps = userInfo.ticketsPurchasedTotalBpsNumber(;
           setTicketCount(Math.ceil(ticketsBps / 10000));
           
           // Get claimable winnings
-          const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+          const winnings = parseFloat(ethers.formatUnits(userInfo.winningsClaimable, 6));
           setWinningsClaimable(winnings);
           
           // Get active status
@@ -262,16 +262,16 @@ export default function UserTickets({
               const subInfo = await subscriptionContract.getSubscription(account);
               
               setSubscriptionDetails({
-                ticketsPerDay: subInfo[0].toNumber(),
-                daysRemaining: subInfo[1].toNumber(),
-                lastProcessedBatchDay: subInfo[2].toNumber(),
+                ticketsPerDay: subInfo[0]Number(,
+                daysRemaining: subInfo[1]Number(,
+                lastProcessedBatchDay: subInfo[2]Number(,
                 isActive: subInfo[3]
               });
               
               console.log("Subscription details refreshed successfully:", {
-                ticketsPerDay: subInfo[0].toNumber(),
-                daysRemaining: subInfo[1].toNumber(),
-                lastProcessedBatchDay: subInfo[2].toNumber(),
+                ticketsPerDay: subInfo[0]Number(,
+                daysRemaining: subInfo[1]Number(,
+                lastProcessedBatchDay: subInfo[2]Number(,
                 isActive: subInfo[3]
               });
             }
@@ -294,9 +294,9 @@ export default function UserTickets({
               if (hasSubscription) {
                 const subInfo = await subscriptionContract.getSubscription(account);
                 setSubscriptionDetails({
-                  ticketsPerDay: subInfo[0].toNumber(),
-                  daysRemaining: subInfo[1].toNumber(),
-                  lastProcessedBatchDay: subInfo[2].toNumber(),
+                  ticketsPerDay: subInfo[0]Number(,
+                  daysRemaining: subInfo[1]Number(,
+                  lastProcessedBatchDay: subInfo[2]Number(,
                   isActive: subInfo[3]
                 });
               }
@@ -328,18 +328,18 @@ export default function UserTickets({
   const refreshWithReadOnlyProvider = async () => {
     try {
       console.log("Using read-only provider for refresh");
-      const provider = new ethers.providers.JsonRpcProvider('https://mainnet.base.org');
+      const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
       const contract = new ethers.Contract(contractAddress, megapotABI, provider);
       
       // Get user info
       const userInfo = await contract.usersInfo(userAddress);
       
       // Convert from basis points and set state
-      const ticketsBps = userInfo.ticketsPurchasedTotalBps.toNumber();
+      const ticketsBps = userInfo.ticketsPurchasedTotalBpsNumber(;
       setTicketCount(Math.ceil(ticketsBps / 10000));
       
       // Get claimable winnings
-      const winnings = parseFloat(ethers.utils.formatUnits(userInfo.winningsClaimable, 6));
+      const winnings = parseFloat(ethers.formatUnits(userInfo.winningsClaimable, 6));
       setWinningsClaimable(winnings);
       
       // Get active status
@@ -359,9 +359,9 @@ export default function UserTickets({
       if (hasSubscription) {
         const subInfo = await subscriptionContract.getSubscription(userAddress);
         setSubscriptionDetails({
-          ticketsPerDay: subInfo[0].toNumber(),
-          daysRemaining: subInfo[1].toNumber(),
-          lastProcessedBatchDay: subInfo[2].toNumber(),
+          ticketsPerDay: subInfo[0]Number(,
+          daysRemaining: subInfo[1]Number(,
+          lastProcessedBatchDay: subInfo[2]Number(,
           isActive: subInfo[3]
         });
       }
@@ -390,15 +390,14 @@ export default function UserTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         const megapotContract = new ethers.Contract(contractAddress, megapotABI, signer);
         
         // Withdraw winnings
         const tx = await megapotContract.withdrawWinnings();
         
         setTxHash(tx.hash);
-        await tx.wait();
         
         setSuccess('Successfully withdrew your winnings!');
         
@@ -444,8 +443,8 @@ export default function UserTickets({
     
     try {
       if (typeof window !== 'undefined' && window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum as any);
-        const signer = provider.getSigner();
+        const provider = new ethers.BrowserProvider(window.ethereum as any);
+        const signer = await provider.getSigner();
         
         // Use the hardcoded correct address
         const CORRECT_SUB_CONTRACT = '0x92C1fce71847cd68a794A3377741b372F392b25a';
@@ -462,7 +461,6 @@ export default function UserTickets({
         const tx = await subscriptionContract.cancelSubscription();
         
         setTxHash(tx.hash);
-        await tx.wait();
         
         setSuccess('Your subscription has been cancelled and remaining days refunded!');
         setHasActiveSubscription(false);

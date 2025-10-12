@@ -40,7 +40,6 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
       const tx = await gameService.swapBTBForNFT(amount);
       
       setTxHash(tx.hash);
-      await tx.wait();
       
       setNftCount('1');
       onSuccess();
@@ -62,7 +61,6 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
       const tx = await gameService.swapNFTForBTB(selectedBearIds);
       
       setTxHash(tx.hash);
-      await tx.wait();
       
       setSelectedBearIds([]);
       setNftCount('1');

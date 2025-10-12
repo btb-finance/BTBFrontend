@@ -75,7 +75,6 @@ export default function BuyForm({ btbPrice, ethBalance, onSuccess }: BuyFormProp
 
     try {
       const tx = await btbFinanceService.buyBTB(ethAmount);
-      await tx.wait();
       
       // Reset form
       setEthAmount('');

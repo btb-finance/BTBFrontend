@@ -154,7 +154,6 @@ export default function RepayForm({ hasLoan, loanData, usdcBalance, onSuccess }:
           break;
       }
       
-      await tx.wait();
 
       // Reset form
       setRepayAmount('');

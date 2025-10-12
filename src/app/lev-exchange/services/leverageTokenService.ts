@@ -72,7 +72,7 @@ class LeverageTokenService {
   /**
    * Ethers provider for blockchain interaction
    */
-  private provider: ethers.providers.Web3Provider | null = null;
+  private provider: ethers.BrowserProvider | null = null;
   
   /**
    * Factory contract instance for token management
@@ -88,7 +88,7 @@ class LeverageTokenService {
       throw new LeverageServiceError('PROVIDER_ERROR', 'No wallet provider found. Please install MetaMask.');
     }
     
-    this.provider = new ethers.providers.Web3Provider(window.ethereum);
+    this.provider = new ethers.BrowserProvider(window.ethereum);
     
     // Create factory contract instance
     this.factoryContract = new ethers.Contract(
@@ -134,10 +134,10 @@ class LeverageTokenService {
       console.log('Raw platform stats:', stats);
       
       return {
-        totalTokens: stats.totalTokens.toNumber(),
-        activeTokens: stats.activeTokens.toNumber(),
-        totalVolume: ethers.utils.formatEther(stats.totalVolume),
-        totalFeesCollected: ethers.utils.formatEther(stats.totalFeesCollected)
+        totalTokens: stats.totalTokensNumber(,
+        activeTokens: stats.activeTokensNumber(,
+        totalVolume: ethers.formatEther(stats.totalVolume),
+        totalFeesCollected: ethers.formatEther(stats.totalFeesCollected)
       };
     } catch (error: any) {
       console.error('Error fetching platform stats:', error);
@@ -181,7 +181,7 @@ class LeverageTokenService {
           leverageContract: info.leverageContract,
           name: info.name,
           symbol: info.symbol,
-          deployedAt: info.deployedAt.toNumber(),
+          deployedAt: info.deployedAtNumber(,
           active: info.active
         };
       })
@@ -203,8 +203,8 @@ class LeverageTokenService {
           contract.buy_fee()
         ]);
 
-        const price = ethers.utils.formatEther(lastPriceWei);
-        const tvl = ethers.utils.formatEther(backingWei);
+        const price = ethers.formatEther(lastPriceWei);
+        const tvl = ethers.formatEther(backingWei);
         const leverage = '2x'; // Fixed or calculate based on protocol
         const apy = 'Variable'; // Could calculate from interest rates
         const volume24h = '$0'; // Would need event logs for real volume
@@ -249,9 +249,9 @@ class LeverageTokenService {
       const backingBalance = await backingContract.balanceOf(userAddress);
 
       return {
-        token: ethers.utils.formatEther(tokenBalance),
-        balance: ethers.utils.formatEther(tokenBalance),
-        backingBalance: ethers.utils.formatEther(backingBalance)
+        token: ethers.formatEther(tokenBalance),
+        balance: ethers.formatEther(tokenBalance),
+        backingBalance: ethers.formatEther(backingBalance)
       };
     } catch (error: any) {
       console.error('Error fetching user balance:', error);
@@ -265,7 +265,7 @@ class LeverageTokenService {
 
     try {
       const price = await contract.lastPrice();
-      return ethers.utils.formatEther(price);
+      return ethers.formatEther(price);
     } catch (error) {
       console.error('Error fetching token price:', error);
       return '0';
@@ -281,19 +281,19 @@ class LeverageTokenService {
     if (!contract) throw new Error('Token contract not found');
 
     try {
-      const amountWei = ethers.utils.parseEther(amount);
+      const amountWei = ethers.parseEther(amount);
       const [tokensOut, buyFee] = await Promise.all([
         contract.getBuyTokens(amountWei),
         contract.buy_fee()
       ]);
 
       const feePercentage = (1000 - Number(buyFee)) / 10; // Convert basis points to %
-      const feeWei = amountWei.mul(1000 - buyFee).div(1000);
+      const feeWei = amountWei.MUL_TEMP(1000 - buyFee).div(1000);
 
       return {
-        tokensOut: ethers.utils.formatEther(tokensOut),
+        tokensOut: ethers.formatEther(tokensOut),
         priceImpact: '0.1', // Placeholder, calculate from pool size if needed
-        fee: ethers.utils.formatEther(feeWei)
+        fee: ethers.formatEther(feeWei)
       };
     } catch (error: any) {
       console.error('Error getting buy quote:', error);
@@ -304,10 +304,10 @@ class LeverageTokenService {
   async executeBuy(tokenAddress: string, amount: string, userAddress: string): Promise<string> {
     if (!this.provider) throw new Error('Provider not initialized');
     
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const contract = new ethers.Contract(tokenAddress, LEVERAGE_TOKEN_ABI, signer);
     
-    const amountWei = ethers.utils.parseEther(amount);
+    const amountWei = ethers.parseEther(amount);
     const tx = await contract.buy(userAddress, amountWei);
     
     return tx.hash;
@@ -316,10 +316,10 @@ class LeverageTokenService {
   async executeSell(tokenAddress: string, tokenAmount: string): Promise<string> {
     if (!this.provider) throw new Error('Provider not initialized');
     
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const contract = new ethers.Contract(tokenAddress, LEVERAGE_TOKEN_ABI, signer);
     
-    const tokenAmountWei = ethers.utils.parseEther(tokenAmount);
+    const tokenAmountWei = ethers.parseEther(tokenAmount);
     const tx = await contract.sell(tokenAmountWei);
     
     return tx.hash;
@@ -328,10 +328,10 @@ class LeverageTokenService {
   async executeLeverage(tokenAddress: string, backingAmount: string, numberOfDays: string, userAddress: string): Promise<string> {
     if (!this.provider) throw new Error('Provider not initialized');
     
-    const signer = this.provider.getSigner();
+    const signer = await this.provider.getSigner();
     const contract = new ethers.Contract(tokenAddress, LEVERAGE_TOKEN_ABI, signer);
     
-    const amountWei = ethers.utils.parseEther(backingAmount);
+    const amountWei = ethers.parseEther(backingAmount);
     const days = parseInt(numberOfDays);
     const tx = await contract.leverage(amountWei, days);
     
@@ -343,10 +343,10 @@ class LeverageTokenService {
     if (!contract) throw new Error('Token contract not found');
 
     try {
-      const amountWei = ethers.utils.parseEther(backingAmount);
+      const amountWei = ethers.parseEther(backingAmount);
       const days = parseInt(numberOfDays);
       const feeWei = await contract.leverageFee(amountWei, days);
-      return ethers.utils.formatEther(feeWei);
+      return ethers.formatEther(feeWei);
     } catch (error) {
       console.error('Error getting leverage fee:', error);
       return '0';
@@ -362,9 +362,9 @@ class LeverageTokenService {
       const isExpired = await contract.isLoanExpired(userAddress);
 
       return {
-        collateral: ethers.utils.formatEther(collateral),
-        borrowed: ethers.utils.formatEther(borrowed),
-        endDate: endDate.toNumber(),
+        collateral: ethers.formatEther(collateral),
+        borrowed: ethers.formatEther(borrowed),
+        endDate: endDateNumber(,
         isExpired
       };
     } catch (error) {

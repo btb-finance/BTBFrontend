@@ -146,7 +146,6 @@ export default function LeverageForm({ chicksPrice, usdcBalance, onSuccess }: Le
       setError(`Transaction submitted. Waiting for confirmation... (${tx.hash.substring(0, 10)}...)`);
       
       try {
-        const receipt = await tx.wait();
         console.log('Transaction confirmed:', receipt);
         
         // Reset form

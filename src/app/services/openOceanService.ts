@@ -23,7 +23,7 @@ const ERC20_ABI = [
 ];
 
 class OpenOceanService {
-  private provider: ethers.providers.StaticJsonRpcProvider | null = null;
+  private provider: ethers.JsonRpcProvider | null = null;
   private signer: ethers.Signer | null = null;
   private isInitialized = false;
 
@@ -32,7 +32,7 @@ class OpenOceanService {
   
   constructor() {
     // Initialize the read-only provider
-    this.provider = new ethers.providers.StaticJsonRpcProvider(
+    this.provider = new ethers.JsonRpcProvider(
       BASE_NETWORK.rpcUrl,
       {
         chainId: BASE_NETWORK.chainId,
@@ -82,7 +82,7 @@ class OpenOceanService {
       }
 
       // Create Web3Provider and signer
-      const injectedProvider = new ethers.providers.Web3Provider(window.ethereum, {
+      const injectedProvider = new ethers.BrowserProvider(window.ethereum, {
         chainId: BASE_NETWORK.chainId,
         name: BASE_NETWORK.name,
         ensAddress: undefined
@@ -157,7 +157,7 @@ class OpenOceanService {
       try {
         const feeData = await this.provider!.getFeeData();
         if (feeData.gasPrice) {
-          gasPrice = Math.ceil(parseFloat(ethers.utils.formatUnits(feeData.gasPrice, 'gwei'))).toString();
+          gasPrice = Math.ceil(parseFloat(ethers.formatUnits(feeData.gasPrice, 'gwei'))).toString();
           console.log('Current network gas price:', gasPrice, 'gwei');
         }
       } catch (error) {
@@ -223,31 +223,31 @@ class OpenOceanService {
       // Handle value parameter (for ETH transactions)
       if (fromToken === '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
         if (swapData.data.value) {
-          txParams.value = ethers.BigNumber.from(swapData.data.value);
+          txParams.value = BigInt(swapData.data.value);
         } else {
-          txParams.value = ethers.BigNumber.from(0);
+          txParams.value = BigInt(0);
         }
       } else {
-        txParams.value = ethers.BigNumber.from(0);
+        txParams.value = BigInt(0);
       }
       
       // Set a reasonable gas limit directly instead of estimating
       // This helps avoid the "gas required exceeds allowance" error
-      txParams.gasLimit = ethers.BigNumber.from("3000000"); // Set a high fixed gas limit
+      txParams.gasLimit = BigInt("3000000"); // Set a high fixed gas limit
       
       // Handle gas price - use network's recommended gas price if available
       try {
         const feeData = await this.provider!.getFeeData();
         if (feeData.gasPrice) {
           txParams.gasPrice = feeData.gasPrice;
-          console.log('Using network gas price:', ethers.utils.formatUnits(feeData.gasPrice, 'gwei'), 'gwei');
+          console.log('Using network gas price:', ethers.formatUnits(feeData.gasPrice, 'gwei'), 'gwei');
         } else if (swapData.data.gasPrice) {
-          txParams.gasPrice = ethers.utils.parseUnits(swapData.data.gasPrice.toString(), 'gwei');
+          txParams.gasPrice = ethers.parseUnits(swapData.data.gasPrice.toString(), 'gwei');
         }
       } catch (error) {
         console.warn('Error getting fee data, using default gas price:', error);
         // Use a reasonable default if all else fails
-        txParams.gasPrice = ethers.utils.parseUnits('5', 'gwei');
+        txParams.gasPrice = ethers.parseUnits('5', 'gwei');
       }
       
       console.log('Final transaction parameters:', txParams);
@@ -295,13 +295,13 @@ class OpenOceanService {
       const decimals = await this.getTokenDecimals(tokenAddress);
       
       // Convert amount to the correct format based on decimals
-      const parsedAmount = ethers.utils.parseUnits(amount, decimals);
+      const parsedAmount = ethers.parseUnits(amount, decimals);
       
       // Check current allowance
       const allowance = await tokenContract.allowance(address, spenderAddress);
       
       // If allowance is insufficient, approve
-      if (allowance.lt(parsedAmount)) {
+      if (allowance.LT_TEMP(parsedAmount)) {
         console.log(`Approving ${tokenAddress} for ${spenderAddress}...`);
         
         // Approve max uint256 to save gas on future transactions
@@ -309,7 +309,7 @@ class OpenOceanService {
         
         // Set explicit gas limit for approval to avoid estimation issues
         const approveTx = await tokenContract.approve(spenderAddress, maxApproval, {
-          gasLimit: ethers.BigNumber.from("100000"), // Standard gas limit for ERC20 approvals
+          gasLimit: BigInt("100000"), // Standard gas limit for ERC20 approvals
         });
         
         await approveTx.wait();
@@ -350,7 +350,7 @@ class OpenOceanService {
       // Calculate price per CHICKS
       // The API returns inAmount and outAmount with decimals already applied
       const inAmount = parseFloat(amount);
-      const outAmount = parseFloat(ethers.utils.formatUnits(quoteData.data.outAmount, 6));
+      const outAmount = parseFloat(ethers.formatUnits(quoteData.data.outAmount, 6));
       const openOceanPrice = (outAmount / inAmount).toFixed(6);
       
       // Calculate price difference
