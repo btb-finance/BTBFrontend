@@ -768,7 +768,7 @@ class ChicksService {
       // liquidation_price = (debt * 1.1) / collateral
       const totalDebt = loan.borrowed + loan.interest;
       const liquidationThreshold = (BigInt(110) * totalDebt) / BigInt(100);
-      const liquidationPrice = (liquidationThreshold * ethers.parseUnits('1', 6)) / BigInt(loan.collateral);
+      const liquidationPrice = (BigInt(liquidationThreshold) * ethers.parseUnits('1', 6)) / BigInt(loan.collateral);
       
       return ethers.formatUnits(liquidationPrice, 6);
     } catch (error) {
