@@ -3,8 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'react-icons', '@heroicons/react'],
+    // Turbopack is now stable and enabled by default in Next.js 16
+    // turbo: {}, // Optional: customize Turbopack settings if needed
   },
-  swcMinify: true,
+  // swcMinify is now default and deprecated in Next.js 16
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },

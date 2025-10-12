@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Montserrat, Roboto } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { ThemeScript } from './theme-script';
@@ -11,7 +11,23 @@ import NetworkChangeAlert from './components/layout/NetworkChangeAlert';
 import { FaXTwitter, FaTelegram, FaGithub, FaDiscord } from 'react-icons/fa6';
 import { headers } from 'next/headers';
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  weight: ['300', '400', '500', '600', '700']
+});
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-montserrat',
+  weight: ['300', '400', '500', '600', '700', '800']
+});
+
+const roboto = Roboto({
+  subsets: ['latin'],
+  variable: '--font-roboto',
+  weight: ['300', '400', '500', '700']
+});
 
 export const metadata: Metadata = {
   title: 'BTB Finance - Revolutionary DeFi Ecosystem',
@@ -32,7 +48,7 @@ export default async function RootLayout({
   
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${montserrat.variable} ${roboto.variable} ${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
         <Providers cookie={cookie}>
           <ThemeScript />
           <BackgroundWrapper>

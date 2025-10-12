@@ -5,11 +5,11 @@ import { fetchMetadataWithFallback, transformMetadata } from '../utils';
 export const revalidate = 604800; // 7 days
 export const dynamic = 'force-dynamic'; // Force dynamic rendering
 
-type Params = { params: { tokenId: string } };
+type Params = { params: Promise<{ tokenId: string }> };
 
 export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const tokenId = params.tokenId;
+    const { tokenId } = await params;
     
     if (!tokenId || !/^\d+$/.test(tokenId)) {
       return NextResponse.json(
