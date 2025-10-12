@@ -27,9 +27,9 @@ export function useWeb3Provider() {
           );
           
           setProvider(web3Provider);
-          
+
           // Get signer
-          const web3Signer = web3Provider.getSigner();
+          const web3Signer = await web3Provider.getSigner();
           setSigner(web3Signer);
         } catch (error) {
           console.error('Error initializing web3 provider:', error);
@@ -61,7 +61,7 @@ export function useWeb3Provider() {
             }
           );
           setProvider(web3Provider);
-          const web3Signer = web3Provider.getSigner();
+          const web3Signer = await web3Provider.getSigner();
           setSigner(web3Signer);
         } catch (error) {
           console.error('Error reinitializing provider after chain change:', error);

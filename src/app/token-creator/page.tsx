@@ -673,17 +673,17 @@ export default function TokenCreator() {
             tokenDetails.mainChainId,             // _mainChainId
             deployOptions                         // deployment options
           );
-          console.log('Contract deployment transaction sent:', mainContract.deployTransaction.hash);
+          console.log('Contract deployment transaction sent:', mainContract.deploymentTransaction().hash);
           
           // Show transaction hash in UI
           toast.info(
             <div>
               <p>Transaction sent! Waiting for confirmation...</p>
               <p className="text-xs mt-1 font-mono break-all">
-                TX Hash: {mainContract.deployTransaction.hash}
+                TX Hash: {mainContract.deploymentTransaction().hash}
               </p>
               <a 
-                href={`${mainChain.explorerUrl}/tx/${mainContract.deployTransaction.hash}`}
+                href={`${mainChain.explorerUrl}/tx/${mainContract.deploymentTransaction().hash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs underline mt-1 block"
@@ -742,7 +742,7 @@ export default function TokenCreator() {
           toast.info(
             <div>
               <p>Transaction may still be processing. Check the transaction status in your wallet.</p>
-              <p className="text-xs mt-1">Transaction hash: {mainContract.deployTransaction.hash}</p>
+              <p className="text-xs mt-1">Transaction hash: {mainContract.deploymentTransaction().hash}</p>
             </div>,
             { duration: 10000 }
           );

@@ -64,8 +64,8 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
       const count = parseInt(bearCount);
       const huntersToUse = selectedHunterIds.slice(0, count);
       const tx = await gameService.redeemBears(count, huntersToUse);
-      
-      setTxHash(tx.hash);
+      const receipt = await tx.wait();
+      setTxHash(receipt?.hash || '');
       
       setBearCount('1');
       setSelectedHunterIds([]);

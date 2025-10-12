@@ -97,7 +97,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
       
       // Get the most recent blocks
       const blocks = await Promise.all(
-        Array.from({ length: 5 }, (_, i) => provider.getBlockWithTransactions(latestBlockNumber - i))
+        Array.from({ length: 5 }, (_, i) => provider.getBlock(latestBlockNumber - i))
       );
       
       // Filter transactions related to the user address
@@ -168,7 +168,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
           
           processedTxs.push({
             hash: tx.hash,
-            timestamp: block.timestamp * 1000, // Convert to milliseconds
+            timestamp: (block?.timestamp || 0) * 1000, // Convert to milliseconds
             token,
             recipients: recipientCount,
             blockNumber: receipt.blockNumber

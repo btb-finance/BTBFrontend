@@ -180,11 +180,11 @@ export async function deployToken(
     if (statusCallback) statusCallback('Waiting for deployment confirmation...');
     
     // Wait for the contract to be deployed
-    await contract.deployed();
+    await contract.waitForDeployment();
     
     if (statusCallback) statusCallback('Token deployed successfully!');
     
-    return contract.address;
+    return await contract.getAddress();
   } catch (error) {
     console.error('Error deploying token:', error);
     throw error;

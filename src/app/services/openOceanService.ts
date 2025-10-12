@@ -196,7 +196,7 @@ class OpenOceanService {
     toToken: string,
     amount: string,
     slippage: number = 1
-  ): Promise<ethers.providers.TransactionResponse> {
+  ): Promise<ethers.TransactionResponse> {
     await this.ensureInitialized();
     
     try {

@@ -29,11 +29,14 @@ export function useWalletConnection() {
         const network = await provider.getNetwork();
         const accounts = await provider.listAccounts();
         
+        const signer = accounts.length > 0 ? await provider.getSigner(0) : null;
+        const address = signer ? await signer.getAddress() : null;
+
         setWalletState({
           isConnected: accounts.length > 0,
-          address: accounts.length > 0 ? ethers.getAddress(accounts[0]) : null,
-          chainId: network.chainId,
-          isCorrectNetwork: network.chainId === BASE_CHAIN_ID,
+          address,
+          chainId: Number(network.chainId),
+          isCorrectNetwork: Number(network.chainId) === BASE_CHAIN_ID,
           provider,
         });
       } catch (error) {
