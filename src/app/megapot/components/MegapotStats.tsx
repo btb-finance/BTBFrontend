@@ -283,7 +283,7 @@ export default function MegapotStats({
                 className="absolute top-0 left-0 h-full bg-gradient-to-r from-btb-primary to-btb-primary-light"
                 initial={{ width: '5%' }}
                 animate={{ width: '100%' }}
-                transition={{ duration: 3, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }}
+                transition={{ duration: 3, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" as const }}
               />
             </div>
           </div>

@@ -50,7 +50,7 @@ export default function FeatureCard({ title, description, icon: Icon, color, ind
           transition={{ 
             duration: 8, 
             repeat: Infinity,
-            ease: "linear" 
+            ease: "linear" as const 
           }}
           style={{ backgroundSize: '200% 200%' }}
         ></motion.div>
@@ -60,7 +60,7 @@ export default function FeatureCard({ title, description, icon: Icon, color, ind
           <motion.div 
             className="absolute top-0 right-0 w-24 h-24 opacity-5 pointer-events-none"
             animate={{ rotate: [0, 360] }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" as const }}
           >
             <Icon className="w-full h-full" />
           </motion.div>
@@ -130,8 +130,8 @@ export default function FeatureCard({ title, description, icon: Icon, color, ind
                 scale: [1, 1.1, 1]
               }}
               transition={{ 
-                rotate: { duration: 20, repeat: Infinity, ease: "linear" },
-                scale: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+                rotate: { duration: 20, repeat: Infinity, ease: "linear" as const },
+                scale: { duration: 3, repeat: Infinity, ease: "easeInOut" as const }
               }}
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full text-btb-primary">

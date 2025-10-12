@@ -159,7 +159,7 @@ export default function GameOverview({ gameStats, hunterTokens, bearTokens }: Ga
                 transition={{ 
                   duration: 10, 
                   repeat: Infinity,
-                  ease: "linear" 
+                  ease: "linear" as const 
                 }}
                 style={{ backgroundSize: '200% 200%' }}
               ></motion.div>

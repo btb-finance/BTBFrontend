@@ -170,7 +170,7 @@ const spinAnimation = {
   transition: {
     duration: 30,
     repeat: Infinity,
-    ease: "linear"
+    ease: "linear" as const
   }
 };
 
@@ -179,7 +179,7 @@ const spinReverseAnimation = {
   transition: {
     duration: 20,
     repeat: Infinity,
-    ease: "linear"
+    ease: "linear" as const
   }
 };
 
@@ -499,7 +499,7 @@ export default function Home() {
                     transition={{ 
                       duration: 8, 
                       repeat: Infinity,
-                      ease: "easeInOut" 
+                      ease: "easeInOut" as const 
                     }}
                   />
                   
@@ -512,7 +512,7 @@ export default function Home() {
                     transition={{ 
                       duration: 6, 
                       repeat: Infinity,
-                      ease: "easeInOut",
+                      ease: "easeInOut" as const,
                       delay: 0.5
                     }}
                   />
@@ -569,7 +569,7 @@ export default function Home() {
                     <motion.span 
                       className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-btb-primary-light via-white to-btb-primary-light bg-clip-text text-transparent"
                       animate={{ scale: [1, 1.05, 1] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" as const }}
                     >
                       BTB
                     </motion.span>
@@ -721,7 +721,7 @@ export default function Home() {
                         <motion.span 
                           className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-btb-primary-light via-white to-btb-primary-light bg-clip-text text-transparent"
                           animate={{ scale: [1, 1.05, 1] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" as const }}
                         >
                           BTB
                         </motion.span>
@@ -1497,7 +1497,7 @@ export default function Home() {
               opacity: [0.3, 0.6, 0.3],
               rotate: [0, 90, 0]
             }}
-            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" as const }}
           />
           <motion.div 
             className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 blur-3xl"
@@ -1506,7 +1506,7 @@ export default function Home() {
               opacity: [0.2, 0.4, 0.2],
               rotate: [0, -90, 0]
             }}
-            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut", delay: 5 }}
+            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" as const, delay: 5 }}
           />
           <motion.div 
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-white/10"
@@ -1514,7 +1514,7 @@ export default function Home() {
               rotate: [0, 360],
               scale: [1, 1.1, 1]
             }}
-            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" as const }}
           />
         </div>
         
@@ -1532,7 +1532,7 @@ export default function Home() {
                 <motion.div
                   className="relative"
                   animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" as const }}
                 >
                   <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 p-1">
                     <div className="w-full h-full rounded-full bg-gradient-to-r from-indigo-900 to-purple-900 flex items-center justify-center">
@@ -1806,7 +1806,7 @@ export default function Home() {
               y: [0, 30, 0],
               scale: [1, 1.2, 1],
             }}
-            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" as const }}
           />
           <motion.div 
             className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-btb-primary-light/20 blur-3xl"
@@ -1815,7 +1815,7 @@ export default function Home() {
               y: [0, -20, 0],
               scale: [1, 1.3, 1],
             }}
-            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" as const, delay: 2 }}
           />
         </div>
 
@@ -1852,7 +1852,7 @@ export default function Home() {
               <div className="relative z-10 flex items-center">
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" as const }}
                   className="w-12 h-12 mr-4 relative flex-shrink-0"
                 >
                   <div className="absolute inset-0 rounded-full border-2 border-white/30 border-dashed"></div>
@@ -1860,7 +1860,7 @@ export default function Home() {
                   <motion.div 
                     className="absolute inset-0 flex items-center justify-center"
                     animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" as const }}
                   >
                     <BeakerIcon className="h-6 w-6 text-white" />
                   </motion.div>
@@ -1935,7 +1935,7 @@ export default function Home() {
                     scale: [1, 1.2, 1],
                     opacity: [0.1, 0.2, 0.1],
                   }}
-                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" as const }}
                 />
                 <motion.div 
                   className="absolute -bottom-12 -left-12 w-24 h-24 rounded-full bg-btb-primary/5"
@@ -1943,7 +1943,7 @@ export default function Home() {
                     scale: [1, 1.2, 1],
                     opacity: [0.1, 0.2, 0.1],
                   }}
-                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 4 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" as const, delay: 4 }}
                 />
                 
                 <div className="relative z-10">

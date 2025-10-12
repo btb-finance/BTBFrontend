@@ -132,7 +132,7 @@ export default function ChicksTokenPage() {
       y: {
         repeat: Infinity,
         duration: 2,
-        ease: "easeInOut"
+        ease: "easeInOut" as const
       }
     }
   };
@@ -226,7 +226,7 @@ export default function ChicksTokenPage() {
           transition={{
             duration: 15,
             repeat: Infinity,
-            ease: "linear"
+            ease: "linear" as const
           }}
         />
         
@@ -353,7 +353,7 @@ export default function ChicksTokenPage() {
           transition={{
             duration: 10,
             repeat: Infinity,
-            ease: "linear"
+            ease: "linear" as const
           }}
         />
         
@@ -539,7 +539,7 @@ export default function ChicksTokenPage() {
           transition={{
             duration: 15,
             repeat: Infinity,
-            ease: "linear",
+            ease: "linear" as const,
             repeatType: "reverse"
           }}
         />
@@ -663,7 +663,7 @@ export default function ChicksTokenPage() {
           transition={{
             duration: 12,
             repeat: Infinity,
-            ease: "linear"
+            ease: "linear" as const
           }}
         />
         
@@ -672,22 +672,22 @@ export default function ChicksTokenPage() {
           <motion.div
             className="absolute top-1/4 left-10 w-32 h-32 rounded-full border-4 border-btb-primary/10 opacity-50"
             animate={{ rotate: [0, 360] }}
-            transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 40, repeat: Infinity, ease: "linear" as const }}
           />
           <motion.div
             className="absolute bottom-1/4 right-10 w-40 h-40 rounded-full border-2 border-dashed border-btb-primary/20 opacity-40"
             animate={{ rotate: [360, 0] }}
-            transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 50, repeat: Infinity, ease: "linear" as const }}
           />
           <motion.div
             className="absolute top-1/2 right-1/4 w-24 h-24 rounded-full bg-green-500/5"
             animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" as const }}
           />
           <motion.div
             className="absolute bottom-1/3 left-1/4 w-16 h-16 rounded-full bg-blue-500/5"
             animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
-            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" as const }}
           />
         </div>
         
@@ -753,8 +753,8 @@ export default function ChicksTokenPage() {
                           ] 
                         }}
                         transition={{ 
-                          y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                          boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" }
+                          y: { duration: 2, repeat: Infinity, ease: "easeInOut" as const },
+                          boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" as const }
                         }}
                       >
                         <item.icon className="w-8 h-8 text-white" />
@@ -879,7 +879,7 @@ export default function ChicksTokenPage() {
                     <motion.div 
                       className="absolute inset-0 opacity-5"
                       animate={{ rotate: [0, 360] }}
-                      transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+                      transition={{ duration: 60, repeat: Infinity, ease: "linear" as const }}
                     >
                       <svg width="100%" height="100%" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
                         <defs>
