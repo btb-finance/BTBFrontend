@@ -96,7 +96,7 @@ export default function BulkSenderPage() {
         if (typeof window.ethereum !== 'undefined') {
           const web3Provider = new ethers.BrowserProvider(window.ethereum);
           const network = await web3Provider.getNetwork();
-          currentChainId = network.chainId;
+          currentChainId = Number(network.chainId);
         }
         
         // Use appropriate provider based on current network

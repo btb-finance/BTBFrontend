@@ -797,7 +797,7 @@ class ChicksService {
       
       // Calculate health factor
       // Health factor = (collateral * price) / (borrowed + interest)
-      const collateralValue = (loan.collateral * price) / BigInt(ethers.parseUnits('1', 6));
+      const collateralValue = (loan.collateral * price) / ethers.parseUnits('1', 6);
       const totalDebt = loan.borrowed + loan.interest;
       const healthFactor = (collateralValue * BigInt(100)) / totalDebt;
       
