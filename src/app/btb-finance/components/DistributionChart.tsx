@@ -8,6 +8,7 @@ interface ChartData {
   name: string;
   value: number;
   color: string;
+  [key: string]: any; // Required for Recharts v3
 }
 
 export default function DistributionChart() {
