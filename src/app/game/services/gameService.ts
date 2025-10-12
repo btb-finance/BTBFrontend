@@ -102,7 +102,7 @@ class GameService {
         ensAddress: undefined
       });
       
-      this.signer = injectedProvider.getSigner();
+      this.signer = await injectedProvider.getSigner();
       
       // Debug ABI import
       console.log('BearHunterEcosystemABI type:', typeof BearHunterEcosystemABI);
@@ -277,7 +277,7 @@ class GameService {
   }
 
   // Helper to encode function calls
-  private encodeFunctionCall(contractInterface: ethers.utils.Interface, functionName: string, args: any[]): string {
+  private encodeFunctionCall(contractInterface: ethers.Interface, functionName: string, args: any[]): string {
     return contractInterface.encodeFunctionData(functionName, args);
   }
 
@@ -453,7 +453,7 @@ class GameService {
       // Method 4: Try with interface encoding (specify the exact function signature)
       else {
         console.log('Using interface encoding approach');
-        const iface = new ethers.utils.Interface(BearHunterEcosystemABI);
+        const iface = new ethers.Interface(BearHunterEcosystemABI);
         
         // Use the single-parameter version: depositBears(uint256[])
         const data = iface.encodeFunctionData('depositBears(uint256[])', [bearIds]);
@@ -621,7 +621,7 @@ class GameService {
       );
       
       // Add 1% swap fee
-      const feeAmount = (baseAmount * 100) / BigInt(10000); // 1% fee
+      const feeAmount = (baseAmount * BigInt(100)) / BigInt(10000); // 1% fee
       const totalAmount = (baseAmount + feeAmount);
       
       // First approve BTB tokens for the BTBSwapLogic contract
@@ -903,7 +903,7 @@ class GameService {
       progressCallback?.(0, tokenCount);
       
       // Use multicall for efficient batching
-      const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+      const contractInterface = new ethers.Interface(BearHunterEcosystemABI);
       
       // Step 1: Get all token IDs using multicall
       const tokenIdCalls = [];
@@ -1100,7 +1100,7 @@ class GameService {
         return;
       }
 
-      const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+      const contractInterface = new ethers.Interface(BearHunterEcosystemABI);
       
       // Get all token IDs first using multicall
       const tokenIdCalls = [];
@@ -1381,7 +1381,7 @@ class GameService {
       const rewardRate = globalInfo._rewardRate;
       
       let calculatedAPR = '0';
-      if (!totalStaked === 0n && !rewardRate === 0n) {
+      if (totalStaked !== 0n && rewardRate !== 0n) {
         // APR = (rewardRate * seconds per year) / totalStaked * 100
         const secondsPerYear = BigInt('31536000'); // 365 * 24 * 3600
         const annualRewards = (rewardRate * secondsPerYear);
@@ -1597,7 +1597,7 @@ class GameService {
       const currentTime = Math.floor(Date.now() / 1000);
 
       // Batch get hunter stats
-      const contractInterface = new ethers.utils.Interface(BearHunterEcosystemABI);
+      const contractInterface = new ethers.Interface(BearHunterEcosystemABI);
       const calls = tokenIds.map(tokenId => ({
         target: this.gameContractAddress,
         callData: this.encodeFunctionCall(contractInterface, 'getHunterStats', [tokenId])

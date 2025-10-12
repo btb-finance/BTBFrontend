@@ -144,7 +144,7 @@ export default function BulkSenderPage() {
           const network = await provider.getNetwork();
           
           // Check if the network is either Base Mainnet (8453) or Base Sepolia (84532)
-          const isBaseNetwork = network.chainId === 8453 || network.chainId === 84532;
+          const isBaseNetwork = Number(network.chainId) === 8453 || Number(network.chainId) === 84532;
           
           if (!isBaseNetwork) {
             // Default to Base Mainnet if not on any Base network

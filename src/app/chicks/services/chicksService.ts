@@ -102,7 +102,7 @@ class ChicksService {
         ensAddress: undefined
       });
       
-      this.signer = injectedProvider.getSigner();
+      this.signer = await injectedProvider.getSigner();
       
       // Initialize contract with signer
       this.contract = new ethers.Contract(
@@ -225,7 +225,7 @@ class ChicksService {
       const loan = await this.contract!.Loans(address);
       
       // Check if the loan exists and has a non-zero borrowed amount
-      return loan && !loan.borrowed === 0n;
+      return loan && loan.borrowed !== 0n;
     } catch (error) {
       console.error('Error checking active loan:', error);
       return false;
@@ -284,7 +284,7 @@ class ChicksService {
       const feeAddressAmount = usdcAmount / BigInt(125); // FEES_SELL is 125
       const MIN = ethers.parseUnits('1000', 0); // MIN is 1000 in the contract
       
-      if (feeAddressAmount.lte(MIN)) {
+      if (feeAddressAmount <= MIN) {
         const minChicksNeeded = await this.getMinSellAmount();
         throw new Error(`Minimum sell amount is ${minChicksNeeded} CHICKS. You entered ${chicksAmount} CHICKS.`);
       }
@@ -458,7 +458,7 @@ class ChicksService {
           // Check if user has an existing loan that might be causing issues
           try {
             const loan = await this.contract!.Loans(address);
-            if (loan && loan.borrowed && !loan.borrowed === 0n) {
+            if (loan && loan.borrowed && loan.borrowed !== 0n) {
               throw new Error('You already have an active loan. Please repay or close your existing position before creating a new one.');
             }
           } catch (loanError) {
@@ -768,7 +768,7 @@ class ChicksService {
       // liquidation_price = (debt * 1.1) / collateral
       const totalDebt = loan.borrowed + loan.interest;
       const liquidationThreshold = (BigInt(110) * totalDebt) / BigInt(100);
-      const liquidationPrice = (liquidationThreshold * ethers.parseUnits('1', 6)) / loan.collateral;
+      const liquidationPrice = (liquidationThreshold * ethers.parseUnits('1', 6)) / BigInt(loan.collateral);
       
       return ethers.formatUnits(liquidationPrice, 6);
     } catch (error) {

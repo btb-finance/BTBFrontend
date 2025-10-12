@@ -133,7 +133,7 @@ export default function TransactionHistory({ isConnected, userAddress }: Transac
           // For now, let's just use a simplified approach and extract what we can
           
           // Try to decode the function call
-          const iface = new ethers.utils.Interface(bulksenderABI);
+          const iface = new ethers.Interface(bulksenderABI);
           let decodedData;
           let token = '';
           let recipientCount = 0;

@@ -476,7 +476,7 @@ class BTBFinanceService {
       const ethToSend = await this.contract!.calculateTokensToETH(parsedAmount);
       // Apply trading fee - user gets tradingFeePercentage/10000 (default 9990/10000 = 99.9%)
       const tradingFeePercentage = await this.contract!.tradingFeePercentage();
-      const userETH = (ethToSend * tradingFeePercentage) / BigInt(10000);
+      const userETH = (ethToSend * BigInt(tradingFeePercentage)) / BigInt(10000);
       return ethers.formatEther(userETH);
     } catch (error) {
       console.error('Error getting sell estimate:', error);
