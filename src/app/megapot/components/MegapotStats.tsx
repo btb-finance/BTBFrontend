@@ -23,8 +23,8 @@ const useAnimatedCounter = (
   fluctuationRange: number = 0
 ) => {
   const [count, setCount] = useState(0);
-  const animationRef = useRef<number>();
-  const startTimeRef = useRef<number>();
+  const animationRef = useRef<number | undefined>(undefined);
+  const startTimeRef = useRef<number | undefined>(undefined);
   const currentValueRef = useRef<number>(0);
   
   useEffect(() => {
