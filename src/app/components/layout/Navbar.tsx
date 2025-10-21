@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { 
   Bars3Icon, 
@@ -27,7 +26,6 @@ import { ConnectKitButton } from 'connectkit';
 import { ThemeToggle } from '../ui/theme-toggle';
 
 export default function Navbar() {
-  const { theme, setTheme } = useTheme();
   const { address, isConnected, isConnecting, connectWallet, disconnectWallet, error, clearError } = useWallet();
   const [mounted, setMounted] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -90,11 +88,7 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    // Set initial theme
-    if (!theme) {
-      setTheme('dark');
-    }
-  }, [theme, setTheme]);
+  }, []);
 
   // Track active item for hover effects
   useEffect(() => {
