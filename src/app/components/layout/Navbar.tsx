@@ -24,6 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWallet } from '../../context/WalletContext';
 import { ConnectKitButton } from 'connectkit';
+import { ThemeToggle } from '../ui/theme-toggle';
 
 export default function Navbar() {
   const { theme, setTheme } = useTheme();
@@ -275,6 +276,11 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center space-x-1">
+          {/* Theme Toggle - Desktop */}
+          <div className="hidden md:block">
+            <ThemeToggle />
+          </div>
+
           {/* Desktop Connect Wallet Button - Using ConnectKit */}
           <div className="hidden md:block">
             <ConnectKitButton.Custom>
@@ -312,6 +318,11 @@ export default function Navbar() {
               <span className="font-semibold">Transactions</span>
             </motion.a>
           )}
+
+          {/* Theme Toggle - Mobile */}
+          <div className="md:hidden">
+            <ThemeToggle />
+          </div>
 
           {/* Mobile Wallet Connect Button - Using ConnectKit */}
           <div className="md:hidden">

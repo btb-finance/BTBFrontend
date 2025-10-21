@@ -12,12 +12,12 @@ export function Providers({
   cookie?: string | null;
 }) {
   return (
-    <ThemeProvider 
+    <ThemeProvider
       attribute="class"
       defaultTheme="dark"
-      enableSystem={false}
+      enableSystem={true}
       storageKey="btb-theme"
-      disableTransitionOnChange
+      themes={['light', 'dark']}
     >
       <Web3Provider cookie={cookie || undefined}>
         <WalletProvider>

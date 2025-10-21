@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Inter, Montserrat, Roboto } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-import { ThemeScript } from './theme-script';
 import Navbar from './components/layout/Navbar';
 import Logo from './components/common/Logo';
 import BackgroundWrapper from './components/layout/BackgroundWrapper';
@@ -50,7 +49,6 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${montserrat.variable} ${roboto.variable} ${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
         <Providers cookie={cookie}>
-          <ThemeScript />
           <BackgroundWrapper>
             <div className="min-h-screen">
               <Navbar />
