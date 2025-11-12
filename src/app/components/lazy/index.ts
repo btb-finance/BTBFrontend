@@ -17,7 +17,3 @@ export const TransactionHistory = lazy(() => import('../../bulksender/components
 export const MegapotStats = lazy(() => import('../../megapot/components/MegapotStats'));
 export const BuyTickets = lazy(() => import('../../megapot/components/BuyTickets'));
 export const UserTickets = lazy(() => import('../../megapot/components/UserTickets'));
-
-// Chicks components
-export const ChicksStats = lazy(() => import('../../chicks/components/ChicksStats'));
-export const DistributionChart = lazy(() => import('../../chicks/components/DistributionChart'));
