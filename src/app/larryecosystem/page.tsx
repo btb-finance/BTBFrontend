@@ -529,7 +529,7 @@ export default function LarryEcosystemPage() {
             {/* Live Price Display */}
             <div className="mt-6 p-4 bg-gradient-to-r from-emerald-900/50 to-green-900/50 border border-emerald-500/30 backdrop-blur-sm rounded-lg max-w-md mx-auto">
               <div className="text-sm text-emerald-400 mb-1">Current LARRY Price</div>
-              <div className="text-3xl font-bold text-white">${parseFloat(larryStats.larryPrice).toFixed(10)}</div>
+              <div className="text-3xl font-bold text-white">Ξ {parseFloat(larryStats.larryPrice).toFixed(10)}</div>
               <div className="text-xs text-gray-400 mt-1">Live from contract</div>
             </div>
           </div>
@@ -542,7 +542,7 @@ export default function LarryEcosystemPage() {
                   <span className="text-sm text-gray-400">LARRY Price</span>
                   <TrendingUpIcon className="h-4 w-4 text-green-400" />
                 </div>
-                <div className="text-2xl font-bold text-white">${parseFloat(larryStats.larryPrice).toFixed(8)}</div>
+                <div className="text-2xl font-bold text-white">Ξ {parseFloat(larryStats.larryPrice).toFixed(8)}</div>
                 <div className="text-xs text-gray-400 mt-1">Stability protected</div>
               </div>
             </Card>
