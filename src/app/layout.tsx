@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Montserrat, Roboto } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { ThemeScript } from './theme-script';
@@ -13,20 +13,9 @@ import { headers } from 'next/headers';
 
 const inter = Inter({
   subsets: ['latin'],
+  display: 'swap',
   variable: '--font-inter',
-  weight: ['300', '400', '500', '600', '700']
-});
-
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  variable: '--font-montserrat',
-  weight: ['300', '400', '500', '600', '700', '800']
-});
-
-const roboto = Roboto({
-  subsets: ['latin'],
-  variable: '--font-roboto',
-  weight: ['300', '400', '500', '700']
+  weight: ['400', '500', '600', '700']
 });
 
 export const metadata: Metadata = {
@@ -48,7 +37,7 @@ export default async function RootLayout({
   
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${montserrat.variable} ${roboto.variable} ${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
         <Providers cookie={cookie}>
           <ThemeScript />
           <BackgroundWrapper>
