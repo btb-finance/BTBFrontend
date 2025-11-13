@@ -2,6 +2,8 @@ import * as React from "react"
 import { motion, HTMLMotionProps, PanInfo } from "framer-motion"
 import { cn } from "@/app/lib/utils"
 
+const { memo } = React;
+
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "gradient" | "glass" | "outline" | "elevated"
   isHoverable?: boolean
@@ -9,7 +11,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   withAnimation?: boolean
 }
 
-const Card = React.forwardRef<HTMLDivElement, CardProps>
+const Card = memo(React.forwardRef<HTMLDivElement, CardProps>
 (({ className, variant = "default", isHoverable = false, isInteractive = false, withAnimation = false, ...props }, ref) => {
     const baseStyles = "rounded-xl overflow-hidden";
     
@@ -67,10 +69,10 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>
       )
     )
   }
-)
+))
 Card.displayName = "Card"
 
-const CardHeader = React.forwardRef<
+const CardHeader = memo(React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
@@ -79,10 +81,10 @@ const CardHeader = React.forwardRef<
     className={cn("flex flex-col space-y-1.5 p-6", className)}
     {...props}
   />
-))
+)))
 CardHeader.displayName = "CardHeader"
 
-const CardTitle = React.forwardRef<
+const CardTitle = memo(React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
@@ -94,10 +96,10 @@ const CardTitle = React.forwardRef<
     )}
     {...props}
   />
-))
+)))
 CardTitle.displayName = "CardTitle"
 
-const CardDescription = React.forwardRef<
+const CardDescription = memo(React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
@@ -106,18 +108,18 @@ const CardDescription = React.forwardRef<
     className={cn("text-sm text-gray-500 dark:text-gray-400", className)}
     {...props}
   />
-))
+)))
 CardDescription.displayName = "CardDescription"
 
-const CardContent = React.forwardRef<
+const CardContent = memo(React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
-))
+)))
 CardContent.displayName = "CardContent"
 
-const CardFooter = React.forwardRef<
+const CardFooter = memo(React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
@@ -126,7 +128,7 @@ const CardFooter = React.forwardRef<
     className={cn("flex items-center p-6 pt-0", className)}
     {...props}
   />
-))
+)))
 CardFooter.displayName = "CardFooter"
 
 // Animated variants of card components

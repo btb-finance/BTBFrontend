@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 
 interface TypewriterEffectProps {
   words: string[];
@@ -10,7 +10,7 @@ interface TypewriterEffectProps {
   className?: string;
 }
 
-export default function TypewriterEffect({
+const TypewriterEffect = memo(function TypewriterEffect({
   words = [],
   delayBetweenWords = 1500,
   typingSpeed = 100,
@@ -67,11 +67,13 @@ export default function TypewriterEffect({
     <div className={`flex items-center ${className}`}>
       <span className={className ? className : "bg-gradient-to-r from-btb-primary-dark to-btb-primary px-3 py-1 rounded text-white font-medium inline-block"}>
         {currentText}
-        <span 
+        <span
           className={`inline-block w-1 h-5 ml-0.5 ${className ? 'bg-btb-primary-light dark:bg-btb-primary' : 'bg-white'} ${cursorVisible ? 'opacity-100' : 'opacity-0'}`}
           style={{ transition: 'opacity 0.1s' }}
         ></span>
       </span>
     </div>
   );
-}
+});
+
+export default TypewriterEffect;
