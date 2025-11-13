@@ -18,16 +18,6 @@ const quickNavLinks = [
     textColor: 'text-emerald-600 dark:text-emerald-400'
   },
   {
-    name: 'CHICKS Trade',
-    description: 'Trade, borrow & leverage CHICKS tokens',
-    href: '/chicks/trade',
-    icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🐣</span>
-    ),
-    color: 'bg-blue-100 dark:bg-blue-900/30',
-    textColor: 'text-blue-600 dark:text-blue-400'
-  },
-  {
     name: 'BTB Finance',
     description: 'Trade, loop, and borrow with BTB tokens - Full DeFi platform',
     href: '/btb-finance',

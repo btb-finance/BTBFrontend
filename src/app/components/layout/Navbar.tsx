@@ -65,8 +65,6 @@ export default function Navbar() {
       icon: CubeTransparentIcon,
       children: [
         { name: 'Larry Ecosystem', href: '/larryecosystem' },
-        { name: 'CHICKS', href: '/chicks' },
-        { name: 'Leverage Exchange', href: '/lev-exchange' },
         { name: 'Megapot Lottery', href: '/megapot' },
       ]
     },

@@ -11,9 +11,6 @@ const BASE_NETWORK = {
 // USDC contract address on Base Mainnet
 const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-// CHICKS contract address on Base Mainnet
-const CHICKS_ADDRESS = '0x0000a88106096104877F79674396708E017DFf00';
-
 // Minimal ERC20 ABI for token interactions
 const ERC20_ABI = [
   'function approve(address spender, uint256 amount) public returns (bool)',
@@ -325,6 +322,8 @@ class OpenOceanService {
 
   // Get price comparison between OpenOcean and BTB
   public async getPriceComparison(
+    fromToken: string,
+    toToken: string,
     btbPrice: string,
     amount: string = '1'
   ): Promise<{
@@ -334,31 +333,31 @@ class OpenOceanService {
     priceDifferencePercentage: string;
   }> {
     try {
-      // Get OpenOcean price for 1 CHICKS
+      // Get OpenOcean price
       const quoteData = await this.getQuote(
-        CHICKS_ADDRESS,
-        USDC_ADDRESS,
+        fromToken,
+        toToken,
         amount
       );
-      
+
       if (!quoteData.data) {
         throw new Error('No quote data received from OpenOcean');
       }
-      
+
       console.log('OpenOcean quote data:', quoteData);
-      
-      // Calculate price per CHICKS
+
+      // Calculate price per token
       // The API returns inAmount and outAmount with decimals already applied
       const inAmount = parseFloat(amount);
       const outAmount = parseFloat(ethers.formatUnits(quoteData.data.outAmount, 6));
       const openOceanPrice = (outAmount / inAmount).toFixed(6);
-      
+
       // Calculate price difference
       const btbPriceNum = parseFloat(btbPrice);
       const openOceanPriceNum = parseFloat(openOceanPrice);
       const priceDifference = (openOceanPriceNum - btbPriceNum).toFixed(6);
       const priceDifferencePercentage = (((openOceanPriceNum - btbPriceNum) / btbPriceNum) * 100).toFixed(2);
-      
+
       return {
         btbPrice,
         openOceanPrice,
