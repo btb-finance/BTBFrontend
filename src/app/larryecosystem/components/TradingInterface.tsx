@@ -89,38 +89,60 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
 
   useEffect(() => {
     const getQuote = async () => {
-      if (!buyAmount || isNaN(Number(buyAmount))) {
+      if (!buyAmount || isNaN(Number(buyAmount)) || Number(buyAmount) <= 0) {
         setBuyQuote(null);
         return;
       }
-      
+
       try {
         const quote = await larryService.quoteBuy(buyAmount);
-        setBuyQuote(quote);
+        if (quote) {
+          setBuyQuote(quote);
+        } else {
+          console.warn('Quote returned null for buyAmount:', buyAmount);
+          setBuyQuote(null);
+        }
       } catch (error) {
         console.error('Error getting buy quote:', error);
         setBuyQuote(null);
       }
     };
-    getQuote();
+
+    // Debounce the quote request
+    const timeoutId = setTimeout(() => {
+      getQuote();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [buyAmount]);
 
   useEffect(() => {
     const getQuote = async () => {
-      if (!sellAmount || isNaN(Number(sellAmount))) {
+      if (!sellAmount || isNaN(Number(sellAmount)) || Number(sellAmount) <= 0) {
         setSellQuote(null);
         return;
       }
-      
+
       try {
         const quote = await larryService.quoteSell(sellAmount);
-        setSellQuote(quote);
+        if (quote) {
+          setSellQuote(quote);
+        } else {
+          console.warn('Quote returned null for sellAmount:', sellAmount);
+          setSellQuote(null);
+        }
       } catch (error) {
         console.error('Error getting sell quote:', error);
         setSellQuote(null);
       }
     };
-    getQuote();
+
+    // Debounce the quote request
+    const timeoutId = setTimeout(() => {
+      getQuote();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [sellAmount]);
 
   useEffect(() => {
@@ -153,8 +175,8 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
 
     try {
       setTxStatus('Buying LARRY...');
-      const tx = await larryService.buyTokens(buyAmount);
-      
+      await larryService.buyTokens(buyAmount);
+
       setTxStatus('Purchase successful!');
       setBuyAmount('');
       setBuyQuote(null);
@@ -182,8 +204,8 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
 
     try {
       setTxStatus('Selling LARRY...');
-      const tx = await larryService.sellTokens(sellAmount);
-      
+      await larryService.sellTokens(sellAmount);
+
       setTxStatus('Sale successful!');
       setSellAmount('');
       setSellQuote(null);
@@ -211,8 +233,8 @@ export default function TradingInterface({ mode = 'trade' }: TradingInterfacePro
 
     try {
       setTxStatus('Processing borrow...');
-      const tx = await larryService.borrow(borrowAmount, borrowDays);
-      
+      await larryService.borrow(borrowAmount, borrowDays);
+
       setTxStatus('Borrow successful!');
       setBorrowAmount('');
       setBorrowQuote(null);

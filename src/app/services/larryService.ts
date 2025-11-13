@@ -70,26 +70,42 @@ class LarryService {
   async getContractStatus() {
     try {
       const contract = this.getContract();
-      const [totalBorrowed, totalCollateral, buyFee, sellFee] = await Promise.all([
+      const [totalBorrowed, totalCollateral, buyFeeRaw, sellFeeRaw] = await Promise.all([
         contract.getTotalBorrowed(),
         contract.getTotalCollateral(),
         contract.buy_fee(),
         contract.sell_fee()
       ]);
 
+      // Calculate fees: if contract returns 0 or invalid, use hardcoded 0.1%
+      let buyFeePercent = '0.1';
+      let sellFeePercent = '0.1';
+
+      const buyFeeValue = Number(buyFeeRaw);
+      if (buyFeeValue > 0 && buyFeeValue < 10000) {
+        buyFeePercent = ((10000 - buyFeeValue) / 100).toFixed(2);
+      }
+
+      const sellFeeValue = Number(sellFeeRaw);
+      if (sellFeeValue > 0 && sellFeeValue < 10000) {
+        sellFeePercent = ((10000 - sellFeeValue) / 100).toFixed(2);
+      }
+
+      console.log('Contract status - buyFee:', buyFeePercent + '%', 'sellFee:', sellFeePercent + '%');
+
       return {
         totalBorrowed: ethers.formatEther(totalBorrowed),
         totalCollateral: ethers.formatEther(totalCollateral),
-        buyFee: ((10000 - buyFee) / 100).toFixed(2),
-        sellFee: ((10000 - sellFee) / 100).toFixed(2)
+        buyFee: buyFeePercent,
+        sellFee: sellFeePercent
       };
     } catch (error) {
       console.error('Error fetching status:', error);
       return {
         totalBorrowed: '0',
         totalCollateral: '0',
-        buyFee: '0',
-        sellFee: '0'
+        buyFee: '0.1',
+        sellFee: '0.1'
       };
     }
   }
@@ -118,34 +134,74 @@ class LarryService {
 
   async quoteBuy(ethAmount: string) {
     try {
+      if (!ethAmount || ethAmount === '0' || ethAmount === '0.0') {
+        return null;
+      }
+
       const contract = this.getContract();
       const ethValue = ethers.parseEther(ethAmount);
+
+      console.log('Getting buy quote for:', ethAmount, 'ETH, parsed:', ethValue.toString());
+
       const tokenAmount = await contract.getBuyAmount(ethValue);
-      const buyFee = await contract.buy_fee();
-      
+      const buyFeeRaw = await contract.buy_fee();
+
+      console.log('Buy quote result - tokenAmount:', tokenAmount.toString(), 'buyFeeRaw:', buyFeeRaw.toString());
+
+      // Calculate fee: if contract returns 0 or invalid, use hardcoded 0.1%
+      let buyFeePercent = '0.1';
+      const feeValue = Number(buyFeeRaw);
+      if (feeValue > 0 && feeValue < 10000) {
+        // Contract uses basis points where 10000 = 100%
+        // So fee percentage = (10000 - feeValue) / 100
+        buyFeePercent = ((10000 - feeValue) / 100).toFixed(2);
+      }
+
+      console.log('Calculated buy fee:', buyFeePercent + '%');
+
       return {
         tokenAmount: ethers.formatEther(tokenAmount),
-        buyFee: ((10000 - buyFee) / 100).toFixed(2)
+        buyFee: buyFeePercent
       };
     } catch (error) {
-      console.error('Error getting buy quote:', error);
+      console.error('Error getting buy quote for amount:', ethAmount, 'Error:', error);
       return null;
     }
   }
 
   async quoteSell(larryAmount: string) {
     try {
+      if (!larryAmount || larryAmount === '0' || larryAmount === '0.0') {
+        return null;
+      }
+
       const contract = this.getContract();
       const larryValue = ethers.parseEther(larryAmount);
+
+      console.log('Getting sell quote for:', larryAmount, 'LARRY, parsed:', larryValue.toString());
+
       const ethAmount = await contract.LARRYtoETH(larryValue);
-      const sellFee = await contract.sell_fee();
-      
+      const sellFeeRaw = await contract.sell_fee();
+
+      console.log('Sell quote result - ethAmount:', ethAmount.toString(), 'sellFeeRaw:', sellFeeRaw.toString());
+
+      // Calculate fee: if contract returns 0 or invalid, use hardcoded 0.1%
+      let sellFeePercent = '0.1';
+      const feeValue = Number(sellFeeRaw);
+      if (feeValue > 0 && feeValue < 10000) {
+        // Contract uses basis points where 10000 = 100%
+        // So fee percentage = (10000 - feeValue) / 100
+        sellFeePercent = ((10000 - feeValue) / 100).toFixed(2);
+      }
+
+      console.log('Calculated sell fee:', sellFeePercent + '%');
+
       return {
         ethAmount: ethers.formatEther(ethAmount),
-        sellFee: ((10000 - sellFee) / 100).toFixed(2)
+        sellFee: sellFeePercent
       };
     } catch (error) {
-      console.error('Error getting sell quote:', error);
+      console.error('Error getting sell quote for amount:', larryAmount, 'Error:', error);
       return null;
     }
   }
