@@ -154,9 +154,9 @@ export function BTBMiningInterface(): React.ReactElement {
   });
 
   // Contract writes
-  const { writeContract: deploy, data: deployHash } = useWriteContract();
-  const { writeContract: checkpoint, data: checkpointHash } = useWriteContract();
-  const { writeContract: claimAll, data: claimHash } = useWriteContract();
+  const { writeContract: deploy, data: deployHash, error: deployError, isPending: deployPending } = useWriteContract();
+  const { writeContract: checkpoint, data: checkpointHash, error: checkpointError, isPending: checkpointPending } = useWriteContract();
+  const { writeContract: claimAll, data: claimHash, error: claimError, isPending: claimPending } = useWriteContract();
 
   // Motherlode data
   const { data: motherlodePots } = useReadContract({
@@ -333,6 +333,28 @@ export function BTBMiningInterface(): React.ReactElement {
       refetchRound();
     }
   }, [checkpointSuccess]);
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (deployError) {
+      setError(deployError.message || 'Transaction rejected or failed');
+      setIsLoading(false);
+    }
+  }, [deployError]);
+
+  useEffect(() => {
+    if (checkpointError) {
+      setError(checkpointError.message || 'Checkpoint failed');
+      setIsLoading(false);
+    }
+  }, [checkpointError]);
+
+  useEffect(() => {
+    if (claimError) {
+      setError(claimError.message || 'Claim failed');
+      setIsLoading(false);
+    }
+  }, [claimError]);
 
   useEffect(() => {
     if (claimSuccess) {
