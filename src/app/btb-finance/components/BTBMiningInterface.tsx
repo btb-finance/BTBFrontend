@@ -120,6 +120,7 @@ export function BTBMiningInterface(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [localTimeRemaining, setLocalTimeRemaining] = useState<number>(0);
   
   // Contract reads
   const { data: currentRound, refetch: refetchRound } = useReadContract({
@@ -184,12 +185,24 @@ export function BTBMiningInterface(): React.ReactElement {
   
   // Format time remaining
   const formatTimeRemaining = (seconds: bigint | undefined) => {
-    if (!seconds) return '0s';
+    if (!seconds || seconds === 0n) return '0s';
     const secs = Number(seconds);
-    if (secs <= 0) return 'Round ended';
-    const mins = Math.floor(secs / 60);
+    if (secs <= 0) return 'Ended';
+
+    const days = Math.floor(secs / 86400);
+    const hours = Math.floor((secs % 86400) / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
     const remainingSecs = secs % 60;
-    return `${mins}m ${remainingSecs}s`;
+
+    if (days > 0) {
+      return `${days}d ${hours}h ${mins}m`;
+    } else if (hours > 0) {
+      return `${hours}h ${mins}m ${remainingSecs}s`;
+    } else if (mins > 0) {
+      return `${mins}m ${remainingSecs}s`;
+    } else {
+      return `${remainingSecs}s`;
+    }
   };
 
   // Handle square selection
@@ -320,6 +333,30 @@ export function BTBMiningInterface(): React.ReactElement {
     setSuccess(null);
   }, [selectedSquares, amountPerSquare]);
 
+  // Initialize and countdown local timer
+  useEffect(() => {
+    if (timeRemaining) {
+      setLocalTimeRemaining(Number(timeRemaining));
+    }
+  }, [timeRemaining]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (localTimeRemaining <= 0) return;
+
+    const interval = setInterval(() => {
+      setLocalTimeRemaining(prev => {
+        if (prev <= 1) {
+          refetchRound();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [localTimeRemaining, refetchRound]);
+
   // Default values for when data is loading
   const defaultRoundInfo = {
     id: 0n,
@@ -389,7 +426,7 @@ export function BTBMiningInterface(): React.ReactElement {
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Time</span>
-                <span className="font-bold text-red-600">{formatTimeRemaining(timeRemaining as bigint)}</span>
+                <span className="font-bold text-red-600">{formatTimeRemaining(BigInt(localTimeRemaining))}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Pot</span>

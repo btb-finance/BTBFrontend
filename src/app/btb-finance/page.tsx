@@ -472,45 +472,6 @@ export default function BTBFinanceComingSoon() {
           </div>
         </div>
 
-        {/* Feature Highlights */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <Card className="border-2 border-purple-200 dark:border-purple-900/50 hover:shadow-xl transition-all">
-            <CardContent className="p-6 text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 mb-4">
-                <Rocket className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Live on Base</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                BTB token is now live and tradable on Base network via Aerodrome Finance
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-blue-200 dark:border-blue-900/50 hover:shadow-xl transition-all">
-            <CardContent className="p-6 text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-4">
-                <Lock className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Verified Contract</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Fully verified and transparent smart contract on Basescan
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-2 border-cyan-200 dark:border-cyan-900/50 hover:shadow-xl transition-all">
-            <CardContent className="p-6 text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-cyan-100 dark:bg-cyan-900/30 mb-4">
-                <TrendingUp className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Growing Ecosystem</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                New use cases and features being developed for the BTB ecosystem
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* How to Mine BTB Section */}
         <div className="mb-12">
           <div className="text-center mb-8">
@@ -525,9 +486,9 @@ export default function BTBFinanceComingSoon() {
                 <div className="font-semibold text-white mb-3">Quick Summary:</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
                   <div>🎯 25 squares (5×5 grid) • 60-second rounds</div>
-                  <div>💰 Winners split losers&apos; ETH + 20k BTB + motherlode bonuses</div>
-                  <div>🎲 Chainlink VRF ensures provably fair randomness</div>
-                  <div>💎 10 motherlode tiers accumulate 1k BTB each per round</div>
+                  <div>💰 Winners split losers&apos; ETH + 20,000 BTB + motherlode bonuses</div>
+                  <div>🎲 Chainlink VRF v2.5 ensures provably fair randomness</div>
+                  <div>💎 10 motherlode tiers: 1,000 BTB each/round (2,000 BTB in jackpot rounds)</div>
                 </div>
               </div>
             </div>
@@ -557,47 +518,35 @@ export default function BTBFinanceComingSoon() {
             <h3 className="text-xl font-bold text-white mb-4">Key Concepts</h3>
             <div className="space-y-3 text-sm text-slate-300">
               <div>
-                <span className="font-semibold text-white">Admin Fee:</span> 10% of all deployments go to admin, 90% enters the game pot
+                <span className="font-semibold text-white">Admin Fee:</span> 10% of all deployments sent to bonding curve, 90% enters the game pot
               </div>
               <div>
-                <span className="font-semibold text-white">Claim Fee:</span> 10% of claimed BTB is redistributed to unclaimed miners (refinement)
+                <span className="font-semibold text-white">Referral System:</span> 1% cashback to users, 4% to partners, 5% to admin (when using partner)
+              </div>
+              <div>
+                <span className="font-semibold text-white">Claim Fee:</span> 10% of claimed BTB redistributed to unclaimed miners (refinement)
               </div>
               <div>
                 <span className="font-semibold text-white">Refinement:</span> HODLing unclaimed BTB earns you a share of others&apos; claim fees
               </div>
               <div>
-                <span className="font-semibold text-white">Emission:</span> 30,000 BTB per round (20k base + 10k to motherlode pots)
+                <span className="font-semibold text-white">Emission (Normal):</span> 30,000 BTB/round (20,000 base + 10,000 to motherlode pots)
               </div>
               <div>
-                <span className="font-semibold text-white">Duration:</span> 5-year mining period with ~2.6M rounds total
+                <span className="font-semibold text-white">Emission (Jackpot):</span> 50,000 BTB/round (10,000 base + 40,000 to motherlode pots)
+              </div>
+              <div>
+                <span className="font-semibold text-white">Total Supply:</span> 88,888,888,888 BTB tokens
+              </div>
+              <div>
+                <span className="font-semibold text-white">Duration:</span> 5-year mining period (~2.6M rounds @ 60s each)
+              </div>
+              <div>
+                <span className="font-semibold text-white">Deployment Limits:</span> Min 0.0000001 ETH, Max 10 ETH per square per miner
               </div>
             </div>
           </div>
         </div>
-
-        {/* Status Banner */}
-        <Card className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-2 border-purple-200 dark:border-purple-800/50">
-          <CardContent className="p-8 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="relative">
-                <div className="w-3 h-3 bg-purple-500 rounded-full animate-ping absolute"></div>
-                <div className="w-3 h-3 bg-purple-600 rounded-full"></div>
-              </div>
-              <p className="text-sm font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wide">
-                More Use Cases Coming Soon
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-bold mb-3 text-gray-900 dark:text-gray-100">
-              Expanding the BTB Ecosystem
-            </h2>
-
-            <p className="text-gray-600 dark:text-gray-400 max-w-xl mx-auto">
-              We&apos;re building innovative DeFi features and use cases for BTB token.
-              Stay tuned for exciting new utilities and opportunities to maximize your BTB holdings.
-            </p>
-          </CardContent>
-        </Card>
 
         {/* Footer Note */}
         <div className="text-center mt-12">
