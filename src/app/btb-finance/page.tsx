@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Sparkles, Rocket, Lock, TrendingUp, ExternalLink, ArrowUpRight, Coins, ChevronDown, ChevronUp } from 'lucide-react';
+import { Rocket, Lock, TrendingUp, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { BondingCurveInterface } from './components/BondingCurveInterface';
+import { BTBMiningInterface } from './components/BTBMiningInterface';
 
 export default function BTBFinanceComingSoon() {
   const [expandedSection, setExpandedSection] = useState<string | null>('deployment');
@@ -448,52 +450,14 @@ export default function BTBFinanceComingSoon() {
       <div className="max-w-6xl mx-auto w-full">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 mb-6 animate-pulse">
-            <Sparkles className="w-10 h-10 text-white" />
+          {/* BTB Mining Interface */}
+          <div className="mb-12">
+            <BTBMiningInterface />
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 bg-clip-text text-transparent">
-            BTB Token
-          </h1>
-
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-400 mb-6">
-            Now Live on Base Network
-          </p>
-
-          <p className="text-lg text-gray-500 dark:text-gray-500 max-w-2xl mx-auto mb-8">
-            Trade BTB on Aerodrome Finance and discover the future of DeFi
-          </p>
-
-          {/* Contract and Supply Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mb-8">
-            <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 border-2 border-blue-200 dark:border-blue-800/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Coins className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="text-sm font-semibold text-blue-600 dark:text-blue-400 uppercase">Total Supply</h3>
-                </div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{TOTAL_SUPPLY}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">BTB Tokens</p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-2 border-purple-200 dark:border-purple-800/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <ExternalLink className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  <h3 className="text-sm font-semibold text-purple-600 dark:text-purple-400 uppercase">Contract Address</h3>
-                </div>
-                <p className="text-sm font-mono font-bold text-gray-900 dark:text-gray-100 break-all">{BTB_CONTRACT}</p>
-                <a
-                  href={BASESCAN_LINK}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-purple-600 dark:text-purple-400 hover:underline mt-1 inline-flex items-center gap-1"
-                >
-                  View on Basescan <ArrowUpRight className="w-3 h-3" />
-                </a>
-              </CardContent>
-            </Card>
+          {/* Bonding Curve Trading Interface */}
+          <div className="mb-12">
+            <BondingCurveInterface />
           </div>
 
           {/* Trade Button */}
