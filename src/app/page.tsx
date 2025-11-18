@@ -340,6 +340,40 @@ export default function Home() {
         )}
       </AnimatePresence>
 
+      {/* BTB Mining Live Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl"
+      >
+        <Link href="/btb-finance">
+          <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-red-600 hover:from-orange-700 hover:via-orange-600 hover:to-red-700 rounded-2xl shadow-2xl border-2 border-orange-400/50 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+            <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-white rounded-full animate-ping opacity-75"></div>
+                  <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center">
+                    <span className="text-2xl sm:text-3xl">⛏️</span>
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <h3 className="text-base sm:text-lg font-bold text-white truncate">BTB Mining is LIVE!</h3>
+                    <span className="hidden sm:inline-flex px-2 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full animate-pulse">NEW</span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-white/90 line-clamp-1">Start mining now • Earn BTB tokens • Win ETH rewards</p>
+                </div>
+              </div>
+              <Button className="bg-white hover:bg-gray-100 text-orange-600 font-bold px-4 sm:px-6 py-2 rounded-xl shadow-lg transition-all whitespace-nowrap text-sm sm:text-base">
+                Mine Now
+                <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2" />
+              </Button>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
+
               {/* Hero section */}
         <main className="relative min-h-[90vh] flex flex-col justify-center" ref={heroRef} role="main" aria-label="BTB Finance homepage hero section">
         {/* Background elements */}
