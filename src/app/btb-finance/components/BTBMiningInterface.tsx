@@ -122,17 +122,23 @@ export function BTBMiningInterface(): React.ReactElement {
   const [success, setSuccess] = useState<string | null>(null);
   const [localTimeRemaining, setLocalTimeRemaining] = useState<number>(0);
   
-  // Contract reads
+  // Contract reads with dynamic polling based on time remaining
   const { data: currentRound, refetch: refetchRound } = useReadContract({
     address: BTB_MINING_ADDRESS,
     abi: BTBMiningABI,
     functionName: 'getCurrentRound',
+    query: {
+      refetchInterval: localTimeRemaining < 60 ? 1000 : 60000, // 1s if < 60s, else 1min
+    }
   });
 
   const { data: timeRemaining } = useReadContract({
     address: BTB_MINING_ADDRESS,
     abi: BTBMiningABI,
     functionName: 'getCurrentRoundTimeRemaining',
+    query: {
+      refetchInterval: 5000, // Check every 5 seconds
+    }
   });
 
   const { data: minerStats } = useReadContract({
@@ -152,6 +158,9 @@ export function BTBMiningInterface(): React.ReactElement {
     address: BTB_MINING_ADDRESS,
     abi: BTBMiningABI,
     functionName: 'getAllMotherloadePots',
+    query: {
+      refetchInterval: localTimeRemaining < 60 ? 1000 : 60000, // 1s if < 60s, else 1min
+    }
   });
 
   const motherlodeTiers = [
