@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useBalance, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseEther, formatEther } from 'viem';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -111,7 +111,12 @@ function ActionButtons({
 
 export function BTBMiningInterface(): React.ReactElement {
   const { address, isConnected } = useAccount();
-  
+
+  // Get user's ETH balance
+  const { data: ethBalance } = useBalance({
+    address: address,
+  });
+
   // UI State
   const [selectedSquares, setSelectedSquares] = useState<number[]>([]);
   const [amountPerSquare, setAmountPerSquare] = useState('');
@@ -543,7 +548,14 @@ export function BTBMiningInterface(): React.ReactElement {
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Amount per Square (ETH)</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Amount per Square (ETH)</label>
+                {isConnected && ethBalance && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Balance: {parseFloat(formatEther(ethBalance.value)).toFixed(4)} ETH
+                  </span>
+                )}
+              </div>
               <Input
                 type="number"
                 placeholder="0.001"
