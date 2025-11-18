@@ -116,6 +116,7 @@ export function BTBMiningInterface(): React.ReactElement {
   const [selectedSquares, setSelectedSquares] = useState<number[]>([]);
   const [amountPerSquare, setAmountPerSquare] = useState('');
   const [partnerAddress, setPartnerAddress] = useState('');
+  const [showPartnerAddress, setShowPartnerAddress] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -209,6 +210,16 @@ export function BTBMiningInterface(): React.ReactElement {
   // Clear all squares
   const clearAllSquares = () => {
     setSelectedSquares([]);
+  };
+
+  // Select even squares (0, 2, 4, 6, ...)
+  const selectEvenSquares = () => {
+    setSelectedSquares(Array.from({ length: NUM_SQUARES }, (_, i) => i).filter(i => i % 2 === 0));
+  };
+
+  // Select odd squares (1, 3, 5, 7, ...)
+  const selectOddSquares = () => {
+    setSelectedSquares(Array.from({ length: NUM_SQUARES }, (_, i) => i).filter(i => i % 2 === 1));
   };
 
   // Handle deploy
@@ -318,48 +329,16 @@ export function BTBMiningInterface(): React.ReactElement {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Mining Stats Banner */}
-      <Card className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-2 border-orange-200 dark:border-orange-800/50">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                #{roundInfo.id.toString()}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Current Round</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {formatTimeRemaining(timeRemaining as bigint)}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Time Remaining</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {formatEther(roundInfo.totalDeployed).slice(0, 6)} ETH
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Total Deployed</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {roundInfo.finalized ? 'Finalized' : 'Active'}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Round Status</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+    <div className="space-y-4">
       {/* Motherlode Information - Ultra compact version */}
-      <Card className="border border-purple-200 dark:border-purple-800/50 shadow-sm">
-        <CardHeader className="pb-2 pt-3 px-3">
-          <CardTitle className="flex items-center gap-2 text-xs">
+      <Card className="border border-purple-200 dark:border-purple-800/50">
+        <CardHeader className="pb-1 pt-2 px-2">
+          <CardTitle className="flex items-center gap-1 text-[10px]">
             <Trophy className="w-3 h-3 text-purple-600" />
             Motherlode Jackpots
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-1 pb-2 px-3">
+        <CardContent className="pt-0 pb-2 px-2">
           <div className="grid grid-cols-5 md:grid-cols-10 gap-1">
             {motherlodeTiers.map((tier, index) => (
               <div
@@ -385,16 +364,32 @@ export function BTBMiningInterface(): React.ReactElement {
 
       {/* Mining Interface */}
       <Card className="border-2 border-orange-200 dark:border-orange-800/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Pickaxe className="w-5 h-5 text-orange-600" />
-            BTB Mining Game
-          </CardTitle>
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Pickaxe className="w-5 h-5 text-orange-600" />
+              BTB Mining Game
+            </CardTitle>
+            <div className="flex items-center gap-3 text-sm">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Round</span>
+                <span className="font-bold text-orange-600">#{roundInfo.id.toString()}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Time</span>
+                <span className="font-bold text-red-600">{formatTimeRemaining(timeRemaining as bigint)}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-gray-500">Pot</span>
+                <span className="font-bold text-green-600">{formatEther(roundInfo.totalDeployed).slice(0, 6)} ETH</span>
+              </div>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 px-4 pb-4">
           <div>
             <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-medium">Select Squares ({selectedSquares.length} selected)</label>
+              <label className="text-sm font-medium">Select Squares ({selectedSquares.length})</label>
               <div className="flex gap-2">
                 <Button
                   onClick={selectAllSquares}
@@ -402,7 +397,23 @@ export function BTBMiningInterface(): React.ReactElement {
                   size="sm"
                   disabled={!isConnected || isLoading}
                 >
-                  Select All
+                  All
+                </Button>
+                <Button
+                  onClick={selectEvenSquares}
+                  variant="outline"
+                  size="sm"
+                  disabled={!isConnected || isLoading}
+                >
+                  Even
+                </Button>
+                <Button
+                  onClick={selectOddSquares}
+                  variant="outline"
+                  size="sm"
+                  disabled={!isConnected || isLoading}
+                >
+                  Odd
                 </Button>
                 <Button
                   onClick={clearAllSquares}
@@ -415,25 +426,33 @@ export function BTBMiningInterface(): React.ReactElement {
               </div>
             </div>
             <div className="grid grid-cols-5 gap-2">
-              {Array.from({ length: NUM_SQUARES }, (_, i) => (
-                <Button
-                  key={i}
-                  onClick={() => toggleSquare(i)}
-                  variant={selectedSquares.includes(i) ? "default" : "outline"}
-                  className={`h-12 ${
-                    selectedSquares.includes(i)
-                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                      : 'hover:bg-orange-100 dark:hover:bg-orange-900/20'
-                  }`}
-                  disabled={!isConnected || isLoading}
-                >
-                  {i}
-                </Button>
-              ))}
+              {Array.from({ length: NUM_SQUARES }, (_, i) => {
+                const isEven = i % 2 === 0;
+                const isSelected = selectedSquares.includes(i);
+                return (
+                  <Button
+                    key={i}
+                    onClick={() => toggleSquare(i)}
+                    variant={isSelected ? "default" : "outline"}
+                    className={`h-12 ${
+                      isSelected
+                        ? isEven
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-orange-600 hover:bg-orange-700 text-white'
+                        : isEven
+                        ? 'hover:bg-blue-50 dark:hover:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                        : 'hover:bg-orange-50 dark:hover:bg-orange-950/20 border-orange-200 dark:border-orange-800'
+                    }`}
+                    disabled={!isConnected || isLoading}
+                  >
+                    {i}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
             <div className="space-y-2">
               <label className="text-sm font-medium">Amount per Square (ETH)</label>
               <Input
@@ -446,23 +465,69 @@ export function BTBMiningInterface(): React.ReactElement {
                 onChange={(e) => setAmountPerSquare(e.target.value)}
                 disabled={!isConnected || isLoading}
               />
-              <div className="text-xs text-gray-500">
-                Min: 0.0000001 ETH, Max: 10 ETH per square
+              <div className="flex gap-1 flex-wrap">
+                <Button
+                  onClick={() => setAmountPerSquare('0.001')}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs px-2 py-1 h-6"
+                  disabled={!isConnected || isLoading}
+                >
+                  0.001
+                </Button>
+                <Button
+                  onClick={() => setAmountPerSquare('0.01')}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs px-2 py-1 h-6"
+                  disabled={!isConnected || isLoading}
+                >
+                  0.01
+                </Button>
+                <Button
+                  onClick={() => setAmountPerSquare('0.1')}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs px-2 py-1 h-6"
+                  disabled={!isConnected || isLoading}
+                >
+                  0.1
+                </Button>
+                <Button
+                  onClick={() => setAmountPerSquare('1')}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs px-2 py-1 h-6"
+                  disabled={!isConnected || isLoading}
+                >
+                  1
+                </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Partner Address (optional)</label>
-              <Input
-                type="text"
-                placeholder="0x... (optional)"
-                value={partnerAddress}
-                onChange={(e) => setPartnerAddress(e.target.value)}
-                disabled={!isConnected || isLoading}
-              />
-              <div className="text-xs text-gray-500">
-                Referral partner for cashback
+
+            <Button
+              onClick={() => setShowPartnerAddress(!showPartnerAddress)}
+              variant="ghost"
+              size="sm"
+              className="text-xs px-0 h-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            >
+              {showPartnerAddress ? '− Hide' : '+ Add'} Partner Address (Optional)
+            </Button>
+
+            {showPartnerAddress && (
+              <div className="space-y-1">
+                <Input
+                  type="text"
+                  placeholder="0x... (optional)"
+                  value={partnerAddress}
+                  onChange={(e) => setPartnerAddress(e.target.value)}
+                  disabled={!isConnected || isLoading}
+                />
+                <div className="text-xs text-gray-500">
+                  Referral partner for cashback
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <ActionButtons
@@ -494,34 +559,34 @@ export function BTBMiningInterface(): React.ReactElement {
           )}
 
           {(minerStats && Array.isArray(minerStats)) ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t">
               <div className="text-center">
-                <div className="text-lg font-bold text-blue-600">
+                <div className="text-sm font-bold text-blue-600">
                   {formatEther(minerStats[0] as bigint || 0n)} ETH
                 </div>
-                <div className="text-xs text-gray-600">Claimable ETH</div>
+                <div className="text-[10px] text-gray-600">Claimable</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-purple-600">
+                <div className="text-sm font-bold text-purple-600">
                   {formatEther(minerStats[1] as bigint || 0n)} BTB
                 </div>
-                <div className="text-xs text-gray-600">Claimable BTB</div>
+                <div className="text-[10px] text-gray-600">Claimable</div>
               </div>
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-2 pt-4">
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Grid3x3 className="w-3 h-3" />
-              25 squares, 60-second rounds
+          <div className="flex flex-wrap gap-1 pt-2">
+            <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0.5">
+              <Grid3x3 className="w-2.5 h-2.5" />
+              25sq/60s
             </Badge>
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Users className="w-3 h-3" />
-              Winners split losers' ETH
+            <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0.5">
+              <Users className="w-2.5 h-2.5" />
+              Split ETH
             </Badge>
-            <Badge variant="secondary" className="flex items-center gap-1">
-              <Trophy className="w-3 h-3" />
-              20k BTB + motherlode bonuses
+            <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0.5">
+              <Trophy className="w-2.5 h-2.5" />
+              20k BTB
             </Badge>
           </div>
         </CardContent>
