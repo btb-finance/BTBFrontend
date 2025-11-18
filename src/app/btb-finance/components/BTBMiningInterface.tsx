@@ -473,7 +473,6 @@ export function BTBMiningInterface(): React.ReactElement {
         </CardHeader>
         <CardContent className="space-y-4 px-3 md:px-4 pb-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">Select Squares ({selectedSquares.length})</label>
             <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               {Array.from({ length: NUM_SQUARES }, (_, i) => {
                 const isEven = i % 2 === 0;
@@ -516,56 +515,55 @@ export function BTBMiningInterface(): React.ReactElement {
                 );
               })}
             </div>
-          </div>
-
-          {/* Control Buttons */}
-          <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap justify-center">
-            <Button
-              onClick={selectAllSquares}
-              variant="outline"
-              size="sm"
-              className="text-xs px-2"
-              disabled={!isConnected || isLoading}
-            >
-              All
-            </Button>
-            <Button
-              onClick={selectEvenSquares}
-              variant="outline"
-              size="sm"
-              className="text-xs px-2"
-              disabled={!isConnected || isLoading}
-            >
-              Even
-            </Button>
-            <Button
-              onClick={selectOddSquares}
-              variant="outline"
-              size="sm"
-              className="text-xs px-2"
-              disabled={!isConnected || isLoading}
-            >
-              Odd
-            </Button>
-            <Button
-              onClick={clearAllSquares}
-              variant="outline"
-              size="sm"
-              className="text-xs px-2"
-              disabled={!isConnected || isLoading || selectedSquares.length === 0}
-            >
-              Clear
-            </Button>
-            <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden sm:block"></div>
-            <Button
-              onClick={() => setShowPartnerAddress(!showPartnerAddress)}
-              variant="outline"
-              size="sm"
-              className="text-xs px-2"
-              disabled={!isConnected || isLoading}
-            >
-              {showPartnerAddress ? 'Hide' : '+'} Partner
-            </Button>
+            {/* Control Buttons */}
+            <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap justify-center mt-3">
+              <Button
+                onClick={selectAllSquares}
+                variant="outline"
+                size="sm"
+                className="text-xs px-2"
+                disabled={!isConnected || isLoading}
+              >
+                All
+              </Button>
+              <Button
+                onClick={selectEvenSquares}
+                variant="outline"
+                size="sm"
+                className="text-xs px-2"
+                disabled={!isConnected || isLoading}
+              >
+                Even
+              </Button>
+              <Button
+                onClick={selectOddSquares}
+                variant="outline"
+                size="sm"
+                className="text-xs px-2"
+                disabled={!isConnected || isLoading}
+              >
+                Odd
+              </Button>
+              <Button
+                onClick={clearAllSquares}
+                variant="outline"
+                size="sm"
+                className="text-xs px-2"
+                disabled={!isConnected || isLoading || selectedSquares.length === 0}
+              >
+                Clear
+              </Button>
+              <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden sm:block"></div>
+              <Button
+                onClick={() => setShowPartnerAddress(!showPartnerAddress)}
+                variant="outline"
+                size="sm"
+                className="text-xs px-2"
+                disabled={!isConnected || isLoading}
+              >
+                {showPartnerAddress ? 'Hide' : '+'} Partner
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
