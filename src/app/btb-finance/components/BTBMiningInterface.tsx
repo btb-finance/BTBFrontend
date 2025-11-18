@@ -251,17 +251,17 @@ export function BTBMiningInterface(): React.ReactElement {
 
   // Handle checkpoint
   const handleCheckpoint = async () => {
-    if (!isConnected || !roundInfo) return;
-    
+    if (!isConnected || !displayRoundInfo || isDataLoading) return;
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       checkpoint({
         address: BTB_MINING_ADDRESS,
         abi: BTBMiningABI,
         functionName: 'checkpoint',
-        args: [roundInfo.id],
+        args: [displayRoundInfo.id],
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to checkpoint');
@@ -320,16 +320,28 @@ export function BTBMiningInterface(): React.ReactElement {
     setSuccess(null);
   }, [selectedSquares, amountPerSquare]);
 
-  if (!roundInfo) {
-    return (
-      <div className="flex items-center justify-center p-8">
-        <Loader2 className="w-8 h-8 animate-spin text-orange-600" />
-      </div>
-    );
-  }
+  // Default values for when data is loading
+  const defaultRoundInfo = {
+    id: 0n,
+    startTime: 0n,
+    endTime: 0n,
+    totalDeployed: 0n,
+    winningSquare: 0,
+    finalized: false,
+    isCheckpointable: false,
+  };
+
+  const displayRoundInfo = (roundInfo as RoundInfo) || defaultRoundInfo;
+  const isDataLoading = !roundInfo;
 
   return (
     <div className="space-y-4">
+      {isDataLoading && (
+        <Alert className="bg-orange-50 border-orange-200">
+          <Loader2 className="w-4 h-4 animate-spin text-orange-600" />
+          <AlertDescription className="text-orange-800">Loading contract data...</AlertDescription>
+        </Alert>
+      )}
       {/* Motherlode Information - Ultra compact version */}
       <Card className="border border-purple-200 dark:border-purple-800/50">
         <CardHeader className="pb-1 pt-2 px-2">
@@ -373,7 +385,7 @@ export function BTBMiningInterface(): React.ReactElement {
             <div className="flex items-center gap-3 text-sm">
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Round</span>
-                <span className="font-bold text-orange-600">#{roundInfo.id.toString()}</span>
+                <span className="font-bold text-orange-600">#{displayRoundInfo.id.toString()}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Time</span>
@@ -381,7 +393,7 @@ export function BTBMiningInterface(): React.ReactElement {
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Pot</span>
-                <span className="font-bold text-green-600">{formatEther(roundInfo.totalDeployed).slice(0, 6)} ETH</span>
+                <span className="font-bold text-green-600">{formatEther(displayRoundInfo.totalDeployed).slice(0, 6)} ETH</span>
               </div>
             </div>
           </div>
@@ -535,11 +547,11 @@ export function BTBMiningInterface(): React.ReactElement {
             isConnected={isConnected}
             selectedSquares={selectedSquares}
             amountPerSquare={amountPerSquare}
-            isLoading={isLoading}
+            isLoading={isLoading || isDataLoading}
             isDeploying={isDeploying}
             isCheckpointing={isCheckpointing}
             isClaiming={isClaiming}
-            roundInfo={roundInfo}
+            roundInfo={displayRoundInfo}
             handleDeploy={handleDeploy}
             handleCheckpoint={handleCheckpoint}
             handleClaimAll={handleClaimAll}
