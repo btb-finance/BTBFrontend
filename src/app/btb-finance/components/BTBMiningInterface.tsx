@@ -422,13 +422,13 @@ export function BTBMiningInterface(): React.ReactElement {
 
       {/* Mining Interface */}
       <Card className="border-2 border-orange-200 dark:border-orange-800/50">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3 pt-4 px-3 md:px-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Pickaxe className="w-5 h-5 text-orange-600" />
               BTB Mining Game
             </CardTitle>
-            <div className="flex items-center gap-3 text-sm">
+            <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm">
               <div className="flex items-center gap-1">
                 <span className="text-gray-500">Round</span>
                 <span className="font-bold text-orange-600">#{displayRoundInfo.id.toString()}</span>
@@ -444,15 +444,16 @@ export function BTBMiningInterface(): React.ReactElement {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4 px-4 pb-4">
+        <CardContent className="space-y-4 px-3 md:px-4 pb-4">
           <div>
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 mb-2">
               <label className="text-sm font-medium">Select Squares ({selectedSquares.length})</label>
-              <div className="flex gap-2 items-center">
+              <div className="flex gap-1.5 sm:gap-2 items-center flex-wrap">
                 <Button
                   onClick={selectAllSquares}
                   variant="outline"
                   size="sm"
+                  className="text-xs px-2"
                   disabled={!isConnected || isLoading}
                 >
                   All
@@ -461,6 +462,7 @@ export function BTBMiningInterface(): React.ReactElement {
                   onClick={selectEvenSquares}
                   variant="outline"
                   size="sm"
+                  className="text-xs px-2"
                   disabled={!isConnected || isLoading}
                 >
                   Even
@@ -469,6 +471,7 @@ export function BTBMiningInterface(): React.ReactElement {
                   onClick={selectOddSquares}
                   variant="outline"
                   size="sm"
+                  className="text-xs px-2"
                   disabled={!isConnected || isLoading}
                 >
                   Odd
@@ -477,22 +480,24 @@ export function BTBMiningInterface(): React.ReactElement {
                   onClick={clearAllSquares}
                   variant="outline"
                   size="sm"
+                  className="text-xs px-2"
                   disabled={!isConnected || isLoading || selectedSquares.length === 0}
                 >
                   Clear
                 </Button>
-                <div className="h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
+                <div className="h-4 w-px bg-gray-300 dark:bg-gray-700 hidden sm:block"></div>
                 <Button
                   onClick={() => setShowPartnerAddress(!showPartnerAddress)}
                   variant="outline"
                   size="sm"
+                  className="text-xs px-2"
                   disabled={!isConnected || isLoading}
                 >
                   {showPartnerAddress ? 'Hide' : '+'} Partner
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
               {Array.from({ length: NUM_SQUARES }, (_, i) => {
                 const isEven = i % 2 === 0;
                 const isSelected = selectedSquares.includes(i);
@@ -513,7 +518,7 @@ export function BTBMiningInterface(): React.ReactElement {
                     key={i}
                     onClick={() => toggleSquare(i)}
                     variant={isSelected ? "default" : "outline"}
-                    className={`h-16 relative p-1 ${
+                    className={`h-14 sm:h-16 relative p-0.5 sm:p-1 ${
                       isSelected
                         ? isEven
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -525,9 +530,9 @@ export function BTBMiningInterface(): React.ReactElement {
                     disabled={!isConnected || isLoading}
                   >
                     <div className="flex flex-col items-center justify-center h-full">
-                      <div className="font-bold text-base">{i}</div>
+                      <div className="font-bold text-sm sm:text-base">{i}</div>
                       {playerCount > 0 && (
-                        <div className="text-[9px] leading-tight mt-0.5">{ethAmount}Ξ</div>
+                        <div className="text-[8px] sm:text-[9px] leading-tight mt-0.5">{ethAmount}Ξ</div>
                       )}
                     </div>
                   </Button>
