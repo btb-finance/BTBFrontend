@@ -390,7 +390,7 @@ export function BTBMiningInterface(): React.ReactElement {
           <div>
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-medium">Select Squares ({selectedSquares.length})</label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <Button
                   onClick={selectAllSquares}
                   variant="outline"
@@ -422,6 +422,15 @@ export function BTBMiningInterface(): React.ReactElement {
                   disabled={!isConnected || isLoading || selectedSquares.length === 0}
                 >
                   Clear
+                </Button>
+                <div className="h-4 w-px bg-gray-300 dark:bg-gray-700"></div>
+                <Button
+                  onClick={() => setShowPartnerAddress(!showPartnerAddress)}
+                  variant="outline"
+                  size="sm"
+                  disabled={!isConnected || isLoading}
+                >
+                  {showPartnerAddress ? 'Hide' : '+'} Partner
                 </Button>
               </div>
             </div>
@@ -505,17 +514,9 @@ export function BTBMiningInterface(): React.ReactElement {
               </div>
             </div>
 
-            <Button
-              onClick={() => setShowPartnerAddress(!showPartnerAddress)}
-              variant="ghost"
-              size="sm"
-              className="text-xs px-0 h-6 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            >
-              {showPartnerAddress ? '− Hide' : '+ Add'} Partner Address (Optional)
-            </Button>
-
             {showPartnerAddress && (
               <div className="space-y-1">
+                <label className="text-sm font-medium">Partner Address</label>
                 <Input
                   type="text"
                   placeholder="0x... (optional)"
