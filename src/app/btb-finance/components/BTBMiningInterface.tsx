@@ -547,62 +547,112 @@ export function BTBMiningInterface(): React.ReactElement {
           </div>
 
           <div className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Amount per Square (ETH)</label>
-                {isConnected && ethBalance && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    Balance: {parseFloat(formatEther(ethBalance.value)).toFixed(4)} ETH
-                  </span>
-                )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Total Amount Input */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Total ETH to Deploy</label>
+                  {isConnected && ethBalance && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Balance: {parseFloat(formatEther(ethBalance.value)).toFixed(4)} ETH
+                    </span>
+                  )}
+                </div>
+                <Input
+                  type="number"
+                  placeholder="0.01"
+                  step="0.001"
+                  min="0.0000001"
+                  value={amountPerSquare && selectedSquares.length > 0
+                    ? (parseFloat(amountPerSquare) * selectedSquares.length).toFixed(6)
+                    : ''}
+                  onChange={(e) => {
+                    if (selectedSquares.length > 0) {
+                      const totalAmount = parseFloat(e.target.value);
+                      if (!isNaN(totalAmount)) {
+                        setAmountPerSquare((totalAmount / selectedSquares.length).toFixed(8));
+                      }
+                    }
+                  }}
+                  disabled={!isConnected || isLoading || selectedSquares.length === 0}
+                />
+                <div className="flex gap-1 flex-wrap">
+                  <Button
+                    onClick={() => {
+                      if (selectedSquares.length > 0) {
+                        setAmountPerSquare((0.001 / selectedSquares.length).toFixed(8));
+                      }
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-6"
+                    disabled={!isConnected || isLoading || selectedSquares.length === 0}
+                  >
+                    0.001
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedSquares.length > 0) {
+                        setAmountPerSquare((0.01 / selectedSquares.length).toFixed(8));
+                      }
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-6"
+                    disabled={!isConnected || isLoading || selectedSquares.length === 0}
+                  >
+                    0.01
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedSquares.length > 0) {
+                        setAmountPerSquare((0.1 / selectedSquares.length).toFixed(8));
+                      }
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-6"
+                    disabled={!isConnected || isLoading || selectedSquares.length === 0}
+                  >
+                    0.1
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (selectedSquares.length > 0) {
+                        setAmountPerSquare((1 / selectedSquares.length).toFixed(8));
+                      }
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs px-2 py-1 h-6"
+                    disabled={!isConnected || isLoading || selectedSquares.length === 0}
+                  >
+                    1
+                  </Button>
+                </div>
               </div>
-              <Input
-                type="number"
-                placeholder="0.001"
-                step="0.001"
-                min="0.0000001"
-                max="10"
-                value={amountPerSquare}
-                onChange={(e) => setAmountPerSquare(e.target.value)}
-                disabled={!isConnected || isLoading}
-              />
-              <div className="flex gap-1 flex-wrap">
-                <Button
-                  onClick={() => setAmountPerSquare('0.001')}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs px-2 py-1 h-6"
+
+              {/* Per Square Amount (Auto-calculated) */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Amount per Square {selectedSquares.length > 0 && `(÷${selectedSquares.length})`}
+                </label>
+                <Input
+                  type="number"
+                  placeholder="Auto-calculated"
+                  value={amountPerSquare}
+                  readOnly
+                  className="bg-gray-50 dark:bg-gray-800"
                   disabled={!isConnected || isLoading}
-                >
-                  0.001
-                </Button>
-                <Button
-                  onClick={() => setAmountPerSquare('0.01')}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs px-2 py-1 h-6"
-                  disabled={!isConnected || isLoading}
-                >
-                  0.01
-                </Button>
-                <Button
-                  onClick={() => setAmountPerSquare('0.1')}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs px-2 py-1 h-6"
-                  disabled={!isConnected || isLoading}
-                >
-                  0.1
-                </Button>
-                <Button
-                  onClick={() => setAmountPerSquare('1')}
-                  variant="outline"
-                  size="sm"
-                  className="text-xs px-2 py-1 h-6"
-                  disabled={!isConnected || isLoading}
-                >
-                  1
-                </Button>
+                />
+                <div className="text-xs text-gray-500 dark:text-gray-400 min-h-[24px]">
+                  {selectedSquares.length === 0
+                    ? 'Select squares first'
+                    : amountPerSquare
+                      ? `${parseFloat(amountPerSquare).toFixed(6)} ETH × ${selectedSquares.length} squares`
+                      : 'Enter total amount above'
+                  }
+                </div>
               </div>
             </div>
 
