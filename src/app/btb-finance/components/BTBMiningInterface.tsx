@@ -571,7 +571,7 @@ export function BTBMiningInterface(): React.ReactElement {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">
-                Total ETH {selectedSquares.length > 0 && <span className="hidden sm:inline">to Deploy ({parseFloat(amountPerSquare || '0').toFixed(6)} × {selectedSquares.length})</span>}
+                Total ETH {selectedSquares.length > 0 && <span className="hidden sm:inline">({parseFloat(amountPerSquare || '0').toFixed(6)} × {selectedSquares.length})</span>}
               </label>
               {isConnected && ethBalance && (
                 <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -579,25 +579,26 @@ export function BTBMiningInterface(): React.ReactElement {
                 </span>
               )}
             </div>
-            <Input
-              type="number"
-              placeholder="0.01"
-              step="0.001"
-              min="0.0000001"
-              value={amountPerSquare && selectedSquares.length > 0
-                ? (parseFloat(amountPerSquare) * selectedSquares.length).toFixed(6)
-                : ''}
-              onChange={(e) => {
-                if (selectedSquares.length > 0) {
-                  const totalAmount = parseFloat(e.target.value);
-                  if (!isNaN(totalAmount)) {
-                    setAmountPerSquare((totalAmount / selectedSquares.length).toFixed(8));
+            <div className="flex gap-1">
+              <Input
+                type="number"
+                placeholder="0.01"
+                step="0.001"
+                min="0.0000001"
+                value={amountPerSquare && selectedSquares.length > 0
+                  ? (parseFloat(amountPerSquare) * selectedSquares.length).toFixed(6)
+                  : ''}
+                onChange={(e) => {
+                  if (selectedSquares.length > 0) {
+                    const totalAmount = parseFloat(e.target.value);
+                    if (!isNaN(totalAmount)) {
+                      setAmountPerSquare((totalAmount / selectedSquares.length).toFixed(8));
+                    }
                   }
-                }
-              }}
-              disabled={!isConnected || isLoading || selectedSquares.length === 0}
-            />
-            <div className="flex gap-1 justify-center sm:justify-start flex-wrap">
+                }}
+                disabled={!isConnected || isLoading || selectedSquares.length === 0}
+                className="flex-1"
+              />
               <Button
                 onClick={() => {
                   if (selectedSquares.length > 0) {
@@ -606,7 +607,7 @@ export function BTBMiningInterface(): React.ReactElement {
                 }}
                 variant="outline"
                 size="sm"
-                className="text-xs px-3 h-8"
+                className="text-xs px-2 sm:px-3"
                 disabled={!isConnected || isLoading || selectedSquares.length === 0}
               >
                 0.001
@@ -619,7 +620,7 @@ export function BTBMiningInterface(): React.ReactElement {
                 }}
                 variant="outline"
                 size="sm"
-                className="text-xs px-3 h-8"
+                className="text-xs px-2 sm:px-3"
                 disabled={!isConnected || isLoading || selectedSquares.length === 0}
               >
                 0.01
@@ -632,7 +633,7 @@ export function BTBMiningInterface(): React.ReactElement {
                 }}
                 variant="outline"
                 size="sm"
-                className="text-xs px-3 h-8"
+                className="text-xs px-2 sm:px-3"
                 disabled={!isConnected || isLoading || selectedSquares.length === 0}
               >
                 0.1
@@ -645,7 +646,7 @@ export function BTBMiningInterface(): React.ReactElement {
                 }}
                 variant="outline"
                 size="sm"
-                className="text-xs px-3 h-8"
+                className="text-xs px-2 sm:px-3"
                 disabled={!isConnected || isLoading || selectedSquares.length === 0}
               >
                 1
