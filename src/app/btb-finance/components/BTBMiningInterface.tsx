@@ -487,12 +487,24 @@ export function BTBMiningInterface(): React.ReactElement {
               {Array.from({ length: NUM_SQUARES }, (_, i) => {
                 const isEven = i % 2 === 0;
                 const isSelected = selectedSquares.includes(i);
+
+                // Get square data from current round
+                const squareDeployed = displayRoundInfo && Array.isArray((displayRoundInfo as any).deployed)
+                  ? (displayRoundInfo as any).deployed[i]
+                  : 0n;
+                const squareMinerCount = displayRoundInfo && Array.isArray((displayRoundInfo as any).minerCount)
+                  ? (displayRoundInfo as any).minerCount[i]
+                  : 0n;
+
+                const ethAmount = squareDeployed ? formatEther(squareDeployed as bigint).slice(0, 6) : '0';
+                const playerCount = squareMinerCount ? Number(squareMinerCount) : 0;
+
                 return (
                   <Button
                     key={i}
                     onClick={() => toggleSquare(i)}
                     variant={isSelected ? "default" : "outline"}
-                    className={`h-12 ${
+                    className={`h-16 relative p-1 ${
                       isSelected
                         ? isEven
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -503,7 +515,12 @@ export function BTBMiningInterface(): React.ReactElement {
                     }`}
                     disabled={!isConnected || isLoading}
                   >
-                    {i}
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <div className="font-bold text-base">{i}</div>
+                      {playerCount > 0 && (
+                        <div className="text-[9px] leading-tight mt-0.5">{ethAmount}Ξ</div>
+                      )}
+                    </div>
                   </Button>
                 );
               })}
