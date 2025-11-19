@@ -2,9 +2,12 @@
 
 import React from 'react';
 
-export default function GrainOverlay() {
+export default function GrainOverlay({ opacity = 0.03 }: { opacity?: number }) {
     return (
-        <div className="fixed inset-0 pointer-events-none z-50 opacity-[0.03] mix-blend-overlay">
+        <div
+            className="fixed inset-0 pointer-events-none z-50 mix-blend-overlay"
+            style={{ opacity }}
+        >
             <svg className="w-full h-full">
                 <filter id="noiseFilter">
                     <feTurbulence
