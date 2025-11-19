@@ -6,7 +6,7 @@ import { ThemeScript } from './theme-script';
 import Navbar from './components/layout/Navbar';
 import Logo from './components/common/Logo';
 import BackgroundWrapper from './components/layout/BackgroundWrapper';
-import QuickAccess from './components/layout/QuickAccess';
+import MainLayout from './components/layout/MainLayout';
 
 import NetworkChangeAlert from './components/layout/NetworkChangeAlert';
 import { FaXTwitter, FaTelegram, FaGithub, FaDiscord } from 'react-icons/fa6';
@@ -45,11 +45,9 @@ export default async function RootLayout({
             <div className="min-h-screen">
               <Navbar />
               <NetworkChangeAlert />
-              <main className="pt-14 text-gray-900 dark:text-white">
+              <MainLayout>
                 {children}
-                <QuickAccess />
-
-              </main>
+              </MainLayout>
               <footer className="bg-white dark:bg-gray-900 bg-opacity-90 dark:bg-opacity-90 backdrop-blur-md border-t border-gray-200 dark:border-gray-800">
                 <div className="mx-auto max-w-7xl px-4 py-4">
                   <div className="flex flex-col md:flex-row justify-between items-center">
