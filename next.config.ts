@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
       'react-icons',
       '@heroicons/react',
       'framer-motion',
-      'recharts',
+      'framer-motion',
       'ethers',
       'wagmi',
       'viem'
@@ -69,7 +69,7 @@ const nextConfig: NextConfig = {
           // UI libraries
           ui: {
             name: 'ui',
-            test: /[\\/]node_modules[\\/](framer-motion|recharts)[\\/]/,
+            test: /[\\/]node_modules[\\/](framer-motion)[\\/]/,
             priority: 30,
             reuseExistingChunk: true,
           },
