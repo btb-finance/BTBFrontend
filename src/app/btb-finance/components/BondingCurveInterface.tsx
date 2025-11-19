@@ -252,7 +252,9 @@ export function BondingCurveInterface() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {parseFloat(pricePerBTB).toFixed(6)} ETH
+                Ξ {parseFloat(pricePerBTB) < 0.000001
+                  ? pricePerBTB.substring(0, 14)
+                  : parseFloat(pricePerBTB).toFixed(6)}
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Price per BTB</div>
             </div>
