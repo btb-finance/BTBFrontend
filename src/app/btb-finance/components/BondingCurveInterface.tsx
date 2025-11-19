@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt, useBalance } from 'wagmi';
 import { parseEther, formatEther, formatUnits, parseUnits } from 'viem';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -26,7 +26,7 @@ interface MarketInfo {
 
 export function BondingCurveInterface() {
   const { address, isConnected } = useAccount();
-  
+
   // UI State
   const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
   const [ethAmount, setEthAmount] = useState('');
@@ -34,7 +34,7 @@ export function BondingCurveInterface() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   // Contract reads
   const { data: marketInfo, refetch: refetchMarketInfo, isError: marketInfoError } = useReadContract({
     address: BONDING_CURVE_ADDRESS,
@@ -47,6 +47,10 @@ export function BondingCurveInterface() {
     abi: BTBBondingCurveABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
+  });
+
+  const { data: ethBalance } = useBalance({
+    address: address,
   });
 
   // Contract writes
@@ -65,20 +69,20 @@ export function BondingCurveInterface() {
 
   // Calculate price per BTB in ETH
   const pricePerBTB = marketInfo && Array.isArray(marketInfo) && marketInfo[0] ? formatEther(marketInfo[0] as bigint) : '0';
-  
+
   // Preview calculations
   const previewBuy = async (ethInput: string) => {
     if (!ethInput || !marketInfo || !Array.isArray(marketInfo)) return { btbAmount: '0', fee: '0' };
-    
+
     try {
       const ethAmountWei = parseEther(ethInput);
       const currentPrice = marketInfo[0] as bigint;
       const tradingFee = marketInfo[4] as bigint;
-      
+
       const fee = (ethAmountWei * tradingFee) / 10000n;
       const ethAfterFee = ethAmountWei - fee;
       const btbAmount = (ethAfterFee * BigInt(10 ** BTB_DECIMALS)) / currentPrice;
-      
+
       return {
         btbAmount: formatEther(btbAmount),
         fee: formatEther(fee)
@@ -90,16 +94,16 @@ export function BondingCurveInterface() {
 
   const previewSell = async (btbInput: string) => {
     if (!btbInput || !marketInfo || !Array.isArray(marketInfo)) return { ethAmount: '0', fee: '0' };
-    
+
     try {
       const btbAmountWei = parseEther(btbInput);
       const currentPrice = marketInfo[0] as bigint;
       const tradingFee = marketInfo[4] as bigint;
-      
+
       const ethAmount = (btbAmountWei * currentPrice) / BigInt(10 ** BTB_DECIMALS);
       const fee = (ethAmount * tradingFee) / 10000n;
       const ethAfterFee = ethAmount - fee;
-      
+
       return {
         ethAmount: formatEther(ethAfterFee),
         fee: formatEther(fee)
@@ -131,14 +135,37 @@ export function BondingCurveInterface() {
     }
   };
 
+  const handlePercentageSell = (percentage: number) => {
+    if (userBTBBalance) {
+      const balance = BigInt(userBTBBalance as bigint);
+      const amount = (balance * BigInt(percentage)) / 100n;
+      handleBtbInputChange(formatEther(amount));
+    }
+  };
+
+  const handlePercentageBuy = (percentage: number) => {
+    if (ethBalance) {
+      const balance = ethBalance.value;
+      // Leave some ETH for gas if buying 100% (e.g., 0.01 ETH)
+      const gasBuffer = parseEther('0.01');
+      let amount = (balance * BigInt(percentage)) / 100n;
+
+      if (percentage === 100 && amount > gasBuffer) {
+        amount = amount - gasBuffer;
+      }
+
+      handleEthInputChange(formatEther(amount));
+    }
+  };
+
   // Buy BTB
   const handleBuy = async () => {
     if (!ethAmount || !isConnected) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       buyBTB({
         address: BONDING_CURVE_ADDRESS,
         abi: BTBBondingCurveABI,
@@ -154,21 +181,21 @@ export function BondingCurveInterface() {
   // Sell BTB
   const handleSell = async () => {
     if (!btbAmount || !isConnected) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // First approve BTB spending
       const btbAmountWei = parseUnits(btbAmount, BTB_DECIMALS);
-      
+
       approveBTB({
         address: BTB_TOKEN_ADDRESS,
         abi: BTBBondingCurveABI,
         functionName: 'approve',
         args: [BONDING_CURVE_ADDRESS, btbAmountWei],
       });
-      
+
       // Then sell (this would need to be chained properly in production)
       sellBTB({
         address: BONDING_CURVE_ADDRESS,
@@ -225,7 +252,7 @@ export function BondingCurveInterface() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                ${parseFloat(pricePerBTB).toFixed(6)}
+                {parseFloat(pricePerBTB).toFixed(6)} ETH
               </div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Price per BTB</div>
             </div>
@@ -282,6 +309,23 @@ export function BondingCurveInterface() {
                   onChange={(e) => handleEthInputChange(e.target.value)}
                   disabled={!isConnected || isLoading}
                 />
+                <div className="space-y-2 mt-1">
+                  <div className="text-xs text-gray-500 text-right">
+                    Balance: {ethBalance ? parseFloat(formatEther(ethBalance.value)).toFixed(4) : '0.0000'} ETH
+                  </div>
+                  <div className="flex gap-2">
+                    {[25, 50, 75, 100].map((percent) => (
+                      <button
+                        key={percent}
+                        onClick={() => handlePercentageBuy(percent)}
+                        disabled={!ethBalance}
+                        className="flex-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {percent === 100 ? 'MAX' : `${percent}%`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">BTB to Receive</label>
@@ -321,11 +365,23 @@ export function BondingCurveInterface() {
                   onChange={(e) => handleBtbInputChange(e.target.value)}
                   disabled={!isConnected || isLoading}
                 />
-                {userBTBBalance !== undefined && userBTBBalance !== null && (
+                <div className="space-y-2 mt-1">
                   <div className="text-xs text-gray-500">
-                    Balance: {formatEther(userBTBBalance as bigint)} BTB
+                    Balance: {userBTBBalance ? parseFloat(formatEther(userBTBBalance as bigint)).toFixed(2) : '0.00'} BTB
                   </div>
-                )}
+                  <div className="flex gap-2">
+                    {[25, 50, 75, 100].map((percent) => (
+                      <button
+                        key={percent}
+                        onClick={() => handlePercentageSell(percent)}
+                        disabled={!userBTBBalance}
+                        className="flex-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {percent === 100 ? 'MAX' : `${percent}%`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">ETH to Receive</label>
