@@ -3,17 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { 
-  Bars3Icon, 
-  XMarkIcon, 
-  ChevronDownIcon, 
-  HomeIcon, 
-  CalculatorIcon, 
-  ChartBarIcon, 
-  AcademicCapIcon, 
-  CubeTransparentIcon, 
-  CurrencyDollarIcon, 
-  UserGroupIcon, 
+import {
+  Bars3Icon,
+  XMarkIcon,
+  ChevronDownIcon,
+  HomeIcon,
+  CalculatorIcon,
+  ChartBarIcon,
+  AcademicCapIcon,
+  CubeTransparentIcon,
+  CurrencyDollarIcon,
+  UserGroupIcon,
   WalletIcon,
   ChevronRightIcon,
   MapIcon,
@@ -35,6 +35,11 @@ export default function Navbar() {
   const [activeItem, setActiveItem] = useState<string>('');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showError, setShowError] = useState(false);
+  const [pathname, setPathname] = useState('');
+
+  useEffect(() => {
+    setPathname(window.location.pathname);
+  }, []);
 
   // Define navigation structure
   type NavigationItem = {
@@ -99,12 +104,12 @@ export default function Navbar() {
     if (mounted) {
       const handleRouteChange = () => {
         const path = window.location.pathname;
-        const active = navigation.find(item => 
+        const active = navigation.find(item =>
           item.href === path || (item.children && item.children.some(child => child.href === path))
         );
         setActiveItem(active?.name || '');
       };
-      
+
       handleRouteChange();
       window.addEventListener('popstate', handleRouteChange);
       return () => window.removeEventListener('popstate', handleRouteChange);
@@ -127,6 +132,11 @@ export default function Navbar() {
     return null;
   }
 
+  // Hide standard navbar on home page for the immersive design
+  if (pathname === '/') {
+    return null;
+  }
+
   // Handle hover events for dropdown menus
   const handleMouseEnter = (itemName: string) => {
     setOpenDropdown(itemName);
@@ -138,17 +148,19 @@ export default function Navbar() {
   };
 
   const toggleMobileSubmenu = (itemName: string) => {
-    setExpandedMobileItems(prev => 
-      prev.includes(itemName) 
-        ? prev.filter(item => item !== itemName) 
+    setExpandedMobileItems(prev =>
+      prev.includes(itemName)
+        ? prev.filter(item => item !== itemName)
         : [...prev, itemName]
     );
   };
 
+
+
   return (
     <nav className="fixed w-full z-20 top-0 left-0 bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light backdrop-blur-lg border-b border-white/20 shadow-lg">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto px-3 py-2 md:px-4 md:py-2">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
@@ -160,7 +172,7 @@ export default function Navbar() {
         {/* Wallet Error Notification */}
         <AnimatePresence>
           {error && showError && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -175,8 +187,8 @@ export default function Navbar() {
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center space-x-1">
           {navigation.map((item) => (
-            <motion.div 
-              key={item.name} 
+            <motion.div
+              key={item.name}
               className="relative group"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -189,7 +201,7 @@ export default function Navbar() {
                   if (!open) setOpenDropdown(null);
                 }}>
                   <DropdownMenuTrigger asChild>
-                    <button 
+                    <button
                       className={`flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white hover:bg-white/20 transition-all duration-300 ${activeItem === item.name ? 'bg-white/20 shadow-md' : ''}`}
                     >
                       {item.icon && <item.icon className="mr-1.5 h-3.5 w-3.5" />}
@@ -199,14 +211,14 @@ export default function Navbar() {
                       <ChevronDownIcon className={`ml-1 h-3.5 w-3.5 transition-transform duration-200 ${openDropdown === item.name ? 'rotate-180' : ''}`} />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent 
-                    align="center" 
+                  <DropdownMenuContent
+                    align="center"
                     className="w-48 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-white rounded-lg shadow-lg animate-in fade-in-50 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2"
                   >
                     {item.children.map((child) => (
                       <DropdownMenuItem key={child.name} asChild>
                         {child.action === 'connect' ? (
-                          <button 
+                          <button
                             className="w-full text-left px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
                             onClick={() => {
                               try {
@@ -224,8 +236,8 @@ export default function Navbar() {
                             </span>
                           </button>
                         ) : child.name.includes('🔜') ? (
-                          <Link 
-                            href={child.href} 
+                          <Link
+                            href={child.href}
                             className="w-full px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium flex items-center justify-between"
                             onClick={() => {
                               setActiveItem(item.name);
@@ -238,8 +250,8 @@ export default function Navbar() {
                             </span>
                           </Link>
                         ) : (
-                          <Link 
-                            href={child.href} 
+                          <Link
+                            href={child.href}
                             className="w-full px-3 py-1.5 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 font-medium"
                             onClick={() => {
                               setActiveItem(item.name);
@@ -257,8 +269,8 @@ export default function Navbar() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Link 
-                  href={item.href || '#'} 
+                <Link
+                  href={item.href || '#'}
                   className={`flex items-center px-3 py-1.5 text-xs font-medium rounded-md text-white hover:bg-white/20 transition-all duration-300 ${activeItem === item.name ? 'bg-white/20 shadow-md' : ''}`}
                   onClick={() => setActiveItem(item.name)}
                 >
@@ -285,15 +297,15 @@ export default function Navbar() {
                 >
                   <WalletIcon className="mr-1.5 h-3.5 w-3.5" />
                   <span className="font-semibold">
-                    {isConnecting ? 'Connecting...' : isConnected ? 
-                      `${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
+                    {isConnecting ? 'Connecting...' : isConnected ?
+                      `${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` :
                       'Connect Wallet'}
                   </span>
                 </motion.button>
               )}
             </ConnectKitButton.Custom>
           </div>
-          
+
           {/* View Transactions Button - Only when connected */}
           {isConnected && (
             <motion.a
@@ -323,15 +335,15 @@ export default function Navbar() {
                 >
                   <WalletIcon className="mr-1 h-3.5 w-3.5" />
                   <span className="text-xs font-semibold">
-                    {isConnecting ? 'Connecting...' : isConnected ? 
-                      `${address?.substring(0, 3)}...${address?.substring(address.length - 2)}` : 
+                    {isConnecting ? 'Connecting...' : isConnected ?
+                      `${address?.substring(0, 3)}...${address?.substring(address.length - 2)}` :
                       'Connect'}
                   </span>
                 </motion.button>
               )}
             </ConnectKitButton.Custom>
           </div>
-          
+
           {/* Mobile menu button */}
           <motion.button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -375,13 +387,13 @@ export default function Navbar() {
                         className={`w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${isConnected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-btb-primary hover:bg-btb-primary-dark text-white'} transition-all duration-300 shadow-sm`}
                       >
                         <WalletIcon className="mr-2 h-4 w-4" />
-                        {isConnecting ? 'Connecting...' : isConnected ? 
-                          `Connected: ${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` : 
+                        {isConnecting ? 'Connecting...' : isConnected ?
+                          `Connected: ${address?.substring(0, 4)}...${address?.substring(address.length - 4)}` :
                           'Connect Wallet'}
                       </button>
                     )}
                   </ConnectKitButton.Custom>
-                  
+
                   {isConnected && (
                     <a
                       href={`https://basescan.org/address/${address}`}
@@ -394,9 +406,9 @@ export default function Navbar() {
                     </a>
                   )}
                 </motion.li>
-                
+
                 {navigation.map((item, index) => (
-                  <motion.li 
+                  <motion.li
                     key={item.name}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -405,7 +417,7 @@ export default function Navbar() {
                   >
                     {item.children ? (
                       <div className="space-y-1">
-                        <div 
+                        <div
                           className="flex items-center justify-between px-3 py-2 text-btb-primary-dark font-medium border-b border-gray-200 dark:border-gray-700 cursor-pointer"
                           onClick={() => toggleMobileSubmenu(item.name)}
                         >
@@ -415,11 +427,11 @@ export default function Navbar() {
                               {item.name}
                             </span>
                           </div>
-                          <ChevronRightIcon 
-                            className={`h-4 w-4 transition-transform duration-300 ${expandedMobileItems.includes(item.name) ? 'rotate-90' : ''}`} 
+                          <ChevronRightIcon
+                            className={`h-4 w-4 transition-transform duration-300 ${expandedMobileItems.includes(item.name) ? 'rotate-90' : ''}`}
                           />
                         </div>
-                        
+
                         <AnimatePresence>
                           {expandedMobileItems.includes(item.name) && (
                             <motion.div
@@ -433,8 +445,8 @@ export default function Navbar() {
                                 {item.children.map((child) => (
                                   <li key={child.name}>
                                     {child.name.includes('🔜') ? (
-                                      <Link 
-                                        href={child.href} 
+                                      <Link
+                                        href={child.href}
                                         className="block py-2 px-3 text-sm text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
                                         onClick={() => setIsMenuOpen(false)}
                                       >
@@ -443,8 +455,8 @@ export default function Navbar() {
                                         </span>
                                       </Link>
                                     ) : (
-                                      <Link 
-                                        href={child.href} 
+                                      <Link
+                                        href={child.href}
                                         className="block py-2 px-3 text-sm text-btb-primary-dark hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 font-medium"
                                         onClick={() => setIsMenuOpen(false)}
                                       >
@@ -461,8 +473,8 @@ export default function Navbar() {
                         </AnimatePresence>
                       </div>
                     ) : (
-                      <Link 
-                        href={item.href || '#'} 
+                      <Link
+                        href={item.href || '#'}
                         className="flex items-center px-3 py-2 text-sm text-btb-primary-dark font-medium hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-all duration-200 shadow-sm"
                         onClick={() => {
                           setIsMenuOpen(false);

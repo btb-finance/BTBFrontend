@@ -3,280 +3,140 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import { SparklesIcon } from '@heroicons/react/24/outline';
+import { SparklesIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
-// Define the navigation links
 const quickNavLinks = [
   {
     name: 'Larry Ecosystem',
-    description: 'Trade, leverage & borrow with LARRY',
+    description: 'The Legend',
     href: '/larryecosystem',
-    icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🐺</span>
-    ),
-    color: 'bg-emerald-100 dark:bg-emerald-900/30',
-    textColor: 'text-emerald-600 dark:text-emerald-400'
+    icon: '🐺',
+    gradient: 'from-amber-500/20 to-yellow-600/20',
+    border: 'group-hover:border-amber-500/50',
+    text: 'group-hover:text-amber-400'
   },
   {
     name: 'BTB Finance',
-    description: 'Trade, loop, and borrow with BTB tokens - Full DeFi platform',
+    description: 'Yield & Bonding',
     href: '/btb-finance',
-    icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>💰</span>
-    ),
-    color: 'bg-purple-100 dark:bg-purple-900/30',
-    textColor: 'text-purple-600 dark:text-purple-400'
+    icon: '💰',
+    gradient: 'from-red-600/20 to-rose-900/20',
+    border: 'group-hover:border-red-500/50',
+    text: 'group-hover:text-red-400'
   },
   {
     name: 'Megapot',
-    description: 'Win big with daily USDC jackpots',
+    description: 'Daily Jackpots',
     href: '/megapot',
-    icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎰</span>
-    ),
-    color: 'bg-green-100 dark:bg-green-900/30',
-    textColor: 'text-green-600 dark:text-green-400'
+    icon: '🎰',
+    gradient: 'from-slate-400/20 to-gray-600/20',
+    border: 'group-hover:border-slate-400/50',
+    text: 'group-hover:text-slate-300'
   },
   {
     name: 'Game',
-    description: 'Play games and earn rewards',
+    description: 'Play to Earn',
     href: '/game',
-    icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎮</span>
-    ),
-    color: 'bg-pink-100 dark:bg-pink-900/30',
-    textColor: 'text-pink-600 dark:text-pink-400'
+    icon: '🎮',
+    gradient: 'from-indigo-500/20 to-blue-600/20',
+    border: 'group-hover:border-indigo-500/50',
+    text: 'group-hover:text-indigo-400'
   }
 ];
 
 export default function QuickAccess() {
-  const [isNavPopupOpen, setIsNavPopupOpen] = useState(false);
-  const [showFullButton, setShowFullButton] = useState(true);
-  
-  // Separate button refs to exclude them from outside click handling
-  const desktopButtonRef = useRef<HTMLButtonElement>(null);
-  const mobileButtonRef = useRef<HTMLButtonElement>(null);
-  const desktopPopupRef = useRef<HTMLDivElement>(null);
-  const mobilePopupRef = useRef<HTMLDivElement>(null);
-  
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    // Only add the event listener if the popup is open
-    if (!isNavPopupOpen) return;
-    
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside the popups and not on the buttons
-      const isClickInDesktopPopup = desktopPopupRef.current && desktopPopupRef.current.contains(event.target as Node);
-      const isClickInMobilePopup = mobilePopupRef.current && mobilePopupRef.current.contains(event.target as Node);
-      const isClickOnDesktopButton = desktopButtonRef.current && desktopButtonRef.current.contains(event.target as Node);
-      const isClickOnMobileButton = mobileButtonRef.current && mobileButtonRef.current.contains(event.target as Node);
-      
-      const isClickInsideComponents = 
-        isClickInDesktopPopup || 
-        isClickInMobilePopup || 
-        isClickOnDesktopButton || 
-        isClickOnMobileButton;
-      
-      if (!isClickInsideComponents) {
-        setIsNavPopupOpen(false);
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
       }
     };
-    
-    document.addEventListener('mousedown', handleClickOutside);
-    
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isNavPopupOpen]);
-  
-  useEffect(() => {
-    // Set a timeout to change the button style after 10 seconds
-    const timeout = setTimeout(() => {
-      setShowFullButton(false);
-    }, 10000);
-    
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, []);
+  }, [isOpen]);
 
   return (
-    <>
-      {/* Desktop Quick Access Button - Right side */}
-      <div className="fixed bottom-1/2 right-0 z-50 hidden md:block">
-        <motion.div
-          initial={{ opacity: 1, x: 0 }}
-          animate={{ 
-            opacity: 1, 
-            x: showFullButton ? 0 : 10
-          }}
-          transition={{ duration: 0.3 }}
-          className="relative"
-        >
+    <div ref={containerRef} className="fixed bottom-8 right-8 z-50 flex flex-col items-end">
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="group"
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ type: "spring", duration: 0.5 }}
+            className="mb-4 p-4 rounded-3xl bg-black/80 backdrop-blur-xl border border-white/10 shadow-2xl w-80"
           >
-            <button
-              ref={desktopButtonRef}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const newState = !isNavPopupOpen;
-                setIsNavPopupOpen(newState);
-              }}
-              className={`bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light text-white ${
-                showFullButton 
-                  ? 'py-2.5 px-5 rounded-l-full' 
-                  : 'p-3 rounded-l-full'
-              } shadow-xl flex items-center transition-all duration-300 border-2 ${isNavPopupOpen ? 'border-white/50' : 'border-white/20'}`}
-            >
-              <AnimatePresence>
-                {showFullButton && (
-                  <motion.span 
-                    key="button-text"
-                    initial={{ opacity: 1, width: 'auto' }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0, marginRight: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="font-medium whitespace-nowrap overflow-hidden mr-2"
-                  >
-                    Quick Access
-                  </motion.span>
-                )}
-              </AnimatePresence>
-              <SparklesIcon className="h-5 w-5" />
-            </button>
-          </motion.div>
-          
-          {/* Popup Navigation */}
-          <AnimatePresence mode="wait">
-            {isNavPopupOpen ? (
-              <motion.div
-                key="popup"
-                ref={desktopPopupRef}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-14 translate-y-0 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-4 border border-gray-100 dark:border-gray-700 w-[480px] max-w-[95vw] z-[100]"
-              >
-                <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-white dark:bg-gray-800 border-r border-b border-gray-100 dark:border-gray-700"></div>
-                <div className="mb-3 text-center">
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white">Jump to Live Products</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Quick access to our core features</p>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-3">
-                  {quickNavLinks.map((link, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 1 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.1 }}
-                    >
-                      <Link
-                        href={link.href}
-                        className="flex flex-col items-center text-center p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                        onClick={() => setIsNavPopupOpen(false)}
-                      >
-                        <div className={`${link.color} ${link.textColor} p-2 rounded-full mb-2`}>
-                          {typeof link.icon === 'function' 
-                            ? <link.icon className="h-5 w-5" /> 
-                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-5 w-5" })}
-                        </div>
-                        <div className="font-medium text-gray-900 dark:text-white text-xs">{link.name}</div>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </motion.div>
-      </div>
+            <div className="mb-4 px-2">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider opacity-50">Quick Jump</h3>
+            </div>
 
-      {/* Mobile Quick Access Button - Bottom right */}
-      <div className="fixed bottom-8 right-4 z-50 md:hidden">
-        <motion.div
-          initial={{ opacity: 1, y: 0 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative"
-        >
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="group"
-          >
-            <button
-              ref={mobileButtonRef}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const newState = !isNavPopupOpen;
-                setIsNavPopupOpen(newState);
-              }}
-              className={`bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light text-white ${
-                showFullButton 
-                  ? 'py-2.5 px-5 rounded-full' 
-                  : 'p-3 rounded-full'
-              } shadow-xl flex items-center border-2 ${isNavPopupOpen ? 'border-white/50' : 'border-white/20'}`}
-            >
-              <SparklesIcon className={`h-5 w-5 ${showFullButton ? 'mr-2' : ''}`} />
-              {showFullButton && (
-                <span className="font-medium whitespace-nowrap">
-                  Quick Access
-                </span>
-              )}
-            </button>
-          </motion.div>
-          
-          {/* Mobile Popup Navigation */}
-          <AnimatePresence mode="wait">
-            {isNavPopupOpen ? (
-              <motion.div
-                key="mobile-popup"
-                ref={mobilePopupRef}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.2 }}
-                className="fixed right-4 bottom-20 bg-white dark:bg-gray-800 rounded-lg shadow-xl p-3 border border-gray-100 dark:border-gray-700 w-[340px] max-w-[95vw] z-[100]"
-              >
-                <div className="absolute -bottom-2 right-6 transform w-4 h-4 rotate-45 bg-white dark:bg-gray-800 border-b border-r border-gray-100 dark:border-gray-700"></div>
-                <div className="mb-3 text-center">
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Jump to Live Products</h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Quick access to our core features</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2">
-                  {quickNavLinks.map((link, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 1 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.1 }}
-                    >
-                      <Link
-                        href={link.href}
-                        className="flex flex-col items-center text-center p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                        onClick={() => setIsNavPopupOpen(false)}
-                      >
-                        <div className={`${link.color} ${link.textColor} p-1.5 rounded-full mb-1`}>
-                          {typeof link.icon === 'function' 
-                            ? <link.icon className="h-4 w-4" /> 
-                            : React.createElement(link.icon as React.ComponentType<{ className: string }>, { className: "h-4 w-4" })}
+            <div className="grid gap-2">
+              {quickNavLinks.map((link, index) => (
+                <Link key={index} href={link.href} onClick={() => setIsOpen(false)}>
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    className={`group relative p-3 rounded-xl border border-white/5 bg-white/5 overflow-hidden transition-all duration-300 ${link.border}`}
+                  >
+                    <div className={`absolute inset-0 bg-gradient-to-r ${link.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+
+                    <div className="relative z-10 flex items-center gap-4">
+                      <span className="text-2xl">{link.icon}</span>
+                      <div>
+                        <div className={`font-bold text-white transition-colors ${link.text}`}>
+                          {link.name}
                         </div>
-                        <div className="font-medium text-gray-900 dark:text-white text-xs">{link.name}</div>
-                      </Link>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </motion.div>
-      </div>
-    </>
+                        <div className="text-xs text-white/40 font-medium">
+                          {link.description}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </Link>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`group relative w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${isOpen ? 'bg-white text-black' : 'bg-white/10 text-white backdrop-blur-md border border-white/20'}`}
+      >
+        <div className={`absolute inset-0 rounded-full bg-gradient-to-r from-btb-primary to-btb-primary-light opacity-0 group-hover:opacity-20 transition-opacity duration-300 ${isOpen ? 'hidden' : ''}`} />
+
+        <AnimatePresence mode="wait">
+          {isOpen ? (
+            <motion.div
+              key="close"
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: 90, opacity: 0 }}
+            >
+              <XMarkIcon className="w-6 h-6" />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="open"
+              initial={{ rotate: 90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: -90, opacity: 0 }}
+            >
+              <SparklesIcon className="w-6 h-6" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    </div>
   );
 }
