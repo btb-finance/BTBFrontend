@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent } from '../components/ui/card';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/ui/button';
 import { Rocket, Lock, TrendingUp, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { BondingCurveInterface } from './components/BondingCurveInterface';
 import { BTBMiningInterface } from './components/BTBMiningInterface';
+import GrainOverlay from '../components/home/bolder/GrainOverlay';
 
-export default function BTBFinanceComingSoon() {
+export default function BTBFinancePage() {
   const [expandedSection, setExpandedSection] = useState<string | null>('deployment');
 
   const BTB_CONTRACT = '0x888e85C95c84CA41eEf3E4C8C89e8dcE03e41488';
@@ -19,56 +20,44 @@ export default function BTBFinanceComingSoon() {
     {
       id: 'deployment',
       title: '1. Deployment Flow',
-      color: 'bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:border-blue-800',
-      headerColor: 'bg-blue-600',
+      gradient: 'from-blue-500/20 to-cyan-500/20',
+      border: 'border-blue-500/30',
+      text: 'text-blue-400',
       content: (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-900 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">START: Miner Deploys ETH</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Miner calls deploy(squares[], amountPerSquare)</div>
+        <div className="space-y-6">
+          <div className="bg-black/40 p-6 rounded-xl border-l-2 border-blue-500 backdrop-blur-sm">
+            <div className="font-bold text-blue-300 text-lg">START: Miner Deploys ETH</div>
+            <div className="text-sm text-gray-400 mt-1 font-mono">Miner calls deploy(squares[], amountPerSquare)</div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-blue-500/50">↓</div>
 
-          <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded border-l-4 border-yellow-500">
-            <div className="font-bold text-yellow-900 dark:text-yellow-300">Validation Checks</div>
-            <ul className="text-sm text-gray-700 dark:text-gray-300 mt-2 space-y-1">
-              <li>✓ Mining period active (5 years)</li>
-              <li>✓ Round is active (60 sec window)</li>
-              <li>✓ Amount between MIN (0.0000001 ETH) and MAX (10 ETH)</li>
-              <li>✓ Squares valid (0-24) and not duplicate</li>
-              <li>✓ Not already deployed to these squares</li>
+          <div className="bg-yellow-900/10 p-6 rounded-xl border-l-2 border-yellow-500/50 backdrop-blur-sm">
+            <div className="font-bold text-yellow-300">Validation Checks</div>
+            <ul className="text-sm text-gray-400 mt-2 space-y-2">
+              <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Mining period active (5 years)</li>
+              <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Round is active (60 sec window)</li>
+              <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Amount between MIN (0.0000001 ETH) and MAX (10 ETH)</li>
+              <li className="flex items-center gap-2"><span className="text-green-500">✓</span> Squares valid (0-24) and not duplicate</li>
             </ul>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-blue-500/50">↓</div>
 
-          <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded border-l-4 border-purple-500">
-            <div className="font-bold text-purple-900 dark:text-purple-300">Fee Calculation</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+          <div className="bg-purple-900/10 p-6 rounded-xl border-l-2 border-purple-500/50 backdrop-blur-sm">
+            <div className="font-bold text-purple-300">Fee Calculation</div>
+            <div className="text-sm text-gray-400 mt-2 space-y-1 font-mono">
               <div>Total Cost = amountPerSquare × validSquares</div>
-              <div className="mt-1">Admin Fee (10%) = Total × 0.10</div>
-              <div className="mt-1 font-semibold">Game Pot (90%) = Total - Admin Fee</div>
+              <div className="text-purple-400">Admin Fee (10%) = Total × 0.10</div>
+              <div className="text-green-400 font-bold">Game Pot (90%) = Total - Admin Fee</div>
             </div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-blue-500/50">↓</div>
 
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded border-l-4 border-green-500">
-            <div className="font-bold text-green-900 dark:text-green-300">Update State</div>
-            <ul className="text-sm text-gray-700 dark:text-gray-300 mt-2 space-y-1">
-              <li>→ Record miner&apos;s deployment per square</li>
-              <li>→ Add to round&apos;s total per square</li>
-              <li>→ Increment miner count per square</li>
-              <li>→ Collect admin fee (10%)</li>
-            </ul>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">END: Emit Deployed Event</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Miner&apos;s ETH now in game (90% in pot)</div>
+          <div className="bg-blue-900/10 p-6 rounded-xl border-l-2 border-blue-500/50 backdrop-blur-sm">
+            <div className="font-bold text-blue-300">END: Emit Deployed Event</div>
+            <div className="text-sm text-gray-400 mt-1">Miner&apos;s ETH now in game (90% in pot)</div>
           </div>
         </div>
       )
@@ -76,93 +65,46 @@ export default function BTBFinanceComingSoon() {
     {
       id: 'finalization',
       title: '2. Round Finalization Flow',
-      color: 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800',
-      headerColor: 'bg-red-600',
+      gradient: 'from-red-500/20 to-rose-500/20',
+      border: 'border-red-500/30',
+      text: 'text-red-400',
       content: (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-900 p-4 rounded border-l-4 border-red-500">
-            <div className="font-bold text-red-900 dark:text-red-300">START: Round Timer Expires</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">After 60 seconds, anyone can call finalizeRound()</div>
+        <div className="space-y-6">
+          <div className="bg-black/40 p-6 rounded-xl border-l-2 border-red-500 backdrop-blur-sm">
+            <div className="font-bold text-red-300 text-lg">START: Round Timer Expires</div>
+            <div className="text-sm text-gray-400 mt-1">After 60 seconds, anyone can call finalizeRound()</div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-red-500/50">↓</div>
 
-          <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded border-l-4 border-orange-500">
-            <div className="font-bold text-orange-900 dark:text-orange-300">Request Chainlink VRF</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+          <div className="bg-orange-900/10 p-6 rounded-xl border-l-2 border-orange-500/50 backdrop-blur-sm">
+            <div className="font-bold text-orange-300">Request Chainlink VRF</div>
+            <div className="text-sm text-gray-400 mt-2 font-mono">
               <div>→ vrfCoordinator.requestRandomWords()</div>
               <div className="mt-1">→ Store requestId → roundId mapping</div>
-              <div className="mt-1">→ Set pendingVRFRequest flag</div>
             </div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-red-500/50">↓</div>
 
-          <div className="bg-indigo-50 dark:bg-indigo-950/20 p-4 rounded border-l-4 border-indigo-500">
-            <div className="font-bold text-indigo-900 dark:text-indigo-300">VRF Callback: rawFulfillRandomWords()</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>Chainlink VRF returns provably fair random number</div>
-            </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded border-l-4 border-purple-500">
-            <div className="font-bold text-purple-900 dark:text-purple-300">Select Winning Square</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>winningSquare = randomness % 25</div>
-              <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded">
+          <div className="bg-purple-900/10 p-6 rounded-xl border-l-2 border-purple-500/50 backdrop-blur-sm">
+            <div className="font-bold text-purple-300">Select Winning Square</div>
+            <div className="text-sm text-gray-400 mt-2">
+              <div className="font-mono text-purple-200">winningSquare = randomness % 25</div>
+              <div className="mt-2 text-xs bg-black/50 p-3 rounded border border-white/5">
                 Example: Random = 12847 → 12847 % 25 = Square 22
               </div>
             </div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-red-500/50">↓</div>
 
-          <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded border-l-4 border-yellow-500">
-            <div className="font-bold text-yellow-900 dark:text-yellow-300">Calculate Pot Distribution</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>Total Winnings = Sum of all LOSING squares</div>
-              <div className="mt-1">BTB Reward = 20,000 BTB fixed per round</div>
-            </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-pink-50 dark:bg-pink-950/20 p-4 rounded border-l-4 border-pink-500">
-            <div className="font-bold text-pink-900 dark:text-pink-300">Check Motherlode Tiers (10 tiers)</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2 space-y-1">
-              <li>Tier 1: Bronze (1/100) - {'>'}10 rounds = 10k BTB</li>
-              <li>Tier 2: Silver (1/200) - {'>'}20 rounds = 20k BTB</li>
-              <li>Tier 3: Gold (1/300) - {'>'}30 rounds = 30k BTB</li>
-              <li>...</li>
-              <li>Tier 10: MOTHERLODE (1/1000) - {'>'}100 rounds = 100k BTB!</li>
-              <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded">
-                Each tier uses independent randomness: keccak256(randomness, tierNumber)
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded border-l-4 border-green-500">
-            <div className="font-bold text-green-900 dark:text-green-300">Finalize Round State</div>
-            <ul className="text-sm text-gray-700 dark:text-gray-300 mt-2 space-y-1">
-              <li>→ Mark round as finalized</li>
-              <li>→ Set isCheckpointable = true</li>
-              <li>→ Reset hit motherlode pots to 0</li>
-              <li>→ Emit RoundFinalized event</li>
-            </ul>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">Start New Round</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>→ Increment roundId</div>
-              <div>→ Add 1,000 BTB to each of 10 motherlode pots</div>
-              <div className="font-semibold mt-1">→ Total: +10,000 BTB per round to pots</div>
+          <div className="bg-pink-900/10 p-6 rounded-xl border-l-2 border-pink-500/50 backdrop-blur-sm">
+            <div className="font-bold text-pink-300">Check Motherlode Tiers (10 tiers)</div>
+            <div className="text-sm text-gray-400 mt-2 space-y-2">
+              <div className="flex justify-between border-b border-white/5 pb-1"><span>Tier 1: Bronze (1/100)</span> <span className="text-pink-400">10k BTB</span></div>
+              <div className="flex justify-between border-b border-white/5 pb-1"><span>Tier 5: Diamond (1/500)</span> <span className="text-pink-400">50k BTB</span></div>
+              <div className="flex justify-between font-bold text-pink-300"><span>Tier 10: MOTHERLODE (1/1000)</span> <span>100k BTB!</span></div>
             </div>
           </div>
         </div>
@@ -171,96 +113,54 @@ export default function BTBFinanceComingSoon() {
     {
       id: 'checkpoint',
       title: '3. Checkpoint & Rewards Flow',
-      color: 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800',
-      headerColor: 'bg-green-600',
+      gradient: 'from-emerald-500/20 to-green-500/20',
+      border: 'border-emerald-500/30',
+      text: 'text-emerald-400',
       content: (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-900 p-4 rounded border-l-4 border-green-500">
-            <div className="font-bold text-green-900 dark:text-green-300">START: Miner Checkpoints</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Miner calls checkpoint(roundId) after finalization</div>
+        <div className="space-y-6">
+          <div className="bg-black/40 p-6 rounded-xl border-l-2 border-emerald-500 backdrop-blur-sm">
+            <div className="font-bold text-emerald-300 text-lg">START: Miner Checkpoints</div>
+            <div className="text-sm text-gray-400 mt-1">Miner calls checkpoint(roundId) after finalization</div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div className="space-y-4">
+              <div className="text-center font-bold text-emerald-400 tracking-widest">✓ WINNER</div>
 
-          <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded border-l-4 border-yellow-500">
-            <div className="font-bold text-yellow-900 dark:text-yellow-300">Check: Did Miner Win?</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              Did miner deploy to the winning square?
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <div className="text-center font-bold text-green-700 dark:text-green-300">✓ WINNER</div>
-
-              <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-300 dark:border-green-700">
-                <div className="font-bold text-green-900 dark:text-green-300 text-sm">ETH Rewards</div>
-                <div className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/30 backdrop-blur-sm">
+                <div className="font-bold text-emerald-300 text-sm mb-2">ETH Rewards</div>
+                <div className="text-xs text-gray-400 space-y-2">
                   <div>1. Get original deployment back</div>
-                  <div className="mt-1">2. + Proportional share of losers&apos; ETH</div>
-                  <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded">
-                    share = (totalWinnings × myDeployment) / totalWinningSquare
-                  </div>
+                  <div>2. + Proportional share of losers&apos; ETH</div>
                 </div>
               </div>
 
-              <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-300 dark:border-green-700">
-                <div className="font-bold text-green-900 dark:text-green-300 text-sm">BTB Rewards</div>
-                <div className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              <div className="bg-emerald-900/10 p-4 rounded-xl border border-emerald-500/30 backdrop-blur-sm">
+                <div className="font-bold text-emerald-300 text-sm mb-2">BTB Rewards</div>
+                <div className="text-xs text-gray-400 space-y-2">
                   <div>1. Base: 20,000 BTB split proportionally</div>
-                  <div className="mt-1">2. + Motherlode bonuses (if hit)</div>
-                  <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded">
-                    btb = (20k × myDeployment) / totalWinningSquare<br/>
-                    + motherlodeShare
-                  </div>
+                  <div>2. + Motherlode bonuses (if hit)</div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="text-center font-bold text-red-700 dark:text-red-300">✗ LOSER</div>
+            <div className="space-y-4">
+              <div className="text-center font-bold text-red-400 tracking-widest">✗ LOSER</div>
 
-              <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded border border-red-300 dark:border-red-700">
-                <div className="font-bold text-red-900 dark:text-red-300 text-sm">No ETH Back</div>
-                <div className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              <div className="bg-red-900/10 p-4 rounded-xl border border-red-500/30 backdrop-blur-sm opacity-60">
+                <div className="font-bold text-red-300 text-sm mb-2">No ETH Back</div>
+                <div className="text-xs text-gray-400">
                   Your ETH was distributed to winners
                 </div>
               </div>
 
-              <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded border border-red-300 dark:border-red-700">
-                <div className="font-bold text-red-900 dark:text-red-300 text-sm">No BTB Rewards</div>
-                <div className="text-xs text-gray-700 dark:text-gray-300 mt-1">
+              <div className="bg-red-900/10 p-4 rounded-xl border border-red-500/30 backdrop-blur-sm opacity-60">
+                <div className="font-bold text-red-300 text-sm mb-2">No BTB Rewards</div>
+                <div className="text-xs text-gray-400">
                   Only winning square gets BTB
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded border-l-4 border-purple-500">
-            <div className="font-bold text-purple-900 dark:text-purple-300">Update Miner Stats</div>
-            <ul className="text-sm text-gray-700 dark:text-gray-300 mt-2 space-y-1">
-              <li>→ Mark hasCheckpointed = true</li>
-              <li>→ Add BTB to unclaimedBTB (not transferred yet)</li>
-              <li>→ Update totalUnclaimedBTB globally</li>
-            </ul>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded border-l-4 border-green-500">
-            <div className="font-bold text-green-900 dark:text-green-300">Transfer ETH Immediately</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              Winners receive their ETH instantly during checkpoint
-            </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">END: Emit Checkpointed Event</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">ETH sent, BTB accumulated (claim later)</div>
           </div>
         </div>
       )
@@ -268,84 +168,40 @@ export default function BTBFinanceComingSoon() {
     {
       id: 'claiming',
       title: '4. BTB Claiming & Refinement Flow',
-      color: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800',
-      headerColor: 'bg-yellow-600',
+      gradient: 'from-amber-500/20 to-yellow-500/20',
+      border: 'border-amber-500/30',
+      text: 'text-amber-400',
       content: (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-900 p-4 rounded border-l-4 border-yellow-500">
-            <div className="font-bold text-yellow-900 dark:text-yellow-300">START: Miner Claims BTB</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Miner calls claimBTB() to withdraw accumulated BTB</div>
+        <div className="space-y-6">
+          <div className="bg-black/40 p-6 rounded-xl border-l-2 border-amber-500 backdrop-blur-sm">
+            <div className="font-bold text-amber-300 text-lg">START: Miner Claims BTB</div>
+            <div className="text-sm text-gray-400 mt-1">Miner calls claimBTB() to withdraw accumulated BTB</div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-amber-500/50">↓</div>
 
-          <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded border-l-4 border-purple-500">
-            <div className="font-bold text-purple-900 dark:text-purple-300">Update Refined BTB</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>Calculate refined rewards from claim fees:</div>
-              <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                rewardsDelta = currentRewardsFactor - lastRewardsFactor<br/>
-                refinedBTB += (unclaimedBTB × rewardsDelta) / 1e18
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-orange-50 dark:bg-orange-950/20 p-4 rounded border-l-4 border-orange-500">
-            <div className="font-bold text-orange-900 dark:text-orange-300">Calculate Claim Fee (10%)</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>Fee = unclaimedBTB × 10%</div>
-              <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                Example: Claiming 1,000 BTB<br/>
-                Fee = 100 BTB → Goes to other unclaimed miners<br/>
+          <div className="bg-orange-900/10 p-6 rounded-xl border-l-2 border-orange-500/50 backdrop-blur-sm">
+            <div className="font-bold text-orange-300">Calculate Claim Fee (10%)</div>
+            <div className="text-sm text-gray-400 mt-2">
+              <div className="font-mono text-orange-200">Fee = unclaimedBTB × 10%</div>
+              <div className="mt-2 text-xs bg-black/50 p-3 rounded border border-white/5">
+                Example: Claiming 1,000 BTB<br />
+                Fee = 100 BTB → Goes to other unclaimed miners<br />
                 You get = 900 BTB + refinedBTB
               </div>
             </div>
           </div>
 
-          <div className="flex justify-center">↓</div>
+          <div className="flex justify-center text-amber-500/50">↓</div>
 
-          <div className="bg-pink-50 dark:bg-pink-950/20 p-4 rounded border-l-4 border-pink-500">
-            <div className="font-bold text-pink-900 dark:text-pink-300">Distribute Fee to Unclaimed Miners</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>rewardsPerToken = fee / totalUnclaimedBTB</div>
-              <div>rewardsFactor += rewardsPerToken</div>
-              <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded">
-                This increases the &quot;refinedBTB&quot; for everyone who HASN&apos;T claimed yet.<br/>
+          <div className="bg-pink-900/10 p-6 rounded-xl border-l-2 border-pink-500/50 backdrop-blur-sm">
+            <div className="font-bold text-pink-300">Distribute Fee to Unclaimed Miners</div>
+            <div className="text-sm text-gray-400 mt-2">
+              <div className="text-pink-200">This increases the &quot;refinedBTB&quot; for everyone who HASN&apos;T claimed yet.</div>
+              <div className="mt-2 text-xs text-gray-500 italic">
                 Incentivizes HODLing unclaimed BTB to earn from others&apos; claim fees!
               </div>
             </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded border-l-4 border-green-500">
-            <div className="font-bold text-green-900 dark:text-green-300">Update Global State</div>
-            <ul className="text-sm text-gray-700 dark:text-gray-300 mt-2 space-y-1">
-              <li>→ Reset miner&apos;s unclaimedBTB = 0</li>
-              <li>→ Reset miner&apos;s refinedBTB = 0</li>
-              <li>→ Update miner&apos;s lastRewardsFactor</li>
-              <li>→ Decrease totalUnclaimedBTB</li>
-              <li>→ Decrease totalRefinedBTB</li>
-            </ul>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">Transfer BTB Tokens</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div className="font-semibold">finalAmount = (unclaimedBTB - fee) + refinedBTB</div>
-              <div className="mt-1">→ btbToken.transfer(miner, finalAmount)</div>
-            </div>
-          </div>
-
-          <div className="flex justify-center">↓</div>
-
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">END: Emit RewardsClaimed Event</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">BTB transferred to miner&apos;s wallet</div>
           </div>
         </div>
       )
@@ -353,91 +209,42 @@ export default function BTBFinanceComingSoon() {
     {
       id: 'motherlode',
       title: '5. Motherlode System Flow',
-      color: 'bg-purple-50 border-purple-200 dark:bg-purple-950/20 dark:border-purple-800',
-      headerColor: 'bg-purple-600',
+      gradient: 'from-purple-500/20 to-fuchsia-500/20',
+      border: 'border-purple-500/30',
+      text: 'text-purple-400',
       content: (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-900 p-4 rounded border-l-4 border-purple-500">
-            <div className="font-bold text-purple-900 dark:text-purple-300">10 Motherlode Tiers</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Progressive jackpot system with increasing rarity</div>
+        <div className="space-y-6">
+          <div className="bg-black/40 p-6 rounded-xl border-l-2 border-purple-500 backdrop-blur-sm">
+            <div className="font-bold text-purple-300 text-lg">10 Motherlode Tiers</div>
+            <div className="text-sm text-gray-400 mt-1">Progressive jackpot system with increasing rarity</div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-            <div className="bg-orange-50 dark:bg-orange-950/20 p-3 rounded border border-orange-300 dark:border-orange-700">
-              <div className="font-bold">Tier 1: Bronze Nugget</div>
-              <div>1 in 100 chance • ~10k BTB avg</div>
-            </div>
-            <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-300 dark:border-gray-700">
-              <div className="font-bold">Tier 2: Silver Nugget</div>
-              <div>1 in 200 chance • ~20k BTB avg</div>
-            </div>
-            <div className="bg-yellow-50 dark:bg-yellow-950/20 p-3 rounded border border-yellow-300 dark:border-yellow-700">
-              <div className="font-bold">Tier 3: Gold Nugget</div>
-              <div>1 in 300 chance • ~30k BTB avg</div>
-            </div>
-            <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded border border-slate-300 dark:border-slate-700">
-              <div className="font-bold">Tier 4: Platinum Nugget</div>
-              <div>1 in 400 chance • ~40k BTB avg</div>
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded border border-blue-300 dark:border-blue-700">
-              <div className="font-bold">Tier 5: Diamond Nugget</div>
-              <div>1 in 500 chance • ~50k BTB avg</div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-300 dark:border-green-700">
-              <div className="font-bold">Tier 6: Emerald Vein</div>
-              <div>1 in 600 chance • ~60k BTB avg</div>
-            </div>
-            <div className="bg-red-50 dark:bg-red-950/20 p-3 rounded border border-red-300 dark:border-red-700">
-              <div className="font-bold">Tier 7: Ruby Vein</div>
-              <div>1 in 700 chance • ~70k BTB avg</div>
-            </div>
-            <div className="bg-indigo-50 dark:bg-indigo-950/20 p-3 rounded border border-indigo-300 dark:border-indigo-700">
-              <div className="font-bold">Tier 8: Sapphire Vein</div>
-              <div>1 in 800 chance • ~80k BTB avg</div>
-            </div>
-            <div className="bg-cyan-50 dark:bg-cyan-950/20 p-3 rounded border border-cyan-300 dark:border-cyan-700">
-              <div className="font-bold">Tier 9: Crystal Cache</div>
-              <div>1 in 900 chance • ~90k BTB avg</div>
-            </div>
-            <div className="bg-pink-50 dark:bg-pink-950/20 p-3 rounded border-2 border-pink-400 dark:border-pink-600">
-              <div className="font-bold text-pink-700 dark:text-pink-300">Tier 10: MOTHERLODE</div>
-              <div className="text-pink-600 dark:text-pink-400">1 in 1000 chance • ~100k+ BTB!</div>
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[10px] md:text-xs">
+            {[
+              { name: 'Bronze', chance: '1/100', reward: '10k' },
+              { name: 'Silver', chance: '1/200', reward: '20k' },
+              { name: 'Gold', chance: '1/300', reward: '30k' },
+              { name: 'Platinum', chance: '1/400', reward: '40k' },
+              { name: 'Diamond', chance: '1/500', reward: '50k' },
+              { name: 'Emerald', chance: '1/600', reward: '60k' },
+              { name: 'Ruby', chance: '1/700', reward: '70k' },
+              { name: 'Sapphire', chance: '1/800', reward: '80k' },
+              { name: 'Crystal', chance: '1/900', reward: '90k' },
+              { name: 'MOTHERLODE', chance: '1/1000', reward: '100k+' },
+            ].map((tier, i) => (
+              <div key={i} className={`p-2 rounded border border-white/10 bg-white/5 ${i === 9 ? 'col-span-2 md:col-span-1 border-pink-500/50 bg-pink-500/10' : ''}`}>
+                <div className="font-bold text-white/80">{tier.name}</div>
+                <div className="text-white/40">{tier.chance}</div>
+                <div className={`font-mono ${i === 9 ? 'text-pink-400 font-bold' : 'text-white/60'}`}>{tier.reward}</div>
+              </div>
+            ))}
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded border-l-4 border-blue-500">
-            <div className="font-bold text-blue-900 dark:text-blue-300">Each Round: Pot Growth</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
+          <div className="bg-blue-900/10 p-6 rounded-xl border-l-2 border-blue-500/50 backdrop-blur-sm">
+            <div className="font-bold text-blue-300">Each Round: Pot Growth</div>
+            <div className="text-sm text-gray-400 mt-2">
               <div>→ +1,000 BTB added to EACH tier (10 tiers)</div>
-              <div className="font-semibold mt-1">→ Total: +10,000 BTB per round</div>
-              <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded">
-                Combined with 20k base reward = 30k BTB emitted per round
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-yellow-50 dark:bg-yellow-950/20 p-4 rounded border-l-4 border-yellow-500">
-            <div className="font-bold text-yellow-900 dark:text-yellow-300">On Round Finalization</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>For each tier (1-10):</div>
-              <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                tierRandom = keccak256(VRF_randomness, tierNumber)<br/>
-                if (tierRandom % probability == 0) → HIT!
-              </div>
-              <div className="mt-2">→ If hit: Add pot to totalMotherlodeReward</div>
-              <div>→ Reset that tier&apos;s pot to 0</div>
-              <div>→ Winners split the bonus BTB proportionally</div>
-            </div>
-          </div>
-
-          <div className="bg-green-50 dark:bg-green-950/20 p-4 rounded border-l-4 border-green-500">
-            <div className="font-bold text-green-900 dark:text-green-300">Distribution to Winners</div>
-            <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
-              <div>All hit tier pots → totalMotherlodeReward</div>
-              <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                yourShare = (totalMotherlodeReward × yourDeployment) / totalWinningSquare
-              </div>
-              <div className="mt-2 font-semibold">Added on top of 20k base BTB reward!</div>
+              <div className="font-bold text-blue-200 mt-1">→ Total: +10,000 BTB per round</div>
             </div>
           </div>
         </div>
@@ -446,115 +253,142 @@ export default function BTBFinanceComingSoon() {
   ];
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-8 min-h-screen">
-      <div className="max-w-7xl mx-auto w-full">
+    <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-hidden">
+      <GrainOverlay />
+
+      <div className="relative z-10 container mx-auto px-4 py-20">
+
         {/* Hero Section */}
-        <div className="text-center mb-12">
-          {/* BTB Mining Interface */}
-          <div className="mb-12">
-            <BTBMiningInterface />
-          </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-24"
+        >
+          <h1 className="text-6xl md:text-9xl font-bold tracking-tighter mb-6">
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-white to-white/40" style={{ WebkitTextStroke: '1px rgba(255,255,255,0.1)' }}>
+              BTB FINANCE
+            </span>
+          </h1>
+          <p className="text-xl text-gray-400 font-light max-w-2xl mx-auto tracking-wide">
+            The engine of the ecosystem. <span className="text-white font-medium">Mine. Win. Refine.</span>
+          </p>
+        </motion.div>
 
-          {/* Bonding Curve Trading Interface */}
-          <div className="mb-12">
-            <BondingCurveInterface />
-          </div>
+        {/* Interfaces Section - VERTICAL STACK */}
+        <div className="flex flex-col gap-12 mb-24 max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="relative group"
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <div className="relative bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-1 overflow-hidden">
+              <BTBMiningInterface />
+            </div>
+          </motion.div>
 
-          {/* Trade Button */}
-          <div className="mb-12">
-            <a href={AERODROME_LINK} target="_blank" rel="noopener noreferrer">
-              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-6 text-lg font-bold rounded-xl shadow-lg hover:shadow-xl transition-all">
-                <TrendingUp className="w-5 h-5 mr-2" />
-                Trade BTB on Aerodrome
-                <ExternalLink className="w-5 h-5 ml-2" />
-              </Button>
-            </a>
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="relative group"
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-orange-600 to-red-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <div className="relative bg-black/50 backdrop-blur-xl border border-white/10 rounded-2xl p-1 overflow-hidden">
+              <BondingCurveInterface />
+            </div>
+          </motion.div>
         </div>
 
-        {/* How to Mine BTB Section */}
-        <div className="mb-12">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-orange-600 via-yellow-600 to-orange-600 bg-clip-text text-transparent">
-              How to Mine BTB
-            </h2>
-            <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Interactive guide to the BTB Mining Game mechanics
-            </p>
-            <div className="mt-6 bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black p-6 rounded-lg border border-slate-700">
-              <div className="text-sm text-slate-300">
-                <div className="font-semibold text-white mb-3">Quick Summary:</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
-                  <div>🎯 25 squares (5×5 grid) • 60-second rounds</div>
-                  <div>💰 Winners split losers&apos; ETH + 20,000 BTB + motherlode bonuses</div>
-                  <div>🎲 Chainlink VRF v2.5 ensures provably fair randomness</div>
-                  <div>💎 10 motherlode tiers: 1,000 BTB each/round (2,000 BTB in jackpot rounds)</div>
-                </div>
+        {/* Trade CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-32"
+        >
+          <a href={AERODROME_LINK} target="_blank" rel="noopener noreferrer">
+            <Button className="group relative px-10 py-8 bg-transparent overflow-hidden rounded-full">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 opacity-80 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative flex items-center gap-3 text-xl font-bold tracking-wide">
+                <TrendingUp className="w-6 h-6" />
+                TRADE ON AERODROME
+                <ExternalLink className="w-5 h-5 opacity-50 group-hover:opacity-100 transition-opacity" />
               </div>
-            </div>
-          </div>
+            </Button>
+          </a>
+        </motion.div>
 
-          <div className="space-y-4">
-            {miningSections.map((section) => (
-              <div key={section.id} className={`rounded-lg border-2 ${section.color} overflow-hidden`}>
+        {/* Documentation Section */}
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-yellow-200 to-orange-400">
+                Protocol Mechanics
+              </span>
+            </h2>
+            <div className="h-1 w-24 bg-gradient-to-r from-transparent via-white/20 to-transparent mx-auto"></div>
+          </motion.div>
+
+          <div className="space-y-6">
+            {miningSections.map((section, index) => (
+              <motion.div
+                key={section.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className={`group relative rounded-2xl border ${section.border} bg-black/20 backdrop-blur-md overflow-hidden transition-all duration-500 ${expandedSection === section.id ? 'bg-black/40 shadow-2xl ring-1 ring-white/10' : 'hover:bg-white/5'}`}
+              >
+                {/* Active Gradient Background */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${section.gradient} opacity-0 transition-opacity duration-500 ${expandedSection === section.id ? 'opacity-10' : 'group-hover:opacity-5'}`} />
+
                 <button
                   onClick={() => setExpandedSection(expandedSection === section.id ? null : section.id)}
-                  className={`w-full ${section.headerColor} text-white p-4 flex items-center justify-between hover:opacity-90 transition-opacity`}
+                  className="w-full p-6 flex items-center justify-between relative z-10"
                 >
-                  <span className="font-bold text-lg">{section.title}</span>
-                  {expandedSection === section.id ? <ChevronUp /> : <ChevronDown />}
+                  <span className={`font-bold text-xl tracking-wide transition-colors duration-300 ${expandedSection === section.id ? section.text : 'text-white/70 group-hover:text-white'}`}>
+                    {section.title}
+                  </span>
+                  <div className={`p-2 rounded-full bg-white/5 transition-transform duration-300 ${expandedSection === section.id ? 'rotate-180 bg-white/10' : ''}`}>
+                    <ChevronDown className="w-5 h-5 text-white/50" />
+                  </div>
                 </button>
 
-                {expandedSection === section.id && (
-                  <div className="p-6">
-                    {section.content}
-                  </div>
-                )}
-              </div>
+                <AnimatePresence>
+                  {expandedSection === section.id && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
+                    >
+                      <div className="p-8 pt-0 relative z-10 border-t border-white/5">
+                        {section.content}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             ))}
           </div>
-
-          <div className="mt-8 bg-gradient-to-br from-slate-800 to-slate-900 dark:from-slate-900 dark:to-black p-6 rounded-lg border border-slate-700">
-            <h3 className="text-xl font-bold text-white mb-4">Key Concepts</h3>
-            <div className="space-y-3 text-sm text-slate-300">
-              <div>
-                <span className="font-semibold text-white">Admin Fee:</span> 10% of all deployments sent to bonding curve, 90% enters the game pot
-              </div>
-              <div>
-                <span className="font-semibold text-white">Referral System:</span> 1% cashback to users, 4% to partners, 5% to admin (when using partner)
-              </div>
-              <div>
-                <span className="font-semibold text-white">Claim Fee:</span> 10% of claimed BTB redistributed to unclaimed miners (refinement)
-              </div>
-              <div>
-                <span className="font-semibold text-white">Refinement:</span> HODLing unclaimed BTB earns you a share of others&apos; claim fees
-              </div>
-              <div>
-                <span className="font-semibold text-white">Emission (Normal):</span> 30,000 BTB/round (20,000 base + 10,000 to motherlode pots)
-              </div>
-              <div>
-                <span className="font-semibold text-white">Emission (Jackpot):</span> 50,000 BTB/round (10,000 base + 40,000 to motherlode pots)
-              </div>
-              <div>
-                <span className="font-semibold text-white">Total Supply:</span> 88,888,888,888 BTB tokens
-              </div>
-              <div>
-                <span className="font-semibold text-white">Duration:</span> 5-year mining period (~2.6M rounds @ 60s each)
-              </div>
-              <div>
-                <span className="font-semibold text-white">Deployment Limits:</span> Min 0.0000001 ETH, Max 10 ETH per square per miner
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Footer Note */}
-        <div className="text-center mt-12">
-          <p className="text-sm text-gray-500 dark:text-gray-600">
-            Questions or feedback? Stay connected with our community for updates.
+        {/* Footer */}
+        <div className="text-center mt-32 pb-20">
+          <p className="text-white/20 text-sm uppercase tracking-[0.2em]">
+            Decentralized • Immutable • Fair
           </p>
         </div>
+
       </div>
-    </div>
+    </main>
   );
 }
