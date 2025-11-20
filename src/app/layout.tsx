@@ -11,6 +11,7 @@ import NetworkChangeAlert from './components/layout/NetworkChangeAlert';
 import { FaXTwitter, FaTelegram, FaGithub, FaDiscord } from 'react-icons/fa6';
 import { headers } from 'next/headers';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -80,6 +81,7 @@ export default async function RootLayout({
           </BackgroundWrapper>
         </Providers>
         <SpeedInsights />
+        <Analytics />
       </body>
     </html>
   );
