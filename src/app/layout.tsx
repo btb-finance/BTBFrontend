@@ -27,6 +27,17 @@ export const metadata: Metadata = {
     icon: '/favicon.ico',
     apple: '/images/btblogo.jpg',
   },
+  openGraph: {
+    title: 'BTB Finance - Revolutionary DeFi Ecosystem',
+    description: 'Experience the future of decentralized finance with BTB Finance. Explore our comprehensive ecosystem of digital assets and yield farming solutions.',
+    type: 'website',
+    url: 'https://btb.finance',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'BTB Finance - Revolutionary DeFi Ecosystem',
+    description: 'Experience the future of decentralized finance with BTB Finance.',
+  },
 };
 
 export default async function RootLayout({
@@ -39,6 +50,10 @@ export default async function RootLayout({
   
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+      </head>
       <body className={`${inter.variable} ${inter.className} bg-white dark:bg-gray-900`} suppressHydrationWarning>
         <Providers cookie={cookie}>
           <ThemeScript />

@@ -7,15 +7,12 @@ const nextConfig: NextConfig = {
       'react-icons',
       '@heroicons/react',
       'framer-motion',
-      'framer-motion',
       'ethers',
       'wagmi',
       'viem'
     ],
-    // Turbopack is now stable and enabled by default in Next.js 16
-    // turbo: {}, // Optional: customize Turbopack settings if needed
+    optimizeCss: true,
   },
-  // swcMinify is now default and deprecated in Next.js 16
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
@@ -32,6 +29,15 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
+  // Reduce bundle size and JavaScript execution
+  modularizeImports: {
+    '@heroicons/react/24/outline': {
+      transform: '@heroicons/react/24/outline/{{member}}',
+    },
+    'react-icons/fa6': {
+      transform: 'react-icons/fa6/{{member}}',
+    },
+  },
   webpack: (config, { isServer, webpack }) => {
     if (!isServer) {
       config.resolve.fallback = {
@@ -42,50 +48,60 @@ const nextConfig: NextConfig = {
       };
     }
 
-    // Optimize bundle size
+    // Optimize bundle size with better code splitting
     config.optimization = {
       ...config.optimization,
       moduleIds: 'deterministic',
       runtimeChunk: 'single',
       splitChunks: {
         chunks: 'all',
+        maxInitialRequests: 25,
+        maxAsyncRequests: 25,
+        minSize: 20000,
         cacheGroups: {
           default: false,
           vendors: false,
-          // Vendor chunk for web3 libraries
-          web3: {
-            name: 'web3',
-            test: /[\\/]node_modules[\\/](ethers|wagmi|viem|@rainbow-me|@wagmi)[\\/]/,
-            priority: 40,
-            reuseExistingChunk: true,
-          },
-          // Framework chunk
+          // Framework chunk (critical)
           framework: {
             name: 'framework',
             test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
             priority: 50,
+            enforce: true,
             reuseExistingChunk: true,
           },
-          // UI libraries
+          // Vendor chunk for web3 libraries (lazy load)
+          web3: {
+            name: 'web3',
+            test: /[\\/]node_modules[\\/](ethers|wagmi|viem|@rainbow-me|@wagmi|@coinbase)[\\/]/,
+            priority: 40,
+            reuseExistingChunk: true,
+            chunks: 'async',
+          },
+          // UI libraries (async)
           ui: {
             name: 'ui',
             test: /[\\/]node_modules[\\/](framer-motion)[\\/]/,
             priority: 30,
             reuseExistingChunk: true,
+            chunks: 'async',
           },
-          // Icon libraries
+          // Icon libraries (async)
           icons: {
             name: 'icons',
             test: /[\\/]node_modules[\\/](lucide-react|react-icons|@heroicons)[\\/]/,
             priority: 25,
             reuseExistingChunk: true,
+            chunks: 'async',
           },
           // Common libraries
           lib: {
             test: /[\\/]node_modules[\\/]/,
-            name: 'lib',
+            name(module: any) {
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+              return `lib.${packageName.replace('@', '')}`;
+            },
             priority: 10,
-            minChunks: 1,
+            minChunks: 2,
             reuseExistingChunk: true,
           },
         },

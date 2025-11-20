@@ -1,0 +1,18 @@
+# Browsers that we support
+# This targets modern browsers to reduce bundle size and remove unnecessary polyfills
+
+[production]
+>0.5%
+last 2 versions
+not dead
+not op_mini all
+not ie 11
+not chrome < 90
+not safari < 14
+not firefox < 88
+not edge < 90
+
+[development]
+last 1 chrome version
+last 1 firefox version
+last 1 safari version

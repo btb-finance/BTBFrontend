@@ -1,41 +1,43 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
+import { m as motion, useScroll, useTransform } from 'framer-motion';
 import {
-  ArrowTrendingUpIcon,
-  BanknotesIcon,
-  BoltIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  ShieldCheckIcon,
-  UserGroupIcon,
   ArrowRightIcon,
   BeakerIcon,
-  LightBulbIcon,
+  ShieldCheckIcon,
   SparklesIcon,
-  TrophyIcon,
   CubeTransparentIcon,
-  GlobeAltIcon
+  CurrencyDollarIcon,
+  ChartBarIcon,
+  LightBulbIcon,
+  ArrowTrendingUpIcon
 } from '@heroicons/react/24/outline';
-import LazyWrapper from './components/common/LazyWrapper';
-import Logo from './components/common/Logo';
-import { lazy } from 'react';
 
+// Lazy load heavy components
+const ProductShowcase = dynamic(() => import('./components/home/ProductShowcase'), {
+  loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
+  ssr: false
+});
 
-const ProductShowcase = lazy(() => import('./components/home/ProductShowcase'));
-const FlywheelSection = lazy(() => import('./components/home/FlywheelSection'));
-const GameEcosystemSection = lazy(() => import('./components/home/GameEcosystemSection'));
+const FlywheelSection = dynamic(() => import('./components/home/FlywheelSection'), {
+  loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
+  ssr: false
+});
+
+const GameEcosystemSection = dynamic(() => import('./components/home/GameEcosystemSection'), {
+  loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
+  ssr: false
+});
+
+const TypewriterEffect = dynamic(() => import('./components/ui/typewriter-effect'), {
+  loading: () => <div className="h-12 sm:h-14" />,
+  ssr: false
+});
+
 import { Button, MotionButton } from './components/ui/button';
-import { Card, MotionCard, CardContent, CardTitle, CardDescription } from './components/ui/card';
-import TypewriterEffect from './components/ui/typewriter-effect';
-import {
-  features,
-  stats,
-  quickNavLinks
-} from '../data/home-data';
 
 
 
@@ -58,7 +60,6 @@ import {
 
 
 export default function Home() {
-  const [currentFeature, setCurrentFeature] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -72,17 +73,6 @@ export default function Home() {
 
   // Page scroll progress for navigation
   const { scrollYProgress: pageProgress } = useScroll();
-
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentFeature(prev => (prev + 1) % features.length);
-    }, 5000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
 
   // Track scroll position for enhanced UX
   useEffect(() => {
@@ -107,49 +97,36 @@ export default function Home() {
       />
 
       {/* Quick Navigation */}
-      <AnimatePresence>
-        {isScrolled && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            transition={{ duration: 0.3 }}
-            className="fixed top-4 right-4 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700"
-          >
-            <nav className="flex items-center space-x-3" aria-label="Quick navigation">
-              <Link
-                href="/game"
-                className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-                aria-label="Go to BTB Game"
-              >
-                🎮 Game
-              </Link>
-              <Link
-                href="/btb-finance"
-                className="text-xs font-medium text-btb-primary hover:text-btb-primary-dark dark:text-btb-primary-light transition-colors"
-                aria-label="Go to BTB Finance"
-              >
-                💰 Finance
-              </Link>
-              <Link
-                href="/megapot"
-                className="text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 transition-colors"
-                aria-label="Go to Megapot Lottery"
-              >
-                🎰 Lottery
-              </Link>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isScrolled && (
+        <div className="fixed top-4 right-4 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300" style={{opacity: 1}}>
+          <nav className="flex items-center space-x-3" aria-label="Quick navigation">
+            <Link
+              href="/game"
+              className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+              aria-label="Go to BTB Game"
+            >
+              🎮 Game
+            </Link>
+            <Link
+              href="/btb-finance"
+              className="text-xs font-medium text-btb-primary hover:text-btb-primary-dark dark:text-btb-primary-light transition-colors"
+              aria-label="Go to BTB Finance"
+            >
+              💰 Finance
+            </Link>
+            <Link
+              href="/megapot"
+              className="text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 transition-colors"
+              aria-label="Go to Megapot Lottery"
+            >
+              🎰 Lottery
+            </Link>
+          </nav>
+        </div>
+      )}
 
       {/* BTB Mining Live Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl"
-      >
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
         <Link href="/btb-finance">
           <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-red-600 hover:from-orange-700 hover:via-orange-600 hover:to-red-700 rounded-2xl shadow-2xl border-2 border-orange-400/50 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] cursor-pointer">
             <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3">
@@ -175,7 +152,7 @@ export default function Home() {
             </div>
           </div>
         </Link>
-      </motion.div>
+      </div>
 
       {/* Hero section */}
       <main className="relative min-h-[90vh] flex flex-col justify-center" ref={heroRef} role="main" aria-label="BTB Finance homepage hero section">
@@ -194,12 +171,7 @@ export default function Home() {
             style={{ opacity, scale, y }}
             className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
           >
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.7 }}
-              className="relative z-10"
-            >
+            <div className="relative z-10 animate-in fade-in slide-in-from-left-5 duration-700">
 
 
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
@@ -240,66 +212,40 @@ export default function Home() {
                 </motion.div>
               </h1>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8, duration: 0.5 }}
-                className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl"
-              >
+              <p className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl" style={{opacity: 1}}>
                 BTB provides services across any blockchain network - from gaming ecosystems and bonding protocols to innovative ideas that keep prices stable and never go down. We bring any concept to life with our leverage token system designed for business-to-business excellence.
-              </motion.p>
+              </p>
 
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.0, duration: 0.5 }}
-                className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1"
-              >
+              <p className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1" style={{opacity: 1}}>
                 <span className="font-bold">Our Mission:</span> BTB (Business-to-Business) delivers cutting-edge services across every blockchain network. We specialize in gaming ecosystems, bonding mechanisms, and revolutionary leverage tokens designed to maintain price stability - prices never go down. From concept to reality, we bring any innovative idea to life with our comprehensive multi-network platform.
-              </motion.p>
+              </p>
 
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.2, duration: 0.5 }}
-                className="mt-6 flex items-center gap-3 flex-wrap"
-              >
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="inline-block group relative overflow-hidden"
-                >
+              <div className="mt-6 flex items-center gap-3 flex-wrap animate-in fade-in slide-in-from-bottom-4 duration-500 delay-1000">
+                <div className="inline-block group relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
                   <Link
                     href="/game"
-                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-red-600 via-red-500 to-red-400 hover:shadow-lg transition-all duration-300 shadow-md shadow-red-500/20"
+                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-red-600 via-red-500 to-red-400 hover:shadow-lg transition-all duration-300 shadow-md shadow-red-500/20 hover:scale-105 active:scale-95"
+                    aria-label="Try Our Game - Play BTB gaming ecosystem"
                   >
-                    Try Our Game <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white animate-pulse">NEW!</span> <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    Try Our Game <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white animate-pulse" aria-label="New feature">NEW!</span> <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" aria-hidden="true" />
                   </Link>
-                </motion.div>
+                </div>
 
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="inline-block group relative overflow-hidden ml-3"
-                >
+                <div className="inline-block group relative overflow-hidden ml-3">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
                   <Link
                     href="/btb-finance"
-                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20"
+                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20 hover:scale-105 active:scale-95"
+                    aria-label="Explore BTB Finance - Trade and earn with BTB tokens"
                   >
-                    Explore BTB Finance <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    Explore BTB Finance <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" aria-hidden="true" />
                   </Link>
-                </motion.div>
-              </motion.div>
-            </motion.div>
+                </div>
+              </div>
+            </div>
 
-            <motion.div
-              className="h-[400px] w-full relative"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.5 }}
-            >
+            <div className="h-[400px] w-full relative animate-in fade-in duration-700 delay-500">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative w-64 h-64 md:w-80 md:h-80">
                   {/* Animated background elements */}
@@ -389,27 +335,25 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         </div>
       </main>
 
       {/* Product Showcase Section */}
-      <LazyWrapper>
+      <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
         <ProductShowcase />
-      </LazyWrapper>
+      </Suspense>
 
-      {/* BTB      {/* Flywheel Section */}
-      <LazyWrapper>
+      {/* Flywheel Section */}
+      <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
         <FlywheelSection />
-      </LazyWrapper>
-
-
+      </Suspense>
 
       {/* Game Ecosystem Section */}
-      <LazyWrapper>
+      <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
         <GameEcosystemSection />
-      </LazyWrapper>
+      </Suspense>
 
       {/* Larry Ecosystem Section */}
       <div className="py-16 bg-white dark:bg-gray-900">
@@ -463,8 +407,9 @@ export default function Home() {
               <Link
                 href="/larryecosystem"
                 className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:shadow-lg transition-all duration-300"
+                aria-label="Trade Larry - Access LARRY token ecosystem with leverage trading and borrowing"
               >
-                Trade Larry <ArrowRightIcon className="ml-2 h-4 w-4" />
+                Trade Larry <ArrowRightIcon className="ml-2 h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
 
@@ -658,8 +603,9 @@ export default function Home() {
               <Link
                 href="/megapot"
                 className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-500 hover:shadow-lg transition-all duration-300"
+                aria-label="Play Megapot - Daily million dollar USDC lottery with instant cashback"
               >
-                Play Megapot <ArrowRightIcon className="ml-2 h-4 w-4" />
+                Play Megapot <ArrowRightIcon className="ml-2 h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
 
@@ -948,21 +894,16 @@ export default function Home() {
       </div>
 
       {/* Back to Top Button */}
-      <AnimatePresence>
-        {isScrolled && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.3 }}
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="fixed bottom-8 right-8 z-40 bg-btb-primary hover:bg-btb-primary-dark text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
-            aria-label="Back to top"
-          >
-            <ArrowRightIcon className="h-5 w-5 transform -rotate-90 group-hover:-translate-y-1 transition-transform duration-300" />
-          </motion.button>
-        )}
-      </AnimatePresence>
+      {isScrolled && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-8 right-8 z-40 bg-btb-primary hover:bg-btb-primary-dark text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
+          style={{opacity: 1, transform: 'scale(1)'}}
+          aria-label="Back to top"
+        >
+          <ArrowRightIcon className="h-5 w-5 transform -rotate-90 group-hover:-translate-y-1 transition-transform duration-300" />
+        </button>
+      )}
 
     </div>
   );
