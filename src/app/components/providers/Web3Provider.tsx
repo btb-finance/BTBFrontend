@@ -6,39 +6,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConnectKitProvider } from 'connectkit';
 import { config } from '../../config/connectkit';
 
-export function Web3Provider({ 
+export function Web3Provider({
   children,
-  cookie 
-}: { 
+  cookie
+}: {
   children: React.ReactNode;
   cookie?: string;
 }) {
   const [queryClient] = useState(() => new QueryClient());
   const initialState = cookieToInitialState(config, cookie);
 
-  useEffect(() => {
-    // Listen for network changes - remove auto refresh for better mobile UX
-    const handleChainChanged = (chainId: string) => {
-      const baseChainId = '0x2105'; // Base mainnet (8453)
-      const baseSepoliaChainId = '0x14a34'; // Base Sepolia (84532)
-      
-      if (chainId === baseChainId || chainId === baseSepoliaChainId) {
-        // Network switched to Base - let React state handle the updates
-        // Removed window.location.reload() to prevent mobile wallet disconnection
-        console.log('Network switched to Base:', chainId);
-      }
-    };
-
-    if (typeof window !== 'undefined' && window.ethereum) {
-      window.ethereum.on('chainChanged', handleChainChanged);
-      
-      return () => {
-        if (window.ethereum?.removeListener) {
-          window.ethereum.removeListener('chainChanged', handleChainChanged);
-        }
-      };
-    }
-  }, []);
+  // Removed manual window.ethereum listener as Wagmi handles chain changes automatically
+  // and accessing window.ethereum directly can cause issues with some wallet extensions.
 
   return (
     <WagmiProvider config={config} initialState={initialState}>

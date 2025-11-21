@@ -12,17 +12,14 @@ const getConnectors = () => {
   // Only add WalletConnect on client-side to avoid indexedDB issues
   if (typeof window !== 'undefined') {
     return [
-      // EIP-6963 compatible injected connector
-      // This will automatically discover all EIP-6963 compatible wallets
-      injected({
-        target: 'metaMask',
-        shimDisconnect: true,
-      }),
-      // Additional specific wallet connectors
+      // Generic injected connector (handles MetaMask, Trust, etc.)
+      injected(),
+      // Coinbase Wallet
       coinbaseWallet({
         appName: 'BTB Finance',
         appLogoUrl: 'https://btb.finance/logo.png'
       }),
+      // WalletConnect
       walletConnect({
         projectId: walletConnectProjectId,
         metadata: {
@@ -31,17 +28,14 @@ const getConnectors = () => {
           url: window.location.origin,
           icons: ['https://btb.finance/logo.png']
         },
-        showQrModal: false  // Disable QR modal popup
+        showQrModal: false
       })
     ];
   }
 
-  // Server-side: only return connectors that don't require browser APIs
+  // Server-side
   return [
-    injected({
-      target: 'metaMask',
-      shimDisconnect: true,
-    }),
+    injected(),
     coinbaseWallet({
       appName: 'BTB Finance',
       appLogoUrl: 'https://btb.finance/logo.png'
