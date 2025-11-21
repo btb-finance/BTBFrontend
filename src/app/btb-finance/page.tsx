@@ -6,6 +6,7 @@ import { Button } from '../components/ui/button';
 import { Rocket, Lock, TrendingUp, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { BondingCurveInterface } from './components/BondingCurveInterface';
 import { BTBMiningInterface } from './components/BTBMiningInterface';
+import { BTBTMintingInterface } from './components/BTBTMintingInterface';
 
 export default function BTBFinanceComingSoon() {
   const [expandedSection, setExpandedSection] = useState<string | null>('deployment');
@@ -210,7 +211,7 @@ export default function BTBFinanceComingSoon() {
                   <div>1. Base: 20,000 BTB split proportionally</div>
                   <div className="mt-1">2. + Motherlode bonuses (if hit)</div>
                   <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded">
-                    btb = (20k × myDeployment) / totalWinningSquare<br/>
+                    btb = (20k × myDeployment) / totalWinningSquare<br />
                     + motherlodeShare
                   </div>
                 </div>
@@ -284,7 +285,7 @@ export default function BTBFinanceComingSoon() {
             <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
               <div>Calculate refined rewards from claim fees:</div>
               <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                rewardsDelta = currentRewardsFactor - lastRewardsFactor<br/>
+                rewardsDelta = currentRewardsFactor - lastRewardsFactor<br />
                 refinedBTB += (unclaimedBTB × rewardsDelta) / 1e18
               </div>
             </div>
@@ -297,8 +298,8 @@ export default function BTBFinanceComingSoon() {
             <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
               <div>Fee = unclaimedBTB × 10%</div>
               <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                Example: Claiming 1,000 BTB<br/>
-                Fee = 100 BTB → Goes to other unclaimed miners<br/>
+                Example: Claiming 1,000 BTB<br />
+                Fee = 100 BTB → Goes to other unclaimed miners<br />
                 You get = 900 BTB + refinedBTB
               </div>
             </div>
@@ -312,7 +313,7 @@ export default function BTBFinanceComingSoon() {
               <div>rewardsPerToken = fee / totalUnclaimedBTB</div>
               <div>rewardsFactor += rewardsPerToken</div>
               <div className="mt-2 text-xs bg-white dark:bg-gray-800 p-2 rounded">
-                This increases the &quot;refinedBTB&quot; for everyone who HASN&apos;T claimed yet.<br/>
+                This increases the &quot;refinedBTB&quot; for everyone who HASN&apos;T claimed yet.<br />
                 Incentivizes HODLing unclaimed BTB to earn from others&apos; claim fees!
               </div>
             </div>
@@ -421,7 +422,7 @@ export default function BTBFinanceComingSoon() {
             <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
               <div>For each tier (1-10):</div>
               <div className="mt-2 bg-white dark:bg-gray-800 p-2 rounded text-xs">
-                tierRandom = keccak256(VRF_randomness, tierNumber)<br/>
+                tierRandom = keccak256(VRF_randomness, tierNumber)<br />
                 if (tierRandom % probability == 0) → HIT!
               </div>
               <div className="mt-2">→ If hit: Add pot to totalMotherlodeReward</div>
@@ -458,6 +459,11 @@ export default function BTBFinanceComingSoon() {
           {/* Bonding Curve Trading Interface */}
           <div className="mb-12">
             <BondingCurveInterface />
+          </div>
+
+          {/* BTBT Minting Interface */}
+          <div className="mb-12">
+            <BTBTMintingInterface />
           </div>
 
           {/* Trade Button */}
