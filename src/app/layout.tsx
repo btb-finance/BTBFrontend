@@ -24,8 +24,9 @@ export const metadata: Metadata = {
   title: 'BTB Finance - Revolutionary DeFi Ecosystem',
   description: 'Experience the future of decentralized finance with BTB Finance. Explore our comprehensive ecosystem of digital assets and yield farming solutions.',
   icons: {
-    icon: '/favicon.ico',
-    apple: '/images/btblogo.jpg',
+    icon: '/newbtb32x32.png',
+    shortcut: '/newbtb32x32.png',
+    apple: '/newbtb32x32.png',
   },
   openGraph: {
     title: 'BTB Finance - Revolutionary DeFi Ecosystem',
