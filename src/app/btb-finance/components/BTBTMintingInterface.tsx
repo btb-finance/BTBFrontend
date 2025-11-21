@@ -7,7 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Loader2, ArrowRightLeft, Wallet, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import { Loader2, ArrowRightLeft, TrendingUp, TrendingDown, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Contract Addresses
@@ -65,7 +67,9 @@ const ERC20_ABI = [
 export function BTBTMintingInterface() {
     const { address, isConnected } = useAccount();
     const [amount, setAmount] = useState('');
-    const [activeTab, setActiveTab] = useState('mint');
+    const [activeTab, setActiveTab] = useState<'mint' | 'redeem'>('mint');
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
 
     // Contract Writes
     const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
@@ -100,6 +104,7 @@ export function BTBTMintingInterface() {
     // Effects
     useEffect(() => {
         if (isConfirmed) {
+            setSuccess('Transaction confirmed successfully!');
             toast.success('Transaction confirmed successfully!');
             setAmount('');
             refetchBtb();
@@ -110,14 +115,22 @@ export function BTBTMintingInterface() {
 
     useEffect(() => {
         if (writeError) {
+            setError(`Transaction failed: ${writeError.message}`);
             toast.error(`Transaction failed: ${writeError.message}`);
         }
     }, [writeError]);
+
+    // Clear messages on tab change
+    useEffect(() => {
+        setError(null);
+        setSuccess(null);
+    }, [activeTab]);
 
     // Handlers
     const handleApprove = () => {
         if (!amount) return;
         try {
+            setError(null);
             writeContract({
                 address: BTB_CONTRACT,
                 abi: ERC20_ABI,
@@ -132,6 +145,7 @@ export function BTBTMintingInterface() {
     const handleMint = () => {
         if (!amount) return;
         try {
+            setError(null);
             writeContract({
                 address: BTBT_CONTRACT,
                 abi: BTBT_ABI,
@@ -146,6 +160,7 @@ export function BTBTMintingInterface() {
     const handleRedeem = () => {
         if (!amount) return;
         try {
+            setError(null);
             writeContract({
                 address: BTBT_CONTRACT,
                 abi: BTBT_ABI,
@@ -157,18 +172,19 @@ export function BTBTMintingInterface() {
         }
     };
 
-    const handleMax = () => {
-        if (activeTab === 'mint' && btbBalance) {
-            setAmount(formatEther(btbBalance));
-        } else if (activeTab === 'redeem' && btbtBalance) {
-            setAmount(formatEther(btbtBalance));
+    const handlePercentage = (percentage: number) => {
+        const balance = activeTab === 'mint' ? btbBalance : btbtBalance;
+        if (balance) {
+            const amt = (BigInt(balance) * BigInt(percentage)) / 100n;
+            setAmount(formatEther(amt));
         }
     };
 
     // Helper to format balance
     const formatBalance = (bal: bigint | undefined) => {
         if (!bal) return '0.00';
-        return parseFloat(formatEther(bal)).toLocaleString(undefined, { maximumFractionDigits: 4 });
+        const num = parseFloat(formatEther(bal));
+        return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
     };
 
     const needsApproval = activeTab === 'mint' &&
@@ -177,112 +193,210 @@ export function BTBTMintingInterface() {
         allowance < parseEther(amount);
 
     return (
-        <Card className="w-full bg-white/5 dark:bg-black/20 backdrop-blur-xl border-white/10 shadow-2xl">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    <ArrowRightLeft className="w-6 h-6 text-blue-400" />
-                    BTB ⇄ BTBT (Ardeem)
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Tabs defaultValue="mint" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-black/20">
-                        <TabsTrigger value="mint" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
-                            Mint BTBT
-                        </TabsTrigger>
-                        <TabsTrigger value="redeem" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
-                            Redeem BTB
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <div className="space-y-6">
-                        {/* Balance Display */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                                <div className="text-sm text-blue-400 mb-1">BTB Balance</div>
-                                <div className="text-xl font-bold text-white">{formatBalance(btbBalance)}</div>
+        <div className="space-y-6">
+            {/* Balance Info Banner */}
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 border-2 border-blue-200 dark:border-blue-800/50">
+                <CardContent className="p-6">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                {formatBalance(btbBalance)}
                             </div>
-                            <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                                <div className="text-sm text-purple-400 mb-1">BTBT Balance</div>
-                                <div className="text-xl font-bold text-white">{formatBalance(btbtBalance)}</div>
-                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">BTB Balance</div>
                         </div>
-
-                        {/* Input Section */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">Amount</span>
-                                <button
-                                    onClick={handleMax}
-                                    className="text-blue-400 hover:text-blue-300 text-xs font-medium"
-                                >
-                                    MAX
-                                </button>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                                {formatBalance(btbtBalance)}
                             </div>
-                            <div className="relative">
-                                <Input
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={amount}
-                                    onChange={(e: ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
-                                    className="bg-black/20 border-white/10 text-lg h-12 pr-16"
-                                />
-                                <div className="absolute right-3 top-3 text-sm font-bold text-gray-500">
-                                    {activeTab === 'mint' ? 'BTB' : 'BTBT'}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Action Button */}
-                        {!isConnected ? (
-                            <Button className="w-full h-12 bg-gray-700 hover:bg-gray-600" disabled>
-                                <Wallet className="w-4 h-4 mr-2" />
-                                Connect Wallet
-                            </Button>
-                        ) : (
-                            <div className="space-y-3">
-                                {needsApproval ? (
-                                    <Button
-                                        className="w-full h-12 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 font-bold text-lg"
-                                        onClick={handleApprove}
-                                        disabled={isPending || isConfirming}
-                                    >
-                                        {isPending || isConfirming ? (
-                                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                        ) : null}
-                                        Approve BTB
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        className={`w-full h-12 font-bold text-lg ${activeTab === 'mint'
-                                            ? 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600'
-                                            : 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600'
-                                            }`}
-                                        onClick={activeTab === 'mint' ? handleMint : handleRedeem}
-                                        disabled={isPending || isConfirming || !amount}
-                                    >
-                                        {isPending || isConfirming ? (
-                                            <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                                        ) : (
-                                            <RefreshCw className="w-5 h-5 mr-2" />
-                                        )}
-                                        {activeTab === 'mint' ? 'Mint BTBT' : 'Redeem BTB'}
-                                    </Button>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Info Text */}
-                        <div className="text-xs text-center text-gray-500 dark:text-gray-400">
-                            {activeTab === 'mint'
-                                ? 'Minting BTBT is 1:1. No tax on minting.'
-                                : 'Redeeming BTBT is 1:1. No tax on redeeming.'}
-                            <br />
-                            <span className="opacity-70">BTBT transfers incur a 1% tax.</span>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">BTBT Balance</div>
                         </div>
                     </div>
-                </Tabs>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+
+            {/* Trading Interface */}
+            <Card className="border-2 border-blue-200 dark:border-blue-800/50">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <ArrowRightLeft className="w-5 h-5 text-blue-600" />
+                        BTB ⇄ BTBT (Ardeem)
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'mint' | 'redeem')}>
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="mint" className="flex items-center gap-2">
+                                <TrendingUp className="w-4 h-4" />
+                                Mint BTBT
+                            </TabsTrigger>
+                            <TabsTrigger value="redeem" className="flex items-center gap-2">
+                                <TrendingDown className="w-4 h-4" />
+                                Redeem BTB
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="mint" className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">BTB Amount</label>
+                                <Input
+                                    type="number"
+                                    placeholder="0.0"
+                                    value={amount}
+                                    onChange={(e: ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
+                                    disabled={!isConnected || isPending || isConfirming}
+                                />
+                                <div className="space-y-2 mt-1">
+                                    <div className="text-xs text-gray-500 text-right">
+                                        Balance: {formatBalance(btbBalance)} BTB
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {[25, 50, 75, 100].map((percent) => (
+                                            <button
+                                                key={percent}
+                                                onClick={() => handlePercentage(percent)}
+                                                disabled={!btbBalance}
+                                                className="flex-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {percent === 100 ? 'MAX' : `${percent}%`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">BTBT to Receive</label>
+                                <Input
+                                    type="number"
+                                    placeholder="0.0"
+                                    value={amount}
+                                    readOnly
+                                    className="bg-gray-50 dark:bg-gray-800"
+                                />
+                                <div className="text-xs text-gray-500">1:1 ratio - No fees on minting</div>
+                            </div>
+                            {needsApproval ? (
+                                <Button
+                                    onClick={handleApprove}
+                                    disabled={!isConnected || !amount || isPending || isConfirming}
+                                    className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                                >
+                                    {isPending || isConfirming ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Confirming...
+                                        </>
+                                    ) : !isConnected ? (
+                                        'Connect Wallet'
+                                    ) : (
+                                        'Approve BTB'
+                                    )}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={handleMint}
+                                    disabled={!isConnected || !amount || isPending || isConfirming}
+                                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
+                                >
+                                    {isPending || isConfirming ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Confirming...
+                                        </>
+                                    ) : !isConnected ? (
+                                        'Connect Wallet to Mint'
+                                    ) : (
+                                        'Mint BTBT'
+                                    )}
+                                </Button>
+                            )}
+                        </TabsContent>
+
+                        <TabsContent value="redeem" className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">BTBT Amount</label>
+                                <Input
+                                    type="number"
+                                    placeholder="0.0"
+                                    value={amount}
+                                    onChange={(e: ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
+                                    disabled={!isConnected || isPending || isConfirming}
+                                />
+                                <div className="space-y-2 mt-1">
+                                    <div className="text-xs text-gray-500 text-right">
+                                        Balance: {formatBalance(btbtBalance)} BTBT
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {[25, 50, 75, 100].map((percent) => (
+                                            <button
+                                                key={percent}
+                                                onClick={() => handlePercentage(percent)}
+                                                disabled={!btbtBalance}
+                                                className="flex-1 text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            >
+                                                {percent === 100 ? 'MAX' : `${percent}%`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">BTB to Receive</label>
+                                <Input
+                                    type="number"
+                                    placeholder="0.0"
+                                    value={amount}
+                                    readOnly
+                                    className="bg-gray-50 dark:bg-gray-800"
+                                />
+                                <div className="text-xs text-gray-500">1:1 ratio - No fees on redeeming</div>
+                            </div>
+                            <Button
+                                onClick={handleRedeem}
+                                disabled={!isConnected || !amount || isPending || isConfirming}
+                                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+                            >
+                                {isPending || isConfirming ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Confirming...
+                                    </>
+                                ) : !isConnected ? (
+                                    'Connect Wallet to Redeem'
+                                ) : (
+                                    'Redeem BTB'
+                                )}
+                            </Button>
+                        </TabsContent>
+                    </Tabs>
+
+                    {/* Messages */}
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertCircle className="w-4 h-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {success && (
+                        <Alert className="bg-green-50 border-green-500">
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <AlertDescription className="text-green-800">{success}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* Info Badges */}
+                    <div className="flex flex-wrap gap-2 pt-4">
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                            <ArrowRightLeft className="w-3 h-3" />
+                            1:1 Mint/Redeem Ratio
+                        </Badge>
+                        <Badge variant="secondary" className="flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            1% tax on BTBT transfers only
+                        </Badge>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
