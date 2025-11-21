@@ -11,6 +11,17 @@ const walletConnectProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID 
 const getConnectors = () => {
   // Only add WalletConnect on client-side to avoid indexedDB issues
   if (typeof window !== 'undefined') {
+    // Prevent wallet extensions from redefining ethereum property
+    try {
+      if (window.ethereum && !Object.isExtensible(window.ethereum)) {
+        Object.defineProperty(window, 'ethereum', {
+          configurable: true,
+          writable: true,
+        });
+      }
+    } catch (e) {
+      // Ignore - some wallets lock this property
+    }
     return [
       // Generic injected connector (handles MetaMask, Trust, etc.)
       injected(),
