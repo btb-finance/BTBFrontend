@@ -70,19 +70,6 @@ export const products = [
         borderColor: 'border-emerald-200 dark:border-emerald-800'
     },
     {
-        name: 'Aero Booster',
-        description: 'Professional AERO voting service for projects. Tiered rates: 5% for 1k, 4% for 5k, 2% for 10k+ AERO weekly fees.',
-        detailedDescription: "BTB owns significant locked AERO tokens and provides weekly voting support for projects' liquidity pools. Tiered pricing structure: 5% weekly fee for 1k AERO, 4% for 5k AERO, 2% for 10k+ AERO. Better rates as you scale up! Contact us via X, Telegram, or email.",
-        features: ['Weekly voting power', 'Scalable pricing structure', 'Multiple contact methods', 'Guaranteed LP boost'],
-        icon: ArrowTrendingUpIcon,
-        href: '/aero-booster',
-        bgColor: 'bg-gradient-to-br from-sky-600/10 to-cyan-800/10',
-        iconColor: 'text-sky-600 dark:text-sky-400',
-        borderColor: 'border-sky-200 dark:border-sky-800',
-        isNew: true,
-        highlight: true
-    },
-    {
         name: 'Custom Game Creation',
         description: 'Launch your own Hunt-to-Earn game ecosystem like BTB Game. We build complete tokenomics, deflationary mechanics, and LP reward systems tailored to your vision.',
         detailedDescription: 'Want to create the next BTB Game or something entirely unique? Our team builds custom gaming ecosystems with sophisticated tokenomics, NFT integration, and deflationary mechanics. From concept to deployment, we handle smart contracts, frontend development, and multi-token price pressure systems that ensure sustainable growth. 🎉 **100% FREE SERVICE** - Just contact us via X, Telegram, or email with your idea and we\'ll build it for you at no cost!',
@@ -230,16 +217,4 @@ color: 'bg-emerald-100 dark:bg-emerald-900/30',
 color: 'bg-green-100 dark:bg-green-900/30',
     textColor: 'text-green-600 dark:text-green-400'
   },
-{
-    name: 'Aero Booster',
-        description: 'Professional AERO voting service',
-            href: '/aero-booster',
-                icon: ({ className }: { className?: string }) => (
-                    <span className= { className } style = {{ fontSize: '1.2rem', lineHeight: 1 }
-}>🚀</span>
-    ),
-color: 'bg-sky-100 dark:bg-sky-900/30',
-    textColor: 'text-sky-600 dark:text-sky-400',
-        isNew: true
-  }
 ];

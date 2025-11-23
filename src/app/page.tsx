@@ -22,10 +22,6 @@ const ProductShowcase = dynamic(() => import('./components/home/ProductShowcase'
   ssr: false
 });
 
-const FlywheelSection = dynamic(() => import('./components/home/FlywheelSection'), {
-  loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
-  ssr: false
-});
 
 const GameEcosystemSection = dynamic(() => import('./components/home/GameEcosystemSection'), {
   loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
@@ -345,10 +341,181 @@ export default function Home() {
         <ProductShowcase />
       </Suspense>
 
-      {/* Flywheel Section */}
-      <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
-        <FlywheelSection />
-      </Suspense>
+      {/* BTB Finance Section */}
+      <div className="py-16 sm:py-24 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 relative overflow-hidden">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+              >
+                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center justify-center">
+                  <CurrencyDollarIcon className="h-8 w-8 mr-2 text-blue-600" />
+                  <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">BTB Finance Ecosystem</span>
+                </h2>
+                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
+                  Discover bonding curve trading, mining rewards, and BTBT token utilities
+                </p>
+              </motion.div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+              {/* BTB Mining */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-orange-200 dark:border-orange-800 hover:shadow-xl transition-all"
+              >
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-3xl">⛏️</span>
+                  </div>
+                  <h3 className="text-xl font-bold text-orange-600 dark:text-orange-400 mb-2">BTB Mining</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Deploy ETH to 25 squares every 60 seconds. Winners share the ETH pot and earn 20,000 BTB tokens!
+                  </p>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>60-second mining rounds</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>25 squares to choose from</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Win ETH + 20k BTB rewards</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>10-tier Motherlode jackpots</span>
+                  </li>
+                </ul>
+                <Link
+                  href="/btb-finance"
+                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-lg font-medium transition-all"
+                >
+                  Start Mining
+                </Link>
+              </motion.div>
+
+              {/* Bonding Curve */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.1 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-purple-200 dark:border-purple-800 hover:shadow-xl transition-all"
+              >
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                    <ChartBarIcon className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400 mb-2">Bonding Curve</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Trade BTB with our innovative bonding curve mechanism. Price updates with each trade, backed by ETH.
+                  </p>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">•</span>
+                    <span>Dynamic ETH-based pricing</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">•</span>
+                    <span>Instant buy/sell with ETH</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">•</span>
+                    <span>Trading fees add to backing</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-purple-500 mr-2">•</span>
+                    <span>Transparent on-chain liquidity</span>
+                  </li>
+                </ul>
+                <Link
+                  href="/btb-finance"
+                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all"
+                >
+                  Trade Now
+                </Link>
+              </motion.div>
+
+              {/* BTBT Token */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all"
+              >
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <ArrowRightIcon className="h-8 w-8 text-white transform rotate-90" />
+                  </div>
+                  <h3 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-2">BTBT (Ardeem)</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Mint BTBT from BTB at 1:1 ratio. Redeem back anytime. Only 1% tax on BTBT transfers.
+                  </p>
+                </div>
+                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>1:1 mint/redeem ratio</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>No fees on minting/redeeming</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>1% tax on transfers only</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>Perfect for holding & trading</span>
+                  </li>
+                </ul>
+                <Link
+                  href="/btb-finance"
+                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-medium transition-all"
+                >
+                  Mint BTBT
+                </Link>
+              </motion.div>
+            </div>
+
+            {/* CTA Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="text-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl"
+            >
+              <h3 className="text-2xl font-bold mb-3">Ready to Explore BTB Finance?</h3>
+              <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
+                Mine BTB tokens, trade on the bonding curve, and mint BTBT - all in one powerful ecosystem
+              </p>
+              <Link
+                href="/btb-finance"
+                className="inline-flex items-center px-8 py-3 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all shadow-lg"
+              >
+                Launch BTB Finance
+                <ArrowRightIcon className="ml-2 h-5 w-5" />
+              </Link>
+            </motion.div>
+          </div>
+        </div>
+      </div>
 
       {/* Game Ecosystem Section */}
       <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
@@ -466,92 +633,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-
-      {/* Understanding Volatility Farming Section */}
-      <div className="py-16 sm:py-24 bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 relative overflow-hidden">
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-              >
-                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center justify-center">
-                  <LightBulbIcon className="h-8 w-8 mr-2 text-orange-500" />
-                  <span className="bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent">Understanding Volatility Farming</span>
-                </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                  How USDC/BTB liquidity providers on Uniswap and Aerodrome achieve zero impermanent loss
-                </p>
-              </motion.div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8 mb-12">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-red-200 dark:border-red-800"
-              >
-                <h3 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4 flex items-center">
-                  <span className="mr-2">❌</span> Traditional LPs
-                </h3>
-                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                  <li>• USDC/BTB LPs lose money to arbitrageurs</li>
-                  <li>• Suffer from impermanent loss on price changes</li>
-                  <li>• No control over who profits from their liquidity</li>
-                  <li>• Bear all the market volatility risk</li>
-                  <li>• Random traders capture spreads from their pools</li>
-                </ul>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-green-200 dark:border-green-800"
-              >
-                <h3 className="text-xl font-bold text-green-600 dark:text-green-400 mb-4 flex items-center">
-                  <span className="mr-2">✅</span> BTB Protocol
-                </h3>
-                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                  <li>• BTB reprices creating arbitrage on USDC/BTB pools</li>
-                  <li>• Our bots capture spreads on Uniswap/Aerodrome first</li>
-                  <li>• Price movements generate 3-5% arbitrage profits</li>
-                  <li>• These profits fund 100% IL refunds for LPs</li>
-                  <li>• More volatility = more refund capacity</li>
-                </ul>
-              </motion.div>
-            </div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-xl p-8 border border-yellow-300 dark:border-yellow-700"
-            >
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">The Innovation</h3>
-              <div className="text-center space-y-4">
-                <p className="text-gray-700 dark:text-gray-300 font-medium">
-                  <span className="font-bold text-orange-600">Traditional USDC/BTB LPs:</span> Lose money to random arbitrageurs
-                </p>
-                <div className="flex justify-center my-4">
-                  <ArrowTrendingUpIcon className="h-6 w-6 text-orange-500" />
-                </div>
-                <p className="text-gray-700 dark:text-gray-300 font-medium">
-                  <span className="font-bold text-green-600">BTB Protected LPs:</span> We capture arbitrage profits and eliminate their IL
-                </p>
-              </div>
-            </motion.div>
           </div>
         </div>
       </div>
