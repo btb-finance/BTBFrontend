@@ -31,11 +31,10 @@ function ActionButtons({
   amountPerSquare,
   isLoading,
   isDeploying,
-  isCheckpointing,
+  isClaimingETH,
   isClaiming,
-  roundInfo,
   handleDeploy,
-  handleCheckpoint,
+  handleClaimETH,
   handleClaimAll,
 }: {
   isConnected: boolean;
@@ -43,11 +42,10 @@ function ActionButtons({
   amountPerSquare: string;
   isLoading: boolean;
   isDeploying: boolean;
-  isCheckpointing: boolean;
+  isClaimingETH: boolean;
   isClaiming: boolean;
-  roundInfo: RoundInfo | undefined;
   handleDeploy: () => void;
-  handleCheckpoint: () => void;
+  handleClaimETH: () => void;
   handleClaimAll: () => void;
 }): React.ReactElement {
   return (
@@ -71,19 +69,19 @@ function ActionButtons({
       </Button>
 
       <Button
-        onClick={handleCheckpoint}
-        disabled={!isConnected || !roundInfo?.isCheckpointable || isLoading}
+        onClick={handleClaimETH}
+        disabled={!isConnected || isLoading}
         className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
       >
-        {isLoading && isCheckpointing ? (
+        {isLoading && isClaimingETH ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Checkpointing...
+            Claiming ETH...
           </>
         ) : (
           <>
-            <Trophy className="w-4 h-4 mr-2" />
-            Checkpoint Round
+            <Coins className="w-4 h-4 mr-2" />
+            Claim ETH
           </>
         )}
       </Button>
@@ -155,7 +153,7 @@ export function BTBMiningInterface(): React.ReactElement {
 
   // Contract writes
   const { writeContract: deploy, data: deployHash, error: deployError, isPending: deployPending } = useWriteContract();
-  const { writeContract: checkpoint, data: checkpointHash, error: checkpointError, isPending: checkpointPending } = useWriteContract();
+  const { writeContract: claimETH, data: claimETHHash, error: claimETHError, isPending: claimETHPending } = useWriteContract();
   const { writeContract: claimAll, data: claimHash, error: claimError, isPending: claimPending } = useWriteContract();
 
   // Motherlode data
@@ -186,8 +184,8 @@ export function BTBMiningInterface(): React.ReactElement {
     hash: deployHash,
   });
 
-  const { isLoading: isCheckpointing, isSuccess: checkpointSuccess } = useWaitForTransactionReceipt({
-    hash: checkpointHash,
+  const { isLoading: isClaimingETH, isSuccess: claimETHSuccess } = useWaitForTransactionReceipt({
+    hash: claimETHHash,
   });
 
   const { isLoading: isClaiming, isSuccess: claimSuccess } = useWaitForTransactionReceipt({
@@ -276,22 +274,21 @@ export function BTBMiningInterface(): React.ReactElement {
     }
   };
 
-  // Handle checkpoint
-  const handleCheckpoint = async () => {
-    if (!isConnected || !displayRoundInfo || isDataLoading) return;
+  // Handle claim ETH
+  const handleClaimETH = async () => {
+    if (!isConnected) return;
 
     try {
       setIsLoading(true);
       setError(null);
 
-      checkpoint({
+      claimETH({
         address: BTB_MINING_ADDRESS,
         abi: BTBMiningABI,
-        functionName: 'checkpoint',
-        args: [displayRoundInfo.id],
+        functionName: 'claimETH',
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to checkpoint');
+      setError(err instanceof Error ? err.message : 'Failed to claim ETH');
       setIsLoading(false);
     }
   };
@@ -327,12 +324,12 @@ export function BTBMiningInterface(): React.ReactElement {
   }, [deploySuccess]);
 
   useEffect(() => {
-    if (checkpointSuccess) {
-      setSuccess('Successfully checkpointed! Rewards calculated.');
+    if (claimETHSuccess) {
+      setSuccess('Successfully claimed ETH!');
       setIsLoading(false);
       refetchRound();
     }
-  }, [checkpointSuccess]);
+  }, [claimETHSuccess]);
 
   // Handle transaction errors
   useEffect(() => {
@@ -343,11 +340,11 @@ export function BTBMiningInterface(): React.ReactElement {
   }, [deployError]);
 
   useEffect(() => {
-    if (checkpointError) {
-      setError(checkpointError.message || 'Checkpoint failed');
+    if (claimETHError) {
+      setError(claimETHError.message || 'Claim ETH failed');
       setIsLoading(false);
     }
-  }, [checkpointError]);
+  }, [claimETHError]);
 
   useEffect(() => {
     if (claimError) {
@@ -674,11 +671,10 @@ export function BTBMiningInterface(): React.ReactElement {
             amountPerSquare={amountPerSquare}
             isLoading={isLoading || isDataLoading}
             isDeploying={isDeploying}
-            isCheckpointing={isCheckpointing}
+            isClaimingETH={isClaimingETH}
             isClaiming={isClaiming}
-            roundInfo={displayRoundInfo}
             handleDeploy={handleDeploy}
-            handleCheckpoint={handleCheckpoint}
+            handleClaimETH={handleClaimETH}
             handleClaimAll={handleClaimAll}
           />
 
