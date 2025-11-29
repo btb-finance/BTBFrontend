@@ -435,7 +435,7 @@ export function BTBMiningInterface(): React.ReactElement {
                 </div>
                 <div className="text-sm font-bold text-purple-700 dark:text-purple-400 leading-tight">
                   {motherlodePots && Array.isArray(motherlodePots)
-                    ? `${formatEther(motherlodePots[index] as bigint).slice(0, 4)}`
+                    ? `${(parseFloat(formatEther(motherlodePots[index] as bigint)) / 1000000).toFixed(2)}M`
                     : '0'}
                 </div>
                 <div className="text-[9px] text-gray-600 dark:text-gray-400 leading-tight">
