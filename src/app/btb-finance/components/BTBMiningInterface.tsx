@@ -702,7 +702,7 @@ export function BTBMiningInterface(): React.ReactElement {
               </div>
               <div className="text-center">
                 <div className="text-sm font-bold text-purple-600">
-                  {formatEther(minerStats[1] as bigint || 0n)} BTB
+                  {parseFloat(formatEther(minerStats[1] as bigint || 0n)).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} BTB
                 </div>
                 <div className="text-[10px] text-gray-600">Claimable</div>
               </div>
