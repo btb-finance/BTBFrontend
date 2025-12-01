@@ -48,8 +48,9 @@ export function HowItWorksModal() {
                         <div className="font-bold text-purple-900 dark:text-purple-300">Fee Calculation</div>
                         <div className="text-sm text-gray-700 dark:text-gray-300 mt-2">
                             <div>Total Cost = amountPerSquare × validSquares</div>
-                            <div className="mt-1">Admin Fee (10%) = Total × 0.10</div>
-                            <div className="mt-1 font-semibold">Game Pot (90%) = Total - Admin Fee</div>
+                            <div className="mt-1">Referral Fee (1%) = Total × 0.01 (if referrer used)</div>
+                            <div className="mt-1">Admin Fee (9%) = Total × 0.09 (if referrer used)</div>
+                            <div className="mt-1 font-semibold">Game Pot (90%) = Total - Fees</div>
                         </div>
                     </div>
 
@@ -515,8 +516,8 @@ export function HowItWorksModal() {
                             <div className="text-sm text-slate-300">
                                 <div className="font-semibold text-white mb-3">Quick Summary:</div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
-                                    <div>🎯 25 squares (5×5 grid) • 60-second rounds</div>
-                                    <div>💰 Winners split losers&apos; ETH + 20,000 BTB + motherlode bonuses</div>
+                                    <div>🎯 25 squares (5×5 grid) • 24-hour rounds</div>
+                                    <div>💰 Winners split losers&apos; ETH + 30,000 BTB + motherlode bonuses</div>
                                     <div>🎲 Chainlink VRF v2.5 ensures provably fair randomness</div>
                                     <div>💎 10 motherlode tiers: 1,000 BTB each/round (2,000 BTB in jackpot rounds)</div>
                                 </div>
@@ -552,10 +553,10 @@ export function HowItWorksModal() {
                             </h3>
                             <div className="space-y-3 text-sm text-slate-300">
                                 <div>
-                                    <span className="font-semibold text-white">Admin Fee:</span> 10% of all deployments sent to bonding curve, 90% enters the game pot
+                                    <span className="font-semibold text-white">Admin Fee:</span> 10% of all deployments sent to bonding curve (9% if referral used), 90% enters the game pot
                                 </div>
                                 <div>
-                                    <span className="font-semibold text-white">Referral System:</span> 1% cashback to users, 4% to partners, 5% to admin (when using partner)
+                                    <span className="font-semibold text-white">Referral System:</span> 1% Referral Fee: Paid instantly in ETH to the referrer. 9% Admin Fee: When a referral is used.
                                 </div>
                                 <div>
                                     <span className="font-semibold text-white">Claim Fee:</span> 10% of claimed BTB redistributed to unclaimed miners (refinement)
@@ -573,7 +574,7 @@ export function HowItWorksModal() {
                                     <span className="font-semibold text-white">Total Supply:</span> 88,888,888,888 BTB tokens
                                 </div>
                                 <div>
-                                    <span className="font-semibold text-white">Duration:</span> 5-year mining period (~2.6M rounds @ 60s each)
+                                    <span className="font-semibold text-white">Duration:</span> 5-year mining period (~2.6M rounds @ 24h each)
                                 </div>
                                 <div>
                                     <span className="font-semibold text-white">Deployment Limits:</span> Min 0.0000001 ETH, Max 10 ETH per square per miner

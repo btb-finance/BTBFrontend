@@ -94,7 +94,7 @@ export default function Home() {
 
       {/* Quick Navigation */}
       {isScrolled && (
-        <div className="fixed top-4 right-4 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300" style={{opacity: 1}}>
+        <div className="fixed top-4 right-4 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300" style={{ opacity: 1 }}>
           <nav className="flex items-center space-x-3" aria-label="Quick navigation">
             <Link
               href="/game"
@@ -208,11 +208,11 @@ export default function Home() {
                 </motion.div>
               </h1>
 
-              <p className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl" style={{opacity: 1}}>
+              <p className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl" style={{ opacity: 1 }}>
                 BTB provides services across any blockchain network - from gaming ecosystems and bonding protocols to innovative ideas that keep prices stable and never go down. We bring any concept to life with our leverage token system designed for business-to-business excellence.
               </p>
 
-              <p className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1" style={{opacity: 1}}>
+              <p className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1" style={{ opacity: 1 }}>
                 <span className="font-bold">Our Mission:</span> BTB (Business-to-Business) delivers cutting-edge services across every blockchain network. We specialize in gaming ecosystems, bonding mechanisms, and revolutionary leverage tokens designed to maintain price stability - prices never go down. From concept to reality, we bring any innovative idea to life with our comprehensive multi-network platform.
               </p>
 
@@ -377,13 +377,13 @@ export default function Home() {
                   </div>
                   <h3 className="text-xl font-bold text-orange-600 dark:text-orange-400 mb-2">BTB Mining</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Deploy ETH to 25 squares every 60 seconds. Winners share the ETH pot and earn 20,000 BTB tokens!
+                    Deploy ETH to 25 squares every 24 hours. Winners share the ETH pot and earn 30,000 BTB tokens (1 day worth of rewards)!
                   </p>
                 </div>
                 <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
                   <li className="flex items-start">
                     <span className="text-orange-500 mr-2">•</span>
-                    <span>60-second mining rounds</span>
+                    <span>24-hour mining rounds</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-orange-500 mr-2">•</span>
@@ -391,7 +391,7 @@ export default function Home() {
                   </li>
                   <li className="flex items-start">
                     <span className="text-orange-500 mr-2">•</span>
-                    <span>Win ETH + 20k BTB rewards</span>
+                    <span>Win ETH + 30k BTB rewards</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-orange-500 mr-2">•</span>
@@ -979,7 +979,7 @@ export default function Home() {
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
           className="fixed bottom-8 right-8 z-40 bg-btb-primary hover:bg-btb-primary-dark text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
-          style={{opacity: 1, transform: 'scale(1)'}}
+          style={{ opacity: 1, transform: 'scale(1)' }}
           aria-label="Back to top"
         >
           <ArrowRightIcon className="h-5 w-5 transform -rotate-90 group-hover:-translate-y-1 transition-transform duration-300" />

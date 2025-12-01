@@ -124,7 +124,7 @@ export function BTBMiningInterface(): React.ReactElement {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [localTimeRemaining, setLocalTimeRemaining] = useState<number>(0);
-  
+
   // Contract reads with dynamic polling based on time remaining
   const { data: currentRound, refetch: refetchRound } = useReadContract({
     address: BTB_MINING_ADDRESS,
@@ -194,7 +194,7 @@ export function BTBMiningInterface(): React.ReactElement {
 
   // Parse round data
   const roundInfo = currentRound as RoundInfo | undefined;
-  
+
   // Format time remaining
   const formatTimeRemaining = (seconds: bigint | undefined) => {
     if (!seconds || seconds === 0n) return '0s';
@@ -250,17 +250,17 @@ export function BTBMiningInterface(): React.ReactElement {
   // Handle deploy
   const handleDeploy = async () => {
     if (!isConnected || selectedSquares.length === 0 || !amountPerSquare) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       const squaresArray = selectedSquares.map(s => Number(s));
       const amountWei = parseEther(amountPerSquare);
       const partner = partnerAddress || '0x0000000000000000000000000000000000000000';
-      
+
       const totalValue = amountWei * BigInt(squaresArray.length);
-      
+
       deploy({
         address: BTB_MINING_ADDRESS,
         abi: BTBMiningABI,
@@ -296,11 +296,11 @@ export function BTBMiningInterface(): React.ReactElement {
   // Handle claim all
   const handleClaimAll = async () => {
     if (!isConnected) return;
-    
+
     try {
       setIsLoading(true);
       setError(null);
-      
+
       claimAll({
         address: BTB_MINING_ADDRESS,
         abi: BTBMiningABI,
@@ -491,15 +491,14 @@ export function BTBMiningInterface(): React.ReactElement {
                     key={i}
                     onClick={() => toggleSquare(i)}
                     variant={isSelected ? "default" : "outline"}
-                    className={`h-14 sm:h-16 relative p-0.5 sm:p-1 ${
-                      isSelected
+                    className={`h-14 sm:h-16 relative p-0.5 sm:p-1 ${isSelected
                         ? isEven
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-orange-600 hover:bg-orange-700 text-white'
                         : isEven
-                        ? 'hover:bg-blue-50 dark:hover:bg-blue-950/20 border-blue-200 dark:border-blue-800'
-                        : 'hover:bg-orange-50 dark:hover:bg-orange-950/20 border-orange-200 dark:border-orange-800'
-                    }`}
+                          ? 'hover:bg-blue-50 dark:hover:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                          : 'hover:bg-orange-50 dark:hover:bg-orange-950/20 border-orange-200 dark:border-orange-800'
+                      }`}
                     disabled={!isConnected || isLoading}
                   >
                     <div className="flex flex-col items-center justify-center h-full">
@@ -650,7 +649,7 @@ export function BTBMiningInterface(): React.ReactElement {
 
             {showPartnerAddress && (
               <div className="space-y-1">
-                <label className="text-sm font-medium">Partner Address</label>
+                <label className="text-sm font-medium">Referral Address (Optional)</label>
                 <Input
                   type="text"
                   placeholder="0x... (optional)"
@@ -658,9 +657,6 @@ export function BTBMiningInterface(): React.ReactElement {
                   onChange={(e) => setPartnerAddress(e.target.value)}
                   disabled={!isConnected || isLoading}
                 />
-                <div className="text-xs text-gray-500">
-                  Referral partner for cashback
-                </div>
               </div>
             )}
           </div>
@@ -712,7 +708,7 @@ export function BTBMiningInterface(): React.ReactElement {
           <div className="flex flex-wrap gap-1 pt-2">
             <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0.5">
               <Grid3x3 className="w-2.5 h-2.5" />
-              25sq/60s
+              25sq/24h
             </Badge>
             <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0.5">
               <Users className="w-2.5 h-2.5" />
@@ -720,7 +716,7 @@ export function BTBMiningInterface(): React.ReactElement {
             </Badge>
             <Badge variant="secondary" className="flex items-center gap-1 text-[10px] px-1.5 py-0.5">
               <Trophy className="w-2.5 h-2.5" />
-              20k BTB
+              30k BTB
             </Badge>
           </div>
         </CardContent>
