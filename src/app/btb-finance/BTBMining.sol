@@ -17,14 +17,14 @@ import {VRFV2PlusClient} from "@chainlink/vrf/dev/libraries/VRFV2PlusClient.sol"
  * 🚀 DEPLOYMENT INFO - Base Mainnet (Chain ID: 8453)
  * ═══════════════════════════════════════════════════════════════════════════════
  *
- * Implementation: 0x17346B4fB60E87CCb8b0bDFDc0bEdC7734c73cE7
+ * Implementation: 0x444BC5448Db48CA519a750Cc3153D5FF3EdD052d
  * Proxy (Vanity):  0x88888DC54965374764F85cB5AB1B45DCEf186508
- * ProxyAdmin:      0x268ae4e6c89c492ce837ecde257a7f423f10442b
+ * ProxyAdmin:      0x268Ae4e6C89c492CE837eCDE257A7F423f10442b
  *
  * BaseScan: https://basescan.org/address/0x88888DC54965374764F85cB5AB1B45DCEf186508
  *
- * Deployed via CREATE3Factory for deterministic vanity address
- * Salt: 1417202
+ * Proxy deployed via CREATE3Factory (Salt: 1417202)
+ * Implementation deployed via CREATE3Factory (Salt: 308739)
  *
  * ═══════════════════════════════════════════════════════════════════════════════
  * 🔄 UPGRADE INSTRUCTIONS
@@ -190,24 +190,28 @@ contract BTBMining is Ownable, ReentrancyGuard {
                         REFERRAL SYSTEM STORAGE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Partner fee percentages (in basis points)
-    uint256 public constant USER_CASHBACK_BPS = 100;    // 1% cashback to user
-    uint256 public constant PARTNER_COMMISSION_BPS = 400; // 4% to partner
-    uint256 public constant REDUCED_ADMIN_FEE_BPS = 500;  // 5% to admin (reduced from 10%)
+    /// @notice NEW SIMPLIFIED REFERRAL SYSTEM
+    uint256 public constant REFERRAL_FEE_BPS = 100;           // 1% to any referrer
+    uint256 public constant ADMIN_FEE_WITH_REFERRAL_BPS = 900; // 9% to admin (when referral used)
 
-    /// @notice Partner information
+    /// @notice DEPRECATED - Old partner fee percentages (kept for compatibility)
+    uint256 public constant USER_CASHBACK_BPS = 100;    // DEPRECATED
+    uint256 public constant PARTNER_COMMISSION_BPS = 400; // DEPRECATED
+    uint256 public constant REDUCED_ADMIN_FEE_BPS = 500;  // DEPRECATED
+
+    /// @notice DEPRECATED - Partner information (kept for storage layout compatibility)
     struct Partner {
-        bool isWhitelisted;           // Whether partner is active
-        string name;                  // Partner name/identifier
-        uint256 accumulatedFees;      // Accumulated fees for this partner
-        uint256 totalReferrals;       // Total number of users referred
-        uint256 totalVolumeReferred;  // Total ETH volume from referrals
+        bool isWhitelisted;           // DEPRECATED
+        string name;                  // DEPRECATED
+        uint256 accumulatedFees;      // DEPRECATED
+        uint256 totalReferrals;       // DEPRECATED
+        uint256 totalVolumeReferred;  // DEPRECATED
     }
 
-    /// @notice Mapping from partner address to partner info
+    /// @notice DEPRECATED - Mapping from partner address to partner info (kept for storage layout)
     mapping(address => Partner) public partners;
 
-    /// @notice Array of all partner addresses (for enumeration)
+    /// @notice DEPRECATED - Array of all partner addresses (kept for storage layout)
     address[] public partnerList;
 
     /*//////////////////////////////////////////////////////////////
@@ -343,10 +347,11 @@ contract BTBMining is Ownable, ReentrancyGuard {
 
     event RoundDataPruned(uint256 indexed roundId);
 
-    event PartnerWhitelisted(address indexed partner, string name);
-    event PartnerRemoved(address indexed partner);
-    event ReferralApplied(address indexed user, address indexed partner, uint256 partnerCommission, uint256 userCashback);
-    event PartnerFeesWithdrawn(address indexed partner, address indexed recipient, uint256 amount);
+    event ReferralPaid(address indexed user, address indexed referrer, uint256 amount);
+    event PartnerWhitelisted(address indexed partner, string name); // DEPRECATED
+    event PartnerRemoved(address indexed partner); // DEPRECATED
+    event ReferralApplied(address indexed user, address indexed partner, uint256 partnerCommission, uint256 userCashback); // DEPRECATED
+    event PartnerFeesWithdrawn(address indexed partner, address indexed recipient, uint256 amount); // DEPRECATED
     event TreasuryWithdrawal(uint256 totalWithdrawn, uint256 toMotherlode, uint256 toRewards);
     event TreasuryAddressSet(address indexed oldTreasury, address indexed newTreasury);
     event BondingCurveAddressSet(address indexed oldBondingCurve, address indexed newBondingCurve);
@@ -489,44 +494,37 @@ contract BTBMining is Ownable, ReentrancyGuard {
         uint256 totalRequired = amountPerSquare * validSquaresCount;
         if (msg.value < totalRequired) revert InsufficientPayment();
 
-        // Calculate fees based on partner parameter
+        // Calculate fees based on referrer parameter (NEW SIMPLIFIED SYSTEM)
         uint256 adminFee;
-        uint256 partnerCommission;
-        uint256 userCashback;
         uint256 gamePotAmount;
 
-        if (partner != address(0) && partners[partner].isWhitelisted) {
-            // Partner referral: 1% cashback + 4% partner + 5% admin = 10% total
-            userCashback = (totalRequired * USER_CASHBACK_BPS) / BPS_DENOMINATOR;
-            partnerCommission = (totalRequired * PARTNER_COMMISSION_BPS) / BPS_DENOMINATOR;
-            adminFee = (totalRequired * REDUCED_ADMIN_FEE_BPS) / BPS_DENOMINATOR;
-            gamePotAmount = totalRequired - userCashback - partnerCommission - adminFee;
+        if (partner != address(0) && partner != msg.sender) {
+            // With referral: 1% referrer + 9% admin = 10% total
+            uint256 referralFee = (totalRequired * REFERRAL_FEE_BPS) / BPS_DENOMINATOR;
+            adminFee = (totalRequired * ADMIN_FEE_WITH_REFERRAL_BPS) / BPS_DENOMINATOR;
+            gamePotAmount = totalRequired - referralFee - adminFee;
 
-            // Distribute fees
-            partners[partner].accumulatedFees += partnerCommission;
-            partners[partner].totalVolumeReferred += totalRequired;
-            partners[partner].totalReferrals++; // Increment per transaction
+            // Send referral fee directly to referrer
+            (bool refSuccess, ) = partner.call{value: referralFee}("");
+            if (refSuccess) {
+                emit ReferralPaid(msg.sender, partner, referralFee);
+            } else {
+                // If referral payment fails, add to admin fee
+                adminFee += referralFee;
+            }
 
-            // Send admin fee to bonding curve immediately
+            // Send admin fee to bonding curve
             if (adminFee > 0 && bondingCurveAddress != address(0)) {
                 (bool success, ) = bondingCurveAddress.call{value: adminFee}("");
                 if (success) {
                     emit AdminFeesSentToBondingCurve(adminFee);
                 }
             }
-
-            // Store cashback in user's balance
-            if (userCashback > 0) {
-                minerStats[msg.sender].unclaimedETH += userCashback;
-            }
-
-            emit ReferralApplied(msg.sender, partner, partnerCommission, userCashback);
         } else {
-            // No partner: standard 10% admin fee
+            // No referral: standard 10% admin fee
             adminFee = (totalRequired * ADMIN_FEE_BPS) / BPS_DENOMINATOR;
             gamePotAmount = totalRequired - adminFee;
 
-            // Send admin fee to bonding curve immediately
             if (adminFee > 0 && bondingCurveAddress != address(0)) {
                 (bool success, ) = bondingCurveAddress.call{value: adminFee}("");
                 if (success) {
@@ -1143,26 +1141,14 @@ contract BTBMining is Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     function _startNewRound() internal {
-        // Auto-withdraw 30,000 BTB from treasury BEFORE starting the round
-        // This ensures tokens are available for the round being created
-        // 10,000 BTB for motherlode pots + 20,000 BTB for user rewards
         if (treasuryAddress != address(0)) {
-            uint256 toMotherlode = 10_000 * 10**18;  // 10,000 BTB
-            uint256 toRewards = 20_000 * 10**18;     // 20,000 BTB
-            uint256 totalWithdrawal = toMotherlode + toRewards;
-
-            // Check if treasury has enough balance and approval
+            uint256 totalWithdrawal = (30_000 * 10**18 * roundDuration) / DEFAULT_ROUND_DURATION;
             uint256 treasuryBalance = btbToken.balanceOf(treasuryAddress);
             uint256 allowance = btbToken.allowance(treasuryAddress, address(this));
-
             if (treasuryBalance >= totalWithdrawal && allowance >= totalWithdrawal) {
-                // Transfer from treasury to this contract
-                // Note: SafeERC20 will revert on failure, but we wrap in a low-level check
-                // to prevent round creation from failing
                 btbToken.safeTransferFrom(treasuryAddress, address(this), totalWithdrawal);
-                emit TreasuryWithdrawal(totalWithdrawal, toMotherlode, toRewards);
+                emit TreasuryWithdrawal(totalWithdrawal, totalWithdrawal / 3, totalWithdrawal - (totalWithdrawal / 3));
             }
-            // If conditions not met, continue without error - contract will use existing balance
         }
 
         currentRoundId++;
@@ -1181,11 +1167,8 @@ contract BTBMining is Ownable, ReentrancyGuard {
         // Use entropy hash to determine (50/50 = check if even/odd)
         newRound.isJackpotRound = (uint256(newRound.entropyHash) % 2 == 1);
 
-        // Auto-increase all 10 motherlode pots each new round
-        // Amount depends on round type (normal or jackpot boost)
-        uint256 tierIncrease = newRound.isJackpotRound ? BTB_PER_MOTHERLODE_TIER_JACKPOT : BTB_PER_MOTHERLODE_TIER_NORMAL;
-
-        bronzeNuggetPot += tierIncrease;      // Normal: +1k, Jackpot: +2k
+        uint256 tierIncrease = ((newRound.isJackpotRound ? BTB_PER_MOTHERLODE_TIER_JACKPOT : BTB_PER_MOTHERLODE_TIER_NORMAL) * roundDuration) / DEFAULT_ROUND_DURATION;
+        bronzeNuggetPot += tierIncrease;
         silverNuggetPot += tierIncrease;
         goldNuggetPot += tierIncrease;
         platinumNuggetPot += tierIncrease;
@@ -1202,22 +1185,10 @@ contract BTBMining is Ownable, ReentrancyGuard {
 
     function _calculateRoundBTBReward() internal view returns (uint256) {
         if (block.timestamp >= endTime) return 0;
-
         Round storage round = rounds[currentRoundId];
-
-        // Determine reward based on round type
-        uint256 targetReward = round.isJackpotRound ? BTB_PER_ROUND_JACKPOT : BTB_PER_ROUND_NORMAL;
-
-        // Check if we have enough BTB remaining
+        uint256 targetReward = ((round.isJackpotRound ? BTB_PER_ROUND_JACKPOT : BTB_PER_ROUND_NORMAL) * roundDuration) / DEFAULT_ROUND_DURATION;
         uint256 contractBalance = btbToken.balanceOf(address(this));
-
-        // Return target amount if available
-        if (contractBalance >= targetReward) {
-            return targetReward;
-        }
-
-        // If less remaining, return whatever is left
-        return contractBalance;
+        return contractBalance >= targetReward ? targetReward : contractBalance;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -1636,14 +1607,14 @@ contract BTBMining is Ownable, ReentrancyGuard {
         address miner,
         uint8[] calldata squares,
         uint256 amountPerSquare,
-        address partner
+        address referrer
     ) internal returns (uint256 userCost, uint256 totalFeesCollected) {
         if (squares.length == 0 || squares.length > NUM_SQUARES) return (0, 0);
         if (amountPerSquare < MIN_DEPLOYMENT || amountPerSquare > MAX_DEPLOYMENT_PER_SQUARE) return (0, 0);
 
         MinerRoundData storage minerRound = minerData[currentRoundId][miner];
 
-        // Count and deploy in single pass
+        // Count valid squares
         uint256 deployedCount;
         for (uint256 j = 0; j < squares.length; j++) {
             uint8 square = squares[j];
@@ -1662,21 +1633,27 @@ contract BTBMining is Ownable, ReentrancyGuard {
             }
         }
 
-        // Calculate amounts based on partner parameter
         userCost = amountPerSquare * deployedCount;
-        uint256 perSquareAfterFee;
+        uint256 adminFee;
+        uint256 gamePotAmount;
 
-        if (partner != address(0) && partners[partner].isWhitelisted) {
-            // Batch deploy partner referral: 5% partner + 5% admin = 10% total (NO user cashback)
-            uint256 partnerCommission = (userCost * REDUCED_ADMIN_FEE_BPS) / BPS_DENOMINATOR; // 5%
-            uint256 adminFee = (userCost * REDUCED_ADMIN_FEE_BPS) / BPS_DENOMINATOR; // 5%
+        if (referrer != address(0) && referrer != miner) {
+            // With referral: 1% referrer + 9% admin = 10% total
+            uint256 referralFee = (userCost * REFERRAL_FEE_BPS) / BPS_DENOMINATOR;
+            adminFee = (userCost * ADMIN_FEE_WITH_REFERRAL_BPS) / BPS_DENOMINATOR;
+            gamePotAmount = userCost - referralFee - adminFee;
 
-            // Accumulate partner fees
-            partners[partner].accumulatedFees += partnerCommission;
-            partners[partner].totalVolumeReferred += userCost;
-            partners[partner].totalReferrals++; // Increment per transaction
+            // Send referral fee directly to referrer
+            (bool refSuccess, ) = referrer.call{value: referralFee}("");
+            if (refSuccess) {
+                emit ReferralPaid(miner, referrer, referralFee);
+            } else {
+                // If referral payment fails, add to admin fee
+                adminFee += referralFee;
+                gamePotAmount = userCost - adminFee;
+            }
 
-            // Send admin fee to bonding curve immediately
+            // Send admin fee to bonding curve
             if (adminFee > 0 && bondingCurveAddress != address(0)) {
                 (bool success, ) = bondingCurveAddress.call{value: adminFee}("");
                 if (success) {
@@ -1684,16 +1661,12 @@ contract BTBMining is Ownable, ReentrancyGuard {
                 }
             }
 
-            // Calculate game pot and per square amount
-            perSquareAfterFee = (userCost - partnerCommission - adminFee) / deployedCount;
-            totalFeesCollected = adminFee + partnerCommission;
-
-            emit ReferralApplied(miner, partner, partnerCommission, 0); // 0 cashback for batch
+            totalFeesCollected = userCost - gamePotAmount;
         } else {
-            // No partner: standard 10% admin fee
-            uint256 adminFee = (userCost * ADMIN_FEE_BPS) / BPS_DENOMINATOR;
+            // No referral: standard 10% admin fee
+            adminFee = (userCost * ADMIN_FEE_BPS) / BPS_DENOMINATOR;
+            gamePotAmount = userCost - adminFee;
 
-            // Send admin fee to bonding curve immediately
             if (adminFee > 0 && bondingCurveAddress != address(0)) {
                 (bool success, ) = bondingCurveAddress.call{value: adminFee}("");
                 if (success) {
@@ -1701,11 +1674,12 @@ contract BTBMining is Ownable, ReentrancyGuard {
                 }
             }
 
-            perSquareAfterFee = (userCost - adminFee) / deployedCount;
             totalFeesCollected = adminFee;
         }
 
-        // Now deploy
+        uint256 perSquareAfterFee = gamePotAmount / deployedCount;
+
+        // Deploy to squares
         Round storage round = rounds[currentRoundId];
         for (uint256 j = 0; j < squares.length; j++) {
             uint8 square = squares[j];
@@ -1717,17 +1691,12 @@ contract BTBMining is Ownable, ReentrancyGuard {
             round.minerCount[square]++;
         }
 
-        // Track participation for efficient claiming later
+        // Track participation
         if (isFirstDeployment) {
             minerParticipatedRounds[miner].push(currentRoundId);
         }
 
-        // Note: Motherload pot is auto-increased once per round in _startNewRound()
-        // Do NOT add per deployment to prevent hyperinflation
-
-        // Round tracking removed - use off-chain indexing
-
-        emit Deployed(currentRoundId, miner, squares, perSquareAfterFee, perSquareAfterFee * deployedCount);
+        emit Deployed(currentRoundId, miner, squares, perSquareAfterFee, gamePotAmount);
     }
 
     /**
@@ -1946,19 +1915,9 @@ contract BTBMining is Ownable, ReentrancyGuard {
      */
     function withdrawFromTreasury() external onlyOwner nonReentrant {
         require(treasuryAddress != address(0), "Treasury not set");
-
-        uint256 toMotherlode = 10_000 * 10**18;  // 10,000 BTB for motherlode pots (1,000 each tier)
-        uint256 toRewards = 20_000 * 10**18;     // 20,000 BTB for user rewards
-        uint256 totalWithdrawal = toMotherlode + toRewards;
-
-        // Transfer from treasury to this contract
+        uint256 totalWithdrawal = (30_000 * 10**18 * roundDuration) / DEFAULT_ROUND_DURATION;
         btbToken.safeTransferFrom(treasuryAddress, address(this), totalWithdrawal);
-
-        // The 20,000 BTB for rewards stays in contract balance for distribution
-        // The 10,000 BTB is conceptually allocated to motherlode pots
-        // (they increase automatically per round in _startNewRound)
-
-        emit TreasuryWithdrawal(totalWithdrawal, toMotherlode, toRewards);
+        emit TreasuryWithdrawal(totalWithdrawal, totalWithdrawal / 3, totalWithdrawal - (totalWithdrawal / 3));
     }
 
     receive() external payable {}
