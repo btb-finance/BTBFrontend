@@ -188,7 +188,7 @@ export const quickNavLinks = [
         description: 'Our next big thing - Hunt, feed and earn!',
         href: '/game',
         icon: ({ className }: { className?: string }) => (
-            <span className= { className } style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎮</span>
+            <span className= { className } style={{ fontSize: '1.2rem', lineHeight: 1 }}></span>
     ),
 color: 'bg-red-100 dark:bg-red-900/30',
     textColor: 'text-red-600 dark:text-red-400',
@@ -212,7 +212,7 @@ color: 'bg-emerald-100 dark:bg-emerald-900/30',
             href: '/megapot',
                 icon: ({ className }: { className?: string }) => (
                     <span className= { className } style = {{ fontSize: '1.2rem', lineHeight: 1 }
-}>🎰</span>
+}></span>
     ),
 color: 'bg-green-100 dark:bg-green-900/30',
     textColor: 'text-green-600 dark:text-green-400'

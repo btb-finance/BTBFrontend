@@ -1,7 +1,7 @@
 'use client';
 
 import { createConfig, http, cookieStorage, createStorage } from 'wagmi';
-import { base, baseSepolia } from 'wagmi/chains';
+import { base, baseSepolia, mainnet } from 'wagmi/chains';
 import { walletConnect, coinbaseWallet, injected, metaMask } from 'wagmi/connectors';
 
 // Get project ID from environment
@@ -55,9 +55,10 @@ const getConnectors = () => {
 };
 
 export const config = createConfig({
-  chains: [base, baseSepolia],
+  chains: [mainnet, base, baseSepolia],
   connectors: getConnectors(),
   transports: {
+    [mainnet.id]: http(),
     [base.id]: http(),
     [baseSepolia.id]: http(),
   },

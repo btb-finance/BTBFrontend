@@ -1285,7 +1285,7 @@ export default function BulkSenderForm({
                 
                 {recipients.length > 500 && (
                   <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-700 dark:text-yellow-500">
-                    <p className="font-medium">⚠️ Large Batch Notice:</p>
+                    <p className="font-medium">Large Batch Notice:</p>
                     <p>• Processing {window.originalAddressCount || recipients.length} addresses in batches of 300</p>
                     <p>• Each batch will require a separate transaction confirmation</p>
                     <p>• Progress shown is based on actual completed transactions</p>

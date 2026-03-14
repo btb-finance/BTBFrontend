@@ -21,7 +21,7 @@ const quickNavLinks = [
     description: 'Trade, loop, and borrow with BTB tokens - Full DeFi platform',
     href: '/btb-finance',
     icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>💰</span>
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}></span>
     ),
     color: 'bg-purple-100 dark:bg-purple-900/30',
     textColor: 'text-purple-600 dark:text-purple-400'
@@ -31,7 +31,7 @@ const quickNavLinks = [
     description: 'Win big with daily USDC jackpots',
     href: '/megapot',
     icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎰</span>
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}></span>
     ),
     color: 'bg-green-100 dark:bg-green-900/30',
     textColor: 'text-green-600 dark:text-green-400'
@@ -41,7 +41,7 @@ const quickNavLinks = [
     description: 'Play games and earn rewards',
     href: '/game',
     icon: ({ className }: { className?: string }) => (
-      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}>🎮</span>
+      <span className={className} style={{ fontSize: '1.2rem', lineHeight: 1 }}></span>
     ),
     color: 'bg-pink-100 dark:bg-pink-900/30',
     textColor: 'text-pink-600 dark:text-pink-400'

@@ -69,7 +69,7 @@ export default function GameEcosystemSection() {
 
                                 <div className="flex items-start">
                                     <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white mr-4">
-                                        <span className="text-lg font-bold">💰</span>
+                                        <span className="text-lg font-bold text-orange-600">WIN</span>
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Redemption Premium Tax</h3>
@@ -158,7 +158,7 @@ export default function GameEcosystemSection() {
                                 </div>
 
                                 <div className="bg-gradient-to-r from-red-600 to-orange-600 text-white p-4 rounded-lg text-center">
-                                    <div className="font-bold text-lg mb-1">🚀 Result: Exponential Growth</div>
+                                    <div className="font-bold text-lg mb-1">Result: Exponential Growth</div>
                                     <p className="text-sm opacity-90">Every action pushes ALL prices higher!</p>
                                 </div>
                             </div>

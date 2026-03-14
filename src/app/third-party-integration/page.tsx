@@ -90,7 +90,7 @@ export default function ThirdPartyIntegration() {
               transition={{ duration: 0.8, delay: 0.3 }}
               className="text-center"
             >
-              <div className="text-6xl mb-4">🎰</div>
+              <div className="text-6xl mb-4"></div>
               <h3 className="text-2xl font-bold mb-4 text-green-700 dark:text-green-300">MEGAPOT Integration</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="text-center">
@@ -213,7 +213,7 @@ export default function ThirdPartyIntegration() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
             {[
               {
-                category: "🎮 Gaming Projects",
+                category: "Gaming Projects",
                 examples: ["Play-to-Earn games", "NFT gaming platforms", "Lottery systems like Megapot", "Prediction markets"],
                 description: "Games and gaming platforms that want to tap into DeFi features"
               },
