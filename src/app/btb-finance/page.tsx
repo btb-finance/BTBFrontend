@@ -493,17 +493,16 @@ export default function BTBFinancePage() {
     }
   }, [selectedToStake]);
   
+  // ── Writes ──
+  const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
+
   // Clear selection after successful tx
   useEffect(() => {
     if (isConfirmed) {
       setSelectedToStake([]);
     }
   }, [isConfirmed]);
-
-
-  // ── Writes ──
-  const { writeContract, data: txHash, isPending, error: writeError } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: txHash });
 
   // ── Effects ──
   useEffect(() => {
