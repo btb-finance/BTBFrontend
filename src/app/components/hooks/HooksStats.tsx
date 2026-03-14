@@ -22,7 +22,7 @@ export default function HooksStats() {
     <div className="max-w-7xl mx-auto">
       <div className="rounded-xl p-6">
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-yellow-400">⚠️</span>
+          <span className="text-yellow-400"></span>
           <p className="text-sm text-white/80">
             All TVL and volume data are estimates. For accurate data, please visit each protocol&apos;s official website.
           </p>

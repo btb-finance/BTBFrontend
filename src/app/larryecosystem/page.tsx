@@ -845,14 +845,14 @@ export default function LarryEcosystemPage() {
                                
                                {leverageQuote.totalEthNeeded && !leverageQuote.hasEnoughBalance && (
                                  <div className="mt-2 p-2 bg-red-900/30 border border-red-500/50 rounded text-xs text-red-300">
-                                   ⚠️ Insufficient balance! Need {parseFloat(leverageQuote.totalEthNeeded).toFixed(6)} ETH total, you have {larryStats.userEthBalance} ETH
+                                   Insufficient balance! Need {parseFloat(leverageQuote.totalEthNeeded).toFixed(6)} ETH total, you have {larryStats.userEthBalance} ETH
                                  </div>
                                )}
                              </div>
                              
                              <div className="space-y-2">
                                <div className="flex justify-between text-sm font-semibold">
-                                 <span className="text-gray-400">💰 Target Fee:</span>
+                                 <span className="text-gray-400">Target Fee:</span>
                                  <span className="text-red-400">{leverageEthAmount} ETH</span>
                                </div>
                                {leverageQuote.totalEthNeeded && (
@@ -960,7 +960,7 @@ export default function LarryEcosystemPage() {
                             </div>
                           </div>
                           <div className="mt-1 text-xs text-gray-400">
-                            💰 You'll receive this ETH amount (you provide LARRY as collateral)
+                            You'll receive this ETH amount (you provide LARRY as collateral)
                           </div>
                         </div>
 
@@ -1123,7 +1123,7 @@ export default function LarryEcosystemPage() {
                           <div className="text-xs text-red-300 mb-3 font-medium">⚡ Flash Close Preview:</div>
                           <div className="text-sm space-y-1">
                             <div className="flex justify-between">
-                              <span className="text-gray-400">💰 Collateral Value:</span>
+                              <span className="text-gray-400">Collateral Value:</span>
                               <span className="text-white">{formatNumber(flashCloseQuote.collateralValue, 4)} ETH</span>
                             </div>
                             <div className="flex justify-between">

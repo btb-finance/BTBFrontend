@@ -259,7 +259,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                       {parseFloat(costBreakdown.total) > parseFloat(gameStats.btbBalance) && (
                         <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
                           <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">
-                            💰 Insufficient BTB balance. You need {(parseFloat(costBreakdown.total) - parseFloat(gameStats.btbBalance)).toFixed(6)} more BTB.
+                            Insufficient BTB balance. You need {(parseFloat(costBreakdown.total) - parseFloat(gameStats.btbBalance)).toFixed(6)} more BTB.
                           </p>
                           <a 
                             href="/btb-finance" 
@@ -367,7 +367,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
                       {parseFloat(returnBreakdown.userReceives) <= 0 && (
                         <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
                           <p className="text-xs text-red-800 dark:text-red-200">
-                            ⚠️ Selling at current rates would result in no BTB return due to the sell discount.
+                            Selling at current rates would result in no BTB return due to the sell discount.
                           </p>
                         </div>
                       )}
@@ -466,7 +466,7 @@ export default function GameDashboard({ gameStats, onSuccess }: GameDashboardPro
           
           <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
             <p className="text-xs text-yellow-800 dark:text-yellow-200">
-              ⚠️ Base swap rates are dynamic and based on liquidity pool balances. Rates may change between preview and execution.
+              Base swap rates are dynamic and based on liquidity pool balances. Rates may change between preview and execution.
             </p>
           </div>
         </CardContent>

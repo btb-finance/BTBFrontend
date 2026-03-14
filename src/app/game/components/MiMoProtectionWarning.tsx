@@ -53,7 +53,7 @@ export default function MiMoProtectionWarning({ mimoBalance, onDismiss }: MiMoPr
               <div className="space-y-3">
                 <div>
                   <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-1">
-                    ⚠️ Your MiMo Tokens Can Be Hunted!
+                    Your MiMo Tokens Can Be Hunted!
                   </h4>
                   <p className="text-sm">
                     You have <span className="font-bold">{parseFloat(mimoBalance).toFixed(2)} MiMo</span> tokens that are vulnerable to being hunted by other players. 

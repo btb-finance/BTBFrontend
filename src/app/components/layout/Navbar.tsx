@@ -297,7 +297,7 @@ export default function Navbar() {
           {/* View Transactions Button - Only when connected */}
           {isConnected && (
             <motion.a
-              href={`https://basescan.org/address/${address}`}
+              href={`https://etherscan.io/address/${address}`}
               target="_blank"
               rel="noopener noreferrer"
               className="hidden md:inline-flex items-center justify-center px-2 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none transition-all duration-300 shadow-sm mr-2"
@@ -384,7 +384,7 @@ export default function Navbar() {
                   
                   {isConnected && (
                     <a
-                      href={`https://basescan.org/address/${address}`}
+                      href={`https://etherscan.io/address/${address}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-2 w-full flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all duration-300 shadow-sm"

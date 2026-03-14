@@ -289,7 +289,7 @@ export default function RedeemBear({ mimoBalance, swapRate, onSuccess }: RedeemB
                         <div className="flex items-center gap-2 mb-3">
                           <FireIcon className="h-4 w-4 text-red-500" />
                           <p className="text-sm text-red-800 dark:text-red-200 font-medium">
-                            ⚠️ Warning: Selected hunters will be permanently burned!
+                            Warning: Selected hunters will be permanently burned!
                           </p>
                         </div>
                         

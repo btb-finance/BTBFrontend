@@ -14,7 +14,7 @@ export default function Logo({ size = 40, showText = true, className = '' }: Log
     <Link href="/" className={`flex items-center space-x-2 ${className}`}>
       <div className="rounded-full overflow-hidden shadow-md" style={{ height: `${size}px`, width: `${size}px` }}>
         <Image
-          src="/images/btb-christmas-logo.png"
+          src="/images/btblogo.jpg"
           width={size}
           height={size}
           alt="BTB Finance Logo"

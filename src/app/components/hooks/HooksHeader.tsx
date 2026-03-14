@@ -14,7 +14,7 @@ export default function HooksHeader() {
           Explore and analyze the innovative hooks and protocols within the BTB ecosystem
         </p>
         <div className="flex items-center gap-2 mb-8">
-          <span className="text-yellow-400">⚠️</span>
+          <span className="text-yellow-400"></span>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             Note: TVL and volume data might not be accurate. If you find any mistakes, please email us at{' '}
             <a href="mailto:hello@btb.finance" className="text-[#FF0420] hover:text-[#E6031D]">

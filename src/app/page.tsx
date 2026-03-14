@@ -101,48 +101,48 @@ export default function Home() {
               className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
               aria-label="Go to BTB Game"
             >
-              🎮 Game
+              Game
             </Link>
             <Link
               href="/btb-finance"
               className="text-xs font-medium text-btb-primary hover:text-btb-primary-dark dark:text-btb-primary-light transition-colors"
               aria-label="Go to BTB Finance"
             >
-              💰 Finance
+              Finance
             </Link>
             <Link
               href="/megapot"
               className="text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 transition-colors"
               aria-label="Go to Megapot Lottery"
             >
-              🎰 Lottery
+              Lottery
             </Link>
           </nav>
         </div>
       )}
 
-      {/* BTB Mining Live Banner */}
+      {/* BTB Finance Live Banner */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
         <Link href="/btb-finance">
-          <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-red-600 hover:from-orange-700 hover:via-orange-600 hover:to-red-700 rounded-2xl shadow-2xl border-2 border-orange-400/50 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] cursor-pointer">
+          <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 hover:from-purple-700 hover:via-blue-700 hover:to-purple-700 rounded-2xl shadow-2xl border-2 border-purple-400/50 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] cursor-pointer">
             <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                 <div className="relative">
                   <div className="absolute inset-0 bg-white rounded-full animate-ping opacity-75"></div>
                   <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center">
-                    <span className="text-2xl sm:text-3xl">⛏️</span>
+                    <span className="text-xl sm:text-2xl font-bold text-purple-600">BTB</span>
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-base sm:text-lg font-bold text-white truncate">BTB Mining is LIVE!</h3>
+                    <h3 className="text-base sm:text-lg font-bold text-white truncate">BTB on Ethereum Mainnet is LIVE!</h3>
                     <span className="hidden sm:inline-flex px-2 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full animate-pulse">NEW</span>
                   </div>
-                  <p className="text-xs sm:text-sm text-white/90 line-clamp-1">Start mining now • Earn BTB tokens • Win ETH rewards</p>
+                  <p className="text-xs sm:text-sm text-white/90 line-clamp-1">Trade BTB • Wrap for BTBB • Stake Bear NFTs for Rewards</p>
                 </div>
               </div>
-              <Button className="bg-white hover:bg-gray-100 text-orange-600 font-bold px-4 sm:px-6 py-2 rounded-xl shadow-lg transition-all whitespace-nowrap text-sm sm:text-base">
-                Mine Now
+              <Button className="bg-white hover:bg-gray-100 text-purple-600 font-bold px-4 sm:px-6 py-2 rounded-xl shadow-lg transition-all whitespace-nowrap text-sm sm:text-base">
+                Explore Now
                 <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2" />
               </Button>
             </div>
@@ -357,56 +357,56 @@ export default function Home() {
                   <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">BTB Finance Ecosystem</span>
                 </h2>
                 <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                  Discover bonding curve trading, mining rewards, and BTBT token utilities
+                  Discover the BTB Token, Wrapped BTBB, Bear NFTs, and Staking Rewards
                 </p>
               </motion.div>
             </div>
 
             <div className="grid md:grid-cols-3 gap-6 mb-8">
-              {/* BTB Mining */}
+              {/* BTB Token */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-orange-200 dark:border-orange-800 hover:shadow-xl transition-all"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all"
               >
                 <div className="text-center mb-4">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-3xl">⛏️</span>
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <CurrencyDollarIcon className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-orange-600 dark:text-orange-400 mb-2">BTB Mining</h3>
+                  <h3 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-2">BTB Token (ERC20)</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Deploy ETH to 25 squares every 24 hours. Winners share the ETH pot and earn 30,000 BTB tokens (1 day worth of rewards)!
+                    The core utility token of the BTB ecosystem deployed on Ethereum Mainnet.
                   </p>
                 </div>
                 <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
                   <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>24-hour mining rounds</span>
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>No transfer tax on standard BTB</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>25 squares to choose from</span>
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>1 Billion max supply</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>Win ETH + 30k BTB rewards</span>
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>Freely tradable on DEXs</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>10-tier Motherlode jackpots</span>
+                    <span className="text-blue-500 mr-2">•</span>
+                    <span>Base asset for wrapped tokens</span>
                   </li>
                 </ul>
                 <Link
                   href="/btb-finance"
-                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-lg font-medium transition-all"
+                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-medium transition-all"
                 >
-                  Start Mining
+                  View Token
                 </Link>
               </motion.div>
 
-              {/* Bonding Curve */}
+              {/* BTBB (Wrapped) */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -415,80 +415,80 @@ export default function Home() {
                 className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-purple-200 dark:border-purple-800 hover:shadow-xl transition-all"
               >
                 <div className="text-center mb-4">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                    <ChartBarIcon className="h-8 w-8 text-white" />
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
+                    <ArrowRightIcon className="h-8 w-8 text-white transform rotate-90" />
                   </div>
-                  <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400 mb-2">Bonding Curve</h3>
+                  <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400 mb-2">Wrapped BTBB</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Trade BTB with our innovative bonding curve mechanism. Price updates with each trade, backed by ETH.
+                    Wrap your BTB 1:1 into BTBB. Features a 1% transfer tax that fuels the staking reward pool.
                   </p>
                 </div>
                 <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
                   <li className="flex items-start">
                     <span className="text-purple-500 mr-2">•</span>
-                    <span>Dynamic ETH-based pricing</span>
+                    <span>Mint & redeem 1:1 with BTB</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-purple-500 mr-2">•</span>
-                    <span>Instant buy/sell with ETH</span>
+                    <span>No tax on minting/redeeming</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-purple-500 mr-2">•</span>
-                    <span>Trading fees add to backing</span>
+                    <span>1% tax applied to transfers</span>
                   </li>
                   <li className="flex items-start">
                     <span className="text-purple-500 mr-2">•</span>
-                    <span>Transparent on-chain liquidity</span>
+                    <span>100% of tax goes to NFT stakers</span>
                   </li>
                 </ul>
                 <Link
                   href="/btb-finance"
-                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg font-medium transition-all"
+                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white rounded-lg font-medium transition-all"
                 >
-                  Trade Now
+                  Wrap BTBB
                 </Link>
               </motion.div>
 
-              {/* BTBT Token */}
+              {/* Bear NFTs & Staking */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-orange-200 dark:border-orange-800 hover:shadow-xl transition-all"
               >
                 <div className="text-center mb-4">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                    <ArrowRightIcon className="h-8 w-8 text-white transform rotate-90" />
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                    <SparklesIcon className="h-8 w-8 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-2">BTBT (Ardeem)</h3>
+                  <h3 className="text-xl font-bold text-orange-600 dark:text-orange-400 mb-2">NFT Staking</h3>
                   <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Mint BTBT from BTB at 1:1 ratio. Redeem back anytime. Only 1% tax on BTBT transfers.
+                    Mint Bear NFTs directly on Mainnet and stake them to earn passive income from the BTBB transfer tax.
                   </p>
                 </div>
                 <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
                   <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>1:1 mint/redeem ratio</span>
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Max supply of 100,000 Bear NFTs</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>No fees on minting/redeeming</span>
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Mint price: 0.01 ETH</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>1% tax on transfers only</span>
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Stake instantly to earn BTBB</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>Perfect for holding & trading</span>
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Claim rewards anytime</span>
                   </li>
                 </ul>
                 <Link
                   href="/btb-finance"
-                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-medium transition-all"
+                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-lg font-medium transition-all"
                 >
-                  Mint BTBT
+                  Mint & Stake
                 </Link>
               </motion.div>
             </div>
@@ -501,9 +501,9 @@ export default function Home() {
               transition={{ duration: 0.5, delay: 0.3 }}
               className="text-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl"
             >
-              <h3 className="text-2xl font-bold mb-3">Ready to Explore BTB Finance?</h3>
+              <h3 className="text-2xl font-bold mb-3">Ready to Explore BTB Mainnet?</h3>
               <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-                Mine BTB tokens, trade on the bonding curve, and mint BTBT - all in one powerful ecosystem
+                Wrap your BTB, mint Bear NFTs, and start earning staking rewards today
               </p>
               <Link
                 href="/btb-finance"
@@ -535,7 +535,7 @@ export default function Home() {
               </p>
               <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700/50">
                 <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
-                  ⚠️ Important: Always remember - Larry is a meme coin. Fully audited and battle tested, but still a meme coin.
+                  Important: Always remember - Larry is a meme coin. Fully audited and battle tested, but still a meme coin.
                 </p>
               </div>
 
@@ -695,8 +695,7 @@ export default function Home() {
               <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
                 <div className="aspect-w-16 aspect-h-9 bg-gradient-to-b from-purple-500/5 to-pink-600/10 rounded-lg overflow-hidden mb-6 p-6">
                   <div className="w-full h-full flex flex-col justify-center items-center text-center">
-                    <div className="text-6xl mb-4">🎰</div>
-                    <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2">$1M+</div>
+                    <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2 mt-4">$1M+</div>
                     <div className="text-lg text-gray-600 dark:text-gray-300">Daily Jackpot</div>
                   </div>
                 </div>
