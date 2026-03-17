@@ -1,32 +1,24 @@
-'use client';
+'use client'
 
-import { ThemeProvider } from 'next-themes';
-import { Web3Provider } from './components/providers/Web3Provider';
-import { WalletProvider } from './context/ModernWalletContext';
-import { LazyMotion, domAnimation } from 'framer-motion';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { WagmiProvider } from 'wagmi'
+import { ConnectKitProvider } from 'connectkit'
+import { config } from '@/lib/wagmi'
+import { ProtocolProvider } from '@/lib/protocol-context'
+import { useState } from 'react'
 
-export function Providers({
-  children,
-  cookie
-}: {
-  children: React.ReactNode;
-  cookie?: string | null;
-}) {
+export function Providers({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient())
+
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="dark"
-      enableSystem={false}
-      storageKey="btb-theme"
-      disableTransitionOnChange
-    >
-      <Web3Provider cookie={cookie || undefined}>
-        <WalletProvider>
-          <LazyMotion features={domAnimation}>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <ConnectKitProvider theme="midnight">
+          <ProtocolProvider>
             {children}
-          </LazyMotion>
-        </WalletProvider>
-      </Web3Provider>
-    </ThemeProvider>
-  );
+          </ProtocolProvider>
+        </ConnectKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
 }
