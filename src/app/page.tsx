@@ -121,11 +121,6 @@ export default function Home() {
         <section className="relative mb-16 sm:mb-24">
           <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-12 lg:gap-8 items-center">
             <div className="space-y-8">
-              <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-[0.2em] text-text-secondary">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
-                Mainnet · BTBB tax route
-              </div>
-
               <h1 className="text-[2.25rem] sm:text-5xl lg:text-[3.25rem] font-semibold tracking-tight text-white leading-[1.08]">
                 Revenue that traces{' '}
                 <span className="italic text-primary-light">real transfers</span>, not new mints.
