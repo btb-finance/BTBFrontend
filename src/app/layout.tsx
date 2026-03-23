@@ -6,7 +6,13 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'BTB Finance',
   description: 'BTB Finance - DeFi Innovation on Ethereum',
-  icons: { icon: '/newbtb32x32.png' },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/newbtb32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/icon.svg',
+  },
 }
 
 export const viewport: Viewport = {
@@ -19,8 +25,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-dvh pb-20">
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-dvh pb-20" suppressHydrationWarning>
         <Providers>
           <div className="page-glow relative">
             {children}

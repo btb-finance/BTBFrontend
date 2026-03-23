@@ -7,9 +7,49 @@ import { Header } from '@/components/Header'
 import { CONTRACTS, ERC20_ABI, BTBB_ABI } from '@/lib/contracts'
 import { formatToken, formatCompact } from '@/lib/utils'
 import { useProtocol } from '@/lib/protocol-context'
-import { ArrowDownUp } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowDownUp, ArrowUpRight } from 'lucide-react'
 
 type PendingAction = 'approve-then-wrap' | 'wrap' | 'unwrap' | null
+
+function PageBackground() {
+  return (
+    <>
+      <div className="fixed inset-0 -z-30 bg-[#030308]" aria-hidden />
+      <div
+        className="fixed inset-0 -z-20 opacity-[0.4] [mask-image:linear-gradient(to_bottom,black_40%,transparent)]"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
+        }}
+        aria-hidden
+      />
+      <div
+        className="fixed inset-0 -z-20 opacity-30"
+        style={{
+          backgroundImage: 'linear-gradient(115deg, transparent 40%, rgba(239,68,68,0.07) 50%, transparent 60%)',
+        }}
+        aria-hidden
+      />
+      <div
+        className="fixed -top-1/3 left-1/2 -translate-x-1/2 w-[140%] max-w-[1100px] aspect-square rounded-full -z-20 pointer-events-none opacity-90"
+        style={{
+          background: 'radial-gradient(circle at 50% 40%, rgba(239,68,68,0.14) 0%, transparent 55%)',
+        }}
+        aria-hidden
+      />
+      <div
+        className="fixed bottom-0 right-0 w-[80vw] h-[50vh] -z-20 pointer-events-none opacity-70"
+        style={{
+          background: 'radial-gradient(ellipse at 100% 100%, rgba(251,191,36,0.08) 0%, transparent 60%)',
+        }}
+        aria-hidden
+      />
+      <div className="fixed inset-x-0 top-0 h-px z-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" aria-hidden />
+    </>
+  )
+}
 
 export default function Wrap() {
   const { address } = useAccount()
@@ -94,104 +134,150 @@ export default function Wrap() {
   const buttonLabel = busy
     ? pendingAction === 'approve-then-wrap' && !isSuccess
       ? 'Approving...'
-      : pendingAction === 'wrap' ? 'Wrapping...' : 'Unwrapping...'
+      : pendingAction === 'wrap'
+        ? 'Wrapping...'
+        : 'Unwrapping...'
     : needsApproval
-      ? 'Approve & Wrap to BTBB'
-      : direction === 'wrap' ? 'Wrap to BTBB' : 'Unwrap to BTB'
+      ? 'Approve and wrap'
+      : direction === 'wrap'
+        ? 'Wrap to BTBB'
+        : 'Unwrap to BTB'
+
+  const fromSym = direction === 'wrap' ? 'BTB' : 'BTBB'
+  const toSym = direction === 'wrap' ? 'BTBB' : 'BTB'
 
   return (
-    <div className="relative z-10 font-sans pb-32 overflow-x-hidden min-h-screen">
-      <div className="fixed inset-0 z-[-1] pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-primary/10 blur-[150px] rounded-full mix-blend-screen opacity-60" />
-        <div className="absolute bottom-0 left-0 w-[30rem] h-[30rem] bg-primary-dark/20 blur-[120px] rounded-full mix-blend-screen opacity-50" />
-      </div>
+    <div className="relative z-10 min-h-dvh font-sans pb-28 overflow-x-hidden text-text">
+      <PageBackground />
 
       <Header />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight mb-4 text-white">Asset <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-light to-primary">Wrapping</span></h1>
-          <p className="text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto font-medium">Wrap BTB for BTBB seamlessly at a 1:1 ratio. No slippage. Zero fees.</p>
-        </div>
+      <main className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16">
+        <header className="mb-10 sm:mb-14 max-w-2xl">
+          <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-mono uppercase tracking-[0.2em] text-text-secondary mb-5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400/90" />
+            1:1 · no slippage
+          </div>
+          <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-semibold tracking-tight text-white leading-tight">
+            Wrap <span className="italic text-primary-light">BTB</span> and <span className="italic text-primary-light">BTBB</span>
+          </h1>
+          <p className="mt-4 text-base sm:text-lg text-text-secondary leading-relaxed">
+            Same amount in and out. BTBB is the taxed transfer token; wrapping is how you enter that surface.
+          </p>
+        </header>
 
-        <div className="grid lg:grid-cols-5 gap-8 lg:gap-12 items-start max-w-5xl mx-auto">
-          <div className="lg:col-span-3 glass p-6 sm:p-8 rounded-[2rem] border border-primary/20 bg-surface/80 backdrop-blur-3xl shadow-[0_0_60px_rgba(0,0,0,0.5)] relative overflow-hidden">
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 blur-[80px] rounded-full pointer-events-none" />
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-white tracking-widest uppercase">Perform Swap</h2>
+        <div className="grid lg:grid-cols-5 gap-6 lg:gap-8 items-start max-w-5xl">
+          <div className="lg:col-span-3 rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+              <span className="text-xs font-mono uppercase tracking-widest text-text-secondary">Convert</span>
+              <button
+                type="button"
+                onClick={() => setDirection((d) => (d === 'wrap' ? 'unwrap' : 'wrap'))}
+                className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08] transition-colors"
+              >
+                <ArrowDownUp className="h-3.5 w-3.5 text-primary-light" aria-hidden />
+                Flip direction
+              </button>
             </div>
 
-            <div className="space-y-4 relative">
-              <div className="bg-black/40 rounded-[1.5rem] p-5 border border-white/5 transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 relative overflow-hidden">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-bold text-text-muted uppercase tracking-wider">From {direction === 'wrap' ? 'BTB' : 'BTBB'}</span>
-                  <div className="text-sm font-bold text-text-muted flex gap-2">
-                    Balance: <button onClick={handleMax} className="text-primary-light hover:text-white transition-colors">{bal !== undefined ? formatToken(bal) : '---'}</button>
-                  </div>
+            <div className="p-4 sm:p-6 space-y-3">
+              <div className="rounded-lg border border-white/[0.08] bg-[#07070f]/90 p-4 sm:p-5 focus-within:border-primary/35 focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+                <div className="flex justify-between gap-2 mb-2 text-xs font-mono uppercase tracking-wider text-text-muted">
+                  <span>From {fromSym}</span>
+                  <span className="text-text-secondary normal-case">
+                    Bal{' '}
+                    <button type="button" onClick={handleMax} className="font-semibold text-primary-light hover:text-white transition-colors">
+                      {bal !== undefined ? formatToken(bal) : '—'}
+                    </button>
+                  </span>
                 </div>
-                <div className="flex items-center">
-                  <input type="text" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full bg-transparent text-4xl sm:text-5xl font-black text-white outline-none placeholder:text-white/10" />
-                  <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-primary to-primary-dark shadow-inner" />
-                    <span className="font-bold text-white tracking-wider">{direction === 'wrap' ? 'BTB' : 'BTBB'}</span>
-                  </div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="min-w-0 flex-1 bg-transparent text-3xl sm:text-4xl font-semibold text-white outline-none placeholder:text-white/15 tabular-nums"
+                  />
+                  <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-semibold text-white">
+                    {fromSym}
+                  </span>
                 </div>
               </div>
 
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-surface rounded-2xl flex items-center justify-center border border-white/10 hover:border-primary/50 hover:bg-primary/10 transition-all cursor-pointer shadow-xl group" onClick={() => setDirection(d => d === 'wrap' ? 'unwrap' : 'wrap')}>
-                <ArrowDownUp size={20} className="text-primary-light group-hover:scale-110 transition-transform" />
+              <div className="flex justify-center py-1">
+                <div className="h-px w-12 bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden />
               </div>
 
-              <div className="bg-black/20 rounded-[1.5rem] p-5 border border-white/5 pointer-events-none opacity-80">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-bold text-text-muted uppercase tracking-wider">To {direction === 'wrap' ? 'BTBB' : 'BTB'}</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="w-full text-4xl sm:text-5xl font-black text-white/50 truncate">{amount || '0.00'}</div>
-                  <div className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-white/20 to-white/10 shadow-inner" />
-                    <span className="font-bold text-white tracking-wider">{direction === 'wrap' ? 'BTBB' : 'BTB'}</span>
-                  </div>
+              <div className="rounded-lg border border-white/[0.06] bg-black/30 p-4 sm:p-5 opacity-90">
+                <div className="text-xs font-mono uppercase tracking-wider text-text-muted mb-2">To {toSym}</div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="min-w-0 flex-1 text-3xl sm:text-4xl font-semibold text-white/45 truncate tabular-nums">{amount || '0.00'}</div>
+                  <span className="shrink-0 rounded-md border border-white/10 bg-white/[0.05] px-3 py-2 text-sm font-semibold text-white">
+                    {toSym}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-8">
+            <div className="p-4 sm:p-6 pt-0">
               {!address ? (
-                <div className="w-full py-5 rounded-[1.5rem] bg-white/5 text-center text-text-muted font-bold tracking-widest uppercase border border-white/10 backdrop-blur-md">Connect wallet to continue</div>
+                <div className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-4 text-center text-sm font-medium text-text-muted">
+                  Connect wallet to continue
+                </div>
               ) : !hasEnough && amount ? (
-                <div className="w-full py-5 rounded-[1.5rem] bg-red-500/10 text-center text-red-500 font-bold tracking-widest border border-red-500/20 backdrop-blur-md">Insufficient Balance</div>
+                <div className="w-full rounded-lg border border-red-500/25 bg-red-500/10 py-4 text-center text-sm font-semibold text-red-400">
+                  Insufficient balance
+                </div>
               ) : (
-                <button onClick={handleAction} disabled={busy || !amount || !hasEnough} className="w-full btn-primary py-5 rounded-[1.5rem] text-lg font-black tracking-widest shadow-[0_0_30px_rgba(239,68,68,0.3)] hover:shadow-[0_0_50px_rgba(239,68,68,0.5)] transition-all disabled:opacity-50 disabled:pointer-events-none uppercase">
+                <button
+                  type="button"
+                  onClick={handleAction}
+                  disabled={busy || !amount || !hasEnough}
+                  className="w-full rounded-md bg-primary py-4 text-base font-semibold text-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)] hover:bg-primary-dark transition-colors disabled:opacity-40 disabled:pointer-events-none"
+                >
                   {buttonLabel}
                 </button>
               )}
             </div>
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            <div className="glass p-8 rounded-[2rem] border border-white/10 bg-surface/50 backdrop-blur-xl">
-              <h3 className="text-sm font-bold text-primary-light uppercase tracking-widest mb-6 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary-light animate-pulse" /> Protocol Liquidity
-              </h3>
-              <div className="space-y-6">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="rounded-xl border border-white/[0.08] bg-black/35 backdrop-blur-md overflow-hidden">
+              <div className="px-4 py-3 border-b border-white/[0.06] bg-white/[0.02] text-xs font-mono uppercase tracking-widest text-text-secondary">
+                Pool snapshot
+              </div>
+              <div className="p-4 sm:p-5 space-y-5">
                 <div>
-                  <div className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">Total BTB Locked</div>
-                  <div className="text-3xl font-black text-white">{btbbStats ? formatCompact(btbbStats[0]) : '---'}</div>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">BTB locked (backing)</p>
+                  <p className="text-2xl font-semibold text-white tabular-nums">{btbbStats ? formatCompact(btbbStats[0]) : '—'}</p>
                 </div>
-                <div className="h-px bg-white/10" />
+                <div className="h-px bg-white/[0.06]" />
                 <div>
-                  <div className="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">BTBB Supply</div>
-                  <div className="text-3xl font-black text-white">{btbbStats ? formatCompact(btbbStats[1]) : '---'}</div>
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-1.5">BTBB circulating</p>
+                  <p className="text-2xl font-semibold text-white tabular-nums">{btbbStats ? formatCompact(btbbStats[1]) : '—'}</p>
                 </div>
               </div>
             </div>
-            <div className="glass p-6 rounded-[2rem] border border-primary/20 bg-primary/5">
-              <div className="flex justify-between items-center text-sm font-bold">
-                <span className="text-text-muted uppercase tracking-widest">Protocol Tax</span>
-                <span className="text-primary-light text-lg">1% <span className="text-xs text-text-muted font-normal lowercase">distributed to stakers</span></span>
+
+            <div className="rounded-xl border border-primary/25 bg-primary/[0.06] p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-mono uppercase tracking-widest text-primary-light/90">Transfer tax</p>
+                  <p className="mt-2 text-sm text-text-secondary leading-relaxed">1% on BTBB transfers flows to stakers.</p>
+                </div>
+                <span className="shrink-0 text-2xl font-semibold text-white">1%</span>
               </div>
             </div>
+
+            <Link
+              href="/stake"
+              className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white hover:bg-white/[0.06] transition-colors"
+            >
+              Next: stake Bears
+              <ArrowUpRight className="h-4 w-4 opacity-70" aria-hidden />
+            </Link>
           </div>
         </div>
       </main>
