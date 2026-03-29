@@ -7,7 +7,7 @@ import { formatCompact } from '@/lib/utils'
 import { useProtocol } from '@/lib/protocol-context'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowUpRight, Zap, Activity, Wallet, ExternalLink, Clock, Skull, Eye, Target } from 'lucide-react'
+import { ArrowUpRight, Zap, Wallet, ExternalLink, Clock, Skull, Eye, Target } from 'lucide-react'
 import { IconDiscord, IconTelegram, IconX } from '@/components/BrandIcons'
 
 const SOCIALS = [
@@ -119,55 +119,31 @@ export default function Home() {
       <main className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16">
         {/* Hero — split panel, not centered glow orb */}
         <section className="relative mb-16 sm:mb-24">
-          <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-12 lg:gap-8 items-center">
-            <div className="space-y-8">
-              <h1 className="text-[2.25rem] sm:text-5xl lg:text-[3.25rem] font-semibold tracking-tight text-white leading-[1.08]">
-                Zero inflation. Built for{' '}
-                <span className="italic text-primary-light">passive income</span>.
-              </h1>
+          <div className="max-w-2xl space-y-8">
+            <h1 className="text-[2.25rem] sm:text-5xl lg:text-[3.25rem] font-semibold tracking-tight text-white leading-[1.08]">
+              Zero inflation. Built for{' '}
+              <span className="italic text-primary-light">passive income</span>.
+            </h1>
 
-              <p className="max-w-xl text-base sm:text-lg text-text-secondary leading-relaxed">
-                BTB has a fixed billion supply — no minting, no emissions, no inflation. Revenue comes from a 1% transfer tax that flows directly to staked NFTs. Wrap, mint, stake — and earn passively from real volume.
-              </p>
+            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+              BTB has a fixed billion supply — no minting, no emissions, no inflation. Revenue comes from a 1% transfer tax that flows directly to staked NFTs. Wrap, mint, stake — and earn passively from real volume.
+            </p>
 
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/stake"
-                  className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)] hover:bg-primary-dark transition-colors"
-                >
-                  Start staking
-                  <Zap className="h-4 w-4 opacity-90" aria-hidden />
-                </Link>
-                <a
-                  href="#metrics"
-                  className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-white hover:bg-white/[0.06] transition-colors"
-                >
-                  View metrics
-                  <ArrowUpRight className="h-4 w-4 opacity-80" aria-hidden />
-                </a>
-              </div>
-            </div>
-
-            <div className="relative flex justify-center lg:justify-end">
-              <div className="relative w-full max-w-[320px] aspect-square">
-                <div className="absolute inset-8 rounded-full border border-dashed border-white/15 animate-[spin_48s_linear_infinite]" aria-hidden />
-                <div className="absolute inset-14 rounded-full border border-white/10" aria-hidden />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="relative h-36 w-36 sm:h-44 sm:w-44">
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/25 to-amber-500/10 blur-2xl" aria-hidden />
-                    <Image
-                      src="/images/btb-logo.png"
-                      alt="BTB"
-                      width={176}
-                      height={176}
-                      className="relative h-full w-full rounded-2xl object-cover ring-1 ring-white/10"
-                    />
-                  </div>
-                </div>
-                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-black/60 px-3 py-1.5 text-[10px] font-mono uppercase tracking-widest text-text-secondary backdrop-blur-md">
-                  1% · transfer · tax
-                </div>
-              </div>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/stake"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)] hover:bg-primary-dark transition-colors"
+              >
+                Start staking
+                <Zap className="h-4 w-4 opacity-90" aria-hidden />
+              </Link>
+              <a
+                href="#metrics"
+                className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-white hover:bg-white/[0.06] transition-colors"
+              >
+                View metrics
+                <ArrowUpRight className="h-4 w-4 opacity-80" aria-hidden />
+              </a>
             </div>
           </div>
         </section>
@@ -177,10 +153,10 @@ export default function Home() {
           <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
               <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-text-secondary">
-                <Activity className="h-3.5 w-3.5 text-primary-light" aria-hidden />
-                Chain snapshot
+                <Zap className="h-3.5 w-3.5 text-primary-light" aria-hidden />
+                Live on Ethereum
               </div>
-              <span className="text-[10px] font-mono text-emerald-400/90">● live</span>
+              <span className="text-[10px] font-mono text-emerald-400/90">● mainnet</span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 divide-y divide-white/[0.06] lg:divide-y-0 lg:divide-x">
               {metrics.map((m) => (
