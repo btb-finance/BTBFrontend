@@ -7,7 +7,7 @@ import { formatCompact } from '@/lib/utils'
 import { useProtocol } from '@/lib/protocol-context'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowUpRight, Zap, Activity, Wallet, ExternalLink } from 'lucide-react'
+import { ArrowUpRight, Zap, Activity, Wallet, ExternalLink, Clock, Skull, Eye, Target } from 'lucide-react'
 import { IconDiscord, IconTelegram, IconX } from '@/components/BrandIcons'
 
 const SOCIALS = [
@@ -122,13 +122,12 @@ export default function Home() {
           <div className="grid lg:grid-cols-[1.15fr_0.85fr] gap-12 lg:gap-8 items-center">
             <div className="space-y-8">
               <h1 className="text-[2.25rem] sm:text-5xl lg:text-[3.25rem] font-semibold tracking-tight text-white leading-[1.08]">
-                Revenue that traces{' '}
-                <span className="italic text-primary-light">real transfers</span>, not new mints.
+                Zero inflation. Built for{' '}
+                <span className="italic text-primary-light">passive income</span>.
               </h1>
 
               <p className="max-w-xl text-base sm:text-lg text-text-secondary leading-relaxed">
-                Bears gate a share of a fixed 1% BTBB transfer tax. Wrap, mint, stake — three screens, one loop. Supply stays capped; the pitch is
-                volume, not inflation.
+                BTB has a fixed billion supply — no minting, no emissions, no inflation. Revenue comes from a 1% transfer tax that flows directly to staked NFTs. Wrap, mint, stake — and earn passively from real volume.
               </p>
 
               <div className="flex flex-wrap gap-3">
@@ -263,6 +262,197 @@ export default function Home() {
                 Mint a Bear
                 <ArrowUpRight className="h-4 w-4" aria-hidden />
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            CAT STRATEGY — COMING SOON
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="mb-16 sm:mb-24">
+          <div className="rounded-xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.06] to-transparent overflow-hidden">
+            {/* Header bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-amber-500/10 bg-amber-500/[0.04]">
+              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-amber-400/80">
+                <Target className="h-3.5 w-3.5 text-amber-400" aria-hidden />
+                Strategy 04 — Cat NFT
+              </div>
+              <span className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400/70">
+                <Clock className="h-3 w-3" aria-hidden />
+                coming soon · not live yet
+              </span>
+            </div>
+
+            {/* Main content */}
+            <div className="p-6 sm:p-10 lg:p-12">
+              <div className="grid lg:grid-cols-2 gap-10 lg:gap-14">
+                {/* Left — overview */}
+                <div className="space-y-6">
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-snug">
+                    Every Cat hunts{' '}
+                    <span className="italic text-amber-400">dormant BTB</span>.
+                  </h2>
+                  <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
+                    Revenue from the Uniswap pool tax flows as BTB into the Cat contract. Bots arbitrage — buy Cat NFTs cheap on OpenSea, flip them to
+                    the contract for a profit. The contract re-lists at cost + 10%. Every sale splits the full price across all active Cats.
+                  </p>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    Each Cat NFT accumulates BTB on-chain. Claim whenever you want — but if you sleep for 100 days, anyone can call{' '}
+                    <code className="text-amber-400 font-mono text-xs bg-amber-400/10 px-1.5 py-0.5 rounded">dead()</code> and take your entire balance.
+                    Dead Cats stop earning until the owner wakes them up at zero.
+                  </p>
+
+                  {/* Three incentive layers */}
+                  <div className="space-y-4 pt-2">
+                    <h3 className="text-xs font-mono uppercase tracking-widest text-text-muted">Incentive layers</h3>
+                    {[
+                      {
+                        icon: <Eye className="h-4 w-4 text-emerald-400" />,
+                        title: 'Hold & Claim',
+                        desc: 'Claim regularly or lose everything. Keeps the community engaged.',
+                        accent: 'border-emerald-400/30 bg-emerald-400/[0.06]',
+                      },
+                      {
+                        icon: <Skull className="h-4 w-4 text-amber-400" />,
+                        title: 'Bounty Hunt',
+                        desc: 'Scan the chain for dormant Cats. Call dead() and pocket all their BTB.',
+                        accent: 'border-amber-400/30 bg-amber-400/[0.06]',
+                      },
+                      {
+                        icon: <Target className="h-4 w-4 text-primary-light" />,
+                        title: 'Ecosystem Concentration',
+                        desc: 'Dead Cats get excluded from splits. Active holders earn a bigger share.',
+                        accent: 'border-primary/30 bg-primary/[0.06]',
+                      },
+                    ].map((layer) => (
+                      <div
+                        key={layer.title}
+                        className={`flex items-start gap-3 rounded-lg border ${layer.accent} px-4 py-3`}
+                      >
+                        <div className="mt-0.5 shrink-0">{layer.icon}</div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{layer.title}</p>
+                          <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{layer.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right — lifecycle diagram */}
+                <div className="space-y-6">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-text-muted">Cat lifecycle</h3>
+
+                  {/* Flow diagram */}
+                  <div className="relative rounded-xl border border-white/[0.08] bg-black/40 p-6 space-y-5">
+                    {/* Phase 1 */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 mb-2">Phase 1 · Funding</p>
+                      <div className="flex items-center gap-2 text-sm text-text-secondary">
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Uniswap Tax
+                        </span>
+                        <ArrowUpRight className="h-3 w-3 text-amber-400/60 shrink-0" />
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-400/10 px-2 py-1 text-xs font-mono text-amber-400">
+                          BTB → Contract
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-white/[0.06]" />
+
+                    {/* Phase 2 */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 mb-2">Phase 2 · Arbitrage</p>
+                      <div className="flex items-center gap-2 flex-wrap text-sm text-text-secondary">
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Bot buys Cat
+                        </span>
+                        <span className="text-[10px] text-text-muted">80 BTB</span>
+                        <ArrowUpRight className="h-3 w-3 text-amber-400/60 shrink-0" />
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Sells to Contract
+                        </span>
+                        <span className="text-[10px] text-text-muted">100 BTB</span>
+                      </div>
+                      <p className="text-[10px] text-text-muted mt-1.5">+20 BTB profit for bot · Contract now owns the Cat NFT</p>
+                    </div>
+
+                    <div className="h-px bg-white/[0.06]" />
+
+                    {/* Phase 3 */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 mb-2">Phase 3 · Re-list & Split</p>
+                      <div className="flex items-center gap-2 flex-wrap text-sm text-text-secondary">
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Re-listed
+                        </span>
+                        <span className="text-[10px] text-text-muted">cost + 10% = 110 BTB</span>
+                        <ArrowUpRight className="h-3 w-3 text-amber-400/60 shrink-0" />
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-400/10 px-2 py-1 text-xs font-mono text-emerald-400">
+                          110 BTB Split
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-text-muted mt-1.5">Full sale price ÷ all active Cats = each Cat's BTB balance grows</p>
+                    </div>
+
+                    <div className="h-px bg-white/[0.06]" />
+
+                    {/* Phase 4 — Dead/Wakeup */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-primary-light/70 mb-2">Phase 4 · Dead / Wakeup</p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full border border-amber-400/40 flex items-center justify-center shrink-0">
+                            <Clock className="h-3 w-3 text-amber-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">100 days pass, no claim</p>
+                            <p className="text-[10px] text-text-muted">NFT is now eligible to be called dead</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full border border-primary/40 flex items-center justify-center shrink-0">
+                            <Skull className="h-3 w-3 text-primary-light" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">
+                              <code className="text-primary-light font-mono bg-primary/10 px-1 rounded">dead()</code> — bounty hunter claims all BTB
+                            </p>
+                            <p className="text-[10px] text-text-muted">NFT excluded from future splits · stops earning</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full border border-emerald-400/40 flex items-center justify-center shrink-0">
+                            <Eye className="h-3 w-3 text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">
+                              <code className="text-emerald-400 font-mono bg-emerald-400/10 px-1 rounded">wakeup()</code> — owner reactivates
+                            </p>
+                            <p className="text-[10px] text-text-muted">NFT starts earning again, but at zero balance — they missed out</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick summary */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Max Supply', value: '10,000', sub: 'CAT NFTs' },
+                      { label: 'Dead Timer', value: '100', sub: 'days' },
+                      { label: 'Relist Fee', value: '+10%', sub: 'on cost' },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2.5 text-center">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted">{s.label}</p>
+                        <p className="text-lg font-semibold text-white tabular-nums mt-0.5">{s.value}</p>
+                        <p className="text-[10px] font-mono text-amber-400/70">{s.sub}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
