@@ -1,990 +1,527 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { m as motion, useScroll, useTransform } from 'framer-motion';
-import {
-  ArrowRightIcon,
-  BeakerIcon,
-  ShieldCheckIcon,
-  SparklesIcon,
-  CubeTransparentIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  LightBulbIcon,
-  ArrowTrendingUpIcon
-} from '@heroicons/react/24/outline';
+import { useAccount } from 'wagmi'
+import { Header } from '@/components/Header'
+import { CONTRACTS } from '@/lib/contracts'
+import { formatCompact } from '@/lib/utils'
+import { useProtocol } from '@/lib/protocol-context'
+import Link from 'next/link'
+import Image from 'next/image'
+import { ArrowUpRight, Zap, Wallet, ExternalLink, Clock, Skull, Eye, Target } from 'lucide-react'
+import { IconDiscord, IconTelegram, IconX } from '@/components/BrandIcons'
 
-// Lazy load heavy components
-const ProductShowcase = dynamic(() => import('./components/home/ProductShowcase'), {
-  loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
-  ssr: false
-});
-
-
-const GameEcosystemSection = dynamic(() => import('./components/home/GameEcosystemSection'), {
-  loading: () => <div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg" />,
-  ssr: false
-});
-
-const TypewriterEffect = dynamic(() => import('./components/ui/typewriter-effect'), {
-  loading: () => <div className="h-12 sm:h-14" />,
-  ssr: false
-});
-
-import { Button, MotionButton } from './components/ui/button';
-
-
-
-
-
-
-
-// BTB Liquidity Hub Flywheel steps
-
-
-// Animation keyframes for the flywheel
-
-
-
-
-// Who wins in the BTB Liquidity Hub model
-
-
-// Quick navigation links for the popup
-
+const SOCIALS = [
+  {
+    href: 'https://t.me/BTBFinance',
+    label: 'Telegram',
+    icon: IconTelegram,
+    hover:
+      'hover:border-[#229ED9]/40 hover:bg-[#229ED9]/12 hover:text-[#229ED9] focus-visible:ring-[#229ED9]/40',
+  },
+  {
+    href: 'https://discord.gg/bqFEPA56Tc',
+    label: 'Discord',
+    icon: IconDiscord,
+    hover:
+      'hover:border-[#5865F2]/40 hover:bg-[#5865F2]/12 hover:text-[#a5b4fc] focus-visible:ring-[#5865F2]/40',
+  },
+  {
+    href: 'https://x.com/btb_finance',
+    label: 'X',
+    icon: IconX,
+    hover: 'hover:border-white/25 hover:bg-white/10 hover:text-white focus-visible:ring-white/30',
+  },
+] as const
 
 export default function Home() {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const heroRef = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"]
-  });
+  const { address } = useAccount()
+  const {
+    btbSupply,
+    btbbStats,
+    nftTotalMinted,
+    nftTotalStaked,
+    btbBalance,
+    btbbBalance,
+    nftBalance,
+    nftStakedCount,
+  } = useProtocol()
 
-  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
-  const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.8]);
-  const y = useTransform(scrollYProgress, [0, 0.5], [0, 100]);
+  const metrics = [
+    { k: 'BTB supply', v: btbSupply ? formatCompact(btbSupply) : '—', u: 'BTB' },
+    { k: 'BTBB circulating', v: btbbStats ? formatCompact(btbbStats[1]) : '—', u: 'BTBB' },
+    { k: 'Bears minted', v: nftTotalMinted !== undefined ? Number(nftTotalMinted).toLocaleString() : '—', u: '/ 100K' },
+    { k: 'Bears staked', v: nftTotalStaked !== undefined ? Number(nftTotalStaked).toLocaleString() : '—', u: 'NFTs' },
+  ]
 
-  // Page scroll progress for navigation
-  const { scrollYProgress: pageProgress } = useScroll();
-
-  // Track scroll position for enhanced UX
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 100);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  const routes = [
+    {
+      href: '/wrap',
+      tag: '01',
+      title: 'Wrap',
+      line: 'BTB in, BTBB out. 1:1.',
+      detail: 'The wrapped token carries the transfer tax that feeds stakers.',
+    },
+    {
+      href: '/nft',
+      tag: '02',
+      title: 'Mint',
+      line: '0.01 ETH Bear.',
+      detail: 'Liquidity is seeded and LP is burned so depth stays on-chain.',
+    },
+    {
+      href: '/stake',
+      tag: '03',
+      title: 'Stake',
+      line: 'Lock the Bear, take the tax.',
+      detail: 'Claim BTBB from the global pot. No forced unlock clock.',
+    },
+  ] as const
 
   return (
-    <div className="relative isolate">
-      {/* Scroll Progress Indicator */}
-      <motion.div
-        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light z-50 origin-left"
+    <div className="relative z-10 min-h-dvh font-sans pb-28 overflow-x-hidden text-text">
+      {/* New background stack: base + perspective grid + washes + scan hint */}
+      <div className="fixed inset-0 -z-30 bg-[#030308]" aria-hidden />
+      <div
+        className="fixed inset-0 -z-20 opacity-[0.4] [mask-image:linear-gradient(to_bottom,black_40%,transparent)]"
         style={{
-          scaleX: pageProgress,
-          opacity: isScrolled ? 1 : 0
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
         }}
-        transition={{ opacity: { duration: 0.3 } }}
+        aria-hidden
       />
+      <div
+        className="fixed inset-0 -z-20 opacity-30"
+        style={{
+          backgroundImage:
+            'linear-gradient(115deg, transparent 40%, rgba(239,68,68,0.07) 50%, transparent 60%)',
+        }}
+        aria-hidden
+      />
+      <div
+        className="fixed -top-1/3 left-1/2 -translate-x-1/2 w-[140%] max-w-[1100px] aspect-square rounded-full -z-20 pointer-events-none opacity-90"
+        style={{
+          background: 'radial-gradient(circle at 50% 40%, rgba(239,68,68,0.14) 0%, transparent 55%)',
+        }}
+        aria-hidden
+      />
+      <div
+        className="fixed bottom-0 right-0 w-[80vw] h-[50vh] -z-20 pointer-events-none opacity-70"
+        style={{
+          background: 'radial-gradient(ellipse at 100% 100%, rgba(251,191,36,0.08) 0%, transparent 60%)',
+        }}
+        aria-hidden
+      />
+      <div className="fixed inset-x-0 top-0 h-px z-0 bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" aria-hidden />
 
-      {/* Quick Navigation */}
-      {isScrolled && (
-        <div className="fixed top-4 right-4 z-40 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-full px-4 py-2 shadow-lg border border-gray-200 dark:border-gray-700 transition-opacity duration-300" style={{ opacity: 1 }}>
-          <nav className="flex items-center space-x-3" aria-label="Quick navigation">
-            <Link
-              href="/game"
-              className="text-xs font-medium text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
-              aria-label="Go to BTB Game"
-            >
-              Game
-            </Link>
-            <Link
-              href="/btb-finance"
-              className="text-xs font-medium text-btb-primary hover:text-btb-primary-dark dark:text-btb-primary-light transition-colors"
-              aria-label="Go to BTB Finance"
-            >
-              Finance
-            </Link>
-            <Link
-              href="/megapot"
-              className="text-xs font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 transition-colors"
-              aria-label="Go to Megapot Lottery"
-            >
-              Lottery
-            </Link>
-          </nav>
-        </div>
-      )}
+      <Header />
 
-      {/* BTB Finance Live Banner */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <Link href="/btb-finance">
-          <div className="bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 hover:from-purple-700 hover:via-blue-700 hover:to-purple-700 rounded-2xl shadow-2xl border-2 border-purple-400/50 backdrop-blur-md transition-all duration-300 hover:scale-[1.02] cursor-pointer">
-            <div className="px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-white rounded-full animate-ping opacity-75"></div>
-                  <div className="relative w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center">
-                    <span className="text-xl sm:text-2xl font-bold text-purple-600">BTB</span>
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <h3 className="text-base sm:text-lg font-bold text-white truncate">BTB on Ethereum Mainnet is LIVE!</h3>
-                    <span className="hidden sm:inline-flex px-2 py-0.5 text-xs font-semibold bg-white/20 text-white rounded-full animate-pulse">NEW</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-white/90 line-clamp-1">Trade BTB • Wrap for BTBB • Stake Bear NFTs for Rewards</p>
-                </div>
-              </div>
-              <Button className="bg-white hover:bg-gray-100 text-purple-600 font-bold px-4 sm:px-6 py-2 rounded-xl shadow-lg transition-all whitespace-nowrap text-sm sm:text-base">
-                Explore Now
-                <ArrowRightIcon className="w-4 h-4 sm:w-5 sm:h-5 ml-1 sm:ml-2" />
-              </Button>
+      <main className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 pb-16">
+        {/* Hero — split panel, not centered glow orb */}
+        <section className="relative mb-16 sm:mb-24">
+          <div className="max-w-2xl space-y-8">
+            <h1 className="text-[2.25rem] sm:text-5xl lg:text-[3.25rem] font-semibold tracking-tight text-white leading-[1.08]">
+              Zero inflation. Built for{' '}
+              <span className="italic text-primary-light">passive income</span>.
+            </h1>
+
+            <p className="text-base sm:text-lg text-text-secondary leading-relaxed">
+              BTB has a fixed billion supply — no minting, no emissions, no inflation. Revenue comes from a 1% transfer tax that flows directly to staked NFTs. Wrap, mint, stake — and earn passively from real volume.
+            </p>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/stake"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(0,0,0,0.2)] hover:bg-primary-dark transition-colors"
+              >
+                Start staking
+                <Zap className="h-4 w-4 opacity-90" aria-hidden />
+              </Link>
+              <a
+                href="#metrics"
+                className="inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/[0.03] px-5 py-3 text-sm font-semibold text-white hover:bg-white/[0.06] transition-colors"
+              >
+                View metrics
+                <ArrowUpRight className="h-4 w-4 opacity-80" aria-hidden />
+              </a>
             </div>
           </div>
-        </Link>
-      </div>
+        </section>
 
-      {/* Hero section */}
-      <main className="relative min-h-[90vh] flex flex-col justify-center" ref={heroRef} role="main" aria-label="BTB Finance homepage hero section">
-        {/* Background elements */}
-        <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute inset-x-0 -top-40 transform-gpu overflow-hidden blur-3xl sm:-top-80">
-            <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-btb-primary-dark via-btb-primary to-btb-primary-light opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" />
+        {/* Metrics — dense terminal strip */}
+        <section id="metrics" className="scroll-mt-28 mb-16 sm:mb-24">
+          <div className="rounded-xl border border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-white/[0.06] bg-white/[0.02]">
+              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-text-secondary">
+                <Zap className="h-3.5 w-3.5 text-primary-light" aria-hidden />
+                Live on Ethereum
+              </div>
+              <span className="text-[10px] font-mono text-emerald-400/90">● mainnet</span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 divide-y divide-white/[0.06] lg:divide-y-0 lg:divide-x">
+              {metrics.map((m) => (
+                <div key={m.k} className="p-4 sm:p-5 hover:bg-white/[0.02] transition-colors">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted mb-2">{m.k}</p>
+                  <p className="text-2xl sm:text-3xl font-semibold text-white tabular-nums tracking-tight">{m.v}</p>
+                  <p className="text-[11px] font-mono text-primary-light/80 mt-1">{m.u}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="absolute inset-x-0 -bottom-40 transform-gpu overflow-hidden blur-3xl">
-            <div className="relative left-[calc(50%+11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-btb-primary-light via-btb-primary to-btb-primary-dark opacity-20 sm:left-[calc(50%+30rem)] sm:w-[72.1875rem]" />
+        </section>
+
+        {/* Pipeline — horizontal cards, new idea vs vertical timeline / flywheel */}
+        <section className="mb-16 sm:mb-24">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
+            <div>
+              <h2 className="text-sm font-mono uppercase tracking-[0.25em] text-text-muted">Route</h2>
+              <p className="mt-2 text-2xl sm:text-3xl font-semibold text-white tracking-tight">Pick a station</p>
+            </div>
+            <p className="max-w-md text-sm text-text-secondary leading-relaxed">
+              Same story as always, stripped to three doors. Each card jumps to the tool you need next.
+            </p>
           </div>
-        </div>
 
-        <div className="mx-auto max-w-7xl px-6 lg:px-8 py-16 sm:py-20 flex flex-col justify-center">
-          <motion.div
-            style={{ opacity, scale, y }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
-          >
-            <div className="relative z-10 animate-in fade-in slide-in-from-left-5 duration-700">
+          <div className="grid md:grid-cols-3 gap-4">
+            {routes.map((r) => (
+              <Link
+                key={r.href}
+                href={r.href}
+                className="group relative flex flex-col rounded-xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6 hover:border-primary/35 hover:from-primary/10 transition-all duration-300"
+              >
+                <span className="font-mono text-[10px] text-text-muted mb-4">{r.tag}</span>
+                <span className="text-lg font-semibold text-white mb-1">{r.title}</span>
+                <span className="text-sm font-medium text-primary-light/90 mb-3">{r.line}</span>
+                <p className="text-sm text-text-secondary leading-relaxed flex-1">{r.detail}</p>
+                <span className="mt-6 inline-flex items-center gap-1 text-xs font-semibold text-white opacity-80 group-hover:opacity-100">
+                  Open
+                  <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
 
+        {/* Principle block — replaces flywheel diagram */}
+        <section className="mb-16 sm:mb-24 rounded-xl border border-white/[0.08] overflow-hidden">
+          <div className="grid lg:grid-cols-2">
+            <div className="p-6 sm:p-10 lg:p-12 border-b lg:border-b-0 lg:border-r border-white/[0.08] bg-[#07070f]/80">
+              <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-snug">
+                Liquidity stays. Tax ticks. You stake.
+              </h2>
+              <p className="mt-4 text-sm sm:text-base text-text-secondary leading-relaxed">
+                Mint fees deepen BTBB pools; burned LP is the commitment that depth does not get yoinked by a multisig exit. Bots and routers keep
+                moving size; every qualifying transfer pays into the same pot your Bear accesses when staked.
+              </p>
+              <p className="mt-4 text-sm text-text-muted leading-relaxed">
+                Not financial advice. Contracts on Etherscan win any argument with marketing copy.
+              </p>
+            </div>
+            <div className="p-6 sm:p-10 lg:p-12 flex flex-col justify-center gap-6 bg-black/30">
+              {[
+                { t: 'Capped BTB', d: 'Fixed billion supply — emissions are not the paycheck.' },
+                { t: 'On-chain tax', d: '1% is enforced by BTBB logic, not a front-end fee toggle.' },
+                { t: 'Bear = slot', d: 'Stake to route your share of the tax stream.' },
+              ].map((x) => (
+                <div key={x.t} className="flex gap-4">
+                  <div className="mt-1 h-8 w-px shrink-0 bg-gradient-to-b from-primary to-amber-400 opacity-80" aria-hidden />
+                  <div>
+                    <p className="text-sm font-semibold text-white">{x.t}</p>
+                    <p className="text-sm text-text-secondary mt-1 leading-relaxed">{x.d}</p>
+                  </div>
+                </div>
+              ))}
+              <Link
+                href="/nft"
+                className="mt-2 inline-flex w-fit items-center gap-2 rounded-md bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 transition-colors"
+              >
+                Mint a Bear
+                <ArrowUpRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
+          </div>
+        </section>
 
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-                <div className="mb-2">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.1, duration: 0.5 }}
-                  >
-                    <span className="relative inline-block">
-                      <span className="absolute -inset-1 blur-md bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light opacity-30"></span>
-                      <span className="relative bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light bg-clip-text text-transparent">
-                        BTB Finance
-                      </span>
-                    </span>
-                  </motion.div>
+        {/* ═══════════════════════════════════════════════════════════════
+            CAT STRATEGY — COMING SOON
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="mb-16 sm:mb-24">
+          <div className="rounded-xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.06] to-transparent overflow-hidden">
+            {/* Header bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-b border-amber-500/10 bg-amber-500/[0.04]">
+              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-amber-400/80">
+                <Target className="h-3.5 w-3.5 text-amber-400" aria-hidden />
+                Strategy 04 — Cat NFT
+              </div>
+              <span className="flex items-center gap-1.5 text-[10px] font-mono text-amber-400/70">
+                <Clock className="h-3 w-3" aria-hidden />
+                coming soon · not live yet
+              </span>
+            </div>
+
+            {/* Main content */}
+            <div className="p-6 sm:p-10 lg:p-12">
+              <div className="grid lg:grid-cols-2 gap-10 lg:gap-14">
+                {/* Left — overview */}
+                <div className="space-y-6">
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-white tracking-tight leading-snug">
+                    Every Cat hunts{' '}
+                    <span className="italic text-amber-400">dormant BTB</span>.
+                  </h2>
+                  <p className="text-sm sm:text-base text-text-secondary leading-relaxed">
+                    Revenue from the Uniswap pool tax flows as BTB into the Cat contract. Bots arbitrage — buy Cat NFTs cheap on OpenSea, flip them to
+                    the contract for a profit. The contract re-lists at cost + 10%. Every sale splits the full price across all active Cats.
+                  </p>
+                  <p className="text-sm text-text-secondary leading-relaxed">
+                    Each Cat NFT accumulates BTB on-chain. Claim whenever you want — but if you sleep for 100 days, anyone can call{' '}
+                    <code className="text-amber-400 font-mono text-xs bg-amber-400/10 px-1.5 py-0.5 rounded">dead()</code> and take your entire balance.
+                    Dead Cats stop earning until the owner wakes them up at zero.
+                  </p>
+
+                  {/* Three incentive layers */}
+                  <div className="space-y-4 pt-2">
+                    <h3 className="text-xs font-mono uppercase tracking-widest text-text-muted">Incentive layers</h3>
+                    {[
+                      {
+                        icon: <Eye className="h-4 w-4 text-emerald-400" />,
+                        title: 'Hold & Claim',
+                        desc: 'Claim regularly or lose everything. Keeps the community engaged.',
+                        accent: 'border-emerald-400/30 bg-emerald-400/[0.06]',
+                      },
+                      {
+                        icon: <Skull className="h-4 w-4 text-amber-400" />,
+                        title: 'Bounty Hunt',
+                        desc: 'Scan the chain for dormant Cats. Call dead() and pocket all their BTB.',
+                        accent: 'border-amber-400/30 bg-amber-400/[0.06]',
+                      },
+                      {
+                        icon: <Target className="h-4 w-4 text-primary-light" />,
+                        title: 'Ecosystem Concentration',
+                        desc: 'Dead Cats get excluded from splits. Active holders earn a bigger share.',
+                        accent: 'border-primary/30 bg-primary/[0.06]',
+                      },
+                    ].map((layer) => (
+                      <div
+                        key={layer.title}
+                        className={`flex items-start gap-3 rounded-lg border ${layer.accent} px-4 py-3`}
+                      >
+                        <div className="mt-0.5 shrink-0">{layer.icon}</div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">{layer.title}</p>
+                          <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">{layer.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5, duration: 0.5 }}
-                  className="h-12 sm:h-14 mt-4"
-                >
-                  <TypewriterEffect
-                    words={[
-                      'Multi-Network Services for Everyone!',
-                      'Gaming • Bonding • Price Stability',
-                      'Bringing Your Ideas to Life',
-                      'Business-to-Business Excellence',
-                      'Leverage Tokens That Never Fall'
-                    ]}
-                    typingSpeed={60}
-                    deletingSpeed={30}
-                    delayBetweenWords={1500}
-                    className="text-xl sm:text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white min-h-[3rem]"
-                  />
-                </motion.div>
-              </h1>
+                {/* Right — lifecycle diagram */}
+                <div className="space-y-6">
+                  <h3 className="text-xs font-mono uppercase tracking-widest text-text-muted">Cat lifecycle</h3>
 
-              <p className="mt-4 text-base sm:text-lg leading-7 text-gray-600 dark:text-gray-300 max-w-xl" style={{ opacity: 1 }}>
-                BTB provides services across any blockchain network - from gaming ecosystems and bonding protocols to innovative ideas that keep prices stable and never go down. We bring any concept to life with our leverage token system designed for business-to-business excellence.
-              </p>
+                  {/* Flow diagram */}
+                  <div className="relative rounded-xl border border-white/[0.08] bg-black/40 p-6 space-y-5">
+                    {/* Phase 1 */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 mb-2">Phase 1 · Funding</p>
+                      <div className="flex items-center gap-2 text-sm text-text-secondary">
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Uniswap Tax
+                        </span>
+                        <ArrowUpRight className="h-3 w-3 text-amber-400/60 shrink-0" />
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-400/10 px-2 py-1 text-xs font-mono text-amber-400">
+                          BTB → Contract
+                        </span>
+                      </div>
+                    </div>
 
-              <p className="mt-3 text-base sm:text-lg leading-7 text-btb-primary-dark dark:text-btb-primary-light font-medium max-w-xl border-l-4 border-btb-primary pl-3 py-1" style={{ opacity: 1 }}>
-                <span className="font-bold">Our Mission:</span> BTB (Business-to-Business) delivers cutting-edge services across every blockchain network. We specialize in gaming ecosystems, bonding mechanisms, and revolutionary leverage tokens designed to maintain price stability - prices never go down. From concept to reality, we bring any innovative idea to life with our comprehensive multi-network platform.
-              </p>
+                    <div className="h-px bg-white/[0.06]" />
 
-              <div className="mt-6 flex items-center gap-3 flex-wrap animate-in fade-in slide-in-from-bottom-4 duration-500 delay-1000">
-                <div className="inline-block group relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
-                  <Link
-                    href="/game"
-                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-red-600 via-red-500 to-red-400 hover:shadow-lg transition-all duration-300 shadow-md shadow-red-500/20 hover:scale-105 active:scale-95"
-                    aria-label="Try Our Game - Play BTB gaming ecosystem"
-                  >
-                    Try Our Game <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white animate-pulse" aria-label="New feature">NEW!</span> <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" aria-hidden="true" />
-                  </Link>
-                </div>
+                    {/* Phase 2 */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 mb-2">Phase 2 · Arbitrage</p>
+                      <div className="flex items-center gap-2 flex-wrap text-sm text-text-secondary">
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Bot buys Cat
+                        </span>
+                        <span className="text-[10px] text-text-muted">80 BTB</span>
+                        <ArrowUpRight className="h-3 w-3 text-amber-400/60 shrink-0" />
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Sells to Contract
+                        </span>
+                        <span className="text-[10px] text-text-muted">100 BTB</span>
+                      </div>
+                      <p className="text-[10px] text-text-muted mt-1.5">+20 BTB profit for bot · Contract now owns the Cat NFT</p>
+                    </div>
 
-                <div className="inline-block group relative overflow-hidden ml-3">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-500"></div>
-                  <Link
-                    href="/btb-finance"
-                    className="relative flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light hover:shadow-lg transition-all duration-300 shadow-md shadow-btb-primary/20 hover:scale-105 active:scale-95"
-                    aria-label="Explore BTB Finance - Trade and earn with BTB tokens"
-                  >
-                    Explore BTB Finance <ArrowRightIcon className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" aria-hidden="true" />
-                  </Link>
+                    <div className="h-px bg-white/[0.06]" />
+
+                    {/* Phase 3 */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-amber-400/70 mb-2">Phase 3 · Re-list & Split</p>
+                      <div className="flex items-center gap-2 flex-wrap text-sm text-text-secondary">
+                        <span className="inline-flex items-center gap-1 rounded bg-white/[0.06] px-2 py-1 text-xs font-mono text-white">
+                          Re-listed
+                        </span>
+                        <span className="text-[10px] text-text-muted">cost + 10% = 110 BTB</span>
+                        <ArrowUpRight className="h-3 w-3 text-amber-400/60 shrink-0" />
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-400/10 px-2 py-1 text-xs font-mono text-emerald-400">
+                          110 BTB Split
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-text-muted mt-1.5">Full sale price ÷ all active Cats = each Cat's BTB balance grows</p>
+                    </div>
+
+                    <div className="h-px bg-white/[0.06]" />
+
+                    {/* Phase 4 — Dead/Wakeup */}
+                    <div>
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-primary-light/70 mb-2">Phase 4 · Dead / Wakeup</p>
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full border border-amber-400/40 flex items-center justify-center shrink-0">
+                            <Clock className="h-3 w-3 text-amber-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">100 days pass, no claim</p>
+                            <p className="text-[10px] text-text-muted">NFT is now eligible to be called dead</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full border border-primary/40 flex items-center justify-center shrink-0">
+                            <Skull className="h-3 w-3 text-primary-light" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">
+                              <code className="text-primary-light font-mono bg-primary/10 px-1 rounded">dead()</code> — bounty hunter claims all BTB
+                            </p>
+                            <p className="text-[10px] text-text-muted">NFT excluded from future splits · stops earning</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 h-6 w-6 rounded-full border border-emerald-400/40 flex items-center justify-center shrink-0">
+                            <Eye className="h-3 w-3 text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-white">
+                              <code className="text-emerald-400 font-mono bg-emerald-400/10 px-1 rounded">wakeup()</code> — owner reactivates
+                            </p>
+                            <p className="text-[10px] text-text-muted">NFT starts earning again, but at zero balance — they missed out</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick summary */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Max Supply', value: '10,000', sub: 'CAT NFTs' },
+                      { label: 'Dead Timer', value: '100', sub: 'days' },
+                      { label: 'Relist Fee', value: '+10%', sub: 'on cost' },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2.5 text-center">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted">{s.label}</p>
+                        <p className="text-lg font-semibold text-white tabular-nums mt-0.5">{s.value}</p>
+                        <p className="text-[10px] font-mono text-amber-400/70">{s.sub}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div className="h-[400px] w-full relative animate-in fade-in duration-700 delay-500">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative w-64 h-64 md:w-80 md:h-80">
-                  {/* Animated background elements */}
-                  <motion.div
-                    className="absolute inset-0 rounded-full bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light opacity-20"
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.2, 0.3, 0.2]
-                    }}
-                    transition={{
-                      duration: 8,
-                      repeat: Infinity,
-                      ease: "easeInOut" as const
-                    }}
-                  />
-
-                  <motion.div
-                    className="absolute inset-4 rounded-full bg-gradient-to-r from-btb-primary to-btb-primary-light opacity-40"
-                    animate={{
-                      scale: [1, 1.1, 1],
-                      opacity: [0.4, 0.5, 0.4]
-                    }}
-                    transition={{
-                      duration: 6,
-                      repeat: Infinity,
-                      ease: "easeInOut" as const,
-                      delay: 0.5
-                    }}
-                  />
-
-                  {/* Floating elements */}
-                  <div className="absolute inset-0">
-                    {[...Array(6)].map((_, i) => {
-                      // Use fixed positions based on index instead of random values
-                      const positions = [
-                        { left: "30%", top: "30%" },
-                        { left: "40%", top: "50%" },
-                        { left: "60%", top: "40%" },
-                        { left: "35%", top: "60%" },
-                        { left: "65%", top: "55%" },
-                        { left: "50%", top: "35%" }
-                      ];
-
-                      // Use deterministic animation values based on index
-                      const animationOffsets = [
-                        { x: 10, y: 8 },
-                        { x: -8, y: 10 },
-                        { x: 12, y: -9 },
-                        { x: -10, y: -7 },
-                        { x: 9, y: 11 },
-                        { x: -11, y: -10 }
-                      ];
-
-                      return (
-                        <motion.div
-                          key={i}
-                          className="absolute w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"
-                          style={positions[i]}
-                          animate={{
-                            x: [0, animationOffsets[i].x],
-                            y: [0, animationOffsets[i].y],
-                            opacity: [0.6, 0.9, 0.6]
-                          }}
-                          transition={{
-                            duration: 3 + (i % 3),
-                            repeat: Infinity,
-                            repeatType: "reverse",
-                            delay: i * 0.5
-                          }}
-                        >
-                          {i % 3 === 0 && <CurrencyDollarIcon className="h-4 w-4 text-white" />}
-                          {i % 3 === 1 && <ChartBarIcon className="h-4 w-4 text-white" />}
-                          {i % 3 === 2 && <CubeTransparentIcon className="h-4 w-4 text-white" />}
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <motion.span
-                      className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-btb-primary-light via-white to-btb-primary-light bg-clip-text text-transparent"
-                      animate={{ scale: [1, 1.05, 1] }}
-                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" as const }}
+        {address && (
+          <section className="mb-16">
+            <div className="rounded-xl border border-primary/30 bg-primary/[0.06] p-5 sm:p-8">
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-white mb-1">
+                <Wallet className="h-5 w-5 text-primary-light" aria-hidden />
+                Connected wallet
+              </h2>
+              <p className="text-sm text-text-secondary mb-6">Balances for the active address in this session.</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'BTB', value: btbBalance !== undefined ? formatCompact(btbBalance) : '—', hot: false },
+                  { label: 'BTBB', value: btbbBalance !== undefined ? formatCompact(btbbBalance) : '—', hot: false },
+                  { label: 'Bears', value: nftBalance !== undefined ? nftBalance.toString() : '—', hot: false },
+                  {
+                    label: 'Staked',
+                    value: nftStakedCount !== undefined ? nftStakedCount.toString() : '—',
+                    hot: nftStakedCount !== undefined && nftStakedCount > 0n,
+                  },
+                ].map((row) => (
+                  <div key={row.label} className="rounded-lg border border-white/10 bg-black/40 px-4 py-3">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-text-muted">{row.label}</p>
+                    <p
+                      className={`text-xl font-semibold tabular-nums mt-1 truncate ${
+                        row.hot ? 'text-primary-light' : 'text-white'
+                      }`}
                     >
-                      BTB
-                    </motion.span>
+                      {row.value}
+                    </p>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
-          </motion.div>
-        </div>
+          </section>
+        )}
       </main>
 
-      {/* Product Showcase Section */}
-      <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
-        <ProductShowcase />
-      </Suspense>
-
-      {/* BTB Finance Section */}
-      <div className="py-16 sm:py-24 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-blue-900/20 dark:via-purple-900/20 dark:to-pink-900/20 relative overflow-hidden">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-12">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-              >
-                <h2 className="text-3xl md:text-4xl font-bold mb-4 inline-flex items-center justify-center">
-                  <CurrencyDollarIcon className="h-8 w-8 mr-2 text-blue-600" />
-                  <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">BTB Finance Ecosystem</span>
-                </h2>
-                <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-                  Discover the BTB Token, Wrapped BTBB, Bear NFTs, and Staking Rewards
-                </p>
-              </motion.div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              {/* BTB Token */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800 hover:shadow-xl transition-all"
-              >
-                <div className="text-center mb-4">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
-                    <CurrencyDollarIcon className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-blue-600 dark:text-blue-400 mb-2">BTB Token (ERC20)</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    The core utility token of the BTB ecosystem deployed on Ethereum Mainnet.
-                  </p>
-                </div>
-                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
-                  <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>No transfer tax on standard BTB</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>1 Billion max supply</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>Freely tradable on DEXs</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-blue-500 mr-2">•</span>
-                    <span>Base asset for wrapped tokens</span>
-                  </li>
-                </ul>
-                <Link
-                  href="/btb-finance"
-                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-medium transition-all"
-                >
-                  View Token
-                </Link>
-              </motion.div>
-
-              {/* BTBB (Wrapped) */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-purple-200 dark:border-purple-800 hover:shadow-xl transition-all"
-              >
-                <div className="text-center mb-4">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
-                    <ArrowRightIcon className="h-8 w-8 text-white transform rotate-90" />
-                  </div>
-                  <h3 className="text-xl font-bold text-purple-600 dark:text-purple-400 mb-2">Wrapped BTBB</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Wrap your BTB 1:1 into BTBB. Features a 1% transfer tax that fuels the staking reward pool.
-                  </p>
-                </div>
-                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>Mint & redeem 1:1 with BTB</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>No tax on minting/redeeming</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>1% tax applied to transfers</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-purple-500 mr-2">•</span>
-                    <span>100% of tax goes to NFT stakers</span>
-                  </li>
-                </ul>
-                <Link
-                  href="/btb-finance"
-                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900 text-white rounded-lg font-medium transition-all"
-                >
-                  Wrap BTBB
-                </Link>
-              </motion.div>
-
-              {/* Bear NFTs & Staking */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-orange-200 dark:border-orange-800 hover:shadow-xl transition-all"
-              >
-                <div className="text-center mb-4">
-                  <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
-                    <SparklesIcon className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-orange-600 dark:text-orange-400 mb-2">NFT Staking</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Mint Bear NFTs directly on Mainnet and stake them to earn passive income from the BTBB transfer tax.
-                  </p>
-                </div>
-                <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300 mb-4">
-                  <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>Max supply of 100,000 Bear NFTs</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>Mint price: 0.01 ETH</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>Stake instantly to earn BTBB</span>
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-orange-500 mr-2">•</span>
-                    <span>Claim rewards anytime</span>
-                  </li>
-                </ul>
-                <Link
-                  href="/btb-finance"
-                  className="block w-full text-center px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-lg font-medium transition-all"
-                >
-                  Mint & Stake
-                </Link>
-              </motion.div>
-            </div>
-
-            {/* CTA Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="text-center bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl"
-            >
-              <h3 className="text-2xl font-bold mb-3">Ready to Explore BTB Mainnet?</h3>
-              <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-                Wrap your BTB, mint Bear NFTs, and start earning staking rewards today
-              </p>
-              <Link
-                href="/btb-finance"
-                className="inline-flex items-center px-8 py-3 bg-white text-purple-600 rounded-lg font-bold hover:bg-gray-100 transition-all shadow-lg"
-              >
-                Launch BTB Finance
-                <ArrowRightIcon className="ml-2 h-5 w-5" />
-              </Link>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      {/* Game Ecosystem Section */}
-      <Suspense fallback={<div className="h-96 animate-pulse bg-gray-100 dark:bg-gray-800 rounded-lg mx-auto max-w-7xl px-6 my-12" />}>
-        <GameEcosystemSection />
-      </Suspense>
-
-      {/* Larry Ecosystem Section */}
-      <div className="py-16 bg-white dark:bg-gray-900">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
-                Larry: The Meme Coin with Stability Features
-              </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
-                Larry is a meme coin that is fully audited and battle tested. Trade, leverage up to 100x, and borrow against LARRY with our innovative stability mechanism where the price can only go up, never down.
-              </p>
-              <div className="mb-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700/50">
-                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">
-                  Important: Always remember - Larry is a meme coin. Fully audited and battle tested, but still a meme coin.
-                </p>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 mr-4">
-                    <span className="text-lg font-semibold">1</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Guaranteed Price Stability</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Price only goes up with every transaction, never down</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 mr-4">
-                    <span className="text-lg font-semibold">2</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">100x Leverage Trading</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Open leveraged positions up to 100x with LARRY collateral</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-600 dark:text-emerald-400 mr-4">
-                    <span className="text-lg font-semibold">3</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Borrow ETH Against LARRY</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Use LARRY as collateral to borrow ETH at competitive rates</p>
-                  </div>
-                </div>
-              </div>
-
-              <Link
-                href="/larryecosystem"
-                className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:shadow-lg transition-all duration-300"
-                aria-label="Trade Larry - Access LARRY token ecosystem with leverage trading and borrowing"
-              >
-                Trade Larry <ArrowRightIcon className="ml-2 h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-xl transform rotate-1"></div>
-              <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-                <div className="aspect-w-16 aspect-h-9 bg-gradient-to-b from-emerald-500/5 to-emerald-600/10 rounded-lg overflow-hidden mb-6 p-6">
-                  <div className="w-full h-full flex flex-col justify-center">
-                    {/* Price Chart Visualization */}
-                    <div className="flex-1 flex items-end justify-between max-w-xs mx-auto w-full">
-                      {[1.00, 1.02, 1.04, 1.06, 1.08, 1.10, 1.12, 1.15].map((price, index) => (
-                        <div key={index} className="flex-1 mx-0.5 relative group">
-                          <div
-                            className="bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-sm transition-all duration-300 group-hover:from-emerald-600 group-hover:to-emerald-500"
-                            style={{ height: `${(price - 1.00) * 800}%`, minHeight: '8px' }}
-                          />
-                          <span className="absolute bottom-[-20px] left-1/2 transform -translate-x-1/2 text-xs text-gray-500 dark:text-gray-400 hidden group-hover:block">
-                            ${price}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-4 text-center">
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Price trajectory (only up)</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Max Leverage</p>
-                    <p className="text-2xl font-bold text-emerald-600">100x</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Borrow APR</p>
-                    <p className="text-2xl font-bold text-emerald-600">3.9%</p>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-700">
-                  <div className="flex items-center justify-center">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Trade Fees</p>
-                        <p className="text-lg font-bold text-emerald-600">Dynamic</p>
-                      </div>
-                      <div className="h-8 w-px bg-emerald-300 dark:bg-emerald-700"></div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Protocol Status</p>
-                        <p className="text-lg font-bold text-emerald-600">Active</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+      <footer className="relative z-10 border-t border-white/[0.08] bg-black/40 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col gap-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <Image src="/images/btb-logo.png" alt="BTB" width={36} height={36} className="rounded-lg ring-1 ring-white/10" />
+              <div>
+                <p className="text-sm font-semibold text-white">BTB Finance</p>
+                <p className="text-[11px] font-mono text-text-muted mt-0.5">ETH MAINNET</p>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Megapot Lottery Section */}
-      <div className="py-16 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
-        <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white mb-6">
-                Megapot: Daily Million Dollar Lottery
-              </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
-                Win life-changing money with daily USDC jackpots of $1,000,000+. Get 10% instant cashback on every ticket plus 50% bonus MegaPoints when you play through BTB.
-              </p>
-
-              <div className="space-y-4 mb-8">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-900 text-yellow-600 dark:text-yellow-400 mr-4">
-                    <span className="text-lg font-semibold">1</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">$1M+ Daily Jackpots</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Massive daily prizes paid in stable USDC</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 text-green-600 dark:text-green-400 mr-4">
-                    <span className="text-lg font-semibold">2</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">10% Instant Cashback</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Get 10% back in USDC on every ticket purchase</p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 flex items-center justify-center h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900 text-purple-600 dark:text-purple-400 mr-4">
-                    <span className="text-lg font-semibold">3</span>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">50% Bonus MegaPoints</h3>
-                    <p className="text-gray-600 dark:text-gray-300">Extra rewards when playing through BTB referral</p>
-                  </div>
-                </div>
-              </div>
-
-              <Link
-                href="/megapot"
-                className="inline-flex items-center px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-purple-600 to-pink-500 hover:shadow-lg transition-all duration-300"
-                aria-label="Play Megapot - Daily million dollar USDC lottery with instant cashback"
-              >
-                Play Megapot <ArrowRightIcon className="ml-2 h-4 w-4" aria-hidden="true" />
-              </Link>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl transform rotate-1"></div>
-              <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 border border-gray-100 dark:border-gray-700">
-                <div className="aspect-w-16 aspect-h-9 bg-gradient-to-b from-purple-500/5 to-pink-600/10 rounded-lg overflow-hidden mb-6 p-6">
-                  <div className="w-full h-full flex flex-col justify-center items-center text-center">
-                    <div className="text-4xl font-bold text-purple-600 dark:text-purple-400 mb-2 mt-4">$1M+</div>
-                    <div className="text-lg text-gray-600 dark:text-gray-300">Daily Jackpot</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Ticket Price</p>
-                    <p className="text-2xl font-bold text-purple-600">$1</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Cashback</p>
-                    <p className="text-2xl font-bold text-green-600">10%</p>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
-                  <div className="flex items-center justify-center">
-                    <div className="flex items-center space-x-4">
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Next Draw</p>
-                        <p className="text-lg font-bold text-purple-600">24 Hours</p>
-                      </div>
-                      <div className="h-8 w-px bg-purple-300 dark:bg-purple-700"></div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Frequency</p>
-                        <p className="text-lg font-bold text-purple-600">Daily</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Experimental Innovation Disclaimer */}
-      <div className="py-10 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden opacity-10">
-          <motion.div
-            className="absolute top-10 left-10 w-64 h-64 rounded-full bg-btb-primary/30 blur-3xl"
-            animate={{
-              x: [0, 50, 0],
-              y: [0, 30, 0],
-              scale: [1, 1.2, 1],
-            }}
-            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" as const }}
-          />
-          <motion.div
-            className="absolute bottom-10 right-10 w-80 h-80 rounded-full bg-btb-primary-light/20 blur-3xl"
-            animate={{
-              x: [0, -40, 0],
-              y: [0, -20, 0],
-              scale: [1, 1.3, 1],
-            }}
-            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" as const, delay: 2 }}
-          />
-        </div>
-
-        <div className="mx-auto max-w-5xl px-6 lg:px-8 relative z-10">
-          <motion.div
-            className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-          >
-            {/* Innovation Lab Header */}
-            <div className="bg-gradient-to-r from-btb-primary-dark via-btb-primary to-btb-primary-light p-4 flex items-center justify-center relative overflow-hidden">
-              <div className="absolute inset-0 opacity-20">
-                <svg className="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="white" stopOpacity="0.3" />
-                      <stop offset="100%" stopColor="white" stopOpacity="0.1" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M20,50 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0" fill="none" stroke="url(#grad1)" strokeWidth="0.5">
-                    <animate attributeName="stroke-dasharray" from="0 188.5" to="188.5 0" dur="3s" repeatCount="indefinite" />
-                  </path>
-                  <path d="M30,50 a20,20 0 1,0 40,0 a20,20 0 1,0 -40,0" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.3">
-                    <animate attributeName="stroke-dasharray" from="0 125.7" to="125.7 0" dur="3s" repeatCount="indefinite" begin="0.5s" />
-                  </path>
-                  <path d="M40,50 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0" fill="none" stroke="white" strokeWidth="0.5" strokeOpacity="0.5">
-                    <animate attributeName="stroke-dasharray" from="0 62.8" to="62.8 0" dur="3s" repeatCount="indefinite" begin="1s" />
-                  </path>
-                </svg>
-              </div>
-
-              <div className="relative z-10 flex items-center">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" as const }}
-                  className="w-12 h-12 mr-4 relative flex-shrink-0"
-                >
-                  <div className="absolute inset-0 rounded-full border-2 border-white/30 border-dashed"></div>
-                  <div className="absolute inset-2 rounded-full border-1 border-white/50"></div>
-                  <motion.div
-                    className="absolute inset-0 flex items-center justify-center"
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" as const }}
+            <div className="flex items-center gap-2">
+              {SOCIALS.map((s) => {
+                const Icon = s.icon
+                return (
+                  <a
+                    key={s.label}
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-text-muted transition-all duration-200 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 ${s.hover}`}
+                    aria-label={s.label}
                   >
-                    <BeakerIcon className="h-6 w-6 text-white" />
-                  </motion.div>
-                </motion.div>
-                <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-white font-heading">
-                    Innovation Through <span className="text-white/90 italic">Experimentation</span>
-                  </h2>
-                  <div className="flex items-center text-white/80 text-sm">
-                    <SparklesIcon className="h-3 w-3 mr-1" />
-                    <span>Pushing the boundaries of DeFi with bold new concepts</span>
-                  </div>
-                </div>
-              </div>
+                    <Icon className="h-[18px] w-[18px]" />
+                  </a>
+                )
+              })}
             </div>
+          </div>
 
-            {/* Content */}
-            <div className="p-6">
-              <div className="flex items-start mb-4">
-                <div className="flex-shrink-0 w-1 self-stretch bg-gradient-to-b from-btb-primary to-btb-primary-light rounded-full mr-3 opacity-30"></div>
-                <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed">
-                  At BTB Finance, we're pioneering the future of DeFi through bold experimentation, creating innovative financial concepts that have never existed before.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                <motion.div
-                  className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 hover:border-btb-primary/30 dark:hover:border-btb-primary/30 transition-all duration-300"
-                  whileHover={{ y: -3, boxShadow: "0 8px 15px -5px rgba(0, 0, 0, 0.1)" }}
-                >
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-lg bg-gradient-to-br from-btb-primary/20 to-btb-primary-light/20 text-btb-primary mr-2">
-                      <SparklesIcon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Pioneering New Concepts</h3>
-                      <p className="text-gray-600 dark:text-gray-300 text-xs">
-                        Our revolutionary bonding curve pricing and unique economic models are the first of their kind.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600 hover:border-btb-primary/30 dark:hover:border-btb-primary/30 transition-all duration-300"
-                  whileHover={{ y: -3, boxShadow: "0 8px 15px -5px rgba(0, 0, 0, 0.1)" }}
-                >
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 flex items-center justify-center h-7 w-7 rounded-lg bg-gradient-to-br from-btb-primary/20 to-btb-primary-light/20 text-btb-primary mr-2">
-                      <ShieldCheckIcon className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Risk Awareness</h3>
-                      <p className="text-gray-600 dark:text-gray-300 text-xs">
-                        We encourage all users to invest only what they can afford to lose.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              <motion.div
-                className="relative overflow-hidden rounded-xl bg-gradient-to-r from-btb-primary/5 via-btb-primary/10 to-btb-primary-light/5 p-4 border border-btb-primary/20"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                viewport={{ once: true }}
+          <div className="grid sm:grid-cols-2 gap-2 text-xs font-mono">
+            {[
+              { name: 'BTB', address: CONTRACTS.BTB },
+              { name: 'BTBB', address: CONTRACTS.BTBB },
+              { name: 'NFT', address: CONTRACTS.BEAR_NFT },
+              { name: 'Staking', address: CONTRACTS.BEAR_STAKING },
+            ].map((c) => (
+              <a
+                key={c.address}
+                href={`https://etherscan.io/address/${c.address}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-transparent px-2 py-2 hover:border-white/10 hover:bg-white/[0.03] text-text-secondary hover:text-white transition-colors"
               >
-                <motion.div
-                  className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-btb-primary/5"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.1, 0.2, 0.1],
-                  }}
-                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" as const }}
-                />
-                <motion.div
-                  className="absolute -bottom-12 -left-12 w-24 h-24 rounded-full bg-btb-primary/5"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.1, 0.2, 0.1],
-                  }}
-                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" as const, delay: 4 }}
-                />
-
-                <div className="relative z-10">
-                  <div className="flex items-center mb-2">
-                    <div className="flex-shrink-0 flex items-center justify-center h-5 w-5 rounded-full bg-gradient-to-r from-btb-primary to-btb-primary-light text-white mr-2">
-                      <span className="text-xs font-bold">!</span>
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white">Important Disclaimer</h3>
-                  </div>
-
-                  <p className="text-gray-700 dark:text-gray-200 text-sm">
-                    <strong>Always invest at your own risk.</strong> The experimental nature of our products means outcomes may differ from expectations. We're committed to transparency as we explore new financial frontiers together.
-                  </p>
-
-                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mt-8 sm:mt-12">
-                    <MotionButton
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-btb-primary dark:text-btb-primary-light border border-btb-primary/30 dark:border-btb-primary-light/30 font-semibold py-3 px-6 rounded-lg shadow-md"
-                      asChild
-                    >
-                      <Link href="/btb-finance">
-                        Explore BTB Token
-                      </Link>
-                    </MotionButton>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Important Disclaimers Section */}
-      <div className="py-12 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="text-center mb-8"
-            >
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center justify-center">
-                <ShieldCheckIcon className="h-6 w-6 mr-2 text-yellow-500" />
-                Important Disclaimers
-              </h2>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-6 border border-yellow-200 dark:border-yellow-700/50"
-            >
-              <div className="grid md:grid-cols-2 gap-6 text-sm text-gray-700 dark:text-gray-300">
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                    <p><span className="font-semibold">Experimental DeFi protocol</span> - invest only what you can afford to lose</p>
-                  </div>
-                  <div className="flex items-start">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                    <p><span className="font-semibold">IL refunds depend</span> on continued arbitrage opportunities</p>
-                  </div>
-                  <div className="flex items-start">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                    <p><span className="font-semibold">Smart contract risks exist</span> despite audits</p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-start">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                    <p><span className="font-semibold">Past performance</span> doesn't guarantee future results</p>
-                  </div>
-                  <div className="flex items-start">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                    <p><span className="font-semibold">This is not investment advice</span> - do your own research</p>
-                  </div>
-                  <div className="flex items-start">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                    <p><span className="font-semibold">Market conditions</span> can impact mechanism effectiveness</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+                <span className="text-primary-light font-semibold">{c.name}</span>
+                <span className="truncate">
+                  {c.address.slice(0, 8)}…{c.address.slice(-6)}
+                </span>
+                <ExternalLink className="h-3 w-3 opacity-50 group-hover:opacity-100 shrink-0" aria-hidden />
+              </a>
+            ))}
           </div>
         </div>
-      </div>
-
-      {/* Back to Top Button */}
-      {isScrolled && (
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-8 right-8 z-40 bg-btb-primary hover:bg-btb-primary-dark text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
-          style={{ opacity: 1, transform: 'scale(1)' }}
-          aria-label="Back to top"
-        >
-          <ArrowRightIcon className="h-5 w-5 transform -rotate-90 group-hover:-translate-y-1 transition-transform duration-300" />
-        </button>
-      )}
-
+      </footer>
     </div>
-  );
+  )
 }

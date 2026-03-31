@@ -1,28 +1,6 @@
 [build]
   command = "bun run build"
   publish = ".next"
-  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "24.10.0"
-
-[functions]
-  node_bundler = "esbuild"
-
-# Primary processing window - focused exactly on the observed processing time (13:07)
-[[scheduled]]
-  function = "process-daily-batch-background"
-  # Run every minute from 13:30 to 14:00 UTC
-  schedule = "30-59 13 * * *"
-  
-  [scheduled.environment]
-    IS_SCHEDULED = "true"
-
-# Continue at 14:00
-[[scheduled]]
-  function = "process-daily-batch-background"
-  # Run at minute 0 of the 14:00 hour
-  schedule = "0 14 * * *"
-  
-  [scheduled.environment]
-    IS_SCHEDULED = "true"
