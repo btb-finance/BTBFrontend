@@ -167,48 +167,114 @@ export default function StakePage() {
 
       <main className="page-frame">
         <section className="hero-grid">
-          <div className="hero-panel flex flex-col gap-4">
+          <div className="hero-panel surface-panel-strong flex flex-col gap-4">
             <div className="eyebrow">
               <Flame className="h-4 w-4" />
-              Passive income lane
+              Where the income actually comes from
             </div>
             <div>
-              <h1 className="section-title">Stake Bears and collect passive income.</h1>
+              <h1 className="display-title">
+                Stake once. Get paid for{' '}
+                <span className="text-[var(--color-brand)]">every trade</span>{' '}
+                anyone makes.
+              </h1>
               <p className="lead-copy mt-3 max-w-2xl">
-                Stake Bear NFTs to earn BTBB from the transfer-tax pool. Every staked Bear is treated equally by the
-                contract, so the workflow is simple: stake count, wait, claim.
+                Every BTBB transfer pays a 1% tax. The staking pool collects all of it and splits it across staked
+                Bears, equally. <span className="font-black text-[var(--color-ink)]">Every arbitrage bot, every swap,
+                every transfer becomes your paycheck.</span> No vesting, no cliff, no expiration. The pool runs as long
+                as people use BTBB.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="metric-tile">
                 <div className="metric-label">Network staked</div>
                 <div className="metric-value">{totalStaked}</div>
+                <div className="mt-2 text-[0.6rem] font-bold uppercase text-[var(--color-muted)]">Bears earning</div>
               </div>
               <div className="metric-tile">
                 <div className="metric-label">Daily per bear</div>
-                <div className="metric-value">{formatCompact(dailyPerNft)}</div>
+                <div className="metric-value text-[var(--color-leaf)]">{formatCompact(dailyPerNft)}</div>
+                <div className="mt-2 text-[0.6rem] font-bold uppercase text-[var(--color-muted)]">BTBB / day est.</div>
               </div>
               <div className="metric-tile">
-                <div className="metric-label">Pending BTBB</div>
+                <div className="metric-label">Your pending</div>
                 <div className="metric-value">{formatCompact(netPending)}</div>
+                <div className="mt-2 text-[0.6rem] font-bold uppercase text-[var(--color-muted)]">BTBB net of tax</div>
               </div>
             </div>
           </div>
 
-          <div className="surface-panel space-y-4">
-            <div className="eyebrow">
-              <Layers3 className="h-4 w-4" />
-              Flow
+          <div className="space-y-2">
+            <div className="surface-panel">
+              <div className="eyebrow">
+                <Layers3 className="h-4 w-4" />
+                Three steps to start
+              </div>
+              <div className="mt-3 space-y-2 text-sm leading-6 text-[var(--color-copy)]">
+                <p><span className="font-black text-[var(--color-ink)]">1.</span> Hold (or mint) at least one Bear NFT.</p>
+                <p><span className="font-black text-[var(--color-ink)]">2.</span> Approve the staking contract — once per wallet.</p>
+                <p><span className="font-black text-[var(--color-ink)]">3.</span> Stake your Bears. Rewards accrue from that block onward.</p>
+              </div>
+              <Link href="/nft" className="btn-secondary mt-4 w-full">
+                Need to mint a Bear first
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
             </div>
-            <div className="space-y-3 text-sm leading-6 text-[var(--color-copy)]">
-              <p>Mint or hold Bear NFTs.</p>
-              <p>Approve the staking contract once.</p>
-              <p>Stake to accumulate passive BTBB income, then claim or claim and unwrap.</p>
+
+            <div className="surface-panel">
+              <div className="eyebrow">No lockup</div>
+              <p className="mt-3 text-sm leading-6 text-[var(--color-copy)]">
+                Unstake any time. Claim any time. There is no cliff, no slashing, no penalty. Stop whenever you want
+                and your Bears come back.
+              </p>
             </div>
-            <Link href="/nft" className="btn-secondary w-full">
-              Need to mint first
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
+          </div>
+        </section>
+
+        {/* THE BTBB FLYWHEEL */}
+        <section className="surface-panel mt-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="eyebrow">
+                <Flame className="h-4 w-4" />
+                The reward engine
+              </div>
+              <h2 className="section-title mt-4">How BTBB tax becomes your income.</h2>
+            </div>
+            <p className="max-w-md text-sm leading-6 text-[var(--color-copy)]">
+              The income loop is on-chain. Every step is enforced by code, not by trust.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="metric-tile flex flex-col gap-3">
+              <span className="kicker-number">01</span>
+              <h3 className="text-base font-black uppercase leading-tight text-[var(--color-ink)]">User wraps BTB → BTBB</h3>
+              <p className="text-sm leading-6 text-[var(--color-copy)]">
+                BTBB is the taxed asset. Wrapping is what creates the surface for transfer fees.
+              </p>
+            </div>
+            <div className="metric-tile flex flex-col gap-3">
+              <span className="kicker-number">02</span>
+              <h3 className="text-base font-black uppercase leading-tight text-[var(--color-ink)]">BTBB gets traded — 1% tax</h3>
+              <p className="text-sm leading-6 text-[var(--color-copy)]">
+                Every transfer (DEX swap, wallet send, arb route) pays 1%. The tax is collected by the BTBB contract.
+              </p>
+            </div>
+            <div className="metric-tile flex flex-col gap-3">
+              <span className="kicker-number">03</span>
+              <h3 className="text-base font-black uppercase leading-tight text-[var(--color-leaf)]">Tax routes to staking pool</h3>
+              <p className="text-sm leading-6 text-[var(--color-copy)]">
+                The staking contract pulls accumulated tax and adds it to the global rewards balance. Anyone can trigger.
+              </p>
+            </div>
+            <div className="metric-tile flex flex-col gap-3">
+              <span className="kicker-number">04</span>
+              <h3 className="text-base font-black uppercase leading-tight text-[var(--color-leaf)]">You claim your share</h3>
+              <p className="text-sm leading-6 text-[var(--color-copy)]">
+                Each staked Bear earns an equal share. Claim as BTBB, or auto-unwrap into BTB in one click.
+              </p>
+            </div>
           </div>
         </section>
 

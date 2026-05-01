@@ -66,30 +66,40 @@ export default function NFTPage() {
 
       <main className="page-frame">
         <section className="hero-grid">
-          <div className="hero-panel flex flex-col gap-4">
+          <div className="hero-panel surface-panel-strong flex flex-col gap-4">
             <div className="eyebrow">
               <Sparkles className="h-4 w-4" />
-              Reward access collectibles
+              Your slice of the protocol
             </div>
             <div>
-              <h1 className="section-title">Mint Bears for 0.01 ETH.</h1>
+              <h1 className="display-title">
+                One Bear ={' '}
+                <span className="text-[var(--color-brand)]">one share</span> of every transfer tax.
+              </h1>
               <p className="lead-copy mt-3 max-w-2xl">
-                Bear NFTs are the passive-income access key. Mint one, stake it, and it earns from BTBB transfer fees
-                collected by the staking pool.
+                Mint a Bear for 0.01 ETH. Stake it. From that moment on, you receive a proportional cut of every BTBB
+                transfer tax that flows into the staking pool — and the more pairs the protocol opens, the more
+                taxable volume hits your share.{' '}
+                <span className="font-black text-[var(--color-ink)]">Each new Bear minted literally creates more reward
+                surface for everyone</span> — your 0.01 ETH gets paired with BTBB on Uniswap, opening another arbitrage
+                target that pays the pool 1% on every trade.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="metric-tile">
                 <div className="metric-label">Minted</div>
                 <div className="metric-value">{minted.toLocaleString()}</div>
+                <div className="mt-2 text-[0.6rem] font-bold uppercase text-[var(--color-muted)]">/ 100,000 cap</div>
               </div>
               <div className="metric-tile">
                 <div className="metric-label">Remaining</div>
                 <div className="metric-value">{nftRemaining !== undefined ? Number(nftRemaining).toLocaleString() : '—'}</div>
+                <div className="mt-2 text-[0.6rem] font-bold uppercase text-[var(--color-muted)]">left to mint</div>
               </div>
               <div className="metric-tile">
                 <div className="metric-label">Price each</div>
                 <div className="metric-value">{ethPrice.toFixed(3)} ETH</div>
+                <div className="mt-2 text-[0.6rem] font-bold uppercase text-[var(--color-leaf)]">→ feeds BTBB LP</div>
               </div>
             </div>
           </div>
@@ -204,8 +214,12 @@ export default function NFTPage() {
 
           <div className="surface-panel space-y-5">
             <div>
-              <div className="eyebrow">Supply map</div>
-              <h2 className="section-title mt-4">Track the mint curve.</h2>
+              <div className="eyebrow">Supply curve</div>
+              <h2 className="section-title mt-4">100,000 Bears, ever.</h2>
+              <p className="lead-copy mt-3">
+                Hard cap. Once minted out, the only way to get a Bear is from another holder. Your share of staking
+                rewards stops getting diluted at that point.
+              </p>
             </div>
 
             <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-strong)] p-4">
@@ -219,8 +233,14 @@ export default function NFTPage() {
             </div>
 
             <div className="space-y-3 text-sm leading-7 text-[var(--color-copy)]">
-              <p>Mint first, then move into the staking route to activate reward flow.</p>
-              <p>The new page strips out the old game-like chrome and treats minting as a clear primary action.</p>
+              <p>
+                Each mint <span className="font-black text-[var(--color-ink)]">grows the protocol's BTBB liquidity</span> on
+                Uniswap. More liquidity means tighter spreads, more arbitrage, more 1% taxes flowing into the staking
+                pool — directly to you.
+              </p>
+              <p className="text-xs uppercase font-bold tracking-wider text-[var(--color-muted)]">
+                Mint costs are protocol-owned. Nobody pulls them.
+              </p>
             </div>
           </div>
         </section>
