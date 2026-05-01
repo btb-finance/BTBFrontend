@@ -3,6 +3,9 @@ export const CONTRACTS = {
   BTBB: '0x88888880d5Ca13018D2dC11e2e4744BD91a5656f' as const,
   BEAR_NFT: '0x88888888aBa934ceA0b4f0000FeA62F1397D02A0' as const,
   BEAR_STAKING: '0x8888888Faf81E6a98deb2B90A05B46b6E903e927' as const,
+  OPOS: '0x88888805e7e3d5c7fb002ad98f08250e79c298dc' as const,
+  FLIP: '0x8888889c878a0ae26033799517461af33a8e50a0' as const,
+  USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as const,
 } as const
 
 export const CHAIN_ID = 1 // Ethereum Mainnet only
@@ -37,6 +40,24 @@ export const BEAR_NFT_ABI = [
   { inputs: [{ name: 'owner', type: 'address' }, { name: 'index', type: 'uint256' }], name: 'tokenOfOwnerByIndex', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ name: 'operator', type: 'address' }, { name: 'approved', type: 'bool' }], name: 'setApprovalForAll', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ name: 'owner', type: 'address' }, { name: 'operator', type: 'address' }], name: 'isApprovedForAll', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
+] as const
+
+// OPOS ABI
+export const OPOS_ABI = [
+  ...ERC20_ABI,
+  { inputs: [{ name: 'btbAmount', type: 'uint256' }], name: 'mint', outputs: [{ name: 'oposAmount', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'oposAmount', type: 'uint256' }], name: 'burn', outputs: [{ name: 'btbAmount', type: 'uint256' }], stateMutability: 'nonpayable', type: 'function' },
+] as const
+
+// FLIP ABI
+export const FLIP_ABI = [
+  ...ERC20_ABI,
+  { inputs: [{ name: 'usdcAmount', type: 'uint256' }], name: 'flipUp', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'flipAmount', type: 'uint256' }], name: 'flipDown', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'usdcAmount', type: 'uint256' }], name: 'calculateFlipUp', outputs: [{ name: 'flipAmount', type: 'uint256' }, { name: 'taxAmount', type: 'uint256' }], stateMutability: 'pure', type: 'function' },
+  { inputs: [{ name: 'flipAmount', type: 'uint256' }], name: 'calculateFlipDown', outputs: [{ name: 'usdcAmount', type: 'uint256' }, { name: 'taxAmount', type: 'uint256' }], stateMutability: 'pure', type: 'function' },
+  { inputs: [], name: 'getUSDCBalance', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'isFullyBacked', outputs: [{ name: '', type: 'bool' }], stateMutability: 'view', type: 'function' },
 ] as const
 
 // BearStaking ABI

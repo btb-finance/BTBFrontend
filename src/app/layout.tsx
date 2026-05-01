@@ -5,13 +5,13 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'BTB Finance',
-  description: 'BTB Finance - DeFi Innovation on Ethereum',
+  description: 'BTB Finance on Ethereum. Wrap BTB, trade FLIP, mint Bears, and stake for protocol rewards.',
   icons: {
     icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', type: 'image/x-icon' },
       { url: '/newbtb32x32.png', sizes: '32x32', type: 'image/png' },
     ],
-    apple: '/icon.svg',
+    apple: '/newbtb32x32.png',
   },
 }
 
@@ -26,11 +26,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-dvh pb-20" suppressHydrationWarning>
+      <body className="min-h-dvh pb-24" suppressHydrationWarning>
         <Providers>
-          <div className="page-glow relative">
-            {children}
-          </div>
+          {children}
           <BottomNav />
         </Providers>
       </body>

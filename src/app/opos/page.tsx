@@ -1,20 +1,21 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
-import { ArrowDownUp, ArrowUpRight, Coins, RefreshCw } from 'lucide-react'
+import { ArrowDownUp, Megaphone, RefreshCw } from 'lucide-react'
 import { Header } from '@/components/Header'
-import { BTBB_ABI, CONTRACTS, ERC20_ABI } from '@/lib/contracts'
+import { CONTRACTS, ERC20_ABI, OPOS_ABI } from '@/lib/contracts'
 import { formatCompact, formatToken, parseTokenInput } from '@/lib/utils'
 
-type Direction = 'wrap' | 'unwrap'
-type PendingAction = 'approve-then-wrap' | 'wrap' | 'unwrap' | null
+const MINT_RATIO = 1_000_000n
 
-export default function WrapPage() {
+type Direction = 'mint' | 'burn'
+type PendingAction = 'approve-then-mint' | 'mint' | 'burn' | null
+
+export default function OPOSPage() {
   const { address } = useAccount()
   const [amount, setAmount] = useState('')
-  const [direction, setDirection] = useState<Direction>('wrap')
+  const [direction, setDirection] = useState<Direction>('mint')
   const [pendingAction, setPendingAction] = useState<PendingAction>(null)
   const [savedAmount, setSavedAmount] = useState(0n)
 
@@ -22,23 +23,18 @@ export default function WrapPage() {
     contracts: address
       ? [
           { address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] } as any,
-          { address: CONTRACTS.BTBB, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] } as any,
-          { address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'allowance', args: [address, CONTRACTS.BTBB] } as any,
-          { address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'totalSupply' } as any,
-          { address: CONTRACTS.BTBB, abi: ERC20_ABI, functionName: 'totalSupply' } as any,
+          { address: CONTRACTS.OPOS, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] } as any,
+          { address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'allowance', args: [address, CONTRACTS.OPOS] } as any,
+          { address: CONTRACTS.OPOS, abi: ERC20_ABI, functionName: 'totalSupply' } as any,
         ]
-      : [
-          { address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'totalSupply' } as any,
-          { address: CONTRACTS.BTBB, abi: ERC20_ABI, functionName: 'totalSupply' } as any,
-        ],
+      : [],
     query: { refetchInterval: 15_000 },
   })
 
-  const btbBalance = address ? (data?.[0]?.result as bigint | undefined) : undefined
-  const btbbBalance = address ? (data?.[1]?.result as bigint | undefined) : undefined
-  const btbAllowance = address ? (data?.[2]?.result as bigint | undefined) : undefined
-  const btbSupply = address ? (data?.[3]?.result as bigint | undefined) : (data?.[0]?.result as bigint | undefined)
-  const btbbSupply = address ? (data?.[4]?.result as bigint | undefined) : (data?.[1]?.result as bigint | undefined)
+  const btbBalance = data?.[0]?.result as bigint | undefined
+  const oposBalance = data?.[1]?.result as bigint | undefined
+  const btbAllowance = data?.[2]?.result as bigint | undefined
+  const oposSupply = data?.[3]?.result as bigint | undefined
 
   const { data: hash, writeContract, isPending, reset } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
@@ -48,10 +44,10 @@ export default function WrapPage() {
 
     const chain = async () => {
       await refetch()
-      if (pendingAction === 'approve-then-wrap') {
+      if (pendingAction === 'approve-then-mint') {
         reset()
-        setPendingAction('wrap')
-        writeContract({ address: CONTRACTS.BTBB, abi: BTBB_ABI, functionName: 'mint', args: [savedAmount] })
+        setPendingAction('mint')
+        writeContract({ address: CONTRACTS.OPOS, abi: OPOS_ABI, functionName: 'mint', args: [savedAmount] })
         return
       }
 
@@ -63,10 +59,14 @@ export default function WrapPage() {
     chain()
   }, [isSuccess, pendingAction, refetch, reset, savedAmount, writeContract])
 
-  const parsed = amount && !Number.isNaN(Number(amount)) ? parseTokenInput(amount, 18) : 0n
-  const balance = direction === 'wrap' ? btbBalance : btbbBalance
-  const hasEnough = balance !== undefined && balance >= parsed
-  const needsApproval = direction === 'wrap' && btbAllowance !== undefined && btbAllowance < parsed && parsed > 0n
+  const parsedBtb = amount && !Number.isNaN(Number(amount)) ? parseTokenInput(amount, 18) : 0n
+  const parsedOpos = amount && !Number.isNaN(Number(amount)) ? parseTokenInput(amount, 18) : 0n
+  const previewOut = direction === 'mint' ? parsedBtb * MINT_RATIO : parsedOpos / MINT_RATIO
+
+  const balance = direction === 'mint' ? btbBalance : oposBalance
+  const requiredBalance = direction === 'mint' ? parsedBtb : parsedOpos
+  const hasEnough = balance !== undefined && balance >= requiredBalance
+  const needsApproval = direction === 'mint' && btbAllowance !== undefined && btbAllowance < parsedBtb && parsedBtb > 0n
   const busy = isPending || isConfirming
 
   const handleMax = () => {
@@ -77,82 +77,81 @@ export default function WrapPage() {
   const handleAction = () => {
     if (!amount || Number.isNaN(Number(amount))) return
 
-    if (direction === 'wrap') {
+    if (direction === 'mint') {
       if (needsApproval) {
-        setSavedAmount(parsed)
-        setPendingAction('approve-then-wrap')
-        writeContract({ address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'approve', args: [CONTRACTS.BTBB, parsed] })
+        setSavedAmount(parsedBtb)
+        setPendingAction('approve-then-mint')
+        writeContract({ address: CONTRACTS.BTB, abi: ERC20_ABI, functionName: 'approve', args: [CONTRACTS.OPOS, parsedBtb] })
         return
       }
 
-      setPendingAction('wrap')
-      writeContract({ address: CONTRACTS.BTBB, abi: BTBB_ABI, functionName: 'mint', args: [parsed] })
+      setPendingAction('mint')
+      writeContract({ address: CONTRACTS.OPOS, abi: OPOS_ABI, functionName: 'mint', args: [parsedBtb] })
       return
     }
 
-    setPendingAction('unwrap')
-    writeContract({ address: CONTRACTS.BTBB, abi: BTBB_ABI, functionName: 'redeem', args: [parsed] })
+    setPendingAction('burn')
+    writeContract({ address: CONTRACTS.OPOS, abi: OPOS_ABI, functionName: 'burn', args: [parsedOpos] })
   }
 
-  const fromSym = direction === 'wrap' ? 'BTB' : 'BTBB'
-  const toSym = direction === 'wrap' ? 'BTBB' : 'BTB'
+  const fromSym = direction === 'mint' ? 'BTB' : 'OPOS'
+  const toSym = direction === 'mint' ? 'OPOS' : 'BTB'
 
   const buttonLabel = busy
-    ? pendingAction === 'approve-then-wrap' && !isSuccess
+    ? pendingAction === 'approve-then-mint' && !isSuccess
       ? 'Approving BTB...'
-      : pendingAction === 'wrap'
-        ? 'Wrapping into BTBB...'
-        : 'Redeeming into BTB...'
+      : pendingAction === 'mint'
+        ? 'Minting OPOS...'
+        : 'Redeeming BTB...'
     : needsApproval
-      ? 'Approve and wrap'
-      : direction === 'wrap'
-        ? 'Wrap BTB'
-        : 'Unwrap BTBB'
+      ? 'Approve and mint'
+      : direction === 'mint'
+        ? 'Mint OPOS'
+        : 'Redeem for BTB'
 
   return (
     <div className="page-shell min-h-screen">
-      <Header title="BTB Finance / Wrap" />
+      <Header title="BTB Finance / OPOS" />
 
       <main className="page-frame">
         <section className="hero-grid">
           <div className="hero-panel flex flex-col gap-4">
             <div className="eyebrow">
-              <Coins className="h-4 w-4" />
-              Core conversion rail
+              <Megaphone className="h-4 w-4" />
+              Expansion and distribution rail
             </div>
             <div>
-              <h1 className="section-title">BTB in. BTBB out. 1:1.</h1>
+              <h1 className="section-title">1 BTB mints 1,000,000 OPOS.</h1>
               <p className="lead-copy mt-3 max-w-2xl">
-                BTBB is minted by depositing BTB and redeemed back 1:1. Normal BTBB transfers take 1%, and that fee is
-                the fuel Bear stakers earn from.
+                OPOS is the expansion token. Mint with at least 1 BTB, burn in exact ratio chunks, and remember normal
+                OPOS transfers take a 1% treasury tax.
               </p>
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="metric-tile">
-                <div className="metric-label">BTB supply</div>
-                <div className="metric-value">{btbSupply !== undefined ? formatCompact(btbSupply) : '—'}</div>
+                <div className="metric-label">Mint ratio</div>
+                <div className="metric-value">1:1,000,000</div>
               </div>
               <div className="metric-tile">
-                <div className="metric-label">BTBB supply</div>
-                <div className="metric-value">{btbbSupply !== undefined ? formatCompact(btbbSupply) : '—'}</div>
+                <div className="metric-label">OPOS supply</div>
+                <div className="metric-value">{oposSupply !== undefined ? formatCompact(oposSupply) : '—'}</div>
               </div>
               <div className="metric-tile">
-                <div className="metric-label">Rate</div>
-                <div className="metric-value">1:1</div>
+                <div className="metric-label">Primary use</div>
+                <div className="metric-value text-[1.2rem]">Growth</div>
               </div>
             </div>
           </div>
 
           <div className="surface-panel space-y-4">
-            <div className="eyebrow">Contract rule</div>
+            <div className="eyebrow">
+              <RefreshCw className="h-4 w-4" />
+              Operating note
+            </div>
             <p className="text-sm leading-6 text-[var(--color-copy)]">
-              Minting and redeeming are direct reserve actions. Transfers are the taxed part, and 100% of BTBB transfer
-              tax is routed toward staking.
+              The contract enforces a minimum 1 BTB mint and 1,000,000 OPOS burn. Use whole ratio amounts to avoid
+              failed redemptions.
             </p>
-            <Link href="/stake" className="btn-secondary w-full">
-              See staking route
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
           </div>
         </section>
 
@@ -160,13 +159,13 @@ export default function WrapPage() {
           <div className="surface-panel">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
-                <div className="eyebrow">Conversion terminal</div>
-                <h2 className="section-title mt-4">Move between BTB and BTBB.</h2>
+                <div className="eyebrow">Supply console</div>
+                <h2 className="section-title mt-4">Convert between BTB and OPOS.</h2>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  setDirection((current) => (current === 'wrap' ? 'unwrap' : 'wrap'))
+                  setDirection((current) => (current === 'mint' ? 'burn' : 'mint'))
                   setAmount('')
                 }}
                 className="btn-secondary text-sm"
@@ -180,8 +179,8 @@ export default function WrapPage() {
               <div className="field-shell">
                 <div className="mb-3 flex items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.14em] text-[var(--color-muted)]">
                   <span>You send {fromSym}</span>
-                  <button type="button" onClick={handleMax} className="text-[var(--color-brand)]">
-                    Max {balance !== undefined ? formatToken(balance) : '0'}
+                  <button type="button" onClick={handleMax} className="text-[var(--color-plum)]">
+                    Max {balance !== undefined ? formatToken(balance, 18, 4) : '0'}
                   </button>
                 </div>
                 <div className="flex items-center gap-3">
@@ -209,7 +208,7 @@ export default function WrapPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-full text-4xl font-black tracking-[-0.05em]">
-                    {amount && parsed > 0n ? formatToken(parsed) : '0.0'}
+                    {amount && previewOut > 0n ? formatToken(previewOut, 18, 4) : '0.0'}
                   </div>
                   <span className="token-pill">{toSym}</span>
                 </div>
@@ -217,7 +216,7 @@ export default function WrapPage() {
 
               {!address ? (
                 <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-strong)] px-4 py-4 text-sm font-semibold text-[var(--color-copy)]">
-                  Connect your wallet to begin converting.
+                  Connect your wallet to use OPOS.
                 </div>
               ) : !hasEnough && amount ? (
                 <div className="rounded-lg border border-[var(--color-berry)]/40 bg-[var(--color-berry)]/10 px-4 py-4 text-sm font-semibold text-[var(--color-berry)]">
@@ -233,13 +232,10 @@ export default function WrapPage() {
 
           <div className="space-y-4">
             <div className="surface-panel">
-              <div className="eyebrow">
-                <RefreshCw className="h-4 w-4" />
-                System note
-              </div>
+              <div className="eyebrow">Distribution role</div>
               <div className="mt-4 space-y-3 text-sm leading-7 text-[var(--color-copy)]">
-                <p>Wrapping and unwrapping are direct reserve actions.</p>
-                <p>BTBB acts as the active asset that routes value into the NFT reward side of the protocol.</p>
+                <p>Mint OPOS from BTB when you want exposure to the expansion layer.</p>
+                <p>Burn back when you want to collapse that exposure into BTB again.</p>
               </div>
             </div>
 
@@ -251,8 +247,8 @@ export default function WrapPage() {
                   <div className="metric-value">{btbBalance !== undefined ? formatToken(btbBalance) : '—'}</div>
                 </div>
                 <div className="metric-tile">
-                  <div className="metric-label">Your BTBB</div>
-                  <div className="metric-value">{btbbBalance !== undefined ? formatToken(btbbBalance) : '—'}</div>
+                  <div className="metric-label">Your OPOS</div>
+                  <div className="metric-value">{oposBalance !== undefined ? formatToken(oposBalance) : '—'}</div>
                 </div>
               </div>
             </div>
