@@ -4,21 +4,21 @@ import { useAccount } from 'wagmi'
 import { ConnectKitButton } from 'connectkit'
 import Image from 'next/image'
 import { ArrowLeftRight, TrendingUp, Images, Zap } from 'lucide-react'
-import WrapTab from '@/components/tabs/WrapTab'
+import SwapTab from '@/components/tabs/SwapTab'
 import FlipTab from '@/components/tabs/FlipTab'
 import NFTTab from '@/components/tabs/NFTTab'
 import StakeTab from '@/components/tabs/StakeTab'
 
-type Tab = 'wrap' | 'flip' | 'nft' | 'stake'
+type Tab = 'swap' | 'flip' | 'nft' | 'stake'
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'wrap', label: 'Wrap', icon: <ArrowLeftRight size={16}/> },
-  { id: 'flip', label: 'FLIP', icon: <TrendingUp size={16}/> },
-  { id: 'nft',  label: 'Bears', icon: <Images size={16}/> },
-  { id: 'stake',label: 'Stake', icon: <Zap size={16}/> },
+  { id: 'swap',  label: 'Swap',  icon: <ArrowLeftRight size={16}/> },
+  { id: 'flip',  label: 'FLIP',  icon: <TrendingUp size={16}/> },
+  { id: 'nft',   label: 'Bears', icon: <Images size={16}/> },
+  { id: 'stake', label: 'Stake', icon: <Zap size={16}/> },
 ]
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>('wrap')
+  const [tab, setTab] = useState<Tab>('swap')
   const { isConnected } = useAccount()
 
   return (
@@ -42,7 +42,7 @@ export default function App() {
 
       {/* Content */}
       <main className="app-content">
-        {tab === 'wrap'  && <WrapTab />}
+        {tab === 'swap'  && <SwapTab />}
         {tab === 'flip'  && <FlipTab />}
         {tab === 'nft'   && <NFTTab />}
         {tab === 'stake' && <StakeTab />}
