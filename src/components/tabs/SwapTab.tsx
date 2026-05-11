@@ -16,6 +16,15 @@ const TOKENS: Record<Sym, { sym: Sym; decimals: number; addr: `0x${string}`; col
 }
 const ALL_SYMS: Sym[] = ['BTB', 'BTBB', 'OPOS', 'FLIP', 'USDC']
 
+// Smart defaults: FROM → [best default TO, ...other valid TOs]
+const VALID_TO: Record<Sym, Sym[]> = {
+  BTB:  ['BTBB', 'OPOS'],
+  BTBB: ['BTB'],
+  OPOS: ['BTB'],
+  USDC: ['FLIP'],
+  FLIP: ['USDC'],
+}
+
 // ── Route engine ──────────────────────────────────────────────────
 // Returns the best route for a given pair. For now all routes are protocol.
 // When aggregators are integrated on the backend, swap out previewOut / routeLabel here.
@@ -74,7 +83,7 @@ function getRoute(from: Sym, to: Sym): Route | null {
 }
 
 // ── Token picker ──────────────────────────────────────────────────
-function TokenPicker({ value, exclude, onChange }: { value: Sym; exclude: Sym; onChange: (s: Sym) => void }) {
+function TokenPicker({ value, options, onChange }: { value: Sym; options: Sym[]; onChange: (s: Sym) => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const tok = TOKENS[value]
@@ -88,18 +97,18 @@ function TokenPicker({ value, exclude, onChange }: { value: Sym; exclude: Sym; o
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)}
-        style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.4rem 0.65rem', borderRadius: 12, border: `1.5px solid ${tok.color}44`, background: `${tok.color}12`, color: tok.color, fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-        {tok.icon} {tok.sym} <ChevronDown size={13} />
+        style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.5rem 0.85rem', borderRadius: 14, border: `1.5px solid ${tok.color}55`, background: `${tok.color}14`, color: tok.color, fontWeight: 900, fontSize: '0.95rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        {tok.icon} {tok.sym} <ChevronDown size={14} />
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100, background: '#131313', border: '1.5px solid var(--color-line)', borderRadius: 14, overflow: 'hidden', minWidth: 140, boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
-          {ALL_SYMS.filter(s => s !== exclude).map(s => {
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 100, background: '#131313', border: '1.5px solid var(--color-line)', borderRadius: 14, overflow: 'hidden', minWidth: 150, boxShadow: '0 12px 32px rgba(0,0,0,0.6)' }}>
+          {options.map((s, i) => {
             const t = TOKENS[s]
             return (
               <button key={s} onClick={() => { onChange(s); setOpen(false) }}
-                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.65rem 0.85rem', background: s === value ? `${t.color}14` : 'transparent', color: s === value ? t.color : 'var(--color-ink)', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', borderBottom: '1px solid var(--color-line)' }}>
+                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 0.9rem', background: s === value ? `${t.color}18` : 'transparent', color: s === value ? t.color : 'var(--color-ink)', fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', borderBottom: i < options.length - 1 ? '1px solid var(--color-line)' : 'none' }}>
                 {t.icon} {t.sym}
-                {s === value && <CheckCircle2 size={13} style={{ marginLeft: 'auto' }} />}
+                {s === value && <CheckCircle2 size={13} style={{ marginLeft: 'auto', color: t.color }} />}
               </button>
             )
           })}
@@ -116,7 +125,8 @@ export default function SwapTab() {
   const { address } = useAccount()
   const [from, setFrom] = useState<Sym>('BTB')
   const [to, setTo]     = useState<Sym>('BTBB')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState('')      // display string
+  const [rawAmount, setRawAmount] = useState(0n) // exact bigint — never loses precision
   const [pa, setPa]     = useState<PA>(null)
   const [saved, setSaved] = useState(0n)
 
@@ -140,37 +150,51 @@ export default function SwapTab() {
   const { data: hash, writeContract, isPending, reset } = useWriteContract()
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
 
+  // When tx succeeds: clear both display and raw
   useEffect(() => {
     if (!isSuccess || !pa || !route) return
     const run = async () => {
       await refetch()
       if (pa === 'approve') { reset(); setPa('tx'); route.exec(saved, writeContract); return }
-      setPa(null); setAmount(''); reset()
+      setPa(null); setAmount(''); setRawAmount(0n); reset()
     }
     run()
   }, [isSuccess]) // eslint-disable-line
 
-  const parsed     = amount ? parseTokenInput(amount, fromTok.decimals) : 0n
+  // rawAmount is the source of truth for tx; amount string is just display
+  const parsed     = rawAmount
   const previewOut = route && parsed > 0n ? route.preview(parsed) : 0n
   const needsAppr  = route ? route.needsApproval(allowance, parsed) : false
   const hasEnough  = fromBal !== undefined && parsed > 0n && fromBal >= parsed
   const busy       = isPending || isConfirming
 
   const swapTokens = () => {
-    // Swap from/to if reverse pair exists
     const rev = getRoute(to, from)
-    if (rev) { setFrom(to); setTo(from); setAmount('') }
+    if (rev) { setFrom(to); setTo(from); setAmount(''); setRawAmount(0n) }
   }
 
   const setFromToken = (s: Sym) => {
     setFrom(s)
-    if (s === to) setTo(from)
-    setAmount('')
+    const validTos = VALID_TO[s]
+    if (!validTos.includes(to)) setTo(validTos[0])
+    setAmount(''); setRawAmount(0n)
   }
   const setToToken = (s: Sym) => {
     setTo(s)
-    if (s === from) setFrom(to)
-    setAmount('')
+    setAmount(''); setRawAmount(0n)
+  }
+
+  // User types manually: parse string → rawAmount
+  const handleInput = (val: string) => {
+    setAmount(val)
+    setRawAmount(val ? parseTokenInput(val, fromTok.decimals) : 0n)
+  }
+
+  // Max: set rawAmount directly from chain balance — zero string precision loss
+  const handleMax = () => {
+    if (!fromBal) return
+    setAmount(formatTokenRaw(fromBal, fromTok.decimals))
+    setRawAmount(fromBal) // exact bigint from chain
   }
 
   const act = () => {
@@ -194,15 +218,17 @@ export default function SwapTab() {
       <div className="card">
         {/* ── From ── */}
         <div className="swap-box" style={{ marginBottom: '0.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-            <TokenPicker value={from} exclude={to} onChange={setFromToken} />
-            <button style={{ color: fromTok.color, fontWeight: 800, fontSize: '0.72rem' }}
-              onClick={() => fromBal && setAmount(formatTokenRaw(fromBal, fromTok.decimals))}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--color-muted)' }}>You send</span>
+            <button style={{ color: fromTok.color, fontWeight: 800, fontSize: '0.72rem' }} onClick={handleMax}>
               Max: {fromBal !== undefined ? formatToken(fromBal, fromTok.decimals) : '—'}
             </button>
           </div>
-          <input className="amount-input" type="text" inputMode="decimal" placeholder="0.0"
-            value={amount} onChange={e => setAmount(e.target.value)} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <input className="amount-input" type="text" inputMode="decimal" placeholder="0.0"
+              value={amount} onChange={e => handleInput(e.target.value)} style={{ flex: 1, minWidth: 0 }} />
+            <TokenPicker value={from} options={ALL_SYMS} onChange={setFromToken} />
+          </div>
         </div>
 
         {/* ── Arrow ── */}
@@ -211,17 +237,20 @@ export default function SwapTab() {
         </div>
 
         {/* ── To ── */}
-        <div className="swap-box" style={{ marginBottom: '0.875rem', opacity: 0.8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-            <TokenPicker value={to} exclude={from} onChange={setToToken} />
+        <div className="swap-box" style={{ marginBottom: '0.875rem', opacity: 0.85 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.09em', color: 'var(--color-muted)' }}>You receive</span>
             {toBal !== undefined && (
               <span style={{ color: toTok.color, fontWeight: 700, fontSize: '0.72rem' }}>
                 Bal: {formatToken(toBal, toTok.decimals)}
               </span>
             )}
           </div>
-          <div className="amount-input" style={{ cursor: 'default', color: previewOut > 0n ? 'var(--color-ink)' : 'rgba(255,255,255,0.25)' }}>
-            {previewOut > 0n ? formatToken(previewOut, toTok.decimals) : '0.0'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="amount-input" style={{ cursor: 'default', flex: 1, color: previewOut > 0n ? 'var(--color-ink)' : 'rgba(255,255,255,0.25)' }}>
+              {previewOut > 0n ? formatToken(previewOut, toTok.decimals) : '0.0'}
+            </div>
+            <TokenPicker value={to} options={VALID_TO[from]} onChange={setToToken} />
           </div>
         </div>
 
