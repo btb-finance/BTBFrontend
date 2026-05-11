@@ -1,11 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import { Providers } from './providers'
-import { BottomNav } from '@/components/BottomNav'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'BTB Finance',
-  description: 'BTB Finance on Ethereum. Wrap BTB, trade FLIP, mint Bears, and stake for protocol rewards.',
+  description: 'BTB Finance — wrap, stake, trade FLIP, mint Bears. All in one app.',
   icons: {
     icon: [
       { url: '/favicon.ico', type: 'image/x-icon' },
@@ -20,17 +19,15 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#06060b',
+  themeColor: '#090909',
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-dvh pb-24" suppressHydrationWarning>
-        <Providers>
-          {children}
-          <BottomNav />
-        </Providers>
+      <body suppressHydrationWarning>
+        <Providers>{children}</Providers>
       </body>
     </html>
   )
