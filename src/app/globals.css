@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0A0A0F;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #fff;
+}
+
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
+* { scrollbar-width: none; }
+
+@keyframes orb1 {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50%       { transform: translate(40px, 60px) scale(1.15); }
+}
+@keyframes orb2 {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50%       { transform: translate(-50px, -30px) scale(1.1); }
+}
+@keyframes orb3 {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50%       { transform: translate(30px, -40px) scale(1.2); }
+}
+
+.orb1 { animation: orb1 14s ease-in-out infinite; }
+.orb2 { animation: orb2 18s ease-in-out infinite; }
+.orb3 { animation: orb3 22s ease-in-out infinite; }
