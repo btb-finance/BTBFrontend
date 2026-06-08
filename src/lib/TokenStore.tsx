@@ -1,6 +1,8 @@
 'use client';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, ReactNode } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { useReadContracts } from 'wagmi';
+import { erc20Abi, formatUnits } from 'viem';
 import { api } from '../../convex/_generated/api';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,6 +50,17 @@ export function useTokenStore() { return useContext(Ctx); }
 const NATIVE = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
 const WETH   = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 
+// BTB Finance's own tokens. These are custom and not in any public token list,
+// so they'd never appear in the swap picker. We always inject them with a
+// direct on-chain balanceOf read so the user's holdings show regardless of what
+// the Convex list/snapshot contains.
+const PROTOCOL_TOKENS = [
+  { address: '0x88888888c90cd71b35830dabfd24743dbc135b51', symbol: 'BTB',  name: 'BTB Finance', decimals: 18 },
+  { address: '0x88888880d5ca13018d2dc11e2e4744bd91a5656f', symbol: 'BTBB', name: 'BTB Bear',    decimals: 18 },
+  { address: '0x88888805e7e3d5c7fb002ad98f08250e79c298dc', symbol: 'OPOS', name: 'OPOSSUM',     decimals: 18 },
+] as const;
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
 export function TokenStoreProvider({ children, walletAddress }: { children: ReactNode; walletAddress?: string }) {
   const registerOrGet     = useMutation(api.users.registerOrGet);
   const seedIfEmpty       = useAction(api.tokens.seedIfEmpty);
@@ -77,6 +90,34 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     if (wethPrice && wethPrice > 0) m.set(NATIVE, wethPrice);
     return m;
   }, [convexPrices]);
+
+  // Live on-chain balances for BTB / BTBB / OPOS — always shown in the picker.
+  const { data: protoRaw } = useReadContracts({
+    allowFailure: true,
+    contracts: PROTOCOL_TOKENS.map((t) => ({
+      address: t.address as `0x${string}`,
+      abi: erc20Abi,
+      functionName: 'balanceOf' as const,
+      args: [(walletAddress ?? ZERO_ADDR) as `0x${string}`],
+    })),
+    query: { enabled: !!walletAddress, refetchInterval: 30_000 },
+  });
+
+  const protocolTokens = useMemo<Token[]>(() => PROTOCOL_TOKENS.map((t, i) => {
+    const raw = (protoRaw?.[i]?.result as bigint | undefined) ?? BigInt(0);
+    const price = priceMap.get(t.address.toLowerCase()) ?? 0;
+    const balNum = Number(raw) / 10 ** t.decimals;
+    return {
+      address: t.address,
+      symbol: t.symbol, name: t.name, decimals: t.decimals,
+      balance: formatUnits(raw, t.decimals),
+      balanceRaw: raw.toString(),
+      usdPrice: price,
+      usdValue: balNum * price,
+      chainId: 1,
+      verified: true,
+    };
+  }), [protoRaw, priceMap]);
 
   // Positions come straight from the Convex snapshot. Each row is re-priced
   // against the latest priceMap so USD values update without re-running RPC.
@@ -119,18 +160,32 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       m.set(key, { ...(m.get(key) ?? p), ...p });
       m.set(p.symbol.toUpperCase(), { ...(m.get(p.symbol.toUpperCase()) ?? p), ...p });
     }
+    // Protocol tokens win — their balance comes from a fresh on-chain read.
+    for (const p of protocolTokens) {
+      const key = p.address.toLowerCase();
+      m.set(key, { ...(m.get(key) ?? {}), ...p });
+      m.set(p.symbol.toUpperCase(), { ...(m.get(p.symbol.toUpperCase()) ?? {}), ...p });
+    }
     return m;
-  }, [convexTokenList, priceMap, positions]);
+  }, [convexTokenList, priceMap, positions, protocolTokens]);
 
   // Convex token list merged with live wallet balances for the swap picker.
-  const tokens = useMemo<Token[]>(() => convexTokenList.map((t) => {
-    const key = t.address === NATIVE ? 'eth' : t.address.toLowerCase();
-    return balanceMap.get(key) ?? {
-      address: t.address === NATIVE ? 'ETH' : t.address,
-      symbol: t.symbol, name: t.name, decimals: t.decimals, logoURI: t.logoURI,
-      chainId: 1,
-    };
-  }), [convexTokenList, balanceMap]);
+  // Protocol tokens (BTB/BTBB/OPOS) are pinned to the front so they're always
+  // visible, deduped against the Convex list by address.
+  const tokens = useMemo<Token[]>(() => {
+    const protoAddrs = new Set(protocolTokens.map((p) => p.address.toLowerCase()));
+    const rest = convexTokenList
+      .filter((t) => !protoAddrs.has(t.address.toLowerCase()))
+      .map((t) => {
+        const key = t.address === NATIVE ? 'eth' : t.address.toLowerCase();
+        return balanceMap.get(key) ?? {
+          address: t.address === NATIVE ? 'ETH' : t.address,
+          symbol: t.symbol, name: t.name, decimals: t.decimals, logoURI: t.logoURI,
+          chainId: 1,
+        };
+      });
+    return [...protocolTokens, ...rest];
+  }, [convexTokenList, balanceMap, protocolTokens]);
 
   // Trigger one fetch on wallet connect — only if the snapshot is empty.
   // After that, refreshes are explicit.

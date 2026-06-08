@@ -7,6 +7,8 @@ const CORE_TOKENS = [
   { address: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", symbol: "ETH",  name: "Ethereum",           decimals: 18, logoURI: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",   source: "core" },
   { address: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", symbol: "WETH", name: "Wrapped Ether",       decimals: 18, logoURI: "https://assets.coingecko.com/coins/images/2518/small/weth.png",      source: "core" },
   { address: "0x88888888c90cd71b35830dabfd24743dbc135b51", symbol: "BTB",  name: "BTB Finance",         decimals: 18, logoURI: "",                                                                    source: "core" },
+  { address: "0x88888880d5ca13018d2dc11e2e4744bd91a5656f", symbol: "BTBB", name: "BTB Bear",            decimals: 18, logoURI: "",                                                                    source: "core" },
+  { address: "0x88888805e7e3d5c7fb002ad98f08250e79c298dc", symbol: "OPOS", name: "OPOSSUM",             decimals: 18, logoURI: "",                                                                    source: "core" },
   { address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", symbol: "USDC", name: "USD Coin",            decimals: 6,  logoURI: "https://assets.coingecko.com/coins/images/6319/small/usdc.png",      source: "core" },
   { address: "0xdac17f958d2ee523a2206206994597c13d831ec7", symbol: "USDT", name: "Tether USD",          decimals: 6,  logoURI: "https://assets.coingecko.com/coins/images/325/small/Tether.png",     source: "core" },
   { address: "0x6b175474e89094c44da98b954eedeac495271d0f", symbol: "DAI",  name: "Dai Stablecoin",      decimals: 18, logoURI: "https://assets.coingecko.com/coins/images/9956/small/dai-multi-collateral-mcd.png", source: "core" },
