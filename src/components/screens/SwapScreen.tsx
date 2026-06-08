@@ -1,8 +1,10 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useConnection, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi';
+import { useConnection, useConfig, useReadContract } from 'wagmi';
 import { useMutation } from 'convex/react';
-import { erc20Abi } from 'viem';
+import { erc20Abi, encodeFunctionData } from 'viem';
+import { useTx } from '@/lib/TxTracker';
+import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { TokenIcon } from '../TokenIcon';
@@ -136,8 +138,8 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
   const { tokens } = useTokenStore();
   const { address } = useConnection();
-  const { sendTransactionAsync } = useSendTransaction();
-  const { writeContractAsync } = useWriteContract();
+  const config = useConfig();
+  const { track } = useTx();
   // KyberSwap API needs an explicit chain in its URL — we're mainnet only.
   const chainId = 1;
 
@@ -156,16 +158,9 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const awardXp = useMutation(api.users.awardXp);
-  const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  useEffect(() => {
-    if (!isSuccess) return;
-    setStep('success');
-    if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuccess]);
 
   const isNativeFrom = fromToken.address === 'ETH';
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+  const { refetch: refetchAllowance } = useReadContract({
     address: isNativeFrom ? undefined : fromToken.address as `0x${string}`,
     abi: erc20Abi,
     functionName: 'allowance',
@@ -235,31 +230,50 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
   async function executeSwap() {
     if (!quote || !address) return;
     try {
-      // ERC-20: check allowance and approve if needed
+      const calls: Call[] = [];
+
+      // ERC-20: approve the router first if the allowance is short. Batched with
+      // the swap below so supporting wallets confirm both at once; otherwise the
+      // runner approves, WAITS for it to confirm, then swaps.
+      let needsApprove = false;
       if (!isNativeFrom) {
         const amountIn = BigInt(quote.routeSummary.amountIn ?? '0');
         const currentAllowance = (await refetchAllowance()).data ?? BigInt(0);
         if (currentAllowance < amountIn) {
-          setStep('approving');
-          await writeContractAsync({
-            address: fromToken.address as `0x${string}`,
-            abi: erc20Abi,
-            functionName: 'approve',
-            args: [quote.routerAddress as `0x${string}`, amountIn],
+          needsApprove = true;
+          calls.push({
+            to: fromToken.address as `0x${string}`,
+            data: encodeFunctionData({
+              abi: erc20Abi,
+              functionName: 'approve',
+              args: [quote.routerAddress as `0x${string}`, amountIn],
+            }),
           });
         }
       }
 
-      setStep('sending');
       const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, address, address, 50, chainId);
       const txValue = isNativeFrom
         ? BigInt(quote.routeSummary.amountIn ?? '0')
         : BigInt(tx.value && tx.value !== '0' ? tx.value : '0');
-      const hash = await sendTransactionAsync({
-        to: tx.to, data: tx.data, value: txValue,
+      calls.push({
+        to: tx.to as `0x${string}`,
+        data: tx.data as `0x${string}`,
+        value: txValue,
         gas: tx.gas ? BigInt(tx.gas) : undefined,
       });
-      setTxHash(hash);
+
+      setStep(needsApprove ? 'approving' : 'sending');
+      const { lastHash } = await runCalls(config, {
+        account: address,
+        calls,
+        label: `Swap ${fromToken.symbol} → ${toToken.symbol}`,
+        track,
+      });
+
+      if (lastHash) setTxHash(lastHash);
+      setStep('success');
+      if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
     } catch (e: any) {
       setErrMsg(e?.shortMessage ?? e?.message ?? 'Transaction failed');
       setStep('error');

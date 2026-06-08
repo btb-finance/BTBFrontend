@@ -1,8 +1,10 @@
 'use client';
-import { useState, useEffect } from 'react';
-import { useConnection, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useState } from 'react';
+import { useConnection, useReadContracts, useWriteContract, useConfig } from 'wagmi';
 import { useMutation } from 'convex/react';
-import { parseEther, formatUnits } from 'viem';
+import { parseEther, formatUnits, encodeFunctionData } from 'viem';
+import { useTx } from '@/lib/TxTracker';
+import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
@@ -88,27 +90,44 @@ function MintTab({ address }: { address?: string }) {
   const setQty      = (n: number) => setQtyStr(String(Math.min(maxQty, Math.max(1, n))));
 
   const awardXp = useMutation(api.users.awardXp);
-  const { writeContract, data: txHash, isPending, error: writeErr, reset } = useWriteContract();
-  const { isSuccess, isLoading: confirming } = useWaitForTransactionReceipt({ hash: txHash });
-  useEffect(() => {
-    if (!isSuccess) return;
-    if (address) awardXp({ walletAddress: address, amount: MINT_XP * qty, reason: 'mint' }).catch(() => {});
-    refetch();
-    reset();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSuccess]);
+  const { writeContractAsync } = useWriteContract();
+  const { track } = useTx();
+  const [busy, setBusy] = useState(false);
+  const [mintErr, setMintErr] = useState<Error | null>(null);
+  const [mintedQty, setMintedQty] = useState(0); // qty of the last confirmed mint, for the banner
 
-  function doMint() {
-    writeContract({
-      address: CONTRACTS.BEAR_NFT,
-      abi: BEAR_NFT_ABI,
-      functionName: 'buyNFT',
-      args: [BigInt(qty)],
-      value: priceWei * BigInt(qty),
-    });
+  async function doMint() {
+    setBusy(true);
+    setMintErr(null);
+    setMintedQty(0);
+    const n = qty;
+    try {
+      const hash = await writeContractAsync({
+        address: CONTRACTS.BEAR_NFT,
+        abi: BEAR_NFT_ABI,
+        functionName: 'buyNFT',
+        args: [BigInt(n)],
+        value: priceWei * BigInt(n),
+      });
+      const { done } = track({
+        hash,
+        label: `Mint ${n} BTB Bear NFT${n > 1 ? 's' : ''}`,
+        onConfirmed: () => {
+          if (address) awardXp({ walletAddress: address, amount: MINT_XP * n, reason: 'mint' }).catch(() => {});
+          setMintedQty(n);
+          refetch();
+        },
+      });
+      const res = await done;
+      if (res.status !== 'confirmed') setMintErr(new Error(res.error ?? 'Mint failed'));
+    } catch (e) {
+      setMintErr(e as Error);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const loading = isPending || confirming;
+  const loading = busy;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -222,12 +241,12 @@ function MintTab({ address }: { address?: string }) {
         </div>
       </Glass>
 
-      {isSuccess && (
+      {mintedQty > 0 && (
         <div style={{ background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.3)', borderRadius: 14, padding: '10px 14px', color: '#52E3A4', fontSize: 13, fontWeight: 600 }}>
-          Minted {qty} BTB Bear NFT{qty > 1 ? 's' : ''}! · +{(MINT_XP * qty).toLocaleString('en-US')} XP
+          Minted {mintedQty} BTB Bear NFT{mintedQty > 1 ? 's' : ''}! · +{(MINT_XP * mintedQty).toLocaleString('en-US')} XP
         </div>
       )}
-      <ErrBox err={writeErr}/>
+      <ErrBox err={mintErr}/>
 
       <PrimaryBtn
         label={loading ? 'Minting…' : !address ? 'Connect wallet' : remaining === 0 ? 'Sold out' : `Mint ${qty} NFT${qty > 1 ? 's' : ''}`}
@@ -242,6 +261,8 @@ function MintTab({ address }: { address?: string }) {
 
 function StakeTab({ address }: { address?: string }) {
   const [unstakeCount, setUnstakeCount] = useState(1);
+  // '' = stake everything available; otherwise the typed count (clamped below).
+  const [stakeStr, setStakeStr] = useState('');
   const addr = (address ?? ZERO) as `0x${string}`;
 
   // Pool stats + user info in one batch
@@ -276,12 +297,14 @@ function StakeTab({ address }: { address?: string }) {
   const annualBtbbPerNft  = totalStaked > 0 && aprRawBig > 0n ? parseFloat(formatUnits(aprRawBig, 22)) : 0;
   const cappedUnstake     = Math.min(unstakeCount, myStaked);
 
-  const { writeContract, data: txHash, isPending, error: writeErr, reset } = useWriteContract();
-  const { isSuccess, isLoading: confirming } = useWaitForTransactionReceipt({ hash: txHash });
-  useEffect(() => { if (isSuccess) { refetch(); reset(); } }, [isSuccess]);
+  const config = useConfig();
+  const { track } = useTx();
+  const { writeContractAsync } = useWriteContract();
+  const [busy, setBusy] = useState(false);
+  const [writeErr, setWriteErr] = useState<Error | null>(null);
 
-  // Fetch wallet token IDs for staking — gas-safe batch cap.
-  const STAKE_BATCH = 25;
+  // Up to 200 NFTs stake in a single call (same per-tx cap as minting).
+  const STAKE_BATCH = 200;
   const { data: tokenData } = useReadContracts({
     contracts: Array.from({ length: Math.min(myBalance, STAKE_BATCH) }, (_, i) => ({
       address: CONTRACTS.BEAR_NFT,
@@ -293,12 +316,63 @@ function StakeTab({ address }: { address?: string }) {
   });
   const walletTokenIds = (tokenData ?? []).map(r => r?.result as bigint).filter(Boolean);
 
-  const loading = isPending || confirming;
+  // How many to stake — defaults to all loaded IDs, user can dial it down/up.
+  const maxStakeable = walletTokenIds.length;
+  const stakeCount   = stakeStr === '' ? maxStakeable : Math.min(maxStakeable, Math.max(1, parseInt(stakeStr || '1', 10) || 1));
+  const setStakeQty  = (n: number) => setStakeStr(String(Math.min(maxStakeable, Math.max(1, n))));
+  const stakeIds     = walletTokenIds.slice(0, stakeCount);
 
-  function doApprove()  { writeContract({ address: CONTRACTS.BEAR_NFT,     abi: BEAR_NFT_ABI,     functionName: 'setApprovalForAll', args: [CONTRACTS.BEAR_STAKING, true] }); }
-  function doStakeAll() { writeContract({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'stake',            args: [walletTokenIds]               }); }
-  function doUnstake()  { writeContract({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'unstake',          args: [BigInt(cappedUnstake)]        }); }
-  function doClaim()    { writeContract({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'claim',            args: []                              }); }
+  const loading = busy;
+
+  // Single-call action (claim / unstake): submit, then track confirmation.
+  async function runSingle(label: string, submit: () => Promise<`0x${string}`>) {
+    if (!address) return;
+    setBusy(true); setWriteErr(null);
+    try {
+      const hash = await submit();
+      const { done } = track({ hash, label, onConfirmed: () => refetch() });
+      const res = await done;
+      if (res.status !== 'confirmed') setWriteErr(new Error(res.error ?? 'Transaction failed'));
+    } catch (e) {
+      setWriteErr(e as Error);
+    } finally { setBusy(false); }
+  }
+
+  // Approve (if needed) + stake — batched into one wallet confirmation when the
+  // wallet supports EIP-5792, otherwise approve→confirm→stake sequentially.
+  async function doStakeAll() {
+    if (!address) return;
+    setBusy(true); setWriteErr(null);
+    try {
+      const calls: Call[] = [];
+      if (!isApproved) calls.push({
+        to: CONTRACTS.BEAR_NFT,
+        data: encodeFunctionData({ abi: BEAR_NFT_ABI, functionName: 'setApprovalForAll', args: [CONTRACTS.BEAR_STAKING, true] }),
+      });
+      calls.push({
+        to: CONTRACTS.BEAR_STAKING,
+        data: encodeFunctionData({ abi: BEAR_STAKING_ABI, functionName: 'stake', args: [stakeIds] }),
+      });
+      await runCalls(config, {
+        account: address as `0x${string}`,
+        calls,
+        label: `${isApproved ? 'Stake' : 'Approve & stake'} ${stakeIds.length} NFT${stakeIds.length > 1 ? 's' : ''}`,
+        track,
+      });
+      refetch();
+    } catch (e) {
+      setWriteErr(e as Error);
+    } finally { setBusy(false); }
+  }
+
+  function doUnstake() {
+    runSingle(`Unstake ${cappedUnstake} NFT${cappedUnstake > 1 ? 's' : ''}`, () =>
+      writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'unstake', args: [BigInt(cappedUnstake)] }));
+  }
+  function doClaim() {
+    runSingle('Claim BTBB rewards', () =>
+      writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'claim', args: [] }));
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -358,18 +432,32 @@ function StakeTab({ address }: { address?: string }) {
 
         {address ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Stake flow */}
+            {/* Stake flow — choose how many, then approve (if needed) + stake in one batch */}
             {myBalance > 0 && (
-              !isApproved
-                ? <PrimaryBtn label={loading ? 'Approving…' : 'Approve NFTs for staking'} icon="check" loading={loading} onClick={doApprove}/>
-                : <>
-                    <PrimaryBtn label={loading ? 'Staking…' : `Stake ${Math.min(myBalance, STAKE_BATCH)} NFT${Math.min(myBalance, STAKE_BATCH) > 1 ? 's' : ''}`} icon="layers" loading={loading} disabled={walletTokenIds.length === 0} onClick={doStakeAll}/>
-                    {myBalance > STAKE_BATCH && (
-                      <div style={{ color: btb.textMuted, fontSize: 11, textAlign: 'center' }}>
-                        Staking first {STAKE_BATCH} of {myBalance}. Run again to stake the rest.
-                      </div>
-                    )}
-                  </>
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 12px', flexShrink: 0 }}>
+                    <button onClick={() => setStakeQty(stakeCount - 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
+                    <input
+                      value={stakeStr === '' ? String(maxStakeable) : stakeStr}
+                      onChange={e => setStakeStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                      onBlur={() => setStakeStr(String(stakeCount))}
+                      inputMode="numeric" aria-label="Stake quantity"
+                      style={{ width: 48, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', color: btb.text, fontSize: 18, fontWeight: 700, fontFamily: 'inherit' }}/>
+                    <button onClick={() => setStakeQty(stakeCount + 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
+                  </div>
+                  <PrimaryBtn
+                    label={loading
+                      ? (isApproved ? 'Staking…' : 'Approving & staking…')
+                      : `${isApproved ? 'Stake' : 'Approve & stake'} ${stakeCount}`}
+                    icon="layers" loading={loading} disabled={walletTokenIds.length === 0} onClick={doStakeAll}/>
+                </div>
+                <div style={{ color: btb.textMuted, fontSize: 11, textAlign: 'center' }}>
+                  {myBalance > STAKE_BATCH
+                    ? `Up to ${STAKE_BATCH} per tx — ${myBalance} in wallet. Stake the rest in another tx.`
+                    : `${myBalance} NFT${myBalance > 1 ? 's' : ''} in wallet · tap − / + or type a number`}
+                </div>
+              </>
             )}
 
             {/* Unstake flow */}

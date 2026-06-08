@@ -3,6 +3,7 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { makeConfig } from '@/lib/wagmi';
+import { TxProvider } from '@/lib/TxTracker';
 import { ReactNode, useState } from 'react';
 
 // Public Convex URL — hardcoded fallback so Netlify SSG doesn't crash when
@@ -31,7 +32,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <ConvexProvider client={convex}>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          {children}
+          <TxProvider>
+            {children}
+          </TxProvider>
         </QueryClientProvider>
       </WagmiProvider>
     </ConvexProvider>
