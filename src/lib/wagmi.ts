@@ -22,9 +22,10 @@ export function makeConfig() {
     chains: SUPPORTED_CHAINS,
     transports: { [mainnet.id]: MAINNET_TRANSPORT },
     connectors: [
-      // MetaMask SDK — handles mobile deep-linking (no window.ethereum needed).
+      // MetaMask — handles mobile deep-linking (no window.ethereum needed).
       // On desktop with the extension, this still uses the injected provider.
-      metaMask({ dappMetadata: { name: DAPP_METADATA.name, url: DAPP_METADATA.url } }),
+      // wagmi v3 / @metamask/connect-evm: `dapp` replaces the old `dappMetadata`.
+      metaMask({ dapp: { name: DAPP_METADATA.name, url: DAPP_METADATA.url } }),
       // WalletConnect v2 — explicit `showQrModal: true` so the wallet picker
       // actually opens on every device (including mobile browsers).
       walletConnect({ projectId, showQrModal: true, metadata: DAPP_METADATA }),

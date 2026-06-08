@@ -1,5 +1,5 @@
 'use client';
-import { useConnect, useAccount } from 'wagmi';
+import { useConnect, useConnectors, useConnection } from 'wagmi';
 import { useEffect, useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
@@ -26,8 +26,10 @@ const WALLETS: WalletDef[] = [
 ];
 
 export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; onImport?: (address: string) => void }) {
-  const { connect, connectors, isPending, error } = useConnect();
-  const { isConnected } = useAccount();
+  // wagmi v3: the connector list moved off `useConnect()` to its own hook.
+  const { connect, isPending, error } = useConnect();
+  const connectors = useConnectors();
+  const { isConnected } = useConnection();
   const [importAddr, setImportAddr] = useState('');
   const importValid = isValidAddress(importAddr);
 
@@ -46,7 +48,9 @@ export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; 
       c.name.toLowerCase().includes(w.id) ||
       c.id.toLowerCase().includes(w.connectorId.toLowerCase())
     ) ?? connectors[0];
-    if (connector) connect({ connector });
+    // Request mainnet up front so the wallet connects on chain 1 instead of
+    // whatever network it was last left on.
+    if (connector) connect({ connector, chainId: 1 });
   }
 
   return (

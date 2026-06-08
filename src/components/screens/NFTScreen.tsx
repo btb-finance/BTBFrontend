@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useAccount, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useConnection, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useMutation } from 'convex/react';
 import { parseEther, formatUnits } from 'viem';
 import { Glass } from '../Glass';
@@ -32,18 +32,18 @@ function PrimaryBtn({ label, icon, loading, disabled, onClick, green }: {
   const active = !disabled && !loading;
   return (
     <button onClick={onClick} disabled={!active} style={{
-      flex: 1, height: 54, borderRadius: 18, border: 'none',
+      flex: 1, width: '100%', height: 60, borderRadius: 18, border: 'none',
       cursor: active ? 'pointer' : 'default',
       background: !active ? 'rgba(255,255,255,0.07)'
         : green ? 'linear-gradient(135deg,#52E3A4,#1aad77)'
         : 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
       color: !active ? btb.textDim : '#fff',
-      fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+      fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
       boxShadow: !active ? 'none' : green ? '0 8px 20px rgba(82,227,164,0.3)' : '0 8px 20px rgba(255,255,255,0.12)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       opacity: loading ? 0.75 : 1, transition: 'opacity 0.2s',
     }}>
-      {loading ? <><div style={spinStyle}/>{label}</> : <><Icon name={icon} size={16}/>{label}</>}
+      {loading ? <><div style={spinStyle}/>{label}</> : <><Icon name={icon} size={18}/>{label}</>}
     </button>
   );
 }
@@ -60,7 +60,9 @@ function ErrBox({ err }: { err: Error | null }) {
 // ─── Mint tab ────────────────────────────────────────────────────────────────
 
 function MintTab({ address }: { address?: string }) {
-  const [qty, setQty] = useState(1);
+  // qty is backed by a string so the input can be cleared/typed freely
+  // (e.g. type "200"); `qty` below is the clamped number actually minted.
+  const [qtyStr, setQtyStr] = useState('1');
   const addr = (address ?? ZERO) as `0x${string}`;
 
   const { data, refetch, isLoading } = useReadContracts({
@@ -79,7 +81,11 @@ function MintTab({ address }: { address?: string }) {
   const userBalance = address ? Number(data?.[3]?.result ?? 0) : 0;
   const priceEth    = parseFloat(formatUnits(priceWei, 18));
   const pct         = (minted / 100_000) * 100;
-  const maxQty      = Math.min(remaining, 20);
+  // 200 NFTs mint in a single tx, so that's the per-tx cap (or whatever's left).
+  const maxQty      = Math.max(1, Math.min(remaining || 200, 200));
+  // Clamped quantity actually used for cost, the tx, and XP.
+  const qty         = Math.min(maxQty, Math.max(1, parseInt(qtyStr || '1', 10) || 1));
+  const setQty      = (n: number) => setQtyStr(String(Math.min(maxQty, Math.max(1, n))));
 
   const awardXp = useMutation(api.users.awardXp);
   const { writeContract, data: txHash, isPending, error: writeErr, reset } = useWriteContract();
@@ -109,7 +115,7 @@ function MintTab({ address }: { address?: string }) {
       {/* NFT artwork card */}
       <Glass padding={16} radius={28} strong>
         <div style={{
-          aspectRatio: '1', borderRadius: 20, position: 'relative', overflow: 'hidden',
+          height: 120, borderRadius: 20, position: 'relative', overflow: 'hidden',
           background: 'linear-gradient(135deg,#0F172A 0%,#334155 35%,#FFFFFF 65%,rgba(255,255,255,0.7) 85%,#F59E0B 100%)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25), 0 16px 40px rgba(255,255,255,0.2)',
         }}>
@@ -167,16 +173,46 @@ function MintTab({ address }: { address?: string }) {
 
       {/* Quantity selector */}
       <Glass padding={16} radius={22}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <span style={{ color: btb.text, fontSize: 15, fontWeight: 600 }}>Quantity</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {['-', '+'].map(op => (
-              <button key={op} onClick={() => setQty(q => op === '-' ? Math.max(1, q - 1) : Math.min(maxQty, q + 1))}
-                style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 20, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {op}
-              </button>
-            )).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key="n" style={{ color: btb.text, fontSize: 20, fontWeight: 700, minWidth: 28, textAlign: 'center' }}>{qty}</span>, el], [] as React.ReactNode[])}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={() => setQty(qty - 1)}
+              style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              −
+            </button>
+            <input
+              value={qtyStr}
+              onChange={(e) => setQtyStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+              onBlur={() => setQtyStr(String(qty))}
+              inputMode="numeric"
+              aria-label="Mint quantity"
+              style={{
+                width: 70, height: 38, textAlign: 'center',
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+                borderRadius: 12, color: btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit',
+                outline: 'none', MozAppearance: 'textfield',
+              }}
+            />
+            <button onClick={() => setQty(qty + 1)}
+              style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              +
+            </button>
           </div>
+        </div>
+        {/* Quick-select — 200 is the max that fits in a single mint tx. */}
+        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+          {[1, 10, 50, 100, maxQty].filter((v, i, a) => a.indexOf(v) === i).map(v => (
+            <button key={v} onClick={() => setQty(v)}
+              style={{
+                flex: 1, height: 34, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 13, fontWeight: 700,
+                background: qty === v ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${qty === v ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                color: qty === v ? btb.amber : btb.textMuted,
+              }}>
+              {v === maxQty && v > 100 ? `Max ${v}` : v}
+            </button>
+          ))}
         </div>
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <span style={{ color: btb.textMuted, fontSize: 13 }}>Total cost</span>
@@ -196,7 +232,7 @@ function MintTab({ address }: { address?: string }) {
       <PrimaryBtn
         label={loading ? 'Minting…' : !address ? 'Connect wallet' : remaining === 0 ? 'Sold out' : `Mint ${qty} NFT${qty > 1 ? 's' : ''}`}
         icon="bolt" loading={loading} disabled={!address || remaining === 0}
-        onClick={doMint}
+        onClick={doMint} green
       />
     </div>
   );
@@ -289,15 +325,15 @@ function StakeTab({ address }: { address?: string }) {
           </div>
         </div>
         <button onClick={doClaim} disabled={!address || pendingBtbb < 0.000001 || loading} style={{
-          marginTop: 16, width: '100%', height: 48, borderRadius: 16, border: 'none',
+          marginTop: 16, width: '100%', height: 60, borderRadius: 18, border: 'none',
           cursor: address && pendingBtbb >= 0.000001 && !loading ? 'pointer' : 'default',
           background: address && pendingBtbb >= 0.000001 ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
           color: address && pendingBtbb >= 0.000001 ? '#fff' : btb.textDim,
-          fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+          fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
           boxShadow: address && pendingBtbb >= 0.000001 ? '0 6px 16px rgba(82,227,164,0.25)' : 'none',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}>
-          {loading ? <><div style={spinStyle}/>Processing…</> : <><Icon name="receive" size={16}/>Claim rewards</>}
+          {loading ? <><div style={spinStyle}/>Processing…</> : <><Icon name="receive" size={18}/>Claim rewards</>}
         </button>
       </Glass>
 
@@ -380,7 +416,7 @@ function StakeTab({ address }: { address?: string }) {
 // ─── NFTScreen ───────────────────────────────────────────────────────────────
 
 export function NFTScreen() {
-  const { address } = useAccount();
+  const { address } = useConnection();
   const [tab, setTab] = useState<'mint' | 'stake'>('mint');
 
   return (

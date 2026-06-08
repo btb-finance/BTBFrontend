@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useConnection, useDisconnect, useSwitchChain } from 'wagmi';
 import { Background } from './Background';
 import { TabBar, Tab } from './TabBar';
 import { ConnectScreen } from './screens/ConnectScreen';
@@ -104,12 +104,21 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
 export function MiniApp() {
   const [mounted, setMounted] = useState(false);
-  const { address } = useAccount();
+  const { address, chainId, status } = useConnection();
   const { disconnect } = useDisconnect();
+  const { switchChain } = useSwitchChain();
   // Read-only address — set when the user "imports" a wallet without connecting.
   // Falls back to the connected wagmi address when both are present.
   const [readOnlyAddress, setReadOnlyAddress] = useState<string | undefined>();
   useEffect(() => { setMounted(true); }, []);
+
+  // The app lives entirely on Ethereum mainnet. Locking the wagmi config to
+  // chain 1 only changes how the app reads/writes — it does NOT move the
+  // wallet. If the wallet connects on another network (Polygon, BSC, Base…),
+  // nudge it back to mainnet so transactions prompt on the right chain.
+  useEffect(() => {
+    if (status === 'connected' && chainId !== 1) switchChain({ chainId: 1 });
+  }, [status, chainId, switchChain]);
 
   const effectiveAddress = address ?? readOnlyAddress;
   const isReadOnly = !address && !!readOnlyAddress;

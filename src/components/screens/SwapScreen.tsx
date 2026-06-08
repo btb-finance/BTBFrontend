@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useAccount, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi';
+import { useConnection, useSendTransaction, useWaitForTransactionReceipt, useReadContract, useWriteContract } from 'wagmi';
 import { useMutation } from 'convex/react';
 import { erc20Abi } from 'viem';
 import { Glass } from '../Glass';
@@ -135,7 +135,7 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 
 export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
   const { tokens } = useTokenStore();
-  const { address } = useAccount();
+  const { address } = useConnection();
   const { sendTransactionAsync } = useSendTransaction();
   const { writeContractAsync } = useWriteContract();
   // KyberSwap API needs an explicit chain in its URL — we're mainnet only.
