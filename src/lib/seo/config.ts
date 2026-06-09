@@ -44,7 +44,7 @@ export const SITE = {
   twitter: '@BTB_Finance',
   socials: {
     twitter: 'https://x.com/BTB_Finance',
-    discord: 'https://discord.gg/MYJz6KAFv',
+    discord: 'https://discord.gg/bqFEPA56Tc',
     github: 'https://github.com/btb-finance',
   },
 

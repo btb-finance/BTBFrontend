@@ -23,7 +23,7 @@ const FAQS = [
 
 const LINKS: { icon: string; color: string; label: string; sub: string; href: string }[] = [
   { icon: 'doc',     color: '#FFFFFF', label: 'Documentation', sub: 'Full protocol docs coming soon', href: 'https://github.com/btb-finance' },
-  { icon: 'discord', color: '#5865F2', label: 'Discord',       sub: 'Join the community',             href: 'https://discord.gg/MYJz6KAFv' },
+  { icon: 'discord', color: '#5865F2', label: 'Discord',       sub: 'Join the community',             href: 'https://discord.gg/bqFEPA56Tc' },
   { icon: 'twitter', color: '#fff',    label: 'X / Twitter',   sub: '@BTB_Finance',                   href: 'https://x.com/BTB_Finance' },
   { icon: 'github',  color: '#fff',    label: 'GitHub',        sub: 'Open source contracts',          href: 'https://github.com/btb-finance' },
   { icon: 'mail',    color: '#52E3A4', label: 'Support',       sub: 'hello@btb.finance',              href: 'mailto:hello@btb.finance' },

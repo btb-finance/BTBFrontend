@@ -49,6 +49,8 @@ export function EarnScreen() {
 
   return (
     <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <BetaNotice/>
+
       {/* header */}
       <div style={{ padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Earn</div>
@@ -152,6 +154,31 @@ export function EarnScreen() {
       </Glass>
 
       {selected && <ManageSheet pool={selected} onClose={() => setSelected(null)}/>}
+    </div>
+  );
+}
+
+const SUGGEST_URL = 'https://discord.gg/bqFEPA56Tc';
+
+function BetaNotice() {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => { setHidden(localStorage.getItem('earn-beta-dismissed') === '1'); }, []);
+  if (hidden) return null;
+  return (
+    <div style={{ background: 'rgba(255,179,107,0.1)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 16, padding: '12px 14px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <div style={{ flexShrink: 0, marginTop: 1 }}><Icon name="bolt" size={16} color="#FFB36B"/></div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: '#FFB36B', fontSize: 13, fontWeight: 700 }}>Earn is in beta</div>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 3, lineHeight: 1.5 }}>
+          We&apos;re actively making this better — some things may not work as expected yet. Hit a bug or have an idea?{' '}
+          <a href={SUGGEST_URL} target="_blank" rel="noreferrer" style={{ color: '#FFB36B', fontWeight: 700, textDecoration: 'none' }}>Tell us ↗</a> — all suggestions welcome.
+        </div>
+      </div>
+      <button
+        onClick={() => { try { localStorage.setItem('earn-beta-dismissed', '1'); } catch {} setHidden(true); }}
+        aria-label="Dismiss"
+        style={{ flexShrink: 0, background: 'none', border: 'none', color: btb.textMuted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 2 }}
+      >×</button>
     </div>
   );
 }

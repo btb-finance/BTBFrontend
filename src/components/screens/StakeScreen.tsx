@@ -93,7 +93,7 @@ export function StakeScreen() {
         <div style={{ flex: 1 }}>
           <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>Want early access?</div>
           <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
-            Follow <a href="https://x.com/BTB_Finance" target="_blank" rel="noreferrer" style={{ color: btb.text, textDecoration: 'underline' }}>@BTB_Finance</a> or join the <a href="https://discord.gg/MYJz6KAFv" target="_blank" rel="noreferrer" style={{ color: btb.text, textDecoration: 'underline' }}>Discord</a> for the launch announcement.
+            Follow <a href="https://x.com/BTB_Finance" target="_blank" rel="noreferrer" style={{ color: btb.text, textDecoration: 'underline' }}>@BTB_Finance</a> or join the <a href="https://discord.gg/bqFEPA56Tc" target="_blank" rel="noreferrer" style={{ color: btb.text, textDecoration: 'underline' }}>Discord</a> for the launch announcement.
           </div>
         </div>
       </Glass>
