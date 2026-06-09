@@ -1,11 +1,12 @@
 'use client';
 import { Icon } from './Icon';
 
-type Tab = 'home' | 'swap' | 'portfolio' | 'nft' | 'stake';
+type Tab = 'home' | 'swap' | 'earn' | 'portfolio' | 'nft' | 'stake';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'home',      label: 'Home',      icon: 'home' },
   { id: 'swap',      label: 'Swap',      icon: 'swap' },
+  { id: 'earn',      label: 'Earn',      icon: 'vault' },
   { id: 'portfolio', label: 'Portfolio', icon: 'pie' },
   { id: 'nft',       label: 'NFT',       icon: 'nft' },
   { id: 'stake',     label: 'Agent',     icon: 'bolt' },

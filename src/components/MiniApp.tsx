@@ -6,6 +6,7 @@ import { TabBar, Tab } from './TabBar';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { SwapScreen } from './screens/SwapScreen';
+import { EarnScreen } from './screens/EarnScreen';
 import { PortfolioScreen } from './screens/PortfolioScreen';
 import { NFTScreen } from './screens/NFTScreen';
 import { StakeScreen } from './screens/StakeScreen';
@@ -53,6 +54,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
                           onReceive={() => setShowReceive(true)} onSend={() => setShowSend(true)}
                           onDocs={() => setOverlay('docs')} onProducts={() => setOverlay('products')}/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken}/>;
+      case 'earn':      return <EarnScreen/>;
       case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); setShowSend(true); }} onSwap={(t) => { setSwapToken(t); setScreen('swap' as any); }}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen/>;

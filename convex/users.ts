@@ -107,8 +107,10 @@ export const awardXp = mutation({
       .query("users")
       .withIndex("by_wallet", (q) => q.eq("walletAddress", addr))
       .unique();
-    // Clamp so a bad client can't send absurd values.
-    const safe = Math.max(0, Math.min(amount, 5000));
+    // Clamp so a bad client can't send absurd values. The largest legitimate
+    // single award is a full 200-NFT mint at 1000 XP each = 200,000, so cap
+    // there (was 5000, which silently truncated any mint of 6+ Bears).
+    const safe = Math.max(0, Math.min(amount, 200_000));
     if (!user) return { ok: false };
     await ctx.db.patch(user._id, { points: user.points + safe });
     return { ok: true, awarded: safe, newPoints: user.points + safe };
