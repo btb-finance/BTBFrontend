@@ -12,7 +12,9 @@ export const FEE_TIERS = [100, 500, 3000, 10000] as const;
 export const MAX_UINT128 = (1n << 128n) - 1n;
 
 /** Canonical WETH9 on Ethereum mainnet — the wrapped-ETH token in V3 pools. */
-export const WETH = '0xC02aaa39b223FE8D0A0e5C4F27eAD9083C756Cc2' as `0x${string}`;
+// NOTE: must be the EXACT EIP-55 checksum — viem rejects mixed-case addresses
+// with a wrong checksum when encoding call arguments.
+export const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' as `0x${string}`;
 
 export function isWeth(addr: string): boolean {
   return addr.toLowerCase() === WETH.toLowerCase();

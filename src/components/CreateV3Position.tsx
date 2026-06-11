@@ -11,7 +11,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import {
-  fetchPoolForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
+  fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
   TICK_SPACINGS, MIN_TICK, MAX_TICK, FEE_TIERS, isWeth, type MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
@@ -48,7 +48,7 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
   const toTick = (p: number) => Math.round(Math.log(p * 10 ** (pool.decimals1 - pool.decimals0)) / ln);
   const lo = parseFloat(minStr);
   const hi = parseFloat(maxStr);
-  let tickLower = isFinite(lo) && lo > 0 ? nearestUsableTick(toTick(lo), spacing) : nearestUsableTick(MIN_TICK, spacing);
+  const tickLower = isFinite(lo) && lo > 0 ? nearestUsableTick(toTick(lo), spacing) : nearestUsableTick(MIN_TICK, spacing);
   let tickUpper = isFinite(hi) && hi > 0 ? nearestUsableTick(toTick(hi), spacing) : nearestUsableTick(MAX_TICK, spacing);
   if (tickUpper <= tickLower) tickUpper = tickLower + spacing;
   return { tickLower, tickUpper };
@@ -75,7 +75,8 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
   const [fee, setFee] = useState(
     initialFee !== undefined && (FEE_TIERS as readonly number[]).includes(initialFee) ? initialFee : 3000,
   );
-  const [pool, setPool] = useState<MintPool | null>(null);
+  // All fee tiers are fetched in one batch up front — switching tiers is instant.
+  const [pools, setPools] = useState<Record<number, MintPool> | null>(null);
   const [loadingPool, setLoadingPool] = useState(true);
   const [poolErr, setPoolErr] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -92,6 +93,8 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
   const [history, setHistory] = useState<PoolDay[] | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
 
+  const pool = pools?.[fee] ?? null;
+
   // Which sorted token (if any) is WETH — lets the user deposit native ETH.
   const wethSide: 0 | 1 | null = pool ? (isWeth(pool.token0) ? 0 : isWeth(pool.token1) ? 1 : null) : null;
   const ethMode = wethSide !== null && useEth;
@@ -100,15 +103,25 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
 
   useEffect(() => {
     let live = true;
-    setLoadingPool(true); setPool(null); setPoolErr(null);
+    setLoadingPool(true); setPools(null); setPoolErr(null);
     const client = getPublicClient(config);
     if (!client) { setLoadingPool(false); setPoolErr('No RPC client'); return; }
-    fetchPoolForMint(client, tokenA, tokenB, fee)
-      .then((p) => { if (live) setPool(p); })
+    fetchPoolsForMint(client, tokenA, tokenB)
+      .then((record) => {
+        if (!live) return;
+        setPools(record);
+        // If the preselected tier has no pool, jump to the deepest existing one.
+        setFee((f) => {
+          if (record[f]?.exists) return f;
+          const best = FEE_TIERS.filter((t) => record[t]?.exists)
+            .sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0];
+          return best ?? f;
+        });
+      })
       .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
       .finally(() => { if (live) setLoadingPool(false); });
     return () => { live = false; };
-  }, [config, tokenA, tokenB, fee, retryNonce]);
+  }, [config, tokenA, tokenB, retryNonce]);
 
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
@@ -301,14 +314,18 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
         {/* Fee tier */}
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Fee tier</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {FEE_TIERS.map((f) => (
-            <button key={f} onClick={() => setFee(f)} style={{
-              flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-              background: fee === f ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
-              color: fee === f ? '#fff' : btb.textMuted,
-            }}>{FEE_LABEL[f]}</button>
-          ))}
+          {FEE_TIERS.map((f) => {
+            const missing = !!pools && !pools[f]?.exists;
+            return (
+              <button key={f} onClick={() => setFee(f)} disabled={missing} style={{
+                flex: 1, height: 38, borderRadius: 12, cursor: missing ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                background: fee === f ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
+                color: fee === f ? '#fff' : btb.textMuted,
+                opacity: missing ? 0.35 : 1,
+              }} title={missing ? 'No pool at this fee tier' : undefined}>{FEE_LABEL[f]}</button>
+            );
+          })}
         </div>
 
         {loadingPool ? (
@@ -346,9 +363,14 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
                   points={history.map((d) => d.price0)}
                   min={rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null}
                   max={rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null}
-                  current={price}/>
+                  current={price}
+                  onChange={(lo, hi) => {
+                    setRangeMode('custom');
+                    setMinStr(fmtPrice(lo));
+                    setMaxStr(fmtPrice(hi));
+                  }}/>
                 <div style={{ color: btb.textDim, fontSize: 10, textAlign: 'center', padding: '4px 0 6px' }}>
-                  30-day price · {pool.symbol1} per {pool.symbol0} · band = your range
+                  30-day price · {pool.symbol1} per {pool.symbol0} · drag the handles to set your range
                 </div>
               </div>
             )}
