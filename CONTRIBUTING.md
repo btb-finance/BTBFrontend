@@ -1,7 +1,5 @@
 # Contributing to BTB Finance
 
-BTB is building the **everything app for DeFi** — manage LPs, vote-earn, lending, borrowing, and vaults across all protocols (Uniswap, Aerodrome, Blackhole, Ramses, Aave, Morpho, Beefy, and more) from one screen. See the [README](./README.md) for the full vision.
-
 We're looking for **developers, designers, testers, and AI enthusiasts** who want to help improve BTB Finance.
 
 If you enjoy building with AI tools and can spend some time improving our products, we'd love your help.
@@ -124,4 +122,4 @@ Pull requests that duplicate existing shared code (custom buttons, ad-hoc styles
 
 Open a [GitHub issue](https://github.com/btb-finance/BTBFrontend/issues) or start a discussion. Whether it's a bug report, a design suggestion, or a new protocol idea — all contributions are welcome.
 
-**Fork the repo, submit a pull request, and start building with us.** 🚀
+**Fork the repo, submit a pull request, and start building with us.** 
