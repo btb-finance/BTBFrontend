@@ -29,9 +29,9 @@ const posKey = (p: LiquidityPosition) => `${p.protocol}-${p.id.toString()}`;
 /**
  * The connected wallet's live Uniswap V3 + V4 liquidity positions (Ethereum
  * mainnet) with Collect/Add/Withdraw actions. Shared by the Earn and Portfolio
- * screens. Renders nothing when there are no positions.
+ * screens. Renders nothing when there are no positions (unless `showEmpty`).
  */
-export function LpPositions() {
+export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {}) {
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -46,14 +46,13 @@ export function LpPositions() {
     try {
       const client = getPublicClient(config);
       if (!client) return;
-      // Each protocol degrades independently — one failing read can't blank the other.
-      const [v3, v4] = await Promise.allSettled([
-        fetchV3Positions(client, address as `0x${string}`),
-        fetchV4Positions(client, address as `0x${string}`),
-      ]);
-      setPositions([
-        ...(v3.status === 'fulfilled' ? v3.value : []),
-        ...(v4.status === 'fulfilled' ? v4.value : []),
+      // Each protocol renders as soon as it resolves and degrades
+      // independently — a slow/failing V4 log scan can't hold up the V3 list.
+      const merge = (protocol: LiquidityPosition['protocol']) => (items: LiquidityPosition[]) =>
+        setPositions((prev) => [...prev.filter((p) => p.protocol !== protocol), ...items]);
+      await Promise.allSettled([
+        fetchV3Positions(client, address as `0x${string}`).then(merge('uniswap-v3')),
+        fetchV4Positions(client, address as `0x${string}`).then(merge('uniswap-v4')),
       ]);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
@@ -78,8 +77,22 @@ export function LpPositions() {
     finally { setBusyId(null); }
   }
 
-  if (!address) return null;
-  if (!loading && positions.length === 0) return null;
+  if (!address) {
+    return showEmpty ? (
+      <Glass padding={16} radius={18}>
+        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>Connect your wallet to see your LP positions.</div>
+      </Glass>
+    ) : null;
+  }
+  if (!loading && positions.length === 0) {
+    return showEmpty ? (
+      <Glass padding={16} radius={18}>
+        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>
+          No LP positions yet — add one from the Earn tab.
+        </div>
+      </Glass>
+    ) : null;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

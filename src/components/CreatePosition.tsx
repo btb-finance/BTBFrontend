@@ -12,7 +12,7 @@ import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
-  liquidityForAmounts, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
+  liquidityForAmounts, getAmountsForLiquidity, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
   TICK_SPACINGS, MIN_TICK, MAX_TICK, FEE_TIERS, isWeth, WETH,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier,
   type MintPool, type V4MintPool, type PoolDay,
@@ -67,8 +67,13 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * V4 (v4PoolId given): same flow against the singleton PoolManager — the pool
  * (with its fee/tickSpacing/hooks key) is fixed by the id, deposits go through
  * Permit2, and native-ETH pools are paid in ETH directly.
+ *
+ * `simulate` opens the same sheet as a free earnings simulator: step 2 takes a
+ * USD amount (default $1,000) instead of wallet deposits and shows the
+ * estimated daily/monthly/yearly fees for the chosen range — no wallet needed.
+ * One tap switches to the real deposit flow with the same range.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, simulate, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Fee tier of the pool the user clicked — preselected when valid (V3). */
@@ -77,6 +82,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   fees24hUsd?: number;
   /** V4 mint: the bytes32 pool id from the Earn list. */
   v4PoolId?: `0x${string}`;
+  /** Open as the earnings simulator (USD amount, no wallet) instead of a deposit. */
+  simulate?: boolean;
   onClose: () => void; onDone?: () => void;
 }) {
   const { address } = useConnection();
@@ -106,6 +113,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
   const [tab, setTab] = useState<'range' | 'deposit'>('range');
+  // Simulator mode: step 2 takes a USD amount instead of wallet deposits.
+  const [simOnly, setSimOnly] = useState(!!simulate);
+  const [simUsdStr, setSimUsdStr] = useState('1000');
 
   const isV4 = v4PoolId !== undefined;
   const pool = pools?.[fee] ?? null;
@@ -202,15 +212,40 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     [pool, ticks],
   );
 
-  // user inputs EITHER token amount; pair the other side at the current price
+  // Token USD prices — a missing one is derived from the pool price.
+  const tokenUsd = useMemo(() => {
+    if (!pool) return null;
+    let p0 = usd[pool.token0.toLowerCase()];
+    let p1 = usd[pool.token1.toLowerCase()];
+    if (!p0 && p1 && price > 0) p0 = price * p1;
+    if (!p1 && p0 && price > 0) p1 = p0 / price;
+    return p0 && p1 ? { p0, p1 } : null;
+  }, [pool, usd, price]);
+
+  // Deposit amounts. Normal mode: the user types EITHER token amount and the
+  // other side is paired at the current price. Simulator mode: a USD amount is
+  // split into both tokens at the ratio the range requires.
   const { add0, add1 } = useMemo(() => {
-    if (!pool || !pool.exists || !ticks || !amt.str || parseFloat(amt.str) <= 0) return { add0: 0n, add1: 0n };
+    const zero = { add0: 0n, add1: 0n };
+    if (!pool || !pool.exists || !ticks) return zero;
+    if (simOnly) {
+      const target = parseFloat(simUsdStr);
+      if (!isFinite(target) || target <= 0 || !tokenUsd) return zero;
+      // unit liquidity → token amounts → USD value, then scale to the target
+      const [a0, a1] = getAmountsForLiquidity(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, 10n ** 18n);
+      const unitUsd = parseFloat(formatUnits(a0, pool.decimals0)) * tokenUsd.p0
+        + parseFloat(formatUnits(a1, pool.decimals1)) * tokenUsd.p1;
+      if (unitUsd <= 0) return zero;
+      const k = BigInt(Math.round((target / unitUsd) * 1e6)); // 1e6 fixed-point scale
+      return { add0: (a0 * k) / 1_000_000n, add1: (a1 * k) / 1_000_000n };
+    }
+    if (!amt.str || parseFloat(amt.str) <= 0) return zero;
     try {
       const raw = parseUnits(amt.str, amt.side === 0 ? pool.decimals0 : pool.decimals1);
       const r = addAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, amt.side, raw);
       return { add0: r.amount0, add1: r.amount1 };
-    } catch { return { add0: 0n, add1: 0n }; }
-  }, [pool, ticks, amt]);
+    } catch { return zero; }
+  }, [pool, ticks, amt, simOnly, simUsdStr, tokenUsd]);
 
   // ── Earnings simulation (Metrix-style) ─────────────────────────────────────
   // est. daily fees = pool's avg daily LP fees × your share of in-range
@@ -230,13 +265,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     const share = inRange && pool.liquidity + L > 0n ? Number(L) / Number(pool.liquidity + L) : 0;
     const daily = avgFees * share;
 
-    // deposit value in USD — derive a missing token price from the pool price
-    let p0 = usd[pool.token0.toLowerCase()];
-    let p1 = usd[pool.token1.toLowerCase()];
-    if (!p0 && p1 && price > 0) p0 = price * p1;
-    if (!p1 && p0 && price > 0) p1 = p0 / price;
-    const depositUsd = (p0 && p1)
-      ? parseFloat(formatUnits(add0, pool.decimals0)) * p0 + parseFloat(formatUnits(add1, pool.decimals1)) * p1
+    // deposit value in USD
+    const depositUsd = tokenUsd
+      ? parseFloat(formatUnits(add0, pool.decimals0)) * tokenUsd.p0 + parseFloat(formatUnits(add1, pool.decimals1)) * tokenUsd.p1
       : 0;
 
     return {
@@ -244,7 +275,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       apr: depositUsd > 0 ? (daily * 365 / depositUsd) * 100 : null,
       depositUsd, sharePct: share * 100, inRange,
     };
-  }, [pool, ticks, add0, add1, history, usd, fees24hUsd, price]);
+  }, [pool, ticks, add0, add1, history, fees24hUsd, tokenUsd]);
 
   // wallet balances of both tokens (+ native ETH)
   useEffect(() => {
@@ -273,8 +304,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
 
   const effBal0 = ethMode && nativeSide === 0 ? ethBal : bal0;
   const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
-  const short0 = add0 > effBal0;
-  const short1 = add1 > effBal1;
+  // The simulator doesn't spend anything — wallet balances don't apply.
+  const short0 = !simOnly && add0 > effBal0;
+  const short1 = !simOnly && add1 > effBal1;
 
   async function mint() {
     if (!address || !pool || !ticks) return;
@@ -305,6 +337,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   }
 
   const canMint = !!pool?.exists && !!ticks && (add0 > 0n || add1 > 0n) && !short0 && !short1 && !busy;
+
+  // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
+  // CTA is hidden for them. The simulated amounts prefill the deposit inputs.
+  const canSwitchToAdd = !isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks));
+  function switchToAdd() {
+    if (pool && (add0 > 0n || add1 > 0n)) {
+      const side: 0 | 1 = need === 'token1' ? 1 : 0;
+      const raw = side === 0 ? add0 : add1;
+      if (raw > 0n) setAmt({ side, str: formatUnits(raw, side === 0 ? pool.decimals0 : pool.decimals1) });
+    }
+    setSimOnly(false);
+  }
 
   const inputStyle = (disabled: boolean): CSSProperties => ({
     width: '100%', height: 48, background: disabled ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)',
@@ -350,14 +394,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 340, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '88vh', overflowY: 'auto' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
-        <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Add liquidity</div>
+        <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate LP earnings' : 'Add liquidity'}</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
           {pool ? `${pool.symbol0} / ${pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
         </div>
 
         {/* Step tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {([['range', '1 · Price range'], ['deposit', '2 · Deposit']] as const).map(([t, label]) => {
+          {([['range', '1 · Price range'], ['deposit', simOnly ? '2 · Earnings' : '2 · Deposit']] as const).map(([t, label]) => {
             const active = tab === t;
             const disabled = t === 'deposit' && !(pool?.exists && ticks);
             return (
@@ -485,18 +529,50 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               </div>
             </Glass>
 
-            {wethSide !== null && (
-              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
+            {simOnly ? (
+              <>
+                {/* Simulator — USD amount instead of wallet deposits */}
+                <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Deposit amount (USD)</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  {[100, 1000, 10000].map((v) => (
+                    <button key={v} onClick={() => setSimUsdStr(String(v))} style={{
+                      flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                      color: simUsdStr === String(v) ? '#52E3A4' : btb.textMuted,
+                    }}>${v.toLocaleString('en-US')}</button>
+                  ))}
                 </div>
-              </div>
-            )}
+                <div style={{ position: 'relative', marginBottom: 12 }}>
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: btb.textMuted, fontSize: 18, fontWeight: 700 }}>$</span>
+                  <input
+                    value={simUsdStr}
+                    onChange={(e) => setSimUsdStr(e.target.value.replace(/[^0-9.]/g, ''))}
+                    inputMode="decimal" placeholder="1000"
+                    style={{ ...inputStyle(false), paddingLeft: 30 }}/>
+                </div>
+                {!tokenUsd && (
+                  <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
+                    No USD price data for this pair yet — try again in a moment.
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {wethSide !== null && (
+                  <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
+                    <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
+                    <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                      <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
+                    </div>
+                  </div>
+                )}
 
-            {/* Amounts — enter either side, the other is paired automatically */}
-            {renderAmountInput(0)}
-            {renderAmountInput(1)}
+                {/* Amounts — enter either side, the other is paired automatically */}
+                {renderAmountInput(0)}
+                {renderAmountInput(1)}
+              </>
+            )}
 
             {need !== 'both' && (
               <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
@@ -510,7 +586,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             )}
             {(add0 > 0n || add1 > 0n) && (
               <Glass padding={12} radius={12} soft>
-                <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 4 }}>You deposit</div>
+                <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 4 }}>{simOnly ? 'You’d deposit' : 'You deposit'}</div>
                 <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>
                   {fmtAmt(add0, pool.decimals0)} {sym0} + {fmtAmt(add1, pool.decimals1)} {sym1}
                   {sim && sim.depositUsd > 0 && <span style={{ color: btb.textMuted, fontWeight: 600 }}> (≈${sim.depositUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })})</span>}
@@ -554,6 +630,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             background: pool?.exists && ticks ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
             color: pool?.exists && ticks ? '#fff' : btb.textDim,
           }}>Next · Enter amounts</button>
+        ) : simOnly ? (
+          <>
+            {canSwitchToAdd && (
+              <button onClick={switchToAdd} style={{
+                width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
+                cursor: 'pointer', background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff',
+              }}>Add this LP</button>
+            )}
+            <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Free LP earnings simulator — no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
+            </div>
+          </>
         ) : (
           <>
             <button onClick={mint} disabled={!canMint} style={{

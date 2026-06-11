@@ -8,6 +8,13 @@ import type { LiquidityPosition } from '@/protocols/types';
 const MASK256 = (1n << 256n) - 1n;
 const Q128 = 1n << 128n;
 
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error('rpc timeout')), ms)),
+  ]);
+}
+
 /** poolId = keccak256(abi.encode(PoolKey)). */
 export function poolIdOf(key: PoolKey): `0x${string}` {
   return keccak256(encodeAbiParameters([{ type: 'tuple', components: POOL_KEY_COMPONENTS }], [key]));
@@ -46,19 +53,28 @@ export async function fetchV4Positions(
 ): Promise<LiquidityPosition[]> {
   const posm = UNISWAP_V4.positionManager;
 
-  // 1) candidate tokenIds ever transferred to the owner
+  // 1) candidate tokenIds ever transferred to the owner. Public RPCs vary in
+  //    how far back they serve logs (and some hang on big ranges), so: full
+  //    range with a hard timeout, then a recent ~6-month window as fallback.
   let candidates: bigint[];
+  const scan = (fromBlock: bigint) => client.getLogs({
+    address: posm,
+    event: ERC721_TRANSFER_EVENT,
+    args: { to: owner },
+    fromBlock,
+    toBlock: 'latest',
+  });
   try {
-    const logs = await client.getLogs({
-      address: posm,
-      event: ERC721_TRANSFER_EVENT,
-      args: { to: owner },
-      fromBlock: V4_DEPLOY_BLOCK,
-      toBlock: 'latest',
-    });
+    let logs;
+    try {
+      logs = await withTimeout(scan(V4_DEPLOY_BLOCK), 15_000);
+    } catch {
+      const head = await withTimeout(client.getBlockNumber(), 5_000);
+      logs = await withTimeout(scan(head > 1_300_000n ? head - 1_300_000n : 0n), 10_000);
+    }
     candidates = [...new Set(logs.map((l) => l.args.tokenId).filter((x): x is bigint => x !== undefined))];
   } catch {
-    return []; // RPC without historic-log support — degrade to "no V4 positions"
+    return []; // RPC without usable historic-log support — degrade to "no V4 positions"
   }
   if (candidates.length === 0) return [];
   candidates = candidates.slice(-300); // safety cap for extreme wallets

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
-import { getEarnPools, poolLink, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
+import { getEarnPools, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { LpPositions } from '../LpPositions';
 import { CreatePosition } from '../CreatePosition';
 
@@ -27,15 +27,16 @@ function apyColor(apy: number) {
 }
 
 /**
- * Where "Add LP" can mint in-app: Uniswap V3 + V4 on Ethereum mainnet. V4 is
- * limited to hookless pools — hooks can change fees/behavior in ways we can't
- * preview. Returns the CreatePosition props, or null → fall back to Uniswap.
+ * CreatePosition props for a pool. Minting in-app covers Uniswap V3 + V4 on
+ * Ethereum mainnet, with V4 limited to hookless pools — hooks can change
+ * fees/behavior in ways we can't preview. The read-only simulator works for
+ * hooked pools too (`forSimulate`). Null → not actionable.
  */
-function mintTarget(p: EarnPool): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}` } | null {
+function sheetTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}` } | null {
   if (p.chain.toLowerCase() !== 'ethereum') return null;
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
   if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1] };
-  if (p.project === 'uniswap-v4' && (!p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}` };
+  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}` };
   return null;
 }
 
@@ -43,7 +44,7 @@ export function EarnScreen() {
   const [pools, setPools]   = useState<EarnPool[]>([]);
   const [loading, setLoad]  = useState(true);
   const [error, setError]   = useState<string | null>(null);
-  const [minting, setMinting] = useState<EarnPool | null>(null);
+  const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -55,7 +56,7 @@ export function EarnScreen() {
     return () => { live = false; };
   }, []);
 
-  const mintingTarget = minting ? mintTarget(minting) : null;
+  const sheetProps = sheet ? sheetTarget(sheet.pool, sheet.simulate) : null;
 
   return (
     <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -97,7 +98,7 @@ export function EarnScreen() {
       {!loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {pools.map((p) => {
-            const target = mintTarget(p);
+            const mintable = sheetTarget(p) !== null;
             return (
               <Glass key={p.id} padding={14} radius={18}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -132,33 +133,21 @@ export function EarnScreen() {
 
                 {/* Actions — straight from the list, no intermediate page */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  {target ? (
-                    <button onClick={() => setMinting(p)} style={{
+                  {mintable && (
+                    <button onClick={() => setSheet({ pool: p, simulate: false })} style={{
                       flex: 1.5, height: 42, borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                       background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff', fontSize: 14, fontWeight: 800,
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     }}>
                       <Icon name="plus" size={16}/> Add LP
                     </button>
-                  ) : (
-                    <a href={poolLink(p)} target="_blank" rel="noreferrer" style={{ flex: 1.5, textDecoration: 'none' }}>
-                      <button style={{
-                        width: '100%', height: 42, borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                        background: 'rgba(82,227,164,0.16)', color: '#52E3A4', fontSize: 14, fontWeight: 800,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      }}>
-                        Add LP ↗
-                      </button>
-                    </a>
                   )}
-                  <a href={poolLink(p)} target="_blank" rel="noreferrer" style={{ flex: 1, textDecoration: 'none' }}>
-                    <button style={{
-                      width: '100%', height: 42, borderRadius: 13, cursor: 'pointer', fontFamily: 'inherit',
-                      background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted, fontSize: 14, fontWeight: 700,
-                    }}>
-                      View ↗
-                    </button>
-                  </a>
+                  <button onClick={() => setSheet({ pool: p, simulate: true })} style={{
+                    flex: 1, height: 42, borderRadius: 13, cursor: 'pointer', fontFamily: 'inherit',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted, fontSize: 14, fontWeight: 700,
+                  }}>
+                    Simulate
+                  </button>
                 </div>
               </Glass>
             );
@@ -202,16 +191,17 @@ export function EarnScreen() {
         </div>
       </Glass>
 
-      {minting && mintingTarget && (
+      {sheet && sheetProps && (
         <CreatePosition
-          tokenA={mintingTarget.tokenA}
-          tokenB={mintingTarget.tokenB}
-          v4PoolId={mintingTarget.v4PoolId}
-          initialFee={minting.feeTier}
+          tokenA={sheetProps.tokenA}
+          tokenB={sheetProps.tokenB}
+          v4PoolId={sheetProps.v4PoolId}
+          initialFee={sheet.pool.feeTier}
           // indexer pools carry real 24h fees; for DeFiLlama rows derive from fee APY
-          fees24hUsd={minting.fees24hUsd ?? (minting.tvlUsd * minting.apyBase) / 100 / 365}
-          onClose={() => setMinting(null)}
-          onDone={() => setMinting(null)}
+          fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
+          simulate={sheet.simulate}
+          onClose={() => setSheet(null)}
+          onDone={() => setSheet(null)}
         />
       )}
     </div>
