@@ -6,7 +6,7 @@ import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
-import { V3Positions } from '../V3Positions';
+import { LpPositions } from '../LpPositions';
 
 function fmt(n: number, dp = 2) {
   return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -55,6 +55,8 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
   const loading = (loadingBalances || loadingList) && tokensWithBalance.length === 0;
   const refreshing = loadingBalances && tokensWithBalance.length > 0;
   const [expandedToken, setExpandedToken] = useState<string | null>(null);
+  // Tokens | LPs tabs — keeps the screen short on mobile.
+  const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
 
   const COLORS = ['#FFFFFF','#FFB36B','#52E3A4','#94A3B8'];
   const top4 = tokensWithBalance.slice(0, 4);
@@ -102,11 +104,26 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
         )}
       </Glass>
 
-      {/* Live LP positions (Uniswap V3 · mainnet) */}
-      <V3Positions/>
+      {/* Tokens | LP Positions */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {([['tokens', 'Tokens'], ['lps', 'LP Positions']] as const).map(([t, label]) => {
+          const active = tab === t;
+          return (
+            <button key={t} onClick={() => setTab(t)} style={{
+              flex: 1, height: 40, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+              background: active ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${active ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.1)'}`,
+              color: active ? '#fff' : btb.textMuted,
+            }}>{label}</button>
+          );
+        })}
+      </div>
+
+      {/* LP positions (Uniswap V3 + V4 · mainnet) */}
+      {tab === 'lps' && <LpPositions showEmpty/>}
 
       {/* tokens list — from our own multicall balance system */}
-      {loading ? (
+      {tab === 'lps' ? null : loading ? (
         <Glass padding={20} radius={22}>
           <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center' }}>
             <div style={{ marginBottom: 8, width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.18)', borderTopColor: '#FFFFFF', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }}/>

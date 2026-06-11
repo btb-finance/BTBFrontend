@@ -3,8 +3,8 @@
  *
  * Protocols live under `src/protocols/<category>/<name>/` (e.g.
  * `src/protocols/dexs/uniswap/`) so each app is developed/maintained
- * independently. Uniswap currently ships `v3/` (read + collect + add + remove +
- * mint, native ETH) and scaffolds `v4/`.
+ * independently. Uniswap ships `v3/` and `v4/` (read + collect + add + remove +
+ * mint, native ETH).
  *
  * Everything here is Ethereum mainnet (chain 1) only for now.
  */
@@ -16,6 +16,7 @@ export interface LiquidityPosition {
   protocol: 'uniswap-v3' | 'uniswap-v4';
   /** Position id (V3 = NFT tokenId; V4 = position tokenId). */
   id: bigint;
+  /** V4: currencies — token0 = address(0) means native ETH. */
   token0: `0x${string}`;
   token1: `0x${string}`;
   symbol0: string;
