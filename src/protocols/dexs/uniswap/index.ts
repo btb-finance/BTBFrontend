@@ -11,10 +11,16 @@ export const PROTOCOL = 'uniswap';
 export type { LiquidityPosition, TokenMeta } from '@/protocols/types';
 export { MAINNET } from '@/protocols/types';
 
+// pool discovery (official V3/V4 subgraphs — TVL, volume, fees, APR)
+export { queryTopPools, getPoolHistory, fmtFeeTier, hasGraphKey, V3_SUBGRAPH_ID } from './graph';
+export type { IndexedPool, PoolDay } from './graph';
+export { getV3TopPools } from './v3/subgraph';
+export { getV4TopPools } from './v4/subgraph';
+
 // v3
 export { fetchV3Positions } from './v3/positions';
 export { buildCollect, buildRemove, buildIncrease, buildMint } from './v3/actions';
-export { addAmounts, addSide, rangeTicks, TICK_SPACINGS } from './v3/math';
+export { addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts, TICK_SPACINGS, MIN_TICK, MAX_TICK } from './v3/math';
 export { fetchPoolForMint } from './v3/pool';
 export type { MintPool } from './v3/pool';
 export { UNISWAP_V3, FEE_TIERS, WETH, isWeth } from './v3/addresses';

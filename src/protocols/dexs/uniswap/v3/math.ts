@@ -67,6 +67,28 @@ function getLiquidityForAmount1(sqrtA: bigint, sqrtB: bigint, amount1: bigint): 
 }
 
 /**
+ * LiquidityAmounts.getLiquidityForAmounts — the liquidity a deposit of
+ * (amount0, amount1) supports in [tickLower, tickUpper] at the current price.
+ * Used to estimate a new position's share of pool fees.
+ */
+export function liquidityForAmounts(
+  sqrtPriceX96: bigint,
+  tickLower: number,
+  tickUpper: number,
+  amount0: bigint,
+  amount1: bigint,
+): bigint {
+  const sqrtA = getSqrtRatioAtTick(tickLower);
+  const sqrtB = getSqrtRatioAtTick(tickUpper);
+  const [lo, hi] = sqrtA < sqrtB ? [sqrtA, sqrtB] : [sqrtB, sqrtA];
+  if (sqrtPriceX96 <= lo) return getLiquidityForAmount0(lo, hi, amount0);
+  if (sqrtPriceX96 >= hi) return getLiquidityForAmount1(lo, hi, amount1);
+  const l0 = getLiquidityForAmount0(sqrtPriceX96, hi, amount0);
+  const l1 = getLiquidityForAmount1(lo, sqrtPriceX96, amount1);
+  return l0 < l1 ? l0 : l1;
+}
+
+/**
  * Given the amount of ONE token the user wants to add (side 0 or 1), compute
  * both token amounts that keep the position's ratio at the current price.
  * Out-of-range positions take a single token.

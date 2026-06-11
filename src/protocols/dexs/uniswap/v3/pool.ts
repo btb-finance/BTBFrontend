@@ -3,6 +3,8 @@ import { UNISWAP_V3 } from './addresses';
 import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
 
 export interface MintPool {
+  /** Pool contract address (zero when the pool doesn't exist). */
+  address: `0x${string}`;
   token0: `0x${string}`;   // sorted: lower address
   token1: `0x${string}`;
   symbol0: string; symbol1: string;
@@ -11,6 +13,8 @@ export interface MintPool {
   exists: boolean;
   sqrtPriceX96: bigint;
   tick: number;
+  /** Current in-range liquidity — denominator for fee-share estimates. */
+  liquidity: bigint;
 }
 
 const ZERO = '0x0000000000000000000000000000000000000000';
@@ -43,19 +47,24 @@ export async function fetchPoolForMint(
     allowFailure: true,
   });
 
-  let sqrtPriceX96 = 0n, tick = 0;
+  let sqrtPriceX96 = 0n, tick = 0, liquidity = 0n;
   if (exists) {
-    const s = (await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'slot0' })) as readonly unknown[];
+    const [s, liq] = await Promise.all([
+      client.readContract({ address: pool, abi: POOL_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
+      client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
+    ]);
     sqrtPriceX96 = s[0] as bigint;
     tick = Number(s[1]);
+    liquidity = liq;
   }
 
   return {
+    address: pool,
     token0, token1,
     symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
     decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
     symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
     decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
-    fee, exists, sqrtPriceX96, tick,
+    fee, exists, sqrtPriceX96, tick, liquidity,
   };
 }

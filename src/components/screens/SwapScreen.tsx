@@ -7,6 +7,7 @@ import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -58,6 +59,7 @@ function TokenPicker({ tokens, selected, onSelect, onClose }: {
     : sorted; // show every token — balance-first sorted, search-narrowable
 
   return (
+    <Portal>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
       <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, minWidth: 0, maxHeight: '82vh', background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 20px 0' }}>
@@ -101,6 +103,7 @@ function TokenPicker({ tokens, selected, onSelect, onClose }: {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

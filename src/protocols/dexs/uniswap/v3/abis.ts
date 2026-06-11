@@ -103,6 +103,8 @@ export const POOL_ABI = [
     { name: 'feeProtocol', type: 'uint8' },
     { name: 'unlocked', type: 'bool' },
   ] },
+  // in-range liquidity — used to estimate a new position's fee share
+  { name: 'liquidity', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: 'liquidity', type: 'uint128' }] },
 ] as const;
 
 export const ERC20_META_ABI = [

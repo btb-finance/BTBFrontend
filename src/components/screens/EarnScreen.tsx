@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Portal } from '../Portal';
 import { btb } from '../design-tokens';
-import { getTopPools, poolLink, fmtCompactUsd, LlamaPool } from '../../lib/defillama';
+import { getEarnPools, poolLink, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { V3Positions } from '../V3Positions';
 import { CreateV3Position } from '../CreateV3Position';
 
@@ -21,16 +22,16 @@ function apyColor(apy: number) {
 }
 
 export function EarnScreen() {
-  const [pools, setPools]   = useState<LlamaPool[]>([]);
+  const [pools, setPools]   = useState<EarnPool[]>([]);
   const [loading, setLoad]  = useState(true);
   const [error, setError]   = useState<string | null>(null);
   const [dex, setDex]       = useState<string>('All');
-  const [selected, setSelected] = useState<LlamaPool | null>(null);
+  const [selected, setSelected] = useState<EarnPool | null>(null);
 
   useEffect(() => {
     let live = true;
     setLoad(true);
-    getTopPools()
+    getEarnPools()
       .then((p) => { if (live) { setPools(p); setError(null); } })
       .catch((e: Error) => { if (live) setError(e.message); })
       .finally(() => { if (live) setLoad(false); });
@@ -55,7 +56,7 @@ export function EarnScreen() {
       <div style={{ padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Earn</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2 }}>
-          Provide liquidity across the top DEXs · live APR &amp; TVL
+          Provide liquidity across the top DEXs · live APR, volume &amp; TVL
         </div>
       </div>
 
@@ -117,7 +118,15 @@ export function EarnScreen() {
                   <Icon name="layers" size={20} color={dexColor(p.dex)}/>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: btb.text, fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.pair}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    <span style={{ color: btb.text, fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.pair}</span>
+                    {p.feeTier !== undefined && (
+                      <span style={{ flexShrink: 0, color: btb.textMuted, fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 6px', borderRadius: 999 }}>{fmtFeeTier(p.feeTier)}</span>
+                    )}
+                    {p.version && (
+                      <span style={{ flexShrink: 0, color: dexColor(p.dex), fontSize: 10, fontWeight: 700, background: `${dexColor(p.dex)}18`, border: `1px solid ${dexColor(p.dex)}44`, padding: '1px 6px', borderRadius: 999 }}>{p.version}</span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
                     <span style={{ color: dexColor(p.dex), fontSize: 11, fontWeight: 700 }}>{p.dex}</span>
                     <span style={{ color: btb.textDim, fontSize: 11 }}>·</span>
@@ -130,6 +139,13 @@ export function EarnScreen() {
                   <div style={{ color: btb.textMuted, fontSize: 11 }}>{fmtCompactUsd(p.tvlUsd)} TVL</div>
                 </div>
               </div>
+              {p.volume24hUsd !== undefined && (
+                <div style={{ display: 'flex', gap: 14, marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ color: btb.textMuted, fontSize: 11 }}>Vol 24h <b style={{ color: btb.text, fontWeight: 700 }}>{fmtCompactUsd(p.volume24hUsd)}</b></span>
+                  <span style={{ color: btb.textMuted, fontSize: 11 }}>Fees 24h <b style={{ color: btb.text, fontWeight: 700 }}>{fmtCompactUsd(p.fees24hUsd ?? 0)}</b></span>
+                  <span style={{ color: btb.textMuted, fontSize: 11 }}>Fee APR <b style={{ color: apyColor(p.apyBase), fontWeight: 700 }}>{p.apyBase.toFixed(2)}%</b></span>
+                </div>
+              )}
             </Glass>
           ))}
           {shown.length === 0 && (
@@ -183,7 +199,7 @@ function BetaNotice() {
   );
 }
 
-function ManageSheet({ pool, onClose }: { pool: LlamaPool; onClose: () => void }) {
+function ManageSheet({ pool, onClose }: { pool: EarnPool; onClose: () => void }) {
   const [minting, setMinting] = useState(false);
   const tokens = (pool.underlyingTokens ?? []) as `0x${string}`[];
   // We can mint natively only for Uniswap V3 pools on Ethereum mainnet.
@@ -194,6 +210,9 @@ function ManageSheet({ pool, onClose }: { pool: LlamaPool; onClose: () => void }
       <CreateV3Position
         tokenA={tokens[0]}
         tokenB={tokens[1]}
+        initialFee={pool.feeTier}
+        // indexer pools carry real 24h fees; for DeFiLlama rows derive from fee APY
+        fees24hUsd={pool.fees24hUsd ?? (pool.tvlUsd * pool.apyBase) / 100 / 365}
         onClose={() => setMinting(false)}
         onDone={onClose}
       />
@@ -208,8 +227,9 @@ function ManageSheet({ pool, onClose }: { pool: LlamaPool; onClose: () => void }
   );
 
   return (
+    <Portal>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px 32px', maxHeight: '86vh', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '86vh', overflowY: 'auto' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 18px' }}/>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
@@ -218,19 +238,25 @@ function ManageSheet({ pool, onClose }: { pool: LlamaPool; onClose: () => void }
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pool.pair}</div>
-            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 1 }}>{pool.dex} · {pool.chain}</div>
+            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 1 }}>
+              {pool.dex}{pool.version ? ` ${pool.version}` : ''} · {pool.chain}
+              {pool.feeTier !== undefined ? ` · ${fmtFeeTier(pool.feeTier)} fee` : ''}
+            </div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: apyColor(pool.apy), fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>{pool.apy.toFixed(2)}%</div>
-            <div style={{ color: btb.textMuted, fontSize: 11 }}>APY</div>
+            <div style={{ color: btb.textMuted, fontSize: 11 }}>{pool.source === 'uniswap' ? 'APR' : 'APY'}</div>
           </div>
         </div>
 
         <div style={{ margin: '14px 0 8px' }}>
-          <Row label="Total APY" value={<span style={{ color: apyColor(pool.apy) }}>{pool.apy.toFixed(2)}%</span>}/>
-          <Row label="Fee APY" value={`${pool.apyBase.toFixed(2)}%`}/>
-          <Row label="Reward APY" value={`${pool.apyReward.toFixed(2)}%`}/>
+          <Row label={pool.source === 'uniswap' ? 'Fee APR (annualized)' : 'Total APY'} value={<span style={{ color: apyColor(pool.apy) }}>{pool.apy.toFixed(2)}%</span>}/>
+          {pool.source !== 'uniswap' && <Row label="Fee APY" value={`${pool.apyBase.toFixed(2)}%`}/>}
+          {pool.source !== 'uniswap' && <Row label="Reward APY" value={`${pool.apyReward.toFixed(2)}%`}/>}
           <Row label="TVL" value={fmtCompactUsd(pool.tvlUsd)}/>
+          {pool.volume24hUsd !== undefined && <Row label="Volume (24h)" value={fmtCompactUsd(pool.volume24hUsd)}/>}
+          {pool.fees24hUsd !== undefined && <Row label="LP fees (24h)" value={fmtCompactUsd(pool.fees24hUsd)}/>}
+          {pool.feeTier !== undefined && <Row label="Fee tier" value={fmtFeeTier(pool.feeTier)}/>}
           <Row label="Type" value={pool.stablecoin ? 'Stablecoin pair' : 'Volatile pair'}/>
           <Row label="Impermanent-loss risk" value={pool.ilRisk === 'no' ? 'Low' : 'Yes'}/>
         </div>
@@ -246,14 +272,14 @@ function ManageSheet({ pool, onClose }: { pool: LlamaPool; onClose: () => void }
           </button>
         )}
 
-        {/* DeFiLlama is the discovery source — external link, clearly marked. */}
+        {/* External stats link, clearly marked — Uniswap explore for indexer pools. */}
         <a href={poolLink(pool)} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
           <button style={{
             width: '100%', height: canMintInApp ? 46 : 54, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit',
             background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted, fontSize: 14, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
           }}>
-            View on DeFiLlama ↗
+            View on {pool.source === 'uniswap' ? 'Uniswap' : 'DeFiLlama'} ↗
           </button>
         </a>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
@@ -263,5 +289,6 @@ function ManageSheet({ pool, onClose }: { pool: LlamaPool; onClose: () => void }
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
