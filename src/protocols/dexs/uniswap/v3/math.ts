@@ -172,3 +172,58 @@ export function getAmountsForLiquidity(
   if (sqrtPriceX96 < hi) return [getAmount0(sqrtPriceX96, hi, liquidity), getAmount1(lo, sqrtPriceX96, liquidity)];
   return [0n, getAmount1(lo, hi, liquidity)];
 }
+
+/**
+ * "Smart fit" — place a range of the requested width so the wallet's actual
+ * balances deposit cleanly, instead of making the user discover on the amount
+ * step that their token ratio doesn't match the range they picked.
+ *
+ *  - Both tokens held: slide the window until depositing ALL of token0 needs
+ *    no more token1 than the wallet has (that requirement falls monotonically
+ *    as the range rises, so a binary search finds the spot).
+ *  - Only one token held: a single-sided range hugging the current price —
+ *    just above it for token0, just below for token1 — that starts earning
+ *    once price moves into range.
+ *
+ * Returns the fitted range plus which side (`side`) to anchor with its full
+ * balance; `single` marks a one-token, out-of-range placement.
+ */
+export function fitRangeToBalances(
+  sqrtPriceX96: bigint,
+  currentTick: number,
+  widthTicks: number,
+  spacing: number,
+  bal0: bigint,
+  bal1: bigint,
+): { tickLower: number; tickUpper: number; side: 0 | 1; single: boolean } | null {
+  if (bal0 <= 0n && bal1 <= 0n) return null;
+  const minU = nearestUsableTick(MIN_TICK, spacing);
+  const maxU = nearestUsableTick(MAX_TICK, spacing);
+  const width = Math.min(Math.max(Math.round(widthTicks / spacing), 1) * spacing, maxU - minU);
+
+  // First usable lower tick strictly above the price (token0-only ranges) and
+  // last usable upper tick at/below it (token1-only ranges). The latter needs
+  // a price check: when the current tick sits on a spacing boundary the floor
+  // can still be a hair above the actual price, leaving the range fractionally
+  // in-range and demanding dust of the token the wallet doesn't have.
+  const aboveLo = Math.min(Math.floor(currentTick / spacing) * spacing + spacing, maxU - width);
+  let belowHi = Math.floor(currentTick / spacing) * spacing;
+  if (getSqrtRatioAtTick(belowHi) > sqrtPriceX96) belowHi -= spacing;
+  belowHi = Math.max(belowHi, minU + width);
+
+  if (bal1 <= 0n) return { tickLower: aboveLo, tickUpper: aboveLo + width, side: 0, single: true };
+  if (bal0 <= 0n) return { tickLower: belowHi - width, tickUpper: belowHi, side: 1, single: true };
+
+  // Both tokens: lowest placement still straddling the price → fully above it.
+  const loMin = Math.max(belowHi - width + spacing, minU);
+  const loMax = Math.max(aboveLo, loMin);
+  const fits = (lo: number) => addAmounts(sqrtPriceX96, lo, lo + width, 0, bal0).amount1 <= bal1;
+
+  let lt = 0, rt = Math.round((loMax - loMin) / spacing);
+  while (lt < rt) {
+    const mid = (lt + rt) >> 1;
+    if (fits(loMin + mid * spacing)) rt = mid; else lt = mid + 1;
+  }
+  const tickLower = loMin + lt * spacing;
+  return { tickLower, tickUpper: tickLower + width, side: 0, single: currentTick < tickLower };
+}

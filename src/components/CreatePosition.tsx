@@ -12,18 +12,21 @@ import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
-  liquidityForAmounts, getAmountsForLiquidity, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
+  liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
   TICK_SPACINGS, MIN_TICK, MAX_TICK, FEE_TIERS, isWeth, WETH,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier,
   type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
 
 const SLIPPAGE_BPS = 50; // 0.5%
+/** ETH kept aside for gas when a side is paid natively and "smart fit" uses the full balance. */
+const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
 const FEE_LABEL: Record<number, string> = { 100: '0.01%', 500: '0.05%', 3000: '0.3%', 10000: '1%' };
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: '±25%', pct: 25 }, { label: 'Full', pct: null },
 ];
-type RangeMode = number | null | 'custom';
+/** Preset ±pct | null = full range | 'custom' (min/max inputs) | exact ticks (smart fit). */
+type RangeMode = number | null | 'custom' | { tickLower: number; tickUpper: number };
 
 function fmtAmt(raw: bigint, decimals: number): string {
   const n = parseFloat(formatUnits(raw, decimals));
@@ -72,6 +75,12 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * USD amount (default $1,000) instead of wallet deposits and shows the
  * estimated daily/monthly/yearly fees for the chosen range — no wallet needed.
  * One tap switches to the real deposit flow with the same range.
+ *
+ * Smart fit (add mode): step 1 shows what the wallet holds and one tap
+ * re-places the chosen range width so those balances deposit cleanly —
+ * shifted when the token ratio is off, single-sided next to the current price
+ * when only one token is held. The step-2 "insufficient balance" warning
+ * offers the same fix inline.
  */
 export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, simulate, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
@@ -117,6 +126,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   // Simulator mode: step 2 takes a USD amount instead of wallet deposits.
   const [simOnly, setSimOnly] = useState(!!simulate);
   const [simUsdStr, setSimUsdStr] = useState('1000');
+  // Explanation of the last "smart fit" — cleared on any manual range change.
+  const [smartNote, setSmartNote] = useState<string | null>(null);
+  // Flip the quote direction: false → token1 per token0 (pool order),
+  // true → token0 per token1. Display-only; ticks/amounts stay in pool order.
+  const [flip, setFlip] = useState(false);
 
   const isV4 = v4PoolId !== undefined;
   const pool = pools?.[fee] ?? null;
@@ -129,6 +143,21 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
   const sym0 = pool ? (ethMode && nativeSide === 0 ? 'ETH' : pool.symbol0) : '';
   const sym1 = pool ? (ethMode && nativeSide === 1 ? 'ETH' : pool.symbol1) : '';
+  // Quote direction for everything price-shaped (price line, min/max, chart).
+  const qBase = flip ? sym1 : sym0;
+  const qQuote = flip ? sym0 : sym1;
+  const dispPrice = (p: number) => (flip ? (p > 0 ? 1 / p : 0) : p);
+
+  function toggleFlip() {
+    // Custom min/max strings live in display space — swap & invert them so the
+    // selected range is preserved. Preset/smart-fit modes resync via effect.
+    if (rangeMode === 'custom') {
+      const lo = parseFloat(minStr), hi = parseFloat(maxStr);
+      setMinStr(isFinite(hi) && hi > 0 ? fmtPrice(1 / hi) : '');
+      setMaxStr(isFinite(lo) && lo > 0 ? fmtPrice(1 / lo) : '');
+    }
+    setFlip((v) => !v);
+  }
 
   useEffect(() => {
     let live = true;
@@ -188,17 +217,23 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const spacing = v4Pool ? v4Pool.tickSpacing : TICK_SPACINGS[fee];
   const ticks = useMemo(() => {
     if (!pool || !pool.exists) return null;
+    if (rangeMode !== null && typeof rangeMode === 'object') return rangeMode; // smart fit — exact ticks
     if (rangeMode !== 'custom') return rangeTicks(pool.tick, spacing, rangeMode);
-    return ticksFromPrices(minStr, maxStr, pool, spacing);
-  }, [pool, spacing, rangeMode, minStr, maxStr]);
+    if (!flip) return ticksFromPrices(minStr, maxStr, pool, spacing);
+    // Flipped quoting: display min/max are inverted prices, so direct min = 1/displayMax.
+    const inv = (s: string) => { const v = parseFloat(s); return isFinite(v) && v > 0 ? String(1 / v) : ''; };
+    return ticksFromPrices(inv(maxStr), inv(minStr), pool, spacing);
+  }, [pool, spacing, rangeMode, minStr, maxStr, flip]);
 
-  // Keep the min/max price inputs in sync with the selected preset.
+  // Keep the min/max price inputs (display space) in sync with the preset / smart fit.
   useEffect(() => {
     if (!pool || !pool.exists || rangeMode === 'custom') return;
-    const t = rangeTicks(pool.tick, spacing, rangeMode);
-    setMinStr(fmtPrice(tickToPrice(t.tickLower, pool.decimals0, pool.decimals1)));
-    setMaxStr(fmtPrice(tickToPrice(t.tickUpper, pool.decimals0, pool.decimals1)));
-  }, [pool, spacing, rangeMode]);
+    const t = rangeMode !== null && typeof rangeMode === 'object' ? rangeMode : rangeTicks(pool.tick, spacing, rangeMode);
+    const pLo = tickToPrice(t.tickLower, pool.decimals0, pool.decimals1);
+    const pHi = tickToPrice(t.tickUpper, pool.decimals0, pool.decimals1);
+    setMinStr(fmtPrice(flip ? (pHi > 0 ? 1 / pHi : 0) : pLo));
+    setMaxStr(fmtPrice(flip ? (pLo > 0 ? 1 / pLo : Infinity) : pHi));
+  }, [pool, spacing, rangeMode, flip]);
 
   // price of token0 in token1 (human units)
   const price = useMemo(() => {
@@ -351,6 +386,29 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     setSimOnly(false);
   }
 
+  /**
+   * Smart fit: re-place the chosen range width so the wallet's balances
+   * deposit cleanly (shifts the band when the ratio is off; goes single-sided
+   * next to the current price when only one token is held), then prefills the
+   * anchor side with its full balance.
+   */
+  function applySmartFit() {
+    if (!pool || !pool.exists || !ticks) return;
+    const fitBal0 = ethMode && nativeSide === 0 ? (effBal0 > GAS_RESERVE ? effBal0 - GAS_RESERVE : 0n) : effBal0;
+    const fitBal1 = ethMode && nativeSide === 1 ? (effBal1 > GAS_RESERVE ? effBal1 - GAS_RESERVE : 0n) : effBal1;
+    // Full range can't be re-placed — fit a ±10% band instead.
+    const base = rangeMode === null ? rangeTicks(pool.tick, spacing, 10) : ticks;
+    const fit = fitRangeToBalances(pool.sqrtPriceX96, pool.tick, base.tickUpper - base.tickLower, spacing, fitBal0, fitBal1);
+    if (!fit) { setSmartNote('Nothing to fit — your wallet holds neither pool token.'); return; }
+    setRangeMode({ tickLower: fit.tickLower, tickUpper: fit.tickUpper });
+    const bal = fit.side === 0 ? fitBal0 : fitBal1;
+    setAmt({ side: fit.side, str: formatUnits(bal, fit.side === 0 ? pool.decimals0 : pool.decimals1) });
+    const sym = fit.side === 0 ? sym0 : sym1;
+    setSmartNote(fit.single
+      ? `You hold ${sym} only, so the range sits just ${fit.side === 0 ? 'above' : 'below'} the current price — it deposits ${sym} alone and starts earning fees once the price moves into range.`
+      : 'Range shifted to match your balances — both tokens deposit in full, same width as you picked.');
+  }
+
   const inputStyle = (disabled: boolean): CSSProperties => ({
     width: '100%', height: 48, background: disabled ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)',
     border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '0 14px',
@@ -397,7 +455,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate LP earnings' : 'Add liquidity'}</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
-          {pool ? `${pool.symbol0} / ${pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
+          {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
         </div>
 
         {/* Step tabs */}
@@ -444,7 +502,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               ) : FEE_TIERS.map((f) => {
                 const missing = !!pools && !pools[f]?.exists;
                 return (
-                  <button key={f} onClick={() => setFee(f)} disabled={missing} style={{
+                  <button key={f} onClick={() => { setFee(f); setSmartNote(null); }} disabled={missing} style={{
                     flex: 1, height: 38, borderRadius: 12, cursor: missing ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                     background: fee === f ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
                     border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
@@ -455,8 +513,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               })}
             </div>
 
-            <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 12 }}>
-              Current price: 1 {pool.symbol0} = {price.toLocaleString('en-US', { maximumSignificantDigits: 6 })} {pool.symbol1}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+              <span style={{ color: btb.textMuted, fontSize: 12 }}>
+                Current price: 1 {qBase} = {dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })} {qQuote}
+              </span>
+              <button onClick={toggleFlip} title="Flip which token prices are quoted in" style={{
+                flexShrink: 0, height: 28, padding: '0 10px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
+              }}>⇄ {qQuote}/{qBase}</button>
             </div>
 
             {/* Range — presets or custom min/max price */}
@@ -464,23 +528,24 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             {history && history.length > 1 && (
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 8px 4px', marginBottom: 10 }}>
                 <RangeChart
-                  points={history.map((d) => d.price0)}
+                  points={history.map((d) => dispPrice(d.price0))}
                   min={rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null}
                   max={rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null}
-                  current={price}
+                  current={dispPrice(price)}
                   onChange={(lo, hi) => {
                     setRangeMode('custom');
+                    setSmartNote(null);
                     setMinStr(fmtPrice(lo));
                     setMaxStr(fmtPrice(hi));
                   }}/>
                 <div style={{ color: btb.textDim, fontSize: 10, textAlign: 'center', padding: '4px 0 6px' }}>
-                  30-day price · {pool.symbol1} per {pool.symbol0} · drag the handles to set your range
+                  30-day price · {qQuote} per {qBase} · drag the handles to set your range
                 </div>
               </div>
             )}
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               {RANGE_PRESETS.map((r) => (
-                <button key={r.label} onClick={() => setRangeMode(r.pct)} style={{
+                <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); }} style={{
                   flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                   background: rangeMode === r.pct ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
                   border: `1px solid ${rangeMode === r.pct ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
@@ -490,15 +555,15 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             </div>
             <div style={{ display: 'flex', gap: 10, marginBottom: 6 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Min price ({pool.symbol1} per {pool.symbol0})</div>
+                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Min price ({qQuote} per {qBase})</div>
                 <input value={minStr} inputMode="decimal" placeholder="0"
-                  onChange={(e) => { setMinStr(e.target.value); setRangeMode('custom'); }}
+                  onChange={(e) => { setMinStr(e.target.value); setRangeMode('custom'); setSmartNote(null); }}
                   style={{ ...inputStyle(false), height: 44, fontSize: 15 }}/>
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Max price ({pool.symbol1} per {pool.symbol0})</div>
+                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Max price ({qQuote} per {qBase})</div>
                 <input value={maxStr} inputMode="decimal" placeholder="∞"
-                  onChange={(e) => { setMaxStr(e.target.value); setRangeMode('custom'); }}
+                  onChange={(e) => { setMaxStr(e.target.value); setRangeMode('custom'); setSmartNote(null); }}
                   style={{ ...inputStyle(false), height: 44, fontSize: 15 }}/>
               </div>
             </div>
@@ -506,6 +571,28 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 16 }}>
                 Ticks {ticks.tickLower} → {ticks.tickUpper} · spacing {spacing} · current tick {pool.tick}
                 {rangeMode === 'custom' ? ' · snapped to nearest usable tick' : ''}
+              </div>
+            )}
+
+            {/* Smart strategy — fit the chosen width to what the wallet holds,
+                so step 2 never dead-ends on "insufficient balance". */}
+            {!simOnly && address && (
+              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: btb.textMuted, fontSize: 11 }}>You hold</div>
+                    <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
+                      {fmtAmt(effBal0, pool.decimals0)} {sym0} + {fmtAmt(effBal1, pool.decimals1)} {sym1}
+                    </div>
+                  </div>
+                  <button onClick={applySmartFit} style={{
+                    flexShrink: 0, height: 36, padding: '0 14px', borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
+                  }}>⚡ Fit to my balance</button>
+                </div>
+                {smartNote && (
+                  <div style={{ color: '#52E3A4', fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>{smartNote}</div>
+                )}
               </div>
             )}
           </>
@@ -517,10 +604,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: btb.textMuted, fontSize: 11 }}>Range · {fmtFeeTier(fee)} fee</div>
                   <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {rangeMode === null ? 'Full range' : `${minStr || '0'} → ${maxStr || '∞'}`} <span style={{ color: btb.textMuted, fontWeight: 400 }}>{pool.symbol1} per {pool.symbol0}</span>
+                    {rangeMode === null ? 'Full range' : `${minStr || '0'} → ${maxStr || '∞'}`} <span style={{ color: btb.textMuted, fontWeight: 400 }}>{qQuote} per {qBase}</span>
                   </div>
                   <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>
-                    Current: {price.toLocaleString('en-US', { maximumSignificantDigits: 6 })}
+                    Current: {dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })}
                   </div>
                 </div>
                 <button onClick={() => setTab('range')} style={{
@@ -581,9 +668,20 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               </div>
             )}
             {(short0 || short1) && (
-              <div style={{ color: btb.loss, fontSize: 12, marginBottom: 10 }}>
-                Insufficient {short0 ? sym0 : sym1} balance
+              <div style={{ background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.25)', borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <span style={{ color: btb.loss, fontSize: 12 }}>
+                    Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}
+                  </span>
+                  <button onClick={applySmartFit} style={{
+                    flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
+                  }}>⚡ Fit range</button>
+                </div>
               </div>
+            )}
+            {!short0 && !short1 && smartNote && (
+              <div style={{ color: '#52E3A4', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>{smartNote}</div>
             )}
             {(add0 > 0n || add1 > 0n) && (
               <Glass padding={12} radius={12} soft>

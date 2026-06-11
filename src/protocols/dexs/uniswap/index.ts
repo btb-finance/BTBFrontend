@@ -22,7 +22,7 @@ export { getV4TopPools } from './v4/subgraph';
 // v3
 export { fetchV3Positions } from './v3/positions';
 export { buildCollect, buildRemove, buildIncrease, buildMint } from './v3/actions';
-export { addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts, getAmountsForLiquidity, TICK_SPACINGS, MIN_TICK, MAX_TICK } from './v3/math';
+export { addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, TICK_SPACINGS, MIN_TICK, MAX_TICK } from './v3/math';
 export { fetchPoolForMint, fetchPoolsForMint } from './v3/pool';
 export type { MintPool } from './v3/pool';
 export { UNISWAP_V3, FEE_TIERS, WETH, isWeth } from './v3/addresses';
