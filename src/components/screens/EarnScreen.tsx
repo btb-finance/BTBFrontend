@@ -1,9 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useConfig } from 'wagmi';
+import { getPublicClient } from 'wagmi/actions';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
-import { getEarnPools, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
+import { getEarnPools, addRangeAprs, RANGE_APR_PCT, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { LpPositions } from '../LpPositions';
 import { CreatePosition } from '../CreatePosition';
 
@@ -26,6 +28,12 @@ function apyColor(apy: number) {
   return btb.text;
 }
 
+function fmtApr(v: number) {
+  if (v >= 1000) return Math.round(v).toLocaleString('en-US');
+  if (v >= 100) return v.toFixed(0);
+  return v.toFixed(2);
+}
+
 /**
  * CreatePosition props for a pool. Minting in-app covers Uniswap V3 + V4 on
  * Ethereum mainnet, with V4 limited to hookless pools — hooks can change
@@ -41,6 +49,7 @@ function sheetTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`
 }
 
 export function EarnScreen() {
+  const config = useConfig();
   const [pools, setPools]   = useState<EarnPool[]>([]);
   const [loading, setLoad]  = useState(true);
   const [error, setError]   = useState<string | null>(null);
@@ -50,11 +59,18 @@ export function EarnScreen() {
     let live = true;
     setLoad(true);
     getEarnPools()
-      .then((p) => { if (live) { setPools(p); setError(null); } })
+      .then((p) => {
+        if (!live) return;
+        setPools(p); setError(null);
+        // Upgrade the headline numbers to ±5%-range APRs (live on-chain
+        // liquidity) once available — the list shows immediately either way.
+        const client = getPublicClient(config);
+        if (client) addRangeAprs(client, p).then((ep) => { if (live) setPools(ep); }).catch(() => {});
+      })
       .catch((e: Error) => { if (live) setError(e.message); })
       .finally(() => { if (live) setLoad(false); });
     return () => { live = false; };
-  }, []);
+  }, [config]);
 
   const sheetProps = sheet ? sheetTarget(sheet.pool, sheet.simulate) : null;
 
@@ -123,11 +139,12 @@ export function EarnScreen() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
                       <span style={{ color: btb.textMuted, fontSize: 11 }}>Vol 24h <b style={{ color: btb.text, fontWeight: 700 }}>{fmtCompactUsd(p.volume24hUsd ?? 0)}</b></span>
                       <span style={{ color: btb.textMuted, fontSize: 11 }}>Fees <b style={{ color: btb.text, fontWeight: 700 }}>{fmtCompactUsd(p.fees24hUsd ?? 0)}</b></span>
+                      <span style={{ color: btb.textMuted, fontSize: 11 }}>TVL <b style={{ color: btb.text, fontWeight: 700 }}>{fmtCompactUsd(p.tvlUsd)}</b></span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ color: apyColor(p.apy), fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>{p.apy.toFixed(2)}%</div>
-                    <div style={{ color: btb.textMuted, fontSize: 11 }}>{fmtCompactUsd(p.tvlUsd)} TVL</div>
+                    <div style={{ color: apyColor(p.aprRange ?? p.apy), fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>{fmtApr(p.aprRange ?? p.apy)}%</div>
+                    <div style={{ color: btb.textMuted, fontSize: 11 }}>{p.aprRange !== undefined ? `±${RANGE_APR_PCT}% range APR` : 'pool APR'}</div>
                   </div>
                 </div>
 

@@ -98,7 +98,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const [loadingPool, setLoadingPool] = useState(true);
   const [poolErr, setPoolErr] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
-  const [rangeMode, setRangeMode] = useState<RangeMode>(10);
+  // Default ±5% — the same band the Earn list quotes its range APR for.
+  const [rangeMode, setRangeMode] = useState<RangeMode>(5);
   const [minStr, setMinStr] = useState('');
   const [maxStr, setMaxStr] = useState('');
   const [amt, setAmt] = useState<{ side: 0 | 1; str: string }>({ side: 0, str: '' });
