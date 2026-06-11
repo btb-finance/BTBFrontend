@@ -57,13 +57,13 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
 }
 
 /**
- * Create a brand-new Uniswap V3 or V4 position (Ethereum mainnet).
+ * Create a brand-new Uniswap V3 or V4 position (Ethereum mainnet), in two
+ * mobile-friendly steps: 1 · Price range (fee tier + presets/custom range,
+ * snapped to ticks) then 2 · Deposit (enter either token's amount — the other
+ * side is auto-paired at the current price — with the earnings estimate) and
+ * mint with slippage protection (approvals batched in).
  *
- * V3 (tokenA/tokenB given): pick a fee tier + range (presets or custom min/max
- * price, snapped to ticks), enter either token's amount (the other side is
- * auto-paired at the current price), and mint with slippage protection
- * (approvals batched in).
- *
+ * V3 (tokenA/tokenB given): fee tier is selectable across all tiers.
  * V4 (v4PoolId given): same flow against the singleton PoolManager — the pool
  * (with its fee/tickSpacing/hooks key) is fixed by the id, deposits go through
  * Permit2, and native-ETH pools are paid in ETH directly.
@@ -103,6 +103,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const [ethBal, setEthBal] = useState(0n);
   const [history, setHistory] = useState<PoolDay[] | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
+  // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
+  // so the sheet stays short on mobile instead of one long scroll.
+  const [tab, setTab] = useState<'range' | 'deposit'>('range');
 
   const isV4 = v4PoolId !== undefined;
   const pool = pools?.[fee] ?? null;
@@ -352,27 +355,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
           {pool ? `${pool.symbol0} / ${pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
         </div>
 
-        {/* Fee tier — selectable on V3; fixed by the pool id on V4 */}
-        <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Fee tier</div>
+        {/* Step tabs */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {isV4 ? (
-            pool && (
-              <span style={{
-                height: 38, padding: '0 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
-                background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)', color: '#fff',
-                display: 'inline-flex', alignItems: 'center',
-              }}>{fmtFeeTier(fee)}</span>
-            )
-          ) : FEE_TIERS.map((f) => {
-            const missing = !!pools && !pools[f]?.exists;
+          {([['range', '1 · Price range'], ['deposit', '2 · Deposit']] as const).map(([t, label]) => {
+            const active = tab === t;
+            const disabled = t === 'deposit' && !(pool?.exists && ticks);
             return (
-              <button key={f} onClick={() => setFee(f)} disabled={missing} style={{
-                flex: 1, height: 38, borderRadius: 12, cursor: missing ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                background: fee === f ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
-                color: fee === f ? '#fff' : btb.textMuted,
-                opacity: missing ? 0.35 : 1,
-              }} title={missing ? 'No pool at this fee tier' : undefined}>{FEE_LABEL[f]}</button>
+              <button key={t} onClick={() => !disabled && setTab(t)} disabled={disabled} style={{
+                flex: 1, height: 40, borderRadius: 12, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                background: active ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${active ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.1)'}`,
+                color: active ? '#52E3A4' : disabled ? btb.textDim : btb.textMuted,
+              }}>{label}</button>
             );
           })}
         </div>
@@ -391,20 +385,34 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
           <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>
             {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
           </div>
-        ) : (
+        ) : tab === 'range' ? (
           <>
+            {/* Fee tier — selectable on V3; fixed by the pool id on V4 */}
+            <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Fee tier</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {isV4 ? (
+                <span style={{
+                  height: 38, padding: '0 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                  background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)', color: '#fff',
+                  display: 'inline-flex', alignItems: 'center',
+                }}>{fmtFeeTier(fee)}</span>
+              ) : FEE_TIERS.map((f) => {
+                const missing = !!pools && !pools[f]?.exists;
+                return (
+                  <button key={f} onClick={() => setFee(f)} disabled={missing} style={{
+                    flex: 1, height: 38, borderRadius: 12, cursor: missing ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                    background: fee === f ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
+                    color: fee === f ? '#fff' : btb.textMuted,
+                    opacity: missing ? 0.35 : 1,
+                  }} title={missing ? 'No pool at this fee tier' : undefined}>{FEE_LABEL[f]}</button>
+                );
+              })}
+            </div>
+
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 12 }}>
               Current price: 1 {pool.symbol0} = {price.toLocaleString('en-US', { maximumSignificantDigits: 6 })} {pool.symbol1}
             </div>
-
-            {wethSide !== null && (
-              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
-                </div>
-              </div>
-            )}
 
             {/* Range — presets or custom min/max price */}
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Price range</div>
@@ -453,6 +461,36 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 16 }}>
                 Ticks {ticks.tickLower} → {ticks.tickUpper} · spacing {spacing} · current tick {pool.tick}
                 {rangeMode === 'custom' ? ' · snapped to nearest usable tick' : ''}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Step-1 recap — jump back to edit */}
+            <Glass padding={12} radius={12} soft style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: btb.textMuted, fontSize: 11 }}>Range · {fmtFeeTier(fee)} fee</div>
+                  <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {rangeMode === null ? 'Full range' : `${minStr || '0'} → ${maxStr || '∞'}`} <span style={{ color: btb.textMuted, fontWeight: 400 }}>{pool.symbol1} per {pool.symbol0}</span>
+                  </div>
+                  <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>
+                    Current: {price.toLocaleString('en-US', { maximumSignificantDigits: 6 })}
+                  </div>
+                </div>
+                <button onClick={() => setTab('range')} style={{
+                  flexShrink: 0, height: 32, padding: '0 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: btb.text,
+                }}>Edit</button>
+              </div>
+            </Glass>
+
+            {wethSide !== null && (
+              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
+                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
+                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                  <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
+                </div>
               </div>
             )}
 
@@ -509,15 +547,26 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
 
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
-        <button onClick={mint} disabled={!canMint} style={{
-          width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-          cursor: canMint ? 'pointer' : 'default',
-          background: canMint ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-          color: canMint ? '#fff' : btb.textDim,
-        }}>{busy ? 'Confirming…' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</button>
-        <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}
-        </div>
+        {tab === 'range' ? (
+          <button onClick={() => setTab('deposit')} disabled={!pool?.exists || !ticks} style={{
+            width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
+            cursor: pool?.exists && ticks ? 'pointer' : 'default',
+            background: pool?.exists && ticks ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
+            color: pool?.exists && ticks ? '#fff' : btb.textDim,
+          }}>Next · Enter amounts</button>
+        ) : (
+          <>
+            <button onClick={mint} disabled={!canMint} style={{
+              width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
+              cursor: canMint ? 'pointer' : 'default',
+              background: canMint ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
+              color: canMint ? '#fff' : btb.textDim,
+            }}>{busy ? 'Confirming…' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</button>
+            <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+              Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}
+            </div>
+          </>
+        )}
       </div>
     </div>
     </Portal>

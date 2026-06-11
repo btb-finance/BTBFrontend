@@ -1,13 +1,14 @@
 /**
- * Unified pool list for the Earn tab.
+ * Unified pool list for the Earn tab — Uniswap V3 + V4 on Ethereum mainnet.
  *
  * Primary source: Uniswap's own indexers (V3 + V4 official subgraphs) — real
  * pool addresses, fee tiers, 24h volume/fees, and fee APR computed from actual
  * fees earned. Set NEXT_PUBLIC_GRAPH_KEY (free Graph API key) to enable.
  *
- * Coverage + fallback: DeFiLlama's keyless yields API for the other DEXs
- * (Aerodrome, Curve, …) and for Uniswap whenever the subgraphs are
- * unavailable, so the screen always has data.
+ * Other DEXs (Aerodrome, Curve, …) are staged — the Earn tab shows them as
+ * "coming soon" instead of listing pools we can't act on. DeFiLlama's keyless
+ * yields API remains only as a fallback for Uniswap V3 mainnet whenever the
+ * subgraphs are unavailable, so the screen always has actionable pools.
  */
 import { getTopPools as getLlamaPools, fmtCompactUsd } from './defillama';
 import { getV3TopPools } from '@/protocols/dexs/uniswap/v3/subgraph';
@@ -79,9 +80,10 @@ export async function getEarnPools(): Promise<EarnPool[]> {
 
   if (llama.status === 'fulfilled') {
     for (const p of llama.value) {
-      // Indexer rows replace DeFiLlama's Uniswap V3 mainnet rows (richer data,
-      // same pools). Other chains/DEXs keep coming from DeFiLlama.
-      if (v3.status === 'fulfilled' && p.project === 'uniswap-v3' && p.chain === 'Ethereum') continue;
+      // Uniswap V3 mainnet only, and only when the indexer rows are missing —
+      // every listed pool must be actionable in-app. Other DEXs are staged.
+      if (p.project !== 'uniswap-v3' || p.chain !== 'Ethereum') continue;
+      if (v3.status === 'fulfilled') continue;
       pools.push({ ...p, source: 'defillama' });
     }
   }
