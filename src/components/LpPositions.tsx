@@ -10,7 +10,9 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
-  addAmounts, addSide, isWeth, type LiquidityPosition,
+  fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
+  addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn,
+  fmtFeeTier, type LiquidityPosition,
 } from '@/protocols/dexs/uniswap';
 
 const SLIPPAGE_BPS = 50; // 0.5%
@@ -22,12 +24,14 @@ function fmtAmt(raw: bigint, decimals: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
+const posKey = (p: LiquidityPosition) => `${p.protocol}-${p.id.toString()}`;
+
 /**
- * The connected wallet's live Uniswap V3 liquidity positions (Ethereum mainnet)
- * with a Collect-fees action. Shared by the Earn and Portfolio screens.
- * Renders nothing when there are no positions.
+ * The connected wallet's live Uniswap V3 + V4 liquidity positions (Ethereum
+ * mainnet) with Collect/Add/Withdraw actions. Shared by the Earn and Portfolio
+ * screens. Renders nothing when there are no positions.
  */
-export function V3Positions() {
+export function LpPositions() {
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -42,8 +46,15 @@ export function V3Positions() {
     try {
       const client = getPublicClient(config);
       if (!client) return;
-      const p = await fetchV3Positions(client, address as `0x${string}`);
-      setPositions(p);
+      // Each protocol degrades independently — one failing read can't blank the other.
+      const [v3, v4] = await Promise.allSettled([
+        fetchV3Positions(client, address as `0x${string}`),
+        fetchV4Positions(client, address as `0x${string}`),
+      ]);
+      setPositions([
+        ...(v3.status === 'fulfilled' ? v3.value : []),
+        ...(v4.status === 'fulfilled' ? v4.value : []),
+      ]);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
   }, [address, config]);
@@ -52,11 +63,13 @@ export function V3Positions() {
 
   async function collect(pos: LiquidityPosition) {
     if (!address) return;
-    setBusyId(pos.id.toString());
+    setBusyId(posKey(pos));
     try {
       await runCalls(config, {
         account: address as `0x${string}`,
-        calls: buildCollect(pos.id, address as `0x${string}`),
+        calls: pos.protocol === 'uniswap-v4'
+          ? buildV4Collect(pos, address as `0x${string}`)
+          : buildCollect(pos.id, address as `0x${string}`),
         label: `Collect ${pos.symbol0}/${pos.symbol1} fees`,
         track,
       });
@@ -72,7 +85,7 @@ export function V3Positions() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
         <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Your Positions</span>
-        <span style={{ color: btb.textDim, fontSize: 12 }}>Uniswap V3 · Ethereum</span>
+        <span style={{ color: btb.textDim, fontSize: 12 }}>Uniswap V3 + V4 · Ethereum</span>
       </div>
 
       {loading && positions.length === 0 && (
@@ -82,12 +95,13 @@ export function V3Positions() {
       {positions.map((p) => {
         const hasFees = p.fees0 > 0n || p.fees1 > 0n;
         const hasLiquidity = p.liquidity > 0n;
-        const busy = busyId === p.id.toString();
+        const busy = busyId === posKey(p);
         return (
-          <Glass key={p.id.toString()} padding={14} radius={18}>
+          <Glass key={posKey(p)} padding={14} radius={18}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>{p.symbol0} / {p.symbol1}</span>
-              <span style={{ color: btb.textMuted, fontSize: 11, background: 'rgba(255,255,255,0.07)', padding: '1px 7px', borderRadius: 999 }}>{(p.fee / 10000).toFixed(2)}%</span>
+              <span style={{ color: btb.textMuted, fontSize: 11, background: 'rgba(255,255,255,0.07)', padding: '1px 7px', borderRadius: 999 }}>{fmtFeeTier(p.fee)}</span>
+              <span style={{ color: '#FF007A', fontSize: 10, fontWeight: 700, background: 'rgba(255,0,122,0.12)', border: '1px solid rgba(255,0,122,0.3)', padding: '1px 7px', borderRadius: 999 }}>{p.protocol === 'uniswap-v4' ? 'V4' : 'V3'}</span>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
                 background: p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)',
@@ -152,11 +166,14 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const [amtStr, setAmtStr] = useState('');
   const [useEth, setUseEth] = useState(true);
 
-  // Native-ETH deposit: which sorted token is WETH (if any).
-  const wethSide: 0 | 1 | null = isWeth(pos.token0) ? 0 : isWeth(pos.token1) ? 1 : null;
-  const ethMode = wethSide !== null && useEth;
-  const sym0 = ethMode && wethSide === 0 ? 'ETH' : pos.symbol0;
-  const sym1 = ethMode && wethSide === 1 ? 'ETH' : pos.symbol1;
+  const isV4 = pos.protocol === 'uniswap-v4';
+  // Native-ETH deposit side. V3: the WETH token (user can toggle ETH vs WETH).
+  // V4: currency0 = address(0) IS native ETH — always ETH, nothing to toggle.
+  const wethSide: 0 | 1 | null = isV4 ? null : isWeth(pos.token0) ? 0 : isWeth(pos.token1) ? 1 : null;
+  const nativeSide: 0 | 1 | null = isV4 ? (isNativeCurrency(pos.token0) ? 0 : null) : wethSide;
+  const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
+  const sym0 = ethMode && nativeSide === 0 ? 'ETH' : pos.symbol0;
+  const sym1 = ethMode && nativeSide === 1 ? 'ETH' : pos.symbol1;
 
   const inputDecimals = inputSide === 0 ? pos.decimals0 : pos.decimals1;
   const inputSymbol = inputSide === 0 ? sym0 : sym1;
@@ -199,8 +216,8 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
     return () => { live = false; };
   }, [mode, config, account, pos.token0, pos.token1]);
 
-  const effBal0 = ethMode && wethSide === 0 ? ethBal : bal0;
-  const effBal1 = ethMode && wethSide === 1 ? ethBal : bal1;
+  const effBal0 = ethMode && nativeSide === 0 ? ethBal : bal0;
+  const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
   const short0 = add0 > effBal0;
   const short1 = add1 > effBal1;
   const inputBal = inputSide === 0 ? effBal0 : effBal1;
@@ -211,9 +228,18 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   async function run() {
     setBusy(true); setErr(null);
     try {
-      const calls = mode === 'withdraw'
-        ? buildRemove(pos, pct * 100, SLIPPAGE_BPS, account)
-        : buildIncrease(pos, add0, add1, SLIPPAGE_BPS, ethMode ? wethSide : null);
+      const calls = isV4
+        ? (mode === 'withdraw'
+            ? buildV4Remove(pos, pct * 100, SLIPPAGE_BPS, account)
+            : buildV4Increase(
+                pos,
+                liquidityForAmounts(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, add0, add1),
+                maxIn(add0, SLIPPAGE_BPS), maxIn(add1, SLIPPAGE_BPS),
+                account,
+              ))
+        : (mode === 'withdraw'
+            ? buildRemove(pos, pct * 100, SLIPPAGE_BPS, account)
+            : buildIncrease(pos, add0, add1, SLIPPAGE_BPS, ethMode ? wethSide : null));
       await runCalls(config, {
         account,
         calls,
@@ -236,7 +262,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {(pos.fee / 10000).toFixed(2)}%</div>
+        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {isV4 ? 'V4' : 'V3'}</div>
 
         {mode === 'withdraw' ? (
           <>

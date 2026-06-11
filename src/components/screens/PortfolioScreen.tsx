@@ -6,7 +6,7 @@ import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
-import { V3Positions } from '../V3Positions';
+import { LpPositions } from '../LpPositions';
 
 function fmt(n: number, dp = 2) {
   return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -102,8 +102,8 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
         )}
       </Glass>
 
-      {/* Live LP positions (Uniswap V3 · mainnet) */}
-      <V3Positions/>
+      {/* Live LP positions (Uniswap V3 + V4 · mainnet) */}
+      <LpPositions/>
 
       {/* tokens list — from our own multicall balance system */}
       {loading ? (

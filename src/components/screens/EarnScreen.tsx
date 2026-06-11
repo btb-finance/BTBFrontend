@@ -5,8 +5,8 @@ import { Icon } from '../Icon';
 import { Portal } from '../Portal';
 import { btb } from '../design-tokens';
 import { getEarnPools, poolLink, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
-import { V3Positions } from '../V3Positions';
-import { CreateV3Position } from '../CreateV3Position';
+import { LpPositions } from '../LpPositions';
+import { CreatePosition } from '../CreatePosition';
 
 const DEX_COLORS: Record<string, string> = {
   Uniswap: '#FF007A', Aerodrome: '#2151F5', Blackhole: '#7C3AED',
@@ -60,8 +60,8 @@ export function EarnScreen() {
         </div>
       </div>
 
-      {/* Your live positions (Uniswap V3 · mainnet) */}
-      <V3Positions/>
+      {/* Your live positions (Uniswap V3 + V4 · mainnet) */}
+      <LpPositions/>
 
       {/* Liquidity Pools */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
@@ -202,15 +202,20 @@ function BetaNotice() {
 function ManageSheet({ pool, onClose }: { pool: EarnPool; onClose: () => void }) {
   const [minting, setMinting] = useState(false);
   const tokens = (pool.underlyingTokens ?? []) as `0x${string}`[];
-  // We can mint natively only for Uniswap V3 pools on Ethereum mainnet.
-  const canMintInApp = pool.project === 'uniswap-v3' && pool.chain.toLowerCase() === 'ethereum' && tokens.length >= 2;
+  // In-app minting: Uniswap V3 + V4 on Ethereum mainnet. V4 is limited to
+  // hookless pools — hooks can change fees/behavior in ways we can't preview.
+  const onEthereum = pool.chain.toLowerCase() === 'ethereum';
+  const canMintV3 = pool.project === 'uniswap-v3' && onEthereum && tokens.length >= 2;
+  const canMintV4 = pool.project === 'uniswap-v4' && onEthereum && (!pool.hooks || /^0x0+$/.test(pool.hooks));
+  const canMintInApp = canMintV3 || canMintV4;
 
   if (minting) {
     return (
-      <CreateV3Position
-        tokenA={tokens[0]}
-        tokenB={tokens[1]}
+      <CreatePosition
+        tokenA={canMintV4 ? undefined : tokens[0]}
+        tokenB={canMintV4 ? undefined : tokens[1]}
         initialFee={pool.feeTier}
+        v4PoolId={canMintV4 ? (pool.id as `0x${string}`) : undefined}
         // indexer pools carry real 24h fees; for DeFiLlama rows derive from fee APY
         fees24hUsd={pool.fees24hUsd ?? (pool.tvlUsd * pool.apyBase) / 100 / 365}
         onClose={() => setMinting(false)}
@@ -284,8 +289,8 @@ function ManageSheet({ pool, onClose }: { pool: EarnPool; onClose: () => void })
         </a>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
           {canMintInApp
-            ? 'Creates a new Uniswap V3 position from your wallet — no redirect. Manage it afterwards under “Your Positions”.'
-            : `In-app add/withdraw work today for Uniswap V3 on Ethereum. This pool (${pool.dex} · ${pool.chain}) opens at the source for now.`}
+            ? `Creates a new Uniswap ${canMintV4 ? 'V4' : 'V3'} position from your wallet — no redirect. Manage it afterwards under “Your Positions”.`
+            : `In-app add/withdraw work today for Uniswap V3 and V4 (hook-free pools) on Ethereum. This pool (${pool.dex} · ${pool.chain}) opens at the source for now.`}
         </div>
       </div>
     </div>

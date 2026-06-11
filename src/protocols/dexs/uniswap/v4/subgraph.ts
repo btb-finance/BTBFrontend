@@ -3,8 +3,8 @@
  * 24h fees, fee APR and hook address. Same schema family as V3, so it shares
  * the gateway client in `../graph.ts` (key: NEXT_PUBLIC_GRAPH_KEY).
  *
- * Discovery only for now — in-app minting stays V3 until V4 execution
- * (Permit2 + actions) ships.
+ * The returned pool ids are the bytes32 poolIds used for in-app minting
+ * (fetchV4PoolForMint) — hookless pools are mintable from the Earn sheet.
  */
 import { queryTopPools, IndexedPool } from '../graph';
 

@@ -25,6 +25,8 @@ export interface EarnPool {
   chain: string;
   pair: string;           // e.g. "WETH-USDC"
   feeTier?: number;       // hundredths of a bip — indexer pools only
+  /** V4 only — zero address (or unset) means no hook. */
+  hooks?: string;
   tvlUsd: number;
   apy: number;            // total APY % (indexer pools: fee APR)
   apyBase: number;        // fee APY/APR %
@@ -49,6 +51,7 @@ function fromIndexed(p: IndexedPool): EarnPool {
     chain: 'Ethereum',
     pair: `${p.token0.symbol}-${p.token1.symbol}`,
     feeTier: p.feeTier,
+    hooks: p.hooks,
     tvlUsd: p.tvlUsd,
     apy: p.feeApr,
     apyBase: p.feeApr,

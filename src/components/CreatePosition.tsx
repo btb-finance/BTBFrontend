@@ -13,7 +13,9 @@ import { getTokenPricesUsd } from '../lib/defillama';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
-  TICK_SPACINGS, MIN_TICK, MAX_TICK, FEE_TIERS, isWeth, type MintPool, type PoolDay,
+  TICK_SPACINGS, MIN_TICK, MAX_TICK, FEE_TIERS, isWeth, WETH,
+  fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier,
+  type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
 
 const SLIPPAGE_BPS = 50; // 0.5%
@@ -55,17 +57,26 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
 }
 
 /**
- * Create a brand-new Uniswap V3 position (Ethereum mainnet) for a token pair.
- * Pick a fee tier + range (presets or custom min/max price, snapped to ticks),
- * enter either token's amount (the other side is auto-paired at the current
- * price), and mint with slippage protection (approvals batched in).
+ * Create a brand-new Uniswap V3 or V4 position (Ethereum mainnet).
+ *
+ * V3 (tokenA/tokenB given): pick a fee tier + range (presets or custom min/max
+ * price, snapped to ticks), enter either token's amount (the other side is
+ * auto-paired at the current price), and mint with slippage protection
+ * (approvals batched in).
+ *
+ * V4 (v4PoolId given): same flow against the singleton PoolManager — the pool
+ * (with its fee/tickSpacing/hooks key) is fixed by the id, deposits go through
+ * Permit2, and native-ETH pools are paid in ETH directly.
  */
-export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClose, onDone }: {
-  tokenA: `0x${string}`; tokenB: `0x${string}`;
-  /** Fee tier of the pool the user clicked — preselected when valid. */
+export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, onClose, onDone }: {
+  /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
+  tokenA?: `0x${string}`; tokenB?: `0x${string}`;
+  /** Fee tier of the pool the user clicked — preselected when valid (V3). */
   initialFee?: number;
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
   fees24hUsd?: number;
+  /** V4 mint: the bytes32 pool id from the Earn list. */
+  v4PoolId?: `0x${string}`;
   onClose: () => void; onDone?: () => void;
 }) {
   const { address } = useConnection();
@@ -93,53 +104,74 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
   const [history, setHistory] = useState<PoolDay[] | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
 
+  const isV4 = v4PoolId !== undefined;
   const pool = pools?.[fee] ?? null;
+  const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
 
-  // Which sorted token (if any) is WETH — lets the user deposit native ETH.
-  const wethSide: 0 | 1 | null = pool ? (isWeth(pool.token0) ? 0 : isWeth(pool.token1) ? 1 : null) : null;
-  const ethMode = wethSide !== null && useEth;
-  const sym0 = pool ? (ethMode && wethSide === 0 ? 'ETH' : pool.symbol0) : '';
-  const sym1 = pool ? (ethMode && wethSide === 1 ? 'ETH' : pool.symbol1) : '';
+  // Native-ETH deposit side. V3: the WETH token (toggle ETH vs WETH).
+  // V4: currency0 = address(0) IS native ETH — always paid as ETH, no toggle.
+  const wethSide: 0 | 1 | null = !isV4 && pool ? (isWeth(pool.token0) ? 0 : isWeth(pool.token1) ? 1 : null) : null;
+  const nativeSide: 0 | 1 | null = isV4 ? (pool && isNativeCurrency(pool.token0) ? 0 : null) : wethSide;
+  const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
+  const sym0 = pool ? (ethMode && nativeSide === 0 ? 'ETH' : pool.symbol0) : '';
+  const sym1 = pool ? (ethMode && nativeSide === 1 ? 'ETH' : pool.symbol1) : '';
 
   useEffect(() => {
     let live = true;
     setLoadingPool(true); setPools(null); setPoolErr(null);
     const client = getPublicClient(config);
     if (!client) { setLoadingPool(false); setPoolErr('No RPC client'); return; }
-    fetchPoolsForMint(client, tokenA, tokenB)
-      .then((record) => {
-        if (!live) return;
-        setPools(record);
-        // If the preselected tier has no pool, jump to the deepest existing one.
-        setFee((f) => {
-          if (record[f]?.exists) return f;
-          const best = FEE_TIERS.filter((t) => record[t]?.exists)
-            .sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0];
-          return best ?? f;
-        });
-      })
-      .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
-      .finally(() => { if (live) setLoadingPool(false); });
+    if (v4PoolId) {
+      // V4: the pool id pins one pool (fee/tickSpacing/hooks) — no tier choice.
+      fetchV4PoolForMint(client, v4PoolId)
+        .then((p) => { if (live) { setPools({ [p.fee]: p }); setFee(p.fee); } })
+        .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
+        .finally(() => { if (live) setLoadingPool(false); });
+    } else if (tokenA && tokenB) {
+      fetchPoolsForMint(client, tokenA, tokenB)
+        .then((record) => {
+          if (!live) return;
+          setPools(record);
+          // If the preselected tier has no pool, jump to the deepest existing one.
+          setFee((f) => {
+            if (record[f]?.exists) return f;
+            const best = FEE_TIERS.filter((t) => record[t]?.exists)
+              .sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0];
+            return best ?? f;
+          });
+        })
+        .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
+        .finally(() => { if (live) setLoadingPool(false); });
+    } else {
+      setLoadingPool(false); setPoolErr('Missing token pair');
+    }
     return () => { live = false; };
-  }, [config, tokenA, tokenB, retryNonce]);
+  }, [config, tokenA, tokenB, v4PoolId, retryNonce]);
 
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
     let live = true;
     setHistory(null);
     if (!pool || !pool.exists) return;
-    if (hasGraphKey) {
+    if (hasGraphKey && !isV4) { // the V4 subgraph has no poolDayData — sim falls back to fees24hUsd
       getPoolHistory(V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live) setHistory(h); })
         .catch(() => {}); // chart/sim are progressive extras — never block minting
     }
-    getTokenPricesUsd([pool.token0, pool.token1])
-      .then((p) => { if (live) setUsd(p); })
+    // Native ETH (V4 currency 0x0) isn't a token DeFiLlama knows — price it as WETH.
+    const priceToken0 = isNativeCurrency(pool.token0) ? WETH : pool.token0;
+    getTokenPricesUsd([priceToken0, pool.token1])
+      .then((p) => {
+        if (!live) return;
+        if (priceToken0 !== pool.token0 && p[WETH.toLowerCase()]) p[pool.token0.toLowerCase()] = p[WETH.toLowerCase()];
+        setUsd(p);
+      })
       .catch(() => {});
     return () => { live = false; };
-  }, [pool]);
+  }, [pool, isV4]);
 
-  const spacing = TICK_SPACINGS[fee];
+  // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
+  const spacing = v4Pool ? v4Pool.tickSpacing : TICK_SPACINGS[fee];
   const ticks = useMemo(() => {
     if (!pool || !pool.exists) return null;
     if (rangeMode !== 'custom') return rangeTicks(pool.tick, spacing, rangeMode);
@@ -236,8 +268,8 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
     return () => { live = false; };
   }, [config, address, pool]);
 
-  const effBal0 = ethMode && wethSide === 0 ? ethBal : bal0;
-  const effBal1 = ethMode && wethSide === 1 ? ethBal : bal1;
+  const effBal0 = ethMode && nativeSide === 0 ? ethBal : bal0;
+  const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
   const short0 = add0 > effBal0;
   const short1 = add1 > effBal1;
 
@@ -245,13 +277,22 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
     if (!address || !pool || !ticks) return;
     setBusy(true); setErr(null);
     try {
-      const calls = buildMint({
-        token0: pool.token0, token1: pool.token1, fee,
-        tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
-        amount0Desired: add0, amount1Desired: add1,
-        slippageBps: SLIPPAGE_BPS, recipient: address as `0x${string}`,
-        nativeEthSide: ethMode ? wethSide : null,
-      });
+      const calls = v4Pool
+        ? buildV4Mint({
+            poolKey: v4Pool.poolKey,
+            tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
+            // V4 mints a liquidity amount; the maxes cap what the pool may pull.
+            liquidity: liquidityForAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, add0, add1),
+            amount0Max: maxIn(add0, SLIPPAGE_BPS), amount1Max: maxIn(add1, SLIPPAGE_BPS),
+            recipient: address as `0x${string}`,
+          })
+        : buildMint({
+            token0: pool.token0, token1: pool.token1, fee,
+            tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
+            amount0Desired: add0, amount1Desired: add1,
+            slippageBps: SLIPPAGE_BPS, recipient: address as `0x${string}`,
+            nativeEthSide: ethMode ? wethSide : null,
+          });
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
       onDone?.();
       onClose();
@@ -308,13 +349,21 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Add liquidity</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
-          {pool ? `${pool.symbol0} / ${pool.symbol1}` : 'Uniswap V3 · Ethereum'}
+          {pool ? `${pool.symbol0} / ${pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
         </div>
 
-        {/* Fee tier */}
+        {/* Fee tier — selectable on V3; fixed by the pool id on V4 */}
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Fee tier</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {FEE_TIERS.map((f) => {
+          {isV4 ? (
+            pool && (
+              <span style={{
+                height: 38, padding: '0 16px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)', color: '#fff',
+                display: 'inline-flex', alignItems: 'center',
+              }}>{fmtFeeTier(fee)}</span>
+            )
+          ) : FEE_TIERS.map((f) => {
             const missing = !!pools && !pools[f]?.exists;
             return (
               <button key={f} onClick={() => setFee(f)} disabled={missing} style={{
@@ -339,7 +388,9 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
             }}>Retry</button>
           </div>
         ) : !pool?.exists ? (
-          <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>No pool at this fee tier — try another.</div>
+          <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>
+            {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
+          </div>
         ) : (
           <>
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 12 }}>
@@ -465,7 +516,7 @@ export function CreateV3Position({ tokenA, tokenB, initialFee, fees24hUsd, onClo
           color: canMint ? '#fff' : btb.textDim,
         }}>{busy ? 'Confirming…' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</button>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-          Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : ''}
+          Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}
         </div>
       </div>
     </div>
