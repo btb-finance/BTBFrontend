@@ -17,7 +17,8 @@ import { getV4TopPools } from '@/protocols/dexs/uniswap/v4/subgraph';
 import { hasGraphKey, fmtFeeTier, IndexedPool } from '@/protocols/dexs/uniswap/graph';
 import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
-import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
+import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
+import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
 
 export { fmtCompactUsd, fmtFeeTier };
 
@@ -109,6 +110,45 @@ export async function getEarnPools(): Promise<EarnPool[]> {
 export function poolLink(p: EarnPool): string {
   if (p.source === 'uniswap') return `https://app.uniswap.org/explore/pools/ethereum/${p.id}`;
   return `https://defillama.com/yields/pool/${p.id}`;
+}
+
+/**
+ * CreatePosition props for a pool. Minting in-app covers Uniswap V3 + V4 on
+ * Ethereum mainnet, with V4 limited to hookless pools — hooks can change
+ * fees/behavior in ways we can't preview. The read-only simulator works for
+ * hooked pools too (`forSimulate`). Null → not actionable.
+ */
+export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}` } | null {
+  if (p.chain.toLowerCase() !== 'ethereum') return null;
+  const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
+  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1] };
+  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}` };
+  return null;
+}
+
+/**
+ * Pool-token addresses a wallet token can appear as. Native ETH trades as
+ * WETH in V3 pools and as currency address(0) in V4 pools.
+ */
+export function lpAddressesForToken(address: string): string[] {
+  const a = address.toLowerCase();
+  if (a === 'eth' || a === NATIVE_CURRENCY || a === WETH.toLowerCase()) {
+    return [WETH.toLowerCase(), NATIVE_CURRENCY];
+  }
+  return [a];
+}
+
+/** Pools whose pair contains any of `addrs` (case-insensitive). */
+export function poolsForToken(pools: EarnPool[], addrs: string[]): EarnPool[] {
+  const set = new Set(addrs.map((a) => a.toLowerCase()));
+  return pools.filter((p) => p.underlyingTokens?.some((t) => set.has(t.toLowerCase())));
+}
+
+/** 385.9 → "386", 38.59 → "38.59", 3859 → "3,859". */
+export function fmtApr(v: number): string {
+  if (v >= 1000) return Math.round(v).toLocaleString('en-US');
+  if (v >= 100) return v.toFixed(0);
+  return v.toFixed(2);
 }
 
 /** The concentrated-range width the list's headline APR is quoted for. */

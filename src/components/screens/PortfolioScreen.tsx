@@ -7,6 +7,7 @@ import { btb } from '../design-tokens';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions } from '../LpPositions';
+import { TokenLpPicker } from '../TokenLpPicker';
 
 function fmt(n: number, dp = 2) {
   return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -57,6 +58,8 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
   const [expandedToken, setExpandedToken] = useState<string | null>(null);
   // Tokens | LPs tabs — keeps the screen short on mobile.
   const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
+  // "Add LP" from a token row → suggest the best Uniswap pools for it.
+  const [lpToken, setLpToken] = useState<Token | null>(null);
 
   const COLORS = ['#FFFFFF','#FFB36B','#52E3A4','#94A3B8'];
   const top4 = tokensWithBalance.slice(0, 4);
@@ -190,6 +193,14 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
                     }}>
                       <Icon name="swap" size={14}/> Swap {h.symbol}
                     </button>
+                    <button onClick={() => { setLpToken(h); setExpandedToken(null); }} style={{
+                      flex: 1, height: 42, borderRadius: 14, border: 'none',
+                      background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff',
+                      fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}>
+                      <Icon name="plus" size={14}/> Add LP
+                    </button>
                   </div>
                 )}
               </div>
@@ -197,6 +208,8 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
           })}
         </Glass>
       )}
+
+      {lpToken && <TokenLpPicker token={lpToken} onClose={() => setLpToken(null)}/>}
     </div>
   );
 }

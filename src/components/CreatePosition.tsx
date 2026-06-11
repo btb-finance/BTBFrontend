@@ -71,10 +71,10 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * (with its fee/tickSpacing/hooks key) is fixed by the id, deposits go through
  * Permit2, and native-ETH pools are paid in ETH directly.
  *
- * `simulate` opens the same sheet as a free earnings simulator: step 2 takes a
- * USD amount (default $1,000) instead of wallet deposits and shows the
- * estimated daily/monthly/yearly fees for the chosen range — no wallet needed.
- * One tap switches to the real deposit flow with the same range.
+ * `simulate` opens the sheet as a free earnings simulator on a SINGLE page:
+ * USD amount on top (default $1,000), the range controls below, and live
+ * daily/monthly/yearly fee estimates at the bottom — no wallet needed, no
+ * steps. One tap switches to the real deposit flow with the same range.
  *
  * Smart fit (add mode): step 1 shows what the wallet holds and one tap
  * re-places the chosen range width so those balances deposit cleanly —
@@ -384,6 +384,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       if (raw > 0n) setAmt({ side, str: formatUnits(raw, side === 0 ? pool.decimals0 : pool.decimals1) });
     }
     setSimOnly(false);
+    setTab('deposit'); // the range was already chosen in the simulator
   }
 
   /**
@@ -448,6 +449,57 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     );
   }
 
+  // Shared result blocks — rendered on the simulator's single page AND on the
+  // add flow's deposit step (plain functions, same reason as renderAmountInput).
+  function renderNeedWarning() {
+    if (!pool || need === 'both') return null;
+    return (
+      <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
+        Current price is outside this range — the position takes {need === 'token0' ? sym0 : sym1} only and won&apos;t earn fees until price enters the range.
+      </div>
+    );
+  }
+
+  function renderDepositSummary() {
+    if (!pool || (add0 === 0n && add1 === 0n)) return null;
+    return (
+      <Glass padding={12} radius={12} soft>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 4 }}>{simOnly ? 'You’d deposit' : 'You deposit'}</div>
+        <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>
+          {fmtAmt(add0, pool.decimals0)} {sym0} + {fmtAmt(add1, pool.decimals1)} {sym1}
+          {sim && sim.depositUsd > 0 && <span style={{ color: btb.textMuted, fontWeight: 600 }}> (≈${sim.depositUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })})</span>}
+        </div>
+      </Glass>
+    );
+  }
+
+  function renderEarnings() {
+    if (!sim || !sim.inRange || sim.daily <= 0) return null;
+    return (
+      <Glass padding={12} radius={12} soft style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ color: btb.textMuted, fontSize: 12 }}>Estimated earnings · current volume</span>
+          {sim.apr !== null && (
+            <span style={{ color: '#52E3A4', fontSize: 13, fontWeight: 800 }}>~{sim.apr.toFixed(1)}% APR</span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {([['Daily', sim.daily], ['Monthly', sim.monthly], ['Yearly', sim.yearly]] as const).map(([label, v]) => (
+            <div key={label} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
+              <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
+              <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>
+                ${v >= 100 ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : v.toFixed(2)}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
+          {history ? '7-day avg' : 'Latest 24h'} pool fees × your {sim.sharePct < 0.01 ? '<0.01' : sim.sharePct.toFixed(2)}% share of in-range liquidity. Assumes price stays in range and volume holds — not a guarantee.
+        </div>
+      </Glass>
+    );
+  }
+
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 340, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
@@ -458,21 +510,23 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
           {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
         </div>
 
-        {/* Step tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          {([['range', '1 · Price range'], ['deposit', simOnly ? '2 · Earnings' : '2 · Deposit']] as const).map(([t, label]) => {
-            const active = tab === t;
-            const disabled = t === 'deposit' && !(pool?.exists && ticks);
-            return (
-              <button key={t} onClick={() => !disabled && setTab(t)} disabled={disabled} style={{
-                flex: 1, height: 40, borderRadius: 12, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                background: active ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
-                border: `1px solid ${active ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.1)'}`,
-                color: active ? '#52E3A4' : disabled ? btb.textDim : btb.textMuted,
-              }}>{label}</button>
-            );
-          })}
-        </div>
+        {/* Step tabs — add flow only; the simulator is a single live page */}
+        {!simOnly && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {([['range', '1 · Price range'], ['deposit', '2 · Deposit']] as const).map(([t, label]) => {
+              const active = tab === t;
+              const disabled = t === 'deposit' && !(pool?.exists && ticks);
+              return (
+                <button key={t} onClick={() => !disabled && setTab(t)} disabled={disabled} style={{
+                  flex: 1, height: 40, borderRadius: 12, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                  background: active ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${active ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.1)'}`,
+                  color: active ? '#52E3A4' : disabled ? btb.textDim : btb.textMuted,
+                }}>{label}</button>
+              );
+            })}
+          </div>
+        )}
 
         {loadingPool ? (
           <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Checking pool…</div>
@@ -488,8 +542,38 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
           <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>
             {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
           </div>
-        ) : tab === 'range' ? (
+        ) : (simOnly || tab === 'range') ? (
           <>
+            {/* Simulator: how much to invest comes first, results update live below */}
+            {simOnly && (
+              <>
+                <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>How much would you invest? (USD)</div>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  {[100, 1000, 10000].map((v) => (
+                    <button key={v} onClick={() => setSimUsdStr(String(v))} style={{
+                      flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
+                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                      color: simUsdStr === String(v) ? '#52E3A4' : btb.textMuted,
+                    }}>${v.toLocaleString('en-US')}</button>
+                  ))}
+                </div>
+                <div style={{ position: 'relative', marginBottom: 16 }}>
+                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: btb.textMuted, fontSize: 18, fontWeight: 700 }}>$</span>
+                  <input
+                    value={simUsdStr}
+                    onChange={(e) => setSimUsdStr(e.target.value.replace(/[^0-9.]/g, ''))}
+                    inputMode="decimal" placeholder="1000"
+                    style={{ ...inputStyle(false), paddingLeft: 30 }}/>
+                </div>
+                {!tokenUsd && (
+                  <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
+                    No USD price data for this pair yet — try again in a moment.
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Fee tier — selectable on V3; fixed by the pool id on V4 */}
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Fee tier</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -595,6 +679,15 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                 )}
               </div>
             )}
+
+            {/* Simulator results — live as the amount/range above change */}
+            {simOnly && (
+              <>
+                {renderNeedWarning()}
+                {renderDepositSummary()}
+                {renderEarnings()}
+              </>
+            )}
           </>
         ) : (
           <>
@@ -617,56 +710,20 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               </div>
             </Glass>
 
-            {simOnly ? (
-              <>
-                {/* Simulator — USD amount instead of wallet deposits */}
-                <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Deposit amount (USD)</div>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                  {[100, 1000, 10000].map((v) => (
-                    <button key={v} onClick={() => setSimUsdStr(String(v))} style={{
-                      flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                      color: simUsdStr === String(v) ? '#52E3A4' : btb.textMuted,
-                    }}>${v.toLocaleString('en-US')}</button>
-                  ))}
+            {wethSide !== null && (
+              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
+                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
+                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                  <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
                 </div>
-                <div style={{ position: 'relative', marginBottom: 12 }}>
-                  <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: btb.textMuted, fontSize: 18, fontWeight: 700 }}>$</span>
-                  <input
-                    value={simUsdStr}
-                    onChange={(e) => setSimUsdStr(e.target.value.replace(/[^0-9.]/g, ''))}
-                    inputMode="decimal" placeholder="1000"
-                    style={{ ...inputStyle(false), paddingLeft: 30 }}/>
-                </div>
-                {!tokenUsd && (
-                  <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
-                    No USD price data for this pair yet — try again in a moment.
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                {wethSide !== null && (
-                  <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                    <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                    <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                      <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
-                    </div>
-                  </div>
-                )}
-
-                {/* Amounts — enter either side, the other is paired automatically */}
-                {renderAmountInput(0)}
-                {renderAmountInput(1)}
-              </>
-            )}
-
-            {need !== 'both' && (
-              <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
-                Current price is outside this range — the position takes {need === 'token0' ? sym0 : sym1} only and won&apos;t earn fees until price enters the range.
               </div>
             )}
+
+            {/* Amounts — enter either side, the other is paired automatically */}
+            {renderAmountInput(0)}
+            {renderAmountInput(1)}
+
+            {renderNeedWarning()}
             {(short0 || short1) && (
               <div style={{ background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.25)', borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
@@ -683,53 +740,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             {!short0 && !short1 && smartNote && (
               <div style={{ color: '#52E3A4', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>{smartNote}</div>
             )}
-            {(add0 > 0n || add1 > 0n) && (
-              <Glass padding={12} radius={12} soft>
-                <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 4 }}>{simOnly ? 'You’d deposit' : 'You deposit'}</div>
-                <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>
-                  {fmtAmt(add0, pool.decimals0)} {sym0} + {fmtAmt(add1, pool.decimals1)} {sym1}
-                  {sim && sim.depositUsd > 0 && <span style={{ color: btb.textMuted, fontWeight: 600 }}> (≈${sim.depositUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })})</span>}
-                </div>
-              </Glass>
-            )}
-
-            {/* Estimated earnings — fees × your share of in-range liquidity */}
-            {sim && sim.inRange && sim.daily > 0 && (
-              <Glass padding={12} radius={12} soft style={{ marginTop: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ color: btb.textMuted, fontSize: 12 }}>Estimated earnings · current volume</span>
-                  {sim.apr !== null && (
-                    <span style={{ color: '#52E3A4', fontSize: 13, fontWeight: 800 }}>~{sim.apr.toFixed(1)}% APR</span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {([['Daily', sim.daily], ['Monthly', sim.monthly], ['Yearly', sim.yearly]] as const).map(([label, v]) => (
-                    <div key={label} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
-                      <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
-                      <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>
-                        ${v >= 100 ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : v.toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
-                  {history ? '7-day avg' : 'Latest 24h'} pool fees × your {sim.sharePct < 0.01 ? '<0.01' : sim.sharePct.toFixed(2)}% share of in-range liquidity. Assumes price stays in range and volume holds — not a guarantee.
-                </div>
-              </Glass>
-            )}
+            {renderDepositSummary()}
+            {renderEarnings()}
           </>
         )}
 
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
-        {tab === 'range' ? (
-          <button onClick={() => setTab('deposit')} disabled={!pool?.exists || !ticks} style={{
-            width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-            cursor: pool?.exists && ticks ? 'pointer' : 'default',
-            background: pool?.exists && ticks ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-            color: pool?.exists && ticks ? '#fff' : btb.textDim,
-          }}>Next · Enter amounts</button>
-        ) : simOnly ? (
+        {simOnly ? (
           <>
             {canSwitchToAdd && (
               <button onClick={switchToAdd} style={{
@@ -741,6 +759,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               Free LP earnings simulator — no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
             </div>
           </>
+        ) : tab === 'range' ? (
+          <button onClick={() => setTab('deposit')} disabled={!pool?.exists || !ticks} style={{
+            width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
+            cursor: pool?.exists && ticks ? 'pointer' : 'default',
+            background: pool?.exists && ticks ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
+            color: pool?.exists && ticks ? '#fff' : btb.textDim,
+          }}>Next · Enter amounts</button>
         ) : (
           <>
             <button onClick={mint} disabled={!canMint} style={{
