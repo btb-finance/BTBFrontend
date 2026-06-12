@@ -193,14 +193,16 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
                     }}>
                       <Icon name="swap" size={14}/> Swap {h.symbol}
                     </button>
-                    <button onClick={() => { setLpToken(h); setExpandedToken(null); }} style={{
-                      flex: 1, height: 42, borderRadius: 14, border: 'none',
-                      background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff',
-                      fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    }}>
-                      <Icon name="plus" size={14}/> Add LP
-                    </button>
+                    {(h.chainId ?? 1) === 1 && ( // LP flows are Ethereum mainnet only
+                      <button onClick={() => { setLpToken(h); setExpandedToken(null); }} style={{
+                        flex: 1, height: 42, borderRadius: 14, border: 'none',
+                        background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff',
+                        fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      }}>
+                        <Icon name="plus" size={14}/> Add LP
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

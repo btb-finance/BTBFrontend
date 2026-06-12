@@ -32,14 +32,15 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
     getEarnPools()
       .then((all) => {
         if (!live) return;
-        const mine = poolsForToken(all, lpAddressesForToken(token.address))
-          .filter((p) => mintTarget(p) !== null)
-          .slice(0, MAX_SUGGESTIONS);
-        setPools([...mine].sort(byApr));
+        // Rank the FULL candidate set before truncating — slicing first would
+        // drop lower-TVL pools that out-earn the big ones on range APR.
+        const candidates = poolsForToken(all, lpAddressesForToken(token.address))
+          .filter((p) => mintTarget(p) !== null);
+        setPools([...candidates].sort(byApr).slice(0, MAX_SUGGESTIONS));
         const client = getPublicClient(config);
-        if (client && mine.length > 0) {
-          addRangeAprs(client, mine)
-            .then((ep) => { if (live) setPools([...ep].sort(byApr)); })
+        if (client && candidates.length > 0) {
+          addRangeAprs(client, candidates)
+            .then((ep) => { if (live) setPools([...ep].sort(byApr).slice(0, MAX_SUGGESTIONS)); })
             .catch(() => {});
         }
       })
@@ -77,7 +78,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         {!pools && !error && <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Finding pools…</div>}
         {pools && pools.length === 0 && (
           <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 0' }}>
-            No active Uniswap pool found for {token.symbol} on Ethereum yet.
+            No active Uniswap or PancakeSwap pool found for {token.symbol} on Ethereum yet.
           </div>
         )}
 

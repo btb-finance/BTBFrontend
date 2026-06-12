@@ -63,8 +63,13 @@ export async function fetchV4Positions(
   let found = false;
   if (hasGraphKey) {
     try {
-      candidates = await withTimeout(getOwnerPositionIds(V4_SUBGRAPH_ID, owner), 10_000);
-      found = true;
+      const ids = await withTimeout(getOwnerPositionIds(V4_SUBGRAPH_ID, owner), 10_000);
+      // An empty result could just be indexing lag — only trust a non-empty
+      // set, otherwise still run the on-chain scan.
+      if (ids.length > 0) {
+        candidates = ids;
+        found = true;
+      }
     } catch { /* schema without positions / gateway error — fall through to logs */ }
   }
   if (!found) {

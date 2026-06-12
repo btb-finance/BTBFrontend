@@ -252,8 +252,9 @@ export const V3_SUBGRAPH_ID = '5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV';
 // V3-schema subgraphs (Uniswap V3, PancakeSwap V3, the V4 fork) index a
 // Position entity with an `owner` — one query enumerates a wallet's position
 // tokenIds without the RPC log scans that public endpoints choke on.
-const OWNER_POSITIONS_QUERY = `query OwnerPositions($owner: String!) {
-  positions(first: 500, where: { owner: $owner }) { id }
+// Ordered + cursor-paginated so large wallets get a deterministic, complete set.
+const OWNER_POSITIONS_QUERY = `query OwnerPositions($owner: String!, $lastId: String!) {
+  positions(first: 500, orderBy: id, orderDirection: asc, where: { owner: $owner, id_gt: $lastId }) { id }
 }`;
 
 /**
@@ -262,12 +263,20 @@ const OWNER_POSITIONS_QUERY = `query OwnerPositions($owner: String!) {
  * back to on-chain discovery.
  */
 export async function getOwnerPositionIds(subgraphId: string, owner: string): Promise<bigint[]> {
-  const data = await gatewayQuery<{ positions: { id: string }[] }>(
-    subgraphId, OWNER_POSITIONS_QUERY, { owner: owner.toLowerCase() },
-  );
-  return (data.positions ?? [])
-    .map((p) => { try { return BigInt(p.id); } catch { return null; } })
-    .filter((x): x is bigint => x !== null);
+  const out: bigint[] = [];
+  let lastId = '';
+  for (let page = 0; page < 4; page++) { // ≤2000 ids — callers verify ownership on-chain anyway
+    const data = await gatewayQuery<{ positions: { id: string }[] }>(
+      subgraphId, OWNER_POSITIONS_QUERY, { owner: owner.toLowerCase(), lastId },
+    );
+    const batch = data.positions ?? [];
+    for (const p of batch) {
+      try { out.push(BigInt(p.id)); } catch { /* non-numeric id scheme — skip */ }
+    }
+    if (batch.length < 500) break;
+    lastId = batch[batch.length - 1].id;
+  }
+  return out;
 }
 
 const DYNAMIC_FEE_FLAG = 0x800000;
