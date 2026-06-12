@@ -1,18 +1,21 @@
 import type { PublicClient } from 'viem';
-import { UNISWAP_V3 } from './addresses';
+import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
 
 /**
- * Read every Uniswap V3 position the owner holds on mainnet, with current
+ * Read every V3-architecture position the owner holds on mainnet, with current
  * token amounts, claimable fees, and in/out-of-range status. Read-only — safe.
+ * Defaults to Uniswap V3; pass a fork deployment (PancakeSwap V3) to read its
+ * byte-compatible NonfungiblePositionManager instead.
  */
 export async function fetchV3Positions(
   client: PublicClient,
   owner: `0x${string}`,
+  d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Promise<LiquidityPosition[]> {
-  const npm = UNISWAP_V3.positionManager;
+  const npm = d.positionManager;
 
   const count = (await client.readContract({
     address: npm, abi: NPM_ABI, functionName: 'balanceOf', args: [owner],
@@ -65,7 +68,7 @@ export async function fetchV3Positions(
   const uniquePools = [...new Map(raws.map((r) => [poolKey(r), r])).values()];
   const poolAddrs = (await client.multicall({
     contracts: uniquePools.map((r) => ({
-      address: UNISWAP_V3.factory, abi: FACTORY_ABI, functionName: 'getPool' as const,
+      address: d.factory, abi: FACTORY_ABI, functionName: 'getPool' as const,
       args: [r.token0, r.token1, r.fee] as const,
     })),
     allowFailure: true,
@@ -116,7 +119,7 @@ export async function fetchV3Positions(
       inRange = st.tick >= r.tickLower && st.tick < r.tickUpper;
     }
     return {
-      protocol: 'uniswap-v3',
+      protocol: d.protocol,
       id: r.id,
       token0: r.token0, token1: r.token1,
       symbol0: m0.symbol, symbol1: m1.symbol,

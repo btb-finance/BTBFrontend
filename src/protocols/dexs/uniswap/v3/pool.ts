@@ -1,5 +1,5 @@
 import type { PublicClient } from 'viem';
-import { UNISWAP_V3, FEE_TIERS } from './addresses';
+import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
 
 export interface MintPool {
@@ -29,11 +29,12 @@ export async function fetchPoolForMint(
   tokenA: `0x${string}`,
   tokenB: `0x${string}`,
   fee: number,
+  d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Promise<MintPool> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
 
   const pool = (await client.readContract({
-    address: UNISWAP_V3.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, fee],
+    address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, fee],
   })) as `0x${string}`;
   const exists = !!pool && pool.toLowerCase() !== ZERO;
 
@@ -77,13 +78,14 @@ export async function fetchPoolsForMint(
   client: PublicClient,
   tokenA: `0x${string}`,
   tokenB: `0x${string}`,
+  d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Promise<Record<number, MintPool>> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
 
   const [addrRes, metaRes] = await Promise.all([
     client.multicall({
-      contracts: FEE_TIERS.map((fee) => ({
-        address: UNISWAP_V3.factory, abi: FACTORY_ABI, functionName: 'getPool' as const, args: [token0, token1, fee] as const,
+      contracts: d.feeTiers.map((fee) => ({
+        address: d.factory, abi: FACTORY_ABI, functionName: 'getPool' as const, args: [token0, token1, fee] as const,
       })),
       allowFailure: true,
     }),
@@ -98,7 +100,7 @@ export async function fetchPoolsForMint(
     }),
   ]);
 
-  const addrs = FEE_TIERS.map((fee, i) => ({
+  const addrs = d.feeTiers.map((fee, i) => ({
     fee,
     pool: (addrRes[i].status === 'success' ? (addrRes[i].result as `0x${string}`) : ZERO) as `0x${string}`,
   }));

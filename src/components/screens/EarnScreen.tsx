@@ -1,22 +1,26 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
-import { getEarnPools, addRangeAprs, RANGE_APR_PCT, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
+import {
+  getEarnPools, addRangeAprs, mintTarget, lpAddressesForToken,
+  RANGE_APR_PCT, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool,
+} from '../../lib/pools';
+import { useTokenStore } from '../../lib/TokenStore';
 import { LpPositions } from '../LpPositions';
 import { CreatePosition } from '../CreatePosition';
 
-const UNI_COLOR = '#FF007A';
+const DEX_COLORS: Record<string, string> = { Uniswap: '#FF007A', PancakeSwap: '#1FC7D4' };
+const dexColor = (dex: string) => DEX_COLORS[dex] ?? '#FF007A';
 
 // Staged DEX integrations — shown as "coming soon" instead of listing pools
 // the app can't act on yet.
 const COMING_SOON_DEXS: { name: string; color: string }[] = [
   { name: 'Aerodrome', color: '#2151F5' },
   { name: 'Curve', color: '#3B6CF6' },
-  { name: 'PancakeSwap', color: '#1FC7D4' },
   { name: 'Velodrome', color: '#FF1100' },
   { name: 'SushiSwap', color: '#FA52A0' },
   { name: 'Balancer', color: '#E2E8F0' },
@@ -26,26 +30,6 @@ function apyColor(apy: number) {
   if (apy >= 50) return '#52E3A4';
   if (apy >= 15) return '#7DE3B0';
   return btb.text;
-}
-
-function fmtApr(v: number) {
-  if (v >= 1000) return Math.round(v).toLocaleString('en-US');
-  if (v >= 100) return v.toFixed(0);
-  return v.toFixed(2);
-}
-
-/**
- * CreatePosition props for a pool. Minting in-app covers Uniswap V3 + V4 on
- * Ethereum mainnet, with V4 limited to hookless pools — hooks can change
- * fees/behavior in ways we can't preview. The read-only simulator works for
- * hooked pools too (`forSimulate`). Null → not actionable.
- */
-function sheetTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}` } | null {
-  if (p.chain.toLowerCase() !== 'ethereum') return null;
-  const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
-  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1] };
-  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}` };
-  return null;
 }
 
 export function EarnScreen() {
@@ -72,7 +56,30 @@ export function EarnScreen() {
     return () => { live = false; };
   }, [config]);
 
-  const sheetProps = sheet ? sheetTarget(sheet.pool, sheet.simulate) : null;
+  const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
+
+  // Balance-aware ordering: pools made of tokens the wallet holds rank first
+  // (both tokens held beats one), keeping the TVL order within each group.
+  const { positions } = useTokenStore();
+  const held = useMemo(() => {
+    const s = new Set<string>();
+    for (const t of positions) {
+      if (parseFloat(t.balance ?? '0') <= 0) continue;
+      for (const a of lpAddressesForToken(t.address)) s.add(a);
+    }
+    return s;
+  }, [positions]);
+  const heldSyms = (p: EarnPool): string[] => {
+    const syms = p.pair.split('-');
+    return (p.underlyingTokens ?? [])
+      .map((t, i) => (held.has(t.toLowerCase()) ? syms[i] : null))
+      .filter((x): x is string => !!x);
+  };
+  const shown = useMemo(() => {
+    if (held.size === 0) return pools;
+    const score = (p: EarnPool) => (p.underlyingTokens ?? []).filter((t) => held.has(t.toLowerCase())).length;
+    return [...pools].sort((a, b) => score(b) - score(a));
+  }, [pools, held]);
 
   return (
     <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -82,7 +89,7 @@ export function EarnScreen() {
       <div style={{ padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Earn</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2 }}>
-          Uniswap V3 &amp; V4 liquidity · live APR, volume &amp; TVL
+          Uniswap V3/V4 &amp; PancakeSwap V3 liquidity · live APR, volume &amp; TVL
         </div>
       </div>
 
@@ -113,17 +120,18 @@ export function EarnScreen() {
 
       {!loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {pools.map((p) => {
-            const mintable = sheetTarget(p) !== null;
+          {shown.map((p) => {
+            const mintable = mintTarget(p) !== null;
+            const mine = heldSyms(p);
             return (
               <Glass key={p.id} padding={14} radius={18}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{
                     width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                    background: `${UNI_COLOR}22`, border: `1px solid ${UNI_COLOR}55`,
+                    background: `${dexColor(p.dex)}22`, border: `1px solid ${dexColor(p.dex)}55`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Icon name="layers" size={20} color={UNI_COLOR}/>
+                    <Icon name="layers" size={20} color={dexColor(p.dex)}/>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -132,9 +140,14 @@ export function EarnScreen() {
                         <span style={{ flexShrink: 0, color: btb.textMuted, fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 6px', borderRadius: 999 }}>{fmtFeeTier(p.feeTier)}</span>
                       )}
                       {p.version && (
-                        <span style={{ flexShrink: 0, color: UNI_COLOR, fontSize: 10, fontWeight: 700, background: `${UNI_COLOR}18`, border: `1px solid ${UNI_COLOR}44`, padding: '1px 6px', borderRadius: 999 }}>{p.version}</span>
+                        <span style={{ flexShrink: 0, color: dexColor(p.dex), fontSize: 10, fontWeight: 700, background: `${dexColor(p.dex)}18`, border: `1px solid ${dexColor(p.dex)}44`, padding: '1px 6px', borderRadius: 999 }}>{p.dex === 'PancakeSwap' ? `CAKE ${p.version}` : p.version}</span>
                       )}
                       {p.stablecoin && <span style={{ flexShrink: 0, color: '#52E3A4', fontSize: 10, fontWeight: 700, background: 'rgba(82,227,164,0.14)', padding: '1px 6px', borderRadius: 999 }}>Stable</span>}
+                      {mine.length > 0 && (
+                        <span style={{ flexShrink: 0, color: '#7DE3B0', fontSize: 10, fontWeight: 700, background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.3)', padding: '1px 6px', borderRadius: 999 }}>
+                          You hold {mine.join(' + ')}
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
                       <span style={{ color: btb.textMuted, fontSize: 11 }}>Vol 24h <b style={{ color: btb.text, fontWeight: 700 }}>{fmtCompactUsd(p.volume24hUsd ?? 0)}</b></span>
@@ -213,6 +226,7 @@ export function EarnScreen() {
           tokenA={sheetProps.tokenA}
           tokenB={sheetProps.tokenB}
           v4PoolId={sheetProps.v4PoolId}
+          dex={sheetProps.dex}
           initialFee={sheet.pool.feeTier}
           // indexer pools carry real 24h fees; for DeFiLlama rows derive from fee APY
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
