@@ -13,7 +13,7 @@ export const MAINNET = 1;
 
 /** A liquidity position a user holds in a protocol. */
 export interface LiquidityPosition {
-  protocol: 'uniswap-v3' | 'uniswap-v4';
+  protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
   /** Position id (V3 = NFT tokenId; V4 = position tokenId). */
   id: bigint;
   /** V4: currencies — token0 = address(0) means native ETH. */

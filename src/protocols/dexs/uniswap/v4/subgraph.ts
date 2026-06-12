@@ -9,7 +9,8 @@
 import { queryTopPools, IndexedPool } from '../graph';
 
 // Official Uniswap V4 Ethereum subgraph on the decentralized network.
-const SUBGRAPH_ID = '8B2wKxnkciCTc5HSgsAojF6vhKn6wxQ1nVecYzMge1hA';
+export const V4_SUBGRAPH_ID = '8B2wKxnkciCTc5HSgsAojF6vhKn6wxQ1nVecYzMge1hA';
+const SUBGRAPH_ID = V4_SUBGRAPH_ID;
 
 export type V4IndexedPool = IndexedPool;
 

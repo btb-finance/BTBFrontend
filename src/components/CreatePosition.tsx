@@ -13,15 +13,15 @@ import { getTokenPricesUsd } from '../lib/defillama';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
-  TICK_SPACINGS, MIN_TICK, MAX_TICK, FEE_TIERS, isWeth, WETH,
+  MIN_TICK, MAX_TICK, isWeth, WETH, UNISWAP_V3_DEPLOYMENT,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier,
   type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
+import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 
 const SLIPPAGE_BPS = 50; // 0.5%
 /** ETH kept aside for gas when a side is paid natively and "smart fit" uses the full balance. */
 const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
-const FEE_LABEL: Record<number, string> = { 100: '0.01%', 500: '0.05%', 3000: '0.3%', 10000: '1%' };
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: '±25%', pct: 25 }, { label: 'Full', pct: null },
 ];
@@ -82,9 +82,11 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, simulate, onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
+  /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
+  dex?: 'uniswap' | 'pancakeswap';
   /** Fee tier of the pool the user clicked — preselected when valid (V3). */
   initialFee?: number;
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
@@ -99,8 +101,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const config = useConfig();
   const { track } = useTx();
 
+  // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
+  // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
+  const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
   const [fee, setFee] = useState(
-    initialFee !== undefined && (FEE_TIERS as readonly number[]).includes(initialFee) ? initialFee : 3000,
+    initialFee !== undefined && deployment.feeTiers.includes(initialFee) ? initialFee : deployment.feeTiers[2],
   );
   // All fee tiers are fetched in one batch up front — switching tiers is instant.
   const [pools, setPools] = useState<Record<number, MintPool> | null>(null);
@@ -133,6 +138,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const [flip, setFlip] = useState(false);
 
   const isV4 = v4PoolId !== undefined;
+  const dexLabel = dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
 
@@ -171,14 +177,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
         .finally(() => { if (live) setLoadingPool(false); });
     } else if (tokenA && tokenB) {
-      fetchPoolsForMint(client, tokenA, tokenB)
+      fetchPoolsForMint(client, tokenA, tokenB, deployment)
         .then((record) => {
           if (!live) return;
           setPools(record);
           // If the preselected tier has no pool, jump to the deepest existing one.
           setFee((f) => {
             if (record[f]?.exists) return f;
-            const best = FEE_TIERS.filter((t) => record[t]?.exists)
+            const best = deployment.feeTiers.filter((t) => record[t]?.exists)
               .sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0];
             return best ?? f;
           });
@@ -189,7 +195,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       setLoadingPool(false); setPoolErr('Missing token pair');
     }
     return () => { live = false; };
-  }, [config, tokenA, tokenB, v4PoolId, retryNonce]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, tokenA, tokenB, v4PoolId, dex, retryNonce]);
 
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
@@ -197,7 +204,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     setHistory(null);
     if (!pool || !pool.exists) return;
     if (hasGraphKey && !isV4) { // the V4 subgraph has no poolDayData — sim falls back to fees24hUsd
-      getPoolHistory(V3_SUBGRAPH_ID, pool.address)
+      getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live) setHistory(h); })
         .catch(() => {}); // chart/sim are progressive extras — never block minting
     }
@@ -211,10 +218,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       })
       .catch(() => {});
     return () => { live = false; };
-  }, [pool, isV4]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool, isV4, dex]);
 
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
-  const spacing = v4Pool ? v4Pool.tickSpacing : TICK_SPACINGS[fee];
+  const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[fee];
   const ticks = useMemo(() => {
     if (!pool || !pool.exists) return null;
     if (rangeMode !== null && typeof rangeMode === 'object') return rangeMode; // smart fit — exact ticks
@@ -363,6 +371,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             amount0Desired: add0, amount1Desired: add1,
             slippageBps: SLIPPAGE_BPS, recipient: address as `0x${string}`,
             nativeEthSide: ethMode ? wethSide : null,
+            deployment,
           });
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
       onDone?.();
@@ -507,7 +516,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate LP earnings' : 'Add liquidity'}</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
-          {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · Uniswap ${isV4 ? 'V4' : 'V3'}` : `Uniswap ${isV4 ? 'V4' : 'V3'} · Ethereum`}
+          {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${dexLabel}` : `${dexLabel} · Ethereum`}
         </div>
 
         {/* Step tabs — add flow only; the simulator is a single live page */}
@@ -583,7 +592,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                   background: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.28)', color: '#fff',
                   display: 'inline-flex', alignItems: 'center',
                 }}>{fmtFeeTier(fee)}</span>
-              ) : FEE_TIERS.map((f) => {
+              ) : deployment.feeTiers.map((f) => {
                 const missing = !!pools && !pools[f]?.exists;
                 return (
                   <button key={f} onClick={() => { setFee(f); setSmartNote(null); }} disabled={missing} style={{
@@ -592,7 +601,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                     border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
                     color: fee === f ? '#fff' : btb.textMuted,
                     opacity: missing ? 0.35 : 1,
-                  }} title={missing ? 'No pool at this fee tier' : undefined}>{FEE_LABEL[f]}</button>
+                  }} title={missing ? 'No pool at this fee tier' : undefined}>{fmtFeeTier(f)}</button>
                 );
               })}
             </div>

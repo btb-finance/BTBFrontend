@@ -14,7 +14,7 @@ export type { LiquidityPosition, TokenMeta } from '@/protocols/types';
 export { MAINNET } from '@/protocols/types';
 
 // pool discovery (official V3/V4 subgraphs — TVL, volume, fees, APR)
-export { queryTopPools, getPoolHistory, fmtFeeTier, hasGraphKey, V3_SUBGRAPH_ID } from './graph';
+export { queryTopPools, getPoolHistory, getOwnerPositionIds, fmtFeeTier, hasGraphKey, V3_SUBGRAPH_ID } from './graph';
 export type { IndexedPool, PoolDay } from './graph';
 export { getV3TopPools } from './v3/subgraph';
 export { getV4TopPools } from './v4/subgraph';
@@ -25,7 +25,8 @@ export { buildCollect, buildRemove, buildIncrease, buildMint } from './v3/action
 export { addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, TICK_SPACINGS, MIN_TICK, MAX_TICK } from './v3/math';
 export { fetchPoolForMint, fetchPoolsForMint } from './v3/pool';
 export type { MintPool } from './v3/pool';
-export { UNISWAP_V3, FEE_TIERS, WETH, isWeth } from './v3/addresses';
+export { UNISWAP_V3, UNISWAP_V3_DEPLOYMENT, FEE_TIERS, WETH, isWeth } from './v3/addresses';
+export type { V3Deployment } from './v3/addresses';
 
 // v4
 export { UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency } from './v4/addresses';

@@ -1,6 +1,8 @@
 import { encodeAbiParameters, encodePacked, keccak256, toHex, type PublicClient } from 'viem';
 import { UNISWAP_V4, V4_DEPLOY_BLOCK, isNativeCurrency, type PoolKey } from './addresses';
 import { POSITION_MANAGER_ABI, STATE_VIEW_ABI, POOL_KEY_COMPONENTS, ERC721_TRANSFER_EVENT } from './abis';
+import { V4_SUBGRAPH_ID } from './subgraph';
+import { getOwnerPositionIds, hasGraphKey } from '../graph';
 import { ERC20_META_ABI } from '../v3/abis';
 import { getAmountsForLiquidity } from '../v3/math';
 import type { LiquidityPosition } from '@/protocols/types';
@@ -53,28 +55,38 @@ export async function fetchV4Positions(
 ): Promise<LiquidityPosition[]> {
   const posm = UNISWAP_V4.positionManager;
 
-  // 1) candidate tokenIds ever transferred to the owner. Public RPCs vary in
-  //    how far back they serve logs (and some hang on big ranges), so: full
-  //    range with a hard timeout, then a recent ~6-month window as fallback.
-  let candidates: bigint[];
-  const scan = (fromBlock: bigint) => client.getLogs({
-    address: posm,
-    event: ERC721_TRANSFER_EVENT,
-    args: { to: owner },
-    fromBlock,
-    toBlock: 'latest',
-  });
-  try {
-    let logs;
+  // 1) candidate tokenIds. Preferred: the V4 subgraph's Position entity (one
+  //    query, complete). Fallback: Transfer logs — public RPCs vary in how far
+  //    back they serve logs (and some hang on big ranges), so: full range with
+  //    a hard timeout, then a recent ~6-month window.
+  let candidates: bigint[] = [];
+  let found = false;
+  if (hasGraphKey) {
     try {
-      logs = await withTimeout(scan(V4_DEPLOY_BLOCK), 15_000);
+      candidates = await withTimeout(getOwnerPositionIds(V4_SUBGRAPH_ID, owner), 10_000);
+      found = true;
+    } catch { /* schema without positions / gateway error — fall through to logs */ }
+  }
+  if (!found) {
+    const scan = (fromBlock: bigint) => client.getLogs({
+      address: posm,
+      event: ERC721_TRANSFER_EVENT,
+      args: { to: owner },
+      fromBlock,
+      toBlock: 'latest',
+    });
+    try {
+      let logs;
+      try {
+        logs = await withTimeout(scan(V4_DEPLOY_BLOCK), 15_000);
+      } catch {
+        const head = await withTimeout(client.getBlockNumber(), 5_000);
+        logs = await withTimeout(scan(head > 1_300_000n ? head - 1_300_000n : 0n), 10_000);
+      }
+      candidates = [...new Set(logs.map((l) => l.args.tokenId).filter((x): x is bigint => x !== undefined))];
     } catch {
-      const head = await withTimeout(client.getBlockNumber(), 5_000);
-      logs = await withTimeout(scan(head > 1_300_000n ? head - 1_300_000n : 0n), 10_000);
+      return []; // RPC without usable historic-log support — degrade to "no V4 positions"
     }
-    candidates = [...new Set(logs.map((l) => l.args.tokenId).filter((x): x is bigint => x !== undefined))];
-  } catch {
-    return []; // RPC without usable historic-log support — degrade to "no V4 positions"
   }
   if (candidates.length === 0) return [];
   candidates = candidates.slice(-300); // safety cap for extreme wallets

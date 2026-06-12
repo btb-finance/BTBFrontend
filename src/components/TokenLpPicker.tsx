@@ -15,10 +15,10 @@ import { CreatePosition } from './CreatePosition';
 const MAX_SUGGESTIONS = 8;
 
 /**
- * "Add LP" from a Portfolio token: finds the best Uniswap V3/V4 pools that
- * contain the token (ranked by ±5% range APR, upgraded live from on-chain
- * liquidity), and one tap opens the add-liquidity sheet for the chosen pool.
- * Native ETH matches both WETH (V3) and currency-0 (V4) pools.
+ * "Add LP" from a Portfolio token: finds the best Uniswap V3/V4 and
+ * PancakeSwap V3 pools that contain the token (ranked by ±5% range APR,
+ * upgraded live from on-chain liquidity), and one tap opens the add-liquidity
+ * sheet for the chosen pool. Native ETH matches both WETH and currency-0 pools.
  */
 export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () => void }) {
   const config = useConfig();
@@ -54,6 +54,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         tokenA={t.tokenA}
         tokenB={t.tokenB}
         v4PoolId={t.v4PoolId}
+        dex={t.dex}
         initialFee={sheet.feeTier}
         fees24hUsd={sheet.fees24hUsd ?? (sheet.tvlUsd * sheet.apyBase) / 100 / 365}
         onClose={() => setSheet(null)}
@@ -69,7 +70,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Put your {token.symbol} to work</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
-          Best Uniswap pools for your {token.symbol} · pick one to add liquidity
+          Best pools for your {token.symbol} · pick one to add liquidity
         </div>
 
         {error && <div style={{ color: btb.loss, fontSize: 13, padding: '8px 0' }}>Couldn&apos;t load pools — {error}</div>}

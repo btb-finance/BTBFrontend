@@ -12,8 +12,20 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn,
-  fmtFeeTier, type LiquidityPosition,
+  fmtFeeTier, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
+import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+
+/** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
+function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
+  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+}
+
+const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; color: string }> = {
+  'uniswap-v3': { label: 'V3', color: '#FF007A' },
+  'uniswap-v4': { label: 'V4', color: '#FF007A' },
+  'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
+};
 
 const SLIPPAGE_BPS = 50; // 0.5%
 
@@ -27,9 +39,10 @@ function fmtAmt(raw: bigint, decimals: number): string {
 const posKey = (p: LiquidityPosition) => `${p.protocol}-${p.id.toString()}`;
 
 /**
- * The connected wallet's live Uniswap V3 + V4 liquidity positions (Ethereum
- * mainnet) with Collect/Add/Withdraw actions. Shared by the Earn and Portfolio
- * screens. Renders nothing when there are no positions (unless `showEmpty`).
+ * The connected wallet's live Uniswap V3/V4 + PancakeSwap V3 liquidity
+ * positions (Ethereum mainnet) with Collect/Add/Withdraw actions. Shared by
+ * the Earn and Portfolio screens. Renders nothing when there are no positions
+ * (unless `showEmpty`).
  */
 export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {}) {
   const { address } = useConnection();
@@ -53,6 +66,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       await Promise.allSettled([
         fetchV3Positions(client, address as `0x${string}`).then(merge('uniswap-v3')),
         fetchV4Positions(client, address as `0x${string}`).then(merge('uniswap-v4')),
+        fetchPancakePositions(client, address as `0x${string}`).then(merge('pancakeswap-v3')),
       ]);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
@@ -68,7 +82,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         account: address as `0x${string}`,
         calls: pos.protocol === 'uniswap-v4'
           ? buildV4Collect(pos, address as `0x${string}`)
-          : buildCollect(pos.id, address as `0x${string}`),
+          : buildCollect(pos.id, address as `0x${string}`, v3DeploymentOf(pos)),
         label: `Collect ${pos.symbol0}/${pos.symbol1} fees`,
         track,
       });
@@ -98,7 +112,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
         <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Your Positions</span>
-        <span style={{ color: btb.textDim, fontSize: 12 }}>Uniswap V3 + V4 · Ethereum</span>
+        <span style={{ color: btb.textDim, fontSize: 12 }}>Uniswap + PancakeSwap · Ethereum</span>
       </div>
 
       {loading && positions.length === 0 && (
@@ -114,7 +128,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>{p.symbol0} / {p.symbol1}</span>
               <span style={{ color: btb.textMuted, fontSize: 11, background: 'rgba(255,255,255,0.07)', padding: '1px 7px', borderRadius: 999 }}>{fmtFeeTier(p.fee)}</span>
-              <span style={{ color: '#FF007A', fontSize: 10, fontWeight: 700, background: 'rgba(255,0,122,0.12)', border: '1px solid rgba(255,0,122,0.3)', padding: '1px 7px', borderRadius: 999 }}>{p.protocol === 'uniswap-v4' ? 'V4' : 'V3'}</span>
+              <span style={{ color: PROTOCOL_BADGE[p.protocol].color, fontSize: 10, fontWeight: 700, background: `${PROTOCOL_BADGE[p.protocol].color}1f`, border: `1px solid ${PROTOCOL_BADGE[p.protocol].color}4d`, padding: '1px 7px', borderRadius: 999 }}>{PROTOCOL_BADGE[p.protocol].label}</span>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
                 background: p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)',
@@ -251,8 +265,8 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
                 account,
               ))
         : (mode === 'withdraw'
-            ? buildRemove(pos, pct * 100, SLIPPAGE_BPS, account)
-            : buildIncrease(pos, add0, add1, SLIPPAGE_BPS, ethMode ? wethSide : null));
+            ? buildRemove(pos, pct * 100, SLIPPAGE_BPS, account, v3DeploymentOf(pos))
+            : buildIncrease(pos, add0, add1, SLIPPAGE_BPS, ethMode ? wethSide : null, v3DeploymentOf(pos)));
       await runCalls(config, {
         account,
         calls,

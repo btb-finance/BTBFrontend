@@ -1,19 +1,22 @@
 /**
- * Unified pool list for the Earn tab — Uniswap V3 + V4 on Ethereum mainnet.
+ * Unified pool list for the Earn tab — Uniswap V3 + V4 and PancakeSwap V3,
+ * Ethereum mainnet only.
  *
- * Primary source: Uniswap's own indexers (V3 + V4 official subgraphs) — real
- * pool addresses, fee tiers, 24h volume/fees, and fee APR computed from actual
- * fees earned. Set NEXT_PUBLIC_GRAPH_KEY (free Graph API key) to enable.
+ * Primary source: the DEXs' own indexers (official subgraphs) — real pool
+ * addresses, fee tiers, 24h volume/fees, and fee APR computed from actual fees
+ * earned. Set NEXT_PUBLIC_GRAPH_KEY (free Graph API key) to enable.
  *
  * Other DEXs (Aerodrome, Curve, …) are staged — the Earn tab shows them as
  * "coming soon" instead of listing pools we can't act on. DeFiLlama's keyless
- * yields API remains only as a fallback for Uniswap V3 mainnet whenever the
- * subgraphs are unavailable, so the screen always has actionable pools.
+ * yields API remains as a fallback for Uniswap V3 / PancakeSwap V3 mainnet
+ * whenever the subgraphs are unavailable, so the screen always has actionable
+ * pools.
  */
 import type { Abi, PublicClient } from 'viem';
 import { getTopPools as getLlamaPools, getTokenPricesUsd, fmtCompactUsd } from './defillama';
 import { getV3TopPools } from '@/protocols/dexs/uniswap/v3/subgraph';
 import { getV4TopPools } from '@/protocols/dexs/uniswap/v4/subgraph';
+import { getPancakeTopPools } from '@/protocols/dexs/pancakeswap';
 import { hasGraphKey, fmtFeeTier, IndexedPool } from '@/protocols/dexs/uniswap/graph';
 import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
@@ -24,7 +27,7 @@ export { fmtCompactUsd, fmtFeeTier };
 
 export interface EarnPool {
   id: string;
-  /** 'uniswap-v3' | 'uniswap-v4' | DeFiLlama project slug. */
+  /** 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3' | DeFiLlama project slug. */
   project: string;
   dex: string;            // friendly name for the filter chips, e.g. "Uniswap"
   version?: 'V3' | 'V4';  // set for indexer-sourced Uniswap pools
@@ -50,12 +53,13 @@ export interface EarnPool {
 
 const STABLES = new Set(['USDC', 'USDT', 'DAI', 'USDS', 'USDE', 'FRAX', 'GHO', 'LUSD', 'PYUSD', 'TUSD', 'USDP', 'FDUSD']);
 
-function fromIndexed(p: IndexedPool): EarnPool {
+function fromIndexed(p: IndexedPool, dex: 'Uniswap' | 'PancakeSwap' = 'Uniswap'): EarnPool {
   const stable = STABLES.has(p.token0.symbol.toUpperCase()) && STABLES.has(p.token1.symbol.toUpperCase());
+  const slug = dex === 'PancakeSwap' ? 'pancakeswap' : 'uniswap';
   return {
     id: p.id,
-    project: `uniswap-${p.version}`,
-    dex: 'Uniswap',
+    project: `${slug}-${p.version}`,
+    dex,
     version: p.version === 'v3' ? 'V3' : 'V4',
     chain: 'Ethereum',
     pair: `${p.token0.symbol}-${p.token1.symbol}`,
@@ -76,24 +80,26 @@ function fromIndexed(p: IndexedPool): EarnPool {
 }
 
 export async function getEarnPools(): Promise<EarnPool[]> {
-  const [v3, v4, llama] = await Promise.allSettled([
+  const [v3, v4, cake, llama] = await Promise.allSettled([
     hasGraphKey ? getV3TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getV4TopPools() : Promise.reject(new Error('no key')),
+    hasGraphKey ? getPancakeTopPools() : Promise.reject(new Error('no key')),
     getLlamaPools(),
   ]);
 
   const pools: EarnPool[] = [];
 
-  if (v3.status === 'fulfilled') pools.push(...v3.value.map(fromIndexed));
-  if (v4.status === 'fulfilled') pools.push(...v4.value.map(fromIndexed));
+  if (v3.status === 'fulfilled') pools.push(...v3.value.map((p) => fromIndexed(p)));
+  if (v4.status === 'fulfilled') pools.push(...v4.value.map((p) => fromIndexed(p)));
+  if (cake.status === 'fulfilled') pools.push(...cake.value.map((p) => fromIndexed(p, 'PancakeSwap')));
 
   if (llama.status === 'fulfilled') {
     for (const p of llama.value) {
-      // Uniswap V3 mainnet only, and only when the indexer rows are missing —
-      // every listed pool must be actionable in-app. Other DEXs are staged.
-      if (p.project !== 'uniswap-v3' || p.chain !== 'Ethereum') continue;
-      if (v3.status === 'fulfilled') continue;
-      pools.push({ ...p, source: 'defillama' });
+      // Mintable-in-app DEXs on mainnet only — every listed pool must be
+      // actionable. DeFiLlama rows back-fill whichever indexer is unavailable.
+      if (p.chain !== 'Ethereum') continue;
+      if (p.project === 'uniswap-v3' && v3.status !== 'fulfilled') pools.push({ ...p, source: 'defillama' });
+      if (p.project === 'pancakeswap-v3' && cake.status !== 'fulfilled') pools.push({ ...p, dex: 'PancakeSwap', version: 'V3', source: 'defillama' });
     }
   }
 
@@ -108,6 +114,7 @@ export async function getEarnPools(): Promise<EarnPool[]> {
 
 /** External link for a pool — Uniswap explore page for indexer pools, DeFiLlama otherwise. */
 export function poolLink(p: EarnPool): string {
+  if (p.project === 'pancakeswap-v3' && p.source === 'uniswap') return `https://pancakeswap.finance/info/v3/eth/pairs/${p.id}`;
   if (p.source === 'uniswap') return `https://app.uniswap.org/explore/pools/ethereum/${p.id}`;
   return `https://defillama.com/yields/pool/${p.id}`;
 }
@@ -118,11 +125,12 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}` } | null {
+export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' } | null {
   if (p.chain.toLowerCase() !== 'ethereum') return null;
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
-  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1] };
-  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}` };
+  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap' };
+  if (p.project === 'pancakeswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap' };
+  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap' };
   return null;
 }
 

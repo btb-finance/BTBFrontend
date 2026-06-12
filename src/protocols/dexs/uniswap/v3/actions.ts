@@ -1,6 +1,6 @@
 import { encodeFunctionData, erc20Abi } from 'viem';
 import { NPM_ABI } from './abis';
-import { UNISWAP_V3, MAX_UINT128 } from './addresses';
+import { MAX_UINT128, UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
 
@@ -40,9 +40,9 @@ function withEth(
  * Collect (claim) all fees owed on a V3 position to the owner.
  * Safe: only transfers fees already owed — can't touch principal.
  */
-export function buildCollect(tokenId: bigint, recipient: `0x${string}`): Call[] {
+export function buildCollect(tokenId: bigint, recipient: `0x${string}`, d: V3Deployment = UNISWAP_V3_DEPLOYMENT): Call[] {
   return [{
-    to: UNISWAP_V3.positionManager,
+    to: d.positionManager,
     data: encodeFunctionData({
       abi: NPM_ABI,
       functionName: 'collect',
@@ -64,6 +64,7 @@ export function buildRemove(
   pctBps: number,
   slippageBps: number,
   recipient: `0x${string}`,
+  d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Call[] {
   const liquidity = (pos.liquidity * BigInt(pctBps)) / 10_000n;
   const expected0 = (pos.amount0 * BigInt(pctBps)) / 10_000n;
@@ -82,7 +83,7 @@ export function buildRemove(
   });
 
   return [{
-    to: UNISWAP_V3.positionManager,
+    to: d.positionManager,
     data: encodeFunctionData({ abi: NPM_ABI, functionName: 'multicall', args: [[decreaseData, collectData]] }),
   }];
 }
@@ -100,13 +101,14 @@ export function buildIncrease(
   amount1Desired: bigint,
   slippageBps: number,
   nativeEthSide: 0 | 1 | null = null,
+  d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Call[] {
   const calls: Call[] = [];
   if (amount0Desired > 0n && nativeEthSide !== 0) {
-    calls.push({ to: pos.token0, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [UNISWAP_V3.positionManager, amount0Desired] }) });
+    calls.push({ to: pos.token0, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [d.positionManager, amount0Desired] }) });
   }
   if (amount1Desired > 0n && nativeEthSide !== 1) {
-    calls.push({ to: pos.token1, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [UNISWAP_V3.positionManager, amount1Desired] }) });
+    calls.push({ to: pos.token1, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [d.positionManager, amount1Desired] }) });
   }
   const incData = encodeFunctionData({
     abi: NPM_ABI,
@@ -120,7 +122,7 @@ export function buildIncrease(
     }],
   });
   const { data, value } = withEth(incData, nativeEthSide, amount0Desired, amount1Desired);
-  calls.push({ to: UNISWAP_V3.positionManager, data, value });
+  calls.push({ to: d.positionManager, data, value });
   return calls;
 }
 
@@ -136,15 +138,17 @@ export function buildMint(args: {
   amount0Desired: bigint; amount1Desired: bigint;
   slippageBps: number; recipient: `0x${string}`;
   nativeEthSide?: 0 | 1 | null;
+  deployment?: V3Deployment;
 }): Call[] {
   const { token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, slippageBps, recipient } = args;
   const nativeEthSide = args.nativeEthSide ?? null;
+  const d = args.deployment ?? UNISWAP_V3_DEPLOYMENT;
   const calls: Call[] = [];
   if (amount0Desired > 0n && nativeEthSide !== 0) {
-    calls.push({ to: token0, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [UNISWAP_V3.positionManager, amount0Desired] }) });
+    calls.push({ to: token0, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [d.positionManager, amount0Desired] }) });
   }
   if (amount1Desired > 0n && nativeEthSide !== 1) {
-    calls.push({ to: token1, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [UNISWAP_V3.positionManager, amount1Desired] }) });
+    calls.push({ to: token1, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [d.positionManager, amount1Desired] }) });
   }
   const mintData = encodeFunctionData({
     abi: NPM_ABI,
@@ -159,6 +163,6 @@ export function buildMint(args: {
     }],
   });
   const { data, value } = withEth(mintData, nativeEthSide, amount0Desired, amount1Desired);
-  calls.push({ to: UNISWAP_V3.positionManager, data, value });
+  calls.push({ to: d.positionManager, data, value });
   return calls;
 }
