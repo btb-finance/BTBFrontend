@@ -6,8 +6,11 @@ import { parseEther, formatUnits, encodeFunctionData } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
+import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { CONTRACTS } from '../../lib/wagmi';
 import { BEAR_NFT_ABI, BEAR_STAKING_ABI } from '../../contracts/abis';
 import { api } from '../../../convex/_generated/api';
@@ -26,27 +29,28 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-const spinStyle: React.CSSProperties = { width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', animation: 'nftspin 0.8s linear infinite', flexShrink: 0 };
-
 function PrimaryBtn({ label, icon, loading, disabled, onClick, green }: {
   label: string; icon: string; loading?: boolean; disabled?: boolean; onClick?: () => void; green?: boolean;
 }) {
   const active = !disabled && !loading;
+  // The non-green active state is a translucent white gradient that doesn't map
+  // to a stock variant, so reproduce it via style — but only while active, so
+  // the Button's built-in disabled/loading visual still wins otherwise.
+  const whiteOverride: React.CSSProperties | undefined =
+    !green && active
+      ? { background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))', color: '#fff', boxShadow: '0 8px 20px rgba(255,255,255,0.12)' }
+      : undefined;
   return (
-    <button onClick={onClick} disabled={!active} style={{
-      flex: 1, width: '100%', height: 60, borderRadius: 18, border: 'none',
-      cursor: active ? 'pointer' : 'default',
-      background: !active ? 'rgba(255,255,255,0.07)'
-        : green ? 'linear-gradient(135deg,#52E3A4,#1aad77)'
-        : 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
-      color: !active ? btb.textDim : '#fff',
-      fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
-      boxShadow: !active ? 'none' : green ? '0 8px 20px rgba(82,227,164,0.3)' : '0 8px 20px rgba(255,255,255,0.12)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-      opacity: loading ? 0.75 : 1, transition: 'opacity 0.2s',
-    }}>
-      {loading ? <><div style={spinStyle}/>{label}</> : <><Icon name={icon} size={18}/>{label}</>}
-    </button>
+    <Button
+      variant={green ? 'success' : 'primary'}
+      onClick={onClick}
+      disabled={disabled}
+      loading={loading}
+      icon={icon}
+      style={{ flex: 1, borderRadius: 18, ...whiteOverride }}
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -154,9 +158,9 @@ function MintTab({ address }: { address?: string }) {
             BTB BEAR {isLoading ? '…' : `· #${minted + 1}`}
           </div>
           {userBalance > 0 && (
-            <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(82,227,164,0.2)', border: '1px solid rgba(82,227,164,0.4)', color: '#52E3A4', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999 }}>
+            <Badge bg="rgba(82,227,164,0.2)" border="1px solid rgba(82,227,164,0.4)" color="#52E3A4" style={{ position: 'absolute', top: 14, right: 14, padding: '3px 8px' }}>
               You own {userBalance}
-            </div>
+            </Badge>
           )}
         </div>
 
@@ -398,17 +402,20 @@ function StakeTab({ address }: { address?: string }) {
             <Icon name="gift" size={26} color="#52E3A4"/>
           </div>
         </div>
-        <button onClick={doClaim} disabled={!address || pendingBtbb < 0.000001 || loading} style={{
-          marginTop: 16, width: '100%', height: 60, borderRadius: 18, border: 'none',
-          cursor: address && pendingBtbb >= 0.000001 && !loading ? 'pointer' : 'default',
-          background: address && pendingBtbb >= 0.000001 ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-          color: address && pendingBtbb >= 0.000001 ? '#fff' : btb.textDim,
-          fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
-          boxShadow: address && pendingBtbb >= 0.000001 ? '0 6px 16px rgba(82,227,164,0.25)' : 'none',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        }}>
-          {loading ? <><div style={spinStyle}/>Processing…</> : <><Icon name="receive" size={18}/>Claim rewards</>}
-        </button>
+        <Button
+          variant="success"
+          onClick={doClaim}
+          disabled={!address || pendingBtbb < 0.000001}
+          loading={loading}
+          icon="receive"
+          style={{
+            marginTop: 16,
+            borderRadius: 18,
+            ...(address && pendingBtbb >= 0.000001 && !loading ? { boxShadow: '0 6px 16px rgba(82,227,164,0.25)' } : {}),
+          }}
+        >
+          {loading ? 'Processing…' : 'Claim rewards'}
+        </Button>
       </Glass>
 
       {/* My position */}
@@ -508,13 +515,13 @@ export function NFTScreen() {
   const [tab, setTab] = useState<'mint' | 'stake'>('mint');
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>BTB Bear</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'rgba(226,232,240,0.2)', border: '1px solid rgba(255,255,255,0.2)' }}>
+        <Badge bg="rgba(226,232,240,0.2)" border="1px solid rgba(255,255,255,0.2)" style={{ gap: 6, padding: '6px 12px' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.7)', boxShadow: '0 0 8px rgba(255,255,255,0.7)', display: 'inline-block' }}/>
           <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
-        </div>
+        </Badge>
       </div>
 
       {/* Tabs */}
@@ -533,8 +540,6 @@ export function NFTScreen() {
 
       {tab === 'mint'  && <MintTab  address={address}/>}
       {tab === 'stake' && <StakeTab address={address}/>}
-
-      <style>{`@keyframes nftspin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+    </Screen>
   );
 }

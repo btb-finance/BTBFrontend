@@ -1,7 +1,12 @@
 export const btb = {
+  bg:          '#0A0A0F',
   glass:       'rgba(255,255,255,0.06)',
   glassStrong: 'rgba(255,255,255,0.10)',
   glassSoft:   'rgba(255,255,255,0.03)',
+  // Flat translucent-white surfaces (non-blurred) used for chips, inputs, rows.
+  surface:     'rgba(255,255,255,0.06)',
+  surfaceStrong:'rgba(255,255,255,0.08)',
+  surfaceSoft: 'rgba(255,255,255,0.04)',
   border:      '1px solid rgba(255,255,255,0.12)',
   borderSoft:  '1px solid rgba(255,255,255,0.07)',
   text:        '#FFFFFF',
@@ -15,6 +20,9 @@ export const btb = {
   loss:        '#FF6B7A',
   shadow:      '0 8px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset',
   blur:        'blur(32px) saturate(140%)',
+  // Shared gradients — keep button/CTA fills consistent in one place.
+  gradPrimary: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))',
+  gradGreen:   'linear-gradient(135deg,#52E3A4,#1aad77)',
 } as const;
 
 export const PALETTE_PRESETS = {

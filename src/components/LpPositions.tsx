@@ -5,6 +5,9 @@ import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
+import { Button } from './Button';
+import { Badge } from './Badge';
+import { SectionHeader } from './SectionHeader';
 import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
@@ -110,10 +113,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
-        <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Your Positions</span>
-        <span style={{ color: btb.textDim, fontSize: 12 }}>Uniswap + PancakeSwap · Ethereum</span>
-      </div>
+      <SectionHeader title="Your Positions" right="Uniswap + PancakeSwap · Ethereum"/>
 
       {loading && positions.length === 0 && (
         <Glass padding={16} radius={18}><div style={{ color: btb.textDim, fontSize: 13 }}>Loading positions…</div></Glass>
@@ -127,13 +127,9 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           <Glass key={posKey(p)} padding={14} radius={18}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
               <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>{p.symbol0} / {p.symbol1}</span>
-              <span style={{ color: btb.textMuted, fontSize: 11, background: 'rgba(255,255,255,0.07)', padding: '1px 7px', borderRadius: 999 }}>{fmtFeeTier(p.fee)}</span>
-              <span style={{ color: PROTOCOL_BADGE[p.protocol].color, fontSize: 10, fontWeight: 700, background: `${PROTOCOL_BADGE[p.protocol].color}1f`, border: `1px solid ${PROTOCOL_BADGE[p.protocol].color}4d`, padding: '1px 7px', borderRadius: 999 }}>{PROTOCOL_BADGE[p.protocol].label}</span>
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
-                background: p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)',
-                color: p.inRange ? '#52E3A4' : '#FFB36B',
-              }}>{p.inRange ? 'In range' : 'Out of range'}</span>
+              <Badge size="md" color={btb.textMuted} bg="rgba(255,255,255,0.07)" border="none" style={{ padding: '1px 7px', fontWeight: 400 }}>{fmtFeeTier(p.fee)}</Badge>
+              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border={`1px solid ${PROTOCOL_BADGE[p.protocol].color}4d`} style={{ padding: '1px 7px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+              <Badge size="sm" border="none" style={{ padding: '1px 7px' }} bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? '#52E3A4' : '#FFB36B'}>{p.inRange ? 'In range' : 'Out of range'}</Badge>
             </div>
             <div style={{ color: btb.textMuted, fontSize: 12 }}>
               {fmtAmt(p.amount0, p.decimals0)} {p.symbol0} + {fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
@@ -170,7 +166,7 @@ function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: (
     <button onClick={onClick} disabled={disabled} style={{
       flex: 1, height: 36, borderRadius: 12, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
       cursor: disabled ? 'default' : 'pointer',
-      background: disabled ? 'rgba(255,255,255,0.06)' : green ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.1)',
+      background: disabled ? 'rgba(255,255,255,0.06)' : green ? btb.gradGreen : 'rgba(255,255,255,0.1)',
       color: disabled ? btb.textDim : '#fff',
     }}>{label}</button>
   );
@@ -348,14 +344,9 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
 
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
-        <button onClick={run} disabled={!canRun || busy} style={{
-          width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-          cursor: canRun && !busy ? 'pointer' : 'default',
-          background: canRun ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-          color: canRun ? '#fff' : btb.textDim,
-        }}>
+        <Button variant="success" size="md" onClick={() => { if (!busy) run(); }} disabled={!canRun} style={{ marginTop: 18, fontWeight: 800 }}>
           {busy ? 'Confirming…' : mode === 'withdraw' ? `Withdraw ${pct}%` : 'Add liquidity'}
-        </button>
+        </Button>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10 }}>
           Slippage-protected ({SLIPPAGE_BPS / 100}%). {mode === 'add' ? 'Token approvals are included automatically.' : 'Withdraws principal + fees to your wallet.'}
         </div>

@@ -1,6 +1,8 @@
 'use client';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { btb } from '../design-tokens';
 
 /**
@@ -19,17 +21,14 @@ const CAPABILITIES = [
 
 export function StakeScreen() {
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <Screen gap={18}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Agent</div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          padding: '6px 12px', borderRadius: 999,
-          background: 'rgba(255,179,107,0.15)', border: '1px solid rgba(255,179,107,0.35)',
-        }}>
+        <Badge color="#FFB36B" bg="rgba(255,179,107,0.15)" border="1px solid rgba(255,179,107,0.35)"
+          style={{ gap: 6, padding: '6px 12px', fontSize: 12 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFB36B', boxShadow: '0 0 8px #FFB36B' }}/>
           <span style={{ color: '#FFB36B', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>SOON</span>
-        </div>
+        </Badge>
       </div>
 
       {/* hero */}
@@ -97,6 +96,6 @@ export function StakeScreen() {
           </div>
         </div>
       </Glass>
-    </div>
+    </Screen>
   );
 }

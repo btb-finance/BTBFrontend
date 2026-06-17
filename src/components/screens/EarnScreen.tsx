@@ -4,6 +4,10 @@ import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Button } from '../Button';
+import { Screen } from '../Screen';
+import { SectionHeader } from '../SectionHeader';
+import { Badge } from '../Badge';
 import { btb } from '../design-tokens';
 import {
   getEarnPools, addRangeAprs, mintTarget, lpAddressesForToken,
@@ -82,7 +86,7 @@ export function EarnScreen() {
   }, [pools, held]);
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <BetaNotice/>
 
       {/* header */}
@@ -97,10 +101,7 @@ export function EarnScreen() {
       <LpPositions/>
 
       {/* Liquidity Pools */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
-        <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Liquidity Pools</span>
-        <span style={{ color: btb.textDim, fontSize: 12 }}>{loading ? 'Loading…' : `${pools.length} pools`}</span>
-      </div>
+      <SectionHeader title="Liquidity Pools" right={loading ? 'Loading…' : `${pools.length} pools`}/>
 
       {error && (
         <Glass padding={14} radius={16} soft>
@@ -137,16 +138,16 @@ export function EarnScreen() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                       <span style={{ color: btb.text, fontSize: 15, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.pair}</span>
                       {p.feeTier !== undefined && (
-                        <span style={{ flexShrink: 0, color: btb.textMuted, fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 6px', borderRadius: 999 }}>{fmtFeeTier(p.feeTier)}</span>
+                        <Badge size="sm" color={btb.textMuted} bg="rgba(255,255,255,0.08)" border="1px solid rgba(255,255,255,0.12)">{fmtFeeTier(p.feeTier)}</Badge>
                       )}
                       {p.version && (
-                        <span style={{ flexShrink: 0, color: dexColor(p.dex), fontSize: 10, fontWeight: 700, background: `${dexColor(p.dex)}18`, border: `1px solid ${dexColor(p.dex)}44`, padding: '1px 6px', borderRadius: 999 }}>{p.dex === 'PancakeSwap' ? `CAKE ${p.version}` : p.version}</span>
+                        <Badge size="sm" color={dexColor(p.dex)} bg={`${dexColor(p.dex)}18`} border={`1px solid ${dexColor(p.dex)}44`}>{p.dex === 'PancakeSwap' ? `CAKE ${p.version}` : p.version}</Badge>
                       )}
-                      {p.stablecoin && <span style={{ flexShrink: 0, color: '#52E3A4', fontSize: 10, fontWeight: 700, background: 'rgba(82,227,164,0.14)', padding: '1px 6px', borderRadius: 999 }}>Stable</span>}
+                      {p.stablecoin && <Badge size="sm" color="#52E3A4" bg="rgba(82,227,164,0.14)" border="none">Stable</Badge>}
                       {mine.length > 0 && (
-                        <span style={{ flexShrink: 0, color: '#7DE3B0', fontSize: 10, fontWeight: 700, background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.3)', padding: '1px 6px', borderRadius: 999 }}>
+                        <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)">
                           You hold {mine.join(' + ')}
-                        </span>
+                        </Badge>
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
@@ -164,20 +165,15 @@ export function EarnScreen() {
                 {/* Actions — straight from the list, no intermediate page */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   {mintable && (
-                    <button onClick={() => setSheet({ pool: p, simulate: false })} style={{
-                      flex: 1.5, height: 42, borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                      background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff', fontSize: 14, fontWeight: 800,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    }}>
-                      <Icon name="plus" size={16}/> Add LP
-                    </button>
+                    <Button variant="success" fullWidth={false} icon="plus" onClick={() => setSheet({ pool: p, simulate: false })}
+                      style={{ flex: 1.5, height: 42, borderRadius: 13, fontSize: 14, fontWeight: 800, boxShadow: 'none', gap: 6 }}>
+                      Add LP
+                    </Button>
                   )}
-                  <button onClick={() => setSheet({ pool: p, simulate: true })} style={{
-                    flex: 1, height: 42, borderRadius: 13, cursor: 'pointer', fontFamily: 'inherit',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted, fontSize: 14, fontWeight: 700,
-                  }}>
+                  <Button variant="ghost" fullWidth={false} onClick={() => setSheet({ pool: p, simulate: true })}
+                    style={{ flex: 1, height: 42, borderRadius: 13, fontSize: 14, border: '1px solid rgba(255,255,255,0.14)' }}>
                     Simulate
-                  </button>
+                  </Button>
                 </div>
               </Glass>
             );
@@ -189,20 +185,14 @@ export function EarnScreen() {
       )}
 
       {/* More DEXs — staged */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px 0' }}>
-        <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>More DEXs</span>
-        <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700, border: '1px solid rgba(255,255,255,0.14)', borderRadius: 999, padding: '3px 10px' }}>Soon</span>
-      </div>
+      <SectionHeader title="More DEXs" style={{ padding: '8px 4px 0' }} right={<Badge>Soon</Badge>}/>
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>
         {COMING_SOON_DEXS.map((d) => (
-          <span key={d.name} style={{
-            flexShrink: 0, height: 32, padding: '0 14px', borderRadius: 999, fontSize: 13, fontWeight: 700,
-            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: btb.textDim,
-            display: 'flex', alignItems: 'center', gap: 7, opacity: 0.7,
-          }}>
+          <Badge key={d.name} color={btb.textDim} bg={btb.surfaceSoft} border="1px solid rgba(255,255,255,0.08)"
+            style={{ height: 32, padding: '0 14px', fontSize: 13, gap: 7, opacity: 0.7 }}>
             <span style={{ width: 8, height: 8, borderRadius: 4, background: d.color }}/>
             {d.name}
-          </span>
+          </Badge>
         ))}
       </div>
 
@@ -217,7 +207,7 @@ export function EarnScreen() {
             <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>Liquid staking &amp; lending</div>
             <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>stETH, rETH, Aave v4 — lower-risk yield. Coming next.</div>
           </div>
-          <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700, border: '1px solid rgba(255,255,255,0.14)', borderRadius: 999, padding: '3px 10px' }}>Soon</span>
+          <Badge>Soon</Badge>
         </div>
       </Glass>
 
@@ -235,7 +225,7 @@ export function EarnScreen() {
           onDone={() => setSheet(null)}
         />
       )}
-    </div>
+    </Screen>
   );
 }
 

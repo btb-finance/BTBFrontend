@@ -3,8 +3,11 @@ import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Spinner } from '../Spinner';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { Tab } from '../TabBar';
 import { useTokenStore } from '../../lib/TokenStore';
 import { api } from '../../../convex/_generated/api';
@@ -113,7 +116,7 @@ export function HomeScreen({ goto, address, onDisconnect, onReceive, onSend, onD
   }
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div>
           <div style={{ color: btb.textMuted, fontSize: 13, fontWeight: 500 }}>{greeting}</div>
@@ -134,13 +137,12 @@ export function HomeScreen({ goto, address, onDisconnect, onReceive, onSend, onD
         <div style={{ color: btb.textMuted, fontSize: 13, fontWeight: 500 }}>Total balance</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
           {loadingBalances && totalUsd === 0
-            ? <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.18)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }}/>
+            ? <Spinner size={20} color="#fff" track="rgba(255,255,255,0.18)" />
             : <>
                 <span style={{ color: btb.text, fontSize: 40, fontWeight: 800, letterSpacing: -1.5 }}>{balanceParts[0]}</span>
                 <span style={{ color: btb.text, fontSize: 22, fontWeight: 700, letterSpacing: -0.5, opacity: 0.7 }}>{balanceParts[1]}</span>
               </>
           }
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
 
         <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>
@@ -219,7 +221,7 @@ export function HomeScreen({ goto, address, onDisconnect, onReceive, onSend, onD
             <button onClick={doDaily} disabled={dailyDone || busy} style={{
               flexShrink: 0, height: 34, padding: '0 14px', borderRadius: 11, border: 'none', fontFamily: 'inherit',
               cursor: dailyDone || busy ? 'default' : 'pointer',
-              background: dailyDone ? 'rgba(82,227,164,0.12)' : 'linear-gradient(135deg,#52E3A4,#1aad77)',
+              background: dailyDone ? 'rgba(82,227,164,0.12)' : btb.gradGreen,
               color: dailyDone ? '#52E3A4' : '#fff', fontSize: 12.5, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             }}>
@@ -262,11 +264,13 @@ export function HomeScreen({ goto, address, onDisconnect, onReceive, onSend, onD
               <Icon name={p.icon} size={20} color={p.color}/>
             </div>
             <div style={{ color: btb.text, fontSize: 12, fontWeight: 700, textAlign: 'center' }}>{p.name}</div>
-            <div style={{
-              background: p.tag === 'New' ? 'rgba(255,255,255,0.1)' : 'rgba(82,227,164,0.12)',
-              color: p.tag === 'New' ? btb.red : '#52E3A4',
-              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-            }}>{p.tag}</div>
+            <Badge
+              size="sm"
+              bg={p.tag === 'New' ? 'rgba(255,255,255,0.1)' : 'rgba(82,227,164,0.12)'}
+              color={p.tag === 'New' ? btb.red : '#52E3A4'}
+              border="none"
+              style={{ fontSize: 10, padding: '2px 8px' }}
+            >{p.tag}</Badge>
           </Glass>
         ))}
         <div onClick={onProducts} style={{
@@ -326,6 +330,6 @@ export function HomeScreen({ goto, address, onDisconnect, onReceive, onSend, onD
           boxShadow: '0 8px 28px rgba(0,0,0,0.4)',
         }}>{toast}</div>
       )}
-    </div>
+    </Screen>
   );
 }

@@ -6,10 +6,13 @@ import { erc20Abi, encodeFunctionData } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
+import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { getKyberQuote, buildKyberTx, KyberQuote } from '../../lib/kyberswap';
 import { CHAIN_META } from '../../lib/wagmi';
@@ -290,7 +293,7 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
 
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Swap</div>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -357,17 +360,9 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         </div>
       )}
 
-      <button onClick={() => canSwap && setStep('confirm')} disabled={!canSwap} style={{
-        marginTop: 4, height: 60, borderRadius: 22, border: 'none',
-        cursor: canSwap ? 'pointer' : 'default',
-        background: canSwap ? 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))' : 'rgba(255,255,255,0.08)',
-        color: canSwap ? '#0A0A0F' : btb.textDim,
-        fontSize: 18, fontWeight: 700, letterSpacing: -0.2, fontFamily: 'inherit',
-        boxShadow: canSwap ? '0 10px 30px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.3)' : 'none',
-        transition: 'all 0.2s',
-      }}>
+      <Button onClick={() => canSwap && setStep('confirm')} disabled={!canSwap} style={{ marginTop: 4, fontSize: 18 }}>
         {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : quoteErr ? 'No route found' : quote ? 'Review swap' : 'Enter amount'}
-      </button>
+      </Button>
 
       {picker && (
         <TokenPicker
@@ -377,12 +372,12 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
           onClose={() => setPicker(null)}
         />
       )}
-    </div>
+    </Screen>
   );
 
   // ── Confirm / sending step ─────────────────────────────────────────────────
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 4px' }}>
         <div onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="back" size={18} color={btb.textMuted}/>
@@ -440,30 +435,24 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
       </Glass>
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={() => setStep('form')} style={{ flex: 1, height: 56, borderRadius: 18, border: btb.borderSoft, background: 'rgba(255,255,255,0.06)', color: btb.textMuted, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-        <button onClick={executeSwap} disabled={step === 'approving' || step === 'sending'} style={{
-          flex: 2, height: 56, borderRadius: 18, border: 'none', cursor: 'pointer',
-          background: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))', color: '#0A0A0F',
-          fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
-          boxShadow: '0 8px 24px rgba(255,255,255,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          opacity: step === 'approving' || step === 'sending' ? 0.7 : 1,
-        }}>
-          {step === 'approving'
-            ? <><div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0A0A0F', animation: 'spin 0.8s linear infinite' }}/> Approving…</>
-            : step === 'sending'
-            ? <><div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0A0A0F', animation: 'spin 0.8s linear infinite' }}/> Swapping…</>
-            : <><Icon name="swap" size={18}/> Confirm swap</>
-          }
-        </button>
+        <Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1, fontSize: 15 }}>Cancel</Button>
+        <Button
+          size="md"
+          onClick={executeSwap}
+          disabled={step === 'approving' || step === 'sending'}
+          loading={step === 'approving' || step === 'sending'}
+          icon={step === 'approving' || step === 'sending' ? undefined : 'swap'}
+          style={{ flex: 2 }}
+        >
+          {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : 'Confirm swap'}
+        </Button>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
+    </Screen>
   );
 
   // ── Success step ───────────────────────────────────────────────────────────
   if (step === 'success') return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, minHeight: '70vh' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(82,227,164,0.15)', border: '2px solid rgba(82,227,164,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="check" size={36} color={btb.green}/>
       </div>
@@ -472,9 +461,9 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 8 }}>
           {fromAmt} {fromToken.symbol} → {quote?.amountOutFormatted} {toToken.symbol}
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '4px 12px', borderRadius: 999, background: 'rgba(82,227,164,0.14)', border: '1px solid rgba(82,227,164,0.3)', color: '#52E3A4', fontSize: 13, fontWeight: 700 }}>
+        <Badge bg="rgba(82,227,164,0.14)" border="1px solid rgba(82,227,164,0.3)" color="#52E3A4" style={{ gap: 5, marginTop: 10, padding: '4px 12px', fontSize: 13 }}>
           <Icon name="bolt" size={13} color="#52E3A4"/> +{SWAP_XP} XP earned
-        </div>
+        </Badge>
       </div>
       {txHash && (
         <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer"
@@ -483,12 +472,12 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         </a>
       )}
       <button onClick={reset} style={{ width: '100%', maxWidth: 360, height: 56, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(82,227,164,0.15)', color: btb.green, fontSize: 16, fontWeight: 700, fontFamily: 'inherit', outline: '1px solid rgba(82,227,164,0.35)' }}>Swap again</button>
-    </div>
+    </Screen>
   );
 
   // ── Error step ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, minHeight: '70vh' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="close" size={32} color={btb.red}/>
       </div>
@@ -498,8 +487,8 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
       </div>
       <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 360 }}>
         <button onClick={reset} style={{ flex: 1, height: 52, borderRadius: 16, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-        <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))', color: '#0A0A0F', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
+        <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: btb.gradPrimary, color: btb.bg, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
       </div>
-    </div>
+    </Screen>
   );
 }

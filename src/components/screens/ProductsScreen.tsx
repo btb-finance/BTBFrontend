@@ -1,6 +1,8 @@
 'use client';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { btb } from '../design-tokens';
 
 // Curated DeFi explorer — each card is a category that opens a list of
@@ -22,7 +24,7 @@ const PRODUCTS = [
 
 export function ProductsScreen({ onBack, onCategory }: { onBack: () => void; onCategory?: (c: string) => void }) {
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <Screen gap={20}>
       {/* header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div onClick={onBack} style={{
@@ -53,7 +55,7 @@ export function ProductsScreen({ onBack, onCategory }: { onBack: () => void; onC
             }}>
               <Icon name="map" size={22} color="#FFFFFF"/>
             </div>
-            <span style={{ background: 'rgba(82,227,164,0.18)', color: '#52E3A4', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, letterSpacing: 0.4 }}>EVERYTHING APP</span>
+            <Badge color="#52E3A4" bg="rgba(82,227,164,0.18)" border="none" style={{ letterSpacing: 0.4 }}>EVERYTHING APP</Badge>
           </div>
           <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5, marginBottom: 6 }}>Every protocol, one tab</div>
           <div style={{ color: btb.textMuted, fontSize: 14, lineHeight: 1.5 }}>
@@ -81,6 +83,6 @@ export function ProductsScreen({ onBack, onCategory }: { onBack: () => void; onC
           ))}
         </div>
       </div>
-    </div>
+    </Screen>
   );
 }

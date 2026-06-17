@@ -62,7 +62,7 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
             value={address}
             size={220}
             bgColor="#ffffff"
-            fgColor="#0A0A0F"
+            fgColor={btb.bg}
             level="M"
             imageSettings={{
               src: '', // placeholder — replace with BTB logo url if desired
