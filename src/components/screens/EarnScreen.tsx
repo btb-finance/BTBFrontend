@@ -36,12 +36,18 @@ function apyColor(apy: number) {
   return btb.text;
 }
 
+// How many pools to reveal per "Show more" press — keeps page 1 light even
+// when the indexers return 50+ pools.
+const PAGE_SIZE = 12;
+
 export function EarnScreen() {
   const config = useConfig();
   const [pools, setPools]   = useState<EarnPool[]>([]);
   const [loading, setLoad]  = useState(true);
   const [error, setError]   = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
+  const [query, setQuery]   = useState('');
+  const [visible, setVisible] = useState(PAGE_SIZE);
 
   useEffect(() => {
     let live = true;
@@ -85,6 +91,24 @@ export function EarnScreen() {
     return [...pools].sort((a, b) => score(b) - score(a));
   }, [pools, held]);
 
+  // Search across pair name, DEX and version (e.g. "ETH", "USDC", "pancake",
+  // "v4"). Empty query keeps the full balance-aware ordering above.
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return shown;
+    return shown.filter((p) =>
+      p.pair.toLowerCase().includes(q) ||
+      p.dex.toLowerCase().includes(q) ||
+      (p.version ?? '').toLowerCase().includes(q)
+    );
+  }, [shown, query]);
+
+  // Reset paging whenever the result set changes so a new search starts at the top.
+  useEffect(() => { setVisible(PAGE_SIZE); }, [query, pools]);
+
+  const page = filtered.slice(0, visible);
+  const remaining = filtered.length - page.length;
+
   return (
     <Screen gap={16}>
       <BetaNotice/>
@@ -101,7 +125,35 @@ export function EarnScreen() {
       <LpPositions/>
 
       {/* Liquidity Pools */}
-      <SectionHeader title="Liquidity Pools" right={loading ? 'Loading…' : `${pools.length} pools`}/>
+      <SectionHeader
+        title="Liquidity Pools"
+        right={loading ? 'Loading…' : query.trim() ? `${filtered.length} of ${pools.length}` : `${pools.length} pools`}
+      />
+
+      {/* Search */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: btb.surfaceSoft, border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 14, padding: '0 12px', height: 44,
+      }}>
+        <Icon name="search" size={18} color={btb.textMuted}/>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search pools — token, DEX, version…"
+          style={{
+            flex: 1, background: 'none', border: 'none', outline: 'none',
+            color: btb.text, fontSize: 14, height: '100%', minWidth: 0,
+          }}
+        />
+        {query && (
+          <button
+            onClick={() => setQuery('')}
+            aria-label="Clear search"
+            style={{ background: 'none', border: 'none', color: btb.textMuted, cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 2, flexShrink: 0 }}
+          >×</button>
+        )}
+      </div>
 
       {error && (
         <Glass padding={14} radius={16} soft>
@@ -121,7 +173,7 @@ export function EarnScreen() {
 
       {!loading && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {shown.map((p) => {
+          {page.map((p) => {
             const mintable = mintTarget(p) !== null;
             const mine = heldSyms(p);
             return (
@@ -180,6 +232,21 @@ export function EarnScreen() {
           })}
           {pools.length === 0 && !error && (
             <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>No pools right now.</div>
+          )}
+          {pools.length > 0 && filtered.length === 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>
+              No pools match &ldquo;{query.trim()}&rdquo;.
+            </div>
+          )}
+          {remaining > 0 && (
+            <Button
+              variant="ghost"
+              fullWidth
+              onClick={() => setVisible((v) => v + PAGE_SIZE)}
+              style={{ height: 44, borderRadius: 13, fontSize: 14, fontWeight: 700, border: '1px solid rgba(255,255,255,0.14)' }}
+            >
+              Show more ({remaining} more)
+            </Button>
           )}
         </div>
       )}
