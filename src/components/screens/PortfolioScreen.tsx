@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Button } from '../Button';
+import { Spinner } from '../Spinner';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -69,10 +71,9 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Portfolio</div>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
-          <div style={refreshing ? { animation: 'spin 0.8s linear infinite', width: 18, height: 18 } : undefined}>
+          <div className={refreshing ? 'spin' : undefined} style={refreshing ? { width: 18, height: 18 } : undefined}>
             <Icon name="refresh" size={18}/>
           </div>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </Glass>
       </div>
 
@@ -129,10 +130,9 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
       {tab === 'lps' ? null : loading ? (
         <Glass padding={20} radius={22}>
           <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center' }}>
-            <div style={{ marginBottom: 8, width: 28, height: 28, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.18)', borderTopColor: '#FFFFFF', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }}/>
+            <Spinner size={28} color="#FFFFFF" track="rgba(255,255,255,0.18)" style={{ margin: '0 auto 10px' }} />
             Fetching balances…
           </div>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </Glass>
       ) : error ? (
         <Glass padding={20} radius={22}>
@@ -176,32 +176,19 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
 
                 {isExpanded && (
                   <div style={{ padding: '0 16px 14px', display: 'flex', gap: 8 }}>
-                    <button onClick={() => { onSend?.(h); setExpandedToken(null); }} style={{
-                      flex: 1, height: 42, borderRadius: 14, border: btb.borderSoft,
-                      background: 'rgba(255,255,255,0.07)', color: btb.text,
-                      fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    }}>
+                    <Button variant="ghost" size="sm" onClick={() => { onSend?.(h); setExpandedToken(null); }}
+                      style={{ flex: 1, height: 42, gap: 6, fontSize: 13, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
                       <Icon name="send" size={14}/> Send {h.symbol}
-                    </button>
-                    <button onClick={() => { onSwap?.(h); setExpandedToken(null); }} style={{
-                      flex: 1, height: 42, borderRadius: 14, border: 'none',
-                      background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))',
-                      color: btb.text, fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      boxShadow: '0 4px 12px rgba(255,255,255,0.08)',
-                    }}>
+                    </Button>
+                    <Button size="sm" onClick={() => { onSwap?.(h); setExpandedToken(null); }}
+                      style={{ flex: 1, height: 42, gap: 6, fontSize: 13, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: '0 4px 12px rgba(255,255,255,0.08)' }}>
                       <Icon name="swap" size={14}/> Swap {h.symbol}
-                    </button>
+                    </Button>
                     {(h.chainId ?? 1) === 1 && ( // LP flows are Ethereum mainnet only
-                      <button onClick={() => { setLpToken(h); setExpandedToken(null); }} style={{
-                        flex: 1, height: 42, borderRadius: 14, border: 'none',
-                        background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff',
-                        fontSize: 13, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      }}>
+                      <Button variant="success" size="sm" onClick={() => { setLpToken(h); setExpandedToken(null); }}
+                        style={{ flex: 1, height: 42, gap: 6, fontSize: 13, boxShadow: 'none' }}>
                         <Icon name="plus" size={14}/> Add LP
-                      </button>
+                      </Button>
                     )}
                   </div>
                 )}

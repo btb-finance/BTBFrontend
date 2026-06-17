@@ -5,6 +5,7 @@ import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
+import { Button } from './Button';
 import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
@@ -348,14 +349,9 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
 
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
-        <button onClick={run} disabled={!canRun || busy} style={{
-          width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-          cursor: canRun && !busy ? 'pointer' : 'default',
-          background: canRun ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-          color: canRun ? '#fff' : btb.textDim,
-        }}>
+        <Button variant="success" size="md" onClick={() => { if (!busy) run(); }} disabled={!canRun} style={{ marginTop: 18, fontWeight: 800 }}>
           {busy ? 'Confirming…' : mode === 'withdraw' ? `Withdraw ${pct}%` : 'Add liquidity'}
-        </button>
+        </Button>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10 }}>
           Slippage-protected ({SLIPPAGE_BPS / 100}%). {mode === 'add' ? 'Token approvals are included automatically.' : 'Withdraws principal + fees to your wallet.'}
         </div>

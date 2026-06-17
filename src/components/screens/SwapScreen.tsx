@@ -6,6 +6,7 @@ import { erc20Abi, encodeFunctionData } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
+import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
@@ -357,17 +358,9 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         </div>
       )}
 
-      <button onClick={() => canSwap && setStep('confirm')} disabled={!canSwap} style={{
-        marginTop: 4, height: 60, borderRadius: 22, border: 'none',
-        cursor: canSwap ? 'pointer' : 'default',
-        background: canSwap ? 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))' : 'rgba(255,255,255,0.08)',
-        color: canSwap ? '#0A0A0F' : btb.textDim,
-        fontSize: 18, fontWeight: 700, letterSpacing: -0.2, fontFamily: 'inherit',
-        boxShadow: canSwap ? '0 10px 30px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.3)' : 'none',
-        transition: 'all 0.2s',
-      }}>
+      <Button onClick={() => canSwap && setStep('confirm')} disabled={!canSwap} style={{ marginTop: 4, fontSize: 18 }}>
         {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : quoteErr ? 'No route found' : quote ? 'Review swap' : 'Enter amount'}
-      </button>
+      </Button>
 
       {picker && (
         <TokenPicker
@@ -440,24 +433,18 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
       </Glass>
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={() => setStep('form')} style={{ flex: 1, height: 56, borderRadius: 18, border: btb.borderSoft, background: 'rgba(255,255,255,0.06)', color: btb.textMuted, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-        <button onClick={executeSwap} disabled={step === 'approving' || step === 'sending'} style={{
-          flex: 2, height: 56, borderRadius: 18, border: 'none', cursor: 'pointer',
-          background: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))', color: '#0A0A0F',
-          fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
-          boxShadow: '0 8px 24px rgba(255,255,255,0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          opacity: step === 'approving' || step === 'sending' ? 0.7 : 1,
-        }}>
-          {step === 'approving'
-            ? <><div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0A0A0F', animation: 'spin 0.8s linear infinite' }}/> Approving…</>
-            : step === 'sending'
-            ? <><div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0A0A0F', animation: 'spin 0.8s linear infinite' }}/> Swapping…</>
-            : <><Icon name="swap" size={18}/> Confirm swap</>
-          }
-        </button>
+        <Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1, fontSize: 15 }}>Cancel</Button>
+        <Button
+          size="md"
+          onClick={executeSwap}
+          disabled={step === 'approving' || step === 'sending'}
+          loading={step === 'approving' || step === 'sending'}
+          icon={step === 'approving' || step === 'sending' ? undefined : 'swap'}
+          style={{ flex: 2 }}
+        >
+          {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : 'Confirm swap'}
+        </Button>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 

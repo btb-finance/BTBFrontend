@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useQuery, useMutation } from 'convex/react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Spinner } from '../Spinner';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { Tab } from '../TabBar';
@@ -134,13 +135,12 @@ export function HomeScreen({ goto, address, onDisconnect, onReceive, onSend, onD
         <div style={{ color: btb.textMuted, fontSize: 13, fontWeight: 500 }}>Total balance</div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
           {loadingBalances && totalUsd === 0
-            ? <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.18)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }}/>
+            ? <Spinner size={20} color="#fff" track="rgba(255,255,255,0.18)" />
             : <>
                 <span style={{ color: btb.text, fontSize: 40, fontWeight: 800, letterSpacing: -1.5 }}>{balanceParts[0]}</span>
                 <span style={{ color: btb.text, fontSize: 22, fontWeight: 700, letterSpacing: -0.5, opacity: 0.7 }}>{balanceParts[1]}</span>
               </>
           }
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
 
         <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>

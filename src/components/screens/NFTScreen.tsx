@@ -6,6 +6,7 @@ import { parseEther, formatUnits, encodeFunctionData } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
+import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
 import { CONTRACTS } from '../../lib/wagmi';
@@ -26,27 +27,28 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-const spinStyle: React.CSSProperties = { width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', animation: 'nftspin 0.8s linear infinite', flexShrink: 0 };
-
 function PrimaryBtn({ label, icon, loading, disabled, onClick, green }: {
   label: string; icon: string; loading?: boolean; disabled?: boolean; onClick?: () => void; green?: boolean;
 }) {
   const active = !disabled && !loading;
+  // The non-green active state is a translucent white gradient that doesn't map
+  // to a stock variant, so reproduce it via style — but only while active, so
+  // the Button's built-in disabled/loading visual still wins otherwise.
+  const whiteOverride: React.CSSProperties | undefined =
+    !green && active
+      ? { background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))', color: '#fff', boxShadow: '0 8px 20px rgba(255,255,255,0.12)' }
+      : undefined;
   return (
-    <button onClick={onClick} disabled={!active} style={{
-      flex: 1, width: '100%', height: 60, borderRadius: 18, border: 'none',
-      cursor: active ? 'pointer' : 'default',
-      background: !active ? 'rgba(255,255,255,0.07)'
-        : green ? 'linear-gradient(135deg,#52E3A4,#1aad77)'
-        : 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
-      color: !active ? btb.textDim : '#fff',
-      fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
-      boxShadow: !active ? 'none' : green ? '0 8px 20px rgba(82,227,164,0.3)' : '0 8px 20px rgba(255,255,255,0.12)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-      opacity: loading ? 0.75 : 1, transition: 'opacity 0.2s',
-    }}>
-      {loading ? <><div style={spinStyle}/>{label}</> : <><Icon name={icon} size={18}/>{label}</>}
-    </button>
+    <Button
+      variant={green ? 'success' : 'primary'}
+      onClick={onClick}
+      disabled={disabled}
+      loading={loading}
+      icon={icon}
+      style={{ flex: 1, borderRadius: 18, ...whiteOverride }}
+    >
+      {label}
+    </Button>
   );
 }
 
@@ -398,17 +400,20 @@ function StakeTab({ address }: { address?: string }) {
             <Icon name="gift" size={26} color="#52E3A4"/>
           </div>
         </div>
-        <button onClick={doClaim} disabled={!address || pendingBtbb < 0.000001 || loading} style={{
-          marginTop: 16, width: '100%', height: 60, borderRadius: 18, border: 'none',
-          cursor: address && pendingBtbb >= 0.000001 && !loading ? 'pointer' : 'default',
-          background: address && pendingBtbb >= 0.000001 ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-          color: address && pendingBtbb >= 0.000001 ? '#fff' : btb.textDim,
-          fontSize: 17, fontWeight: 700, fontFamily: 'inherit',
-          boxShadow: address && pendingBtbb >= 0.000001 ? '0 6px 16px rgba(82,227,164,0.25)' : 'none',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-        }}>
-          {loading ? <><div style={spinStyle}/>Processing…</> : <><Icon name="receive" size={18}/>Claim rewards</>}
-        </button>
+        <Button
+          variant="success"
+          onClick={doClaim}
+          disabled={!address || pendingBtbb < 0.000001}
+          loading={loading}
+          icon="receive"
+          style={{
+            marginTop: 16,
+            borderRadius: 18,
+            ...(address && pendingBtbb >= 0.000001 && !loading ? { boxShadow: '0 6px 16px rgba(82,227,164,0.25)' } : {}),
+          }}
+        >
+          {loading ? 'Processing…' : 'Claim rewards'}
+        </Button>
       </Glass>
 
       {/* My position */}
@@ -533,8 +538,6 @@ export function NFTScreen() {
 
       {tab === 'mint'  && <MintTab  address={address}/>}
       {tab === 'stake' && <StakeTab address={address}/>}
-
-      <style>{`@keyframes nftspin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { useSendTransaction, useWriteContract, useWaitForTransactionReceipt } fr
 import { parseUnits, erc20Abi } from 'viem';
 import { btb } from './design-tokens';
 import { Icon } from './Icon';
+import { Button } from './Button';
+import { Spinner } from './Spinner';
 import { TokenIcon } from './TokenIcon';
 import { useTokenStore, Token } from '../lib/TokenStore';
 import { CHAIN_META } from '../lib/wagmi';
@@ -156,13 +158,10 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
             {toError && <div style={{ color: btb.loss, fontSize: 12, marginTop: 6 }}>{toError}</div>}
           </div>
 
-          <button onClick={handleReview} disabled={!amount || !to} style={{
-            height: 56, borderRadius: 18, border: 'none', cursor: 'pointer',
-            background: (!amount || !to) ? 'rgba(255,255,255,0.08)' : 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
-            color: (!amount || !to) ? btb.textDim : '#fff',
-            fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
-            boxShadow: (!amount || !to) ? 'none' : '0 8px 24px rgba(255,255,255,0.2)', transition: 'all 0.2s',
-          }}>Review send</button>
+          <Button size="md" disabled={!amount || !to} onClick={handleReview} style={{
+            background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
+            color: '#fff', boxShadow: '0 8px 24px rgba(255,255,255,0.2)',
+          }}>Review send</Button>
         </>}
 
         {(step === 'confirm' || step === 'sending') && <>
@@ -173,22 +172,16 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
             {chainName && <Row label="Network" value={chainName} last/>}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={() => setStep('form')} disabled={step === 'sending'} style={{ flex: 1, height: 56, borderRadius: 18, border: btb.border, background: 'rgba(255,255,255,0.06)', color: btb.textMuted, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Edit</button>
-            <button onClick={handleSend} disabled={step === 'sending'} style={{
-              flex: 2, height: 56, borderRadius: 18, border: 'none', cursor: step === 'sending' ? 'default' : 'pointer',
-              background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))', color: '#fff',
-              fontSize: 16, fontWeight: 700, fontFamily: 'inherit',
-              boxShadow: '0 8px 24px rgba(255,255,255,0.12)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              opacity: step === 'sending' ? 0.7 : 1,
-            }}>
-              {step === 'sending'
-                ? <><div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }}/> Sending…</>
-                : <><Icon name="send" size={18}/> Confirm send</>
-              }
-            </button>
+            <Button variant="ghost" size="md" disabled={step === 'sending'} onClick={() => setStep('form')}
+              style={{ flex: 1, border: btb.border, fontSize: 15 }}>Edit</Button>
+            <Button size="md" disabled={step === 'sending'} icon={step === 'sending' ? undefined : 'send'} onClick={handleSend}
+              style={{
+                flex: 2, background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))', color: '#fff',
+                boxShadow: '0 8px 24px rgba(255,255,255,0.12)', opacity: step === 'sending' ? 0.7 : 1,
+              }}>
+              {step === 'sending' ? <><Spinner size={18} color="#fff" track="rgba(255,255,255,0.2)" /> Sending…</> : 'Confirm send'}
+            </Button>
           </div>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </>}
 
         {step === 'sent' && (
@@ -207,7 +200,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
                 {txHash.slice(0, 14)}…{txHash.slice(-8)} ↗
               </a>
             )}
-            <button onClick={onClose} style={{ width: '100%', height: 56, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(82,227,164,0.15)', color: btb.green, fontSize: 16, fontWeight: 700, fontFamily: 'inherit', outline: '1px solid rgba(82,227,164,0.35)' }}>Done</button>
+            <Button size="md" onClick={onClose} style={{ background: 'rgba(82,227,164,0.15)', color: btb.green, boxShadow: 'none', outline: '1px solid rgba(82,227,164,0.35)' }}>Done</Button>
           </div>
         )}
 
@@ -220,7 +213,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
               <div style={{ color: btb.text, fontSize: 20, fontWeight: 800 }}>Transaction failed</div>
               <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 8, maxWidth: 280 }}>{errMsg}</div>
             </div>
-            <button onClick={() => setStep('confirm')} style={{ width: '100%', height: 56, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.08)', color: btb.text, fontSize: 16, fontWeight: 700, fontFamily: 'inherit' }}>Try again</button>
+            <Button size="md" onClick={() => setStep('confirm')} style={{ background: 'rgba(255,255,255,0.08)', color: btb.text, boxShadow: 'none' }}>Try again</Button>
           </div>
         )}
       </div>

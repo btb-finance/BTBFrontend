@@ -5,6 +5,7 @@ import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
+import { Button } from './Button';
 import { RangeChart } from './RangeChart';
 import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
@@ -759,30 +760,17 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         {simOnly ? (
           <>
             {canSwitchToAdd && (
-              <button onClick={switchToAdd} style={{
-                width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-                cursor: 'pointer', background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff',
-              }}>Add this LP</button>
+              <Button variant="success" size="md" onClick={switchToAdd} style={{ marginTop: 18, fontWeight: 800 }}>Add this LP</Button>
             )}
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
               Free LP earnings simulator — no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
             </div>
           </>
         ) : tab === 'range' ? (
-          <button onClick={() => setTab('deposit')} disabled={!pool?.exists || !ticks} style={{
-            width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-            cursor: pool?.exists && ticks ? 'pointer' : 'default',
-            background: pool?.exists && ticks ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-            color: pool?.exists && ticks ? '#fff' : btb.textDim,
-          }}>Next · Enter amounts</button>
+          <Button variant="success" size="md" onClick={() => setTab('deposit')} disabled={!pool?.exists || !ticks} style={{ marginTop: 18, fontWeight: 800 }}>Next · Enter amounts</Button>
         ) : (
           <>
-            <button onClick={mint} disabled={!canMint} style={{
-              width: '100%', height: 56, borderRadius: 18, border: 'none', marginTop: 18, fontFamily: 'inherit', fontSize: 16, fontWeight: 800,
-              cursor: canMint ? 'pointer' : 'default',
-              background: canMint ? 'linear-gradient(135deg,#52E3A4,#1aad77)' : 'rgba(255,255,255,0.07)',
-              color: canMint ? '#fff' : btb.textDim,
-            }}>{busy ? 'Confirming…' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</button>
+            <Button variant="success" size="md" onClick={mint} disabled={!canMint} style={{ marginTop: 18, fontWeight: 800 }}>{busy ? 'Confirming…' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</Button>
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
               Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}
             </div>

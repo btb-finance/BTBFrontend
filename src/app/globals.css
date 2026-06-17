@@ -31,3 +31,7 @@ html, body {
 .orb1 { animation: orb1 14s ease-in-out infinite; }
 .orb2 { animation: orb2 18s ease-in-out infinite; }
 .orb3 { animation: orb3 22s ease-in-out infinite; }
+
+/* Shared spinner — used by the <Spinner/> primitive everywhere. */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.8s linear infinite; }

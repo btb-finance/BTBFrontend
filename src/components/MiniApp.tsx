@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useConnection, useDisconnect, useSwitchChain } from 'wagmi';
 import { Background } from './Background';
+import { Spinner } from './Spinner';
 import { TabBar, Tab } from './TabBar';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -132,8 +133,7 @@ export function MiniApp() {
 
   if (!mounted) return (
     <div style={{ minHeight: '100vh', background: '#0A0A0F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 48, height: 48, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.18)', borderTopColor: '#FFFFFF' }} className="spin"/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .spin{animation:spin 0.8s linear infinite}`}</style>
+      <Spinner size={48} color="#FFFFFF" track="rgba(255,255,255,0.18)" style={{ borderWidth: 3 }}/>
     </div>
   );
 

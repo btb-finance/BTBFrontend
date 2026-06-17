@@ -4,6 +4,7 @@ import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Button } from '../Button';
 import { btb } from '../design-tokens';
 import {
   getEarnPools, addRangeAprs, mintTarget, lpAddressesForToken,
@@ -164,20 +165,15 @@ export function EarnScreen() {
                 {/* Actions — straight from the list, no intermediate page */}
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                   {mintable && (
-                    <button onClick={() => setSheet({ pool: p, simulate: false })} style={{
-                      flex: 1.5, height: 42, borderRadius: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                      background: 'linear-gradient(135deg,#52E3A4,#1aad77)', color: '#fff', fontSize: 14, fontWeight: 800,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    }}>
-                      <Icon name="plus" size={16}/> Add LP
-                    </button>
+                    <Button variant="success" fullWidth={false} icon="plus" onClick={() => setSheet({ pool: p, simulate: false })}
+                      style={{ flex: 1.5, height: 42, borderRadius: 13, fontSize: 14, fontWeight: 800, boxShadow: 'none', gap: 6 }}>
+                      Add LP
+                    </Button>
                   )}
-                  <button onClick={() => setSheet({ pool: p, simulate: true })} style={{
-                    flex: 1, height: 42, borderRadius: 13, cursor: 'pointer', fontFamily: 'inherit',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted, fontSize: 14, fontWeight: 700,
-                  }}>
+                  <Button variant="ghost" fullWidth={false} onClick={() => setSheet({ pool: p, simulate: true })}
+                    style={{ flex: 1, height: 42, borderRadius: 13, fontSize: 14, border: '1px solid rgba(255,255,255,0.14)' }}>
                     Simulate
-                  </button>
+                  </Button>
                 </div>
               </Glass>
             );
