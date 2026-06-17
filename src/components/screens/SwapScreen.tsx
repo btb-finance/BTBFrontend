@@ -11,6 +11,8 @@ import { Icon } from '../Icon';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { getKyberQuote, buildKyberTx, KyberQuote } from '../../lib/kyberswap';
 import { CHAIN_META } from '../../lib/wagmi';
@@ -291,7 +293,7 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
 
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Swap</div>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -370,12 +372,12 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
           onClose={() => setPicker(null)}
         />
       )}
-    </div>
+    </Screen>
   );
 
   // ── Confirm / sending step ─────────────────────────────────────────────────
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 4px' }}>
         <div onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="back" size={18} color={btb.textMuted}/>
@@ -445,12 +447,12 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
           {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : 'Confirm swap'}
         </Button>
       </div>
-    </div>
+    </Screen>
   );
 
   // ── Success step ───────────────────────────────────────────────────────────
   if (step === 'success') return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, minHeight: '70vh' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(82,227,164,0.15)', border: '2px solid rgba(82,227,164,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="check" size={36} color={btb.green}/>
       </div>
@@ -459,9 +461,9 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 8 }}>
           {fromAmt} {fromToken.symbol} → {quote?.amountOutFormatted} {toToken.symbol}
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, padding: '4px 12px', borderRadius: 999, background: 'rgba(82,227,164,0.14)', border: '1px solid rgba(82,227,164,0.3)', color: '#52E3A4', fontSize: 13, fontWeight: 700 }}>
+        <Badge bg="rgba(82,227,164,0.14)" border="1px solid rgba(82,227,164,0.3)" color="#52E3A4" style={{ gap: 5, marginTop: 10, padding: '4px 12px', fontSize: 13 }}>
           <Icon name="bolt" size={13} color="#52E3A4"/> +{SWAP_XP} XP earned
-        </div>
+        </Badge>
       </div>
       {txHash && (
         <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer"
@@ -470,12 +472,12 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         </a>
       )}
       <button onClick={reset} style={{ width: '100%', maxWidth: 360, height: 56, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(82,227,164,0.15)', color: btb.green, fontSize: 16, fontWeight: 700, fontFamily: 'inherit', outline: '1px solid rgba(82,227,164,0.35)' }}>Swap again</button>
-    </div>
+    </Screen>
   );
 
   // ── Error step ─────────────────────────────────────────────────────────────
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20, minHeight: '70vh' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="close" size={32} color={btb.red}/>
       </div>
@@ -485,8 +487,8 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
       </div>
       <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 360 }}>
         <button onClick={reset} style={{ flex: 1, height: 52, borderRadius: 16, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-        <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))', color: '#0A0A0F', fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
+        <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: btb.gradPrimary, color: btb.bg, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
       </div>
-    </div>
+    </Screen>
   );
 }

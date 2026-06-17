@@ -6,6 +6,7 @@ import { Button } from '../Button';
 import { Spinner } from '../Spinner';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
+import { Screen } from '../Screen';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions } from '../LpPositions';
@@ -67,7 +68,7 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
   const top4 = tokensWithBalance.slice(0, 4);
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Portfolio</div>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
@@ -161,7 +162,7 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
                     <TokenIcon symbol={h.symbol} size={40} logoUrl={h.logoURI}/>
                     {h.chainId && h.chainId !== 1 && CHAIN_META[h.chainId] && (
-                      <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: CHAIN_META[h.chainId].color, border: '2px solid #0A0A0F' }}/>
+                      <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: CHAIN_META[h.chainId].color, border: `2px solid ${btb.bg}` }}/>
                     )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -199,6 +200,6 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
       )}
 
       {lpToken && <TokenLpPicker token={lpToken} onClose={() => setLpToken(null)}/>}
-    </div>
+    </Screen>
   );
 }

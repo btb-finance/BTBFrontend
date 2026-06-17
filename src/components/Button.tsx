@@ -29,7 +29,7 @@ function activeVisual(variant: Variant): CSSProperties {
   switch (variant) {
     case 'success':
       return {
-        background: 'linear-gradient(135deg,#52E3A4,#1aad77)',
+        background: btb.gradGreen,
         color: '#fff',
         boxShadow: '0 8px 20px rgba(82,227,164,0.3)',
       };
@@ -48,8 +48,8 @@ function activeVisual(variant: Variant): CSSProperties {
     case 'primary':
     default:
       return {
-        background: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))',
-        color: '#0A0A0F',
+        background: btb.gradPrimary,
+        color: btb.bg,
         boxShadow: '0 10px 30px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.3)',
       };
   }

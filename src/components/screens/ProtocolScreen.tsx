@@ -1,6 +1,8 @@
 'use client';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { btb } from '../design-tokens';
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -570,7 +572,7 @@ export function ProtocolDetailScreen({ id, onBack }: { id: string; onBack: () =>
   const meta = CATEGORY_META[p.category];
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <Screen gap={18}>
       {/* header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div onClick={onBack} style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -581,7 +583,7 @@ export function ProtocolDetailScreen({ id, onBack }: { id: string; onBack: () =>
           <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>{p.name}</div>
           <div style={{ color: meta.color, fontSize: 12, fontWeight: 600 }}>{meta.label}</div>
         </div>
-        <div style={{ marginLeft: 'auto', background: 'rgba(82,227,164,0.15)', color: '#52E3A4', fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999 }}>Live</div>
+        <Badge color="#52E3A4" bg="rgba(82,227,164,0.15)" border="none" style={{ marginLeft: 'auto', padding: '4px 10px' }}>Live</Badge>
       </div>
 
       {/* description */}
@@ -602,7 +604,7 @@ export function ProtocolDetailScreen({ id, onBack }: { id: string; onBack: () =>
         <div style={{ color: btb.textDim, fontSize: 12, fontWeight: 600, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 }}>Supported chains</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {p.chains.map(c => (
-            <div key={c} style={{ background: 'rgba(255,255,255,0.07)', border: btb.borderSoft, borderRadius: 999, padding: '5px 12px', color: btb.text, fontSize: 12, fontWeight: 600 }}>{c}</div>
+            <Badge key={c} color={btb.text} bg="rgba(255,255,255,0.07)" border={btb.borderSoft} style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600 }}>{c}</Badge>
           ))}
         </div>
       </div>
@@ -610,7 +612,7 @@ export function ProtocolDetailScreen({ id, onBack }: { id: string; onBack: () =>
       {/* tags */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {p.tags.map(t => (
-          <div key={t} style={{ background: 'rgba(255,255,255,0.06)', border: btb.borderSoft, borderRadius: 999, padding: '4px 12px', color: btb.textDim, fontSize: 11, fontWeight: 600 }}>{t}</div>
+          <Badge key={t} color={btb.textDim} bg="rgba(255,255,255,0.06)" border={btb.borderSoft} style={{ padding: '4px 12px', fontWeight: 600 }}>{t}</Badge>
         ))}
       </div>
 
@@ -623,7 +625,7 @@ export function ProtocolDetailScreen({ id, onBack }: { id: string; onBack: () =>
       }}>
         Open {p.name} ↗
       </button>
-    </div>
+    </Screen>
   );
 }
 
@@ -638,7 +640,7 @@ export function ProtocolCategoryScreen({ category, onBack, onProtocol }: {
   const meta = CATEGORY_META[category];
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div onClick={onBack} style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="back" size={18}/>
@@ -668,6 +670,6 @@ export function ProtocolCategoryScreen({ category, onBack, onProtocol }: {
           </Glass>
         ))}
       </div>
-    </div>
+    </Screen>
   );
 }

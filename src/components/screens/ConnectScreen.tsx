@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
+import { Screen } from '../Screen';
 import { btb } from '../design-tokens';
 
 function isValidAddress(v: string) { return /^0x[a-fA-F0-9]{40}$/.test(v.trim()); }
@@ -55,7 +56,7 @@ export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; 
   }
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 20px 40px', display: 'flex', flexDirection: 'column', height: '100%', gap: 24 }}>
+    <Screen gap={24} px={20} style={{ paddingBottom: 40, height: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, marginTop: 24 }}>
         <div style={{
           width: 92, height: 92, borderRadius: 28,
@@ -155,6 +156,6 @@ export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; 
         {' '}and{' '}
         <span style={{ color: btb.textMuted, textDecoration: 'underline' }}>Privacy Policy</span>
       </div>
-    </div>
+    </Screen>
   );
 }

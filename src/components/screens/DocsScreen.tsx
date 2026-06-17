@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
+import { Screen } from '../Screen';
 import { btb } from '../design-tokens';
 
 const GUIDES = [
@@ -39,7 +40,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
   );
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <Screen gap={20}>
       {/* header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div onClick={onBack} style={{
@@ -163,6 +164,6 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
         BTB Finance · Ethereum mainnet<br/>
         Open source at github.com/btb-finance
       </div>
-    </div>
+    </Screen>
   );
 }

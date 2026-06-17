@@ -4,6 +4,7 @@ import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
+import { Badge } from './Badge';
 import { btb } from './design-tokens';
 import {
   getEarnPools, addRangeAprs, mintTarget, poolsForToken, lpAddressesForToken,
@@ -90,10 +91,10 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                     <span style={{ color: btb.text, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.pair}</span>
                     {p.feeTier !== undefined && (
-                      <span style={{ flexShrink: 0, color: btb.textMuted, fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.08)', padding: '1px 6px', borderRadius: 999 }}>{fmtFeeTier(p.feeTier)}</span>
+                      <Badge size="sm" color={btb.textMuted} bg="rgba(255,255,255,0.08)" border="none">{fmtFeeTier(p.feeTier)}</Badge>
                     )}
                     {p.version && (
-                      <span style={{ flexShrink: 0, color: '#FF007A', fontSize: 10, fontWeight: 700, background: 'rgba(255,0,122,0.12)', padding: '1px 6px', borderRadius: 999 }}>{p.version}</span>
+                      <Badge size="sm" color="#FF007A" bg="rgba(255,0,122,0.12)" border="none">{p.version}</Badge>
                     )}
                   </div>
                   <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>

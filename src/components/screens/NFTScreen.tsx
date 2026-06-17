@@ -9,6 +9,8 @@ import { Glass } from '../Glass';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
+import { Screen } from '../Screen';
+import { Badge } from '../Badge';
 import { CONTRACTS } from '../../lib/wagmi';
 import { BEAR_NFT_ABI, BEAR_STAKING_ABI } from '../../contracts/abis';
 import { api } from '../../../convex/_generated/api';
@@ -156,9 +158,9 @@ function MintTab({ address }: { address?: string }) {
             BTB BEAR {isLoading ? '…' : `· #${minted + 1}`}
           </div>
           {userBalance > 0 && (
-            <div style={{ position: 'absolute', top: 14, right: 14, background: 'rgba(82,227,164,0.2)', border: '1px solid rgba(82,227,164,0.4)', color: '#52E3A4', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999 }}>
+            <Badge bg="rgba(82,227,164,0.2)" border="1px solid rgba(82,227,164,0.4)" color="#52E3A4" style={{ position: 'absolute', top: 14, right: 14, padding: '3px 8px' }}>
               You own {userBalance}
-            </div>
+            </Badge>
           )}
         </div>
 
@@ -513,13 +515,13 @@ export function NFTScreen() {
   const [tab, setTab] = useState<'mint' | 'stake'>('mint');
 
   return (
-    <div style={{ padding: 'env(safe-area-inset-top, 24px) 18px 100px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
         <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>BTB Bear</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, background: 'rgba(226,232,240,0.2)', border: '1px solid rgba(255,255,255,0.2)' }}>
+        <Badge bg="rgba(226,232,240,0.2)" border="1px solid rgba(255,255,255,0.2)" style={{ gap: 6, padding: '6px 12px' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.7)', boxShadow: '0 0 8px rgba(255,255,255,0.7)', display: 'inline-block' }}/>
           <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
-        </div>
+        </Badge>
       </div>
 
       {/* Tabs */}
@@ -538,6 +540,6 @@ export function NFTScreen() {
 
       {tab === 'mint'  && <MintTab  address={address}/>}
       {tab === 'stake' && <StakeTab address={address}/>}
-    </div>
+    </Screen>
   );
 }
