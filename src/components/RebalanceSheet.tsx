@@ -13,12 +13,15 @@ import { getKyberQuote, buildKyberTx } from '../lib/kyberswap';
 import {
   buildRemove, buildMint, rangeTicks, heldHeavyRange, rebalancePlan,
   liquidityForAmounts, getAmountsForLiquidity, fmtFeeTier,
-  UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
+  buildV4Remove, buildV4Mint, maxIn, isNativeCurrency,
+  UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 
 const SLIPPAGE_BPS = 50; // 0.5%
 const WIDTH_PRESETS = [5, 10, 25] as const;
+/** ETH held back for gas whenever a native-ETH side is swapped/deposited (V4). */
+const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -45,7 +48,7 @@ function fmtPrice(p: number): string {
 type Phase = 'config' | 'running' | 'done' | 'error';
 
 /**
- * Smart rebalance for an existing Uniswap/PancakeSwap V3 position.
+ * Smart rebalance for an existing Uniswap V3/V4 or PancakeSwap V3 position.
  *
  * The key idea — and what makes it "smart" — is that a position whose price has
  * run out of range is already lopsided (e.g. an ETH/USDC LP that fell out the
@@ -60,6 +63,12 @@ type Phase = 'config' | 'running' | 'done' | 'error';
  *
  * Two strategies: "Keep my <token>" (band shifted toward the held token →
  * minimal swap, you stay heavy in it) and "Balanced" (centered → ~50/50).
+ *
+ * V4: same flow against the singleton PositionManager. The native-ETH currency
+ * (token0 = address(0)) is swapped/deposited as ETH (a gas reserve is kept) and
+ * ERC-20 deposits go through Permit2 — all handled inside buildV4Mint. Hooked
+ * pools can't be minted in-app, so the caller only offers rebalance for
+ * unhooked V4 positions.
  */
 export function RebalanceSheet({ pos, account, onClose, onDone }: {
   pos: LiquidityPosition;
@@ -69,8 +78,14 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 }) {
   const config = useConfig();
   const { track } = useTx();
+  const isV4 = pos.protocol === 'uniswap-v4';
+  // V4's native ETH is always currency0; V3 pairs are ERC-20 (WETH, not native).
+  const native0 = isV4 && isNativeCurrency(pos.token0);
   const deployment = v3DeploymentOf(pos);
-  const spacing = deployment.tickSpacings[pos.fee] ?? 60;
+  const spacing = (isV4 ? pos.tickSpacing : deployment.tickSpacings[pos.fee]) ?? 60;
+  const poolKey: PoolKey | null = isV4
+    ? { currency0: pos.token0, currency1: pos.token1, fee: pos.fee, tickSpacing: spacing, hooks: pos.hooks ?? '0x0000000000000000000000000000000000000000' }
+    : null;
 
   const [widthPct, setWidthPct] = useState<number>(10);
   const [strategy, setStrategy] = useState<'keep' | 'balanced'>('keep');
@@ -117,17 +132,30 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   const pMax = tickToPrice(range.tickUpper, pos.decimals0, pos.decimals1);
 
   async function readBals(client: PublicClient): Promise<readonly [bigint, bigint]> {
-    const [r0, r1] = await client.multicall({
-      contracts: [
-        { address: pos.token0, abi: erc20Abi, functionName: 'balanceOf', args: [account] },
-        { address: pos.token1, abi: erc20Abi, functionName: 'balanceOf', args: [account] },
-      ],
+    // token1 is always an ERC-20; token0 is native ETH only on a V4 native pool.
+    const erc = native0 ? [pos.token1] : [pos.token0, pos.token1];
+    const res = await client.multicall({
+      contracts: erc.map((a) => ({ address: a, abi: erc20Abi, functionName: 'balanceOf' as const, args: [account] as const })),
       allowFailure: true,
     });
-    return [
-      r0.status === 'success' ? (r0.result as bigint) : 0n,
-      r1.status === 'success' ? (r1.result as bigint) : 0n,
-    ] as const;
+    const get = (r: typeof res[number] | undefined) => (r && r.status === 'success' ? (r.result as bigint) : 0n);
+    if (native0) {
+      const eth = await client.getBalance({ address: account });
+      return [eth, get(res[0])] as const;
+    }
+    return [get(res[0]), get(res[1])] as const;
+  }
+
+  /** Build the withdraw calls for whichever protocol the position belongs to. */
+  function removeCalls() {
+    return isV4
+      ? buildV4Remove(pos, 10_000, SLIPPAGE_BPS, account)
+      : buildRemove(pos, 10_000, SLIPPAGE_BPS, account, deployment);
+  }
+
+  /** Kyber token address for a side — native ETH (V4 currency0) maps to 'ETH'. */
+  function kyberAddr(side: 0 | 1): string {
+    return side === 0 && native0 ? 'ETH' : (side === 0 ? pos.token0 : pos.token1);
   }
 
   async function run() {
@@ -145,7 +173,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       setStepMsg('Withdrawing your liquidity…');
       await runCalls(config, {
         account,
-        calls: buildRemove(pos, 10_000, SLIPPAGE_BPS, account, deployment),
+        calls: removeCalls(),
         label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`,
         track,
       });
@@ -159,26 +187,33 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       if (pl.sellSide !== null && pl.swapFraction > 0.0005) {
         const sellBudget = pl.sellSide === 0 ? budget0 : budget1;
         const bps = Math.min(10_000, Math.max(0, Math.round(pl.swapFraction * 10_000)));
-        const sellRaw = (sellBudget * BigInt(bps)) / 10_000n;
+        let sellRaw = (sellBudget * BigInt(bps)) / 10_000n;
+        // Selling native ETH must leave gas for the swap + mint that follow.
+        const sellNative = native0 && pl.sellSide === 0;
+        if (sellNative) {
+          const room = budget0 > GAS_RESERVE ? budget0 - GAS_RESERVE : 0n;
+          if (sellRaw > room) sellRaw = room;
+        }
         if (sellRaw > 0n) {
           setStepMsg('Swapping only what the new range needs…');
-          const inTok = pl.sellSide === 0 ? pos.token0 : pos.token1;
-          const outTok = pl.sellSide === 0 ? pos.token1 : pos.token0;
           const outDec = pl.sellSide === 0 ? pos.decimals1 : pos.decimals0;
-          const quote = await getKyberQuote(inTok, outTok, sellRaw.toString(), outDec, 1);
+          const quote = await getKyberQuote(kyberAddr(pl.sellSide), kyberAddr(pl.sellSide === 0 ? 1 : 0), sellRaw.toString(), outDec, 1);
           const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, account, account, SLIPPAGE_BPS, 1);
-          const calls: Call[] = [
-            {
+          const calls: Call[] = [];
+          // Native ETH needs no approval; ERC-20 must allow the Kyber router.
+          if (!sellNative) {
+            const inTok = pl.sellSide === 0 ? pos.token0 : pos.token1;
+            calls.push({
               to: inTok,
               data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [quote.routerAddress as `0x${string}`, sellRaw] }),
-            },
-            {
-              to: tx.to as `0x${string}`,
-              data: tx.data as `0x${string}`,
-              value: BigInt(tx.value && tx.value !== '0' ? tx.value : '0'),
-              gas: tx.gas ? BigInt(tx.gas) : undefined,
-            },
-          ];
+            });
+          }
+          calls.push({
+            to: tx.to as `0x${string}`,
+            data: tx.data as `0x${string}`,
+            value: sellNative ? sellRaw : BigInt(tx.value && tx.value !== '0' ? tx.value : '0'),
+            gas: tx.gas ? BigInt(tx.gas) : undefined,
+          });
           await runCalls(config, { account, calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track });
 
           // Recompute the budget from the swap: spent `sellRaw`, received the
@@ -194,19 +229,32 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       // wallet balance so a slightly optimistic swap quote can't over-deposit.
       setStepMsg('Opening your rebalanced position…');
       const [bal0, bal1] = await readBals(client);
-      const eff0 = budget0 < bal0 ? budget0 : bal0;
+      // For a native-ETH side, hold back gas AND the up-to-0.5% slippage headroom
+      // that buildV4Mint's amount0Max (and thus msg.value) adds on top.
+      const cap0 = native0
+        ? (bal0 > GAS_RESERVE ? ((bal0 - GAS_RESERVE) * 9950n) / 10_000n : 0n)
+        : bal0;
+      const eff0 = budget0 < cap0 ? budget0 : cap0;
       const eff1 = budget1 < bal1 ? budget1 : bal1;
       const L = liquidityForAmounts(pos.sqrtPriceX96, tl, tu, eff0, eff1);
       const [a0, a1] = getAmountsForLiquidity(pos.sqrtPriceX96, tl, tu, L);
       if (a0 === 0n && a1 === 0n) throw new Error('Nothing left to deposit after the swap');
       await runCalls(config, {
         account,
-        calls: buildMint({
-          token0: pos.token0, token1: pos.token1, fee: pos.fee,
-          tickLower: tl, tickUpper: tu,
-          amount0Desired: a0, amount1Desired: a1,
-          slippageBps: SLIPPAGE_BPS, recipient: account, deployment,
-        }),
+        calls: isV4
+          ? buildV4Mint({
+              poolKey: poolKey!,
+              tickLower: tl, tickUpper: tu,
+              liquidity: L,
+              amount0Max: maxIn(a0, SLIPPAGE_BPS), amount1Max: maxIn(a1, SLIPPAGE_BPS),
+              recipient: account,
+            })
+          : buildMint({
+              token0: pos.token0, token1: pos.token1, fee: pos.fee,
+              tickLower: tl, tickUpper: tu,
+              amount0Desired: a0, amount1Desired: a1,
+              slippageBps: SLIPPAGE_BPS, recipient: account, deployment,
+            }),
         label: `Rebalance · add ${pos.symbol0}/${pos.symbol1}`,
         track,
       });

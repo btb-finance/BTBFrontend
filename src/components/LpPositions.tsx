@@ -15,7 +15,7 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn,
-  fmtFeeTier, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
+  fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { RebalanceSheet } from './RebalanceSheet';
@@ -124,9 +124,9 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       {positions.map((p) => {
         const hasFees = p.fees0 > 0n || p.fees1 > 0n;
         const hasLiquidity = p.liquidity > 0n;
-        // Rebalance reuses the V3 mint/withdraw + Kyber swap path — V4 (Permit2 +
-        // native ETH) isn't wired for it yet.
-        const canRebalance = hasLiquidity && p.protocol !== 'uniswap-v4';
+        // Rebalance withdraws → swaps only the gap → re-adds. V4 is supported too,
+        // except hooked pools (which can't be minted in-app).
+        const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
         const busy = busyId === posKey(p);
         return (
           <Glass key={posKey(p)} padding={14} radius={18}>
