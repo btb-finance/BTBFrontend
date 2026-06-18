@@ -218,6 +218,7 @@ export async function fetchV4Positions(
       amount0, amount1,
       fees0, fees1,
       inRange,
+      tickSpacing: r.key.tickSpacing, hooks: r.key.hooks,
     }];
   });
 }

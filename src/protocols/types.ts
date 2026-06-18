@@ -37,6 +37,10 @@ export interface LiquidityPosition {
   fees0: bigint;
   fees1: bigint;
   inRange: boolean;
+  /** V4 only — the rest of the pool key, needed to mint a new (rebalanced)
+   * position in the same pool. `hooks` = address(0) means an unhooked pool. */
+  tickSpacing?: number;
+  hooks?: `0x${string}`;
 }
 
 /** Minimal token metadata used when rendering a position. */

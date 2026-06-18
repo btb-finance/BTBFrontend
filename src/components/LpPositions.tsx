@@ -15,9 +15,10 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn,
-  fmtFeeTier, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
+  fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { RebalanceSheet } from './RebalanceSheet';
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -55,6 +56,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
+  const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
 
   const load = useCallback(async () => {
     if (!address) { setPositions([]); return; }
@@ -122,6 +124,9 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       {positions.map((p) => {
         const hasFees = p.fees0 > 0n || p.fees1 > 0n;
         const hasLiquidity = p.liquidity > 0n;
+        // Rebalance withdraws → swaps only the gap → re-adds. V4 is supported too,
+        // except hooked pools (which can't be minted in-app).
+        const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
         const busy = busyId === posKey(p);
         return (
           <Glass key={posKey(p)} padding={14} radius={18}>
@@ -144,6 +149,16 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
               {hasLiquidity && <ActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy}/>}
               <ActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={!hasFees || busy} green/>
             </div>
+            {canRebalance && (
+              <button onClick={() => setRebalance(p)} disabled={busy} style={{
+                width: '100%', height: 38, marginTop: 8, borderRadius: 12, border: 'none', fontFamily: 'inherit',
+                fontSize: 13, fontWeight: 800, cursor: busy ? 'default' : 'pointer',
+                background: p.inRange ? 'rgba(255,255,255,0.08)' : 'rgba(255,179,107,0.16)',
+                color: p.inRange ? btb.text : '#FFB36B',
+              }}>
+                ⚖ {p.inRange ? 'Rebalance' : 'Smart rebalance — back into range'}
+              </button>
+            )}
           </Glass>
         );
       })}
@@ -155,6 +170,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           account={address as `0x${string}`}
           onClose={() => setManage(null)}
           onDone={async () => { setManage(null); await load(); }}
+        />
+      )}
+
+      {rebalance && (
+        <RebalanceSheet
+          pos={rebalance}
+          account={address as `0x${string}`}
+          onClose={() => setRebalance(null)}
+          onDone={async () => { setRebalance(null); await load(); }}
         />
       )}
     </div>

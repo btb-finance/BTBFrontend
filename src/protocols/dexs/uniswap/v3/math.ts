@@ -188,6 +188,103 @@ export function getAmountsForLiquidity(
  * Returns the fitted range plus which side (`side`) to anchor with its full
  * balance; `single` marks a one-token, out-of-range placement.
  */
+// ── Rebalance ─────────────────────────────────────────────────────────────────
+
+/** Pool price as a float — token1 raw per token0 raw. Sizing-grade precision. */
+function poolPriceRaw(sqrtPriceX96: bigint): number {
+  const s = Number(sqrtPriceX96) / 2 ** 96;
+  return s * s;
+}
+
+/**
+ * A token's share (0..1) of the deposit VALUE a range requires at the current
+ * price — token0's value over the total. 1 = all token0 (price ≤ range), 0 =
+ * all token1 (price ≥ range), ~0.5 near a centered in-range band.
+ */
+export function rangeValueShare0(sqrtPriceX96: bigint, tickLower: number, tickUpper: number): number {
+  const [r0, r1] = getAmountsForLiquidity(sqrtPriceX96, tickLower, tickUpper, 10n ** 18n);
+  const P = poolPriceRaw(sqrtPriceX96);
+  const v0 = Number(r0) * P;
+  const v1 = Number(r1);
+  const tot = v0 + v1;
+  return tot > 0 ? v0 / tot : 0;
+}
+
+/**
+ * Plan the single swap that turns the tokens a user already holds (`h0`, `h1`)
+ * into the ratio a new range needs — the heart of "smart rebalance".
+ *
+ * The whole point: a wallet that's already skewed (e.g. 100% ETH after the
+ * price ran out the bottom of an old ETH/USDC range) should NOT be forced to
+ * dump 50% to re-center. We size the swap off the *value gap* between what's
+ * held and what the chosen range needs, so a band placed near the held token
+ * only swaps a few percent. Value is conserved at the pool price (swap fee /
+ * slippage are absorbed later — the deposit re-reads real balances).
+ *
+ * Returns which side to sell (`null` = already balanced for the range) and the
+ * fraction of that token to swap; the caller turns the fraction into a raw
+ * amount against the live balance.
+ */
+export function rebalancePlan(
+  sqrtPriceX96: bigint,
+  tickLower: number,
+  tickUpper: number,
+  h0: bigint,
+  h1: bigint,
+): { sellSide: 0 | 1 | null; swapFraction: number; resultShare0: number } {
+  const side = addSide(sqrtPriceX96, tickLower, tickUpper);
+  // Out-of-range target → single token. Sell everything of the other side.
+  if (side === 'token0') return { sellSide: h1 > 0n ? 1 : null, swapFraction: h1 > 0n ? 1 : 0, resultShare0: 1 };
+  if (side === 'token1') return { sellSide: h0 > 0n ? 0 : null, swapFraction: h0 > 0n ? 1 : 0, resultShare0: 0 };
+
+  const P = poolPriceRaw(sqrtPriceX96);
+  const h0f = Number(h0), h1f = Number(h1);
+  const value = h0f * P + h1f;           // total in token1-raw units
+  if (value <= 0) return { sellSide: null, swapFraction: 0, resultShare0: 0.5 };
+
+  const share0 = rangeValueShare0(sqrtPriceX96, tickLower, tickUpper); // value fraction the range wants in token0
+  const wantV0 = value * share0;         // target token0 value
+  const haveV0 = h0f * P;
+  const EPS = value * 0.0005;            // <0.05% off target ⇒ no swap worth doing
+
+  if (haveV0 > wantV0 + EPS) {           // too much token0 → sell token0 for token1
+    const sellV = haveV0 - wantV0;
+    return { sellSide: 0, swapFraction: haveV0 > 0 ? sellV / haveV0 : 0, resultShare0: share0 };
+  }
+  if (haveV0 < wantV0 - EPS) {           // too little token0 → sell token1 for token0
+    const sellV = wantV0 - haveV0;
+    const haveV1 = h1f;
+    return { sellSide: 1, swapFraction: haveV1 > 0 ? sellV / haveV1 : 0, resultShare0: share0 };
+  }
+  return { sellSide: null, swapFraction: 0, resultShare0: share0 };
+}
+
+/**
+ * Place a band of `widthTicks` near the current price so the token the wallet
+ * is ALREADY heavy in stays the majority — the range that re-enters with the
+ * smallest swap. `heavySide` is the held-heavy token; `edge` (0..0.5) is how
+ * far the price sits from that side's edge of the band (smaller = less swap,
+ * more concentrated in the held token).
+ */
+export function heldHeavyRange(
+  currentTick: number,
+  spacing: number,
+  widthTicks: number,
+  heavySide: 0 | 1,
+  edge = 0.12,
+): { tickLower: number; tickUpper: number } {
+  const w = Math.max(Math.round(widthTicks / spacing), 1) * spacing;
+  const off = Math.max(Math.round((w * edge) / spacing), 1) * spacing;
+  // token0 is the majority when the price sits near the LOWER edge (range runs
+  // up); token1 when it sits near the UPPER edge (range runs down).
+  if (heavySide === 0) {
+    const tickLower = nearestUsableTick(currentTick - off, spacing);
+    return { tickLower, tickUpper: tickLower + w };
+  }
+  const tickUpper = nearestUsableTick(currentTick + off, spacing);
+  return { tickLower: tickUpper - w, tickUpper };
+}
+
 export function fitRangeToBalances(
   sqrtPriceX96: bigint,
   currentTick: number,
