@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseUnits, erc20Abi, encodeFunctionData } from 'viem';
+import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
@@ -12,8 +12,8 @@ import { LiquidityDepthChart } from './LiquidityDepthChart';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls, type Call } from '../lib/txRunner';
-import { getKyberQuote, buildKyberTx } from '../lib/kyberswap';
+import { runCalls } from '../lib/txRunner';
+import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
 import { fetchPoolDailyHistory, type DailyBar } from '../lib/geckoterminal';
@@ -25,16 +25,12 @@ import {
   liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
   MIN_TICK, MAX_TICK, isWeth, WETH, UNISWAP_V3_DEPLOYMENT,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier, rebalancePlan,
-  backtestRange,
+  backtestRange, SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
+import { STABLES } from '../lib/pools';
 
-const SLIPPAGE_BPS = 50; // 0.5%
-/** Stablecoin symbols — used to orient the price quote toward "$ per volatile token". */
-const STABLE_SYMBOLS = new Set(['USDC', 'USDT', 'DAI', 'USDS', 'USDE', 'FRAX', 'GHO', 'LUSD', 'PYUSD', 'TUSD', 'USDP', 'FDUSD']);
-/** ETH kept aside for gas when a side is paid natively and "smart fit" uses the full balance. */
-const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: '±25%', pct: 25 }, { label: 'Full', pct: null },
 ];
@@ -46,11 +42,6 @@ function fmtAmt(raw: bigint, decimals: number): string {
   if (n === 0) return '0';
   if (n < 0.0001) return '<0.0001';
   return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
-}
-
-/** price of token0 in token1 (human units) at a tick. */
-function tickToPrice(tick: number, d0: number, d1: number): number {
-  return 1.0001 ** tick * 10 ** (d0 - d1);
 }
 
 /** Plain re-parseable price string for the min/max inputs. */
@@ -179,8 +170,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const autoFlip = useMemo(() => {
     const p = pools?.[fee];
     if (!p) return false;
-    const s0 = STABLE_SYMBOLS.has((p.symbol0 ?? '').toUpperCase());
-    const s1 = STABLE_SYMBOLS.has((p.symbol1 ?? '').toUpperCase());
+    const s0 = STABLES.has((p.symbol0 ?? '').toUpperCase());
+    const s1 = STABLES.has((p.symbol1 ?? '').toUpperCase());
     return s0 && !s1; // token0 stable → base the volatile token1
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
@@ -517,7 +508,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     if (!address || !pool || !ticks) return;
     const acct = address as `0x${string}`;
     const native0 = isV4 && nativeSide === 0; // V4 currency0 == native ETH
-    const kyberAddr = (side: 0 | 1) => (side === 0 && native0 ? 'ETH' : side === 0 ? pool.token0 : pool.token1);
     const readBals = async (): Promise<[bigint, bigint]> => {
       const client = getPublicClient(config);
       if (!client) throw new Error('No RPC client');
@@ -540,32 +530,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       let budget1 = live1;
 
       const plan = rebalancePlan(pool.sqrtPriceX96, tl, tu, budget0, budget1);
-      if (plan.sellSide !== null && plan.swapFraction > 0.0005) {
-        const sellBudget = plan.sellSide === 0 ? budget0 : budget1;
-        const bps = Math.min(10_000, Math.max(0, Math.round(plan.swapFraction * 10_000)));
-        let sellRaw = (sellBudget * BigInt(bps)) / 10_000n;
-        const sellNative = native0 && plan.sellSide === 0;
-        if (sellNative) { const room = budget0 > GAS_RESERVE ? budget0 - GAS_RESERVE : 0n; if (sellRaw > room) sellRaw = room; }
-        if (sellRaw > 0n) {
+      if (plan.sellSide !== null) {
+        const swap = await buildSwapGap({
+          sellSide: plan.sellSide, swapFraction: plan.swapFraction,
+          budget0, budget1, token0: pool.token0, token1: pool.token1,
+          decimals0: pool.decimals0, decimals1: pool.decimals1,
+          native0, account: acct, slippageBps: SLIPPAGE_BPS,
+        });
+        if (swap) {
           setStepMsg('Swapping only what the range needs…');
-          const outDec = plan.sellSide === 0 ? pool.decimals1 : pool.decimals0;
-          const quote = await getKyberQuote(kyberAddr(plan.sellSide), kyberAddr(plan.sellSide === 0 ? 1 : 0), sellRaw.toString(), outDec, 1);
-          const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, acct, acct, SLIPPAGE_BPS, 1);
-          const calls: Call[] = [];
-          if (!sellNative) {
-            const inTok = plan.sellSide === 0 ? pool.token0 : pool.token1;
-            calls.push({ to: inTok, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [quote.routerAddress as `0x${string}`, sellRaw] }) });
-          }
-          calls.push({
-            to: tx.to as `0x${string}`,
-            data: tx.data as `0x${string}`,
-            value: sellNative ? sellRaw : BigInt(tx.value && tx.value !== '0' ? tx.value : '0'),
-            gas: tx.gas ? BigInt(tx.gas) : undefined,
-          });
-          await runCalls(config, { account: acct, calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track });
-          const out = BigInt(quote.routeSummary?.amountOut ?? quote.amountOut ?? '0');
-          if (plan.sellSide === 0) { budget0 -= sellRaw; budget1 += out; }
-          else { budget1 -= sellRaw; budget0 += out; }
+          await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track });
+          budget0 = swap.budget0;
+          budget1 = swap.budget1;
         }
       }
 

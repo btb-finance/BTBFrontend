@@ -81,16 +81,17 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
       )}
     <Screen gap={24} style={{ padding: '32px 24px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-        <div style={{
-          width: 92, height: 92, borderRadius: 28,
-          background: 'linear-gradient(140deg,#FFFFFF 0%, #1E293B 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 16px 40px rgba(226,232,240,0.55), inset 0 2px 0 rgba(255,255,255,0.25)',
-          position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4), transparent 50%)' }}/>
-          <span style={{ color: '#fff', fontSize: 44, fontWeight: 900, letterSpacing: -2, position: 'relative' }}>B</span>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/btblogo.jpg"
+          alt="BTB Finance"
+          width={92}
+          height={92}
+          style={{
+            width: 92, height: 92, borderRadius: 999, objectFit: 'cover',
+            boxShadow: '0 16px 40px rgba(226,232,240,0.35)',
+          }}
+        />
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.8 }}>BTB Finance</div>
           <div style={{ color: btb.textMuted, fontSize: 15, marginTop: 6, lineHeight: 1.45, maxWidth: 280 }}>

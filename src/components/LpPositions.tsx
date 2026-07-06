@@ -18,7 +18,7 @@ import { getTokenPricesUsd } from '../lib/defillama';
 import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
-  addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn,
+  addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
@@ -34,8 +34,6 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
 };
-
-const SLIPPAGE_BPS = 50; // 0.5%
 
 function fmtAmt(raw: bigint, decimals: number): string {
   const n = parseFloat(formatUnits(raw, decimals));

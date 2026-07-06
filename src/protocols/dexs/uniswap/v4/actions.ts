@@ -3,9 +3,7 @@ import { POSITION_MANAGER_ABI, PERMIT2_ABI, POOL_KEY_COMPONENTS } from './abis';
 import { UNISWAP_V4, isNativeCurrency, type PoolKey } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
-import { deadline, minOut, maxIn } from '../shared';
-
-export { maxIn }; // re-exported for callers that import it from this module
+import { deadline, minOut } from '../shared';
 
 /**
  * Uniswap V4 liquidity actions. Unlike V3's direct NPM calls, every V4

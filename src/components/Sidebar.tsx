@@ -50,12 +50,14 @@ export function Sidebar({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', gap: 8, padding: '0 4px 22px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8, background: btb.gradGreen,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          }}>
-            <Icon name="bolt" size={16} color="#fff" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/btblogo.jpg"
+            alt="BTB"
+            width={28}
+            height={28}
+            style={{ width: 28, height: 28, borderRadius: 999, objectFit: 'cover', flexShrink: 0 }}
+          />
           {!collapsed && <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>BTB</span>}
         </div>
         {!collapsed && (
@@ -64,7 +66,7 @@ export function Sidebar({
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: 'rgba(255,255,255,0.06)',
           }}>
-            <Icon name="back" size={13} color={btb.textMuted} />
+            <Icon name="chevrons" size={14} color={btb.textMuted} />
           </div>
         )}
       </div>
@@ -75,7 +77,7 @@ export function Sidebar({
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: 'rgba(255,255,255,0.06)', transform: 'rotate(180deg)',
         }}>
-          <Icon name="back" size={13} color={btb.textMuted} />
+          <Icon name="chevrons" size={14} color={btb.textMuted} />
         </div>
       )}
 
