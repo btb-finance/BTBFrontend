@@ -3,17 +3,7 @@ import { NPM_ABI } from './abis';
 import { MAX_UINT128, UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
-
-const DEADLINE_SECONDS = 1200; // 20 minutes
-
-function deadline(): bigint {
-  return BigInt(Math.floor(Date.now() / 1000) + DEADLINE_SECONDS);
-}
-
-/** Apply a downward slippage tolerance (bps) to a minimum-out amount. */
-function minOut(amount: bigint, slippageBps: number): bigint {
-  return (amount * BigInt(10_000 - slippageBps)) / 10_000n;
-}
+import { deadline, minOut } from '../shared';
 
 /**
  * If a deposit is paid in native ETH (one side is WETH), wrap the action in

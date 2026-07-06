@@ -113,11 +113,6 @@ export async function fetchPoolChart(poolId: string): Promise<PoolChartPoint[]> 
   }
 }
 
-/** Universal, always-valid link to a pool (shows stats + outbound to the DEX). */
-export function poolLink(p: LlamaPool): string {
-  return `https://defillama.com/yields/pool/${p.id}`;
-}
-
 /**
  * Current USD prices for Ethereum mainnet tokens via DeFiLlama's keyless
  * coins API. Returns a map keyed by lowercase address; missing tokens omitted.

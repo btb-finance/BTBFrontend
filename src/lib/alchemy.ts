@@ -20,10 +20,6 @@ export const ALCHEMY_CHAIN_ID: Record<string, number> = {
 // All networks we query for tokens
 export const ALCHEMY_NETWORKS = Object.keys(ALCHEMY_CHAIN_ID);
 
-// ChainId → Alchemy network slug
-export const CHAIN_TO_ALCHEMY: Record<number, string> = Object.fromEntries(
-  Object.entries(ALCHEMY_CHAIN_ID).map(([k, v]) => [v, k])
-);
 
 // Native gas token symbol/name per network — Alchemy reports the native
 // balance with `tokenAddress: null`, so this is the only place that identity
@@ -146,75 +142,3 @@ export async function fetchAlchemyNativePrices(symbols: string[]): Promise<Recor
   }
 }
 
-// ─── NFTs ─────────────────────────────────────────────────────────────────────
-
-// Networks that support NFTs in Alchemy
-const NFT_NETWORKS = [
-  'eth-mainnet', 'base-mainnet', 'matic-mainnet', 'arb-mainnet',
-  'opt-mainnet', 'blast-mainnet', 'zksync-mainnet', 'scroll-mainnet',
-  'linea-mainnet',
-];
-
-export interface AlchemyNFT {
-  network: string;
-  chainId: number;
-  walletAddress: string;
-  contractAddress: string;
-  tokenId: string;
-  tokenType: string;           // 'ERC721' | 'ERC1155'
-  name: string;
-  description: string;
-  imageUrl?: string;
-  thumbnailUrl?: string;
-  collectionName?: string;
-  collectionSlug?: string;
-  floorPrice?: number;
-  attributes: { trait_type: string; value: string }[];
-  acquiredAt?: string;         // block timestamp ISO
-}
-
-export async function fetchAlchemyNFTs(
-  walletAddress: string,
-  networks: string[] = NFT_NETWORKS,
-  pageSize = 100,
-): Promise<AlchemyNFT[]> {
-  const res = await fetch(`${BASE}/assets/nfts/by-address`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      addresses: [{
-        address: walletAddress,
-        networks,
-        excludeFilters: ['SPAM'],
-      }],
-      withMetadata: true,
-      pageSize,
-      orderBy: 'transferTime',
-      sortOrder: 'desc',
-    }),
-  });
-  if (!res.ok) throw new Error(`Alchemy NFTs ${res.status}`);
-  const json = await res.json();
-
-  const nfts: AlchemyNFT[] = [];
-  for (const n of (json.data?.ownedNfts ?? [])) {
-    nfts.push({
-      network:         n.network,
-      chainId:         ALCHEMY_CHAIN_ID[n.network] ?? 1,
-      walletAddress:   n.address,
-      contractAddress: n.contract?.address ?? '',
-      tokenId:         n.tokenId ?? '',
-      tokenType:       n.tokenType ?? 'ERC721',
-      name:            n.name ?? n.contract?.name ?? 'NFT',
-      description:     n.description ?? '',
-      imageUrl:        n.image?.cachedUrl ?? n.image?.originalUrl ?? n.raw?.metadata?.image,
-      thumbnailUrl:    n.image?.thumbnailUrl,
-      collectionName:  n.collection?.name ?? n.contract?.openseaMetadata?.collectionName ?? n.contract?.name,
-      collectionSlug:  n.collection?.slug,
-      floorPrice:      n.contract?.openseaMetadata?.floorPrice,
-      attributes:      n.raw?.metadata?.attributes ?? [],
-      acquiredAt:      n.acquiredAt?.blockTimestamp,
-    });
-  }
-  return nfts;
-}
