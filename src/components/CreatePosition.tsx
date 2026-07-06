@@ -2,25 +2,37 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseUnits, erc20Abi } from 'viem';
+import { formatUnits, parseUnits, erc20Abi, encodeFunctionData } from 'viem';
 import { Glass } from './Glass';
+import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { RangeChart } from './RangeChart';
+import { LiquidityDepthChart } from './LiquidityDepthChart';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls } from '../lib/txRunner';
+import { runCalls, type Call } from '../lib/txRunner';
+import { getKyberQuote, buildKyberTx } from '../lib/kyberswap';
 import { getTokenPricesUsd } from '../lib/defillama';
+import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
+import { fetchPoolDailyHistory, type DailyBar } from '../lib/geckoterminal';
+import { GeckoTerminalChart } from './GeckoTerminalChart';
+import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
+import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
   MIN_TICK, MAX_TICK, isWeth, WETH, UNISWAP_V3_DEPLOYMENT,
-  fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier,
-  type MintPool, type V4MintPool, type PoolDay,
+  fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier, rebalancePlan,
+  backtestRange,
+  type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 
 const SLIPPAGE_BPS = 50; // 0.5%
+/** Stablecoin symbols — used to orient the price quote toward "$ per volatile token". */
+const STABLE_SYMBOLS = new Set(['USDC', 'USDT', 'DAI', 'USDS', 'USDE', 'FRAX', 'GHO', 'LUSD', 'PYUSD', 'TUSD', 'USDP', 'FDUSD']);
 /** ETH kept aside for gas when a side is paid natively and "smart fit" uses the full balance. */
 const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
@@ -98,6 +110,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   simulate?: boolean;
   onClose: () => void; onDone?: () => void;
 }) {
+  const { width: sidebarWidth } = useSidebar();
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -120,11 +133,20 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const [amt, setAmt] = useState<{ side: 0 | 1; str: string }>({ side: 0, str: '' });
   const [useEth, setUseEth] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [stepMsg, setStepMsg] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [bal0, setBal0] = useState(0n);
   const [bal1, setBal1] = useState(0n);
   const [ethBal, setEthBal] = useState(0n);
   const [history, setHistory] = useState<PoolDay[] | null>(null);
+  // Free chart fallback (GeckoTerminal) when no Graph API key is configured —
+  // rescaled to the live on-chain price so the endpoint always matches
+  // "Current price" above it; shape/orientation is approximate, not exact.
+  const [fallbackBars, setFallbackBars] = useState<DailyBar[] | null>(null);
+  // Real liquidity-depth-by-price histogram — progressive enhancement over the
+  // plain price line; null while loading or if tick reads fail (RPC hiccup,
+  // exotic pool), in which case the range step falls back to RangeChart alone.
+  const [tickLiq, setTickLiq] = useState<TickLiquidityPoint[] | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
@@ -132,16 +154,41 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   // Simulator mode: step 2 takes a USD amount instead of wallet deposits.
   const [simOnly, setSimOnly] = useState(!!simulate);
   const [simUsdStr, setSimUsdStr] = useState('1000');
+  // How long the simulated position is projected to run for.
+  const [simDays, setSimDays] = useState(30);
   // Explanation of the last "smart fit" — cleared on any manual range change.
   const [smartNote, setSmartNote] = useState<string | null>(null);
+  // Smart-fit strategy for a single-token wallet: 'balanced' swaps ~half so the
+  // deposit is two-sided (stays ~50/50); 'single' is the directional, converting
+  // single-sided position. Balanced is the default so a stablecoin holder isn't
+  // silently placed into a "convert my USDC to ETH" limit range.
+  const [smartStrategy, setSmartStrategy] = useState<'balanced' | 'single'>('balanced');
+  // Pending balanced-fit swap (set by applySmartFit, executed by mintBalanced).
+  const [swapPreview, setSwapPreview] = useState<
+    { sellSide: 0 | 1; sellRaw: bigint; sym: string; otherSym: string; pct: number } | null
+  >(null);
   // Flip the quote direction: false → token1 per token0 (pool order),
   // true → token0 per token1. Display-only; ticks/amounts stay in pool order.
-  const [flip, setFlip] = useState(false);
+  // null = follow the auto-orientation below; a boolean = the user's choice.
+  const [flipManual, setFlipManual] = useState<boolean | null>(null);
 
   const isV4 = v4PoolId !== undefined;
+  // Auto-orientation: quote the volatile token in the stablecoin
+  // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH") — the way people read a
+  // pair. Only kicks in when exactly one side is a stablecoin; else pool order.
+  const autoFlip = useMemo(() => {
+    const p = pools?.[fee];
+    if (!p) return false;
+    const s0 = STABLE_SYMBOLS.has((p.symbol0 ?? '').toUpperCase());
+    const s1 = STABLE_SYMBOLS.has((p.symbol1 ?? '').toUpperCase());
+    return s0 && !s1; // token0 stable → base the volatile token1
+  }, [pools, fee]);
+  const flip = flipManual ?? autoFlip;
   const dexLabel = dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
+  const feeSwitchProtocol: FeeSwitchProtocol = dex === 'pancakeswap' ? 'pancakeswap-v3' : isV4 ? 'uniswap-v4' : 'uniswap-v3';
+  const feeSplit = getFeeSplit(feeSwitchProtocol, fee);
 
   // Native-ETH deposit side. V3: the WETH token (toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always paid as ETH, no toggle.
@@ -163,7 +210,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       setMinStr(isFinite(hi) && hi > 0 ? fmtPrice(1 / hi) : '');
       setMaxStr(isFinite(lo) && lo > 0 ? fmtPrice(1 / lo) : '');
     }
-    setFlip((v) => !v);
+    setFlipManual(!flip);
   }
 
   useEffect(() => {
@@ -203,11 +250,26 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   useEffect(() => {
     let live = true;
     setHistory(null);
+    setFallbackBars(null);
     if (!pool || !pool.exists) return;
     if (hasGraphKey && !isV4) { // the V4 subgraph has no poolDayData — sim falls back to fees24hUsd
       getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live) setHistory(h); })
         .catch(() => {}); // chart/sim are progressive extras — never block minting
+    } else {
+      // No Graph key (or V4, which has no subgraph poolDayData at all) —
+      // free fallback chart instead of showing nothing. GeckoTerminal indexes
+      // V4 pools by the same poolId hash we already compute (no separate
+      // per-pool contract in V4, unlike V3). Rescaled below (once `price` is
+      // known) so the endpoint matches the live on-chain price — GeckoTerminal's
+      // base/quote orientation isn't guaranteed to match ours, so treat this
+      // as an approximate trend line, not exact history.
+      const chartId = isV4 ? v4PoolId : pool.address;
+      if (chartId) {
+        fetchPoolDailyHistory(chartId, 30)
+          .then((bars) => { if (live && bars.length > 1) setFallbackBars(bars); })
+          .catch(() => {});
+      }
     }
     // Native ETH (V4 currency 0x0) isn't a token DeFiLlama knows — price it as WETH.
     const priceToken0 = isNativeCurrency(pool.token0) ? WETH : pool.token0;
@@ -224,6 +286,22 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
 
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[fee];
+
+  // Real liquidity-depth-by-price histogram (where existing LPs concentrated
+  // liquidity) — progressive enhancement, never blocks the range step.
+  useEffect(() => {
+    let live = true;
+    setTickLiq(null);
+    if (!pool || !pool.exists) return;
+    const client = getPublicClient(config);
+    if (!client) return;
+    const fetcher = v4Pool
+      ? fetchV4TickLiquidityDistribution(client, v4Pool.poolId, pool.tick, pool.liquidity, spacing)
+      : fetchTickLiquidityDistribution(client, pool.address, pool.tick, pool.liquidity, spacing);
+    fetcher.then((pts) => { if (live && pts.length > 0) setTickLiq(pts); }).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, pool, v4Pool, spacing]);
   const ticks = useMemo(() => {
     if (!pool || !pool.exists) return null;
     if (rangeMode !== null && typeof rangeMode === 'object') return rangeMode; // smart fit — exact ticks
@@ -251,6 +329,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     return p * 10 ** (pool.decimals0 - pool.decimals1);
   }, [pool]);
 
+  // Tick liquidity → display-space price points (decimals-adjusted, flip-aware).
+  const dispTickLiq = useMemo(() => {
+    if (!tickLiq || !pool) return null;
+    const scale = 10 ** (pool.decimals0 - pool.decimals1);
+    return tickLiq.map((p) => ({ ...p, price: dispPrice(p.price * scale) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tickLiq, pool, flip]);
+
   // Which side(s) the range needs at the current price.
   const need = useMemo(
     () => (pool && pool.exists && ticks ? addSide(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper) : 'both'),
@@ -265,6 +351,22 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     if (!p0 && p1 && price > 0) p0 = price * p1;
     if (!p1 && p0 && price > 0) p1 = p0 / price;
     return p0 && p1 ? { p0, p1 } : null;
+  }, [pool, usd, price]);
+
+  // Pool price vs independent market price. Uses the RAW usd map (not tokenUsd,
+  // which back-fills a missing price FROM the pool price and would always agree)
+  // so it only fires when both tokens have their own market quote. A big gap
+  // means the pool is thin/stale/manipulated — depositing pairs your tokens at
+  // THIS pool's ratio, so you'd be adding at an off-market rate (and are easy to
+  // sandwich). This is the guardrail for "I added USDC and it converted wrong".
+  const priceDeviation = useMemo(() => {
+    if (!pool || !pool.exists || price <= 0) return null;
+    const m0 = usd[pool.token0.toLowerCase()];
+    const m1 = usd[pool.token1.toLowerCase()];
+    if (!m0 || !m1) return null;
+    const market = m0 / m1; // token0 priced in token1, from independent USD quotes
+    if (!(market > 0)) return null;
+    return price / market - 1; // signed: +ve = pool price above market
   }, [pool, usd, price]);
 
   // Deposit amounts. Normal mode: the user types EITHER token amount and the
@@ -321,6 +423,28 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       depositUsd, sharePct: share * 100, inRange,
     };
   }, [pool, ticks, add0, add1, history, fees24hUsd, tokenUsd]);
+
+  // ── Backtest ────────────────────────────────────────────────────────────────
+  // "What would THIS range have actually done over the last N days?" — replays
+  // the pool's real daily price through the chosen range: fees only on in-range
+  // days, netted against realised IL. Turns the forward guess into a grounded,
+  // backward-looking number. Needs history + USD prices; otherwise hidden.
+  const backtest = useMemo<BacktestResult | null>(() => {
+    if (!pool || !pool.exists || !ticks || !history || history.length < 2 || !tokenUsd) return null;
+    if (add0 === 0n && add1 === 0n) return null;
+    const priceLower = tickToPrice(ticks.tickLower, pool.decimals0, pool.decimals1);
+    const priceUpper = tickToPrice(ticks.tickUpper, pool.decimals0, pool.decimals1);
+    const L = liquidityForAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, add0, add1);
+    const depositUsd = parseFloat(formatUnits(add0, pool.decimals0)) * tokenUsd.p0
+      + parseFloat(formatUnits(add1, pool.decimals1)) * tokenUsd.p1;
+    return backtestRange({
+      history: history.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd })),
+      priceLower, priceUpper,
+      userLiquidity: Number(L),
+      activeLiquidity: Number(pool.liquidity),
+      depositUsd,
+    });
+  }, [pool, ticks, add0, add1, history, tokenUsd]);
 
   // wallet balances of both tokens (+ native ETH)
   useEffect(() => {
@@ -382,7 +506,99 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     } finally { setBusy(false); }
   }
 
-  const canMint = !!pool?.exists && !!ticks && (add0 > 0n || add1 > 0n) && !short0 && !short1 && !busy;
+  /**
+   * Balanced smart-fit deposit: swap only the gap (KyberSwap) so a single-token
+   * wallet deposits a real two-sided position, then mint. Same audited pattern
+   * as RebalanceSheet (minus the withdraw — funds come straight from the wallet).
+   * Confirms up to two wallet txs (swap, then add). V4 native ETH (currency0) is
+   * swapped/deposited as ETH with a gas reserve; V3 deposits the ERC-20 tokens.
+   */
+  async function mintBalanced() {
+    if (!address || !pool || !ticks) return;
+    const acct = address as `0x${string}`;
+    const native0 = isV4 && nativeSide === 0; // V4 currency0 == native ETH
+    const kyberAddr = (side: 0 | 1) => (side === 0 && native0 ? 'ETH' : side === 0 ? pool.token0 : pool.token1);
+    const readBals = async (): Promise<[bigint, bigint]> => {
+      const client = getPublicClient(config);
+      if (!client) throw new Error('No RPC client');
+      const erc = native0 ? [pool.token1] : [pool.token0, pool.token1];
+      const res = await client.multicall({
+        contracts: erc.map((a) => ({ address: a, abi: erc20Abi, functionName: 'balanceOf' as const, args: [acct] as const })),
+        allowFailure: true,
+      });
+      const get = (r: (typeof res)[number] | undefined) => (r && r.status === 'success' ? (r.result as bigint) : 0n);
+      if (native0) return [await client.getBalance({ address: acct }), get(res[0])];
+      return [get(res[0]), get(res[1])];
+    };
+
+    setBusy(true); setErr(null);
+    try {
+      const tl = ticks.tickLower, tu = ticks.tickUpper;
+      const [live0, live1] = await readBals();
+      // Deposit the whole balance; keep a gas reserve on the native side.
+      let budget0 = native0 ? (live0 > GAS_RESERVE ? live0 - GAS_RESERVE : 0n) : live0;
+      let budget1 = live1;
+
+      const plan = rebalancePlan(pool.sqrtPriceX96, tl, tu, budget0, budget1);
+      if (plan.sellSide !== null && plan.swapFraction > 0.0005) {
+        const sellBudget = plan.sellSide === 0 ? budget0 : budget1;
+        const bps = Math.min(10_000, Math.max(0, Math.round(plan.swapFraction * 10_000)));
+        let sellRaw = (sellBudget * BigInt(bps)) / 10_000n;
+        const sellNative = native0 && plan.sellSide === 0;
+        if (sellNative) { const room = budget0 > GAS_RESERVE ? budget0 - GAS_RESERVE : 0n; if (sellRaw > room) sellRaw = room; }
+        if (sellRaw > 0n) {
+          setStepMsg('Swapping only what the range needs…');
+          const outDec = plan.sellSide === 0 ? pool.decimals1 : pool.decimals0;
+          const quote = await getKyberQuote(kyberAddr(plan.sellSide), kyberAddr(plan.sellSide === 0 ? 1 : 0), sellRaw.toString(), outDec, 1);
+          const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, acct, acct, SLIPPAGE_BPS, 1);
+          const calls: Call[] = [];
+          if (!sellNative) {
+            const inTok = plan.sellSide === 0 ? pool.token0 : pool.token1;
+            calls.push({ to: inTok, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [quote.routerAddress as `0x${string}`, sellRaw] }) });
+          }
+          calls.push({
+            to: tx.to as `0x${string}`,
+            data: tx.data as `0x${string}`,
+            value: sellNative ? sellRaw : BigInt(tx.value && tx.value !== '0' ? tx.value : '0'),
+            gas: tx.gas ? BigInt(tx.gas) : undefined,
+          });
+          await runCalls(config, { account: acct, calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track });
+          const out = BigInt(quote.routeSummary?.amountOut ?? quote.amountOut ?? '0');
+          if (plan.sellSide === 0) { budget0 -= sellRaw; budget1 += out; }
+          else { budget1 -= sellRaw; budget0 += out; }
+        }
+      }
+
+      // Mint with the rebalanced budget, capped to the live wallet balance so an
+      // optimistic swap quote can't over-deposit.
+      setStepMsg('Adding your liquidity…');
+      const [bal0, bal1] = await readBals();
+      const cap0 = native0 ? (bal0 > GAS_RESERVE ? ((bal0 - GAS_RESERVE) * 9950n) / 10_000n : 0n) : bal0;
+      const eff0 = budget0 < cap0 ? budget0 : cap0;
+      const eff1 = budget1 < bal1 ? budget1 : bal1;
+      const L = liquidityForAmounts(pool.sqrtPriceX96, tl, tu, eff0, eff1);
+      const a0 = eff0, a1 = eff1;
+      if (L === 0n) throw new Error('Nothing left to deposit after the swap');
+      const calls = v4Pool
+        ? buildV4Mint({
+            poolKey: v4Pool.poolKey, tickLower: tl, tickUpper: tu, liquidity: L,
+            amount0Max: maxIn(a0, SLIPPAGE_BPS), amount1Max: maxIn(a1, SLIPPAGE_BPS), recipient: acct,
+          })
+        : buildMint({
+            token0: pool.token0, token1: pool.token1, fee, tickLower: tl, tickUpper: tu,
+            amount0Desired: a0, amount1Desired: a1, slippageBps: SLIPPAGE_BPS, recipient: acct,
+            nativeEthSide: null, deployment,
+          });
+      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      onDone?.();
+      onClose();
+    } catch (e) {
+      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
+    } finally { setBusy(false); setStepMsg(''); }
+  }
+
+  const canMint = !!pool?.exists && !!ticks && !busy &&
+    (swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
   // CTA is hidden for them. The simulated amounts prefill the deposit inputs.
@@ -403,20 +619,59 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
    * next to the current price when only one token is held), then prefills the
    * anchor side with its full balance.
    */
-  function applySmartFit() {
+  function applySmartFit(strategyOverride?: 'balanced' | 'single') {
     if (!pool || !pool.exists || !ticks) return;
+    const strat = strategyOverride ?? smartStrategy;
+    setSwapPreview(null);
     const fitBal0 = ethMode && nativeSide === 0 ? (effBal0 > GAS_RESERVE ? effBal0 - GAS_RESERVE : 0n) : effBal0;
     const fitBal1 = ethMode && nativeSide === 1 ? (effBal1 > GAS_RESERVE ? effBal1 - GAS_RESERVE : 0n) : effBal1;
     // Full range can't be re-placed — fit a ±10% band instead.
     const base = rangeMode === null ? rangeTicks(pool.tick, spacing, 10) : ticks;
-    const fit = fitRangeToBalances(pool.sqrtPriceX96, pool.tick, base.tickUpper - base.tickLower, spacing, fitBal0, fitBal1);
+    const width = base.tickUpper - base.tickLower;
+
+    // Exactly one pool token held → the range would otherwise go single-sided.
+    const singleToken = (fitBal0 <= 0n) !== (fitBal1 <= 0n);
+    // The balanced swap reads ERC-20 balances (+ native ETH only on a V4 native
+    // pool). A V3 pool paid with native ETH isn't covered, so keep it single-sided.
+    const heldSide: 0 | 1 = fitBal0 > 0n ? 0 : 1;
+    const heldNativeEthV3 = !isV4 && ethMode && wethSide === heldSide;
+
+    // BALANCED (default for a single-token wallet): centre the band on the price
+    // and swap only the gap so BOTH sides deposit — a real two-sided LP that
+    // stays ~50/50 instead of a directional "convert my token" position.
+    if (singleToken && strat === 'balanced' && !heldNativeEthV3) {
+      const half = Math.max(Math.round(width / 2 / spacing), 1) * spacing;
+      const tickLower = nearestUsableTick(pool.tick - half, spacing);
+      let tickUpper = nearestUsableTick(pool.tick + half, spacing);
+      if (tickUpper <= tickLower) tickUpper = tickLower + spacing;
+      const plan = rebalancePlan(pool.sqrtPriceX96, tickLower, tickUpper, fitBal0, fitBal1);
+      setRangeMode({ tickLower, tickUpper });
+      if (plan.sellSide === null || plan.swapFraction <= 0.0005) {
+        // No swap needed — deposit the held side directly via the normal path.
+        setAmt({ side: heldSide, str: formatUnits(heldSide === 0 ? fitBal0 : fitBal1, heldSide === 0 ? pool.decimals0 : pool.decimals1) });
+        setSmartNote('Your balance already matches a centered range — both sides deposit, no swap needed.');
+        return;
+      }
+      setAmt({ side: 0, str: '' }); // balanced flow deposits the post-swap budget, not a typed amount
+      const sellBudget = plan.sellSide === 0 ? fitBal0 : fitBal1;
+      const bps = Math.min(10_000, Math.max(0, Math.round(plan.swapFraction * 10_000)));
+      const sellRaw = (sellBudget * BigInt(bps)) / 10_000n;
+      const sym = plan.sellSide === 0 ? sym0 : sym1;
+      const otherSym = plan.sellSide === 0 ? sym1 : sym0;
+      setSwapPreview({ sellSide: plan.sellSide, sellRaw, sym, otherSym, pct: plan.swapFraction * 100 });
+      setSmartNote(`Balanced two-sided ${sym0}/${sym1} position. We'll swap ~${plan.swapFraction * 100 < 1 ? '<1' : Math.round(plan.swapFraction * 100)}% of your ${sym} to ${otherSym} (KyberSwap, ${SLIPPAGE_BPS / 100}% slippage) so both sides deposit and the position stays near a 50/50 mix — it earns fees immediately and does NOT convert your ${sym} away like a single-sided range would.`);
+      return;
+    }
+
+    const fit = fitRangeToBalances(pool.sqrtPriceX96, pool.tick, width, spacing, fitBal0, fitBal1);
     if (!fit) { setSmartNote('Nothing to fit — your wallet holds neither pool token.'); return; }
     setRangeMode({ tickLower: fit.tickLower, tickUpper: fit.tickUpper });
     const bal = fit.side === 0 ? fitBal0 : fitBal1;
     setAmt({ side: fit.side, str: formatUnits(bal, fit.side === 0 ? pool.decimals0 : pool.decimals1) });
     const sym = fit.side === 0 ? sym0 : sym1;
+    const other = fit.side === 0 ? sym1 : sym0;
     setSmartNote(fit.single
-      ? `You hold ${sym} only, so the range sits just ${fit.side === 0 ? 'above' : 'below'} the current price — it deposits ${sym} alone and starts earning fees once the price moves into range.`
+      ? `⚠️ Single-sided ${sym} position. You deposit ${sym} alone now, but this range sits entirely to one side of the current price: as the price moves into it, your ${sym} is progressively swapped into ${other} — you'd end up holding ${other}, not ${sym}. This is a directional "convert ${sym}→${other} on the way" position, not a balanced LP.`
       : 'Range shifted to match your balances — both tokens deposit in full, same width as you picked.');
   }
 
@@ -452,7 +707,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         <input
           value={value}
           disabled={disabled}
-          onChange={(e) => setAmt({ side, str: e.target.value.replace(/[^0-9.]/g, '') })}
+          onChange={(e) => { setAmt({ side, str: e.target.value.replace(/[^0-9.]/g, '') }); setSwapPreview(null); }}
           inputMode="decimal" placeholder="0"
           style={inputStyle(disabled)}/>
       </div>
@@ -463,9 +718,29 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   // add flow's deposit step (plain functions, same reason as renderAmountInput).
   function renderNeedWarning() {
     if (!pool || need === 'both') return null;
+    const inSym = need === 'token0' ? sym0 : sym1;   // token deposited now
+    const outSym = need === 'token0' ? sym1 : sym0;   // token you end up holding
     return (
-      <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
-        Current price is outside this range — the position takes {need === 'token0' ? sym0 : sym1} only and won&apos;t earn fees until price enters the range.
+      <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+        Current price is outside this range — this is a single-sided {inSym} position. It deposits {inSym} only and earns no fees until the price reaches the range. Once it does, your {inSym} is swapped into {outSym} as the price passes through — you&apos;d finish holding {outSym}, not {inSym}. Only place this if you actually want to convert {inSym}→{outSym}.
+      </div>
+    );
+  }
+
+  /** Loud warning when the pool price is materially off the market price. */
+  function renderPriceDeviationWarning() {
+    if (priceDeviation === null || Math.abs(priceDeviation) < 0.02) return null;
+    const pct = Math.abs(priceDeviation) * 100;
+    const dir = priceDeviation > 0 ? 'above' : 'below';
+    const severe = pct >= 5;
+    return (
+      <div style={{
+        color: severe ? btb.loss : '#FFB36B', fontSize: 12, marginBottom: 10, lineHeight: 1.5,
+        background: severe ? 'rgba(255,107,122,0.08)' : 'rgba(255,179,107,0.08)',
+        border: `1px solid ${severe ? 'rgba(255,107,122,0.3)' : 'rgba(255,179,107,0.3)'}`,
+        borderRadius: 12, padding: '10px 12px',
+      }}>
+        ⚠️ This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
       </div>
     );
   }
@@ -483,16 +758,69 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     );
   }
 
-  function renderEarnings() {
-    if (!sim || !sim.inRange || sim.daily <= 0) return null;
+  /** Backward-looking backtest of the selected range over the pool's real price. */
+  function renderBacktest() {
+    if (!backtest) return null;
+    const b = backtest;
+    const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 100 ? Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : Math.abs(v).toFixed(2)}`;
+    const netPositive = b.netUsd >= 0;
+    const cell = (label: string, value: string, color: string) => (
+      <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
+        <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
+        <div style={{ color, fontSize: 14, fontWeight: 800 }}>{value}</div>
+      </div>
+    );
     return (
       <Glass padding={12} radius={12} soft style={{ marginTop: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ color: btb.textMuted, fontSize: 12 }}>If you&apos;d held this exact range · last {b.days} days</span>
+          <span style={{ color: netPositive ? '#52E3A4' : btb.loss, fontSize: 13, fontWeight: 800 }}>
+            {b.netApr >= 0 ? '+' : '−'}{Math.abs(b.netApr).toFixed(1)}% net APR
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {cell('Fees earned', money(b.feesUsd), '#52E3A4')}
+          {cell('Impermanent loss', money(b.ilUsd), b.ilUsd < 0 ? '#FFB36B' : btb.text)}
+          {cell('Net result', money(b.netUsd), netPositive ? '#52E3A4' : btb.loss)}
+        </div>
+        <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
+          Price was in your range <b>{b.daysInRange}/{b.days} days</b>. Fees = your share of real pool fees on in-range days;
+          IL = value vs holding, from the actual {b.entryPrice > 0 ? Math.round(((b.endPrice / b.entryPrice) - 1) * 100) : 0}% price move. Past performance, not a forecast.
+        </div>
+      </Glass>
+    );
+  }
+
+  function renderEarnings() {
+    if (!sim || !sim.inRange || sim.daily <= 0) return null;
+    const total = sim.daily * simDays;
+    return (
+      <Glass padding={12} radius={12} soft style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <span style={{ color: btb.textMuted, fontSize: 12 }}>Estimated earnings · current volume</span>
           {sim.apr !== null && (
             <span style={{ color: '#52E3A4', fontSize: 13, fontWeight: 800 }}>~{sim.apr.toFixed(1)}% APR</span>
           )}
         </div>
+
+        {/* How long — drives the headline total below */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {[7, 30, 90, 365].map(d => (
+            <button key={d} onClick={() => setSimDays(d)} style={{
+              flex: 1, height: 30, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
+              background: simDays === d ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${simDays === d ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+              color: simDays === d ? '#52E3A4' : btb.textMuted,
+            }}>{d === 7 ? '1 week' : d === 30 ? '1 month' : d === 90 ? '3 months' : '1 year'}</button>
+          ))}
+        </div>
+        <div style={{ background: 'rgba(82,227,164,0.08)', border: '1px solid rgba(82,227,164,0.25)', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
+          <div style={{ color: btb.textDim, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>Projected total · {simDays} day{simDays > 1 ? 's' : ''}</div>
+          <div style={{ color: '#52E3A4', fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>
+            ${total >= 100 ? total.toLocaleString('en-US', { maximumFractionDigits: 0 }) : total.toFixed(2)}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: 8 }}>
           {([['Daily', sim.daily], ['Monthly', sim.monthly], ['Yearly', sim.yearly]] as const).map(([label, v]) => (
             <div key={label} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
@@ -506,37 +834,44 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
           {history ? '7-day avg' : 'Latest 24h'} pool fees × your {sim.sharePct < 0.01 ? '<0.01' : sim.sharePct.toFixed(2)}% share of in-range liquidity. Assumes price stays in range and volume holds — not a guarantee.
         </div>
+
+        {feeSplit && feeSplit.protocolPct > 0 && (
+          <div style={{ marginTop: 8, background: 'rgba(255,179,107,0.1)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 10, padding: '8px 10px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <Icon name="bolt" size={13} color={btb.amber} />
+            <div style={{ color: btb.amber, fontSize: 11, lineHeight: 1.5 }}>
+              The figures above are gross swap fees. <b>If</b> Uniswap's governance fee switch is turned on for this specific pool, up to <b>{feeSplit.protocolPct.toFixed(2)}%</b> of that goes to the protocol instead of you — we can't tell from here whether it's active on this pool right now.
+            </div>
+          </div>
+        )}
+        {feeSplit && feeSplit.protocolPct === 0 && isV4 && (
+          <div style={{ marginTop: 8, color: btb.green, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon name="check" size={12} color={btb.green} /> No protocol fee on V4 — you keep 100% of swap fees.
+          </div>
+        )}
       </Glass>
     );
   }
 
   return (
     <Portal>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 340, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '88vh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
-        <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate LP earnings' : 'Add liquidity'}</div>
-        <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
+    <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
+      <div style={{ width: '100%', padding: '32px 40px 60px' }}>
+        <div onClick={onClose} style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, cursor: 'pointer', width: 'fit-content',
+        }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 999,
+            background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name="back" size={15} color={btb.textMuted}/>
+          </div>
+          <span style={{ color: btb.textMuted, fontSize: 13.5, fontWeight: 600 }}>Back to Discover</span>
+        </div>
+        <div style={{ color: btb.text, fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>{simOnly ? 'Simulate LP earnings' : 'Add liquidity'}</div>
+        <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 4, marginBottom: 24 }}>
           {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${dexLabel}` : `${dexLabel} · Ethereum`}
         </div>
-
-        {/* Step tabs — add flow only; the simulator is a single live page */}
-        {!simOnly && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {([['range', '1 · Price range'], ['deposit', '2 · Deposit']] as const).map(([t, label]) => {
-              const active = tab === t;
-              const disabled = t === 'deposit' && !(pool?.exists && ticks);
-              return (
-                <button key={t} onClick={() => !disabled && setTab(t)} disabled={disabled} style={{
-                  flex: 1, height: 40, borderRadius: 12, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                  background: active ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${active ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.1)'}`,
-                  color: active ? '#52E3A4' : disabled ? btb.textDim : btb.textMuted,
-                }}>{label}</button>
-              );
-            })}
-          </div>
-        )}
 
         {loadingPool ? (
           <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Checking pool…</div>
@@ -552,7 +887,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
           <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>
             {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
           </div>
-        ) : (simOnly || tab === 'range') ? (
+        ) : (
           <>
             {/* Simulator: how much to invest comes first, results update live below */}
             {simOnly && (
@@ -584,6 +919,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               </>
             )}
 
+            {/* Chart (left, wider) + range controls (right) — desktop two-column layout */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) minmax(300px,1fr)', gap: 24, alignItems: 'start' }}>
+            <div style={{ minWidth: 0 }}>
             {/* Fee tier — selectable on V3; fixed by the pool id on V4 */}
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Fee tier</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -596,7 +934,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               ) : deployment.feeTiers.map((f) => {
                 const missing = !!pools && !pools[f]?.exists;
                 return (
-                  <button key={f} onClick={() => { setFee(f); setSmartNote(null); }} disabled={missing} style={{
+                  <button key={f} onClick={() => { setFee(f); setSmartNote(null); setSwapPreview(null); }} disabled={missing} style={{
                     flex: 1, height: 38, borderRadius: 12, cursor: missing ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                     background: fee === f ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.05)',
                     border: `1px solid ${fee === f ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
@@ -619,27 +957,82 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
 
             {/* Range — presets or custom min/max price */}
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Price range</div>
-            {history && history.length > 1 && (
+            {(() => {
+              const rangeMin = rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null;
+              const rangeMax = rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null;
+              const onRangeChange = (lo: number, hi: number) => {
+                setRangeMode('custom');
+                setSmartNote(null); setSwapPreview(null);
+                setMinStr(fmtPrice(lo));
+                setMaxStr(fmtPrice(hi));
+              };
+              // Real liquidity-depth histogram beats a plain price line whenever
+              // tick reads succeed — it shows where LPs actually concentrated,
+              // which the range handles now drag directly on top of.
+              if (dispTickLiq && dispTickLiq.length > 0 && dispPrice(price) > 0) {
+                const chartId = isV4 ? v4PoolId : pool.address;
+                return (
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 8px 4px', marginBottom: 10 }}>
+                    {chartId && (<><GeckoTerminalChart poolAddress={chartId} /><div style={{ height: 8 }} /></>)}
+                    <LiquidityDepthChart
+                      points={dispTickLiq}
+                      min={rangeMin}
+                      max={rangeMax}
+                      current={dispPrice(price)}
+                      onChange={onRangeChange}/>
+                    <div style={{ color: btb.textDim, fontSize: 10, textAlign: 'center', padding: '4px 0 6px' }}>
+                      Liquidity depth · {qQuote} per {qBase} · drag the handles to set your range
+                    </div>
+                  </div>
+                );
+              }
+              if (history && history.length > 1) return (
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 8px 4px', marginBottom: 10 }}>
                 <RangeChart
                   points={history.map((d) => dispPrice(d.price0))}
-                  min={rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null}
-                  max={rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null}
+                  min={rangeMin}
+                  max={rangeMax}
                   current={dispPrice(price)}
-                  onChange={(lo, hi) => {
-                    setRangeMode('custom');
-                    setSmartNote(null);
-                    setMinStr(fmtPrice(lo));
-                    setMaxStr(fmtPrice(hi));
-                  }}/>
+                  onChange={onRangeChange}/>
                 <div style={{ color: btb.textDim, fontSize: 10, textAlign: 'center', padding: '4px 0 6px' }}>
                   30-day price · {qQuote} per {qBase} · drag the handles to set your range
                 </div>
               </div>
-            )}
+              );
+              if (fallbackBars && fallbackBars.length > 1 && dispPrice(price) > 0) {
+              // Rescale the fallback line (used for the drag handles only now —
+              // the candlesticks below come straight from GeckoTerminal's own
+              // live embed) so it ends at the live on-chain price.
+              const cur = dispPrice(price);
+              const lastRaw = fallbackBars[fallbackBars.length - 1].close;
+              const ratio = lastRaw > 0 ? cur / lastRaw : 1;
+              const scaledBars = fallbackBars.map(b => ({ ...b, open: b.open * ratio, high: b.high * ratio, low: b.low * ratio, close: b.close * ratio }));
+              const scaledCloses = scaledBars.map(b => b.close);
+              const chartId = isV4 ? v4PoolId : pool.address;
+              return (
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 8px 4px', marginBottom: 10 }}>
+                  {chartId && (<><GeckoTerminalChart poolAddress={chartId} /><div style={{ height: 8 }} /></>)}
+                  <RangeChart
+                    points={scaledCloses}
+                    min={rangeMin}
+                    max={rangeMax}
+                    current={cur}
+                    onChange={onRangeChange}/>
+                  <div style={{ color: btb.textDim, fontSize: 10, textAlign: 'center', padding: '4px 0 6px' }}>
+                    ~30-day trend (approximate, free market data) · drag the handles below to set your range
+                  </div>
+                </div>
+              );
+              }
+              return null;
+            })()}
+            </div>
+
+            <div style={{ minWidth: 0 }}>
+            <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Presets</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               {RANGE_PRESETS.map((r) => (
-                <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); }} style={{
+                <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); setSwapPreview(null); }} style={{
                   flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                   background: rangeMode === r.pct ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
                   border: `1px solid ${rangeMode === r.pct ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
@@ -651,13 +1044,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               <div style={{ flex: 1 }}>
                 <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Min price ({qQuote} per {qBase})</div>
                 <input value={minStr} inputMode="decimal" placeholder="0"
-                  onChange={(e) => { setMinStr(e.target.value); setRangeMode('custom'); setSmartNote(null); }}
+                  onChange={(e) => { setMinStr(e.target.value); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
                   style={{ ...inputStyle(false), height: 44, fontSize: 15 }}/>
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Max price ({qQuote} per {qBase})</div>
                 <input value={maxStr} inputMode="decimal" placeholder="∞"
-                  onChange={(e) => { setMaxStr(e.target.value); setRangeMode('custom'); setSmartNote(null); }}
+                  onChange={(e) => { setMaxStr(e.target.value); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
                   style={{ ...inputStyle(false), height: 44, fontSize: 15 }}/>
               </div>
             </div>
@@ -679,100 +1072,112 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                       {fmtAmt(effBal0, pool.decimals0)} {sym0} + {fmtAmt(effBal1, pool.decimals1)} {sym1}
                     </div>
                   </div>
-                  <button onClick={applySmartFit} style={{
+                  <button onClick={() => applySmartFit()} style={{
                     flexShrink: 0, height: 36, padding: '0 14px', borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                     fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
                   }}>⚡ Fit to my balance</button>
                 </div>
+
+                {/* Single-token wallets: choose how the balance becomes an LP.
+                    Balanced (default) swaps ~half so both sides deposit; single-
+                    sided is the directional "convert my token" range. */}
+                {((effBal0 <= 0n) !== (effBal1 <= 0n)) && !(!isV4 && ethMode && wethSide === (effBal0 > 0n ? 0 : 1)) && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    {([['balanced', 'Balanced', 'Swap ~half · two-sided LP'], ['single', 'Single-sided', 'No swap · directional']] as const).map(([val, title, sub]) => (
+                      <button key={val} onClick={() => { setSmartStrategy(val); applySmartFit(val); }} style={{
+                        flex: 1, textAlign: 'left', padding: '8px 10px', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit',
+                        background: smartStrategy === val ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
+                        border: `1px solid ${smartStrategy === val ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                      }}>
+                        <div style={{ color: smartStrategy === val ? '#52E3A4' : btb.text, fontSize: 12, fontWeight: 800 }}>{title}</div>
+                        <div style={{ color: btb.textMuted, fontSize: 10, marginTop: 2 }}>{sub}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {swapPreview && (
+                  <div style={{ color: btb.text, fontSize: 11, marginTop: 8, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ color: btb.textMuted }}>Swap to balance</span>
+                    <span style={{ fontWeight: 700 }}>
+                      {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} → {swapPreview.otherSym}
+                      <span style={{ color: swapPreview.pct <= 60 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
+                    </span>
+                  </div>
+                )}
                 {smartNote && (
                   <div style={{ color: '#52E3A4', fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>{smartNote}</div>
                 )}
               </div>
             )}
 
-            {/* Simulator results — live as the amount/range above change */}
-            {simOnly && (
+            {/* Everything on one page, Orca-style — no separate "enter amounts" step */}
+            {!simOnly && (
               <>
+                {wethSide !== null && (
+                  <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
+                    <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
+                    <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                      <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
+                    </div>
+                  </div>
+                )}
+
+                {/* Amounts — enter either side, the other is paired automatically */}
+                {renderAmountInput(0)}
+                {renderAmountInput(1)}
+
                 {renderNeedWarning()}
-                {renderDepositSummary()}
-                {renderEarnings()}
+                {(short0 || short1) && (
+                  <div style={{ background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.25)', borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                      <span style={{ color: btb.loss, fontSize: 12 }}>
+                        Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}
+                      </span>
+                      <button onClick={() => applySmartFit()} style={{
+                        flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                        fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
+                      }}>⚡ Fit range</button>
+                    </div>
+                  </div>
+                )}
+                {!short0 && !short1 && smartNote && (
+                  <div style={{ color: '#52E3A4', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>{smartNote}</div>
+                )}
               </>
             )}
-          </>
-        ) : (
-          <>
-            {/* Step-1 recap — jump back to edit */}
-            <Glass padding={12} radius={12} soft style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: btb.textMuted, fontSize: 11 }}>Range · {fmtFeeTier(fee)} fee</div>
-                  <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {rangeMode === null ? 'Full range' : `${minStr || '0'} → ${maxStr || '∞'}`} <span style={{ color: btb.textMuted, fontWeight: 400 }}>{qQuote} per {qBase}</span>
-                  </div>
-                  <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>
-                    Current: {dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })}
-                  </div>
-                </div>
-                <button onClick={() => setTab('range')} style={{
-                  flexShrink: 0, height: 32, padding: '0 14px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-                  fontSize: 12, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: btb.text,
-                }}>Edit</button>
-              </div>
-            </Glass>
 
-            {wethSide !== null && (
-              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
-                </div>
-              </div>
-            )}
-
-            {/* Amounts — enter either side, the other is paired automatically */}
-            {renderAmountInput(0)}
-            {renderAmountInput(1)}
-
-            {renderNeedWarning()}
-            {(short0 || short1) && (
-              <div style={{ background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.25)', borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <span style={{ color: btb.loss, fontSize: 12 }}>
-                    Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}
-                  </span>
-                  <button onClick={applySmartFit} style={{
-                    flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                    fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
-                  }}>⚡ Fit range</button>
-                </div>
-              </div>
-            )}
-            {!short0 && !short1 && smartNote && (
-              <div style={{ color: '#52E3A4', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>{smartNote}</div>
-            )}
+            {simOnly && renderNeedWarning()}
+            {renderPriceDeviationWarning()}
             {renderDepositSummary()}
             {renderEarnings()}
-          </>
-        )}
+            {renderBacktest()}
 
-        {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
+            {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
-        {simOnly ? (
-          <>
-            {canSwitchToAdd && (
-              <Button variant="success" size="md" onClick={switchToAdd} style={{ marginTop: 18, fontWeight: 800 }}>Add this LP</Button>
+            {/* Deposit action lives at the end of the (shorter) right column,
+                not below the full-width chart, so it's always right under the
+                controls instead of scrolled past a tall candlestick chart. */}
+            {simOnly ? (
+              <>
+                {canSwitchToAdd && (
+                  <Button variant="success" size="md" onClick={switchToAdd} style={{ marginTop: 18, fontWeight: 800 }}>Add this LP</Button>
+                )}
+                <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+                  Free LP earnings simulator — no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
+                </div>
+              </>
+            ) : (
+              <>
+                <Button variant="success" size="md" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ marginTop: 18, fontWeight: 800 }}>{busy ? (stepMsg || 'Confirming…') : swapPreview ? 'Swap & add liquidity' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</Button>
+                <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
+                  {swapPreview
+                    ? `Two transactions: swap ~${swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}% to balance, then add — each slippage-protected (${SLIPPAGE_BPS / 100}%).`
+                    : <>Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}</>}
+                </div>
+              </>
             )}
-            <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Free LP earnings simulator — no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
             </div>
-          </>
-        ) : tab === 'range' ? (
-          <Button variant="success" size="md" onClick={() => setTab('deposit')} disabled={!pool?.exists || !ticks} style={{ marginTop: 18, fontWeight: 800 }}>Next · Enter amounts</Button>
-        ) : (
-          <>
-            <Button variant="success" size="md" onClick={mint} disabled={!canMint} style={{ marginTop: 18, fontWeight: 800 }}>{busy ? 'Confirming…' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}</Button>
-            <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Slippage-protected ({SLIPPAGE_BPS / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}
             </div>
           </>
         )}

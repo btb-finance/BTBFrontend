@@ -11,6 +11,7 @@ import { Icon } from '../Icon';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
+import { useSidebar } from '../../lib/SidebarContext';
 import { Screen } from '../Screen';
 import { Badge } from '../Badge';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -50,6 +51,7 @@ function sortedTokens(tokens: Token[]): Token[] {
 function TokenPicker({ tokens, selected, onSelect, onClose }: {
   tokens: Token[]; selected: string; onSelect: (t: Token) => void; onClose: () => void;
 }) {
+  const { width: sidebarWidth } = useSidebar();
   const [q, setQ] = useState('');
   const sorted = sortedTokens(tokens);
   const ql = q.toLowerCase();
@@ -63,11 +65,10 @@ function TokenPicker({ tokens, selected, onSelect, onClose }: {
 
   return (
     <Portal>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, minWidth: 0, maxHeight: '82vh', background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', display: 'flex', flexDirection: 'column' }}>
+    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, minWidth: 0, maxHeight: '82vh', background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 20px 0' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
-          <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Select token</div>
+            <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Select token</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: btb.borderSoft, borderRadius: 14, padding: '10px 14px', marginBottom: 8 }}>
             <Icon name="search" size={16} color={btb.textMuted}/>
             <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search token…"
@@ -141,7 +142,7 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
+export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Token; onConnectWallet?: () => void } = {}) {
   const { tokens } = useTokenStore();
   const { address } = useConnection();
   const config = useConfig();
@@ -293,9 +294,8 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
 
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
-    <Screen gap={16}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-        <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Swap</div>
+    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="settings" size={18}/>
         </Glass>
@@ -360,7 +360,11 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
         </div>
       )}
 
-      <Button onClick={() => canSwap && setStep('confirm')} disabled={!canSwap} style={{ marginTop: 4, fontSize: 18 }}>
+      <Button
+        onClick={() => (!address ? onConnectWallet?.() : canSwap && setStep('confirm'))}
+        disabled={!address ? false : !canSwap}
+        style={{ marginTop: 4, fontSize: 18 }}
+      >
         {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : quoteErr ? 'No route found' : quote ? 'Review swap' : 'Enter amount'}
       </Button>
 
@@ -377,7 +381,7 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
 
   // ── Confirm / sending step ─────────────────────────────────────────────────
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
-    <Screen gap={16}>
+    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 4px' }}>
         <div onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="back" size={18} color={btb.textMuted}/>
@@ -452,7 +456,7 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
 
   // ── Success step ───────────────────────────────────────────────────────────
   if (step === 'success') return (
-    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto' }}>
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(82,227,164,0.15)', border: '2px solid rgba(82,227,164,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="check" size={36} color={btb.green}/>
       </div>
@@ -477,7 +481,7 @@ export function SwapScreen({ initialFrom }: { initialFrom?: Token } = {}) {
 
   // ── Error step ─────────────────────────────────────────────────────────────
   return (
-    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto' }}>
       <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="close" size={32} color={btb.red}/>
       </div>

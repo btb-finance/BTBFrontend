@@ -13,15 +13,17 @@
  * pools.
  */
 import type { Abi, PublicClient } from 'viem';
-import { getTopPools as getLlamaPools, getTokenPricesUsd, fmtCompactUsd } from './defillama';
+import { getTopPools as getLlamaPools, getTokenPricesUsd, fmtCompactUsd, type LlamaPool } from './defillama';
 import { getV3TopPools } from '@/protocols/dexs/uniswap/v3/subgraph';
 import { getV4TopPools } from '@/protocols/dexs/uniswap/v4/subgraph';
 import { getPancakeTopPools } from '@/protocols/dexs/pancakeswap';
 import { hasGraphKey, fmtFeeTier, IndexedPool } from '@/protocols/dexs/uniswap/graph';
 import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
-import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
+import { STATE_VIEW_ABI, POSITION_MANAGER_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
 import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
+import { fetchDexPaprikaTopPools, type DexPaprikaPoolRaw } from './dexpaprika';
+import { fetchDexScreenerPool } from './dexscreener';
 
 export { fmtCompactUsd, fmtFeeTier };
 
@@ -48,6 +50,8 @@ export interface EarnPool {
   token1Decimals?: number; // indexer pools only — needed for the range APR
   /** Estimated fee APR % for a ±RANGE_APR_PCT% concentrated position (see addRangeAprs). */
   aprRange?: number;
+  /** APY change over the last 24h, in percentage points — DeFiLlama-sourced pools only. */
+  apyChange1d?: number;
   source: 'uniswap' | 'defillama';
 }
 
@@ -79,12 +83,134 @@ function fromIndexed(p: IndexedPool, dex: 'Uniswap' | 'PancakeSwap' = 'Uniswap')
   };
 }
 
-export async function getEarnPools(): Promise<EarnPool[]> {
+/** Converts a DeFiLlama-sourced pool into our shape, filling in real
+ * volume/fees/24h-change from fields DeFiLlama already reports per-pool
+ * (no extra API calls needed). */
+function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'version'>> = {}): EarnPool {
+  const feeTier = p.feeTierPct != null ? Math.round(p.feeTierPct * 10000) : undefined;
+  const fees24hUsd = p.volume24hUsd != null && p.feeTierPct != null
+    ? p.volume24hUsd * (p.feeTierPct / 100)
+    : undefined;
+  return {
+    id: p.id,
+    project: p.project,
+    dex: overrides.dex ?? p.dex,
+    version: overrides.version,
+    chain: p.chain,
+    pair: p.pair,
+    feeTier,
+    tvlUsd: p.tvlUsd,
+    apy: p.apy,
+    apyBase: p.apyBase,
+    apyReward: p.apyReward,
+    apyChange1d: p.apyPct1D,
+    volume24hUsd: p.volume24hUsd,
+    fees24hUsd,
+    stablecoin: p.stablecoin,
+    ilRisk: p.ilRisk,
+    underlyingTokens: p.underlyingTokens,
+    source: 'defillama',
+  };
+}
+
+const DEXPAPRIKA_MAP: { dexId: 'uniswap_v3' | 'uniswap_v4' | 'pancakeswap_v3'; project: string; dex: string; version: 'V3' | 'V4' }[] = [
+  { dexId: 'uniswap_v3', project: 'uniswap-v3', dex: 'Uniswap', version: 'V3' },
+  { dexId: 'uniswap_v4', project: 'uniswap-v4', dex: 'Uniswap', version: 'V4' },
+  { dexId: 'pancakeswap_v3', project: 'pancakeswap-v3', dex: 'PancakeSwap', version: 'V3' },
+];
+
+/**
+ * DexPaprika — free, keyless pool *discovery* (ranked by volume, covers pools
+ * DeFiLlama doesn't index). It has no reliable fee tier or TVL of its own, so
+ * every pool here gets its fee read straight from the chain (V3: `fee()` on
+ * the pool contract; V4: the PositionManager's `poolKeys` mapping — pools
+ * nobody has ever minted through there are skipped rather than guessed) and
+ * its TVL from a DexPaprika detail call. Only pools that clear both checks
+ * (and the same TVL floor as everything else) become real `EarnPool` rows —
+ * this never fabricates a fee or an APR.
+ */
+async function ingestDexPaprika(client: PublicClient, existingIds: Set<string>, minTvlUsd: number): Promise<EarnPool[]> {
+  const perDex = await Promise.all(DEXPAPRIKA_MAP.map((m) => fetchDexPaprikaTopPools(m.dexId, 50).then((rows) => ({ m, rows }))));
+  const out: EarnPool[] = [];
+
+  for (const { m, rows } of perDex) {
+    // Cap how many "new" pools per DEX we bother resolving — this is a
+    // supplemental discovery pass, not the primary source, so keep it fast.
+    const fresh = rows.filter((r) => !existingIds.has(r.id.toLowerCase())).slice(0, 20) as DexPaprikaPoolRaw[];
+    if (fresh.length === 0) continue;
+
+    const feeCalls = m.version === 'V4'
+      ? await client.multicall({
+          contracts: fresh.map((r) => ({
+            address: UNISWAP_V4.positionManager, abi: POSITION_MANAGER_ABI as Abi, functionName: 'poolKeys',
+            args: [r.id.toLowerCase().slice(0, 52) as `0x${string}`],
+          })),
+          allowFailure: true,
+        })
+      : await client.multicall({
+          contracts: fresh.map((r) => ({ address: r.id as `0x${string}`, abi: POOL_ABI as Abi, functionName: 'fee' })),
+          allowFailure: true,
+        });
+    const feeOf = (i: number): number | null => {
+      const r = feeCalls[i];
+      if (r.status !== 'success') return null;
+      return m.version === 'V4' ? Number((r.result as readonly unknown[])[2]) : Number(r.result as number);
+    };
+
+    // Only bother fetching TVL for pools with a real, known fee — skips
+    // wasted detail calls for pools we'd drop anyway. TVL comes from
+    // DexScreener (a separate rate-limit bucket from the discovery call
+    // above, and real CORS support) rather than a second DexPaprika call, so
+    // this discovery pass never puts more than one burst of load on either
+    // provider. Still bounded (6 at a time) to be a good citizen.
+    const withFee = fresh.map((r, i) => ({ r, fee: feeOf(i) })).filter((x) => x.fee != null && x.fee > 0);
+    const tvlByIndex = new Map<number, number>();
+    const CONCURRENCY = 6;
+    for (let i = 0; i < withFee.length; i += CONCURRENCY) {
+      const batch = withFee.slice(i, i + CONCURRENCY);
+      const stats = await Promise.all(batch.map((x) => fetchDexScreenerPool(x.r.id)));
+      stats.forEach((s, j) => tvlByIndex.set(i + j, s?.tvlUsd ?? 0));
+    }
+
+    withFee.forEach(({ r, fee }, i) => {
+      const tvlUsd = tvlByIndex.get(i) ?? 0;
+      if (fee == null || tvlUsd < minTvlUsd) return;
+      const [t0, t1] = [r.token0, r.token1].sort((a, b) => a.address.toLowerCase().localeCompare(b.address.toLowerCase()));
+      const stable = STABLES.has(t0.symbol.toUpperCase()) && STABLES.has(t1.symbol.toUpperCase());
+      const fees24hUsd = r.volume24hUsd * (fee / 1_000_000);
+      const apy = tvlUsd > 0 ? (fees24hUsd * 365 / tvlUsd) * 100 : 0;
+      out.push({
+        id: r.id, project: m.project, dex: m.dex, version: m.version, chain: 'Ethereum',
+        pair: `${t0.symbol}-${t1.symbol}`, feeTier: fee, tvlUsd,
+        apy, apyBase: apy, apyReward: 0,
+        volume24hUsd: r.volume24hUsd, fees24hUsd,
+        stablecoin: stable, ilRisk: stable ? 'no' : 'yes',
+        underlyingTokens: [t0.address, t1.address], token1Decimals: t1.decimals,
+        source: 'uniswap',
+      });
+    });
+  }
+  return out;
+}
+
+/**
+ * @param minTvlUsd Floor applied to the DeFiLlama fallback rows only. Discover
+ * uses the default (keeps the list to pools worth showing); Simulate's
+ * pair-lookup passes 0 — it already confirmed the pool exists on-chain via
+ * the factory, so a low-TVL pool should still get its real (if small)
+ * TVL/APR instead of silently being dropped and showing blank dashes.
+ * @param client When provided, also runs a DexPaprika discovery pass (see
+ * `ingestDexPaprika`) to surface pools DeFiLlama/the subgraphs miss entirely.
+ */
+export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): Promise<EarnPool[]> {
   const [v3, v4, cake, llama] = await Promise.allSettled([
     hasGraphKey ? getV3TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getV4TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getPancakeTopPools() : Promise.reject(new Error('no key')),
-    getLlamaPools(),
+    // Rank within just the DEXs this app can actually act on (Add LP / Simulate),
+    // so a handful of giant Curve/Balancer/Aerodrome pools can't crowd the
+    // top-N slice before the actionable-project filter below even runs.
+    getLlamaPools(200, minTvlUsd, ['uniswap-v3', 'uniswap-v4', 'pancakeswap-amm-v3']),
   ]);
 
   const pools: EarnPool[] = [];
@@ -98,16 +224,25 @@ export async function getEarnPools(): Promise<EarnPool[]> {
       // Mintable-in-app DEXs on mainnet only — every listed pool must be
       // actionable. DeFiLlama rows back-fill whichever indexer is unavailable.
       if (p.chain !== 'Ethereum') continue;
-      if (p.project === 'uniswap-v3' && v3.status !== 'fulfilled') pools.push({ ...p, source: 'defillama' });
-      if (p.project === 'pancakeswap-v3' && cake.status !== 'fulfilled') pools.push({ ...p, dex: 'PancakeSwap', version: 'V3', source: 'defillama' });
+      if (p.project === 'uniswap-v3' && v3.status !== 'fulfilled') pools.push(fromLlama(p, { version: 'V3' }));
+      if (p.project === 'uniswap-v4' && v4.status !== 'fulfilled') pools.push(fromLlama(p, { version: 'V4' }));
+      if (p.project === 'pancakeswap-amm-v3' && cake.status !== 'fulfilled') pools.push(fromLlama(p, { dex: 'PancakeSwap', version: 'V3' }));
     }
   }
 
-  if (pools.length === 0) {
+  if (pools.length === 0 && !client) {
     const err =
       (llama.status === 'rejected' && llama.reason instanceof Error && llama.reason.message) || 'no pool source available';
     throw new Error(err);
   }
+
+  if (client) {
+    const existingIds = new Set(pools.map((p) => p.id.toLowerCase()));
+    const extra = await ingestDexPaprika(client, existingIds, minTvlUsd).catch(() => [] as EarnPool[]);
+    pools.push(...extra);
+  }
+
+  if (pools.length === 0) throw new Error('no pool source available');
 
   return pools.sort((a, b) => b.tvlUsd - a.tvlUsd);
 }

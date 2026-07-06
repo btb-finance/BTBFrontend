@@ -6,6 +6,7 @@ import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Badge } from './Badge';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import {
   getEarnPools, addRangeAprs, mintTarget, poolsForToken, lpAddressesForToken,
   RANGE_APR_PCT, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool,
@@ -22,6 +23,7 @@ const MAX_SUGGESTIONS = 8;
  * sheet for the chosen pool. Native ETH matches both WETH and currency-0 pools.
  */
 export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () => void }) {
+  const { width: sidebarWidth } = useSidebar();
   const config = useConfig();
   const [pools, setPools] = useState<EarnPool[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,9 +69,8 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
 
   return (
     <Portal>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '80vh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
+    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '80vh', overflowY: 'auto' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Put your {token.symbol} to work</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
           Best pools for your {token.symbol} · pick one to add liquidity

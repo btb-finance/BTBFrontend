@@ -57,4 +57,6 @@ export const CHAIN_META: Record<number, { name: string; symbol: string; color: s
   250:    { name: 'Fantom',    symbol: 'FTM',  color: '#1969FF' },
   59144:  { name: 'Linea',     symbol: 'ETH',  color: '#61DFFF' },
   534352: { name: 'Scroll',    symbol: 'ETH',  color: '#FFEEDA' },
+  324:    { name: 'zkSync',    symbol: 'ETH',  color: '#8C8DFC' },
+  81457:  { name: 'Blast',     symbol: 'ETH',  color: '#FCFC03' },
 };

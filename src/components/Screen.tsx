@@ -11,14 +11,13 @@ interface ScreenProps {
 }
 
 /**
- * Standard screen scroll container — the safe-area-aware padding + vertical
- * stack that every screen used to re-declare inline.
+ * Standard vertical-stack content container, used inside the desktop content
+ * area (which already provides its own outer padding).
  */
-export function Screen({ children, gap = 16, px = 18, style }: ScreenProps) {
+export function Screen({ children, gap = 16, style }: ScreenProps) {
   return (
     <div
       style={{
-        padding: `env(safe-area-inset-top, 24px) ${px}px 100px`,
         display: 'flex',
         flexDirection: 'column',
         gap,

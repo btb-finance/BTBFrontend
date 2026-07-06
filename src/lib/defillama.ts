@@ -19,6 +19,9 @@ export interface LlamaPool {
   apy: number;         // total APY %
   apyBase: number;     // fee APY %
   apyReward: number;   // incentive APY %
+  apyPct1D?: number;   // APY change over the last 24h, in percentage points
+  volume24hUsd?: number;
+  feeTierPct?: number; // e.g. 0.3 for "0.30%" — DeFiLlama's `poolMeta` on AMM rows
   stablecoin: boolean;
   ilRisk: string;      // "yes" | "no"
   underlyingTokens?: string[];
@@ -26,7 +29,7 @@ export interface LlamaPool {
 
 // project slug -> friendly DEX name. Add more slugs to widen coverage.
 const DEX_NAMES: Record<string, string> = {
-  'uniswap-v3': 'Uniswap', 'uniswap-v2': 'Uniswap',
+  'uniswap-v3': 'Uniswap', 'uniswap-v2': 'Uniswap', 'uniswap-v4': 'Uniswap',
   'aerodrome-v1': 'Aerodrome', 'aerodrome-slipstream': 'Aerodrome',
   'blackhole-clmm': 'Blackhole', 'blackhole': 'Blackhole',
   'velodrome-v2': 'Velodrome', 'velodrome-v3': 'Velodrome',
@@ -39,18 +42,33 @@ const DEX_NAMES: Record<string, string> = {
 
 interface RawPool {
   pool: string; project: string; chain: string; symbol: string;
-  tvlUsd?: number; apy?: number; apyBase?: number; apyReward?: number;
+  tvlUsd?: number; apy?: number; apyBase?: number; apyReward?: number; apyPct1D?: number;
+  volumeUsd1d?: number; poolMeta?: string;
   stablecoin?: boolean; ilRisk?: string; underlyingTokens?: string[];
 }
 
-export async function getTopPools(limit = 80, minTvlUsd = 50_000): Promise<LlamaPool[]> {
+function parseFeeTierPct(poolMeta?: string): number | undefined {
+  if (!poolMeta) return undefined;
+  const n = parseFloat(poolMeta.replace('%', ''));
+  return isFinite(n) ? n : undefined;
+}
+
+/**
+ * @param projects Restrict to these DeFiLlama project slugs before ranking by
+ * TVL and slicing to `limit`. Without this, a handful of huge Curve/Balancer
+ * pools can fill the whole top-N slice and crowd out every actionable
+ * Uniswap/PancakeSwap pool a caller actually wanted (they'd just get filtered
+ * back out downstream, wasting the slots). Pass the exact slugs you'll use.
+ */
+export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: string[]): Promise<LlamaPool[]> {
   const res = await fetch('https://yields.llama.fi/pools');
   if (!res.ok) throw new Error(`DeFiLlama ${res.status}`);
   const json = await res.json();
   const rows: RawPool[] = json?.data ?? [];
+  const allowed = projects ? new Set(projects) : null;
 
   return rows
-    .filter((r) => DEX_NAMES[r.project] && (r.tvlUsd ?? 0) >= minTvlUsd)
+    .filter((r) => DEX_NAMES[r.project] && (!allowed || allowed.has(r.project)) && (r.tvlUsd ?? 0) >= minTvlUsd)
     .map((r) => ({
       id: r.pool,
       project: r.project,
@@ -61,12 +79,38 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000): Promise<Llama
       apy: r.apy ?? 0,
       apyBase: r.apyBase ?? 0,
       apyReward: r.apyReward ?? 0,
+      apyPct1D: r.apyPct1D ?? undefined,
+      volume24hUsd: r.volumeUsd1d ?? undefined,
+      feeTierPct: parseFeeTierPct(r.poolMeta),
       stablecoin: !!r.stablecoin,
       ilRisk: r.ilRisk ?? 'yes',
       underlyingTokens: r.underlyingTokens,
     }))
     .sort((a, b) => b.tvlUsd - a.tvlUsd)
     .slice(0, limit);
+}
+
+export interface PoolChartPoint { timestamp: number; tvlUsd: number; apy: number; }
+
+interface RawChartPoint { timestamp: string; tvlUsd: number | null; apy: number | null; }
+
+/**
+ * Historical TVL/APY for a single DeFiLlama-sourced pool — free, keyless.
+ * Used for the Discover table's trend sparkline + day-over-day APY change
+ * when a pool has no on-chain address to query elsewhere (see geckoterminal.ts
+ * for the indexer-sourced-pool equivalent).
+ */
+export async function fetchPoolChart(poolId: string): Promise<PoolChartPoint[]> {
+  try {
+    const res = await fetch(`https://yields.llama.fi/chart/${poolId}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return [];
+    const json = await res.json() as { data?: RawChartPoint[] };
+    return (json.data ?? [])
+      .filter((r): r is RawChartPoint & { tvlUsd: number; apy: number } => r.tvlUsd != null && r.apy != null)
+      .map(r => ({ timestamp: new Date(r.timestamp).getTime(), tvlUsd: r.tvlUsd, apy: r.apy }));
+  } catch {
+    return [];
+  }
 }
 
 /** Universal, always-valid link to a pool (shows stats + outbound to the DEX). */

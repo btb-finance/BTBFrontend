@@ -7,6 +7,7 @@ import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls, type Call } from '../lib/txRunner';
 import { getKyberQuote, buildKyberTx } from '../lib/kyberswap';
@@ -76,6 +77,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
+  const { width: sidebarWidth } = useSidebar();
   const config = useConfig();
   const { track } = useTx();
   const isV4 = pos.protocol === 'uniswap-v4';
@@ -268,9 +270,8 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 
   return (
     <Portal>
-    <div onClick={phase === 'running' ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
+    <div onClick={phase === 'running' ? undefined : onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '90vh', overflowY: 'auto' }}>
 
         {phase === 'done' ? (
           <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>

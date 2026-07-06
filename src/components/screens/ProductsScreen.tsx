@@ -67,7 +67,7 @@ export function ProductsScreen({ onBack, onCategory }: { onBack: () => void; onC
       {/* grid */}
       <div>
         <div style={{ color: btb.text, fontSize: 17, fontWeight: 700, marginBottom: 12, letterSpacing: -0.3 }}>Categories</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
           {PRODUCTS.map(p => (
             <Glass key={p.name} padding={16} radius={20} onClick={() => p.category && onCategory?.(p.category)} style={{ cursor: p.category ? 'pointer' : 'default', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{

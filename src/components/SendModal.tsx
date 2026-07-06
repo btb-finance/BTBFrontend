@@ -3,14 +3,17 @@ import { useState } from 'react';
 import { useSendTransaction, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { parseUnits, erc20Abi } from 'viem';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import { Icon } from './Icon';
 import { Button } from './Button';
 import { Spinner } from './Spinner';
 import { TokenIcon } from './TokenIcon';
 import { useTokenStore, Token } from '../lib/TokenStore';
 import { CHAIN_META } from '../lib/wagmi';
+import { Portal } from './Portal';
 
 export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress: string; onClose: () => void; initialToken?: Token }) {
+  const { width: sidebarWidth } = useSidebar();
   const { positions } = useTokenStore();
   const { sendTransactionAsync } = useSendTransaction();
   const { writeContractAsync } = useWriteContract();
@@ -81,20 +84,19 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
   const chainName = selectedToken?.chainId ? CHAIN_META[selectedToken.chainId]?.name : null;
 
   return (
+    <Portal>
     <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 200,
+      position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 200,
       background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        width: '100%', maxWidth: 480, minWidth: 0,
+        width: '100%', maxWidth: 420, minWidth: 0,
         maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden',
         background: 'rgba(28,4,10,0.97)',
-        borderTop: '1px solid rgba(255,255,255,0.12)', borderRadius: '28px 28px 0 0',
-        padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: 16,
+        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 28,
+        padding: '24px 20px 28px', display: 'flex', flexDirection: 'column', gap: 16,
       }}>
-        <div style={{ alignSelf: 'center', width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)' }}/>
-
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {step !== 'form' && step !== 'sent' && step !== 'error' && (
             <div onClick={() => setStep('form')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: btb.textMuted }}>
@@ -218,6 +220,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
         )}
       </div>
     </div>
+    </Portal>
   );
 }
 

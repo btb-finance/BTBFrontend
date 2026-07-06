@@ -50,6 +50,39 @@ export const STATE_VIEW_ABI = [
       { name: 'feeGrowthInside1LastX128', type: 'uint256' },
     ],
   },
+  // per-tick liquidity — used to build the liquidity-depth-by-price histogram
+  {
+    name: 'getTickBitmap', type: 'function', stateMutability: 'view',
+    inputs: [
+      { name: 'poolId', type: 'bytes32' },
+      { name: 'wordPosition', type: 'int16' },
+    ],
+    outputs: [{ name: 'tickBitmap', type: 'uint256' }],
+  },
+  {
+    name: 'getTickInfo', type: 'function', stateMutability: 'view',
+    inputs: [
+      { name: 'poolId', type: 'bytes32' },
+      { name: 'tick', type: 'int24' },
+    ],
+    outputs: [
+      { name: 'liquidityGross', type: 'uint128' },
+      { name: 'liquidityNet', type: 'int128' },
+      { name: 'feeGrowthOutside0X128', type: 'uint256' },
+      { name: 'feeGrowthOutside1X128', type: 'uint256' },
+    ],
+  },
+  {
+    name: 'getTickLiquidity', type: 'function', stateMutability: 'view',
+    inputs: [
+      { name: 'poolId', type: 'bytes32' },
+      { name: 'tick', type: 'int24' },
+    ],
+    outputs: [
+      { name: 'liquidityGross', type: 'uint128' },
+      { name: 'liquidityNet', type: 'int128' },
+    ],
+  },
 ] as const;
 
 /** PoolKey tuple components — shared by ABI entries and abi.encode of params. */
