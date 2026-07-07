@@ -26,6 +26,7 @@ export function Icon({ name, size = 22, color = '#fff' }: IconProps) {
     case 'lock':    return <svg viewBox="0 0 24 24" {...s}><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>;
     case 'gift':    return <svg viewBox="0 0 24 24" {...s}><rect x="3" y="8" width="18" height="4"/><path d="M12 8v13M5 12v9h14v-9M7.5 8a2.5 2.5 0 1 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 1 1 0 5"/></svg>;
     case 'back':    return <svg viewBox="0 0 24 24" {...s}><path d="M19 12H5M11 18l-6-6 6-6"/></svg>;
+    case 'chevrons':return <svg viewBox="0 0 24 24" {...s}><path d="M11 7l-5 5 5 5M18 7l-5 5 5 5"/></svg>;
     case 'rocket':  return <svg viewBox="0 0 24 24" {...s}><path d="M12 2C8 2 5 6 5 10c0 4 3 6 3 6h8s3-2 3-6c0-4-3-8-7-8z"/><path d="M9 16v3a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-3"/><path d="M9 10h6"/></svg>;
     case 'refresh': return <svg viewBox="0 0 24 24" {...s}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9A9 9 0 0 1 20 8M20.5 15A9 9 0 0 1 4 16"/></svg>;
     case 'layers':  return <svg viewBox="0 0 24 24" {...s}><path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg>;

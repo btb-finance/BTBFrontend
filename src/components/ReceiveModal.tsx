@@ -2,9 +2,12 @@
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import { Icon } from './Icon';
+import { Portal } from './Portal';
 
 export function ReceiveModal({ address, onClose }: { address: string; onClose: () => void }) {
+  const { width: sidebarWidth } = useSidebar();
   const [copied, setCopied] = useState(false);
 
   function copy() {
@@ -15,27 +18,25 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
   }
 
   return (
-    /* backdrop */
+    <Portal>
+    {/* backdrop */}
     <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 200,
+      position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 200,
       background: 'rgba(0,0,0,0.55)',
       backdropFilter: 'blur(8px)',
       WebkitBackdropFilter: 'blur(8px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
     }}>
-      {/* sheet */}
+      {/* dialog */}
       <div onClick={e => e.stopPropagation()} style={{
-        width: '100%', maxWidth: 480, minWidth: 0,
+        width: '100%', maxWidth: 420, minWidth: 0,
         maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden',
         background: 'rgba(28,4,10,0.95)',
-        borderTop: '1px solid rgba(255,255,255,0.12)',
-        borderRadius: '28px 28px 0 0',
-        padding: '12px 24px 44px',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 28,
+        padding: '24px 24px 32px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
       }}>
-        {/* handle */}
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)' }}/>
-
         {/* header */}
         <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>Receive</span>
@@ -146,5 +147,6 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
         </p>
       </div>
     </div>
+    </Portal>
   );
 }

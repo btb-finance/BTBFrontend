@@ -21,9 +21,8 @@ const CAPABILITIES = [
 
 export function StakeScreen() {
   return (
-    <Screen gap={18}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-        <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>Agent</div>
+    <Screen gap={18} style={{ maxWidth: 640, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <Badge color="#FFB36B" bg="rgba(255,179,107,0.15)" border="1px solid rgba(255,179,107,0.35)"
           style={{ gap: 6, padding: '6px 12px', fontSize: 12 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFB36B', boxShadow: '0 0 8px #FFB36B' }}/>

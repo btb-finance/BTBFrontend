@@ -2,26 +2,25 @@
 import { useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, erc20Abi, encodeFunctionData, type PublicClient } from 'viem';
+import { formatUnits, erc20Abi, type PublicClient } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls, type Call } from '../lib/txRunner';
-import { getKyberQuote, buildKyberTx } from '../lib/kyberswap';
+import { runCalls } from '../lib/txRunner';
+import { buildSwapGap } from '../lib/swapGap';
 import {
   buildRemove, buildMint, rangeTicks, heldHeavyRange, rebalancePlan,
   liquidityForAmounts, getAmountsForLiquidity, fmtFeeTier,
   buildV4Remove, buildV4Mint, maxIn, isNativeCurrency,
+  SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
   UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 
-const SLIPPAGE_BPS = 50; // 0.5%
 const WIDTH_PRESETS = [5, 10, 25] as const;
-/** ETH held back for gas whenever a native-ETH side is swapped/deposited (V4). */
-const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -33,10 +32,6 @@ function fmtAmt(raw: bigint, decimals: number): string {
   if (n === 0) return '0';
   if (n < 0.0001) return '<0.0001';
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
-}
-
-function tickToPrice(tick: number, d0: number, d1: number): number {
-  return 1.0001 ** tick * 10 ** (d0 - d1);
 }
 
 function fmtPrice(p: number): string {
@@ -76,6 +71,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
+  const { width: sidebarWidth } = useSidebar();
   const config = useConfig();
   const { track } = useTx();
   const isV4 = pos.protocol === 'uniswap-v4';
@@ -153,11 +149,6 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       : buildRemove(pos, 10_000, SLIPPAGE_BPS, account, deployment);
   }
 
-  /** Kyber token address for a side — native ETH (V4 currency0) maps to 'ETH'. */
-  function kyberAddr(side: 0 | 1): string {
-    return side === 0 && native0 ? 'ETH' : (side === 0 ? pos.token0 : pos.token1);
-  }
-
   async function run() {
     setPhase('running'); setErr(null);
     try {
@@ -184,44 +175,19 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 
       // 2 · Swap only the gap (re-planned against what actually came back).
       const pl = rebalancePlan(pos.sqrtPriceX96, tl, tu, budget0, budget1);
-      if (pl.sellSide !== null && pl.swapFraction > 0.0005) {
-        const sellBudget = pl.sellSide === 0 ? budget0 : budget1;
-        const bps = Math.min(10_000, Math.max(0, Math.round(pl.swapFraction * 10_000)));
-        let sellRaw = (sellBudget * BigInt(bps)) / 10_000n;
-        // Selling native ETH must leave gas for the swap + mint that follow.
-        const sellNative = native0 && pl.sellSide === 0;
-        if (sellNative) {
-          const room = budget0 > GAS_RESERVE ? budget0 - GAS_RESERVE : 0n;
-          if (sellRaw > room) sellRaw = room;
-        }
-        if (sellRaw > 0n) {
+      if (pl.sellSide !== null) {
+        const swap = await buildSwapGap({
+          sellSide: pl.sellSide, swapFraction: pl.swapFraction,
+          budget0, budget1, token0: pos.token0, token1: pos.token1,
+          decimals0: pos.decimals0, decimals1: pos.decimals1,
+          native0, account, slippageBps: SLIPPAGE_BPS,
+        });
+        if (swap) {
           setStepMsg('Swapping only what the new range needs…');
-          const outDec = pl.sellSide === 0 ? pos.decimals1 : pos.decimals0;
-          const quote = await getKyberQuote(kyberAddr(pl.sellSide), kyberAddr(pl.sellSide === 0 ? 1 : 0), sellRaw.toString(), outDec, 1);
-          const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, account, account, SLIPPAGE_BPS, 1);
-          const calls: Call[] = [];
-          // Native ETH needs no approval; ERC-20 must allow the Kyber router.
-          if (!sellNative) {
-            const inTok = pl.sellSide === 0 ? pos.token0 : pos.token1;
-            calls.push({
-              to: inTok,
-              data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [quote.routerAddress as `0x${string}`, sellRaw] }),
-            });
-          }
-          calls.push({
-            to: tx.to as `0x${string}`,
-            data: tx.data as `0x${string}`,
-            value: sellNative ? sellRaw : BigInt(tx.value && tx.value !== '0' ? tx.value : '0'),
-            gas: tx.gas ? BigInt(tx.gas) : undefined,
-          });
-          await runCalls(config, { account, calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track });
-
-          // Recompute the budget from the swap: spent `sellRaw`, received the
-          // quote's amount-out (conservative — actual deposit is capped to the
-          // live wallet balance below).
-          const out = BigInt(quote.routeSummary?.amountOut ?? quote.amountOut ?? '0');
-          if (pl.sellSide === 0) { budget0 -= sellRaw; budget1 += out; }
-          else { budget1 -= sellRaw; budget0 += out; }
+          await runCalls(config, { account, calls: swap.calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track });
+          // Budget updated for the swap's output; the mint below caps to the live wallet.
+          budget0 = swap.budget0;
+          budget1 = swap.budget1;
         }
       }
 
@@ -268,9 +234,8 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 
   return (
     <Portal>
-    <div onClick={phase === 'running' ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '90vh', overflowY: 'auto' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
+    <div onClick={phase === 'running' ? undefined : onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '90vh', overflowY: 'auto' }}>
 
         {phase === 'done' ? (
           <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>

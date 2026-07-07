@@ -134,17 +134,16 @@ function MintTab({ address }: { address?: string }) {
   const loading = busy;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* NFT artwork card */}
-      <Glass padding={16} radius={28} strong>
+    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      {/* Left — NFT artwork hero */}
+      <Glass padding={20} radius={28} strong style={{ width: 380, flexShrink: 0 }}>
         <div style={{
-          height: 120, borderRadius: 20, position: 'relative', overflow: 'hidden',
+          height: 260, borderRadius: 20, position: 'relative', overflow: 'hidden',
           background: 'linear-gradient(135deg,#0F172A 0%,#334155 35%,#FFFFFF 65%,rgba(255,255,255,0.7) 85%,#F59E0B 100%)',
           boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25), 0 16px 40px rgba(255,255,255,0.2)',
         }}>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 25% 20%, rgba(255,255,255,0.4), transparent 45%)' }}/>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 80% 75%, rgba(240,180,255,0.35), transparent 50%)' }}/>
-          {/* Bear SVG */}
           <svg viewBox="0 0 200 200" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.28 }}>
             <ellipse cx="100" cy="130" rx="55" ry="50" fill="#fff"/>
             <circle cx="100" cy="85" r="42" fill="#fff"/>
@@ -164,7 +163,7 @@ function MintTab({ address }: { address?: string }) {
           )}
         </div>
 
-        <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>BTB Bear NFT</div>
             <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2 }}>Stake to earn BTBB rewards</div>
@@ -186,77 +185,95 @@ function MintTab({ address }: { address?: string }) {
             <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: 'linear-gradient(90deg,#FFFFFF,rgba(255,255,255,0.7),#F59E0B)', boxShadow: '0 0 10px rgba(255,255,255,0.2)', transition: 'width 0.5s' }}/>
           </div>
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginTop: 16 }}>
+          <StatCard label="Max supply"  value="100,000" />
+          <StatCard label="Remaining"   value={isLoading ? '…' : remaining.toLocaleString()} />
+          <StatCard label="Royalty"     value="5%" />
+        </div>
       </Glass>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-        <StatCard label="Max supply"  value="100,000" />
-        <StatCard label="Remaining"   value={isLoading ? '…' : remaining.toLocaleString()} />
-        <StatCard label="Royalty"     value="5%" />
-      </div>
+      {/* Right — quantity + purchase */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Glass padding={20} radius={22}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ color: btb.text, fontSize: 15, fontWeight: 600 }}>Quantity</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button onClick={() => setQty(qty - 1)}
+                style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                −
+              </button>
+              <input
+                value={qtyStr}
+                onChange={(e) => setQtyStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                onBlur={() => setQtyStr(String(qty))}
+                inputMode="numeric"
+                aria-label="Mint quantity"
+                style={{
+                  width: 70, height: 38, textAlign: 'center',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+                  borderRadius: 12, color: btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit',
+                  outline: 'none', MozAppearance: 'textfield',
+                }}
+              />
+              <button onClick={() => setQty(qty + 1)}
+                style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                +
+              </button>
+            </div>
+          </div>
+          {/* Quick-select — 200 is the max that fits in a single mint tx. */}
+          <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
+            {[1, 10, 50, 100, maxQty].filter((v, i, a) => a.indexOf(v) === i).map(v => (
+              <button key={v} onClick={() => setQty(v)}
+                style={{
+                  flex: 1, height: 34, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 700,
+                  background: qty === v ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${qty === v ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                  color: qty === v ? btb.amber : btb.textMuted,
+                }}>
+                {v === maxQty && v > 100 ? `Max ${v}` : v}
+              </button>
+            ))}
+          </div>
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <span style={{ color: btb.textMuted, fontSize: 13 }}>Total cost</span>
+            <div style={{ color: btb.text, fontWeight: 800, fontSize: 26, letterSpacing: -0.4 }}>
+              {(priceEth * qty).toFixed(4)} <span style={{ color: btb.textMuted, fontSize: 14, fontWeight: 600 }}>ETH</span>
+            </div>
+          </div>
 
-      {/* Quantity selector */}
-      <Glass padding={16} radius={22}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ color: btb.text, fontSize: 15, fontWeight: 600 }}>Quantity</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button onClick={() => setQty(qty - 1)}
-              style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              −
-            </button>
-            <input
-              value={qtyStr}
-              onChange={(e) => setQtyStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
-              onBlur={() => setQtyStr(String(qty))}
-              inputMode="numeric"
-              aria-label="Mint quantity"
-              style={{
-                width: 70, height: 38, textAlign: 'center',
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
-                borderRadius: 12, color: btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit',
-                outline: 'none', MozAppearance: 'textfield',
-              }}
+          {mintedQty > 0 && (
+            <div style={{ marginTop: 14, background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.3)', borderRadius: 14, padding: '10px 14px', color: '#52E3A4', fontSize: 13, fontWeight: 600 }}>
+              Minted {mintedQty} BTB Bear NFT{mintedQty > 1 ? 's' : ''}! · +{(MINT_XP * mintedQty).toLocaleString('en-US')} XP
+            </div>
+          )}
+          {mintErr && <div style={{ marginTop: 14 }}><ErrBox err={mintErr}/></div>}
+
+          <div style={{ marginTop: 14 }}>
+            <PrimaryBtn
+              label={loading ? 'Minting…' : !address ? 'Connect wallet' : remaining === 0 ? 'Sold out' : `Mint ${qty} NFT${qty > 1 ? 's' : ''}`}
+              icon="bolt" loading={loading} disabled={!address || remaining === 0}
+              onClick={doMint} green
             />
-            <button onClick={() => setQty(qty + 1)}
-              style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              +
-            </button>
           </div>
-        </div>
-        {/* Quick-select — 200 is the max that fits in a single mint tx. */}
-        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-          {[1, 10, 50, 100, maxQty].filter((v, i, a) => a.indexOf(v) === i).map(v => (
-            <button key={v} onClick={() => setQty(v)}
-              style={{
-                flex: 1, height: 34, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 700,
-                background: qty === v ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${qty === v ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                color: qty === v ? btb.amber : btb.textMuted,
-              }}>
-              {v === maxQty && v > 100 ? `Max ${v}` : v}
-            </button>
+        </Glass>
+
+        <Glass padding={16} radius={18} soft>
+          {[
+            ['Royalty',      '5% on secondary sales'],
+            ['Max per tx',   '200 NFTs'],
+            ['Utility',      'Stake for BTBB rewards'],
+            ['Chain',        'Ethereum mainnet'],
+          ].map(([l, v], i, a) => (
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <span style={{ color: btb.textMuted, fontSize: 13 }}>{l}</span>
+              <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{v}</span>
+            </div>
           ))}
-        </div>
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <span style={{ color: btb.textMuted, fontSize: 13 }}>Total cost</span>
-          <div style={{ color: btb.text, fontWeight: 800, fontSize: 22, letterSpacing: -0.4 }}>
-            {(priceEth * qty).toFixed(4)} <span style={{ color: btb.textMuted, fontSize: 14, fontWeight: 600 }}>ETH</span>
-          </div>
-        </div>
-      </Glass>
-
-      {mintedQty > 0 && (
-        <div style={{ background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.3)', borderRadius: 14, padding: '10px 14px', color: '#52E3A4', fontSize: 13, fontWeight: 600 }}>
-          Minted {mintedQty} BTB Bear NFT{mintedQty > 1 ? 's' : ''}! · +{(MINT_XP * mintedQty).toLocaleString('en-US')} XP
-        </div>
-      )}
-      <ErrBox err={mintErr}/>
-
-      <PrimaryBtn
-        label={loading ? 'Minting…' : !address ? 'Connect wallet' : remaining === 0 ? 'Sold out' : `Mint ${qty} NFT${qty > 1 ? 's' : ''}`}
-        icon="bolt" loading={loading} disabled={!address || remaining === 0}
-        onClick={doMint} green
-      />
+        </Glass>
+      </div>
     </div>
   );
 }
@@ -379,131 +396,136 @@ function StakeTab({ address }: { address?: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-      {/* Pool stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-        <StatCard label="Total staked"  value={isLoading ? '…' : totalStaked.toLocaleString()} />
-        <StatCard label="BTBB / NFT yr" value={isLoading ? '…' : annualBtbbPerNft > 0 ? annualBtbbPerNft.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'} />
-        <StatCard label="Rewards 24h"   value={isLoading ? '…' : rewards24hBtbb > 0 ? `${rewards24hBtbb.toLocaleString('en-US', { maximumFractionDigits: 0 })} BTBB` : '—'} />
-      </div>
-
-      {/* Pending rewards */}
-      <Glass padding={20} radius={22} strong>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pending rewards</div>
-            <div style={{ color: '#52E3A4', fontSize: 34, fontWeight: 800, letterSpacing: -1.2, marginTop: 6 }}>
-              {isLoading ? '…' : pendingBtbb.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      {/* Left — pending rewards + pool stats */}
+      <div style={{ width: 380, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Glass padding={20} radius={22} strong>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pending rewards</div>
+              <div style={{ color: '#52E3A4', fontSize: 34, fontWeight: 800, letterSpacing: -1.2, marginTop: 6 }}>
+                {isLoading ? '…' : pendingBtbb.toLocaleString('en-US', { maximumFractionDigits: 6 })}
+              </div>
+              <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>BTBB · net after 1% transfer tax</div>
             </div>
-            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>BTBB · net after 1% transfer tax</div>
+            <div style={{ width: 54, height: 54, borderRadius: 18, background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="gift" size={26} color="#52E3A4"/>
+            </div>
           </div>
-          <div style={{ width: 54, height: 54, borderRadius: 18, background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Icon name="gift" size={26} color="#52E3A4"/>
-          </div>
-        </div>
-        <Button
-          variant="success"
-          onClick={doClaim}
-          disabled={!address || pendingBtbb < 0.000001}
-          loading={loading}
-          icon="receive"
-          style={{
-            marginTop: 16,
-            borderRadius: 18,
-            ...(address && pendingBtbb >= 0.000001 && !loading ? { boxShadow: '0 6px 16px rgba(82,227,164,0.25)' } : {}),
-          }}
-        >
-          {loading ? 'Processing…' : 'Claim rewards'}
-        </Button>
-      </Glass>
+          <Button
+            variant="success"
+            onClick={doClaim}
+            disabled={!address || pendingBtbb < 0.000001}
+            loading={loading}
+            icon="receive"
+            style={{
+              marginTop: 16,
+              borderRadius: 18,
+              ...(address && pendingBtbb >= 0.000001 && !loading ? { boxShadow: '0 6px 16px rgba(82,227,164,0.25)' } : {}),
+            }}
+          >
+            {loading ? 'Processing…' : 'Claim rewards'}
+          </Button>
+        </Glass>
 
-      {/* My position */}
-      <Glass padding={16} radius={22}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <span style={{ color: btb.text, fontSize: 16, fontWeight: 700 }}>My position</span>
-          {!address && <span style={{ color: btb.textMuted, fontSize: 13 }}>Not connected</span>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
+          <StatCard label="Total staked"  value={isLoading ? '…' : totalStaked.toLocaleString()} />
+          <StatCard label="BTBB / NFT yr" value={isLoading ? '…' : annualBtbbPerNft > 0 ? annualBtbbPerNft.toLocaleString('en-US', { maximumFractionDigits: 1 }) : '—'} />
+          <StatCard label="Rewards 24h"   value={isLoading ? '…' : rewards24hBtbb > 0 ? `${rewards24hBtbb.toLocaleString('en-US', { maximumFractionDigits: 0 })} BTBB` : '—'} />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+
+        <Glass padding={16} radius={18} soft>
           {[
-            { label: 'Staked', value: isLoading ? '…' : String(myStaked), sub: 'NFTs' },
-            { label: 'In wallet', value: isLoading ? '…' : String(myBalance), sub: 'NFTs' },
-          ].map(({ label, value, sub }) => (
-            <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '12px 14px' }}>
-              <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
-              <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, marginTop: 4, letterSpacing: -0.5 }}>{value}</div>
-              <div style={{ color: btb.textMuted, fontSize: 11 }}>{sub}</div>
+            ['Reward token',  'BTBB (BTB Bear)'],
+            ['Reward source', '1% tax on all BTBB transfers'],
+            ['On claim tax',  '1% BTBB transfer tax'],
+            ['Pool type',     'Fungible · equal share per NFT'],
+          ].map(([l, v], i, a) => (
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+              <span style={{ color: btb.textMuted, fontSize: 13 }}>{l}</span>
+              <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{v}</span>
             </div>
           ))}
-        </div>
+        </Glass>
+      </div>
 
-        {address ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Stake flow — choose how many, then approve (if needed) + stake in one batch */}
-            {myBalance > 0 && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 12px', flexShrink: 0 }}>
-                    <button onClick={() => setStakeQty(stakeCount - 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
-                    <input
-                      value={stakeStr === '' ? String(maxStakeable) : stakeStr}
-                      onChange={e => setStakeStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
-                      onBlur={() => setStakeStr(String(stakeCount))}
-                      inputMode="numeric" aria-label="Stake quantity"
-                      style={{ width: 48, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', color: btb.text, fontSize: 18, fontWeight: 700, fontFamily: 'inherit' }}/>
-                    <button onClick={() => setStakeQty(stakeCount + 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
+      {/* Right — my position / stake / unstake */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <Glass padding={20} radius={22}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <span style={{ color: btb.text, fontSize: 16, fontWeight: 700 }}>My position</span>
+            {!address && <span style={{ color: btb.textMuted, fontSize: 13 }}>Not connected</span>}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+            {[
+              { label: 'Staked', value: isLoading ? '…' : String(myStaked), sub: 'NFTs' },
+              { label: 'In wallet', value: isLoading ? '…' : String(myBalance), sub: 'NFTs' },
+            ].map(({ label, value, sub }) => (
+              <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
+                <div style={{ color: btb.text, fontSize: 32, fontWeight: 800, marginTop: 4, letterSpacing: -0.5 }}>{value}</div>
+                <div style={{ color: btb.textMuted, fontSize: 11 }}>{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {address ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Stake flow — choose how many, then approve (if needed) + stake in one batch */}
+              {myBalance > 0 && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 12px', flexShrink: 0 }}>
+                      <button onClick={() => setStakeQty(stakeCount - 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
+                      <input
+                        value={stakeStr === '' ? String(maxStakeable) : stakeStr}
+                        onChange={e => setStakeStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
+                        onBlur={() => setStakeStr(String(stakeCount))}
+                        inputMode="numeric" aria-label="Stake quantity"
+                        style={{ width: 48, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', color: btb.text, fontSize: 18, fontWeight: 700, fontFamily: 'inherit' }}/>
+                      <button onClick={() => setStakeQty(stakeCount + 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
+                    </div>
+                    <PrimaryBtn
+                      label={loading
+                        ? (isApproved ? 'Staking…' : 'Approving & staking…')
+                        : `${isApproved ? 'Stake' : 'Approve & stake'} ${stakeCount}`}
+                      icon="layers" loading={loading} disabled={walletTokenIds.length === 0} onClick={doStakeAll}/>
                   </div>
-                  <PrimaryBtn
-                    label={loading
-                      ? (isApproved ? 'Staking…' : 'Approving & staking…')
-                      : `${isApproved ? 'Stake' : 'Approve & stake'} ${stakeCount}`}
-                    icon="layers" loading={loading} disabled={walletTokenIds.length === 0} onClick={doStakeAll}/>
+                  <div style={{ color: btb.textMuted, fontSize: 11 }}>
+                    {myBalance > STAKE_BATCH
+                      ? `Up to ${STAKE_BATCH} per tx — ${myBalance} in wallet. Stake the rest in another tx.`
+                      : `${myBalance} NFT${myBalance > 1 ? 's' : ''} in wallet · tap − / + or type a number`}
+                  </div>
+                </>
+              )}
+
+              {/* Unstake flow */}
+              {myStaked > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 16px', flexShrink: 0 }}>
+                    <button onClick={() => setUnstakeCount(c => Math.max(1, c - 1))} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
+                    <span style={{ color: btb.text, fontSize: 18, fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{cappedUnstake}</span>
+                    <button onClick={() => setUnstakeCount(c => Math.min(myStaked, c + 1))} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
+                  </div>
+                  <PrimaryBtn label={loading ? 'Unstaking…' : 'Unstake'} icon="send" loading={loading} onClick={doUnstake} green/>
                 </div>
-                <div style={{ color: btb.textMuted, fontSize: 11, textAlign: 'center' }}>
-                  {myBalance > STAKE_BATCH
-                    ? `Up to ${STAKE_BATCH} per tx — ${myBalance} in wallet. Stake the rest in another tx.`
-                    : `${myBalance} NFT${myBalance > 1 ? 's' : ''} in wallet · tap − / + or type a number`}
+              )}
+
+              {myBalance === 0 && myStaked === 0 && !isLoading && (
+                <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 0' }}>
+                  Mint BTB Bear NFTs on the Mint tab, then stake them here to earn BTBB.
                 </div>
-              </>
-            )}
+              )}
+            </div>
+          ) : (
+            <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 0' }}>
+              Connect a wallet to stake your BTB Bear NFTs and start earning BTBB.
+            </div>
+          )}
 
-            {/* Unstake flow */}
-            {myStaked > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 16px', flexShrink: 0 }}>
-                  <button onClick={() => setUnstakeCount(c => Math.max(1, c - 1))} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
-                  <span style={{ color: btb.text, fontSize: 18, fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{cappedUnstake}</span>
-                  <button onClick={() => setUnstakeCount(c => Math.min(myStaked, c + 1))} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
-                </div>
-                <PrimaryBtn label={loading ? 'Unstaking…' : 'Unstake'} icon="send" loading={loading} onClick={doUnstake} green/>
-              </div>
-            )}
-
-            {myBalance === 0 && myStaked === 0 && !isLoading && (
-              <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center', padding: '8px 0' }}>
-                Mint BTB Bear NFTs on the Mint tab, then stake them here to earn BTBB.
-              </div>
-            )}
-          </div>
-        ) : null}
-      </Glass>
-
-      {/* Protocol info */}
-      <Glass padding={14} radius={18} soft>
-        {[
-          ['Reward token',  'BTBB (BTB Bear)'],
-          ['Reward source', '1% tax on all BTBB transfers'],
-          ['On claim tax',  '1% BTBB transfer tax'],
-          ['Pool type',     'Fungible · equal share per NFT'],
-        ].map(([l, v], i, a) => (
-          <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-            <span style={{ color: btb.textMuted, fontSize: 13 }}>{l}</span>
-            <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{v}</span>
-          </div>
-        ))}
-      </Glass>
-
-      <ErrBox err={writeErr}/>
+          {writeErr && <div style={{ marginTop: 14 }}><ErrBox err={writeErr}/></div>}
+        </Glass>
+      </div>
     </div>
   );
 }
@@ -515,9 +537,8 @@ export function NFTScreen() {
   const [tab, setTab] = useState<'mint' | 'stake'>('mint');
 
   return (
-    <Screen gap={16}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-        <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.6 }}>BTB Bear</div>
+    <Screen gap={20}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <Badge bg="rgba(226,232,240,0.2)" border="1px solid rgba(255,255,255,0.2)" style={{ gap: 6, padding: '6px 12px' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.7)', boxShadow: '0 0 8px rgba(255,255,255,0.7)', display: 'inline-block' }}/>
           <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
@@ -525,7 +546,7 @@ export function NFTScreen() {
       </div>
 
       {/* Tabs */}
-      <Glass padding={4} radius={18} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+      <Glass padding={4} radius={18} style={{ display: 'grid', gridTemplateColumns: '260px 260px' }}>
         {(['mint', 'stake'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             height: 42, borderRadius: 14, border: 'none', cursor: 'pointer',

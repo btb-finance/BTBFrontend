@@ -4,6 +4,7 @@ import { useAction, useMutation, useQuery } from 'convex/react';
 import { useReadContracts } from 'wagmi';
 import { erc20Abi, formatUnits } from 'viem';
 import { api } from '../../convex/_generated/api';
+import { useOtherChainBalances } from './useOtherChainBalances';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,12 +28,16 @@ export interface Token {
 
 interface TokenStoreState {
   tokens: Token[];               // Convex mainnet token list enriched with wallet balances (swap picker)
-  positions: Token[];            // Wallet token holdings — loaded from Convex snapshot
+  positions: Token[];            // Wallet token holdings — Ethereum mainnet, plus other chains when showAllChains is on
   balanceMap: Map<string, Token>;
   loadingList: boolean;
   loadingBalances: boolean;
   error: string | null;
   refetchBalances: () => void;
+  /** Off by default — mainnet-only. Toggle on to also pull in Polygon/Arbitrum/Base/etc via Alchemy. */
+  showAllChains: boolean;
+  setShowAllChains: (v: boolean) => void;
+  loadingOtherChains: boolean;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -41,6 +46,7 @@ const Ctx = createContext<TokenStoreState>({
   tokens: [], positions: [], balanceMap: new Map(),
   loadingList: false, loadingBalances: false, error: null,
   refetchBalances: () => {},
+  showAllChains: false, setShowAllChains: () => {}, loadingOtherChains: false,
 });
 
 export function useTokenStore() { return useContext(Ctx); }
@@ -121,7 +127,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
 
   // Positions come straight from the Convex snapshot. Each row is re-priced
   // against the latest priceMap so USD values update without re-running RPC.
-  const positions = useMemo<Token[]>(() => {
+  const mainnetPositions = useMemo<Token[]>(() => {
     return snapshot.map((b) => {
       const addrKey = b.tokenAddress.toLowerCase();
       const price = priceMap.get(addrKey) ?? 0;
@@ -140,6 +146,16 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       };
     });
   }, [snapshot, priceMap]);
+
+  // Other chains (Polygon, Arbitrum, Base, …) via Alchemy's free-tier Portfolio
+  // API — off by default so "my balance" means Ethereum mainnet unless the
+  // user explicitly asks to see everything (see `showAllChains`/`setShowAllChains`).
+  const [showAllChains, setShowAllChains] = useState(false);
+  const { tokens: otherChainTokens, loading: loadingOtherChains } = useOtherChainBalances(showAllChains ? walletAddress : undefined);
+
+  const positions = useMemo<Token[]>(() => {
+    return showAllChains ? [...mainnetPositions, ...otherChainTokens] : mainnetPositions;
+  }, [mainnetPositions, otherChainTokens, showAllChains]);
 
   // Balance map for the swap picker — token list merged with live balances/prices.
   const balanceMap = useMemo(() => {
@@ -235,6 +251,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     <Ctx.Provider value={{
       tokens, positions, balanceMap,
       loadingList, loadingBalances, error, refetchBalances,
+      showAllChains, setShowAllChains, loadingOtherChains,
     }}>
       {children}
     </Ctx.Provider>

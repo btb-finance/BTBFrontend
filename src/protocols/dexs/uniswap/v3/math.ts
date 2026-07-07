@@ -1,11 +1,14 @@
 /**
  * Uniswap V3 price/liquidity math (BigInt, exact).
  *
- * Used here to display a position's current token amounts from its liquidity
- * and range. The canonical TickMath constants below are from Uniswap's
- * TickMath.sol. NOTE: this pass uses these for DISPLAY only — no transaction
- * relies on them — so a constant error is cosmetic, not a fund risk. They must
- * be re-verified before wiring remove/add (which use amountMin slippage).
+ * VERIFIED against Uniswap's on-chain libraries: every getSqrtRatioAtTick
+ * constant and the final Q128.128→Q128.96 rounding match v3-core TickMath.sol
+ * exactly, and the liquidity/amount helpers match v3-periphery LiquidityAmounts
+ * (all round-DOWN via truncating division, getLiquidityForAmounts takes the min
+ * of the two sides) — conservative for the LP, the same bias Uniswap uses.
+ * These ARE relied on by mint/add/remove (amounts feed amountMin/amountMax
+ * slippage bounds), so any change here must be re-checked against those sources
+ * (a good sanity vector: getSqrtRatioAtTick(0) === 2**96 === 79228162514264337593543950336).
  */
 
 const Q96 = 2n ** 96n;

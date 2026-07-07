@@ -8,7 +8,7 @@ import { SITE } from './config';
  * Returns an array of schema.org graphs; rendered by <JsonLd/>.
  */
 
-const LOGO = `${SITE.url}/apple-icon`;       // square branded icon route
+const LOGO = `${SITE.url}/apple-icon.png`;   // square branded logo (static)
 const OG = `${SITE.url}/opengraph-image`;    // 1200×630 social image route
 
 export function structuredData(): Record<string, unknown>[] {

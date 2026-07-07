@@ -8,13 +8,17 @@ import { Portal } from './Portal';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { SectionHeader } from './SectionHeader';
+import { DataTable, Column } from './DataTable';
+import { TokenIcon } from './TokenIcon';
 import { btb } from './design-tokens';
+import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
+import { getTokenPricesUsd } from '../lib/defillama';
 import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
-  addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn,
+  addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
@@ -30,8 +34,6 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
 };
-
-const SLIPPAGE_BPS = 50; // 0.5%
 
 function fmtAmt(raw: bigint, decimals: number): string {
   const n = parseFloat(formatUnits(raw, decimals));
@@ -57,6 +59,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
+  const [usd, setUsd] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
     if (!address) { setPositions([]); return; }
@@ -78,6 +81,16 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   }, [address, config]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Live USD prices for every token held across positions — used only for the
+  // stats strip (current value + unclaimed fees), both real on-chain amounts.
+  // No cost-basis history is tracked, so P&L/ROI/APR aren't shown here — that
+  // would require fabricating numbers we can't back up.
+  useEffect(() => {
+    if (positions.length === 0) return;
+    const addrs = [...new Set(positions.flatMap((p) => [p.token0, p.token1]))];
+    getTokenPricesUsd(addrs).then(setUsd).catch(() => {});
+  }, [positions]);
 
   async function collect(pos: LiquidityPosition) {
     if (!address) return;
@@ -113,55 +126,121 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     ) : null;
   }
 
+  const valueOf = (p: LiquidityPosition) => {
+    const p0 = usd[p.token0.toLowerCase()] ?? 0;
+    const p1 = usd[p.token1.toLowerCase()] ?? 0;
+    return parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
+  };
+  const feesValueOf = (p: LiquidityPosition) => {
+    const p0 = usd[p.token0.toLowerCase()] ?? 0;
+    const p1 = usd[p.token1.toLowerCase()] ?? 0;
+    return parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
+  };
+  const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
+  const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
+  const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
+
+  const columns: Column<LiquidityPosition>[] = [
+    {
+      key: 'pool', label: 'Pool', sortable: true, sortValue: p => `${p.symbol0}${p.symbol1}`,
+      render: p => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex' }}>
+            <TokenIcon symbol={p.symbol0} size={26} />
+            <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={26} /></div>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700 }}>{p.symbol0} / {p.symbol1}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
+              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
+              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'amounts', label: 'Position', align: 'left',
+      render: p => (
+        <span style={{ color: btb.textMuted, fontSize: 12.5 }}>
+          {fmtAmt(p.amount0, p.decimals0)} {p.symbol0} + {fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
+        </span>
+      ),
+    },
+    {
+      key: 'fees', label: 'Unclaimed fees', align: 'left',
+      render: p => (p.fees0 > 0n || p.fees1 > 0n) ? (
+        <span style={{ color: btb.green, fontSize: 12.5 }}>
+          {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
+        </span>
+      ) : <span style={{ color: btb.textDim }}>—</span>,
+    },
+    {
+      key: 'status', label: 'Status', align: 'left', sortable: true, sortValue: p => (p.inRange ? 1 : 0),
+      render: p => (
+        <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber}>
+          {p.inRange ? 'In range' : 'Out of range'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions', label: '', align: 'right', width: '340px',
+      render: p => {
+        const hasFees = p.fees0 > 0n || p.fees1 > 0n;
+        const hasLiquidity = p.liquidity > 0n;
+        const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
+        const busy = busyId === posKey(p);
+        return (
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+            <ActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy}/>
+            {hasLiquidity && <ActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy}/>}
+            <ActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={!hasFees || busy} green/>
+            {canRebalance && (
+              <button onClick={() => setRebalance(p)} disabled={busy} style={{
+                height: 30, padding: '0 10px', borderRadius: 8, border: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                fontSize: 11.5, fontWeight: 700, cursor: busy ? 'default' : 'pointer',
+                background: p.inRange ? 'rgba(255,255,255,0.08)' : 'rgba(255,179,107,0.16)',
+                color: p.inRange ? btb.text : btb.amber,
+              }}>
+                ⚖ Rebalance
+              </button>
+            )}
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <SectionHeader title="Your Positions" right="Uniswap + PancakeSwap · Ethereum"/>
 
-      {loading && positions.length === 0 && (
-        <Glass padding={16} radius={18}><div style={{ color: btb.textDim, fontSize: 13 }}>Loading positions…</div></Glass>
+      {positions.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          <Glass padding={16} radius={14} soft>
+            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Total value</div>
+            <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, marginTop: 4 }}>${totalValueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
+          </Glass>
+          <Glass padding={16} radius={14} soft>
+            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Unclaimed fees</div>
+            <div style={{ color: btb.green, fontSize: 22, fontWeight: 800, marginTop: 4 }}>${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
+          </Glass>
+          <Glass padding={16} radius={14} soft>
+            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>In range</div>
+            <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, marginTop: 4 }}>{inRangeCount} / {positions.length}</div>
+          </Glass>
+        </div>
       )}
 
-      {positions.map((p) => {
-        const hasFees = p.fees0 > 0n || p.fees1 > 0n;
-        const hasLiquidity = p.liquidity > 0n;
-        // Rebalance withdraws → swaps only the gap → re-adds. V4 is supported too,
-        // except hooked pools (which can't be minted in-app).
-        const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
-        const busy = busyId === posKey(p);
-        return (
-          <Glass key={posKey(p)} padding={14} radius={18}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-              <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>{p.symbol0} / {p.symbol1}</span>
-              <Badge size="md" color={btb.textMuted} bg="rgba(255,255,255,0.07)" border="none" style={{ padding: '1px 7px', fontWeight: 400 }}>{fmtFeeTier(p.fee)}</Badge>
-              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border={`1px solid ${PROTOCOL_BADGE[p.protocol].color}4d`} style={{ padding: '1px 7px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
-              <Badge size="sm" border="none" style={{ padding: '1px 7px' }} bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? '#52E3A4' : '#FFB36B'}>{p.inRange ? 'In range' : 'Out of range'}</Badge>
-            </div>
-            <div style={{ color: btb.textMuted, fontSize: 12 }}>
-              {fmtAmt(p.amount0, p.decimals0)} {p.symbol0} + {fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
-            </div>
-            {hasFees && (
-              <div style={{ color: '#52E3A4', fontSize: 11, marginTop: 3 }}>
-                Fees: {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <ActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy}/>
-              {hasLiquidity && <ActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy}/>}
-              <ActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={!hasFees || busy} green/>
-            </div>
-            {canRebalance && (
-              <button onClick={() => setRebalance(p)} disabled={busy} style={{
-                width: '100%', height: 38, marginTop: 8, borderRadius: 12, border: 'none', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 800, cursor: busy ? 'default' : 'pointer',
-                background: p.inRange ? 'rgba(255,255,255,0.08)' : 'rgba(255,179,107,0.16)',
-                color: p.inRange ? btb.text : '#FFB36B',
-              }}>
-                ⚖ {p.inRange ? 'Rebalance' : 'Smart rebalance — back into range'}
-              </button>
-            )}
-          </Glass>
-        );
-      })}
+      <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
+        <DataTable
+          columns={columns}
+          rows={positions}
+          rowKey={posKey}
+          loading={loading && positions.length === 0}
+          emptyMessage="No LP positions yet"
+        />
+      </div>
 
       {manage && (
         <ManageSheet
@@ -188,7 +267,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: () => void; disabled?: boolean; green?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      flex: 1, height: 36, borderRadius: 12, border: 'none', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+      height: 30, padding: '0 12px', borderRadius: 8, border: 'none', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
       cursor: disabled ? 'default' : 'pointer',
       background: disabled ? 'rgba(255,255,255,0.06)' : green ? btb.gradGreen : 'rgba(255,255,255,0.1)',
       color: disabled ? btb.textDim : '#fff',
@@ -200,6 +279,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   pos: LiquidityPosition; mode: 'add' | 'withdraw'; account: `0x${string}`;
   onClose: () => void; onDone: () => void | Promise<void>;
 }) {
+  const { width: sidebarWidth } = useSidebar();
   const { track } = useTx();
   const config = useConfig();
   const [busy, setBusy] = useState(false);
@@ -303,9 +383,8 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
 
   return (
     <Portal>
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '28px 28px 0 0', padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.18)', margin: '0 auto 16px' }}/>
+    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>

@@ -105,6 +105,26 @@ export const POOL_ABI = [
   ] },
   // in-range liquidity — used to estimate a new position's fee share
   { name: 'liquidity', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: 'liquidity', type: 'uint128' }] },
+  // pool identity — used to resolve a pasted pool address to its token pair (Simulate-any-pool)
+  { name: 'token0', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+  { name: 'token1', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
+  { name: 'fee', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint24' }] },
+  { name: 'tickSpacing', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'int24' }] },
+  // per-tick liquidity — used to build the liquidity-depth-by-price histogram
+  { name: 'tickBitmap', type: 'function', stateMutability: 'view', inputs: [{ name: 'wordPosition', type: 'int16' }], outputs: [{ name: '', type: 'uint256' }] },
+  {
+    name: 'ticks', type: 'function', stateMutability: 'view', inputs: [{ name: 'tick', type: 'int24' }],
+    outputs: [
+      { name: 'liquidityGross', type: 'uint128' },
+      { name: 'liquidityNet', type: 'int128' },
+      { name: 'feeGrowthOutside0X128', type: 'uint256' },
+      { name: 'feeGrowthOutside1X128', type: 'uint256' },
+      { name: 'tickCumulativeOutside', type: 'int56' },
+      { name: 'secondsPerLiquidityOutsideX128', type: 'uint160' },
+      { name: 'secondsOutside', type: 'uint32' },
+      { name: 'initialized', type: 'bool' },
+    ],
+  },
 ] as const;
 
 export const ERC20_META_ABI = [

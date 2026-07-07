@@ -2,14 +2,18 @@
 
 const TOKEN_MAP: Record<string, { bg: string; glyph: string }> = {
   ETH:  { bg: 'linear-gradient(135deg,#627EEA,#3C5AE0)', glyph: 'Ξ' },
+  WETH: { bg: 'linear-gradient(135deg,#627EEA,#3C5AE0)', glyph: 'Ξ' },
   USDC: { bg: 'linear-gradient(135deg,#2775CA,#1A5599)', glyph: '$' },
   USDT: { bg: 'linear-gradient(135deg,#26A17B,#1D7D5E)', glyph: '₮' },
+  DAI:  { bg: 'linear-gradient(135deg,#F5AC37,#C6862B)', glyph: 'D' },
   BTC:  { bg: 'linear-gradient(135deg,#F7931A,#C16E0A)', glyph: '₿' },
   WBTC: { bg: 'linear-gradient(135deg,#F7931A,#C16E0A)', glyph: '₿' },
+  CBBTC:{ bg: 'linear-gradient(135deg,#F7931A,#C16E0A)', glyph: '₿' },
   SOL:  { bg: 'linear-gradient(135deg,#9945FF,#14F195)', glyph: 'S' },
   ARB:  { bg: 'linear-gradient(135deg,#2D374B,#28A0F0)', glyph: 'A' },
   LINK: { bg: 'linear-gradient(135deg,#2A5ADA,#1840A8)', glyph: '⬡' },
   UNI:  { bg: 'linear-gradient(135deg,#FF007A,#C40060)', glyph: 'U' },
+  AAVE: { bg: 'linear-gradient(135deg,#B6509E,#7B3F98)', glyph: 'A' },
   BTB:  { bg: 'linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08))', glyph: 'B' },
 };
 

@@ -3,6 +3,7 @@ import { POSITION_MANAGER_ABI, PERMIT2_ABI, POOL_KEY_COMPONENTS } from './abis';
 import { UNISWAP_V4, isNativeCurrency, type PoolKey } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
+import { deadline, minOut } from '../shared';
 
 /**
  * Uniswap V4 liquidity actions. Unlike V3's direct NPM calls, every V4
@@ -30,21 +31,6 @@ const Actions = {
   SWEEP: 0x14,
 } as const;
 
-const DEADLINE_SECONDS = 1200; // 20 minutes
-
-function deadline(): bigint {
-  return BigInt(Math.floor(Date.now() / 1000) + DEADLINE_SECONDS);
-}
-
-/** Apply a downward slippage tolerance (bps) to a minimum-out amount. */
-function minOut(amount: bigint, slippageBps: number): bigint {
-  return (amount * BigInt(10_000 - slippageBps)) / 10_000n;
-}
-
-/** Apply an upward slippage tolerance (bps) to a maximum-in amount. */
-export function maxIn(amount: bigint, slippageBps: number): bigint {
-  return (amount * BigInt(10_000 + slippageBps)) / 10_000n;
-}
 
 /** modifyLiquidities call data for a sequence of (action, params) pairs. */
 function encodeModify(actions: number[], params: `0x${string}`[], dl: bigint): `0x${string}` {

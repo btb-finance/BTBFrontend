@@ -5,7 +5,9 @@ import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { Spinner } from '../Spinner';
 import { Screen } from '../Screen';
+import { Portal } from '../Portal';
 import { btb } from '../design-tokens';
+import { useSidebar } from '../../lib/SidebarContext';
 
 function isValidAddress(v: string) { return /^0x[a-fA-F0-9]{40}$/.test(v.trim()); }
 
@@ -27,7 +29,8 @@ const WALLETS: WalletDef[] = [
   { id: 'injected',      name: 'Browser Wallet',  sub: 'Brave, Rabby, OKX…', glyph: '◆',  bg: '#333',                                              connectorId: 'injected' },
 ];
 
-export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; onImport?: (address: string) => void }) {
+export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () => void; onImport?: (address: string) => void; onClose?: () => void }) {
+  const { width: sidebarWidth } = useSidebar();
   // wagmi v3: the connector list moved off `useConnect()` to its own hook.
   const { connect, isPending, error } = useConnect();
   const connectors = useConnectors();
@@ -56,18 +59,39 @@ export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; 
   }
 
   return (
-    <Screen gap={24} px={20} style={{ paddingBottom: 40, height: '100%' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, marginTop: 24 }}>
-        <div style={{
-          width: 92, height: 92, borderRadius: 28,
-          background: 'linear-gradient(140deg,#FFFFFF 0%, #1E293B 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 16px 40px rgba(226,232,240,0.55), inset 0 2px 0 rgba(255,255,255,0.25)',
-          position: 'relative', overflow: 'hidden',
+    <Portal>
+    <div onClick={onClose} style={{
+      position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 400,
+      background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
+    }}>
+    <div onClick={e => e.stopPropagation()} style={{
+      width: '100%', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto',
+      background: btb.bg, borderRadius: 28, border: btb.border, boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+      position: 'relative',
+    }}>
+      {onClose && (
+        <div onClick={onClose} style={{
+          position: 'absolute', top: 16, right: 16, width: 34, height: 34, borderRadius: 999, zIndex: 1,
+          background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.4), transparent 50%)' }}/>
-          <span style={{ color: '#fff', fontSize: 44, fontWeight: 900, letterSpacing: -2, position: 'relative' }}>B</span>
+          <Icon name="close" size={15} color={btb.textMuted}/>
         </div>
+      )}
+    <Screen gap={24} style={{ padding: '32px 24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/btblogo.jpg"
+          alt="BTB Finance"
+          width={92}
+          height={92}
+          style={{
+            width: 92, height: 92, borderRadius: 999, objectFit: 'cover',
+            boxShadow: '0 16px 40px rgba(226,232,240,0.35)',
+          }}
+        />
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.8 }}>BTB Finance</div>
           <div style={{ color: btb.textMuted, fontSize: 15, marginTop: 6, lineHeight: 1.45, maxWidth: 280 }}>
@@ -150,12 +174,15 @@ export function ConnectScreen({ onConnect, onImport }: { onConnect: () => void; 
         </Glass>
       )}
 
-      <div style={{ marginTop: 'auto', textAlign: 'center', color: btb.textDim, fontSize: 12, lineHeight: 1.5 }}>
+      <div style={{ textAlign: 'center', color: btb.textDim, fontSize: 12, lineHeight: 1.5 }}>
         By continuing you agree to BTB&apos;s<br/>
         <span style={{ color: btb.textMuted, textDecoration: 'underline' }}>Terms</span>
         {' '}and{' '}
         <span style={{ color: btb.textMuted, textDecoration: 'underline' }}>Privacy Policy</span>
       </div>
     </Screen>
+    </div>
+    </div>
+    </Portal>
   );
 }
