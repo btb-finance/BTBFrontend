@@ -8,6 +8,7 @@ import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { RangeChart } from './RangeChart';
+import { TokenIcon } from './TokenIcon';
 import { LiquidityDepthChart } from './LiquidityDepthChart';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
@@ -663,7 +664,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
       const sym = plan.sellSide === 0 ? sym0 : sym1;
       const otherSym = plan.sellSide === 0 ? sym1 : sym0;
       setSwapPreview({ sellSide: plan.sellSide, sellRaw, sym, otherSym, pct: plan.swapFraction * 100 });
-      setSmartNote(`Balanced two-sided ${sym0}/${sym1} position. We'll swap ~${plan.swapFraction * 100 < 1 ? '<1' : Math.round(plan.swapFraction * 100)}% of your ${sym} to ${otherSym} (KyberSwap, ${slippageBps / 100}% slippage) so both sides deposit and the position stays near a 50/50 mix — it earns fees immediately and does NOT convert your ${sym} away like a single-sided range would.`);
+      setSmartNote(`Balanced: swaps ~${plan.swapFraction * 100 < 1 ? '<1' : Math.round(plan.swapFraction * 100)}% of your ${sym} to ${otherSym} so both sides deposit and stay ~50/50 — earns fees now, no directional conversion.`);
       return;
     }
 
@@ -675,8 +676,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     const sym = fit.side === 0 ? sym0 : sym1;
     const other = fit.side === 0 ? sym1 : sym0;
     setSmartNote(fit.single
-      ? `⚠️ Single-sided ${sym} position. You deposit ${sym} alone now, but this range sits entirely to one side of the current price: as the price moves into it, your ${sym} is progressively swapped into ${other} — you'd end up holding ${other}, not ${sym}. This is a directional "convert ${sym}→${other} on the way" position, not a balanced LP.`
-      : 'Range shifted to match your balances — both tokens deposit in full, same width as you picked.');
+      ? `Single-sided: deposits ${sym} only. As price enters the range it converts to ${other} — you'd finish holding ${other}, not ${sym}. Directional, not a balanced LP.`
+      : 'Range shifted to match your balances — both tokens deposit in full, same width.');
   }
 
   const inputStyle = (disabled: boolean): CSSProperties => ({
@@ -704,23 +705,39 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
     // The range may only take one token — the other side stays at 0.
     const disabled = need === (side === 0 ? 'token1' : 'token0');
     const value = disabled ? '0' : amt.side === side ? amt.str : computed > 0n ? formatUnits(computed, dec) : '';
+    const unitUsd = side === 0 ? tokenUsd?.p0 : tokenUsd?.p1;
+    const num = parseFloat(value);
+    const usdVal = unitUsd && isFinite(num) ? num * unitUsd : 0;
+    // Compact Orca-style card: amount + token on one row, $value + balance below.
     return (
-      <div key={side} style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span style={{ color: btb.textMuted, fontSize: 12 }}>{sym}{disabled ? ' (not needed in this range)' : ''}</span>
-          <span style={{ color: btb.textMuted, fontSize: 12 }}>
-            Balance: {fmtAmt(bal, dec)}
+      <div key={side} style={{
+        marginBottom: 8, padding: '9px 12px', borderRadius: 14,
+        background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            value={value}
+            disabled={disabled}
+            onChange={(e) => { setAmt({ side, str: e.target.value.replace(/[^0-9.]/g, '') }); setSwapPreview(null); }}
+            inputMode="decimal" placeholder="0"
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <TokenIcon symbol={sym} size={20} />
+            <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{sym}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
+          <span style={{ color: btb.textDim, fontSize: 11 }}>
+            {usdVal > 0 ? `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : disabled ? 'not needed in this range' : ''}
+          </span>
+          <span style={{ color: btb.textMuted, fontSize: 11 }}>
+            {fmtAmt(bal, dec)}
             {!disabled && (
               <span onClick={() => setAmt({ side, str: formatUnits(bal, dec) })} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
             )}
           </span>
         </div>
-        <input
-          value={value}
-          disabled={disabled}
-          onChange={(e) => { setAmt({ side, str: e.target.value.replace(/[^0-9.]/g, '') }); setSwapPreview(null); }}
-          inputMode="decimal" placeholder="0"
-          style={inputStyle(disabled)}/>
       </div>
     );
   }
@@ -1106,41 +1123,30 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
             {!simOnly && address && (
-              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ color: btb.textMuted, fontSize: 11 }}>You hold</div>
-                    <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                      {fmtAmt(effBal0, pool.decimals0)} {sym0} + {fmtAmt(effBal1, pool.decimals1)} {sym1}
-                    </div>
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: btb.textDim, fontSize: 10 }}>You hold</div>
+                  <div style={{ color: btb.text, fontSize: 12, fontWeight: 700, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {fmtAmt(effBal0, pool.decimals0)} {sym0} + {fmtAmt(effBal1, pool.decimals1)} {sym1}
                   </div>
-                  <button onClick={() => applySmartFit()} style={{
-                    flexShrink: 0, height: 36, padding: '0 14px', borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                    fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
-                  }}>⚡ Fit to my balance</button>
                 </div>
 
-                {/* Single-token wallets: choose how the balance becomes an LP.
-                    Balanced (default) swaps ~half so both sides deposit; single-
-                    sided is the directional "convert my token" range. */}
+                {/* Single-token wallets: segmented Balanced / Single-sided choice. */}
                 {((effBal0 <= 0n) !== (effBal1 <= 0n)) && !(!isV4 && ethMode && wethSide === (effBal0 > 0n ? 0 : 1)) && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                    {([['balanced', 'Balanced', 'Swap ~half · two-sided LP'], ['single', 'Single-sided', 'No swap · directional']] as const).map(([val, title, sub]) => (
+                  <div style={{ display: 'flex', marginTop: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 9, padding: 2 }}>
+                    {([['balanced', 'Balanced'], ['single', 'Single-sided']] as const).map(([val, title]) => (
                       <button key={val} onClick={() => { setSmartStrategy(val); applySmartFit(val); }} style={{
-                        flex: 1, textAlign: 'left', padding: '8px 10px', borderRadius: 11, cursor: 'pointer', fontFamily: 'inherit',
-                        background: smartStrategy === val ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
-                        border: `1px solid ${smartStrategy === val ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                      }}>
-                        <div style={{ color: smartStrategy === val ? '#52E3A4' : btb.text, fontSize: 12, fontWeight: 800 }}>{title}</div>
-                        <div style={{ color: btb.textMuted, fontSize: 10, marginTop: 2 }}>{sub}</div>
-                      </button>
+                        flex: 1, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
+                        background: smartStrategy === val ? 'rgba(82,227,164,0.2)' : 'transparent',
+                        color: smartStrategy === val ? '#52E3A4' : btb.textMuted,
+                      }}>{title}</button>
                     ))}
                   </div>
                 )}
 
                 {swapPreview && (
-                  <div style={{ color: btb.text, fontSize: 11, marginTop: 8, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ color: btb.textMuted }}>Swap to balance</span>
+                  <div style={{ color: btb.text, fontSize: 10.5, marginTop: 7, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ color: btb.textDim }}>Swap to balance</span>
                     <span style={{ fontWeight: 700 }}>
                       {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} → {swapPreview.otherSym}
                       <span style={{ color: swapPreview.pct <= 60 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
@@ -1148,7 +1154,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                   </div>
                 )}
                 {smartNote && (
-                  <div style={{ color: '#52E3A4', fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>{smartNote}</div>
+                  <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 7, lineHeight: 1.45 }}>{smartNote}</div>
                 )}
               </div>
             )}
@@ -1179,12 +1185,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                       <button onClick={() => applySmartFit()} style={{
                         flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                         fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
-                      }}>⚡ Fit range</button>
+                      }}>Fit range</button>
                     </div>
                   </div>
-                )}
-                {!short0 && !short1 && smartNote && (
-                  <div style={{ color: '#52E3A4', fontSize: 11, marginBottom: 10, lineHeight: 1.5 }}>{smartNote}</div>
                 )}
               </>
             )}
@@ -1223,39 +1226,44 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         )}
       </div>
 
-      {/* Sticky action bar — Liq. slippage pill + Deposit, pinned to the bottom
-          of the sheet so it never scrolls out of reach (matches the reference). */}
+      {/* Floating action bar — sits UNDER the right panel (not full-width across
+          the chart). Pinned to the bottom so Deposit is always reachable. */}
       {!simOnly && pool?.exists && !loadingPool && !poolErr && (
         <div style={{
-          position: 'sticky', bottom: 0, left: 0, right: 0, zIndex: 5,
-          display: 'flex', alignItems: 'stretch', gap: 10,
-          padding: '12px 24px calc(14px + env(safe-area-inset-bottom, 0px))',
-          background: 'rgba(10,10,15,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
+          position: 'sticky', bottom: 0, zIndex: 5, pointerEvents: 'none',
+          display: 'grid', gap: 24,
+          gridTemplateColumns: panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr',
+          padding: '0 24px calc(12px + env(safe-area-inset-bottom, 0px))',
         }}>
-          {panelOpen ? (
-            <>
-              <div
-                onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
-                title="Tap to change liquidity slippage"
-                style={{
-                  flexShrink: 0, cursor: 'pointer', borderRadius: 12, padding: '6px 14px', textAlign: 'center',
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                  display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.15,
-                }}>
-                <span style={{ color: btb.textDim, fontSize: 10 }}>Liq. slippage</span>
-                <span style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>{slippageBps / 100}%</span>
-              </div>
-              <Button variant="success" size="md" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800 }}>
-                {busy ? (stepMsg || 'Confirming…') : swapPreview ? 'Swap & add liquidity' : (short0 || short1) ? 'Insufficient balance' : 'Add liquidity'}
+          {panelOpen && <div />}
+          <div style={{
+            pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
+            background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
+          }}>
+            {panelOpen ? (
+              <>
+                <div
+                  onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
+                  title="Tap to change liquidity slippage"
+                  style={{
+                    flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
+                  }}>
+                  <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
+                  <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
+                </div>
+                <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                  {busy ? (stepMsg || 'Confirming…') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
+                </Button>
+              </>
+            ) : (
+              <Button variant="success" size="sm" onClick={() => setPanelOpen(true)} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                Set amounts →
               </Button>
-            </>
-          ) : (
-            // Panel collapsed for full-chart range selection — reopen to set amounts.
-            <Button variant="success" size="md" onClick={() => setPanelOpen(true)} style={{ flex: 1, fontWeight: 800 }}>
-              Set amounts &amp; deposit →
-            </Button>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>

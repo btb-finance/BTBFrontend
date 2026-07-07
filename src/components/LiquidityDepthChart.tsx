@@ -130,8 +130,25 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
         <line x1={clampX(x(current))} x2={clampX(x(current))} y1={PAD} y2={chartH} stroke={btb.text} strokeWidth={1} strokeDasharray="3 3" opacity={0.6}/>
         {handle('min', lineMin)}
         {handle('max', lineMax)}
+        {/* % distance from the current price at each handle (Orca-style −x% / +x%) */}
+        {(() => {
+          const pctMin = current > 0 ? (effMin / current - 1) * 100 : 0;
+          const pctMax = current > 0 ? (effMax / current - 1) * 100 : 0;
+          const fmtPct = (p: number) => `${p >= 0 ? '+' : ''}${Math.abs(p) >= 10 ? p.toFixed(0) : p.toFixed(1)}%`;
+          const minAnchor = lineMin < 42 ? 'start' : 'end';
+          const maxAnchor = lineMax > W - 42 ? 'end' : 'start';
+          return (
+            <>
+              <text x={minAnchor === 'end' ? lineMin - 4 : lineMin + 4} y={PAD + 10} textAnchor={minAnchor} fontSize={10} fontWeight={800} fill={accent} fontFamily="inherit">{fmtPct(pctMin)}</text>
+              <text x={maxAnchor === 'start' ? lineMax + 4 : lineMax - 4} y={PAD + 10} textAnchor={maxAnchor} fontSize={10} fontWeight={800} fill={accent} fontFamily="inherit">{fmtPct(pctMax)}</text>
+            </>
+          );
+        })()}
+        {/* min/max PRICE under each handle */}
         <text x={lineMin} y={H - 3} textAnchor="middle" fontSize={9} fill={btb.textMuted} fontFamily="inherit">{fmtTick(effMin)}</text>
         <text x={lineMax} y={H - 3} textAnchor="middle" fontSize={9} fill={btb.textMuted} fontFamily="inherit">{fmtTick(effMax)}</text>
+        {/* current price marker under the dashed line */}
+        <text x={clampX(x(current))} y={H - 3} textAnchor="middle" fontSize={9} fontWeight={700} fill={btb.text} fontFamily="inherit">{fmtTick(current)}</text>
       </svg>
       {onChange && (
         <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: 6 }}>
