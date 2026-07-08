@@ -20,6 +20,7 @@ const PRODUCTS = [
   { icon: 'bank',   color: '#FBBF24', bg: 'rgba(251,191,36,0.15)',   name: 'RWA',              desc: 'Tokenised treasuries, credit, and real-world assets.',       metric: 'Ondo · Maple · Centrifuge',     category: 'rwa'               },
   { icon: 'vault',  color: '#34D399', bg: 'rgba(52,211,153,0.15)',   name: 'CDP',              desc: 'Mint stablecoins like DAI and LUSD against your crypto.',    metric: 'Sky (Maker) · Liquity',         category: 'cdp'               },
   { icon: 'chart',  color: '#F87171', bg: 'rgba(248,113,113,0.15)',  name: 'Options',          desc: 'On-chain options, structured products, vaults.',             metric: 'Lyra · Premia · Ribbon',        category: 'options'           },
+  { icon: 'vote',   color: '#A78BFA', bg: 'rgba(167,139,250,0.15)',  name: 'Vote & Earn',      desc: 'Lock governance tokens to vote and earn fees + bribes.',     metric: 'Aerodrome · Curve · Yearn',     category: 'governance'        },
 ];
 
 export function ProductsScreen({ onBack, onCategory }: { onBack: () => void; onCategory?: (c: string) => void }) {

@@ -98,6 +98,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
         isReadOnly={isReadOnly}
         onDisconnect={handleLeave}
         onDocs={() => setOverlay('docs')}
+        onProducts={() => setOverlay('products')}
         onConnect={() => setShowConnect(true)}
       />
       <div style={{ flex: 1, minWidth: 0, padding: '32px 40px 60px', overflowY: 'auto' }}>
