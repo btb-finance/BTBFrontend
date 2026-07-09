@@ -10,6 +10,7 @@ const NAV_SECTIONS: { label: string; items: { id: Tab; label: string; icon: stri
     items: [
       { id: 'home',      label: 'Dashboard', icon: 'home' },
       { id: 'discover',  label: 'Discover',  icon: 'chart' },
+      { id: 'token',     label: 'BTB Token', icon: 'bank' },
     ],
   },
   {
