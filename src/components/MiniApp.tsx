@@ -7,6 +7,7 @@ import { Tab } from './types';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import { DiscoverScreen } from './screens/DiscoverScreen';
+import { TokenScreen } from './screens/TokenScreen';
 import { SimulateScreen } from './screens/SimulateScreen';
 import { SwapScreen } from './screens/SwapScreen';
 import { PortfolioScreen } from './screens/PortfolioScreen';
@@ -25,6 +26,7 @@ import { SidebarProvider } from '../lib/SidebarContext';
 const PAGE_META: Record<Tab, { title: string; subtitle: string }> = {
   home:      { title: 'Dashboard', subtitle: 'Your balances at a glance' },
   discover:  { title: 'Discover',  subtitle: 'Find the best performing pools' },
+  token:     { title: 'BTB Token', subtitle: 'The token powering the BTB ecosystem' },
   simulate:  { title: 'Simulate',  subtitle: 'Estimate LP earnings for any pool' },
   swap:      { title: 'Swap',      subtitle: 'Trade tokens instantly' },
   portfolio: { title: 'Portfolio', subtitle: 'Tokens and LP positions' },
@@ -69,6 +71,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
                           onDocs={() => setOverlay('docs')} onProducts={() => setOverlay('products')}
                           onConnectWallet={() => setShowConnect(true)}/>;
       case 'discover':  return <DiscoverScreen/>;
+      case 'token':     return <TokenScreen onSwap={() => setScreen('swap')}/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
       case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => { setSwapToken(t); setScreen('swap'); }}/>;
@@ -98,6 +101,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
         isReadOnly={isReadOnly}
         onDisconnect={handleLeave}
         onDocs={() => setOverlay('docs')}
+        onProducts={() => setOverlay('products')}
         onConnect={() => setShowConnect(true)}
       />
       <div style={{ flex: 1, minWidth: 0, padding: '32px 40px 60px', overflowY: 'auto' }}>

@@ -7,7 +7,7 @@ import { btb } from '../design-tokens';
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
-export type ProtocolCategory = 'lending' | 'dexs' | 'perps' | 'bridge' | 'vaults' | 'launchpad' | 'insurance' | 'liquid-staking' | 'liquid-restaking' | 'rwa' | 'cdp' | 'options';
+export type ProtocolCategory = 'lending' | 'dexs' | 'perps' | 'bridge' | 'vaults' | 'launchpad' | 'insurance' | 'liquid-staking' | 'liquid-restaking' | 'rwa' | 'cdp' | 'options' | 'governance';
 
 export interface ProtocolInfo {
   id: string;
@@ -528,6 +528,31 @@ const PROTOCOLS: ProtocolInfo[] = [
     stats: [{ label: 'TVL', value: '$10M' }, { label: 'Total Volume', value: '$350M' }, { label: 'Open Interest', value: '$6M' }, { label: 'Strategies', value: '8' }],
     tags: ['Options', 'Live'],
   },
+
+  // ── Vote & Earn (governance / vote-escrow) ──────────────────────────────────
+  // Lock a governance token to vote on where emissions go and earn the trading
+  // fees + bribes from the pools you vote for. Wired up over time.
+  {
+    id: 'aerodrome-ve', name: 'Aerodrome', category: 'governance', logo: '✈️',
+    description: 'Base\'s ve(3,3) DEX. Lock AERO for veAERO to vote on gauge emissions each epoch and collect 100% of the trading fees plus bribes from the pools you vote for.',
+    website: 'https://aerodrome.finance', chains: ['Base'],
+    stats: [{ label: 'Token', value: 'AERO' }, { label: 'Lock', value: 'veAERO' }, { label: 'Max lock', value: '4 years' }, { label: 'You earn', value: 'Fees + bribes' }],
+    tags: ['Vote & Earn', 'Coming Soon'],
+  },
+  {
+    id: 'curve-ve', name: 'Curve', category: 'governance', logo: '〰️',
+    description: 'Lock CRV for veCRV to boost your LP rewards up to 2.5×, vote weekly on gauge weights, and earn a share of protocol trading fees plus vote-incentive bribes.',
+    website: 'https://curve.fi', chains: ['Ethereum', 'Arbitrum', 'Base', 'Optimism'],
+    stats: [{ label: 'Token', value: 'CRV' }, { label: 'Lock', value: 'veCRV' }, { label: 'Max lock', value: '4 years' }, { label: 'You earn', value: 'Fees + bribes' }],
+    tags: ['Vote & Earn', 'Coming Soon'],
+  },
+  {
+    id: 'yearn-ve', name: 'Yearn', category: 'governance', logo: '🔵',
+    description: 'Lock YFI for veYFI to vote on how gauge rewards are split across Yearn vaults and earn dYFI rewards for participating.',
+    website: 'https://yearn.fi', chains: ['Ethereum'],
+    stats: [{ label: 'Token', value: 'YFI' }, { label: 'Lock', value: 'veYFI' }, { label: 'Max lock', value: '4 years' }, { label: 'You earn', value: 'dYFI rewards' }],
+    tags: ['Vote & Earn', 'Coming Soon'],
+  },
 ];
 
 export function getProtocol(id: string) {
@@ -553,6 +578,7 @@ const CATEGORY_META: Record<ProtocolCategory, { label: string; color: string; ic
   rwa:                { label: 'RWA',              color: '#FBBF24', icon: 'bank'   },
   cdp:                { label: 'CDP',              color: '#34D399', icon: 'vault'  },
   options:            { label: 'Options',          color: '#F87171', icon: 'chart'  },
+  governance:         { label: 'Vote & Earn',      color: '#A78BFA', icon: 'vote'   },
 };
 
 function StatCard({ label, value }: { label: string; value: string }) {
