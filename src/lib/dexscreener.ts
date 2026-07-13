@@ -35,3 +35,46 @@ export async function fetchDexScreenerPools(ids: string[], chain = 'ethereum'): 
   });
   return out;
 }
+
+export interface DexScreenerPairPool {
+  address: string;        // lowercase pair address
+  dexId: string;          // e.g. "uniswap", "sushiswap", "balancer"
+  labels: string[];       // e.g. ["v3"] — version hints when DexScreener has them
+  tvlUsd: number;
+  volume24hUsd: number;
+}
+
+/**
+ * Every pool DexScreener knows for a token (or token pair), across ALL DEXes
+ * — merged with GeckoTerminal's search so pool discovery is complete rather
+ * than limited to the protocols the app can mint on.
+ */
+export async function fetchDexScreenerPairPools(tokenAAddress: string, tokenBAddress?: string, chain = 'ethereum'): Promise<DexScreenerPairPool[]> {
+  const b = tokenBAddress?.toLowerCase();
+  const out: DexScreenerPairPool[] = [];
+  try {
+    const res = await fetch(`https://api.dexscreener.com/token-pairs/v1/${chain}/${tokenAAddress}`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return out;
+    const pairs = await res.json() as {
+      pairAddress?: string; dexId?: string; labels?: string[];
+      baseToken?: { address?: string }; quoteToken?: { address?: string };
+      liquidity?: { usd?: number }; volume?: { h24?: number };
+    }[];
+    for (const p of pairs ?? []) {
+      const side = new Set([p.baseToken?.address?.toLowerCase(), p.quoteToken?.address?.toLowerCase()]);
+      if ((b && !side.has(b)) || !p.pairAddress) continue;
+      // Balancer multi-token pool ids etc. aren't plain addresses — skip those.
+      if (!/^0x[0-9a-fA-F]{40}$/.test(p.pairAddress)) continue;
+      out.push({
+        address: p.pairAddress.toLowerCase(),
+        dexId: p.dexId ?? 'unknown',
+        labels: p.labels ?? [],
+        tvlUsd: p.liquidity?.usd ?? 0,
+        volume24hUsd: p.volume?.h24 ?? 0,
+      });
+    }
+  } catch { /* best-effort — caller merges whatever arrives */ }
+  return out;
+}

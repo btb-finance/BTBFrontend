@@ -290,9 +290,9 @@ export function poolsForToken(pools: EarnPool[], addrs: string[]): EarnPool[] {
 
 /** 385.9 → "386", 38.59 → "38.59", 3859 → "3,859". */
 export function fmtApr(v: number): string {
-  if (v >= 1000) return Math.round(v).toLocaleString('en-US');
-  if (v >= 100) return v.toFixed(0);
-  return v.toFixed(2);
+  if (v >= 1000) return `${Math.round(v).toLocaleString('en-US')}%`;
+  if (v >= 100) return `${v.toFixed(0)}%`;
+  return `${v.toFixed(2)}%`;
 }
 
 /** The concentrated-range width the list's headline APR is quoted for. */

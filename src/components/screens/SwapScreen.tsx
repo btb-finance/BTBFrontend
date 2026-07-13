@@ -16,6 +16,9 @@ import { Screen } from '../Screen';
 import { Badge } from '../Badge';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { getKyberQuote, buildKyberTx, KyberQuote } from '../../lib/kyberswap';
+import { getUniswapQuote, prepareUniswapExecution, buildClassicSwapTx, submitUniswapXOrder, waitForOrderFill, type UniQuote } from '../../lib/uniswapTrading';
+import { signTypedData } from 'wagmi/actions';
+import { formatUnits } from 'viem';
 import { CHAIN_META } from '../../lib/wagmi';
 import { parseUnits } from 'viem';
 import { api } from '../../../convex/_generated/api';
@@ -158,6 +161,10 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const [picker,    setPicker]    = useState<'from' | 'to' | null>(null);
   const [step,      setStep]      = useState<SwapStep>('form');
   const [quote,     setQuote]     = useState<KyberQuote | null>(null);
+  // Second routing source (UNI.md Phases 1+2): Uniswap Trading API quote
+  // (CLASSIC or gasless UniswapX), fetched alongside Kyber — whichever pays
+  // out more wins the execution.
+  const [uniQuote,  setUniQuote]  = useState<UniQuote | null>(null);
   const [quoting,   setQuoting]   = useState(false);
   const [quoteErr,  setQuoteErr]  = useState<string | null>(null);
   const [txHash,    setTxHash]    = useState<`0x${string}` | undefined>();
@@ -238,38 +245,107 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     }
   }, [tokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
 
-  // Debounced KyberSwap quote
+  // Debounced quotes — KyberSwap and Uniswap Trading API in parallel
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); return; }
+    if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); setUniQuote(null); return; }
     debounceRef.current = setTimeout(async () => {
       setQuoting(true);
       setQuoteErr(null);
+      const amtIn = parseUnits(fromAmt, fromToken.decimals).toString();
+      // Uniswap source is best-effort: unconfigured key or API error just
+      // means Kyber-only, never a user-facing failure.
+      const uniP = getUniswapQuote({
+        tokenIn: fromToken.address, tokenOut: toToken.address, amountIn: amtIn,
+        swapper: address ?? '0x0000000000000000000000000000000000000001', slippagePct: 0.5,
+      }).catch(() => null);
       try {
-        const amtIn = parseUnits(fromAmt, fromToken.decimals).toString();
         const q = await getKyberQuote(fromToken.address, toToken.address, amtIn, toToken.decimals, chainId);
         setQuote(q);
       } catch (e) {
         setQuoteErr((e as Error).message);
         setQuote(null);
-      } finally {
-        setQuoting(false);
       }
+      setUniQuote(await uniP);
+      setQuoting(false);
     }, 600);
-  }, [fromAmt, fromToken.address, toToken.address, chainId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fromAmt, fromToken.address, toToken.address, chainId, address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function flip() {
     setFromToken(toToken); setToToken(fromToken);
-    setFromAmt(''); setQuote(null);
+    setFromAmt(''); setQuote(null); setUniQuote(null);
   }
 
   function reset() {
-    setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); setErrMsg('');
+    setStep('form'); setFromAmt(''); setQuote(null); setUniQuote(null); setTxHash(undefined); setErrMsg('');
   }
 
   async function executeSwap() {
-    if (!quote || !address) return;
+    if (!address || (!quote && !uniQuote)) return;
     try {
+      // Uniswap wins (or Kyber has no route): fresh Trading API quote, then
+      // either a CLASSIC tx batch or a gasless UniswapX order.
+      if (uniBetter || !quote) {
+        setStep('approving');
+        const plan = await prepareUniswapExecution({
+          tokenIn: fromToken.address, tokenOut: toToken.address,
+          amountIn: parseUnits(fromAmt, fromToken.decimals).toString(),
+          swapper: address, slippagePct: 0.5,
+        });
+
+        if (plan.kind === 'classic') {
+          // Quote may carry a Permit2 authorization to sign; signature and
+          // permitData then travel together to /swap.
+          const signature = plan.permit
+            ? await signTypedData(config, {
+                domain: plan.permit.domain, types: plan.permit.types,
+                primaryType: plan.permit.primaryType, message: plan.permit.message,
+              })
+            : undefined;
+          const swapCall = await buildClassicSwapTx(plan.raw, signature);
+          setStep('sending');
+          const { lastHash } = await runCalls(config, {
+            account: address,
+            calls: [...plan.approval, swapCall],
+            label: `Swap ${fromToken.symbol} → ${toToken.symbol} (Uniswap)`,
+            track,
+          });
+          if (lastHash) setTxHash(lastHash);
+        } else {
+          // UniswapX: one-time Permit2 approval must confirm before signing,
+          // then the order itself is just a signature — fillers pay the gas.
+          if (plan.approval.length > 0) {
+            await runCalls(config, {
+              account: address,
+              calls: plan.approval,
+              label: `Approve ${fromToken.symbol} for gasless swaps`,
+              track,
+            });
+          }
+          setStep('sending');
+          const signature = await signTypedData(config, {
+            domain: plan.permit.domain,
+            types: plan.permit.types,
+            primaryType: plan.permit.primaryType,
+            message: plan.permit.message,
+          });
+          await submitUniswapXOrder(plan.raw, signature);
+          const fill = await waitForOrderFill(plan.orderHash);
+          if (fill.status !== 'filled') {
+            throw new Error(
+              fill.status === 'expired' || fill.status === 'timeout'
+                ? 'Order was not filled (nothing was spent). Try again.'
+                : `Order ${fill.status} (nothing was spent).`,
+            );
+          }
+          if (fill.txHash) setTxHash(fill.txHash);
+        }
+
+        setStep('success');
+        awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
+        return;
+      }
+
       const calls: Call[] = [];
 
       // ERC-20: approve the router first if the allowance is short. Batched with
@@ -322,8 +398,20 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
 
   const fromBal = fromToken.balance ? parseFloat(fromToken.balance) : 0;
   const fromUsd = fromToken.usdPrice && fromAmt ? parseFloat(fromAmt) * fromToken.usdPrice : null;
-  const toUsd   = quote?.amountOutUsd ?? null;
-  const canSwap = !!quote && !!address && !quoting;
+
+  // Route comparison: Uniswap wins when it pays out more raw units than Kyber
+  // (or when Kyber has no route at all).
+  const uniBetter = !!uniQuote && uniQuote.amountOut > BigInt(quote?.amountOut ?? '0');
+  const uniOutNum = uniQuote ? parseFloat(formatUnits(uniQuote.amountOut, toToken.decimals)) : 0;
+  const bestOutFormatted = uniBetter
+    ? uniOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 })
+    : quote?.amountOutFormatted ?? '0';
+  const toUsd = uniBetter
+    ? (toToken.usdPrice ? uniOutNum * toToken.usdPrice : quote?.amountOutUsd ?? null)
+    : quote?.amountOutUsd ?? null;
+  const dispRate = uniBetter && parseFloat(fromAmt) > 0 ? uniOutNum / parseFloat(fromAmt) : quote?.rate ?? 0;
+  const dispGasUsd = uniBetter ? uniQuote!.gasFeeUSD : quote?.gasUsd ?? null;
+  const canSwap = (!!quote || !!uniQuote) && !!address && !quoting;
 
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
@@ -370,7 +458,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, color: quoting ? btb.textMuted : btb.text, fontSize: 36, fontWeight: 700, letterSpacing: -1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {quoting ? '…' : quote ? quote.amountOutFormatted : '0'}
+              {quoting ? '…' : (quote || uniQuote) ? bestOutFormatted : '0'}
             </div>
             <TokenPill token={toToken} onClick={() => setPicker('to')}/>
           </div>
@@ -378,12 +466,25 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         </Glass>
       </div>
 
-      {quote && !quoting && (
+      {(quote || uniQuote) && !quoting && (
         <Glass padding={14} radius={18} soft>
-          <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${quote.rate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`}/>
-          <InfoRow label="Network fee"  value={quote.gasUsd > 0 ? `~ $${quote.gasUsd.toFixed(2)}` : '—'}/>
-          <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : '#52E3A4' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>
-          <InfoRow label="Route" last   value={<span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Icon name="bolt" size={12} color={btb.amber}/>{quote.route}</span>}/>
+          <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`}/>
+          <InfoRow label="Network fee"  value={
+            uniBetter && uniQuote!.gasless
+              ? <span style={{ color: '#52E3A4', fontWeight: 700 }}>Free · gasless</span>
+              : dispGasUsd != null && dispGasUsd > 0 ? `~ $${dispGasUsd.toFixed(2)}` : '—'
+          }/>
+          {!uniBetter && quote && (
+            <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : '#52E3A4' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>
+          )}
+          <InfoRow label="Route" last value={
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Icon name="bolt" size={12} color={btb.amber}/>
+              {uniBetter
+                ? <span style={{ color: '#FF37C7' }}>{uniQuote!.gasless ? 'UniswapX · gasless, MEV protected' : 'Uniswap · best price'}</span>
+                : quote!.route}
+            </span>
+          }/>
         </Glass>
       )}
 
@@ -398,14 +499,14 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         disabled={!address ? false : !canSwap}
         style={{ marginTop: 4, fontSize: 18 }}
       >
-        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : quoteErr ? 'No route found' : quote ? 'Review swap' : 'Enter amount'}
+        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : (quote || uniQuote) ? 'Review swap' : quoteErr ? 'No route found' : 'Enter amount'}
       </Button>
 
       {picker && (
         <TokenPicker
           tokens={tokens}
           selected={picker === 'from' ? fromToken.address : toToken.address}
-          onSelect={t => { picker === 'from' ? setFromToken(t) : setToToken(t); setFromAmt(''); setQuote(null); }}
+          onSelect={t => { picker === 'from' ? setFromToken(t) : setToToken(t); setFromAmt(''); setQuote(null); setUniQuote(null); }}
           onClose={() => setPicker(null)}
         />
       )}
@@ -449,9 +550,9 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 2 }}>You receive</div>
             <div style={{ color: '#52E3A4', fontSize: 17, fontWeight: 800, letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {quote?.amountOutFormatted} {toToken.symbol}
+              {bestOutFormatted} {toToken.symbol}
             </div>
-            {quote && quote.amountOutUsd > 0 && <div style={{ color: btb.textDim, fontSize: 12 }}>≈ ${quote.amountOutUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+            {toUsd != null && toUsd > 0 && <div style={{ color: btb.textDim, fontSize: 12 }}>≈ ${toUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
           </div>
         </div>
       </Glass>
@@ -496,7 +597,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
       <div style={{ textAlign: 'center' }}>
         <div style={{ color: btb.text, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>Swap complete!</div>
         <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 8 }}>
-          {fromAmt} {fromToken.symbol} → {quote?.amountOutFormatted} {toToken.symbol}
+          {fromAmt} {fromToken.symbol} → {bestOutFormatted} {toToken.symbol}
         </div>
         <Badge bg="rgba(82,227,164,0.14)" border="1px solid rgba(82,227,164,0.3)" color="#52E3A4" style={{ gap: 5, marginTop: 10, padding: '4px 12px', fontSize: 13 }}>
           <Icon name="bolt" size={13} color="#52E3A4"/> +{SWAP_XP} XP earned
