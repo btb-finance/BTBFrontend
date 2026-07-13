@@ -89,7 +89,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       {/* guides */}
       <div>
         <div style={{ color: btb.text, fontSize: 17, fontWeight: 700, marginBottom: 12, letterSpacing: -0.3 }}>Guides</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
           {GUIDES.map(g => (
             <Glass key={g.title} padding={16} radius={20} style={{ cursor: 'pointer' }}>
               <div style={{

@@ -51,11 +51,16 @@ export const SITE = {
   ogImageAlt: 'BTB Bears — the first NFTs that pay you forever',
 } as const;
 
-/** App "sections" (tabs today, deep-linkable later) — drives the sitemap. */
+/** App sections — every tab is a real deep-linkable path; drives the sitemap. */
 export const SECTIONS = [
   { path: '/',          title: SITE.title,                                       priority: 1.0, changeFrequency: 'daily'   as const },
-  { path: '/#nft',      title: 'BTB Bears — NFTs That Pay You Forever',          priority: 0.9, changeFrequency: 'daily'   as const },
-  { path: '/#stake',    title: 'Stake BTB Bears — Earn BTBB Rewards',            priority: 0.9, changeFrequency: 'daily'   as const },
-  { path: '/#swap',     title: 'Swap — Best-Price Token Swaps',                  priority: 0.8, changeFrequency: 'daily'   as const },
-  { path: '/#portfolio',title: 'Portfolio — Track Your Holdings',                priority: 0.6, changeFrequency: 'weekly'  as const },
+  { path: '/nft',       title: 'BTB Bears — NFTs That Pay You Forever',          priority: 0.9, changeFrequency: 'daily'   as const },
+  { path: '/token',     title: 'BTB Token — Stake and Earn Real Revenue',        priority: 0.9, changeFrequency: 'daily'   as const },
+  { path: '/swap',      title: 'Swap — Best-Price Token Swaps',                  priority: 0.8, changeFrequency: 'daily'   as const },
+  { path: '/discover',  title: 'Discover — Best Performing Pools',               priority: 0.8, changeFrequency: 'daily'   as const },
+  { path: '/earn',      title: 'Earn — Yearn Vaults and Staking',                priority: 0.8, changeFrequency: 'daily'   as const },
+  { path: '/simulate',  title: 'Simulate — Estimate LP Earnings',                priority: 0.7, changeFrequency: 'weekly'  as const },
+  { path: '/portfolio', title: 'Portfolio — Track Your Holdings',                priority: 0.6, changeFrequency: 'weekly'  as const },
+  { path: '/agent',     title: 'Agent — Your Portfolio AI',                      priority: 0.6, changeFrequency: 'weekly'  as const },
+  { path: '/docs',      title: 'Docs — Guides and Documentation',                priority: 0.5, changeFrequency: 'weekly'  as const },
 ] as const;

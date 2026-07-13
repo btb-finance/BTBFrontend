@@ -106,7 +106,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   simulate?: boolean;
   onClose: () => void; onDone?: () => void;
 }) {
-  const { width: sidebarWidth } = useSidebar();
+  const { width: sidebarWidth, isMobile } = useSidebar();
+  // Mobile: charts are opt-in — the sheet is long enough without them.
+  const [showChart, setShowChart] = useState(false);
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -914,7 +916,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   return (
     <Portal>
     <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-      <div style={{ width: '100%', padding: '16px 24px 88px' }}>
+      <div style={{ width: '100%', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
         {/* Compact single-row header: back chevron + title, pair/dex as an
             inline subtitle — keeps the tap-to-go-back affordance without the
             tall "Back to Discover" stack eating the top of small screens. */}
@@ -933,7 +935,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             </div>
           </div>
           {/* Collapse the panel for a full-width chart to drag the range on, then reopen to deposit. */}
-          {pool?.exists && !loadingPool && (
+          {!isMobile && pool?.exists && !loadingPool && (
             <button onClick={() => setPanelOpen(o => !o)} title={panelOpen ? 'Hide panel — full chart to set your range' : 'Show the deposit panel'} style={{
               flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -988,9 +990,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               </>
             )}
 
-            {/* Chart (left, wider) + range controls (right) — desktop two-column layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr', gap: 24, alignItems: 'start' }}>
+            {/* Chart (left, wider) + range controls (right) — desktop two-column
+                layout. On mobile everything stacks in one column and the charts
+                only render on request (Show chart). */}
+            <div style={{ display: 'grid', gridTemplateColumns: !isMobile && panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr', gap: isMobile ? 14 : 24, alignItems: 'start' }}>
             <div style={{ minWidth: 0 }}>
+            {isMobile && (
+              <button onClick={() => setShowChart(s => !s)} style={{
+                width: '100%', height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+                fontSize: 13, fontWeight: 700, marginBottom: showChart ? 10 : 0,
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
+              }}>{showChart ? '▴ Hide chart' : '▾ Show price chart'}</button>
+            )}
+            {(!isMobile || showChart) && (<>
             {/* Chart type — Baseline is our own draggable price line (set the
                 range right here); Candles is GeckoTerminal's view-only embed. */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
@@ -1035,12 +1047,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
                 </div>
               );
             })()}
+            </>)}
             </div>
 
             {/* Right column as a distinct, bordered panel — visually separated
                 from the chart on the left (Orca-style). Hidden when collapsed
-                so the chart gets the full width for easy range dragging. */}
-            {panelOpen && (
+                so the chart gets the full width for easy range dragging. On
+                mobile it's always shown (stacked below the chart toggle). */}
+            {(panelOpen || isMobile) && (
             <div style={{
               minWidth: 0, background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 16,
@@ -1057,8 +1071,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
             </div>
 
             {/* Liquidity depth (where LPs concentrated) — complements the price
-                chart on the left; drag to refine. Only when tick data loaded. */}
-            {dispTickLiq && dispTickLiq.length > 0 && dispPrice(price) > 0 && (() => {
+                chart on the left; drag to refine. Only when tick data loaded.
+                On mobile it follows the same opt-in as the price chart. */}
+            {(!isMobile || showChart) && dispTickLiq && dispTickLiq.length > 0 && dispPrice(price) > 0 && (() => {
               const rangeMin = rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null;
               const rangeMax = rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null;
               const onRangeChange = (lo: number, hi: number) => {

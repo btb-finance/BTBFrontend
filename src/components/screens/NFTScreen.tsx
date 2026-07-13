@@ -546,7 +546,7 @@ export function NFTScreen() {
       </div>
 
       {/* Tabs */}
-      <Glass padding={4} radius={18} style={{ display: 'grid', gridTemplateColumns: '260px 260px' }}>
+      <Glass padding={4} radius={18} style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 260px))' }}>
         {(['mint', 'stake'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             height: 42, borderRadius: 14, border: 'none', cursor: 'pointer',

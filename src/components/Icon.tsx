@@ -47,6 +47,7 @@ export function Icon({ name, size = 22, color = '#fff' }: IconProps) {
     case 'map':     return <svg viewBox="0 0 24 24" {...s}><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>;
     case 'star':    return <svg viewBox="0 0 24 24" {...s}><path d="M12 2l3 7 7 .8-5.2 4.8L18.5 22 12 18 5.5 22l1.7-7.4L2 9.8 9 9z"/></svg>;
     case 'close':   return <svg viewBox="0 0 24 24" {...s}><path d="M18 6L6 18M6 6l12 12"/></svg>;
+    case 'menu':    return <svg viewBox="0 0 24 24" {...s}><path d="M4 6h16M4 12h16M4 18h16"/></svg>;
     default:        return null;
   }
 }
