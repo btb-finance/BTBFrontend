@@ -27,6 +27,8 @@ export interface Token {
 }
 
 interface TokenStoreState {
+  /** The connected or imported (read-only) wallet address the store is tracking. */
+  walletAddress?: string;
   tokens: Token[];               // Convex mainnet token list enriched with wallet balances (swap picker)
   positions: Token[];            // Wallet token holdings — Ethereum mainnet, plus other chains when showAllChains is on
   balanceMap: Map<string, Token>;
@@ -249,7 +251,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
 
   return (
     <Ctx.Provider value={{
-      tokens, positions, balanceMap,
+      walletAddress, tokens, positions, balanceMap,
       loadingList, loadingBalances, error, refetchBalances,
       showAllChains, setShowAllChains, loadingOtherChains,
     }}>

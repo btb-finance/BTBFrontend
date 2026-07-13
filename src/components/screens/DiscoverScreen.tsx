@@ -2,10 +2,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { getEarnPools, addRangeAprs, mintTarget, lpAddressesForToken, fmtApr, fmtCompactUsd, EarnPool } from '../../lib/pools';
+import { mintTarget, lpAddressesForToken, fmtApr, fmtCompactUsd, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
-import { fetchPoolPriceChanges, fetchPoolSparkline } from '../../lib/geckoterminal';
-import { fetchPoolChart } from '../../lib/defillama';
+import { useDiscoverPools, prefetchDiscoverPools } from '../../lib/discoverPools';
 import { DataTable, Column } from '../DataTable';
 import { TokenIcon } from '../TokenIcon';
 import { Sparkline } from '../Sparkline';
@@ -13,15 +12,10 @@ import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { Glass } from '../Glass';
+import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
-
-// Sparkline curves cost one request per pool (neither GeckoTerminal nor
-// DeFiLlama has a batch history endpoint) — cap how many rows fetch one so
-// opening Discover never fires dozens of requests at once. The cheap 24h %
-// (one batched GeckoTerminal call for every indexer-sourced row) always loads
-// regardless of this cap.
-const SPARKLINE_ROW_LIMIT = 12;
+import { useSidebar } from '../../lib/SidebarContext';
 
 /** Fee-based estimate used when the indexer doesn't report real 24h fees (DeFiLlama-sourced rows). */
 function estFees24h(p: EarnPool): number {
@@ -38,46 +32,14 @@ const COMING_SOON_DEXS: { name: string; color: string }[] = [
 
 export function DiscoverScreen() {
   const config = useConfig();
-  const [pools, setPools] = useState<EarnPool[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { isMobile } = useSidebar();
+  const { pools, priceChange, sparklines, loading } = useDiscoverPools();
   const [search, setSearch] = useState('');
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
-  const [priceChange, setPriceChange] = useState<Record<string, number>>({});
-  const [sparklines, setSparklines] = useState<Record<string, number[]>>({});
 
+  // No-op when the app shell already warmed the data (or it's still fresh).
   useEffect(() => {
-    let live = true;
-    setLoading(true);
-    const client = getPublicClient(config);
-    getEarnPools(undefined, client)
-      .then(p => {
-        if (!live) return;
-        setPools(p);
-        if (client) addRangeAprs(client, p).then(ep => { if (live) setPools(ep); }).catch(() => {});
-
-        // 24h % and volume/fees now come bundled with the pool list itself
-        // (DeFiLlama's `apyPct1D`/`volumeUsd1d`, or the indexer's own 24h
-        // figures) — no extra request needed for those. The sparkline curve
-        // still needs one request per pool (neither source has a batch
-        // history endpoint), so it's capped to the top rows by TVL.
-        const byTvl = [...p].sort((a, b) => b.tvlUsd - a.tvlUsd);
-        const addressable = byTvl.filter(x => x.source === 'uniswap');
-        const llamaSourced = byTvl.filter(x => x.source === 'defillama');
-
-        if (addressable.length > 0) {
-          fetchPoolPriceChanges(addressable.map(x => x.id)).then(m => { if (live) setPriceChange(prev => ({ ...prev, ...m })); });
-          addressable.slice(0, SPARKLINE_ROW_LIMIT).forEach(pool => {
-            fetchPoolSparkline(pool.id).then(s => { if (live && s.length > 1) setSparklines(prev => ({ ...prev, [pool.id]: s })); });
-          });
-        }
-        llamaSourced.slice(0, SPARKLINE_ROW_LIMIT).forEach(pool => {
-          fetchPoolChart(pool.id).then(chart => {
-            if (live && chart.length > 1) setSparklines(prev => ({ ...prev, [pool.id]: chart.slice(-14).map(c => c.tvlUsd) }));
-          });
-        });
-      })
-      .finally(() => { if (live) setLoading(false); });
-    return () => { live = false; };
+    prefetchDiscoverPools(getPublicClient(config));
   }, [config]);
 
   const { positions, tokens } = useTokenStore();
@@ -238,17 +200,101 @@ export function DiscoverScreen() {
         </div>
       </div>
 
-      <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
-        <DataTable
-          columns={columns}
-          rows={filtered}
-          rowKey={p => p.id}
-          loading={loading}
-          emptyMessage="No pools found"
-          defaultSortKey="tvl"
-          onRowClick={p => setSheet({ pool: p, simulate: mintTarget(p) === null })}
-        />
-      </div>
+      {isMobile ? (
+        // Compact card list — the full table is far too wide for phones.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {loading && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+              <Spinner size={26} color="#fff" track="rgba(255,255,255,0.18)" />
+            </div>
+          )}
+          {!loading && filtered.length === 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 32 }}>No pools found</div>
+          )}
+          {!loading && [...filtered].sort((a, b) => b.tvlUsd - a.tvlUsd).map(p => {
+            const [s0, s1] = splitPair(p);
+            const mine = heldSyms(p);
+            const [addr0, addr1] = p.underlyingTokens ?? [];
+            const pct = p.apyChange1d ?? priceChange[p.id];
+            const spark = sparklines[p.id];
+            const mintable = mintTarget(p) !== null;
+            return (
+              <Glass key={p.id} padding={14} radius={18} onClick={() => setSheet({ pool: p, simulate: !mintable })}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', flexShrink: 0 }}>
+                    <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
+                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined} /></div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
+                      <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
+                        {p.dex}{p.version ? ` ${p.version}` : ''}
+                      </Badge>
+                      {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{(p.feeTier / 10000).toFixed(2)}%</span>}
+                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
+                      {mine.length > 0 && (
+                        <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                          You hold {mine.join(' + ')}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ color: btb.green, fontSize: 15, fontWeight: 800 }}>{fmtApr(p.aprRange ?? p.apy)}</div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>APR</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10 }}>
+                  <div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>TVL</div>
+                    <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600 }}>{fmtCompactUsd(p.tvlUsd)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>24h</div>
+                    <div style={{ color: pct == null ? btb.textDim : pct >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 600 }}>
+                      {pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>Fees (24h)</div>
+                    <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600 }}>{p.fees24hUsd == null && '≈ '}{fmtCompactUsd(estFees24h(p))}</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto' }}>
+                    {spark && <Sparkline points={spark} width={64} height={22} color={spark[spark.length - 1] >= spark[0] ? btb.green : btb.loss} />}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }} onClick={e => e.stopPropagation()}>
+                  {mintable && (
+                    <Button variant="success" size="sm" onClick={() => setSheet({ pool: p, simulate: false })}
+                      style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
+                      <Icon name="plus" size={12} /> Add LP
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => setSheet({ pool: p, simulate: true })}
+                    style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
+                    Simulate
+                  </Button>
+                </div>
+              </Glass>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            rowKey={p => p.id}
+            loading={loading}
+            emptyMessage="No pools found"
+            defaultSortKey="tvl"
+            onRowClick={p => setSheet({ pool: p, simulate: mintTarget(p) === null })}
+          />
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none', alignItems: 'center' }}>
         <span style={{ color: btb.textDim, fontSize: 12, fontWeight: 600, marginRight: 4, flexShrink: 0 }}>More DEXs soon:</span>

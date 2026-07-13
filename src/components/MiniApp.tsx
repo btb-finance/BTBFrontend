@@ -1,8 +1,15 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useConnection, useDisconnect, useSwitchChain } from 'wagmi';
+import { usePathname } from 'next/navigation';
+import { useConnection, useDisconnect, useSwitchChain, useConfig } from 'wagmi';
+import { getPublicClient } from 'wagmi/actions';
+import { prefetchDiscoverPools } from '../lib/discoverPools';
+import { prefetchYearnVaults } from '../lib/yearn';
+import { pathFor, parsePath, type Overlay } from '../lib/routes';
+import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
 import { Sidebar } from './Sidebar';
+import { MobileNav } from './MobileNav';
 import { Tab } from './types';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -16,23 +23,11 @@ import { StakeScreen } from './screens/StakeScreen';
 import { ReceiveModal } from './ReceiveModal';
 import { SendModal } from './SendModal';
 import { DocsScreen } from './screens/DocsScreen';
-import { ProductsScreen } from './screens/ProductsScreen';
-import { ProtocolCategoryScreen, ProtocolDetailScreen, ProtocolCategory } from './screens/ProtocolScreen';
+import { EarnScreen } from './screens/EarnScreen';
 import { btb } from './design-tokens';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
-import { SidebarProvider } from '../lib/SidebarContext';
-
-const PAGE_META: Record<Tab, { title: string; subtitle: string }> = {
-  home:      { title: 'Dashboard', subtitle: 'Your balances at a glance' },
-  discover:  { title: 'Discover',  subtitle: 'Find the best performing pools' },
-  token:     { title: 'BTB Token', subtitle: 'The token powering the BTB ecosystem' },
-  simulate:  { title: 'Simulate',  subtitle: 'Estimate LP earnings for any pool' },
-  swap:      { title: 'Swap',      subtitle: 'Trade tokens instantly' },
-  portfolio: { title: 'Portfolio', subtitle: 'Tokens and LP positions' },
-  nft:       { title: 'NFT',       subtitle: 'BTB Bear NFT & staking' },
-  stake:     { title: 'Agent',     subtitle: 'Automated strategies' },
-};
+import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
 
 function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   effectiveAddress?: string;
@@ -40,10 +35,11 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   onImportAddress: (addr: string) => void;
   onLeave: () => void;
 }) {
-  const [screen, setScreen]   = useState<Tab>('home');
-  const [overlay, setOverlay] = useState<'docs' | 'products' | null>(null);
-  const [protocolCategory, setProtocolCategory] = useState<ProtocolCategory | null>(null);
-  const [protocolId, setProtocolId] = useState<string | null>(null);
+  // Screen + overlay are seeded from the URL (each tab has a real path, e.g.
+  // /discover, /token, /earn) and kept in sync via pushState/popstate below.
+  const initialRoute = parsePath(usePathname() ?? '/');
+  const [screen, setScreen]   = useState<Tab>(initialRoute.screen);
+  const [overlay, setOverlay] = useState<Overlay>(initialRoute.overlay);
   const [showReceive, setShowReceive] = useState(false);
   const [showSend, setShowSend]       = useState(false);
   const [showConnect, setShowConnect] = useState(false);
@@ -54,9 +50,54 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   // the NFT/Agent tab is instant when they open it.
   usePreloadBear(effectiveAddress);
 
-  const goto = (t: Tab) => { if (t === 'swap') setSwapToken(undefined); setScreen(t); };
+  const { isMobile } = useSidebar();
+  const config = useConfig();
 
-  const handleLeave = () => { onLeave(); setScreen('home'); };
+  // Warm the heavy tab data (Discover pools, Yearn vaults) in the background
+  // right after the shell mounts, so those tabs open instantly instead of
+  // starting their fetches on first visit. Both prefetchers no-op when the
+  // data is already fresh or in flight.
+  useEffect(() => {
+    prefetchDiscoverPools(getPublicClient(config));
+    prefetchYearnVaults();
+  }, [config]);
+
+  // Push a history entry whenever navigation changes the visible view, and
+  // restore state when the user hits back/forward.
+  const syncUrl = (s: Tab, o: Overlay) => {
+    const path = pathFor(s, o);
+    if (window.location.pathname !== path) window.history.pushState(null, '', path);
+  };
+  useEffect(() => {
+    const onPop = () => {
+      const r = parsePath(window.location.pathname);
+      setScreen(r.screen);
+      setOverlay(r.overlay);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // Switching tabs also closes any overlay (Earn/Docs) so navigation always
+  // does something visible — especially important for the mobile bottom nav.
+  const goto = (t: Tab) => { if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
+  const openOverlay = (o: Exclude<Overlay, null>) => { setOverlay(o); syncUrl(screen, o); };
+  const closeOverlay = () => { setOverlay(null); syncUrl(screen, null); };
+
+  // Open the swap tab with a preselected pair and a URL that carries it
+  // (/swap?from=…&to=…), so the destination is fully linkable.
+  const openSwap = (opts?: { from?: Token; toAddress?: string }) => {
+    setSwapToken(opts?.from);
+    setOverlay(null);
+    setScreen('swap');
+    const q = new URLSearchParams();
+    if (opts?.from) q.set('from', opts.from.address);
+    if (opts?.toAddress) q.set('to', opts.toAddress);
+    const path = q.size > 0 ? `/swap?${q}` : '/swap';
+    if (window.location.pathname + window.location.search !== path) window.history.pushState(null, '', path);
+  };
+
+  const handleLeave = () => { onLeave(); setScreen('home'); syncUrl('home', null); };
 
   // Actions that need a wallet fall back to opening the connect modal instead
   // of gating the whole app — browsing (Discover, Dashboard, Portfolio in
@@ -68,53 +109,56 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       case 'home':      return <HomeScreen goto={goto} address={effectiveAddress}
                           onDisconnect={handleLeave}
                           onReceive={requireWallet(() => setShowReceive(true))} onSend={requireWallet(() => setShowSend(true))}
-                          onDocs={() => setOverlay('docs')} onProducts={() => setOverlay('products')}
+                          onDocs={() => openOverlay('docs')} onEarn={() => openOverlay('earn')}
                           onConnectWallet={() => setShowConnect(true)}/>;
       case 'discover':  return <DiscoverScreen/>;
-      case 'token':     return <TokenScreen onSwap={() => setScreen('swap')}/>;
+      case 'token':     return <TokenScreen onSwap={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
-      case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => { setSwapToken(t); setScreen('swap'); }}/>;
+      case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })} onOpenEarn={() => openOverlay('earn')}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen/>;
     }
   })();
 
-  const overlayContent = protocolId
-    ? <ProtocolDetailScreen id={protocolId} onBack={() => setProtocolId(null)}/>
-    : protocolCategory
-    ? <ProtocolCategoryScreen category={protocolCategory} onBack={() => setProtocolCategory(null)} onProtocol={id => setProtocolId(id)}/>
-    : overlay === 'docs'
-    ? <DocsScreen onBack={() => setOverlay(null)}/>
-    : overlay === 'products'
-    ? <ProductsScreen onBack={() => setOverlay(null)} onCategory={c => setProtocolCategory(c as ProtocolCategory)}/>
+  const overlayContent = overlay === 'docs'
+    ? <DocsScreen onBack={closeOverlay}/>
+    : overlay === 'earn'
+    ? <EarnScreen onBack={closeOverlay} address={effectiveAddress} onConnect={() => setShowConnect(true)}/>
     : null;
-
-  const meta = PAGE_META[screen];
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', background: btb.bg, display: 'flex' }}>
-      <Sidebar
-        tab={screen}
-        setTab={goto}
-        address={effectiveAddress}
-        isReadOnly={isReadOnly}
-        onDisconnect={handleLeave}
-        onDocs={() => setOverlay('docs')}
-        onProducts={() => setOverlay('products')}
-        onConnect={() => setShowConnect(true)}
-      />
-      <div style={{ flex: 1, minWidth: 0, padding: '32px 40px 60px', overflowY: 'auto' }}>
-        {overlayContent ?? (
-          <>
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>{meta.title}</div>
-              <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 4 }}>{meta.subtitle}</div>
-            </div>
-            {content}
-          </>
-        )}
+      {!isMobile && (
+        <Sidebar
+          tab={screen}
+          setTab={goto}
+          address={effectiveAddress}
+          isReadOnly={isReadOnly}
+          onDisconnect={handleLeave}
+          onDocs={() => openOverlay('docs')}
+          onEarn={() => openOverlay('earn')}
+          onConnect={() => setShowConnect(true)}
+        />
+      )}
+      <div style={{
+        flex: 1, minWidth: 0, overflowY: 'auto',
+        padding: isMobile ? '18px 14px calc(96px + env(safe-area-inset-bottom))' : '32px 40px 60px',
+      }}>
+        {overlayContent ?? content}
       </div>
+      {isMobile && (
+        <MobileNav
+          tab={screen}
+          setTab={goto}
+          address={effectiveAddress}
+          isReadOnly={isReadOnly}
+          onEarn={() => openOverlay('earn')}
+          onDocs={() => openOverlay('docs')}
+          onConnect={() => setShowConnect(true)}
+          onDisconnect={handleLeave}
+        />
+      )}
       {showReceive && <ReceiveModal address={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => setShowReceive(false)}/>}
       {showSend    && <SendModal fromAddress={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => { setShowSend(false); setSendToken(undefined); }} initialToken={sendToken}/>}
       {showConnect && (

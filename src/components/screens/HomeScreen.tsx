@@ -10,6 +10,7 @@ import { DataTable, Column } from '../DataTable';
 import { PortfolioChart } from '../PortfolioChart';
 import { Tab } from '../types';
 import { useTokenStore, Token } from '../../lib/TokenStore';
+import { useSidebar } from '../../lib/SidebarContext';
 import { api } from '../../../convex/_generated/api';
 
 function fmtUsd(n: number) {
@@ -23,10 +24,11 @@ export function HomeScreen({ goto, address, onSend, onReceive, onConnectWallet }
   onReceive?: () => void;
   onSend?: () => void;
   onDocs?: () => void;
-  onProducts?: () => void;
+  onEarn?: () => void;
   onConnectWallet?: () => void;
 }) {
   const { positions, loadingBalances } = useTokenStore();
+  const { isMobile } = useSidebar();
 
   const totalUsd = positions.reduce((s, t) => s + (t.usdValue ?? 0), 0);
   const heldTokens = [...positions]
@@ -70,7 +72,7 @@ export function HomeScreen({ goto, address, onSend, onReceive, onConnectWallet }
     finally { setBusy(false); }
   }
 
-  const columns: Column<Token>[] = [
+  const allColumns: Column<Token>[] = [
     {
       key: 'symbol', label: 'Asset', sortable: true, sortValue: t => t.symbol,
       render: t => (
@@ -107,11 +109,12 @@ export function HomeScreen({ goto, address, onSend, onReceive, onConnectWallet }
       render: t => <span style={{ fontWeight: 700 }}>${fmtUsd(t.usdValue ?? 0)}</span>,
     },
   ];
+  const columns = allColumns.filter(c => !isMobile || ['symbol', 'balance', 'value'].includes(c.key));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', gap: 16 }}>
-        <Glass padding={22} radius={18} strong style={{ flex: 2, minWidth: 0 }}>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <Glass padding={22} radius={18} strong style={{ flex: 2, minWidth: 280 }}>
           {address && heldTokens.length > 0 ? (
             <PortfolioChart heldTokens={heldTokens} />
           ) : (
@@ -130,7 +133,7 @@ export function HomeScreen({ goto, address, onSend, onReceive, onConnectWallet }
           )}
         </Glass>
 
-        <Glass padding={22} radius={18} style={{ flex: 1 }}>
+        <Glass padding={22} radius={18} style={{ flex: 1, minWidth: 240 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>Earn XP</div>

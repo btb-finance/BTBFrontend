@@ -236,6 +236,7 @@ async function findV3Pools(client: PublicClient, protocol: 'uniswap-v3' | 'panca
 
 export function SimulateScreen() {
   const config = useConfig();
+  const { isMobile } = useSidebar();
   const { tokens } = useTokenStore();
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
@@ -394,6 +395,40 @@ export function SimulateScreen() {
               </div>
             );
           })()}
+          {isMobile ? (
+            // Stacked cards — the 5-column comparison grid doesn't fit a phone.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
+              {found.map((f, i) => {
+                const p = PROTOCOLS.find(x => x.id === f.protocol)!;
+                return (
+                  <div key={`${f.protocol}-${f.feeTier}`} style={{
+                    borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
+                    background: i === 0 ? 'rgba(82,227,164,0.05)' : 'rgba(255,255,255,0.03)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
+                        {p.label} · {fmtFeeTier(f.feeTier)}
+                        {i === 0 && <span title="Highest TVL" style={{ fontSize: 10, marginLeft: 5 }}>🏆</span>}
+                        {f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 10, marginLeft: 5 }}>🛡️</span>}
+                      </span>
+                      <span
+                        style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
+                        title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : undefined}
+                      >
+                        {f.apy != null ? fmtApr(f.apy) : '—'}{f.aprIsUnranged && '†'}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                      <span style={{ color: btb.textMuted, fontSize: 12 }}>TVL {f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
+                      <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, marginLeft: 'auto', width: 100 }}>
+                        Simulate
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', padding: '8px 18px', borderTop: btb.borderSoft, borderBottom: btb.borderSoft }}>
               {['Protocol', 'Fee tier', 'TVL', 'APR (±5%)', ''].map(h => (
@@ -424,6 +459,7 @@ export function SimulateScreen() {
               );
             })}
           </div>
+          )}
         </Glass>
       )}
 

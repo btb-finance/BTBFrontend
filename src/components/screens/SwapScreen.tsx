@@ -164,6 +164,14 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const [errMsg,    setErrMsg]    = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Deep-linkable pair: /swap?from=<address|symbol>&to=<address|symbol>.
+  // The query string is captured once on first render — the URL-writer effect
+  // below rewrites location.search, so it can't be re-read later.
+  const initialQueryRef = useRef<string | null>(null);
+  if (initialQueryRef.current === null) {
+    initialQueryRef.current = typeof window === 'undefined' ? '' : window.location.search;
+  }
+
   const awardXp = useMutation(api.users.awardXp);
 
   const isNativeFrom = fromToken.address === 'ETH';
@@ -175,21 +183,46 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     query: { enabled: !isNativeFrom && !!address && !!quote },
   });
 
-  // Pick sensible defaults once when the token list first arrives
+  // Pick the pair once when the token list first arrives: URL params win,
+  // then the initialFrom prop (portfolio "Swap" buttons), then ETH → USDC.
   const defaultsAppliedRef = useRef(false);
   useEffect(() => {
     if (tokens.length === 0 || defaultsAppliedRef.current) return;
     defaultsAppliedRef.current = true;
-    if (!initialFrom) {
-      const eth  = tokens.find(t => t.address === 'ETH' || t.symbol === 'ETH');
-      const usdc = tokens.find(t => t.symbol === 'USDC');
-      if (eth)  setFromToken(eth);
-      if (usdc) setToToken(usdc);
-    } else {
+    const sp = new URLSearchParams(initialQueryRef.current ?? '');
+    const resolve = (q: string | null) => q
+      ? tokens.find(t => t.address.toLowerCase() === q.toLowerCase() || t.symbol.toLowerCase() === q.toLowerCase())
+      : undefined;
+    const urlFrom = resolve(sp.get('from'));
+    const urlTo   = resolve(sp.get('to'));
+    if (urlFrom) setFromToken(urlFrom);
+    if (urlTo)   setToToken(urlTo);
+    if (initialFrom && !urlFrom) {
       const live = tokens.find(t => t.address === initialFrom.address && t.chainId === initialFrom.chainId);
       if (live) setFromToken(live);
+    } else if (!initialFrom) {
+      if (!urlFrom) {
+        const eth = tokens.find(t => t.address === 'ETH' || t.symbol === 'ETH');
+        if (eth) setFromToken(eth);
+      }
+      if (!urlTo) {
+        const usdc = tokens.find(t => t.symbol === 'USDC');
+        if (usdc) setToToken(usdc);
+      }
     }
   }, [tokens, initialFrom]);
+
+  // Keep the URL carrying the full pair so the current swap is always
+  // shareable. replaceState (not push) — token picking shouldn't pile up
+  // history entries.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/swap') return;
+    if (!defaultsAppliedRef.current) return; // don't clobber params before they're consumed
+    const next = `/swap?from=${encodeURIComponent(fromToken.address)}&to=${encodeURIComponent(toToken.address)}`;
+    if (window.location.pathname + window.location.search !== next) {
+      window.history.replaceState(null, '', next);
+    }
+  }, [fromToken.address, toToken.address]);
 
   // Keep the selected from/to tokens in sync with the live store — balances
   // and prices arrive asynchronously, so the picked tokens must refresh too.
