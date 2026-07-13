@@ -15,7 +15,7 @@ import { CreatePosition } from '../CreatePosition';
 import { useSidebar } from '../../lib/SidebarContext';
 import { STABLES } from '../../lib/pools';
 import {
-  nearestUsableTick, fmtFeeTier, isNativeCurrency, UNISWAP_V3_DEPLOYMENT,
+  nearestUsableTick, fmtFeeTier, isNativeCurrency, WETH, UNISWAP_V3_DEPLOYMENT,
   type V4MintPool,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
@@ -64,6 +64,10 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
   const isV4 = selected.protocol === 'uniswap-v4';
   const dex = selected.protocol === 'pancakeswap-v3' ? 'pancakeswap' : 'uniswap';
   const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  // The simulator accepts the friendly `ETH` token alias, while the V3 mint
+  // flow must receive its ERC-20 WETH address to resolve the pool correctly.
+  const mintTokenA = tokenA?.toLowerCase() === 'eth' ? WETH : tokenA as `0x${string}` | undefined;
+  const mintTokenB = tokenB?.toLowerCase() === 'eth' ? WETH : tokenB as `0x${string}` | undefined;
 
   const [feeTier, setFeeTier] = useState(selected.feeTier);
   const [depositStr, setDepositStr] = useState('10000');
@@ -283,8 +287,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
 
         {deploying && ticks && (
           <CreatePosition
-            tokenA={!isV4 ? (tokenA as `0x${string}`) : undefined}
-            tokenB={!isV4 ? (tokenB as `0x${string}`) : undefined}
+            tokenA={!isV4 ? mintTokenA : undefined}
+            tokenB={!isV4 ? mintTokenB : undefined}
             initialFee={!isV4 ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
