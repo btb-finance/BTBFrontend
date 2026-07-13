@@ -124,6 +124,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [minStr, setMinStr] = useState('');
   const [maxStr, setMaxStr] = useState('');
   const [amt, setAmt] = useState<{ side: 0 | 1; str: string }>({ side: 0, str: '' });
+  // Split range: accept independent token amounts and place them in the
+  // closest one-sided ranges below/above the live price (Meteora-style).
+  const [splitRange, setSplitRange] = useState(false);
+  const [splitAmt, setSplitAmt] = useState<{ str0: string; str1: string }>({ str0: '', str1: '' });
   const [useEth, setUseEth] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stepMsg, setStepMsg] = useState('');
@@ -278,6 +282,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return ticksFromPrices(inv(maxStr), inv(minStr), pool, spacing);
   }, [pool, spacing, rangeMode, minStr, maxStr, flip]);
 
+  // The closest usable tick strictly below/above the live tick leaves each
+  // position entirely one-sided at submission time. The tiny gap is necessary:
+  // a range that includes the live price would again require both tokens.
+  const splitTicks = useMemo(() => {
+    if (!pool || !ticks || isV4) return null;
+    const belowUpper = Math.floor((pool.tick - 1) / spacing) * spacing;
+    const aboveLower = Math.ceil((pool.tick + 1) / spacing) * spacing;
+    const below = ticks.tickLower < belowUpper ? { tickLower: ticks.tickLower, tickUpper: belowUpper } : null;
+    const above = aboveLower < ticks.tickUpper ? { tickLower: aboveLower, tickUpper: ticks.tickUpper } : null;
+    return { below, above };
+  }, [pool, ticks, spacing, isV4]);
+
   // Keep the min/max price inputs (display space) in sync with the preset / smart fit.
   useEffect(() => {
     if (!pool || !pool.exists || rangeMode === 'custom') return;
@@ -358,13 +374,21 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const k = BigInt(Math.round((target / unitUsd) * 1e6)); // 1e6 fixed-point scale
       return { add0: (a0 * k) / 1_000_000n, add1: (a1 * k) / 1_000_000n };
     }
+    if (splitRange) {
+      try {
+        return {
+          add0: splitAmt.str0 && parseFloat(splitAmt.str0) > 0 ? parseUnits(splitAmt.str0, pool.decimals0) : 0n,
+          add1: splitAmt.str1 && parseFloat(splitAmt.str1) > 0 ? parseUnits(splitAmt.str1, pool.decimals1) : 0n,
+        };
+      } catch { return zero; }
+    }
     if (!amt.str || parseFloat(amt.str) <= 0) return zero;
     try {
       const raw = parseUnits(amt.str, amt.side === 0 ? pool.decimals0 : pool.decimals1);
       const r = addAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, amt.side, raw);
       return { add0: r.amount0, add1: r.amount1 };
     } catch { return zero; }
-  }, [pool, ticks, amt, simOnly, simUsdStr, tokenUsd]);
+  }, [pool, ticks, amt, simOnly, simUsdStr, tokenUsd, splitRange, splitAmt]);
 
   // ── Earnings simulation (Metrix-style) ─────────────────────────────────────
   // est. daily fees = pool's avg daily LP fees × your share of in-range
@@ -450,6 +474,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const short1 = !simOnly && add1 > effBal1;
 
   async function mint() {
+    if (splitRange) { await mintSplit(); return; }
     if (!address || !pool || !ticks) return;
     setBusy(true); setErr(null);
     try {
@@ -471,6 +496,39 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             deployment,
           });
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      onDone?.();
+      onClose();
+    } catch (e) {
+      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
+    } finally { setBusy(false); }
+  }
+
+  /** Mint independent one-sided positions on either side of the live price. */
+  async function mintSplit() {
+    if (!address || !pool || !splitTicks || isV4) return;
+    const hasBelow = add1 > 0n && splitTicks.below;
+    const hasAbove = add0 > 0n && splitTicks.above;
+    if (!hasBelow && !hasAbove) {
+      setErr('Widen your selected range or enter an amount for an available side.');
+      return;
+    }
+    setBusy(true); setErr(null);
+    try {
+      const calls = [
+        ...(hasBelow ? buildMint({
+          token0: pool.token0, token1: pool.token1, fee,
+          tickLower: hasBelow.tickLower, tickUpper: hasBelow.tickUpper,
+          amount0Desired: 0n, amount1Desired: add1, slippageBps,
+          recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment,
+        }) : []),
+        ...(hasAbove ? buildMint({
+          token0: pool.token0, token1: pool.token1, fee,
+          tickLower: hasAbove.tickLower, tickUpper: hasAbove.tickUpper,
+          amount0Desired: add0, amount1Desired: 0n, slippageBps,
+          recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment,
+        }) : []),
+      ];
+      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add split ${pool.symbol0}/${pool.symbol1} liquidity`, track });
       onDone?.();
       onClose();
     } catch (e) {
@@ -554,8 +612,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     } finally { setBusy(false); setStepMsg(''); }
   }
 
+  const canSplit = !!splitTicks && ((add0 > 0n && !!splitTicks.above) || (add1 > 0n && !!splitTicks.below));
   const canMint = !!pool?.exists && !!ticks && !busy &&
-    (swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
+    (splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
   // CTA is hidden for them. The simulated amounts prefill the deposit inputs.
@@ -755,9 +814,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const dec = side === 0 ? pool.decimals0 : pool.decimals1;
     const bal = side === 0 ? effBal0 : effBal1;
     const computed = side === 0 ? add0 : add1;
+    const isShort = side === 0 ? short0 : short1;
     // The range may only take one token — the other side stays at 0.
-    const disabled = need === (side === 0 ? 'token1' : 'token0');
-    const value = disabled ? '0' : amt.side === side ? amt.str : computed > 0n ? formatUnits(computed, dec) : '';
+    const disabled = !splitRange && need === (side === 0 ? 'token1' : 'token0');
+    const value = splitRange ? (side === 0 ? splitAmt.str0 : splitAmt.str1) : disabled ? '0' : amt.side === side ? amt.str : computed > 0n ? formatUnits(computed, dec) : '';
     const unitUsd = side === 0 ? tokenUsd?.p0 : tokenUsd?.p1;
     const num = parseFloat(value);
     const usdVal = unitUsd && isFinite(num) ? num * unitUsd : 0;
@@ -772,7 +832,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <input
             value={value}
             disabled={disabled}
-            onChange={(e) => { setAmt({ side, str: e.target.value.replace(/[^0-9.]/g, '') }); setSwapPreview(null); }}
+            onChange={(e) => {
+              const str = e.target.value.replace(/[^0-9.]/g, '');
+              if (splitRange) setSplitAmt((v) => side === 0 ? { ...v, str0: str } : { ...v, str1: str });
+              else { setAmt({ side, str }); setSwapPreview(null); }
+            }}
             inputMode="decimal" placeholder="0"
             style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -786,8 +850,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           </span>
           <span style={{ color: btb.textMuted, fontSize: 11 }}>
             {fmtAmt(bal, dec)}
+            {isShort && !splitRange && (
+              <span onClick={() => applySmartFit()} style={{ color: '#52E3A4', fontWeight: 800, marginLeft: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 6, background: 'rgba(82,227,164,0.13)' }}>FIT RANGE</span>
+            )}
             {!disabled && (
-              <span onClick={() => setAmt({ side, str: formatUnits(bal, dec) })} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
+              <span onClick={() => splitRange ? setSplitAmt((v) => side === 0 ? { ...v, str0: formatUnits(bal, dec) } : { ...v, str1: formatUnits(bal, dec) }) : setAmt({ side, str: formatUnits(bal, dec) })} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
             )}
           </span>
         </div>
@@ -1066,7 +1133,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             </div>
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
-            {!simOnly && address && (
+            {!simOnly && !splitRange && address && (
               <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: btb.textDim, fontSize: 10 }}>You hold</div>
@@ -1115,22 +1182,24 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   </div>
                 )}
 
+                {!isV4 && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '0 2px 8px' }}>
+                    <button onClick={() => { setSplitRange((v) => !v); setSwapPreview(null); }} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
+                      <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(255,255,255,0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
+                      Use uneven amounts
+                    </button>
+                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : '#FFB36B', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
+                  </div>
+                )}
+
                 {/* Amounts — enter either side, the other is paired automatically */}
                 {renderAmountInput(0)}
                 {renderAmountInput(1)}
 
-                {renderNeedWarning()}
+                {!splitRange && renderNeedWarning()}
                 {(short0 || short1) && (
-                  <div style={{ background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.25)', borderRadius: 12, padding: '10px 12px', marginBottom: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                      <span style={{ color: btb.loss, fontSize: 12 }}>
-                        Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}
-                      </span>
-                      <button onClick={() => applySmartFit()} style={{
-                        flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                        fontSize: 12, fontWeight: 800, background: 'rgba(82,227,164,0.18)', color: '#52E3A4',
-                      }}>Fit range</button>
-                    </div>
+                  <div style={{ color: btb.loss, fontSize: 11, margin: '-2px 2px 10px' }}>
+                    Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}.
                   </div>
                 )}
               </>
@@ -1139,8 +1208,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {simOnly && renderNeedWarning()}
             {renderPriceDeviationWarning()}
             {renderDepositSummary()}
-            {renderEarnings()}
-            {renderBacktest()}
+            {!splitRange && renderEarnings()}
+            {!splitRange && renderBacktest()}
 
             {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
@@ -1193,7 +1262,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
                 </div>
                 <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
-                  {busy ? (stepMsg || 'Confirming…') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
+                  {busy ? (stepMsg || 'Confirming…') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
                 </Button>
           </div>
         </div>
