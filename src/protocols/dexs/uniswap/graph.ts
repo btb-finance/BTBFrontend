@@ -214,6 +214,8 @@ export interface PoolDay {
   volumeUsd: number;
   feesUsd: number;
   tvlUsd: number;
+  /** In-range pool liquidity at the end of this UTC day (raw V3 liquidity). */
+  liquidity: number;
 }
 
 // NOTE: subgraph token1Price is "token1 per token0" — the same units as the
@@ -226,13 +228,14 @@ const HISTORY_QUERY = `query PoolHistory($id: ID!, $days: Int!) {
       volumeUSD
       feesUSD
       tvlUSD
+      liquidity
     }
   }
 }`;
 
 /** Daily history for one pool (ascending by day) — price chart + fee estimates. V3 schema only. */
 export async function getPoolHistory(subgraphId: string, poolId: string, days = 30): Promise<PoolDay[]> {
-  const data = await gatewayQuery<{ pool: { poolDayData: { date: number; token1Price: string; volumeUSD: string; feesUSD: string; tvlUSD: string }[] } | null }>(
+  const data = await gatewayQuery<{ pool: { poolDayData: { date: number; token1Price: string; volumeUSD: string; feesUSD: string; tvlUSD: string; liquidity: string }[] } | null }>(
     subgraphId, HISTORY_QUERY, { id: poolId.toLowerCase(), days },
   );
   return (data.pool?.poolDayData ?? [])
@@ -242,6 +245,7 @@ export async function getPoolHistory(subgraphId: string, poolId: string, days = 
       volumeUsd: Number(r.volumeUSD) || 0,
       feesUsd: Number(r.feesUSD) || 0,
       tvlUsd: Number(r.tvlUSD) || 0,
+      liquidity: Number(r.liquidity) || 0,
     }))
     .reverse();
 }
@@ -279,7 +283,9 @@ export async function getOwnerPositionIds(subgraphId: string, owner: string): Pr
   return out;
 }
 
-const DYNAMIC_FEE_FLAG = 0x800000;
+/** V4 pools with a hook-controlled fee report this flag instead of a real fee
+ * tier — the actual fee varies per swap and can't be derived client-side. */
+export const DYNAMIC_FEE_FLAG = 0x800000;
 
 /** 500 -> "0.05%", 3000 -> "0.3%", V4 dynamic-fee flag -> "Dynamic". */
 export function fmtFeeTier(feeTier: number): string {

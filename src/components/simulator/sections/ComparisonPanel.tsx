@@ -25,7 +25,7 @@ export function ComparisonPanel({ sim }: { sim: Sim }) {
             <div key={r.label}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
                 <span style={{ color: r.isYou ? btb.text : btb.textMuted, fontSize: 12.5, fontWeight: r.isYou ? 800 : 600 }}>
-                  {r.label}{r.isYou ? ' (this position)' : ''}{isBest ? ' 🏆' : ''}
+                  {r.label}{r.isYou ? ' (this position)' : ''}{isBest ? ' · best outcome' : ''}
                 </span>
                 <span style={{ fontSize: 12.5, fontWeight: 800, color: roi >= 0 ? btb.green : btb.loss }}>
                   {fmtUsd(r.valueUsd)} <span style={{ color: btb.textDim, fontWeight: 600 }}>({fmtSignedPct(roi)})</span>

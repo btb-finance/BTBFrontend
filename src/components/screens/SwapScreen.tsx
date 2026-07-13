@@ -162,9 +162,12 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const [step,      setStep]      = useState<SwapStep>('form');
   const [quote,     setQuote]     = useState<KyberQuote | null>(null);
   // Second routing source (UNI.md Phases 1+2): Uniswap Trading API quote
-  // (CLASSIC or gasless UniswapX), fetched alongside Kyber — whichever pays
-  // out more wins the execution.
+  // (CLASSIC or gasless UniswapX), fetched alongside Kyber — whichever nets
+  // the user more (after gas) wins the execution.
   const [uniQuote,  setUniQuote]  = useState<UniQuote | null>(null);
+  // Prefer gasless fills when they're within a whisker of the best net price —
+  // no ETH needed for gas, MEV protected, and failure costs nothing.
+  const [preferGasless, setPreferGasless] = useState(true);
   const [quoting,   setQuoting]   = useState(false);
   const [quoteErr,  setQuoteErr]  = useState<string | null>(null);
   const [txHash,    setTxHash]    = useState<`0x${string}` | undefined>();
@@ -245,31 +248,50 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     }
   }, [tokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
 
-  // Debounced quotes — KyberSwap and Uniswap Trading API in parallel
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); setUniQuote(null); return; }
-    debounceRef.current = setTimeout(async () => {
-      setQuoting(true);
-      setQuoteErr(null);
-      const amtIn = parseUnits(fromAmt, fromToken.decimals).toString();
-      // Uniswap source is best-effort: unconfigured key or API error just
-      // means Kyber-only, never a user-facing failure.
-      const uniP = getUniswapQuote({
-        tokenIn: fromToken.address, tokenOut: toToken.address, amountIn: amtIn,
-        swapper: address ?? '0x0000000000000000000000000000000000000001', slippagePct: 0.5,
-      }).catch(() => null);
-      try {
-        const q = await getKyberQuote(fromToken.address, toToken.address, amtIn, toToken.decimals, chainId);
-        setQuote(q);
-      } catch (e) {
+  // KyberSwap and Uniswap Trading API quotes in parallel. `silent` refreshes
+  // update the numbers without flashing the loading state.
+  const quoteSeq = useRef(0);
+  async function fetchQuotes(silent: boolean) {
+    if (!fromAmt || parseFloat(fromAmt) <= 0) return;
+    const seq = ++quoteSeq.current;
+    if (!silent) { setQuoting(true); setQuoteErr(null); }
+    const amtIn = parseUnits(fromAmt, fromToken.decimals).toString();
+    // Uniswap source is best-effort: unconfigured key or API error just
+    // means Kyber-only, never a user-facing failure.
+    const uniP = getUniswapQuote({
+      tokenIn: fromToken.address, tokenOut: toToken.address, amountIn: amtIn,
+      swapper: address ?? '0x0000000000000000000000000000000000000001', slippagePct: 0.5,
+    }).catch(() => null);
+    try {
+      const q = await getKyberQuote(fromToken.address, toToken.address, amtIn, toToken.decimals, chainId);
+      if (quoteSeq.current === seq) setQuote(q);
+    } catch (e) {
+      if (quoteSeq.current === seq && !silent) {
         setQuoteErr((e as Error).message);
         setQuote(null);
       }
-      setUniQuote(await uniP);
-      setQuoting(false);
-    }, 600);
+    }
+    const u = await uniP;
+    if (quoteSeq.current === seq) {
+      setUniQuote(u);
+      if (!silent) setQuoting(false);
+    }
+  }
+
+  // Debounced fetch on input changes
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); setUniQuote(null); return; }
+    debounceRef.current = setTimeout(() => fetchQuotes(false), 600);
   }, [fromAmt, fromToken.address, toToken.address, chainId, address]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Quotes go stale in ~30s — refresh quietly while the form is open so the
+  // user never reviews a price from minutes ago.
+  useEffect(() => {
+    if (step !== 'form' || !fromAmt || parseFloat(fromAmt) <= 0) return;
+    const id = setInterval(() => fetchQuotes(true), 30_000);
+    return () => clearInterval(id);
+  }, [step, fromAmt, fromToken.address, toToken.address, chainId, address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function flip() {
     setFromToken(toToken); setToToken(fromToken);
@@ -399,10 +421,29 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const fromBal = fromToken.balance ? parseFloat(fromToken.balance) : 0;
   const fromUsd = fromToken.usdPrice && fromAmt ? parseFloat(fromAmt) * fromToken.usdPrice : null;
 
-  // Route comparison: Uniswap wins when it pays out more raw units than Kyber
-  // (or when Kyber has no route at all).
-  const uniBetter = !!uniQuote && uniQuote.amountOut > BigInt(quote?.amountOut ?? '0');
+  // Route comparison in NET terms: Kyber's output is gross (user pays gas on
+  // top), UniswapX output is already net (fillers' gas is priced in). Raw
+  // output comparison would systematically hide gasless routes that actually
+  // pay the user more.
   const uniOutNum = uniQuote ? parseFloat(formatUnits(uniQuote.amountOut, toToken.decimals)) : 0;
+  const uniBetter = (() => {
+    if (!uniQuote) return false;
+    if (!quote) return true;
+    const uniOutUsd = toToken.usdPrice ? uniOutNum * toToken.usdPrice : null;
+    if (uniOutUsd != null && quote.amountOutUsd > 0) {
+      const kyberNet = quote.amountOutUsd - (quote.gasUsd > 0 ? quote.gasUsd : 0);
+      const uniNet = uniOutUsd - (uniQuote.gasless ? 0 : uniQuote.gasFeeUSD ?? 0);
+      // With the preference on, gasless also wins near-ties (within 0.5%).
+      return preferGasless && uniQuote.gasless ? uniNet >= kyberNet * 0.995 : uniNet > kyberNet;
+    }
+    // No USD prices to compare with — fall back to raw output units (the
+    // gasless near-tie preference still applies).
+    const kyberOut = BigInt(quote.amountOut ?? '0');
+    if (preferGasless && uniQuote.gasless) {
+      return uniQuote.amountOut * 1000n >= kyberOut * 995n;
+    }
+    return uniQuote.amountOut > kyberOut;
+  })();
   const bestOutFormatted = uniBetter
     ? uniOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 })
     : quote?.amountOutFormatted ?? '0';
@@ -416,7 +457,20 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
+        <div
+          onClick={() => setPreferGasless(g => !g)}
+          title="Prefer gasless UniswapX fills when they net you as much as the best route: no ETH needed for gas, MEV protected, failed orders cost nothing."
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+            height: 40, padding: '0 14px', borderRadius: 999,
+            background: preferGasless ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.05)',
+            border: `1px solid ${preferGasless ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
+          }}
+        >
+          <Icon name="bolt" size={14} color={preferGasless ? '#52E3A4' : btb.textMuted}/>
+          <span style={{ color: preferGasless ? '#52E3A4' : btb.textMuted, fontSize: 12.5, fontWeight: 700 }}>Gasless</span>
+        </div>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="settings" size={18}/>
         </Glass>
@@ -485,6 +539,12 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
                 : quote!.route}
             </span>
           }/>
+          {preferGasless && !(uniBetter && uniQuote?.gasless) && (
+            <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8, lineHeight: 1.4 }}>
+              No gasless fill is offered for this pair right now (fillers skip thin or exotic tokens),
+              so the best regular route is used and normal gas applies.
+            </div>
+          )}
         </Glass>
       )}
 

@@ -64,6 +64,9 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
         'x-api-key': key,
         'x-universal-router-version': '2.0',
+        // Required by the docs for /order submissions that pay out native ETH
+        // (USDC → ETH etc.); harmless on the other endpoints.
+        ...(endpoint === 'order' ? { 'x-erc20eth-enabled': 'true' } : {}),
       },
       body: JSON.stringify(payload),
       cache: 'no-store',

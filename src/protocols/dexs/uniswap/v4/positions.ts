@@ -52,16 +52,25 @@ function unpackTicks(info: bigint): { tickLower: number; tickUpper: number } {
 export async function fetchV4Positions(
   client: PublicClient,
   owner: `0x${string}`,
+  /** Pre-enumerated position tokenIds (from the Alchemy NFT index) — skips
+   * the subgraph query / Transfer-log scan entirely. */
+  knownIds?: bigint[],
 ): Promise<LiquidityPosition[]> {
   const posm = UNISWAP_V4.positionManager;
 
-  // 1) candidate tokenIds. Preferred: the V4 subgraph's Position entity (one
-  //    query, complete). Fallback: Transfer logs — public RPCs vary in how far
-  //    back they serve logs (and some hang on big ranges), so: full range with
-  //    a hard timeout, then a recent ~6-month window.
+  // 1) candidate tokenIds. Preferred: pre-enumerated ids from the NFT index,
+  //    then the V4 subgraph's Position entity (one query, complete). Fallback:
+  //    Transfer logs — public RPCs vary in how far back they serve logs (and
+  //    some hang on big ranges), so: full range with a hard timeout, then a
+  //    recent ~6-month window.
   let candidates: bigint[] = [];
   let found = false;
-  if (hasGraphKey) {
+  if (knownIds) {
+    if (knownIds.length === 0) return [];
+    candidates = knownIds;
+    found = true;
+  }
+  if (!found && hasGraphKey) {
     try {
       const ids = await withTimeout(getOwnerPositionIds(V4_SUBGRAPH_ID, owner), 10_000);
       // An empty result could just be indexing lag — only trust a non-empty

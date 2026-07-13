@@ -16,7 +16,6 @@ export interface HealthFactor {
 
 export interface Health {
   score: number;          // 0..100 weighted total
-  emoji: string;          // 🟢 / 🟡 / 🔴
   color: string;          // matching accent hex
   factors: HealthFactor[];
   /** The weakest factor's note — the one thing to fix first (null when all strong). */
@@ -93,7 +92,6 @@ export function healthScore(i: HealthInput): Health {
 
   return {
     score,
-    emoji: score >= 70 ? '🟢' : score >= 40 ? '🟡' : '🔴',
     color: score >= 70 ? '#52E3A4' : score >= 40 ? '#FFB36B' : '#FF6B7A',
     factors,
     topIssue: weakest.score < 60 ? weakest.note : null,

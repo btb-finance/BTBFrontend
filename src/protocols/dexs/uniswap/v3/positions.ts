@@ -14,22 +14,31 @@ export async function fetchV3Positions(
   client: PublicClient,
   owner: `0x${string}`,
   d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
+  /** Pre-enumerated position tokenIds (from the Alchemy NFT index) — skips
+   * the balanceOf + tokenOfOwnerByIndex round trips entirely. */
+  knownIds?: bigint[],
 ): Promise<LiquidityPosition[]> {
   const npm = d.positionManager;
 
-  const count = (await client.readContract({
-    address: npm, abi: NPM_ABI, functionName: 'balanceOf', args: [owner],
-  })) as bigint;
-  const n = Number(count);
-  if (n === 0) return [];
+  let tokenIds: bigint[];
+  if (knownIds) {
+    if (knownIds.length === 0) return [];
+    tokenIds = knownIds;
+  } else {
+    const count = (await client.readContract({
+      address: npm, abi: NPM_ABI, functionName: 'balanceOf', args: [owner],
+    })) as bigint;
+    const n = Number(count);
+    if (n === 0) return [];
 
-  // 1) tokenId for each owned position NFT
-  const idxCalls = Array.from({ length: n }, (_, i) => ({
-    address: npm, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex' as const, args: [owner, BigInt(i)] as const,
-  }));
-  const tokenIds = (await client.multicall({ contracts: idxCalls, allowFailure: true }))
-    .map((r) => (r.status === 'success' ? (r.result as bigint) : undefined))
-    .filter((x): x is bigint => x !== undefined);
+    // 1) tokenId for each owned position NFT
+    const idxCalls = Array.from({ length: n }, (_, i) => ({
+      address: npm, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex' as const, args: [owner, BigInt(i)] as const,
+    }));
+    tokenIds = (await client.multicall({ contracts: idxCalls, allowFailure: true }))
+      .map((r) => (r.status === 'success' ? (r.result as bigint) : undefined))
+      .filter((x): x is bigint => x !== undefined);
+  }
 
   // 2) position struct for each tokenId
   const posCalls = tokenIds.map((id) => ({

@@ -143,7 +143,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       )}
       <div style={{
         flex: 1, minWidth: 0, overflowY: 'auto',
-        padding: isMobile ? '18px 14px calc(96px + env(safe-area-inset-bottom))' : '32px 40px 60px',
+        padding: isMobile ? '18px 14px calc(96px + env(safe-area-inset-bottom))' : '32px clamp(16px, 3vw, 40px) 60px',
       }}>
         {overlayContent ?? content}
       </div>

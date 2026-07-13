@@ -14,15 +14,15 @@ export function DeployFooter({ sim, onDeploy, canDeploy, isMobile }: {
   isMobile: boolean;
 }) {
   const m1 = sim.timeline.find((t) => t.days === 30);
-  const expected30d = m1 ? m1.expectedValueUsd - sim.depositUsd : null;
+  const modelFees30d = m1?.feesUsd ?? null;
 
   const cells: { label: string; value: string; color?: string }[] = [
     { label: 'Investment', value: fmtUsd(sim.depositUsd) },
-    { label: 'Expected APR', value: fmtPct(sim.netAprPct), color: sim.netAprPct >= 0 ? btb.green : btb.loss },
-    { label: 'Expected 30D', value: expected30d != null ? fmtSignedUsd(expected30d) : '—', color: expected30d != null && expected30d >= 0 ? btb.green : btb.loss },
-    { label: 'Worst Case', value: fmtSignedUsd(sim.worstUsd), color: btb.loss },
-    { label: 'Best Case', value: fmtSignedUsd(sim.bestUsd), color: btb.green },
-    { label: 'Prob. Positive', value: `${Math.round(sim.probPositive * 100)}%`, color: sim.probPositive >= 0.5 ? btb.green : btb.amber },
+    { label: 'Model net APR', value: fmtPct(sim.netAprPct), color: sim.netAprPct >= 0 ? btb.green : btb.loss },
+    { label: 'Model fees · 30D', value: modelFees30d != null ? fmtUsd(modelFees30d) : '—', color: btb.green },
+    { label: 'Model low case', value: fmtSignedUsd(sim.worstUsd), color: btb.loss },
+    { label: 'Model high case', value: fmtSignedUsd(sim.bestUsd), color: btb.green },
+    { label: 'Model positive', value: `${Math.round(sim.probPositive * 100)}%`, color: sim.probPositive >= 0.5 ? btb.green : btb.amber },
   ];
   const shown = isMobile ? [cells[1], cells[2], cells[5]] : cells;
 

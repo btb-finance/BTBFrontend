@@ -17,7 +17,7 @@ import { getTopPools as getLlamaPools, getTokenPricesUsd, fmtCompactUsd, type Ll
 import { getV3TopPools } from '@/protocols/dexs/uniswap/v3/subgraph';
 import { getV4TopPools } from '@/protocols/dexs/uniswap/v4/subgraph';
 import { getPancakeTopPools } from '@/protocols/dexs/pancakeswap';
-import { hasGraphKey, fmtFeeTier, IndexedPool } from '@/protocols/dexs/uniswap/graph';
+import { hasGraphKey, fmtFeeTier, DYNAMIC_FEE_FLAG, IndexedPool } from '@/protocols/dexs/uniswap/graph';
 import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI, POSITION_MANAGER_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
@@ -178,8 +178,12 @@ async function ingestDexPaprika(client: PublicClient, existingIds: Set<string>, 
       if (fee == null || tvlUsd < minTvlUsd) return;
       const [t0, t1] = [r.token0, r.token1].sort((a, b) => a.address.toLowerCase().localeCompare(b.address.toLowerCase()));
       const stable = STABLES.has(t0.symbol.toUpperCase()) && STABLES.has(t1.symbol.toUpperCase());
-      const fees24hUsd = r.volume24hUsd * (fee / 1_000_000);
-      const apy = tvlUsd > 0 ? (fees24hUsd * 365 / tvlUsd) * 100 : 0;
+      // Dynamic-fee V4 pools report the flag bit, not a fee — multiplying
+      // volume by it fabricates absurd fees/APRs (838% "fee"), so their
+      // fee-derived numbers stay unknown instead.
+      const isDynamic = (fee & DYNAMIC_FEE_FLAG) !== 0;
+      const fees24hUsd = isDynamic ? undefined : r.volume24hUsd * (fee / 1_000_000);
+      const apy = !isDynamic && fees24hUsd != null && tvlUsd > 0 ? (fees24hUsd * 365 / tvlUsd) * 100 : 0;
       out.push({
         id: r.id, project: m.project, dex: m.dex, version: m.version, chain: 'Ethereum',
         pair: `${t0.symbol}-${t1.symbol}`, feeTier: fee, tvlUsd,

@@ -186,13 +186,14 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {([['tokens', 'Tokens'], ['lps', 'LP Positions'], ['earn', earnPositions.length > 0 ? `Earn (${earnPositions.length})` : 'Earn']] as const).map(([t, label]) => {
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: isMobile ? 4 : 8, minWidth: 0 }}>
+          {([['tokens', 'Tokens'], ['lps', isMobile ? 'LPs' : 'LP Positions'], ['earn', earnPositions.length > 0 ? `Earn (${earnPositions.length})` : 'Earn']] as const).map(([t, label]) => {
             const active = tab === t;
             return (
               <button key={t} onClick={() => setTab(t)} style={{
-                height: 36, padding: '0 18px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+                height: isMobile ? 32 : 36, padding: isMobile ? '0 12px' : '0 18px', borderRadius: 10,
+                cursor: 'pointer', fontFamily: 'inherit', fontSize: isMobile ? 12.5 : 13, fontWeight: 700, whiteSpace: 'nowrap',
                 background: active ? btb.surfaceStrong : 'transparent',
                 border: `1px solid ${active ? 'rgba(255,255,255,0.26)' : 'transparent'}`,
                 color: active ? '#fff' : btb.textMuted,
@@ -203,10 +204,10 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
 
         {tab === 'tokens' && (
           <div onClick={() => setShowAllChains(!showAllChains)} style={{
-            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px', height: 36,
+            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px', height: isMobile ? 32 : 36, flexShrink: 0,
           }}>
-            <span style={{ color: btb.textMuted, fontSize: 12.5, fontWeight: 600 }}>
-              {loadingOtherChains ? 'Loading other chains…' : 'All chains'}
+            <span style={{ color: btb.textMuted, fontSize: isMobile ? 12 : 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+              {loadingOtherChains ? (isMobile ? 'Loading…' : 'Loading other chains…') : 'All chains'}
             </span>
             <div style={{
               width: 34, height: 20, borderRadius: 999, position: 'relative', flexShrink: 0,

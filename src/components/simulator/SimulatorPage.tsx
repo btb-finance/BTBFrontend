@@ -24,7 +24,6 @@ import { deriveSim, STRATEGY_SIGMA, type Strategy } from './simState';
 import { estimateSigmaDaily } from './math/probability';
 import { PositionSummary } from './sections/PositionSummary';
 import { RealBacktest } from './sections/RealBacktest';
-import { StrategyBuilder } from './sections/StrategyBuilder';
 import { PriceDistribution } from './sections/PriceDistribution';
 import { FeePanel } from './sections/FeePanel';
 import { ILPanel } from './sections/ILPanel';
@@ -36,9 +35,10 @@ import { ScenarioCards } from './sections/ScenarioCards';
 import { Timeline } from './sections/Timeline';
 import { DeployFooter } from './sections/DeployFooter';
 
-/** Flat mint + collect gas estimate (USD) used in every net figure — a stated
- * approximation at typical mainnet gas, not a live quote. */
-const GAS_EST_USD = 8;
+/** Gas is intentionally excluded from forward LP estimates. It varies by chain,
+ * wallet route and market conditions; a stale flat USD charge misleads more
+ * than it helps, especially on low-cost networks. */
+const GAS_EST_USD = 0;
 
 /** What the Simulate screen knows about a pool it found — structurally
  * compatible with its FoundPool rows. */
@@ -96,7 +96,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
   const v4Pool = isV4 && pool ? (pool as V4MintPool) : null;
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[feeTier] ?? 60;
 
-  const { history, fallbackCloses, tokenUsd, tickLiq } = usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing);
+  const { history, fallbackCloses, tokenUsd } = usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing);
 
   // Per-tier market data (TVL/APR/fees) from the Simulate screen's findings.
   const tierData = (fee: number) => siblings.find((s) => s.feeTier === fee) ?? (fee === selected.feeTier ? selected : undefined);
@@ -112,7 +112,6 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
   const flip = flipManual ?? autoFlip;
 
   const price = pool ? ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1) : 0;
-  const poolToDisp = (p: number) => (flip ? (p > 0 ? 1 / p : 0) : p);
 
   const histCloses = useMemo(
     () => (history && history.length > 1 ? history.map((d) => d.price0) : fallbackCloses ?? []),
@@ -146,7 +145,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
     });
   }, [pool, feeTier, history, fallbackCloses, current, tokenUsd, depositUsd, ticks, horizonDays, movePct, flip]);
 
-  // Any range drag (summary bar, price chart, depth chart) lands here: display
+  // Any range drag from the summary bar lands here: display
   // prices → snapped usable ticks → new SimState → every section re-derives.
   const onDispRange = useCallback((dLo: number, dHi: number) => {
     if (!pool || !(dLo > 0) || !(dHi > dLo)) return;
@@ -159,16 +158,6 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
     setCustomTicks({ tickLower, tickUpper });
     setStrategy('custom');
   }, [pool, flip, spacing]);
-
-  const dispCloses = useMemo(() => (histCloses.length > 1 ? histCloses.map(poolToDisp) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [histCloses, flip]);
-  const dispTickLiq = useMemo(() => {
-    if (!tickLiq || !pool) return null;
-    const scale = 10 ** (pool.decimals0 - pool.decimals1);
-    return tickLiq.map((p) => ({ ...p, price: poolToDisp(p.price * scale) }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickLiq, pool, flip]);
 
   const canDeploy = !isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks));
   const dexLabel = dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
@@ -224,6 +213,17 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
                   sim={sim}
                   onToggleFlip={() => setFlipManual(!flip)}
                   onRange={onDispRange}
+                  depositStr={depositStr}
+                  setDepositStr={setDepositStr}
+                  feeOptions={deployment.feeTiers.map((f) => ({
+                    fee: f,
+                    exists: !!pools?.[f]?.exists,
+                    tvlUsd: tierData(f)?.tvlUsd,
+                    aprPct: tierData(f)?.apy,
+                  }))}
+                  feeTier={feeTier}
+                  setFeeTier={(f) => { setFeeTier(f); setCustomTicks(null); }}
+                  feeLocked={isV4}
                   {...sectionProps}
                 />
               )}
@@ -234,33 +234,6 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
               )}
 
               {sim && <RealBacktest sim={sim} {...sectionProps} />}
-
-              <StrategyBuilder
-                {...sectionProps}
-                depositStr={depositStr}
-                setDepositStr={setDepositStr}
-                feeOptions={deployment.feeTiers.map((f) => ({
-                  fee: f,
-                  exists: !!pools?.[f]?.exists,
-                  tvlUsd: tierData(f)?.tvlUsd,
-                  aprPct: tierData(f)?.apy,
-                }))}
-                feeTier={feeTier}
-                setFeeTier={(f) => { setFeeTier(f); setCustomTicks(null); }}
-                feeLocked={isV4}
-                strategy={strategy}
-                setStrategy={(s) => { setStrategy(s); setCustomTicks(null); }}
-                sigmaDaily={sigmaDaily}
-                horizonDays={horizonDays}
-                dispCloses={dispCloses}
-                dispPrice={poolToDisp(price)}
-                dispLower={sim ? sim.dispLower : 0}
-                dispUpper={sim ? sim.dispUpper : 0}
-                onDispRange={onDispRange}
-                dispTickLiq={dispTickLiq}
-                dispBase={flip ? pool.symbol1 : pool.symbol0}
-                dispQuote={flip ? pool.symbol0 : pool.symbol1}
-              />
 
               {sim && (
                 <>
