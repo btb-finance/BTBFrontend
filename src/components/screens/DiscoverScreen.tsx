@@ -104,6 +104,18 @@ export function DiscoverScreen() {
   const splitPair = (p: EarnPool) => p.pair.split('-') as [string, string];
   const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
   const hasVolumeData = pools.some(p => p.volume24hUsd != null);
+  const openSimulator = (pool: EarnPool) => {
+    const pair = pool.underlyingTokens;
+    // The simulator owns pair comparison. Pass the exact addresses so its
+    // token pickers are pre-filled rather than opening a separate mini-sheet.
+    if (pair?.[0] && pair[1]) {
+      window.location.href = `/simulate?tokenA=${encodeURIComponent(pair[0])}&tokenB=${encodeURIComponent(pair[1])}`;
+      return;
+    }
+    // A legacy/indexer row without token addresses cannot safely be mapped by
+    // symbol alone (symbols are ambiguous), so preserve the existing fallback.
+    setSheet({ pool, simulate: true });
+  };
 
   const allColumns: (Column<EarnPool> & { key: string })[] = [
     {
@@ -204,7 +216,7 @@ export function DiscoverScreen() {
                 <Icon name="plus" size={11} /> Add LP
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => setSheet({ pool: p, simulate: true })}
+            <Button variant="ghost" size="sm" onClick={() => openSimulator(p)}
               style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
               Simulate
             </Button>
@@ -253,7 +265,7 @@ export function DiscoverScreen() {
             const spark = sparklines[p.id];
             const mintable = mintTarget(p) !== null;
             return (
-              <Glass key={p.id} padding={14} radius={18} onClick={() => setSheet({ pool: p, simulate: !mintable })}>
+              <Glass key={p.id} padding={14} radius={18} onClick={() => mintable ? setSheet({ pool: p, simulate: false }) : openSimulator(p)}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ display: 'flex', flexShrink: 0 }}>
                     <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
@@ -307,7 +319,7 @@ export function DiscoverScreen() {
                       <Icon name="plus" size={12} /> Add LP
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => setSheet({ pool: p, simulate: true })}
+                  <Button variant="ghost" size="sm" onClick={() => openSimulator(p)}
                     style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
                     Simulate
                   </Button>

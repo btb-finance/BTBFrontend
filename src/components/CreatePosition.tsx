@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
@@ -7,9 +7,7 @@ import { Glass } from './Glass';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Button } from './Button';
-import { RangeChart } from './RangeChart';
 import { TokenIcon } from './TokenIcon';
-import { LiquidityDepthChart } from './LiquidityDepthChart';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -17,10 +15,6 @@ import { runCalls } from '../lib/txRunner';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
-import { fetchPoolDailyHistory, type DailyBar } from '../lib/geckoterminal';
-import { GeckoTerminalChart } from './GeckoTerminalChart';
-import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
-import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
@@ -109,8 +103,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   onClose: () => void; onDone?: () => void;
 }) {
   const { width: sidebarWidth, isMobile } = useSidebar();
-  // Mobile: charts are opt-in — the sheet is long enough without them.
-  const [showChart, setShowChart] = useState(false);
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -140,14 +132,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [bal1, setBal1] = useState(0n);
   const [ethBal, setEthBal] = useState(0n);
   const [history, setHistory] = useState<PoolDay[] | null>(null);
-  // Free chart fallback (GeckoTerminal) when no Graph API key is configured —
-  // rescaled to the live on-chain price so the endpoint always matches
-  // "Current price" above it; shape/orientation is approximate, not exact.
-  const [fallbackBars, setFallbackBars] = useState<DailyBar[] | null>(null);
-  // Real liquidity-depth-by-price histogram — progressive enhancement over the
-  // plain price line; null while loading or if tick reads fail (RPC hiccup,
-  // exotic pool), in which case the range step falls back to RangeChart alone.
-  const [tickLiq, setTickLiq] = useState<TickLiquidityPoint[] | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
@@ -162,12 +146,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [simDays, setSimDays] = useState(30);
   // Yield projection-period dropdown (open state).
   const [yieldOpen, setYieldOpen] = useState(false);
-  // Collapse the right control panel to give the chart the full width — makes
-  // dragging the range handles easy (Orca-style), then reopen to deposit.
-  const [panelOpen, setPanelOpen] = useState(true);
-  // Main chart type: 'baseline' = our own draggable price line (set the range
-  // right on the chart); 'candles' = GeckoTerminal's embed (view only).
-  const [chartType, setChartType] = useState<'baseline' | 'candles'>('baseline');
   // Explanation of the last "smart fit" — cleared on any manual range change.
   const [smartNote, setSmartNote] = useState<string | null>(null);
   // Smart-fit strategy for a single-token wallet: 'balanced' swaps ~half so the
@@ -175,6 +153,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // single-sided position. Balanced is the default so a stablecoin holder isn't
   // silently placed into a "convert my USDC to ETH" limit range.
   const [smartStrategy, setSmartStrategy] = useState<'balanced' | 'single'>('balanced');
+  // The bar's scale is frozen for a drag gesture so the handles do not jump
+  // while changing a bound causes the display domain to recalculate.
+  const rangeDrag = useRef<{
+    pointerId: number; target: 'low' | 'high' | 'band'; startX: number;
+    domainLow: number; domainHigh: number; low: number; high: number;
+  } | null>(null);
   // Pending balanced-fit swap (set by applySmartFit, executed by mintBalanced).
   const [swapPreview, setSwapPreview] = useState<
     { sellSide: 0 | 1; sellRaw: bigint; sym: string; otherSym: string; pct: number } | null
@@ -262,26 +246,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   useEffect(() => {
     let live = true;
     setHistory(null);
-    setFallbackBars(null);
     if (!pool || !pool.exists) return;
     if (hasGraphKey && !isV4) { // the V4 subgraph has no poolDayData — sim falls back to fees24hUsd
       getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live) setHistory(h); })
         .catch(() => {}); // chart/sim are progressive extras — never block minting
-    } else {
-      // No Graph key (or V4, which has no subgraph poolDayData at all) —
-      // free fallback chart instead of showing nothing. GeckoTerminal indexes
-      // V4 pools by the same poolId hash we already compute (no separate
-      // per-pool contract in V4, unlike V3). Rescaled below (once `price` is
-      // known) so the endpoint matches the live on-chain price — GeckoTerminal's
-      // base/quote orientation isn't guaranteed to match ours, so treat this
-      // as an approximate trend line, not exact history.
-      const chartId = isV4 ? v4PoolId : pool.address;
-      if (chartId) {
-        fetchPoolDailyHistory(chartId, 30)
-          .then((bars) => { if (live && bars.length > 1) setFallbackBars(bars); })
-          .catch(() => {});
-      }
     }
     // Native ETH (V4 currency 0x0) isn't a token DeFiLlama knows — price it as WETH.
     const priceToken0 = isNativeCurrency(pool.token0) ? WETH : pool.token0;
@@ -299,21 +268,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[fee];
 
-  // Real liquidity-depth-by-price histogram (where existing LPs concentrated
-  // liquidity) — progressive enhancement, never blocks the range step.
-  useEffect(() => {
-    let live = true;
-    setTickLiq(null);
-    if (!pool || !pool.exists) return;
-    const client = getPublicClient(config);
-    if (!client) return;
-    const fetcher = v4Pool
-      ? fetchV4TickLiquidityDistribution(client, v4Pool.poolId, pool.tick, pool.liquidity, spacing)
-      : fetchTickLiquidityDistribution(client, pool.address, pool.tick, pool.liquidity, spacing);
-    fetcher.then((pts) => { if (live && pts.length > 0) setTickLiq(pts); }).catch(() => {});
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, pool, v4Pool, spacing]);
   const ticks = useMemo(() => {
     if (!pool || !pool.exists) return null;
     if (rangeMode !== null && typeof rangeMode === 'object') return rangeMode; // smart fit — exact ticks
@@ -354,13 +308,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     setRangeMode('custom'); setSmartNote(null); setSwapPreview(null);
   }
 
-  // Tick liquidity → display-space price points (decimals-adjusted, flip-aware).
-  const dispTickLiq = useMemo(() => {
-    if (!tickLiq || !pool) return null;
-    const scale = 10 ** (pool.decimals0 - pool.decimals1);
-    return tickLiq.map((p) => ({ ...p, price: dispPrice(p.price * scale) }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tickLiq, pool, flip]);
 
   // Which side(s) the range needs at the current price.
   const need = useMemo(
@@ -699,6 +646,107 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
   };
 
+  /** A compact, chart-free view of the selected price band and live price. */
+  function renderRangeBar() {
+    const low = parseFloat(minStr);
+    const high = parseFloat(maxStr);
+    const current = dispPrice(price);
+    if (!(current > 0)) {
+      return (
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ color: btb.text, fontSize: 14, fontWeight: 750, marginBottom: 12 }}>Price range</div>
+          <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8 }}>Loading current price…</div>
+        </div>
+      );
+    }
+
+    // Preserve the broad scale for normal ranges, but zoom only when a tight
+    // selection would make the two handles difficult to grab.
+    const isFull = rangeMode === null;
+    const safeLow = isFull ? current / 100 : (isFinite(low) && low > 0 ? low : current / 100);
+    const safeHigh = isFull ? current * 100 : (isFinite(high) && high > safeLow ? high : current * 100);
+    const rangeLogWidth = Math.log(safeHigh / safeLow);
+    const contentLow = Math.min(Math.log(safeLow), Math.log(current));
+    const contentHigh = Math.max(Math.log(safeHigh), Math.log(current));
+    const normalPadding = Math.log(1.15);
+    const normalSpan = contentHigh - contentLow + normalPadding * 2;
+    const normalRangeShare = rangeLogWidth / normalSpan;
+    // Keep a tight selected band at ~28% of the track; ordinary ranges retain
+    // the original 15% context on each side.
+    const edgePadding = !isFull && normalRangeShare < 0.12
+      ? Math.max(0.001, (rangeLogWidth / 0.28 - (contentHigh - contentLow)) / 2)
+      : normalPadding;
+    const domainLow = Math.exp(contentLow - edgePadding);
+    const domainHigh = Math.exp(contentHigh + edgePadding);
+    const logSpan = Math.log(domainHigh / domainLow) || 1;
+    const pct = (value: number) => Math.max(0, Math.min(100, ((Math.log(value / domainLow) / logSpan) * 100)));
+    const left = pct(safeLow);
+    const right = pct(safeHigh);
+    const currentPct = pct(current);
+    const inRange = isFull || (current >= safeLow && current <= safeHigh);
+    const lowerDistance = (safeLow / current - 1) * 100;
+    const upperDistance = (safeHigh / current - 1) * 100;
+    const fmtDistance = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(value >= -1 && value <= 1 ? 2 : 1)}%`;
+    const setCustomRange = (nextLow: number, nextHigh: number) => {
+      setRangeMode('custom'); setSmartNote(null); setSwapPreview(null);
+      setMinStr(fmtPrice(nextLow)); setMaxStr(fmtPrice(nextHigh));
+    };
+    const beginDrag = (e: ReactPointerEvent<HTMLDivElement>, target: 'low' | 'high' | 'band') => {
+      e.preventDefault(); e.stopPropagation();
+      rangeDrag.current = {
+        pointerId: e.pointerId, target, startX: e.clientX,
+        domainLow, domainHigh, low: safeLow, high: safeHigh,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    };
+    const moveDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+      const drag = rangeDrag.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
+      const width = e.currentTarget.getBoundingClientRect().width;
+      if (width <= 0) return;
+      const logDomainLow = Math.log(drag.domainLow);
+      const logSpan = Math.log(drag.domainHigh / drag.domainLow);
+      const xToPrice = (x: number) => Math.exp(logDomainLow + Math.max(0, Math.min(1, x / width)) * logSpan);
+      const pointerPrice = xToPrice(e.clientX - e.currentTarget.getBoundingClientRect().left);
+      if (drag.target === 'low') {
+        setCustomRange(Math.min(pointerPrice, drag.high / 1.001), drag.high);
+      } else if (drag.target === 'high') {
+        setCustomRange(drag.low, Math.max(pointerPrice, drag.low * 1.001));
+      } else {
+        const shift = (e.clientX - drag.startX) / width * logSpan;
+        setCustomRange(Math.exp(Math.log(drag.low) + shift), Math.exp(Math.log(drag.high) + shift));
+      }
+    };
+    const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (rangeDrag.current?.pointerId === e.pointerId) rangeDrag.current = null;
+    };
+
+    return (
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+          <span style={{ color: btb.text, fontSize: 14, fontWeight: 750 }}>Price range</span>
+          <span style={{ color: inRange ? btb.green : '#FFB36B', fontSize: 11, fontWeight: 700 }}>
+            {isFull ? 'Full range' : `Range ${fmtDistance(lowerDistance)} / ${fmtDistance(upperDistance)}`}
+          </span>
+        </div>
+        <div
+          onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
+          style={{ position: 'relative', height: 32, display: 'flex', alignItems: 'center', touchAction: 'none' }}>
+          <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }} />
+          <div onPointerDown={(e) => beginDrag(e, 'band')} title="Drag to move range" style={{ position: 'absolute', left: `${left}%`, width: `${Math.max(1, right - left)}%`, height: 6, borderRadius: 999, background: btb.green, cursor: 'grab' }} />
+          <div onPointerDown={(e) => beginDrag(e, 'low')} aria-label="Lower price bound" style={{ position: 'absolute', left: `calc(${left}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
+          <div onPointerDown={(e) => beginDrag(e, 'high')} aria-label="Upper price bound" style={{ position: 'absolute', left: `calc(${right}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
+          <div title="Current price" style={{ pointerEvents: 'none', position: 'absolute', left: `calc(${currentPct}% - 1px)`, top: 2, width: 2, height: 28, borderRadius: 2, background: btb.text }} />
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 6, color: btb.textMuted, fontSize: 12, fontWeight: 650 }}>
+          <span>{isFull ? '0' : `${fmtPrice(safeLow)} (${fmtDistance(lowerDistance)})`}</span>
+          <span>{isFull ? '∞' : `${fmtPrice(safeHigh)} (${fmtDistance(upperDistance)})`}</span>
+        </div>
+      </div>
+    );
+  }
+
   // Plain render helper (NOT a nested component — a nested component type would
   // remount the <input> on every keystroke and drop focus).
   function renderAmountInput(side: 0 | 1) {
@@ -916,14 +964,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${fmtFeeTier(fee)} · ${dexLabel}` : `${dexLabel} · Ethereum`}
             </div>
           </div>
-          {/* Collapse the panel for a full-width chart to drag the range on, then reopen to deposit. */}
-          {!isMobile && pool?.exists && !loadingPool && (
-            <button onClick={() => setPanelOpen(o => !o)} title={panelOpen ? 'Hide panel — full chart to set your range' : 'Show the deposit panel'} style={{
-              flexShrink: 0, height: 32, padding: '0 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
-            }}>{panelOpen ? '⤢ Full chart' : '◧ Show panel'}</button>
-          )}
         </div>
 
         {loadingPool ? (
@@ -972,74 +1012,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </>
             )}
 
-            {/* Chart (left, wider) + range controls (right) — desktop two-column
-                layout. On mobile everything stacks in one column and the charts
-                only render on request (Show chart). */}
-            <div style={{ display: 'grid', gridTemplateColumns: !isMobile && panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr', gap: isMobile ? 14 : 24, alignItems: 'start' }}>
-            <div style={{ minWidth: 0 }}>
-            {isMobile && (
-              <button onClick={() => setShowChart(s => !s)} style={{
-                width: '100%', height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 700, marginBottom: showChart ? 10 : 0,
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
-              }}>{showChart ? '▴ Hide chart' : '▾ Show price chart'}</button>
-            )}
-            {(!isMobile || showChart) && (<>
-            {/* Chart type — Baseline is our own draggable price line (set the
-                range right here); Candles is GeckoTerminal's view-only embed. */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-              {([['baseline', 'Baseline'], ['candles', 'Candles']] as const).map(([t, label]) => (
-                <button key={t} onClick={() => setChartType(t)} style={{
-                  height: 30, padding: '0 14px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700,
-                  background: chartType === t ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${chartType === t ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)'}`,
-                  color: chartType === t ? '#fff' : btb.textMuted,
-                }}>{label}</button>
-              ))}
-            </div>
-            {chartType === 'candles' ? (() => {
-              const bigChartId = isV4 ? v4PoolId : pool.address;
-              return bigChartId
-                ? <GeckoTerminalChart poolAddress={bigChartId} />
-                : <div style={{ color: btb.textDim, fontSize: 12, padding: '20px 0' }}>Chart unavailable for this pool.</div>;
-            })() : (() => {
-              const rangeMin = rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null;
-              const rangeMax = rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null;
-              const onRangeChange = (lo: number, hi: number) => {
-                setRangeMode('custom'); setSmartNote(null); setSwapPreview(null);
-                setMinStr(fmtPrice(lo)); setMaxStr(fmtPrice(hi));
-              };
-              let points: number[] | null = null;
-              if (history && history.length > 1) points = history.map((d) => dispPrice(d.price0));
-              else if (fallbackBars && fallbackBars.length > 1) {
-                const cur = dispPrice(price);
-                const lastRaw = fallbackBars[fallbackBars.length - 1].close;
-                const ratio = lastRaw > 0 ? cur / lastRaw : 1;
-                points = fallbackBars.map((b) => b.close * ratio);
-              }
-              if (!points || !(dispPrice(price) > 0)) {
-                return <div style={{ color: btb.textDim, fontSize: 12, padding: '20px 0' }}>Loading price history…</div>;
-              }
-              return (
-                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '12px 12px 4px' }}>
-                  <RangeChart points={points} min={rangeMin} max={rangeMax} current={dispPrice(price)} onChange={onRangeChange}/>
-                  <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', padding: '8px 0' }}>
-                    {history ? '30-day price' : '~30-day trend'} · {qQuote} per {qBase} · drag the handles on the right to set your range
-                  </div>
-                </div>
-              );
-            })()}
-            </>)}
-            </div>
-
-            {/* Right column as a distinct, bordered panel — visually separated
-                from the chart on the left (Orca-style). Hidden when collapsed
-                so the chart gets the full width for easy range dragging. On
-                mobile it's always shown (stacked below the chart toggle). */}
-            {(panelOpen || isMobile) && (
             <div style={{
-              minWidth: 0, background: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 16,
+              width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.025)',
+              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
             }}>
             {/* Current price + flip */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
@@ -1051,30 +1026,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
               }}>⇄ {qQuote}/{qBase}</button>
             </div>
+            {renderRangeBar()}
 
-            {/* Liquidity depth (where LPs concentrated) — complements the price
-                chart on the left; drag to refine. Only when tick data loaded.
-                On mobile it follows the same opt-in as the price chart. */}
-            {(!isMobile || showChart) && dispTickLiq && dispTickLiq.length > 0 && dispPrice(price) > 0 && (() => {
-              const rangeMin = rangeMode === null ? null : parseFloat(minStr) > 0 ? parseFloat(minStr) : null;
-              const rangeMax = rangeMode === null ? null : isFinite(parseFloat(maxStr)) && parseFloat(maxStr) > 0 ? parseFloat(maxStr) : null;
-              const onRangeChange = (lo: number, hi: number) => {
-                setRangeMode('custom'); setSmartNote(null); setSwapPreview(null);
-                setMinStr(fmtPrice(lo)); setMaxStr(fmtPrice(hi));
-              };
-              return (
-                <>
-                  <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Liquidity depth</div>
-                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '10px 8px 4px', marginBottom: 12 }}>
-                    <LiquidityDepthChart points={dispTickLiq} min={rangeMin} max={rangeMax} current={dispPrice(price)} onChange={onRangeChange}/>
-                    <div style={{ color: btb.textDim, fontSize: 10, textAlign: 'center', padding: '4px 0 6px' }}>{qQuote} per {qBase} · drag to refine</div>
-                  </div>
-                </>
-              );
-            })()}
-
-            <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>Presets</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               {RANGE_PRESETS.map((r) => (
                 <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); setSwapPreview(null); }} style={{
                   flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
@@ -1110,13 +1064,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 </div>
               </div>
             </div>
-            {ticks && (
-              <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 16 }}>
-                Ticks {ticks.tickLower} → {ticks.tickUpper} · spacing {spacing} · current tick {pool.tick}
-                {rangeMode === 'custom' ? ' · snapped to nearest usable tick' : ''}
-              </div>
-            )}
-
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
             {!simOnly && address && (
@@ -1217,32 +1164,23 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </div>
             )}
             </div>
-            )}
-            </div>
           </>
         )}
       </div>
 
-      {/* Floating action bar — on desktop it sits UNDER the right panel (not
-          full-width across the chart). Pinned to the bottom so Deposit is
-          always reachable. On mobile it's a single full-width bar, lifted
-          above the bottom nav (which has a higher z-index). */}
+      {/* Full-width sticky action bar keeps the final deposit action reachable. */}
       {!simOnly && pool?.exists && !loadingPool && !poolErr && (
         <div style={{
           position: 'sticky', zIndex: 5, pointerEvents: 'none',
           bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
-          display: 'grid', gap: 24,
-          gridTemplateColumns: !isMobile && panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr',
+          display: 'block',
           padding: isMobile ? '0 0 10px' : '0 24px calc(12px + env(safe-area-inset-bottom, 0px))',
         }}>
-          {!isMobile && panelOpen && <div />}
           <div style={{
             pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
             background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
             border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
           }}>
-            {(panelOpen || isMobile) ? (
-              <>
                 <div
                   onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
                   title="Tap to change liquidity slippage"
@@ -1257,12 +1195,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
                   {busy ? (stepMsg || 'Confirming…') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
                 </Button>
-              </>
-            ) : (
-              <Button variant="success" size="sm" onClick={() => setPanelOpen(true)} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
-                Set amounts →
-              </Button>
-            )}
           </div>
         </div>
       )}

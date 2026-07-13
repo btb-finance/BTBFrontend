@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeAbiParameters, keccak256, parseAbiParameters, type PublicClient } from 'viem';
@@ -248,12 +248,36 @@ export function SimulateScreen() {
   const config = useConfig();
   const { isMobile } = useSidebar();
   const { tokens } = useTokenStore();
+  const [presetPair] = useState(() => {
+    if (typeof window === 'undefined') return { a: null, b: null };
+    const params = new URLSearchParams(window.location.search);
+    return { a: params.get('tokenA')?.toLowerCase() ?? null, b: params.get('tokenB')?.toLowerCase() ?? null };
+  });
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundPool[] | null>(null);
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
+  const appliedPair = useRef(false);
+  const autoComparedPair = useRef(false);
+
+  // Discover links here with the pool's exact underlying-token addresses.
+  // Keep the comparison screen in control: the two pickers are filled in, but
+  // the user explicitly chooses when to run the comparison.
+  useEffect(() => {
+    if (appliedPair.current || tokens.length === 0) return;
+    const { a, b } = presetPair;
+    if (!a || !b) return;
+    const findToken = (address: string) => tokens.find((t) =>
+      t.address.toLowerCase() === address || toV3Address(t.address).toLowerCase() === address,
+    );
+    const presetA = findToken(a);
+    const presetB = findToken(b);
+    if (!presetA || !presetB) return;
+    appliedPair.current = true;
+    setTokenA(presetA); setTokenB(presetB);
+  }, [presetPair, tokens]);
 
   const canSearch = !!tokenA && !!tokenB && tokenA.address.toLowerCase() !== tokenB.address.toLowerCase();
 
@@ -388,6 +412,17 @@ export function SimulateScreen() {
     }
   }
 
+  // Discover has already chosen the pair, so run its comparison immediately
+  // instead of requiring a redundant second click on this screen.
+  useEffect(() => {
+    if (!appliedPair.current || autoComparedPair.current || !tokenA || !tokenB) return;
+    autoComparedPair.current = true;
+    void findPools();
+    // `findPools` deliberately reads the current token state above. The ref
+    // prevents reruns from its changing function identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tokenA, tokenB]);
+
   const sheetMeta = sheetFee ? PROTOCOLS.find(p => p.id === sheetFee.protocol)! : null;
 
   return (
@@ -403,7 +438,7 @@ export function SimulateScreen() {
         </div>
 
         <Button variant="success" size="md" onClick={findPools} disabled={!canSearch} loading={loading} style={{ borderRadius: 12 }}>
-          Compare pools
+          {loading ? 'Comparing pools…' : 'Compare pools'}
         </Button>
 
         {error && (
