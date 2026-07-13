@@ -139,10 +139,12 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
 
         {/* Real pool numbers, straight from chain + indexer */}
         <div style={{
-          display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 8, marginTop: 14,
+          display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: 8, marginTop: 14,
         }}>
           {[
             { label: 'Pool TVL', value: sim.tvlUsd != null ? fmtCompactUsd(sim.tvlUsd) : '—', note: 'on chain' },
+            { label: '7D volume', value: sim.poolVolume7dUsd != null ? fmtCompactUsd(sim.poolVolume7dUsd) : '—', note: 'indexed swaps' },
+            { label: 'Vol / TVL', value: sim.volumeToTvl7d != null ? `${(sim.volumeToTvl7d * 100).toFixed(0)}%` : '—', note: '7 day turnover' },
             { label: 'Pool fees / day', value: sim.poolDailyFeesUsd > 0 ? fmtUsd(sim.poolDailyFeesUsd) : '—', note: sim.hasFeeData ? '7 day average' : 'no data' },
             { label: 'Your liquidity share', value: sim.liquidityShare > 0 ? `${(sim.liquidityShare * 100).toPrecision(2)}%` : '0%', note: 'of in range liquidity' },
             { label: 'Pair volatility', value: `${(sim.sigmaDaily * 100).toFixed(1)}% / day`, note: sim.usingFallbackHistory ? 'approx history' : 'from 30 day history' },
@@ -250,6 +252,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
                 ['Capital', fmtUsd(sim.depositUsd)],
                 ['Fee rate while in range', sim.feeAprPct != null ? `${fmtPct(sim.feeAprPct)} / year` : 'no fee data yet'],
                 [`Estimated fees (${sim.horizonDays}d)`, sim.hasFeeData ? `+${fmtUsd(sim.expectedFeesUsd)}` : 'no fee data yet'],
+                ['Nearest range edge', sim.nearestEdgePct != null ? `${sim.nearestEdgePct < 0.1 ? '<0.1' : sim.nearestEdgePct.toFixed(1)}% away` : 'out of range'],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: btb.textMuted }}>{label}</span>
@@ -258,7 +261,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               ))}
             </div>
             <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.35, marginTop: 9 }}>
-              This rate only applies while the live price stays inside your range; the estimate above adjusts it for the selected period.
+              Fee estimates use recent pool activity and modelled time in range. Review the position before the nearest edge is reached.
             </div>
           </div>
 

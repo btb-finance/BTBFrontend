@@ -94,6 +94,8 @@ export interface Sim {
   liquidityShare: number;
   // fees
   poolDailyFeesUsd: number;
+  poolVolume7dUsd: number | null;
+  volumeToTvl7d: number | null;
   dailyFeeUsd: number;
   feeAprPct: number | null;
   dailyFeeSeries: { date: number; feesUsd: number }[];
@@ -103,6 +105,7 @@ export interface Sim {
   coverage: number;
   timeInRange: number;
   expectedFeesUsd: number;
+  nearestEdgePct: number | null;
   usingFallbackHistory: boolean;
   // functions of an end price (POOL space)
   hodlUsd(p1: number): number;
@@ -187,6 +190,10 @@ export function deriveSim(i: SimInputs): Sim | null {
   const todayBucket = Math.floor(Date.now() / 1000 / 86400) * 86400;
   const completeDays = (i.history ?? []).filter((d) => d.date < todayBucket);
   const recent = completeDays.slice(-7);
+  const poolVolume7dUsd = recent.length > 0 ? recent.reduce((s, d) => s + d.volumeUsd, 0) : null;
+  const volumeToTvl7d = poolVolume7dUsd != null && i.tvlUsd != null && i.tvlUsd > 0
+    ? poolVolume7dUsd / i.tvlUsd
+    : null;
   const poolDailyFeesUsd = recent.length > 0
     ? recent.reduce((s, d) => s + d.feesUsd, 0) / recent.length
     : i.fees24hUsd ?? 0;
@@ -212,6 +219,9 @@ export function deriveSim(i: SimInputs): Sim | null {
   const timeInRange = expectedTimeInRange(price, priceLower, priceUpper, sigmaDaily, H);
   const perDayShare = poolDailyFeesUsd * liquidityShare; // fee/day while in range
   const expectedFeesUsd = perDayShare * H * timeInRange;
+  const nearestEdgePct = inRange
+    ? Math.min(price / priceLower - 1, priceUpper / price - 1) * 100
+    : null;
 
   // ── Value functions (pool space) ───────────────────────────────────────────
   // Numeraire = the display quote token (the stable on stable-quoted pairs):
@@ -381,8 +391,8 @@ export function deriveSim(i: SimInputs): Sim | null {
     price, priceLower, priceUpper, dispPrice, dispLower, dispUpper,
     inRange, nearEdge,
     depositUsd, amount0, amount1, value0Usd, value1Usd, liquidityShare,
-    poolDailyFeesUsd, dailyFeeUsd, feeAprPct, dailyFeeSeries, hasFeeData,
-    sigmaDaily, driftDaily, coverage, timeInRange, expectedFeesUsd, usingFallbackHistory,
+    poolDailyFeesUsd, poolVolume7dUsd, volumeToTvl7d, dailyFeeUsd, feeAprPct, dailyFeeSeries, hasFeeData,
+    sigmaDaily, driftDaily, coverage, timeInRange, expectedFeesUsd, nearestEdgePct, usingFallbackHistory,
     hodlUsd, lpUsd, ilFraction, feesTo, netUsd, dispToPool, poolToDisp,
     movePct: i.movePct, endPrice, dispEndPrice,
     waterfall, comparison, scenarios, worstUsd, bestUsd, probPositive, expectedIlFraction,

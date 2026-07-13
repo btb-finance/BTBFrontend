@@ -25,12 +25,13 @@ export function toUniAddress(address: string): string {
   return a === 'eth' || a === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' ? NATIVE_UNI : address;
 }
 
-// One 503 from the proxy means the key isn't configured — remember it and stop
-// asking for the rest of the session.
-let configured: boolean | null = null;
+// A 503 from the proxy means the key isn't configured. Back off instead of
+// hammering, but re-check once a minute — the server may get its env var
+// (e.g. a dev-server restart) without the page reloading.
+let notConfiguredUntil = 0;
 
 async function call<T>(endpoint: string, payload: unknown): Promise<T | null> {
-  if (configured === false) return null;
+  if (Date.now() < notConfiguredUntil) return null;
   try {
     const res = await fetch('/api/uniswap', {
       method: 'POST',
@@ -38,8 +39,7 @@ async function call<T>(endpoint: string, payload: unknown): Promise<T | null> {
       body: JSON.stringify({ endpoint, payload }),
       signal: AbortSignal.timeout(12000),
     });
-    if (res.status === 503) { configured = false; return null; }
-    configured = true;
+    if (res.status === 503) { notConfiguredUntil = Date.now() + 60_000; return null; }
     if (!res.ok) return null;
     return await res.json() as T;
   } catch {
@@ -220,12 +220,24 @@ export async function buildClassicSwapTx(raw: QuoteResponse, signature?: `0x${st
   };
 }
 
-/** Submit a signed UniswapX order. Signature only — permitData must NOT go to /swap. */
+/**
+ * Submit a signed UniswapX order. Uniswap's skill and their docs disagree on
+ * the endpoint (skill: /swap with the quote spread in and signature only;
+ * docs: /order with a wrapped body), so try the skill's shape first and fall
+ * back to the documented one.
+ */
 export async function submitUniswapXOrder(raw: QuoteResponse, signature: `0x${string}`): Promise<void> {
   const { permitData, permitTransaction, ...cleanQuote } = raw;
-  void permitData; void permitTransaction;
-  const res = await call<Record<string, unknown>>('swap', { ...cleanQuote, signature });
-  if (!res) throw new Error('Order submission failed — try again');
+  void permitTransaction;
+  const viaSwap = await call<Record<string, unknown>>('swap', { ...cleanQuote, signature });
+  if (viaSwap) return;
+  const viaOrder = await call<Record<string, unknown>>('order', {
+    routing: raw.routing,
+    quote: raw.quote,
+    signature,
+    permitData,
+  });
+  if (!viaOrder) throw new Error('Order submission failed — try again');
 }
 
 /**

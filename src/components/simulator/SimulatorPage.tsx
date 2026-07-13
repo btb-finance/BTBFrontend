@@ -35,9 +35,10 @@ import { ScenarioCards } from './sections/ScenarioCards';
 import { Timeline } from './sections/Timeline';
 import { DeployFooter } from './sections/DeployFooter';
 
-/** Flat mint + collect gas estimate (USD) used in every net figure — a stated
- * approximation at typical mainnet gas, not a live quote. */
-const GAS_EST_USD = 8;
+/** Gas is intentionally excluded from forward LP estimates. It varies by chain,
+ * wallet route and market conditions; a stale flat USD charge misleads more
+ * than it helps, especially on low-cost networks. */
+const GAS_EST_USD = 0;
 
 /** What the Simulate screen knows about a pool it found — structurally
  * compatible with its FoundPool rows. */
