@@ -30,16 +30,21 @@ export async function fetchV4PoolForMint(
   const id = poolId.toLowerCase() as `0x${string}`;
   const id25 = id.slice(0, 52) as `0x${string}`; // bytes25 — PositionManager's truncated key
 
-  const [keyRes, slotRes, liqRes] = await client.multicall({
-    contracts: [
-      { address: UNISWAP_V4.positionManager, abi: POSITION_MANAGER_ABI, functionName: 'poolKeys', args: [id25] },
-      { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [id] },
-      { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [id] },
-    ],
-    allowFailure: true,
-  });
+  const contracts = [
+    { address: UNISWAP_V4.positionManager, abi: POSITION_MANAGER_ABI, functionName: 'poolKeys', args: [id25] },
+    { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [id] },
+    { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [id] },
+  ] as const;
 
-  if (keyRes.status !== 'success') throw new Error('pool key lookup failed');
+  let [keyRes, slotRes, liqRes] = await client.multicall({ contracts, allowFailure: true });
+  // `poolKeys` is a plain mapping getter — it can't revert on-chain, so a
+  // failed read is an RPC hiccup, not a missing pool. Retry once before
+  // giving up (a pool that genuinely isn't registered returns zeros instead,
+  // handled by the `exists` check below).
+  if (keyRes.status !== 'success') {
+    [keyRes, slotRes, liqRes] = await client.multicall({ contracts, allowFailure: true });
+  }
+  if (keyRes.status !== 'success') throw new Error('network read failed, please retry');
   const [currency0, currency1, fee, tickSpacing, hooks] = keyRes.result as readonly [
     `0x${string}`, `0x${string}`, number, number, `0x${string}`,
   ];
