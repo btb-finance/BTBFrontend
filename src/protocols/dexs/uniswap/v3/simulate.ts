@@ -26,8 +26,9 @@ function clampedSqrt(p: number, sa: number, sb: number): number {
 }
 
 /** Token amounts held by ONE unit of liquidity at price `p` in range [pa,pb].
- *  x = token0, y = token1 (human units). */
-function unitAmounts(p: number, pa: number, pb: number): { x: number; y: number } {
+ *  x = token0, y = token1 (human units). Exported for the simulator page's
+ *  value/waterfall math so the position formulas live in exactly one place. */
+export function unitAmounts(p: number, pa: number, pb: number): { x: number; y: number } {
   const sa = Math.sqrt(pa), sb = Math.sqrt(pb);
   const sc = clampedSqrt(p, sa, sb);
   return { x: 1 / sc - 1 / sb, y: sc - sa };

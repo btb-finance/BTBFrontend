@@ -91,13 +91,15 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
   dex?: 'uniswap' | 'pancakeswap';
   /** Fee tier of the pool the user clicked — preselected when valid (V3). */
   initialFee?: number;
+  /** Exact starting range (e.g. handed over from the simulator page). */
+  initialTicks?: { tickLower: number; tickUpper: number };
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
   fees24hUsd?: number;
   /** V4 mint: the bytes32 pool id from the Earn list. */
@@ -125,7 +127,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   const [poolErr, setPoolErr] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   // Default ±5% — the same band the Earn list quotes its range APR for.
-  const [rangeMode, setRangeMode] = useState<RangeMode>(5);
+  // A caller-provided exact range (simulator handoff) wins over the preset.
+  const [rangeMode, setRangeMode] = useState<RangeMode>(initialTicks ?? 5);
   const [minStr, setMinStr] = useState('');
   const [maxStr, setMaxStr] = useState('');
   const [amt, setAmt] = useState<{ side: 0 | 1; str: string }>({ side: 0, str: '' });

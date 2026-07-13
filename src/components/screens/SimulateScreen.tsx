@@ -9,7 +9,7 @@ import { Button } from '../Button';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
-import { CreatePosition } from '../CreatePosition';
+import { SimulatorPage } from '../simulator/SimulatorPage';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { FACTORY_ABI } from '@/protocols/dexs/uniswap/v3/abis';
@@ -510,16 +510,15 @@ export function SimulateScreen() {
       )}
 
       {sheetFee && sheetMeta && tokenA && tokenB && (
-        <CreatePosition
-          tokenA={sheetFee.protocol !== 'uniswap-v4' ? (tokenA.address as `0x${string}`) : undefined}
-          tokenB={sheetFee.protocol !== 'uniswap-v4' ? (tokenB.address as `0x${string}`) : undefined}
-          initialFee={sheetFee.protocol !== 'uniswap-v4' ? sheetFee.feeTier : undefined}
-          v4PoolId={sheetFee.v4PoolId}
-          dex={sheetMeta.dex}
-          fees24hUsd={sheetFee.fees24hUsd ?? (sheetFee.tvlUsd != null && sheetFee.apy != null ? (sheetFee.tvlUsd * sheetFee.apy) / 100 / 365 : undefined)}
-          simulate
+        <SimulatorPage
+          tokenA={sheetFee.protocol !== 'uniswap-v4' ? tokenA.address : undefined}
+          tokenB={sheetFee.protocol !== 'uniswap-v4' ? tokenB.address : undefined}
+          selected={{
+            ...sheetFee,
+            fees24hUsd: sheetFee.fees24hUsd ?? (sheetFee.tvlUsd != null && sheetFee.apy != null ? (sheetFee.tvlUsd * sheetFee.apy) / 100 / 365 : undefined),
+          }}
+          siblings={(found ?? []).filter((f) => !f.external && f.protocol === sheetFee.protocol)}
           onClose={() => setSheetFee(null)}
-          onDone={() => setSheetFee(null)}
         />
       )}
     </div>
