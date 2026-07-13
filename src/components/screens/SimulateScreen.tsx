@@ -22,6 +22,7 @@ import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
+import { searchMarketPools } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
@@ -77,11 +78,19 @@ interface FoundPool {
   address?: `0x${string}`;
   tvlUsd?: number;
   apy?: number;
+  /** Real (or fee-derived) 24h pool fees — feeds the earnings simulation in
+   * the CreatePosition sheet, same as Discover passes for its pools. */
+  fees24hUsd?: number;
   /** True when `apy` came from GeckoTerminal's whole-pool fees/TVL fallback
    * (DeFiLlama doesn't index this pool — common for PancakeSwap on Ethereum)
    * rather than the ±5% range-adjusted figure everywhere else uses. */
   aprIsUnranged?: boolean;
+  /** Pool on a DEX the app can't mint on (Uniswap V2, SushiSwap, Balancer, …)
+   * from the GeckoTerminal/DexScreener pair search — shown for completeness
+   * with a link out instead of a Simulate button. */
+  external?: { dexLabel: string; url: string };
 }
+
 
 const PROTOCOL_FOR_EARN_POOL = (p: EarnPool): Protocol | null => {
   if (p.dex === 'PancakeSwap') return 'pancakeswap-v3';
@@ -108,16 +117,17 @@ function mergeWithEarnPools(probed: FoundPool[], earnPools: EarnPool[], tokenA: 
   // when we have it, never the whole-pool fees/TVL number — that understates
   // concentrated LPing by 10-100x and would read as a different, lower APR
   // than the same pool shows on Discover.
+  const dailyFees = (p: EarnPool) => p.fees24hUsd ?? (p.tvlUsd * p.apyBase) / 100 / 365;
   const merged = probed.map(f => {
     const hit = matched.find(p => PROTOCOL_FOR_EARN_POOL(p) === f.protocol && p.feeTier === f.feeTier);
-    return hit ? { ...f, tvlUsd: hit.tvlUsd, apy: hit.aprRange ?? hit.apy } : f;
+    return hit ? { ...f, tvlUsd: hit.tvlUsd, apy: hit.aprRange ?? hit.apy, fees24hUsd: dailyFees(hit) } : f;
   });
   // Extra V4 rows at fee tiers our standard-tier probe wouldn't have tried.
   for (const p of matched) {
     if (PROTOCOL_FOR_EARN_POOL(p) !== 'uniswap-v4' || p.source !== 'uniswap') continue;
     if (p.feeTier == null) continue;
     if (merged.some(f => f.protocol === 'uniswap-v4' && f.feeTier === p.feeTier)) continue;
-    merged.push({ protocol: 'uniswap-v4', feeTier: p.feeTier, v4PoolId: p.id as `0x${string}`, tvlUsd: p.tvlUsd, apy: p.aprRange ?? p.apy });
+    merged.push({ protocol: 'uniswap-v4', feeTier: p.feeTier, v4PoolId: p.id as `0x${string}`, tvlUsd: p.tvlUsd, apy: p.aprRange ?? p.apy, fees24hUsd: dailyFees(p) });
   }
   return merged.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
 }
@@ -257,6 +267,11 @@ export function SimulateScreen() {
       const client = getPublicClient(config);
       if (!client) throw new Error('No RPC client available');
 
+      // Full-market pool discovery (GeckoTerminal + DexScreener) runs in
+      // parallel with the on-chain probes — it finds pools on DEXes the
+      // probes can't (Uniswap V2, SushiSwap, Balancer, …).
+      const externalP = searchMarketPools(toV3Address(tokenA.address), toV3Address(tokenB.address)).catch(() => []);
+
       // Compare across every protocol we can act on in one search, instead
       // of making the user re-run this per protocol tab. Real TVL/APR (and
       // any non-standard V4 fee tiers) come from the same pool data Discover
@@ -302,6 +317,9 @@ export function SimulateScreen() {
           if (!s) continue;
           if (f.tvlUsd == null) f.tvlUsd = s.tvlUsd;
           if (f.apy == null && s.aprPct != null) { f.apy = s.aprPct; f.aprIsUnranged = true; }
+          if (f.fees24hUsd == null && s.volume24hUsd > 0 && f.feeTier > 0) {
+            f.fees24hUsd = s.volume24hUsd * (f.feeTier / 1_000_000);
+          }
         }
       }
       // Third/fourth fallback: DexScreener + DexPaprika (both free, keyless,
@@ -328,14 +346,37 @@ export function SimulateScreen() {
             const apr = (s.volume24hUsd * (f.feeTier / 1_000_000) * 365 / s.tvlUsd) * 100;
             if (isFinite(apr) && apr > 0) { f.apy = apr; f.aprIsUnranged = true; }
           }
+          if (f.fees24hUsd == null && s.volume24hUsd > 0 && f.feeTier > 0) {
+            f.fees24hUsd = s.volume24hUsd * (f.feeTier / 1_000_000);
+          }
         }
       }
+      // Merge in every other pool the market APIs know for this pair
+      // (GeckoTerminal + DexScreener via the shared dexSearch module).
+      const marketPools = await externalP;
+      const known = new Set(
+        merged.flatMap(f => [f.address?.toLowerCase(), f.v4PoolId?.toLowerCase()]).filter(Boolean),
+      );
+      for (const mp of marketPools) {
+        if (known.has(mp.address)) continue;   // already listed via the on-chain probe
+        merged.push({
+          protocol: 'uniswap-v3', // unused for external rows — label comes from `external`
+          feeTier: mp.feePct != null ? Math.round(mp.feePct * 1_000_000) : 0,
+          address: mp.address as `0x${string}`,
+          tvlUsd: mp.tvlUsd,
+          apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
+          aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 ? true : undefined,
+          fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
+          external: { dexLabel: mp.dexLabel, url: mp.url },
+        });
+      }
+
       const pools = merged.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
 
       if (pools.length === 0 && failedChecks.length > 0) {
         setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error) — try again. ${3 - failedChecks.length > 0 ? 'No pool found on the rest.' : ''}`);
       } else if (pools.length === 0) {
-        setError(`No pool found for ${tokenA.symbol}/${tokenB.symbol} on Uniswap V3/V4 or PancakeSwap V3.`);
+        setError(`No pool found for ${tokenA.symbol}/${tokenB.symbol} on any DEX we track.`);
       } else if (failedChecks.length > 0) {
         setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error) — results below may be incomplete. Try again to include them.`);
       }
@@ -381,35 +422,22 @@ export function SimulateScreen() {
             Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
             {found.some(f => f.aprIsUnranged) && ' † = whole-pool APR (fallback data), not the ±5% range-adjusted figure used elsewhere.'}
           </div>
-          {(() => {
-            const hasV3 = found.some(f => f.protocol === 'uniswap-v3');
-            const hasV4 = found.some(f => f.protocol === 'uniswap-v4');
-            if (!hasV3) return null;
-            return (
-              <div style={{ margin: '0 18px 12px', background: 'rgba(255,179,107,0.1)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 12, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                <Icon name="bolt" size={13} color={btb.amber} />
-                <span style={{ color: btb.amber, fontSize: 11.5, lineHeight: 1.5 }}>
-                  Uniswap V3 can charge a governance-controlled protocol fee (up to 25% of swap fees on some tiers) — when it's active on a pool, that's earnings you don't keep.
-                  {hasV4 ? ' Uniswap V4 currently charges none, so the V4 row above keeps 100% of fees.' : ' No V4 pool exists yet for this pair to compare against.'}
-                </span>
-              </div>
-            );
-          })()}
           {isMobile ? (
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
               {found.map((f, i) => {
-                const p = PROTOCOLS.find(x => x.id === f.protocol)!;
+                const label = f.external?.dexLabel ?? PROTOCOLS.find(x => x.id === f.protocol)!.label;
+                const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
-                  <div key={`${f.protocol}-${f.feeTier}`} style={{
+                  <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{
                     borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
                     background: i === 0 ? 'rgba(82,227,164,0.05)' : 'rgba(255,255,255,0.03)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
-                        {p.label} · {fmtFeeTier(f.feeTier)}
+                        {label} · {feeLabel}
                         {i === 0 && <span title="Highest TVL" style={{ fontSize: 10, marginLeft: 5 }}>🏆</span>}
-                        {f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 10, marginLeft: 5 }}>🛡️</span>}
+                        {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 10, marginLeft: 5 }}>🛡️</span>}
                       </span>
                       <span
                         style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
@@ -420,9 +448,18 @@ export function SimulateScreen() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
                       <span style={{ color: btb.textMuted, fontSize: 12 }}>TVL {f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
-                      <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, marginLeft: 'auto', width: 100 }}>
-                        Simulate
-                      </Button>
+                      {f.external ? (
+                        <a href={f.external.url} target="_blank" rel="noreferrer" style={{
+                          height: 32, width: 100, marginLeft: 'auto', borderRadius: 14, border: btb.borderSoft,
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                          background: 'rgba(255,255,255,0.06)',
+                        }}>View ↗</a>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, marginLeft: 'auto', width: 100 }}>
+                          Simulate
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -431,20 +468,20 @@ export function SimulateScreen() {
           ) : (
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', padding: '8px 18px', borderTop: btb.borderSoft, borderBottom: btb.borderSoft }}>
-              {['Protocol', 'Fee tier', 'TVL', 'APR (±5%)', ''].map(h => (
+              {['Protocol', 'Fee tier', 'TVL', 'APR', ''].map(h => (
                 <span key={h} style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3 }}>{h}</span>
               ))}
             </div>
             {found.map((f, i) => {
-              const p = PROTOCOLS.find(x => x.id === f.protocol)!;
+              const label = f.external?.dexLabel ?? PROTOCOLS.find(x => x.id === f.protocol)!.label;
               return (
-                <div key={`${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
+                <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {p.label}
+                    {label}
                     {i === 0 && <span title="Highest TVL" style={{ fontSize: 9 }}>🏆</span>}
-                    {f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 9 }}>🛡️</span>}
+                    {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 9 }}>🛡️</span>}
                   </span>
-                  <span style={{ color: btb.text, fontSize: 13 }}>{fmtFeeTier(f.feeTier)}</span>
+                  <span style={{ color: btb.text, fontSize: 13 }}>{f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—'}</span>
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
                   <span
                     style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 13, fontWeight: 700, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
@@ -452,9 +489,18 @@ export function SimulateScreen() {
                   >
                     {f.apy != null ? fmtApr(f.apy) : '—'}{f.aprIsUnranged && '†'}
                   </span>
-                  <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, justifySelf: 'end', width: 100 }}>
-                    Simulate
-                  </Button>
+                  {f.external ? (
+                    <a href={f.external.url} target="_blank" rel="noreferrer" style={{
+                      height: 32, width: 100, justifySelf: 'end', borderRadius: 14, border: btb.borderSoft,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                      background: 'rgba(255,255,255,0.06)',
+                    }}>View ↗</a>
+                  ) : (
+                    <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, justifySelf: 'end', width: 100 }}>
+                      Simulate
+                    </Button>
+                  )}
                 </div>
               );
             })}
@@ -470,6 +516,7 @@ export function SimulateScreen() {
           initialFee={sheetFee.protocol !== 'uniswap-v4' ? sheetFee.feeTier : undefined}
           v4PoolId={sheetFee.v4PoolId}
           dex={sheetMeta.dex}
+          fees24hUsd={sheetFee.fees24hUsd ?? (sheetFee.tvlUsd != null && sheetFee.apy != null ? (sheetFee.tvlUsd * sheetFee.apy) / 100 / 365 : undefined)}
           simulate
           onClose={() => setSheetFee(null)}
           onDone={() => setSheetFee(null)}

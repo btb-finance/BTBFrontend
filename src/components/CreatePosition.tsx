@@ -843,11 +843,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
   function renderEarnings() {
     if (!sim || !sim.inRange || sim.daily <= 0) return null;
     const total = sim.daily * simDays;
+    // overflow visible so the period dropdown can extend below this now
+    // single-row card (Glass clips by default)
     return (
-      <Glass padding={12} radius={12} soft style={{ marginTop: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+      <Glass padding={12} radius={12} soft style={{ marginTop: 10, overflow: 'visible' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-            <span style={{ color: btb.textMuted, fontSize: 12 }}>Estimated earnings</span>
+            <span style={{ color: btb.textMuted, fontSize: 12 }}>Earnings</span>
             {/* Projection-period dropdown */}
             <div style={{ position: 'relative' }}>
               <button onClick={() => setYieldOpen(o => !o)} style={{
@@ -871,42 +873,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
               )}
             </div>
           </div>
-          {sim.apr !== null && (
-            <span style={{ color: '#52E3A4', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>~{sim.apr.toFixed(1)}% APR</span>
-          )}
-        </div>
-        <div style={{ background: 'rgba(82,227,164,0.08)', border: '1px solid rgba(82,227,164,0.25)', borderRadius: 10, padding: '10px 12px', marginBottom: 8 }}>
-          <div style={{ color: btb.textDim, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4 }}>Projected total · {simDays} day{simDays > 1 ? 's' : ''}</div>
-          <div style={{ color: '#52E3A4', fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>
-            ${total >= 100 ? total.toLocaleString('en-US', { maximumFractionDigits: 0 }) : total.toFixed(2)}
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span style={{ color: '#52E3A4', fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
+              ${total >= 100 ? total.toLocaleString('en-US', { maximumFractionDigits: 0 }) : total.toFixed(2)}
+            </span>
+            {sim.apr !== null && (
+              <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700 }}>~{sim.apr.toFixed(1)}% APR</span>
+            )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          {([['Daily', sim.daily], ['Monthly', sim.monthly], ['Yearly', sim.yearly]] as const).map(([label, v]) => (
-            <div key={label} style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
-              <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
-              <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>
-                ${v >= 100 ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : v.toFixed(2)}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
-          {history ? '7-day avg' : 'Latest 24h'} pool fees × your {sim.sharePct < 0.01 ? '<0.01' : sim.sharePct.toFixed(2)}% share of in-range liquidity. Assumes price stays in range and volume holds — not a guarantee.
-        </div>
-
-        {feeSplit && feeSplit.protocolPct > 0 && (
-          <div style={{ marginTop: 8, background: 'rgba(255,179,107,0.1)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 10, padding: '8px 10px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <Icon name="bolt" size={13} color={btb.amber} />
-            <div style={{ color: btb.amber, fontSize: 11, lineHeight: 1.5 }}>
-              The figures above are gross swap fees. <b>If</b> Uniswap's governance fee switch is turned on for this specific pool, up to <b>{feeSplit.protocolPct.toFixed(2)}%</b> of that goes to the protocol instead of you — we can't tell from here whether it's active on this pool right now.
-            </div>
-          </div>
-        )}
         {feeSplit && feeSplit.protocolPct === 0 && isV4 && (
           <div style={{ marginTop: 8, color: btb.green, fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Icon name="check" size={12} color={btb.green} /> No protocol fee on V4 — you keep 100% of swap fees.
+            <Icon name="check" size={12} color={btb.green} /> No protocol fee on V4. You keep 100% of swap fees.
           </div>
         )}
       </Glass>
@@ -1241,22 +1220,25 @@ export function CreatePosition({ tokenA, tokenB, initialFee, fees24hUsd, v4PoolI
         )}
       </div>
 
-      {/* Floating action bar — sits UNDER the right panel (not full-width across
-          the chart). Pinned to the bottom so Deposit is always reachable. */}
+      {/* Floating action bar — on desktop it sits UNDER the right panel (not
+          full-width across the chart). Pinned to the bottom so Deposit is
+          always reachable. On mobile it's a single full-width bar, lifted
+          above the bottom nav (which has a higher z-index). */}
       {!simOnly && pool?.exists && !loadingPool && !poolErr && (
         <div style={{
-          position: 'sticky', bottom: 0, zIndex: 5, pointerEvents: 'none',
+          position: 'sticky', zIndex: 5, pointerEvents: 'none',
+          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
           display: 'grid', gap: 24,
-          gridTemplateColumns: panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr',
-          padding: '0 24px calc(12px + env(safe-area-inset-bottom, 0px))',
+          gridTemplateColumns: !isMobile && panelOpen ? 'minmax(0,1.6fr) minmax(300px,1fr)' : '1fr',
+          padding: isMobile ? '0 0 10px' : '0 24px calc(12px + env(safe-area-inset-bottom, 0px))',
         }}>
-          {panelOpen && <div />}
+          {!isMobile && panelOpen && <div />}
           <div style={{
             pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
             background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
             border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
           }}>
-            {panelOpen ? (
+            {(panelOpen || isMobile) ? (
               <>
                 <div
                   onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}

@@ -1,10 +1,13 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { mintTarget, lpAddressesForToken, fmtApr, fmtCompactUsd, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools, prefetchDiscoverPools } from '../../lib/discoverPools';
+import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+
+const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 import { DataTable, Column } from '../DataTable';
 import { TokenIcon } from '../TokenIcon';
 import { Sparkline } from '../Sparkline';
@@ -42,7 +45,38 @@ export function DiscoverScreen() {
     prefetchDiscoverPools(getPublicClient(config));
   }, [config]);
 
-  const { positions, tokens } = useTokenStore();
+  // Single-token market search: when the query names a token (symbol or
+  // address), pull EVERY pool for it across all DEXes via the same
+  // GeckoTerminal + DexScreener search Simulate uses for pairs.
+  const [marketPools, setMarketPools] = useState<MarketPool[] | null>(null);
+  const [marketSymbol, setMarketSymbol] = useState<string | null>(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const marketReqRef = useRef(0);
+  const { tokens } = useTokenStore();
+  useEffect(() => {
+    const q = search.trim().toLowerCase();
+    const tok = q
+      ? tokens.find(t => t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
+      : undefined;
+    if (!tok) {
+      marketReqRef.current++;
+      setMarketPools(null); setMarketSymbol(null); setMarketLoading(false);
+      return;
+    }
+    const req = ++marketReqRef.current;
+    setMarketSymbol(tok.symbol);
+    setMarketLoading(true);
+    const timer = setTimeout(() => {
+      const addr = tok.address === 'ETH' ? WETH_ADDR : tok.address;
+      searchMarketPools(addr, undefined, 1000)
+        .then(ps => { if (marketReqRef.current === req) setMarketPools(ps); })
+        .catch(() => { if (marketReqRef.current === req) setMarketPools([]); })
+        .finally(() => { if (marketReqRef.current === req) setMarketLoading(false); });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search, tokens]);
+
+  const { positions } = useTokenStore();
   const logoByAddress = useMemo(() => {
     const m = new Map<string, string>();
     for (const t of tokens) if (t.logoURI) m.set(t.address.toLowerCase(), t.logoURI);
@@ -293,6 +327,49 @@ export function DiscoverScreen() {
             defaultSortKey="tvl"
             onRowClick={p => setSheet({ pool: p, simulate: mintTarget(p) === null })}
           />
+        </div>
+      )}
+
+      {/* every pool for the searched token, across all DEXes */}
+      {marketSymbol && (marketLoading || (marketPools && marketPools.length > 0)) && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>All {marketSymbol} pools across DEXes</span>
+            {marketLoading && <Spinner size={14} color="#fff" track="rgba(255,255,255,0.18)"/>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(marketPools ?? [])
+              .filter(p => !pools.some(cp => cp.id.toLowerCase() === p.address))
+              .slice(0, 15)
+              .map(p => (
+                <Glass key={p.address} padding={14} radius={18}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>
+                        {p.name || `${marketSymbol} pool`}
+                      </div>
+                      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
+                        {p.dexLabel}
+                        {p.feePct != null && ` · ${(p.feePct * 100).toFixed(2)}% fee`}
+                        {` · TVL ${fmtCompactUsd(p.tvlUsd)} · ${fmtCompactUsd(p.volume24hUsd)} vol 24h`}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ color: p.aprPct != null ? btb.green : btb.textDim, fontSize: 14, fontWeight: 800 }}>
+                        {p.aprPct != null ? fmtApr(p.aprPct) : '—'}
+                      </div>
+                      <div style={{ color: btb.textDim, fontSize: 10.5 }}>fee APR</div>
+                    </div>
+                    <a href={p.url} target="_blank" rel="noreferrer" style={{
+                      height: 32, padding: '0 14px', borderRadius: 12, border: btb.borderSoft, flexShrink: 0,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                      background: 'rgba(255,255,255,0.06)',
+                    }}>View ↗</a>
+                  </div>
+                </Glass>
+              ))}
+          </div>
         </div>
       )}
 

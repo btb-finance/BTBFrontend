@@ -48,6 +48,63 @@ export async function fetchPoolStats(poolAddresses: string[], network = 'eth'): 
   return result;
 }
 
+export interface PairPool {
+  address: string;        // lowercase pool address
+  dexId: string;          // e.g. "uniswap_v3", "sushiswap", "balancer_ethereum"
+  name: string;           // e.g. "COMP / WETH 0.3%"
+  tvlUsd: number;
+  volume24hUsd: number;
+  /** Fee as a fraction (0.003 = 0.3%) when GeckoTerminal knows it (from the pool name), else null. */
+  fee: number | null;
+}
+
+/**
+ * Every pool GeckoTerminal knows for a token (or token pair), across ALL
+ * DEXes (V2, V3, Sushi, Balancer, …). Searches by the first token's address;
+ * when a second token is given, only pools pairing the two are returned.
+ */
+export async function searchPairPools(tokenAAddress: string, tokenBAddress?: string, network = 'eth'): Promise<PairPool[]> {
+  const a = tokenAAddress.toLowerCase();
+  const b = tokenBAddress?.toLowerCase();
+  const out: PairPool[] = [];
+  try {
+    const res = await fetch(`${BASE}/search/pools?query=${a}&network=${network}&page=1`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return out;
+    const json = await res.json() as {
+      data?: {
+        attributes: PoolAttrs & { name?: string };
+        relationships?: {
+          dex?: { data?: { id?: string } };
+          base_token?: { data?: { id?: string } };
+          quote_token?: { data?: { id?: string } };
+        };
+      }[];
+    };
+    for (const row of json.data ?? []) {
+      const base = row.relationships?.base_token?.data?.id?.split('_').pop()?.toLowerCase();
+      const quote = row.relationships?.quote_token?.data?.id?.split('_').pop()?.toLowerCase();
+      const pair = new Set([base, quote]);
+      if (!pair.has(a) || (b && !pair.has(b))) continue;
+      const address = row.attributes.address?.toLowerCase();
+      if (!address) continue;
+      const name = row.attributes.name ?? '';
+      // Fee is embedded in the pool name for fee-tiered DEXes ("COMP / WETH 0.3%")
+      const feeMatch = name.match(/([\d.]+)%\s*$/);
+      out.push({
+        address,
+        dexId: row.relationships?.dex?.data?.id ?? 'unknown',
+        name,
+        tvlUsd: parseFloat(row.attributes.reserve_in_usd ?? '0') || 0,
+        volume24hUsd: parseFloat(row.attributes.volume_usd?.h24 ?? '0') || 0,
+        fee: feeMatch ? parseFloat(feeMatch[1]) / 100 : null,
+      });
+    }
+  } catch { /* search is best-effort — caller merges whatever arrives */ }
+  return out;
+}
+
 /**
  * Batched 24h price-change % for many pools in as few requests as possible
  * (GeckoTerminal's `/pools/multi` accepts up to 30 addresses per call).
