@@ -10,7 +10,6 @@ import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 import { DataTable, Column } from '../DataTable';
 import { TokenIcon } from '../TokenIcon';
-import { Sparkline } from '../Sparkline';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
@@ -36,7 +35,7 @@ const COMING_SOON_DEXS: { name: string; color: string }[] = [
 export function DiscoverScreen() {
   const config = useConfig();
   const { isMobile } = useSidebar();
-  const { pools, priceChange, sparklines, loading } = useDiscoverPools();
+  const { pools, priceChange, loading } = useDiscoverPools();
   const [search, setSearch] = useState('');
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
 
@@ -152,16 +151,6 @@ export function DiscoverScreen() {
       },
     },
     {
-      key: 'chart', label: 'Trend', align: 'right', width: '90px',
-      render: p => {
-        const s = sparklines[p.id];
-        if (!s) return <span style={{ color: btb.textDim }}>—</span>;
-        const up = s[s.length - 1] >= s[0];
-        const title = p.source === 'uniswap' ? 'Recent price' : 'Recent TVL';
-        return <span title={title}><Sparkline points={s} width={70} height={24} color={up ? btb.green : btb.loss} /></span>;
-      },
-    },
-    {
       key: 'change24h', label: '24h', align: 'right', sortable: true,
       sortValue: p => p.apyChange1d ?? priceChange[p.id] ?? 0,
       render: p => {
@@ -262,7 +251,6 @@ export function DiscoverScreen() {
             const mine = heldSyms(p);
             const [addr0, addr1] = p.underlyingTokens ?? [];
             const pct = p.apyChange1d ?? priceChange[p.id];
-            const spark = sparklines[p.id];
             const mintable = mintTarget(p) !== null;
             return (
               <Glass key={p.id} padding={14} radius={18} onClick={() => mintable ? setSheet({ pool: p, simulate: false }) : openSimulator(p)}>
@@ -306,9 +294,6 @@ export function DiscoverScreen() {
                   <div>
                     <div style={{ color: btb.textDim, fontSize: 10.5 }}>Fees (24h)</div>
                     <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600 }}>{p.fees24hUsd == null && '≈ '}{fmtCompactUsd(estFees24h(p))}</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto' }}>
-                    {spark && <Sparkline points={spark} width={64} height={22} color={spark[spark.length - 1] >= spark[0] ? btb.green : btb.loss} />}
                   </div>
                 </div>
 
