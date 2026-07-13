@@ -37,7 +37,7 @@ export function Sidebar({
   onEarn: () => void;
   onConnect: () => void;
 }) {
-  const { collapsed, toggle, width } = useSidebar();
+  const { collapsed, forceCollapsed, toggle, width } = useSidebar();
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : undefined;
 
   return (
@@ -73,7 +73,7 @@ export function Sidebar({
         )}
       </div>
 
-      {collapsed && (
+      {collapsed && !forceCollapsed && (
         <div onClick={toggle} title="Expand sidebar" style={{
           width: 26, height: 26, borderRadius: 8, cursor: 'pointer', margin: '0 auto 16px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',

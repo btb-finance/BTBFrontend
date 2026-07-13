@@ -41,7 +41,8 @@ export function getPancakePoolHistory(poolAddress: string, days = 30): Promise<P
   return getPoolHistory(PANCAKE_V3_SUBGRAPH_ID, poolAddress, days);
 }
 
-/** The wallet's PancakeSwap V3 positions — on-chain NPM enumeration, keyless. */
-export function fetchPancakePositions(client: PublicClient, owner: `0x${string}`): Promise<LiquidityPosition[]> {
-  return fetchV3Positions(client, owner, PANCAKE_V3_DEPLOYMENT);
+/** The wallet's PancakeSwap V3 positions — on-chain NPM enumeration, keyless.
+ * Pass `knownIds` (Alchemy NFT index) to skip the enumeration round trips. */
+export function fetchPancakePositions(client: PublicClient, owner: `0x${string}`, knownIds?: bigint[]): Promise<LiquidityPosition[]> {
+  return fetchV3Positions(client, owner, PANCAKE_V3_DEPLOYMENT, knownIds);
 }

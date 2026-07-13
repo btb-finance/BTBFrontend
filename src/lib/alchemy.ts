@@ -142,3 +142,34 @@ export async function fetchAlchemyNativePrices(symbols: string[]): Promise<Recor
   }
 }
 
+
+// ─── Position-NFT enumeration ────────────────────────────────────────────────
+// LP positions (Uniswap V3/V4, PancakeSwap V3) are NFTs. One indexed Alchemy
+// call returns every position tokenId the wallet owns across all of those
+// contracts at once — replacing the slow on-chain paths (balanceOf +
+// tokenOfOwnerByIndex loops for V3, Transfer-log scans for V4).
+const NFT_HOST = `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}`;
+
+/** TokenIds the owner holds per contract (keys are lowercase addresses). */
+export async function fetchOwnedNftTokenIds(
+  owner: string,
+  contracts: string[],
+): Promise<Map<string, bigint[]>> {
+  const out = new Map<string, bigint[]>(contracts.map((c) => [c.toLowerCase(), []]));
+  let pageKey: string | undefined;
+  do {
+    const qs = new URLSearchParams({ owner, withMetadata: 'false', pageSize: '100' });
+    for (const c of contracts) qs.append('contractAddresses[]', c);
+    if (pageKey) qs.set('pageKey', pageKey);
+    const res = await fetch(`${NFT_HOST}/getNFTsForOwner?${qs}`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`alchemy nft ${res.status}`);
+    const json = await res.json() as { ownedNfts?: { contractAddress?: string; tokenId?: string }[]; pageKey?: string };
+    for (const n of json.ownedNfts ?? []) {
+      const key = n.contractAddress?.toLowerCase();
+      if (!key || n.tokenId == null) continue;
+      try { out.get(key)?.push(BigInt(n.tokenId)); } catch { /* non-numeric tokenId — skip */ }
+    }
+    pageKey = json.pageKey;
+  } while (pageKey);
+  return out;
+}

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
@@ -7,12 +7,12 @@ import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { Badge } from './Badge';
-import { SectionHeader } from './SectionHeader';
 import { DataTable, Column } from './DataTable';
 import { TokenIcon } from './TokenIcon';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
+import { useTokenStore } from '../lib/TokenStore';
 import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import {
@@ -22,6 +22,8 @@ import {
   fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
+import { fetchOwnedNftTokenIds } from '../lib/alchemy';
 import { RebalanceSheet } from './RebalanceSheet';
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
@@ -39,6 +41,9 @@ function fmtAmt(raw: bigint, decimals: number): string {
   const n = parseFloat(formatUnits(raw, decimals));
   if (n === 0) return '0';
   if (n < 0.0001) return '<0.0001';
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (n >= 10_000) return `${(n / 1e3).toFixed(1)}K`;
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
@@ -51,6 +56,7 @@ const posKey = (p: LiquidityPosition) => `${p.protocol}-${p.id.toString()}`;
  * (unless `showEmpty`).
  */
 export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {}) {
+  const { isMobile } = useSidebar();
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -60,6 +66,11 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
+  // TokenStore prices cover tokens DeFiLlama doesn't index (BTB, small caps) —
+  // read through a ref so balance refreshes don't retrigger the price effect.
+  const { tokens: storeTokens } = useTokenStore();
+  const storeTokensRef = useRef(storeTokens);
+  storeTokensRef.current = storeTokens;
 
   const load = useCallback(async () => {
     if (!address) { setPositions([]); return; }
@@ -67,14 +78,26 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     try {
       const client = getPublicClient(config);
       if (!client) return;
+      // Fast path: every position (V3, V4, Pancake V3) is an NFT — one
+      // indexed Alchemy call enumerates all tokenIds at once, replacing the
+      // balanceOf/tokenOfOwnerByIndex loops and the V4 Transfer-log scan.
+      // On failure `ids` is null and each fetcher falls back to its own
+      // on-chain enumeration.
+      const ids = await fetchOwnedNftTokenIds(address, [
+        UNISWAP_V3_DEPLOYMENT.positionManager,
+        UNISWAP_V4.positionManager,
+        PANCAKE_V3_DEPLOYMENT.positionManager,
+      ]).catch(() => null);
+      const idsFor = (contract: string) => ids?.get(contract.toLowerCase());
+
       // Each protocol renders as soon as it resolves and degrades
       // independently — a slow/failing V4 log scan can't hold up the V3 list.
       const merge = (protocol: LiquidityPosition['protocol']) => (items: LiquidityPosition[]) =>
         setPositions((prev) => [...prev.filter((p) => p.protocol !== protocol), ...items]);
       await Promise.allSettled([
-        fetchV3Positions(client, address as `0x${string}`).then(merge('uniswap-v3')),
-        fetchV4Positions(client, address as `0x${string}`).then(merge('uniswap-v4')),
-        fetchPancakePositions(client, address as `0x${string}`).then(merge('pancakeswap-v3')),
+        fetchV3Positions(client, address as `0x${string}`, undefined, idsFor(UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3')),
+        fetchV4Positions(client, address as `0x${string}`, idsFor(UNISWAP_V4.positionManager)).then(merge('uniswap-v4')),
+        fetchPancakePositions(client, address as `0x${string}`, idsFor(PANCAKE_V3_DEPLOYMENT.positionManager)).then(merge('pancakeswap-v3')),
       ]);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
@@ -89,7 +112,20 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   useEffect(() => {
     if (positions.length === 0) return;
     const addrs = [...new Set(positions.flatMap((p) => [p.token0, p.token1]))];
-    getTokenPricesUsd(addrs).then(setUsd).catch(() => {});
+    // App-known prices first (covers BTB and other tokens DeFiLlama misses),
+    // then DeFiLlama's figures win for everything it does index.
+    const fromStore: Record<string, number> = {};
+    for (const a of addrs) {
+      const key = a.toLowerCase();
+      const t = storeTokensRef.current.find(
+        (tok) => tok.address.toLowerCase() === key || (isNativeCurrency(a) && tok.address === 'ETH'),
+      );
+      if (t?.usdPrice) fromStore[key] = t.usdPrice;
+    }
+    if (Object.keys(fromStore).length > 0) setUsd((u) => ({ ...fromStore, ...u }));
+    getTokenPricesUsd(addrs)
+      .then((llama) => setUsd({ ...fromStore, ...llama }))
+      .catch(() => {});
   }, [positions]);
 
   async function collect(pos: LiquidityPosition) {
@@ -150,8 +186,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={26} /></div>
           </div>
           <div>
-            <div style={{ fontWeight: 700 }}>{p.symbol0} / {p.symbol1}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
+            <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{p.symbol0} / {p.symbol1}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
               <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
             </div>
@@ -162,23 +198,42 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     {
       key: 'amounts', label: 'Position', align: 'left',
       render: p => (
-        <span style={{ color: btb.textMuted, fontSize: 12.5 }}>
-          {fmtAmt(p.amount0, p.decimals0)} {p.symbol0} + {fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
-        </span>
+        <div style={{ color: btb.textMuted, fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+          <div>{fmtAmt(p.amount0, p.decimals0)} {p.symbol0}</div>
+          <div>{fmtAmt(p.amount1, p.decimals1)} {p.symbol1}</div>
+        </div>
       ),
     },
     {
-      key: 'fees', label: 'Unclaimed fees', align: 'left',
-      render: p => (p.fees0 > 0n || p.fees1 > 0n) ? (
-        <span style={{ color: btb.green, fontSize: 12.5 }}>
-          {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
-        </span>
-      ) : <span style={{ color: btb.textDim }}>—</span>,
+      key: 'value', label: 'Value', align: 'right', sortable: true, sortValue: p => valueOf(p),
+      render: p => {
+        const v = valueOf(p);
+        return v > 0
+          ? <span style={{ color: btb.text, fontWeight: 700, whiteSpace: 'nowrap' }}>${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
+          : <span style={{ color: btb.textDim }}>—</span>;
+      },
+    },
+    {
+      key: 'fees', label: 'Unclaimed fees', align: 'right', sortable: true, sortValue: p => feesValueOf(p),
+      render: p => {
+        if (p.fees0 === 0n && p.fees1 === 0n) return <span style={{ color: btb.textDim }}>—</span>;
+        const v = feesValueOf(p);
+        return (
+          <div style={{ lineHeight: 1.4 }}>
+            <div style={{ color: btb.green, fontWeight: 700, fontSize: 13 }}>
+              {v > 0 ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '—'}
+            </div>
+            <div style={{ color: btb.textMuted, fontSize: 11, whiteSpace: 'nowrap' }}>
+              {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: 'status', label: 'Status', align: 'left', sortable: true, sortValue: p => (p.inRange ? 1 : 0),
       render: p => (
-        <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber}>
+        <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
           {p.inRange ? 'In range' : 'Out of range'}
         </Badge>
       ),
@@ -197,9 +252,10 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <ActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={!hasFees || busy} green/>
             {canRebalance && (
               <button onClick={() => setRebalance(p)} disabled={busy} style={{
-                height: 30, padding: '0 10px', borderRadius: 8, border: 'none', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', whiteSpace: 'nowrap',
+                border: p.inRange ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(255,179,107,0.4)',
                 fontSize: 11.5, fontWeight: 700, cursor: busy ? 'default' : 'pointer',
-                background: p.inRange ? 'rgba(255,255,255,0.08)' : 'rgba(255,179,107,0.16)',
+                background: p.inRange ? 'rgba(255,255,255,0.07)' : 'rgba(255,179,107,0.14)',
                 color: p.inRange ? btb.text : btb.amber,
               }}>
                 ⚖ Rebalance
@@ -213,34 +269,102 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <SectionHeader title="Your Positions" right="Uniswap + PancakeSwap · Ethereum"/>
 
       {positions.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          <Glass padding={16} radius={14} soft>
-            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Total value</div>
-            <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, marginTop: 4 }}>${totalValueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-          </Glass>
-          <Glass padding={16} radius={14} soft>
-            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Unclaimed fees</div>
-            <div style={{ color: btb.green, fontSize: 22, fontWeight: 800, marginTop: 4 }}>${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-          </Glass>
-          <Glass padding={16} radius={14} soft>
-            <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>In range</div>
-            <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, marginTop: 4 }}>{inRangeCount} / {positions.length}</div>
-          </Glass>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? 6 : 10 }}>
+          {([
+            { label: 'Total value', value: `$${totalValueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, color: btb.text },
+            { label: 'Unclaimed fees', value: `$${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, color: btb.green },
+            { label: 'In range', value: `${inRangeCount} / ${positions.length}`, color: btb.text },
+          ] as const).map(s => (
+            <Glass key={s.label} padding={isMobile ? 10 : 16} radius={14} soft>
+              <div style={{ color: btb.textMuted, fontSize: isMobile ? 9.5 : 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
+              <div style={{ color: s.color, fontSize: isMobile ? 14 : 22, fontWeight: 800, marginTop: isMobile ? 2 : 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</div>
+            </Glass>
+          ))}
         </div>
       )}
 
-      <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
-        <DataTable
-          columns={columns}
-          rows={positions}
-          rowKey={posKey}
-          loading={loading && positions.length === 0}
-          emptyMessage="No LP positions yet"
-        />
-      </div>
+      {isMobile ? (
+        // Card list — the 5-column table (with a 340px action column) can't
+        // fit a phone; each position becomes a card with full-width actions.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {loading && positions.length === 0 && (
+            <div style={{ color: btb.textDim, fontSize: 13, textAlign: 'center', padding: 28 }}>Loading positions…</div>
+          )}
+          {!loading && positions.length === 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
+          )}
+          {positions.map(p => {
+            const hasFees = p.fees0 > 0n || p.fees1 > 0n;
+            const hasLiquidity = p.liquidity > 0n;
+            const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
+            const busy = busyId === posKey(p);
+            const value = valueOf(p);
+            return (
+              <Glass key={posKey(p)} padding={14} radius={18}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', flexShrink: 0 }}>
+                    <TokenIcon symbol={p.symbol0} size={26} />
+                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={26} /></div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{p.symbol0} / {p.symbol1}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
+                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
+                      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    {value > 0 && (
+                      <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>
+                        ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                      </div>
+                    )}
+                    <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ marginTop: value > 0 ? 3 : 0, whiteSpace: 'nowrap' }}>
+                      {p.inRange ? 'In range' : 'Out of range'}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 10 }}>
+                  {fmtAmt(p.amount0, p.decimals0)} {p.symbol0} + {fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
+                </div>
+                {hasFees && (
+                  <div style={{ color: btb.green, fontSize: 12, marginTop: 3 }}>
+                    Fees: {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                  <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy}/>
+                  {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy}/>}
+                  {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy} green/>}
+                  {canRebalance && (
+                    <MobileActBtn
+                      label="⚖ Rebalance"
+                      onClick={() => setRebalance(p)}
+                      disabled={busy}
+                      amber={!p.inRange}
+                    />
+                  )}
+                </div>
+              </Glass>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
+          <DataTable
+            columns={columns}
+            rows={positions}
+            rowKey={posKey}
+            loading={loading && positions.length === 0}
+            emptyMessage="No LP positions yet"
+            defaultSortKey="value"
+          />
+        </div>
+      )}
 
       {manage && (
         <ManageSheet
@@ -264,13 +388,33 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   );
 }
 
+/** Full-width-sharing action button for the mobile card layout — bigger tap
+ * target than the table's compact ActBtn. */
+function MobileActBtn({ label, onClick, disabled, green, amber }: {
+  label: string; onClick: () => void; disabled?: boolean; green?: boolean; amber?: boolean;
+}) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      flex: 1, minWidth: 90, height: 38, borderRadius: 12, border: 'none', fontFamily: 'inherit',
+      fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap',
+      cursor: disabled ? 'default' : 'pointer',
+      background: disabled ? 'rgba(255,255,255,0.06)'
+        : green ? btb.gradGreen
+        : amber ? 'rgba(255,179,107,0.16)'
+        : 'rgba(255,255,255,0.1)',
+      color: disabled ? btb.textDim : amber ? btb.amber : '#fff',
+    }}>{label}</button>
+  );
+}
+
 function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: () => void; disabled?: boolean; green?: boolean }) {
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      height: 30, padding: '0 12px', borderRadius: 8, border: 'none', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
+      height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
+      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(82,227,164,0.4)' : '1px solid rgba(255,255,255,0.14)',
       cursor: disabled ? 'default' : 'pointer',
-      background: disabled ? 'rgba(255,255,255,0.06)' : green ? btb.gradGreen : 'rgba(255,255,255,0.1)',
-      color: disabled ? btb.textDim : '#fff',
+      background: disabled ? 'rgba(255,255,255,0.06)' : green ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.07)',
+      color: disabled ? btb.textDim : green ? btb.green : btb.text,
     }}>{label}</button>
   );
 }
