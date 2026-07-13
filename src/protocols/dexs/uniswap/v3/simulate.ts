@@ -51,8 +51,8 @@ export function impermanentLossFraction(p0: number, p1: number, pa: number, pb: 
 }
 
 export interface BacktestInput {
-  /** Real daily history, oldest → newest (price0 = token0 in token1). */
-  history: { price0: number; feesUsd: number }[];
+  /** Historical UTC-day snapshots, oldest → newest (price0 = token0 in token1). */
+  history: { price0: number; feesUsd: number; liquidity?: number }[];
   /** Range bounds in the same price space (from tickToPrice on the range ticks). */
   priceLower: number;
   priceUpper: number;
@@ -65,6 +65,7 @@ export interface BacktestInput {
 
 export interface BacktestResult {
   days: number;
+  depositUsd: number;
   daysInRange: number;
   feesUsd: number;      // your share of pool fees, only for in-range days
   ilFraction: number;   // signed; negative = loss vs HODL
@@ -74,33 +75,37 @@ export interface BacktestResult {
   feeApr: number;       // fees-only annualised return, %
   endPrice: number;
   entryPrice: number;
+  /** Days whose fee share used that day's indexed pool liquidity. */
+  historicalLiquidityDays: number;
+  /** Days that had to fall back to the live pool liquidity. */
+  fallbackLiquidityDays: number;
 }
 
 /**
- * Replay the pool's real daily price through a fixed range: accrue your share of
- * that day's fees ONLY when the price was in range, then net the total against
- * the impermanent loss realised over the whole move. This is what turns a
- * "guessed" APR into one grounded in what actually happened.
- *
- * Approximation (same one the in-sheet estimate makes): your fee share uses the
- * pool's *current* in-range liquidity as the denominator each day rather than a
- * per-day historical value — day-level history doesn't carry active liquidity.
- * So treat fees as indicative, IL as exact for the price path.
+ * Replays historical daily pool snapshots through a fixed range. Pool price and
+ * fee totals are historical. Your share is estimated from the day's indexed
+ * in-range liquidity; a live-liquidity fallback remains for incomplete indexes.
+ * This is deliberately not called realised position performance: day snapshots
+ * cannot reconstruct intraday time in range or per-tick fee growth.
  */
 export function backtestRange(input: BacktestInput): BacktestResult | null {
   const { history, priceLower, priceUpper, userLiquidity, activeLiquidity, depositUsd } = input;
   if (history.length < 2 || !(depositUsd > 0) || priceLower >= priceUpper) return null;
 
-  const share = userLiquidity + activeLiquidity > 0
-    ? userLiquidity / (userLiquidity + activeLiquidity)
-    : 0;
-
   let feesUsd = 0;
   let daysInRange = 0;
+  let historicalLiquidityDays = 0;
+  let fallbackLiquidityDays = 0;
   for (const d of history) {
     const inRange = d.price0 >= priceLower && d.price0 <= priceUpper;
     if (inRange) {
       daysInRange++;
+      const poolLiquidity = d.liquidity && d.liquidity > 0 ? d.liquidity : activeLiquidity;
+      if (d.liquidity && d.liquidity > 0) historicalLiquidityDays++;
+      else fallbackLiquidityDays++;
+      const share = userLiquidity + poolLiquidity > 0
+        ? userLiquidity / (userLiquidity + poolLiquidity)
+        : 0;
       feesUsd += (d.feesUsd || 0) * share;
     }
   }
@@ -116,6 +121,7 @@ export function backtestRange(input: BacktestInput): BacktestResult | null {
 
   return {
     days,
+    depositUsd,
     daysInRange,
     feesUsd,
     ilFraction,
@@ -125,5 +131,7 @@ export function backtestRange(input: BacktestInput): BacktestResult | null {
     feeApr: annualise(feesUsd),
     endPrice,
     entryPrice,
+    historicalLiquidityDays,
+    fallbackLiquidityDays,
   };
 }

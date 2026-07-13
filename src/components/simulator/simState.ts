@@ -41,7 +41,7 @@ export const HORIZONS = [
 export interface SimInputs {
   pool: MintPool;
   feeTier: number;
-  history: PoolDay[] | null;         // subgraph: real per-day price + fees
+  history: PoolDay[] | null;         // indexed per-day price, fees, and liquidity snapshots
   fallbackCloses: number[] | null;   // pool-space closes (GeckoTerminal, rescaled)
   fees24hUsd?: number;               // whole-pool daily fees fallback
   tokenUsd: { p0: number; p1: number } | null;
@@ -66,12 +66,12 @@ export interface WaterfallLeg {
 export interface TimelineStep {
   label: string;
   days: number;
+  /** Modelled fee estimate based on trailing pool fees and expected time in range. */
   feesUsd: number;
-  /** Expected IL at ±1σ price paths, signed fractions (band edges). */
+  /** LP-versus-holding difference at ±1σ model price paths, signed fractions. */
   ilAtMinus1s: number;
   ilAtPlus1s: number;
-  inRangeProb: number;      // terminal coverage at this step
-  expectedValueUsd: number; // deposit + fees + probability-weighted IL − gas
+  inRangeProb: number;      // model terminal coverage at this step
 }
 
 export interface RiskAxis { name: string; risk: number; note: string }
@@ -126,8 +126,7 @@ export interface Sim {
   health: Health;
   timeline: TimelineStep[];
   risk: RiskAxis[];
-  /** What this exact range would REALLY have done over the pool's last 30 days
-   * (real prices, real per-day fees). Null when no subgraph history. */
+  /** Historical daily-snapshot replay for this range. Null when no subgraph history. */
   backtest: BacktestResult | null;
   /** Real daily closes in DISPLAY space with in-range flags, for the backtest chart. */
   backtestDays: { disp: number; inRange: boolean }[];
@@ -326,23 +325,16 @@ export function deriveSim(i: SimInputs): Sim | null {
   ];
   const timeline: TimelineStep[] = STEPS.map(({ label, days }) => {
     if (days === 0) {
-      return { label, days, feesUsd: 0, ilAtMinus1s: 0, ilAtPlus1s: 0, inRangeProb: inRange ? 1 : 0, expectedValueUsd: depositUsd };
+      return { label, days, feesUsd: 0, ilAtMinus1s: 0, ilAtPlus1s: 0, inRangeProb: inRange ? 1 : 0 };
     }
     const tir = expectedTimeInRange(price, priceLower, priceUpper, sigmaDaily, days);
     const fees = perDayShare * days * tir;
     const st = sigmaDaily * Math.sqrt(days);
     const ilDown = ilFraction(price * Math.exp(-st));
     const ilUp = ilFraction(price * Math.exp(st));
-    // probability-weighted E[IL] on a coarse grid, per step
-    let eIl = 0, w2 = 0;
-    for (let z = -3; z <= 3.0001; z += 0.15) {
-      const w = normPdf(z); eIl += ilFraction(price * Math.exp(st * z)) * w; w2 += w;
-    }
-    eIl /= w2;
     return {
       label, days, feesUsd: fees, ilAtMinus1s: ilDown, ilAtPlus1s: ilUp,
       inRangeProb: rangeCoverage(price, priceLower, priceUpper, sigmaDaily, days),
-      expectedValueUsd: depositUsd * (1 + eIl) + fees - i.gasUsd,
     };
   });
 
@@ -366,11 +358,11 @@ export function deriveSim(i: SimInputs): Sim | null {
 
   const netAprPct = ((expectedFeesUsd + depositUsd * expectedIlFraction - i.gasUsd) / depositUsd) * (365 / H) * 100;
 
-  // ── Real backtest: replay the pool's ACTUAL daily prices and fees through
-  // this exact range. Not a model — this is what the range would have earned.
+  // ── Historical replay: real indexed pool prices/fees, with each day's
+  // recorded liquidity used to estimate this new position's fee share.
   const backtest = i.history && i.history.length >= 2
     ? backtestRange({
-        history: i.history.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd })),
+        history: i.history.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd, liquidity: d.liquidity })),
         priceLower, priceUpper,
         userLiquidity: userL, activeLiquidity: poolL,
         depositUsd,

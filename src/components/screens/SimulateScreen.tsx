@@ -471,8 +471,8 @@ export function SimulateScreen() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
                         {label} · {feeLabel}
-                        {i === 0 && <span title="Highest TVL" style={{ fontSize: 10, marginLeft: 5 }}>🏆</span>}
-                        {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 10, marginLeft: 5 }}>🛡️</span>}
+                        {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>Highest TVL</span>}
+                        {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>No protocol fee</span>}
                       </span>
                       <span
                         style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
@@ -513,8 +513,8 @@ export function SimulateScreen() {
                 <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                     {label}
-                    {i === 0 && <span title="Highest TVL" style={{ fontSize: 9 }}>🏆</span>}
-                    {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ fontSize: 9 }}>🛡️</span>}
+                    {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10 }}>Highest TVL</span>}
+                    {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ color: btb.green, fontSize: 10 }}>No protocol fee</span>}
                   </span>
                   <span style={{ color: btb.text, fontSize: 13 }}>{f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—'}</span>
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>

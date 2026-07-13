@@ -1,6 +1,6 @@
 'use client';
-/** Section 11 — Timeline. How the position is expected to evolve from today
- * to six months out. Each step doubles as a horizon picker for the whole page. */
+/** Forward-model horizon picker. It intentionally shows assumptions, not a
+ * made-up future portfolio value. */
 import { btb } from '../../design-tokens';
 import { Section, fmtUsd, fmtSignedPct, chart } from '../ui';
 import type { Sim } from '../simState';
@@ -12,9 +12,9 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
 }) {
   return (
     <Section
-      kicker="Section 11"
-      title="Timeline"
-      subtitle="Expected fees, the impermanent loss band (a typical up or down move), and the odds of still being in range at each point. Tap a step to set the horizon for the whole page."
+      kicker="Forward model"
+      title="Range coverage over time"
+      subtitle="A scenario based on trailing daily volatility and average pool fees—not future data. Tap a period to set the horizon for the model above."
     >
       <div style={{ position: 'relative', paddingLeft: 22 }}>
         {/* spine */}
@@ -23,7 +23,6 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
           {sim.timeline.map((step) => {
             const selected = step.days === sim.horizonDays;
             const clickable = step.days > 0;
-            const netUsd = step.expectedValueUsd - sim.depositUsd;
             return (
               <div key={step.label} onClick={clickable ? () => setHorizonDays(step.days) : undefined} style={{
                 position: 'relative', borderRadius: 14, padding: '10px 13px',
@@ -45,14 +44,11 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
                     <span style={{ color: btb.textMuted, fontSize: 12 }}>Deposit {fmtUsd(sim.depositUsd)} · position opens</span>
                   ) : (
                     <div style={{ display: 'flex', gap: isMobile ? 10 : 18, flexWrap: 'wrap', flex: 1, fontSize: 11.5 }}>
-                      <span style={{ color: chart.fees, fontWeight: 700 }}>fees {fmtUsd(step.feesUsd)}</span>
+                      <span style={{ color: chart.fees, fontWeight: 700 }}>est. fees {fmtUsd(step.feesUsd)}</span>
                       <span style={{ color: chart.il, fontWeight: 700 }}>
-                        IL {fmtSignedPct(step.ilAtMinus1s * 100, 1)} to {fmtSignedPct(step.ilAtPlus1s * 100, 1)}
+                        LP vs hold {fmtSignedPct(step.ilAtMinus1s * 100, 1)} to {fmtSignedPct(step.ilAtPlus1s * 100, 1)}
                       </span>
-                      <span style={{ color: btb.textMuted, fontWeight: 700 }}>in range {Math.round(step.inRangeProb * 100)}%</span>
-                      <span style={{ marginLeft: 'auto', fontWeight: 800, color: netUsd >= 0 ? btb.green : btb.loss }}>
-                        {fmtUsd(step.expectedValueUsd)}
-                      </span>
+                      <span style={{ color: btb.textMuted, fontWeight: 700 }}>model coverage {Math.round(step.inRangeProb * 100)}%</span>
                     </div>
                   )}
                 </div>
@@ -62,7 +58,7 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
         </div>
       </div>
       <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.45 }}>
-        Expected value is fees plus probability weighted impermanent loss minus gas, at the model median price. The IL band shows a one standard deviation move each way.
+        Estimated fees use trailing average pool fees × your estimated liquidity share × modelled time in range. LP vs hold shows the result at one standard-deviation price moves in either direction. It is not a prediction, APR, or future portfolio value.
       </div>
     </Section>
   );

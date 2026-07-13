@@ -434,7 +434,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const depositUsd = parseFloat(formatUnits(add0, pool.decimals0)) * tokenUsd.p0
       + parseFloat(formatUnits(add1, pool.decimals1)) * tokenUsd.p1;
     return backtestRange({
-      history: history.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd })),
+      history: history.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd, liquidity: d.liquidity })),
       priceLower, priceUpper,
       userLiquidity: Number(L),
       activeLiquidity: Number(pool.liquidity),
@@ -930,7 +930,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     if (!backtest) return null;
     const b = backtest;
     const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 100 ? Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : Math.abs(v).toFixed(2)}`;
-    const netPositive = b.netUsd >= 0;
     const cell = (label: string, value: string, color: string) => (
       <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
         <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
@@ -940,19 +939,15 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return (
       <Glass padding={12} radius={12} soft style={{ marginTop: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <span style={{ color: btb.textMuted, fontSize: 12 }}>If you&apos;d held this exact range · last {b.days} days</span>
-          <span style={{ color: netPositive ? '#52E3A4' : btb.loss, fontSize: 13, fontWeight: 800 }}>
-            {b.netApr >= 0 ? '+' : '−'}{Math.abs(b.netApr).toFixed(1)}% net APR
-          </span>
+          <span style={{ color: btb.textMuted, fontSize: 12 }}>Historical daily-snapshot replay · last {b.days} days</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {cell('Fees earned', money(b.feesUsd), '#52E3A4')}
-          {cell('Impermanent loss', money(b.ilUsd), b.ilUsd < 0 ? '#FFB36B' : btb.text)}
-          {cell('Net result', money(b.netUsd), netPositive ? '#52E3A4' : btb.loss)}
+          {cell('Estimated fees', money(b.feesUsd), '#52E3A4')}
+          {cell('LP vs holding', `${b.ilFraction < 0 ? '−' : '+'}${Math.abs(b.ilFraction * 100).toFixed(2)}%`, b.ilFraction < 0 ? '#FFB36B' : btb.text)}
+          {cell('Period fee return', `${((b.feesUsd / Math.max(b.depositUsd, 1)) * 100).toFixed(2)}%`, '#52E3A4')}
         </div>
         <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
-          Price was in your range <b>{b.daysInRange}/{b.days} days</b>. Fees = your share of real pool fees on in-range days;
-          IL = value vs holding, from the actual {b.entryPrice > 0 ? Math.round(((b.endPrice / b.entryPrice) - 1) * 100) : 0}% price move. Past performance, not a forecast.
+          Price closed inside your range <b>{b.daysInRange}/{b.days} days</b>. Fees are estimated from historical pool fees and daily liquidity. LP vs holding is the fixed-range price-only comparison, not a realised wallet loss. Period return is not APR.
         </div>
       </Glass>
     );

@@ -1,6 +1,6 @@
 'use client';
-/** Section 10 — Scenario Cards. Bear / Sideways / Bull as large cards with
- * honest probabilities from the same model as everything else. Clicking a
+/** Section 10 — Scenario Cards. Downside / central / upside one-standard-
+ * deviation bands. Clicking a
  * card sets the sensitivity slider to that scenario's price. */
 import { btb } from '../../design-tokens';
 import { Section, fmtUsd, fmtSignedPct, fmtPrice } from '../ui';
@@ -15,7 +15,7 @@ export function ScenarioCards({ sim, setMovePct, isMobile }: {
     <Section
       kicker="Section 10"
       title="Scenarios"
-      subtitle={`Three futures for the next ${sim.horizonDays} days, weighted by this pair's volatility and recent trend. Probabilities sum to 100%. Tap a card to load it into the sensitivity slider.`}
+      subtitle={`Model bands for the next ${sim.horizonDays} days from this pair's realised volatility: below −1σ, within ±1σ, and above +1σ. They assume no predictable price trend and are not forecasts. Tap a band to load its boundary into sensitivity.`}
     >
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 10 }}>
         {sim.scenarios.map((sc) => {
@@ -29,12 +29,11 @@ export function ScenarioCards({ sim, setMovePct, isMobile }: {
               borderRadius: 18, padding: '15px 16px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 22 }}>{sc.emoji}</span>
                 <span style={{ color: btb.text, fontSize: 15, fontWeight: 800, flex: 1 }}>{sc.label}</span>
                 <span style={{
                   fontSize: 11.5, fontWeight: 800, color: btb.textMuted,
                   background: 'rgba(255,255,255,0.07)', borderRadius: 999, padding: '3px 9px',
-                }}>{Math.round(sc.probability * 100)}% chance</span>
+                }}>{Math.round(sc.probability * 100)}% model band</span>
               </div>
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <Row label={`${sim.dispBase} price`} value={`${fmtPrice(sc.endPrice)} ${sim.dispQuote}`} sub={fmtSignedPct((sc.endPrice / sim.dispPrice - 1) * 100, 0)} />

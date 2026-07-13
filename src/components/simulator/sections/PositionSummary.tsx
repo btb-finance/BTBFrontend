@@ -6,18 +6,25 @@ import { useEffect, useRef, useState } from 'react';
 import { btb } from '../../design-tokens';
 import { TokenIcon } from '../../TokenIcon';
 import { Glass } from '../../Glass';
-import { fmtCompactUsd } from '../../../lib/pools';
+import { fmtApr, fmtCompactUsd } from '../../../lib/pools';
+import { fmtFeeTier } from '@/protocols/dexs/uniswap';
 import { fmtUsd, fmtPct, fmtPrice } from '../ui';
 import type { Sim } from '../simState';
 
 type DragKind = 'lo' | 'hi' | 'band';
 
-export function PositionSummary({ sim, onToggleFlip, onRange, isMobile }: {
+export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositStr, setDepositStr, feeOptions, feeTier, setFeeTier, feeLocked }: {
   sim: Sim;
   onToggleFlip: () => void;
   /** Commit a new range in DISPLAY price space. Drives the whole page. */
   onRange: (lo: number, hi: number) => void;
   isMobile: boolean;
+  depositStr: string;
+  setDepositStr: (s: string) => void;
+  feeOptions: { fee: number; exists: boolean; tvlUsd?: number; aprPct?: number }[];
+  feeTier: number;
+  setFeeTier: (fee: number) => void;
+  feeLocked: boolean;
 }) {
   const [showFactors, setShowFactors] = useState(false);
   const [drag, setDrag] = useState<DragKind | null>(null);
@@ -76,7 +83,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile }: {
   };
 
   const statusColor = sim.inRange ? (sim.nearEdge ? btb.amber : btb.green) : btb.loss;
-  const statusLabel = sim.inRange ? (sim.nearEdge ? '⚠ Near range edge' : '✓ In Range') : '✕ Out of Range';
+  const statusLabel = sim.inRange ? (sim.nearEdge ? 'Near range edge' : 'In range') : 'Out of range';
   const accent = sim.inRange ? '#52E3A4' : '#FFB36B';
 
   const handle = (kind: 'lo' | 'hi', left: number) => (
@@ -101,31 +108,31 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile }: {
     <Glass padding={0} radius={22}>
       <div style={{ padding: '18px 20px 16px' }}>
         {/* Header: pair · live badge · live price */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 7 : 10, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex' }}>
-              <TokenIcon symbol={sim.dispBase} size={26} />
-              <div style={{ marginLeft: -8 }}><TokenIcon symbol={sim.dispQuote} size={26} /></div>
+              <TokenIcon symbol={sim.dispBase} size={isMobile ? 22 : 26} />
+              <div style={{ marginLeft: isMobile ? -7 : -8 }}><TokenIcon symbol={sim.dispQuote} size={isMobile ? 22 : 26} /></div>
             </div>
-            <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>
+            <span style={{ color: btb.text, fontSize: isMobile ? 14 : 17, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
               {sim.dispBase} / {sim.dispQuote}
             </span>
             <button onClick={onToggleFlip} title="Flip which token prices are quoted in" style={{
-              height: 22, padding: '0 7px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
+              height: isMobile ? 20 : 22, padding: isMobile ? '0 5px' : '0 7px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: btb.borderSoft, color: btb.textMuted,
             }}>⇄</button>
           </div>
-          <span style={{
+          <span title="Live pool data" style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 800, color: btb.green,
             background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.35)', borderRadius: 999, padding: '4px 9px',
           }}>
             <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green, boxShadow: '0 0 6px #52E3A4' }} />
-            LIVE POOL DATA
+            {isMobile ? null : 'LIVE POOL DATA'}
           </span>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Live Price</div>
-            <div style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
-              {fmtPrice(sim.dispPrice)} <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 600 }}>{sim.dispQuote}</span>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ color: btb.textDim, fontSize: isMobile ? 8.5 : 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{isMobile ? 'Price' : 'Live Price'}</div>
+            <div style={{ color: btb.text, fontSize: isMobile ? 14 : 16, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
+              {fmtPrice(sim.dispPrice)} <span style={{ color: btb.textDim, fontSize: isMobile ? 9.5 : 11, fontWeight: 600 }}>{sim.dispQuote}</span>
             </div>
           </div>
         </div>
@@ -185,6 +192,50 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile }: {
           </div>
         </div>
 
+        {/* All position inputs live beside the range, before any analysis. */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(220px, 0.9fr) minmax(0, 1.5fr)', gap: 14, marginTop: 20, paddingTop: 16, borderTop: btb.borderSoft }}>
+          <div>
+            <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Position amount</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 7 }}>
+              {[1000, 10000, 50000].map((amount) => (
+                <button key={amount} onClick={() => setDepositStr(String(amount))} style={{
+                  flex: 1, height: 30, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800,
+                  background: depositStr === String(amount) ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${depositStr === String(amount) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                  color: depositStr === String(amount) ? btb.green : btb.textMuted,
+                }}>${amount >= 1000 ? `${amount / 1000}k` : amount}</button>
+              ))}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: btb.textMuted, fontSize: 17, fontWeight: 800 }}>$</span>
+              <input value={depositStr} onChange={(e) => setDepositStr(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="10,000" style={{
+                width: '100%', height: 44, boxSizing: 'border-box', paddingLeft: 29, paddingRight: 12, background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.14)', borderRadius: 12, color: btb.text, fontSize: 18, fontWeight: 800, fontFamily: 'inherit', outline: 'none',
+              }} />
+            </div>
+          </div>
+          <div>
+            <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Fee tier</div>
+            {feeLocked ? (
+              <div style={{ color: btb.textMuted, fontSize: 12, background: 'rgba(255,255,255,0.04)', border: btb.borderSoft, borderRadius: 12, padding: '13px' }}>{fmtFeeTier(feeTier)} · fixed by this V4 pool</div>
+            ) : (
+              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                {feeOptions.filter((option) => option.exists).map((option) => {
+                  const selected = feeTier === option.fee;
+                  return <button key={option.fee} onClick={() => setFeeTier(option.fee)} style={{
+                    flex: '1 1 110px', minWidth: 0, textAlign: 'left', padding: '9px 10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
+                    background: selected ? 'rgba(82,227,164,0.13)' : 'rgba(255,255,255,0.04)', border: `1px solid ${selected ? 'rgba(82,227,164,0.48)' : 'rgba(255,255,255,0.1)'}`,
+                    color: selected ? btb.green : btb.text,
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 800 }}>{fmtFeeTier(option.fee)}</div>
+                    <div style={{ color: btb.textDim, fontSize: 9.5, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{option.tvlUsd != null ? `TVL ${fmtCompactUsd(option.tvlUsd)}` : 'live pool'}{option.aprPct != null ? ` · ${fmtApr(option.aprPct)}` : ''}</div>
+                  </button>;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Status + stats + health */}
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr 1fr', gap: 14, marginTop: 16 }}>
           <div>
@@ -197,14 +248,17 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
               {[
                 ['Capital', fmtUsd(sim.depositUsd)],
-                ['Expected fee APR', sim.feeAprPct != null ? fmtPct(sim.feeAprPct) : 'no fee data yet'],
-                [`Expected net (${sim.horizonDays}d)`, fmtUsd(sim.expectedFeesUsd + sim.depositUsd * sim.expectedIlFraction - sim.gasUsd)],
+                ['Fee rate while in range', sim.feeAprPct != null ? `${fmtPct(sim.feeAprPct)} / year` : 'no fee data yet'],
+                [`Estimated fees (${sim.horizonDays}d)`, sim.hasFeeData ? `+${fmtUsd(sim.expectedFeesUsd)}` : 'no fee data yet'],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: btb.textMuted }}>{label}</span>
-                  <span style={{ color: label === 'Expected fee APR' && sim.feeAprPct != null ? btb.green : btb.text, fontWeight: 800 }}>{value}</span>
+                  <span style={{ color: (label === 'Fee rate while in range' && sim.feeAprPct != null) || label.startsWith('Estimated fees') ? btb.green : btb.text, fontWeight: 800 }}>{value}</span>
                 </div>
               ))}
+            </div>
+            <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.35, marginTop: 9 }}>
+              This rate only applies while the live price stays inside your range; the estimate above adjusts it for the selected period.
             </div>
           </div>
 
@@ -217,7 +271,6 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile }: {
               <span style={{ color: btb.textDim, fontSize: 10 }}>{showFactors ? '▴ less' : '▾ details'}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 6 }}>
-              <span style={{ fontSize: 22 }}>{sim.health.emoji}</span>
               <span style={{ color: sim.health.color, fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>{sim.health.score}</span>
               <span style={{ color: btb.textDim, fontSize: 13, fontWeight: 700 }}>/ 100</span>
             </div>
