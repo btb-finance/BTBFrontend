@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { mintTarget, lpAddressesForToken, fmtApr, fmtCompactUsd, EarnPool } from '../../lib/pools';
+import { mintTarget, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools, prefetchDiscoverPools } from '../../lib/discoverPools';
 import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
@@ -137,7 +137,7 @@ export function DiscoverScreen() {
                 <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
                   {p.dex}{p.version ? ` ${p.version}` : ''}
                 </Badge>
-                {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{(p.feeTier / 10000).toFixed(2)}%</span>}
+                {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
                   <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
@@ -265,7 +265,7 @@ export function DiscoverScreen() {
                       <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
                         {p.dex}{p.version ? ` ${p.version}` : ''}
                       </Badge>
-                      {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{(p.feeTier / 10000).toFixed(2)}%</span>}
+                      {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (
                         <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>

@@ -13,7 +13,7 @@ import { SimulatorPage } from '../simulator/SimulatorPage';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { FACTORY_ABI } from '@/protocols/dexs/uniswap/v3/abis';
-import { fmtFeeTier } from '@/protocols/dexs/uniswap/graph';
+import { fmtFeeTier, DYNAMIC_FEE_FLAG } from '@/protocols/dexs/uniswap/graph';
 import { UNISWAP_V3_DEPLOYMENT } from '@/protocols/dexs/uniswap/v3/addresses';
 import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
@@ -341,7 +341,7 @@ export function SimulateScreen() {
           if (!s) continue;
           if (f.tvlUsd == null) f.tvlUsd = s.tvlUsd;
           if (f.apy == null && s.aprPct != null) { f.apy = s.aprPct; f.aprIsUnranged = true; }
-          if (f.fees24hUsd == null && s.volume24hUsd > 0 && f.feeTier > 0) {
+          if (f.fees24hUsd == null && s.volume24hUsd > 0 && f.feeTier > 0 && !(f.feeTier & DYNAMIC_FEE_FLAG)) {
             f.fees24hUsd = s.volume24hUsd * (f.feeTier / 1_000_000);
           }
         }
@@ -366,11 +366,14 @@ export function SimulateScreen() {
           const s = ds[id] ?? dp[id];
           if (!s) continue;
           if (f.tvlUsd == null) f.tvlUsd = s.tvlUsd;
-          if (f.apy == null && s.volume24hUsd > 0 && s.tvlUsd > 0) {
+          // Dynamic-fee V4 pools carry the flag bit, not a fee — deriving
+          // fees/APR from it fabricates absurd numbers, so leave them unknown.
+          const dynamicFee = (f.feeTier & DYNAMIC_FEE_FLAG) !== 0;
+          if (f.apy == null && !dynamicFee && s.volume24hUsd > 0 && s.tvlUsd > 0) {
             const apr = (s.volume24hUsd * (f.feeTier / 1_000_000) * 365 / s.tvlUsd) * 100;
             if (isFinite(apr) && apr > 0) { f.apy = apr; f.aprIsUnranged = true; }
           }
-          if (f.fees24hUsd == null && s.volume24hUsd > 0 && f.feeTier > 0) {
+          if (f.fees24hUsd == null && !dynamicFee && s.volume24hUsd > 0 && f.feeTier > 0) {
             f.fees24hUsd = s.volume24hUsd * (f.feeTier / 1_000_000);
           }
         }

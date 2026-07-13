@@ -283,7 +283,9 @@ export async function getOwnerPositionIds(subgraphId: string, owner: string): Pr
   return out;
 }
 
-const DYNAMIC_FEE_FLAG = 0x800000;
+/** V4 pools with a hook-controlled fee report this flag instead of a real fee
+ * tier — the actual fee varies per swap and can't be derived client-side. */
+export const DYNAMIC_FEE_FLAG = 0x800000;
 
 /** 500 -> "0.05%", 3000 -> "0.3%", V4 dynamic-fee flag -> "Dynamic". */
 export function fmtFeeTier(feeTier: number): string {
