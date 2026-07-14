@@ -16,7 +16,7 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
-  BTB_EARNINGS_PREFERENCES_ABI, BTB_LP_ACCOUNT_ABI, createAccountCall, getLegacySmartAccountDeployment,
+  BTB_EARNINGS_PREFERENCES_ABI, BTB_LP_ACCOUNT_ABI, createAccountCall, getLegacySmartAccountDeployments,
   getSmartAccountDeployment, readSmartAccount,
   shortAddress, type RebalancePolicy, type SmartAccountChainId, type SmartAccountDeployment,
 } from '../lib/smartAccount';
@@ -115,8 +115,9 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         };
 
         await loadDeployment(smartDeployment, true);
-        const legacy = getLegacySmartAccountDeployment(chain.chainId);
-        if (legacy && legacy.factory.toLowerCase() !== smartDeployment.factory.toLowerCase()) await loadDeployment(legacy, false);
+        for (const legacy of getLegacySmartAccountDeployments(chain.chainId)) {
+          if (legacy.factory.toLowerCase() !== smartDeployment.factory.toLowerCase()) await loadDeployment(legacy, false);
+        }
       }));
       setAccounts(foundAccounts.sort((a, b) => a.chainId - b.chainId));
       setPositions(foundPositions.sort((a, b) => a.account.chainId - b.account.chainId));

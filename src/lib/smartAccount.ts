@@ -208,13 +208,21 @@ const DEPLOYMENTS: Record<SmartAccountChainId, SmartAccountDeployment | null> = 
   }),
 };
 
-const LEGACY_DEPLOYMENTS: Partial<Record<SmartAccountChainId, SmartAccountDeployment>> = {
-  4663: deployment({
-    factory: process.env.NEXT_PUBLIC_BTB_LEGACY_ACCOUNT_FACTORY_4663,
-    priceGuard: process.env.NEXT_PUBLIC_BTB_PRICE_GUARD_4663,
-    swapAdapter: process.env.NEXT_PUBLIC_BTB_LEGACY_SWAP_ADAPTER_4663,
-    agent: process.env.NEXT_PUBLIC_BTB_AGENT_4663,
-  }) ?? undefined,
+const LEGACY_DEPLOYMENTS: Partial<Record<SmartAccountChainId, SmartAccountDeployment[]>> = {
+  4663: [
+    deployment({
+      factory: process.env.NEXT_PUBLIC_BTB_LEGACY_ACCOUNT_FACTORY_4663,
+      priceGuard: process.env.NEXT_PUBLIC_BTB_PRICE_GUARD_4663,
+      swapAdapter: process.env.NEXT_PUBLIC_BTB_LEGACY_SWAP_ADAPTER_4663,
+      agent: process.env.NEXT_PUBLIC_BTB_LEGACY_AGENT_4663 ?? process.env.NEXT_PUBLIC_BTB_AGENT_4663,
+    }),
+    deployment({
+      factory: process.env.NEXT_PUBLIC_BTB_LEGACY_ACCOUNT_FACTORY_4663_2,
+      priceGuard: process.env.NEXT_PUBLIC_BTB_PRICE_GUARD_4663,
+      swapAdapter: process.env.NEXT_PUBLIC_BTB_LEGACY_SWAP_ADAPTER_4663_2,
+      agent: process.env.NEXT_PUBLIC_BTB_LEGACY_AGENT_4663_2 ?? process.env.NEXT_PUBLIC_BTB_AGENT_4663,
+    }),
+  ].filter((item): item is SmartAccountDeployment => item !== null),
 };
 
 export const UINT128_MAX = (1n << 128n) - 1n;
@@ -223,8 +231,8 @@ export function getSmartAccountDeployment(chainId: number): SmartAccountDeployme
   return chainId === 1 || chainId === 4663 ? DEPLOYMENTS[chainId] : null;
 }
 
-export function getLegacySmartAccountDeployment(chainId: number): SmartAccountDeployment | null {
-  return chainId === 1 || chainId === 4663 ? LEGACY_DEPLOYMENTS[chainId] ?? null : null;
+export function getLegacySmartAccountDeployments(chainId: number): SmartAccountDeployment[] {
+  return chainId === 1 || chainId === 4663 ? LEGACY_DEPLOYMENTS[chainId] ?? [] : [];
 }
 
 export async function readSmartAccount(client: PublicClient, owner: `0x${string}`, d: SmartAccountDeployment) {

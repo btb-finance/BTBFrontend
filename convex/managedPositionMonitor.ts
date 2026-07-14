@@ -49,6 +49,12 @@ function chainClient(chainId: number) {
   return createPublicClient({ chain, transport: http(chain.rpcUrls.default.http[0], { timeout: 12_000, retryCount: 1 }) });
 }
 
+function expectedAgent(): string {
+  const value = process.env.AGENT_ADDRESS;
+  if (!value) throw new Error("AGENT_ADDRESS is not configured");
+  return value.toLowerCase();
+}
+
 /** Public registration is accepted only after the action proves the complete
  * smart-account/NFT/policy relationship directly against the chain. */
 export const register = action({
@@ -69,6 +75,9 @@ export const register = action({
         || !same(policy.pool, args.pool) || !same(policy.token0, args.token0) || !same(policy.token1, args.token1)
         || Number(policy.fee) !== args.fee || Number(position[5]) !== args.tickLower || Number(position[6]) !== args.tickUpper
     ) throw new Error("Saved position details do not match the on-chain policy");
+    if (policy.agent.toLowerCase() !== expectedAgent()) {
+      throw new Error("This position uses an older automation agent and must be migrated before automation can resume");
+    }
     await ctx.runMutation(internal.managedPositions.upsert, args);
   },
 });
@@ -96,6 +105,15 @@ export const check = internalAction({
         if (!policy.enabled || policy.positionId !== tokenId || policy.pool.toLowerCase() !== row.pool) throw new Error("Automation policy disabled or changed");
         const lower = Number(position[5]), upper = Number(position[6]), current = Number(slot0[1]);
         const last = Number(await client.readContract({ address: row.account as Address, abi: lastRebalanceAbi, functionName: "lastRebalanceAt", args: [keyHash] }));
+        if (policy.agent.toLowerCase() !== expectedAgent()) {
+          await ctx.runMutation(internal.managedPositions.saveCheck, {
+            key: row.key, tickLower: lower, tickUpper: upper, currentTick: current,
+            status: "agent_migration_required", enabled: true, nextCheckAt: now + 5 * 60_000,
+            error: "Position uses an older automation agent", lastRebalanceAt: last > 0 ? last * 1000 : undefined,
+            queueRebalance: false,
+          });
+          continue;
+        }
         const expired = Number(policy.expiresAt) * 1000 <= now;
         const out = current < lower || current >= upper;
         const cooldownEnds = (last + Number(policy.minRebalanceInterval)) * 1000;
