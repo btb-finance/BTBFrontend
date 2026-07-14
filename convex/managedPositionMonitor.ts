@@ -119,12 +119,13 @@ export const check = internalAction({
         const cooldownEnds = (last + Number(policy.minRebalanceInterval)) * 1000;
         const coolingDown = last > 0 && cooldownEnds > now;
         const status = paused ? "paused" : expired ? "permission_expired" : out && coolingDown ? "out_of_range_cooldown" : out ? "rebalance_needed" : "in_range";
-        await ctx.runMutation(internal.managedPositions.saveCheck, {
+        const queued = await ctx.runMutation(internal.managedPositions.saveCheck, {
           key: row.key, tickLower: lower, tickUpper: upper, currentTick: current, status,
           enabled: !expired, nextCheckAt: coolingDown ? Math.min(nextCheckAt, cooldownEnds) : nextCheckAt,
           error: undefined, lastRebalanceAt: last > 0 ? last * 1000 : undefined,
           queueRebalance: out && !expired && !paused && !coolingDown,
         });
+        if (queued) await ctx.scheduler.runAfter(0, internal.rebalanceWorker.run, {});
       } catch (error) {
         await ctx.runMutation(internal.managedPositions.saveCheck, {
           key: row.key, status: "verification_error", enabled: true,

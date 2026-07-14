@@ -243,6 +243,7 @@ export const run = internalAction({
       });
       try { await publicClient.sendRawTransaction({ serializedTransaction: signedTransaction }); }
       catch { /* The next worker run safely re-submits the exact signed bytes. */ }
+      await ctx.scheduler.runAfter(3_000, internal.rebalanceWorker.run, {});
     } catch (error) {
       await ctx.runMutation(internal.managedPositions.failJob, {
         jobId: job._id, positionKey: job.positionKey, error: errorText(error), retryable: !(error instanceof PolicyActionRequired), now: Date.now(),

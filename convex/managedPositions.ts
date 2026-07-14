@@ -75,7 +75,7 @@ export const saveCheck = internalMutation({
   },
   handler: async (ctx, args) => {
     const row = await ctx.db.query("managedLpPositions").withIndex("by_key", q => q.eq("key", args.key)).unique();
-    if (!row) return;
+    if (!row) return false;
     const now = Date.now();
     await ctx.db.patch(row._id, {
       ...(args.positionId ? { positionId: args.positionId } : {}),
@@ -85,15 +85,16 @@ export const saveCheck = internalMutation({
       status: args.status, enabled: args.enabled, nextCheckAt: args.nextCheckAt,
       lastCheckedAt: now, updatedAt: now, lastRebalanceAt: args.lastRebalanceAt, lastError: args.error,
     });
-    if (!args.queueRebalance) return;
+    if (!args.queueRebalance) return false;
     const jobs = await ctx.db.query("rebalanceJobs").withIndex("by_position", q => q.eq("positionKey", args.key)).collect();
-    if (jobs.some(job => ["pending", "running", "broadcast", "blocked", "failed"].includes(job.state))) return;
+    if (jobs.some(job => ["pending", "running", "broadcast", "blocked", "failed"].includes(job.state))) return false;
     await ctx.db.insert("rebalanceJobs", {
       positionKey: args.key, chainId: row.chainId, account: row.account,
       positionManager: row.positionManager, positionId: args.positionId ?? row.positionId,
       state: "pending", requestedAt: now, updatedAt: now, attempts: 0,
       nextAttemptAt: now,
     });
+    return true;
   },
 });
 
