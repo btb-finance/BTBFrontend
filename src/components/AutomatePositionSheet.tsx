@@ -70,7 +70,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         positionId: pos.id,
         fee: pos.fee,
         targetTickWidth: target.tickUpper - target.tickLower,
-        performanceFeeBps: rules.performanceFeePct * 100,
+        performanceFeeBps: 1_000,
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: rules.maxSwapPct * 100,
         maxSpotTwapDeviationBps: rules.maxDeviationPct * 100,

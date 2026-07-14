@@ -8,6 +8,7 @@ export interface SmartAccountDeployment {
   priceGuard: `0x${string}`;
   swapAdapter: `0x${string}`;
   agent: `0x${string}`;
+  earningsPreferences?: `0x${string}`;
 }
 
 export interface RebalancePolicy {
@@ -102,6 +103,18 @@ export const BTB_ACCOUNT_FACTORY_ABI = [
   { name: 'createAccount', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'owner', type: 'address' }], outputs: [{ name: 'account', type: 'address' }] },
 ] as const;
 
+export const BTB_EARNINGS_PREFERENCES_ABI = [
+  {
+    name: 'preferenceOf', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'owner', type: 'address' }],
+    outputs: [{ name: 'mode', type: 'uint8' }, { name: 'payoutToken', type: 'address' }],
+  },
+  {
+    name: 'setPreference', type: 'function', stateMutability: 'nonpayable',
+    inputs: [{ name: 'mode', type: 'uint8' }, { name: 'payoutToken', type: 'address' }], outputs: [],
+  },
+] as const;
+
 export const BTB_LP_ACCOUNT_ABI = [
   { name: 'owner', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
   { name: 'nextNonce', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
@@ -169,12 +182,13 @@ function address(value?: string): `0x${string}` | null {
   return value && isAddress(value) && value.toLowerCase() !== zeroAddress ? value as `0x${string}` : null;
 }
 
-function deployment(values: Record<'factory' | 'priceGuard' | 'swapAdapter' | 'agent', string | undefined>): SmartAccountDeployment | null {
+function deployment(values: Record<'factory' | 'priceGuard' | 'swapAdapter' | 'agent', string | undefined> & { earningsPreferences?: string }): SmartAccountDeployment | null {
   const factory = address(values.factory);
   const priceGuard = address(values.priceGuard);
   const swapAdapter = address(values.swapAdapter);
   const agent = address(values.agent);
-  return factory && priceGuard && swapAdapter && agent ? { factory, priceGuard, swapAdapter, agent } : null;
+  const earningsPreferences = address(values.earningsPreferences);
+  return factory && priceGuard && swapAdapter && agent ? { factory, priceGuard, swapAdapter, agent, ...(earningsPreferences ? { earningsPreferences } : {}) } : null;
 }
 
 const DEPLOYMENTS: Record<SmartAccountChainId, SmartAccountDeployment | null> = {
@@ -183,12 +197,14 @@ const DEPLOYMENTS: Record<SmartAccountChainId, SmartAccountDeployment | null> = 
     priceGuard: process.env.NEXT_PUBLIC_BTB_PRICE_GUARD_1,
     swapAdapter: process.env.NEXT_PUBLIC_BTB_SWAP_ADAPTER_1,
     agent: process.env.NEXT_PUBLIC_BTB_AGENT_1,
+    earningsPreferences: process.env.NEXT_PUBLIC_BTB_EARNINGS_PREFERENCES_1,
   }),
   4663: deployment({
     factory: process.env.NEXT_PUBLIC_BTB_ACCOUNT_FACTORY_4663,
     priceGuard: process.env.NEXT_PUBLIC_BTB_PRICE_GUARD_4663,
     swapAdapter: process.env.NEXT_PUBLIC_BTB_SWAP_ADAPTER_4663,
     agent: process.env.NEXT_PUBLIC_BTB_AGENT_4663,
+    earningsPreferences: process.env.NEXT_PUBLIC_BTB_EARNINGS_PREFERENCES_4663,
   }),
 };
 

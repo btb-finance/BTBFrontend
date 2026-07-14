@@ -46,7 +46,6 @@ export function ManagedPolicySheet({ pos, account, owner, policy, deployment, on
       twapSeconds: nearest(policy.twapSeconds, [60, 300, 900, 1800] as const),
       intervalSeconds: nearest(policy.minRebalanceInterval, [900, 3600, 21600, 86400] as const),
       expiryDays: nearest(remainingDays, [7, 30, 90, 365] as const),
-      performanceFeePct: nearest(policy.performanceFeeBps / 100, [0, 5, 10, 15, 20] as const),
     };
   }, [policy, pos.currentTick, spacing]);
   const [rules, setRules] = useState(initial);
@@ -65,7 +64,7 @@ export function ManagedPolicySheet({ pos, account, owner, policy, deployment, on
         enabled: true,
         agent: deployment.agent,
         targetTickWidth: target.tickUpper - target.tickLower,
-        performanceFeeBps: rules.performanceFeePct * 100,
+        performanceFeeBps: 1_000,
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: rules.maxSwapPct * 100,
         maxSpotTwapDeviationBps: rules.maxDeviationPct * 100,

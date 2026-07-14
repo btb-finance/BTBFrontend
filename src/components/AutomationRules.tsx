@@ -11,7 +11,6 @@ export interface AutomationRuleValues {
   twapSeconds: 60 | 300 | 900 | 1800;
   intervalSeconds: 900 | 3600 | 21600 | 86400;
   expiryDays: 7 | 30 | 90 | 365;
-  performanceFeePct: 0 | 5 | 10 | 15 | 20;
 }
 
 export const DEFAULT_AUTOMATION_RULES: AutomationRuleValues = {
@@ -22,7 +21,6 @@ export const DEFAULT_AUTOMATION_RULES: AutomationRuleValues = {
   twapSeconds: 300,
   intervalSeconds: 3600,
   expiryDays: 90,
-  performanceFeePct: 10,
 };
 
 const controlStyle = {
@@ -74,11 +72,6 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
             <option value={10}>10% per rebalance</option><option value={25}>25% per rebalance</option><option value={50}>50% per rebalance</option><option value={100}>100% per rebalance</option>
           </select>
         </Rule>
-        <Rule label="Performance fee" hint="Team fee charged only on realized LP fee earnings when rebalancing, claiming, or returning the NFT. Principal is never charged.">
-          <select disabled={disabled} value={value.performanceFeePct} onChange={(e) => set('performanceFeePct', Number(e.target.value) as 0 | 5 | 10 | 15 | 20)} style={controlStyle}>
-            <option value={0}>0% of earnings</option><option value={5}>5% of earnings</option><option value={10}>10% of earnings</option><option value={15}>15% of earnings</option><option value={20}>20% of earnings</option>
-          </select>
-        </Rule>
         <Rule label="Max slippage" hint="The on-chain TWAP quote enforces this maximum loss during the rebalance swap.">
           <select disabled={disabled} value={slippageBps} onChange={(e) => onSlippageChange(Number(e.target.value))} style={controlStyle}>
             <option value={50}>0.5%</option><option value={100}>1%</option><option value={300}>3%</option><option value={500}>5%</option><option value={1000}>10%</option><option value={2000}>20%</option>
@@ -106,7 +99,7 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
         </Rule>
         <div style={{ display: 'flex', alignItems: 'end' }}>
           <div style={{ width: '100%', minHeight: 34, boxSizing: 'border-box', borderRadius: 9, padding: '7px 9px', color: btb.textMuted, background: 'rgba(255,255,255,0.035)', fontSize: 10, lineHeight: 1.35 }}>
-            Owner-only pause, rule changes and withdrawal.
+            Earnings fee is fixed at 10%. Principal is never charged.
           </div>
         </div>
       </div>

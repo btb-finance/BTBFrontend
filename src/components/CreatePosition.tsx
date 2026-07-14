@@ -609,7 +609,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         positionId: 0n,
         fee,
         targetTickWidth: automationTarget.tickUpper - automationTarget.tickLower,
-        performanceFeeBps: automationRules.performanceFeePct * 100,
+        performanceFeeBps: 1_000,
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: automationRules.maxSwapPct * 100,
         maxSpotTwapDeviationBps: automationRules.maxDeviationPct * 100,

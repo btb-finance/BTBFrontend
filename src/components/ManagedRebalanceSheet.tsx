@@ -69,8 +69,8 @@ export function ManagedRebalanceSheet({ pos, smartAccount, owner, policy, onClos
       if (tickLower < policy.minimumAllowedTick || tickUpper > policy.maximumAllowedTick) throw new Error('The target range is outside your allowed area. Open Change rules and expand the allowed area first.');
 
       // Performance fee applies only to collected fees, never principal.
-      const netFee0 = live.fees0 * BigInt(10_000 - policy.performanceFeeBps) / 10_000n;
-      const netFee1 = live.fees1 * BigInt(10_000 - policy.performanceFeeBps) / 10_000n;
+      const netFee0 = live.fees0 * 9_000n / 10_000n;
+      const netFee1 = live.fees1 * 9_000n / 10_000n;
       let budget0 = live.amount0 + netFee0;
       let budget1 = live.amount1 + netFee1;
       const plan = rebalancePlan(live.sqrtPriceX96, tickLower, tickUpper, budget0, budget1);

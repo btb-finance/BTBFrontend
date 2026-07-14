@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { encodeFunctionData } from 'viem';
+import { encodeFunctionData, isAddress, zeroAddress } from 'viem';
 import { Glass } from './Glass';
 import { Badge } from './Badge';
 import { Button } from './Button';
@@ -15,7 +15,7 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
-  BTB_LP_ACCOUNT_ABI, createAccountCall, getSmartAccountDeployment, readSmartAccount,
+  BTB_EARNINGS_PREFERENCES_ABI, BTB_LP_ACCOUNT_ABI, createAccountCall, getSmartAccountDeployment, readSmartAccount,
   shortAddress, type RebalancePolicy, type SmartAccountChainId, type SmartAccountDeployment,
 } from '../lib/smartAccount';
 import {
@@ -30,6 +30,8 @@ interface AccountState {
   account: `0x${string}`;
   deployed: boolean;
   paused: boolean;
+  earningsMode: number;
+  payoutToken: `0x${string}`;
 }
 
 interface ManagedItem {
@@ -65,6 +67,9 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
   const [err, setErr] = useState<string | null>(null);
   const [manualRebalance, setManualRebalance] = useState<ManagedItem | null>(null);
   const [editPolicy, setEditPolicy] = useState<ManagedItem | null>(null);
+  const [editingEarnings, setEditingEarnings] = useState<SmartAccountChainId | null>(null);
+  const [earningsMode, setEarningsMode] = useState(0);
+  const [payoutToken, setPayoutToken] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true); setErr(null);
@@ -76,7 +81,10 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         const client = getPublicClient(config, { chainId: chain.chainId });
         if (!smartDeployment || !client) return;
         const smart = await readSmartAccount(client, address, smartDeployment);
-        const accountState: AccountState = { ...smart, chainId: chain.chainId, chainName: chain.chainName, deployment: smartDeployment };
+        const preference = smartDeployment.earningsPreferences
+          ? await client.readContract({ address: smartDeployment.earningsPreferences, abi: BTB_EARNINGS_PREFERENCES_ABI, functionName: 'preferenceOf', args: [address] }).catch(() => [0, zeroAddress] as const)
+          : [0, zeroAddress] as const;
+        const accountState: AccountState = { ...smart, chainId: chain.chainId, chainName: chain.chainName, deployment: smartDeployment, earningsMode: Number(preference[0]), payoutToken: preference[1] };
         foundAccounts.push(accountState);
         if (!smart.deployed) return;
         const owned = await fetchV3Positions(client, smart.account, chain.v3).catch(() => []);
@@ -135,6 +143,24 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         calls: [{ to: state.account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: fn }) }],
       });
       await load();
+    } catch (e) { setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed'); }
+    finally { setBusy(null); }
+  }
+
+  async function saveEarnings(state: AccountState) {
+    const registry = state.deployment.earningsPreferences;
+    const token = earningsMode === 2 ? payoutToken.trim() : zeroAddress;
+    if (!registry) return;
+    if (earningsMode === 2 && (!isAddress(token) || token === zeroAddress)) {
+      setErr('Enter a valid deployed payout-token contract address.'); return;
+    }
+    setBusy(`earnings-${state.chainId}`); setErr(null);
+    try {
+      await runCalls(config, {
+        account: address, chainId: state.chainId, label: 'Save LP earnings preference', track,
+        calls: [{ to: registry, data: encodeFunctionData({ abi: BTB_EARNINGS_PREFERENCES_ABI, functionName: 'setPreference', args: [earningsMode, token as `0x${string}`] }) }],
+      });
+      setEditingEarnings(null); await load();
     } catch (e) { setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed'); }
     finally { setBusy(null); }
   }
@@ -199,9 +225,24 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                   {!state.deployed ? (
                     <Button variant="success" size="sm" onClick={() => createAccount(state)} disabled={!canTransact || isBusy} style={{ height: 31, fontSize: 11, boxShadow: 'none' }}>{isBusy ? 'Creating…' : 'Create account'}</Button>
                   ) : (
-                    <Button variant="ghost" size="sm" onClick={() => togglePause(state)} disabled={!canTransact || isBusy} style={{ height: 31, fontSize: 11, border: btb.borderSoft }}>{isBusy ? 'Confirming…' : state.paused ? 'Resume all' : 'Pause all'}</Button>
+                    <>
+                      <Button variant="ghost" size="sm" onClick={() => togglePause(state)} disabled={!canTransact || isBusy} style={{ height: 31, fontSize: 11, border: btb.borderSoft }}>{isBusy ? 'Confirming…' : state.paused ? 'Resume all' : 'Pause all'}</Button>
+                      {state.deployment.earningsPreferences && <Button variant="ghost" size="sm" onClick={() => { setEditingEarnings(state.chainId); setEarningsMode(state.earningsMode); setPayoutToken(state.payoutToken === zeroAddress ? '' : state.payoutToken); }} disabled={!canTransact} style={{ height: 31, fontSize: 11, border: btb.borderSoft }}>Earnings</Button>}
+                    </>
                   )}
                 </div>
+                {editingEarnings === state.chainId && state.deployment.earningsPreferences && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: btb.borderSoft }}>
+                    <select value={earningsMode} onChange={(e) => setEarningsMode(Number(e.target.value))} style={{ width: '100%', height: 32, borderRadius: 8, padding: '0 8px', color: btb.text, background: 'rgba(255,255,255,.06)', border: btb.borderSoft }}>
+                      <option value={0}>Claim in pool tokens</option><option value={1}>Compound earnings</option><option value={2}>Send as one token</option>
+                    </select>
+                    {earningsMode === 2 && (
+                      <input value={payoutToken} onChange={(e) => setPayoutToken(e.target.value)} placeholder="Token contract (for example USDG)" style={{ boxSizing: 'border-box', width: '100%', height: 32, marginTop: 6, borderRadius: 8, padding: '0 8px', color: btb.text, background: 'rgba(255,255,255,.06)', border: btb.borderSoft, outline: 'none', fontSize: 10.5 }}/>
+                    )}
+                    <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.4, marginTop: 5 }}>Funds always go to your wallet. Conversion runs only when a protected liquid route exists.</div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 7 }}><Button variant="success" size="sm" onClick={() => saveEarnings(state)} disabled={busy === `earnings-${state.chainId}`} style={{ height: 30, fontSize: 10.5 }}>{busy === `earnings-${state.chainId}` ? 'Saving…' : 'Save'}</Button><Button variant="ghost" size="sm" onClick={() => setEditingEarnings(null)} style={{ height: 30, fontSize: 10.5 }}>Cancel</Button></div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -235,7 +276,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
               <div style={{ marginTop: 7, padding: '8px 9px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
                 <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5 }}>
                   Agent <a href={`${CHAINS.find((c) => c.chainId === item.account.chainId)!.explorer}${item.policy.agent}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.green, textDecoration: 'none' }}>{shortAddress(item.policy.agent)} ↗</a>
-                  {' · '}target width {item.policy.targetTickWidth.toLocaleString()} ticks · earnings fee {item.policy.performanceFeeBps / 100}%
+                  {' · '}target width {item.policy.targetTickWidth.toLocaleString()} ticks · fixed 10% of earned fees
                 </div>
                 <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.45, marginTop: 2 }}>
                   Approved: rebalance only inside your range, swap at most {item.policy.maxSwapBpsOfPosition / 100}%, slippage {item.policy.maxSlippageBps / 100}%. The agent cannot claim, withdraw, transfer, change rules, or change the owner.
@@ -245,7 +286,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
               {item.account.chainId === 4663 && item.policy && <Button variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, boxShadow: 'none' }}>Compound / rebalance</Button>}
               {item.account.chainId === 4663 && item.policy && <Button variant="ghost" size="sm" onClick={() => setEditPolicy(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Change rules</Button>}
-              {item.policy && (p.fees0 > 0n || p.fees1 > 0n) && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Claim fees</Button>}
+              {item.policy && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Claim fees</Button>}
               {item.policy?.enabled && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'revoke')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>{isBusy ? 'Confirming…' : 'Stop agent'}</Button>}
               <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'withdraw')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: '1px solid rgba(255,179,107,0.28)', color: btb.amber }}>{isBusy ? 'Confirming…' : 'Return NFT to wallet'}</Button>
             </div>
