@@ -18,6 +18,8 @@ import type * as managedPositionMonitor from "../managedPositionMonitor.js";
 import type * as managedPositions from "../managedPositions.js";
 import type * as prices from "../prices.js";
 import type * as queries from "../queries.js";
+import type * as rebalanceMath from "../rebalanceMath.js";
+import type * as rebalanceWorker from "../rebalanceWorker.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
 
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   managedPositions: typeof managedPositions;
   prices: typeof prices;
   queries: typeof queries;
+  rebalanceMath: typeof rebalanceMath;
+  rebalanceWorker: typeof rebalanceWorker;
   tokens: typeof tokens;
   users: typeof users;
 }>;

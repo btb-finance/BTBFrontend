@@ -130,7 +130,10 @@ export default defineSchema({
     requestedAt: v.float64(),
     updatedAt: v.float64(),
     attempts: v.float64(),
+    nextAttemptAt: v.optional(v.float64()),
+    newPositionId: v.optional(v.string()),
     txHash: v.optional(v.string()),
+    signedTransaction: v.optional(v.string()),
     error: v.optional(v.string()),
   }).index("by_position", ["positionKey"])
     .index("by_state", ["state"]),
