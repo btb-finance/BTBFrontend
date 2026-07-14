@@ -44,3 +44,12 @@ export const UNISWAP_V3_DEPLOYMENT: V3Deployment = {
   feeTiers: FEE_TIERS,
   tickSpacings: { 100: 1, 500: 10, 3000: 60, 10000: 200 },
 };
+
+export const ROBINHOOD_UNISWAP_V3_DEPLOYMENT: V3Deployment = {
+  protocol: 'uniswap-v3',
+  positionManager: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
+  factory: '0x1f7d7550b1b028f7571e69a784071f0205fd2efa',
+  feeTiers: FEE_TIERS,
+  tickSpacings: { 100: 1, 500: 10, 3000: 60, 10000: 200 },
+};
+export const ROBINHOOD_WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as `0x${string}`;

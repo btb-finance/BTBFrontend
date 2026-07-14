@@ -1,5 +1,5 @@
 import type { PublicClient } from 'viem';
-import { UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency, type PoolKey } from './addresses';
+import { UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency, type PoolKey, type V4Deployment } from './addresses';
 import { POSITION_MANAGER_ABI, STATE_VIEW_ABI } from './abis';
 import { ERC20_META_ABI } from '../v3/abis';
 import type { MintPool } from '../v3/pool';
@@ -26,14 +26,15 @@ export interface V4MintPool extends MintPool {
 export async function fetchV4PoolForMint(
   client: PublicClient,
   poolId: `0x${string}`,
+  deployment: V4Deployment = UNISWAP_V4,
 ): Promise<V4MintPool> {
   const id = poolId.toLowerCase() as `0x${string}`;
   const id25 = id.slice(0, 52) as `0x${string}`; // bytes25 — PositionManager's truncated key
 
   const contracts = [
-    { address: UNISWAP_V4.positionManager, abi: POSITION_MANAGER_ABI, functionName: 'poolKeys', args: [id25] },
-    { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [id] },
-    { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [id] },
+    { address: deployment.positionManager, abi: POSITION_MANAGER_ABI, functionName: 'poolKeys', args: [id25] },
+    { address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [id] },
+    { address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [id] },
   ] as const;
 
   let [keyRes, slotRes, liqRes] = await client.multicall({ contracts, allowFailure: true });

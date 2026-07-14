@@ -112,6 +112,10 @@ export function DiscoverScreen() {
   const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
   const hasVolumeData = pools.some(p => p.volume24hUsd != null);
   const openSimulator = (pool: EarnPool) => {
+    if (pool.chainId === 4663 || pool.chain === 'Robinhood Chain') {
+      setSheet({ pool, simulate: true });
+      return;
+    }
     const pair = pool.underlyingTokens;
     // The simulator owns pair comparison. Pass the exact addresses so its
     // token pickers are pre-filled rather than opening a separate mini-sheet.
@@ -207,7 +211,7 @@ export function DiscoverScreen() {
       key: 'actions', label: '', align: 'right', width: '210px',
       render: p => {
         const mintable = mintTarget(p) !== null;
-        const isEthereum = p.chain.toLowerCase() === 'ethereum';
+        const simulatable = mintTarget(p, true) !== null;
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
             {mintable && (
@@ -216,9 +220,9 @@ export function DiscoverScreen() {
                 <Icon name="plus" size={11} /> Add LP
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => isEthereum ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+            <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
               style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
-              {isEthereum ? 'Simulate' : 'View ↗'}
+              {simulatable ? 'Simulate' : 'View ↗'}
             </Button>
           </div>
         );
@@ -271,9 +275,9 @@ export function DiscoverScreen() {
             const [addr0, addr1] = p.underlyingTokens ?? [];
             const pct = p.apyChange1d ?? priceChange[p.id];
             const mintable = mintTarget(p) !== null;
-            const isEthereum = p.chain.toLowerCase() === 'ethereum';
+            const simulatable = mintTarget(p, true) !== null;
             return (
-              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? setSheet({ pool: p, simulate: false }) : isEthereum ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
+              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? setSheet({ pool: p, simulate: false }) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ display: 'flex', flexShrink: 0 }}>
                     <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
@@ -325,9 +329,9 @@ export function DiscoverScreen() {
                       <Icon name="plus" size={12} /> Add LP
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => isEthereum ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+                  <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
                     style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
-                    {isEthereum ? 'Simulate' : 'View ↗'}
+                    {simulatable ? 'Simulate' : 'View ↗'}
                   </Button>
                 </div>
               </Glass>
@@ -343,7 +347,7 @@ export function DiscoverScreen() {
             loading={loading}
             emptyMessage="No pools found"
             defaultSortKey="tvl"
-            onRowClick={p => p.chain.toLowerCase() === 'ethereum'
+            onRowClick={p => mintTarget(p, true)
               ? setSheet({ pool: p, simulate: mintTarget(p) === null })
               : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
           />
@@ -423,6 +427,7 @@ export function DiscoverScreen() {
           tokenB={sheetProps.tokenB}
           v4PoolId={sheetProps.v4PoolId}
           dex={sheetProps.dex}
+          chainId={sheetProps.chainId}
           initialFee={sheet.pool.feeTier}
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
           simulate={sheet.simulate}

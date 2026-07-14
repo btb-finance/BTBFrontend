@@ -1,5 +1,5 @@
 import type { Config } from 'wagmi';
-import { sendCalls, sendTransaction } from 'wagmi/actions';
+import { sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
 import type { TrackFn } from './TxTracker';
 
 // A single call in a (possibly batched) action.
@@ -28,15 +28,17 @@ export type RunResult = { lastHash?: `0x${string}` };
  */
 export async function runCalls(
   config: Config,
-  { account, calls, label, track }: { account: `0x${string}`; calls: Call[]; label: string; track: TrackFn },
+  { account, calls, label, track, chainId }: { account: `0x${string}`; calls: Call[]; label: string; track: TrackFn; chainId?: number },
 ): Promise<RunResult> {
   if (calls.length === 0) return {};
+  if (chainId) await switchChain(config, { chainId: chainId as 1 | 4663 });
 
   // --- EIP-5792 atomic batch (one confirmation for the whole bundle) ---
   if (calls.length > 1) {
     try {
       const { id } = await sendCalls(config, {
         account,
+        chainId: chainId as 1 | 4663 | undefined,
         calls: calls.map(c => ({ to: c.to, data: c.data, value: c.value })),
       });
       const { done } = track({ callsId: id, label });
@@ -55,7 +57,7 @@ export async function runCalls(
   for (let i = 0; i < calls.length; i++) {
     const c = calls[i];
     const stepLabel = calls.length > 1 ? `${label} (${i + 1}/${calls.length})` : label;
-    const hash = await sendTransaction(config, { account, to: c.to, data: c.data, value: c.value, gas: c.gas });
+    const hash = await sendTransaction(config, { account, chainId: chainId as 1 | 4663 | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas });
     lastHash = hash;
     const { done } = track({ hash, label: stepLabel });
     const res = await done;

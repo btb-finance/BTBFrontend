@@ -18,7 +18,8 @@ import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
-  MIN_TICK, MAX_TICK, isWeth, WETH, UNISWAP_V3_DEPLOYMENT,
+  MIN_TICK, MAX_TICK, WETH, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, ROBINHOOD_WETH,
+  ROBINHOOD_UNISWAP_V4, UNISWAP_V4,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier, rebalancePlan,
   backtestRange, SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
@@ -85,7 +86,7 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
@@ -100,6 +101,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   v4PoolId?: `0x${string}`;
   /** Open as the earnings simulator (USD amount, no wallet) instead of a deposit. */
   simulate?: boolean;
+  chainId?: 1 | 4663;
   onClose: () => void; onDone?: () => void;
 }) {
   const { width: sidebarWidth, isMobile } = useSidebar();
@@ -109,7 +111,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
-  const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+  const chainWeth = chainId === 4663 ? ROBINHOOD_WETH : WETH;
+  const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
     initialFee !== undefined && deployment.feeTiers.includes(initialFee) ? initialFee : deployment.feeTiers[2],
   );
@@ -192,7 +197,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   // Native-ETH deposit side. V3: the WETH token (toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always paid as ETH, no toggle.
-  const wethSide: 0 | 1 | null = !isV4 && pool ? (isWeth(pool.token0) ? 0 : isWeth(pool.token1) ? 1 : null) : null;
+  const wethSide: 0 | 1 | null = !isV4 && pool ? (isChainWeth(pool.token0) ? 0 : isChainWeth(pool.token1) ? 1 : null) : null;
   const nativeSide: 0 | 1 | null = isV4 ? (pool && isNativeCurrency(pool.token0) ? 0 : null) : wethSide;
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
   const sym0 = pool ? (ethMode && nativeSide === 0 ? 'ETH' : pool.symbol0) : '';
@@ -216,11 +221,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   useEffect(() => {
     let live = true;
     setLoadingPool(true); setPools(null); setPoolErr(null);
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId });
     if (!client) { setLoadingPool(false); setPoolErr('No RPC client'); return; }
     if (v4PoolId) {
       // V4: the pool id pins one pool (fee/tickSpacing/hooks) — no tier choice.
-      fetchV4PoolForMint(client, v4PoolId)
+      fetchV4PoolForMint(client, v4PoolId, v4Deployment)
         .then((p) => { if (live) { setPools({ [p.fee]: p }); setFee(p.fee); } })
         .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
         .finally(() => { if (live) setLoadingPool(false); });
@@ -244,7 +249,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     }
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, tokenA, tokenB, v4PoolId, dex, retryNonce]);
+  }, [config, tokenA, tokenB, v4PoolId, dex, chainId, retryNonce]);
 
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
@@ -445,7 +450,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // wallet balances of both tokens (+ native ETH)
   useEffect(() => {
     let live = true;
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId });
     if (!client || !address || !pool) return;
     (async () => {
       try {
@@ -485,7 +490,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             // V4 mints a liquidity amount; the maxes cap what the pool may pull.
             liquidity: liquidityForAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, add0, add1),
             amount0Max: maxIn(add0, slippageBps), amount1Max: maxIn(add1, slippageBps),
-            recipient: address as `0x${string}`,
+            recipient: address as `0x${string}`, deployment: v4Deployment,
           })
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee,
@@ -495,7 +500,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             nativeEthSide: ethMode ? wethSide : null,
             deployment,
           });
-      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       onDone?.();
       onClose();
     } catch (e) {
@@ -528,7 +533,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment,
         }) : []),
       ];
-      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add split ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add split ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       onDone?.();
       onClose();
     } catch (e) {
@@ -548,7 +553,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const acct = address as `0x${string}`;
     const native0 = isV4 && nativeSide === 0; // V4 currency0 == native ETH
     const readBals = async (): Promise<[bigint, bigint]> => {
-      const client = getPublicClient(config);
+      const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
       const erc = native0 ? [pool.token1] : [pool.token0, pool.token1];
       const res = await client.multicall({
@@ -578,7 +583,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         });
         if (swap) {
           setStepMsg('Swapping only what the range needs…');
-          await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track });
+          await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
           budget0 = swap.budget0;
           budget1 = swap.budget1;
         }
@@ -597,14 +602,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const calls = v4Pool
         ? buildV4Mint({
             poolKey: v4Pool.poolKey, tickLower: tl, tickUpper: tu, liquidity: L,
-            amount0Max: maxIn(a0, slippageBps), amount1Max: maxIn(a1, slippageBps), recipient: acct,
+            amount0Max: maxIn(a0, slippageBps), amount1Max: maxIn(a1, slippageBps), recipient: acct, deployment: v4Deployment,
           })
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee, tickLower: tl, tickUpper: tu,
             amount0Desired: a0, amount1Desired: a1, slippageBps: slippageBps, recipient: acct,
             nativeEthSide: null, deployment,
           });
-      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       onDone?.();
       onClose();
     } catch (e) {

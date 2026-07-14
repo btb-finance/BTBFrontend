@@ -32,8 +32,9 @@ export interface EarnPool {
   /** 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3' | DeFiLlama project slug. */
   project: string;
   dex: string;            // friendly name for the filter chips, e.g. "Uniswap"
-  version?: 'V3' | 'V4';  // set for indexer-sourced Uniswap pools
+  version?: 'V2' | 'V3' | 'V4';  // set for indexer-sourced Uniswap pools
   chain: string;
+  chainId?: number;
   pair: string;           // e.g. "WETH-USDC"
   feeTier?: number;       // hundredths of a bip — indexer pools only
   /** V4 only — zero address (or unset) means no hook. */
@@ -171,7 +172,8 @@ async function getRobinhoodPools(minTvlUsd: number): Promise<EarnPool[]> {
     const key = id?.toLowerCase();
     if (row.chainId !== 'robinhood' || !id || !key || seen.has(key) || !token0?.address || !token1?.address || !token0.symbol || !token1.symbol || tvlUsd < tvlFloor) return [];
     seen.add(key);
-    const version = row.labels?.some(label => label.toLowerCase() === 'v4') ? 'V4' : 'V3';
+    const labels = row.labels?.map(label => label.toLowerCase()) ?? [];
+    const version: 'V2' | 'V3' | 'V4' = labels.includes('v4') ? 'V4' : labels.includes('v2') ? 'V2' : 'V3';
     const feeTier = poolFees.get(id.toLowerCase());
     const volume24hUsd = row.volume?.h24;
     const fees24hUsd = feeTier != null && volume24hUsd != null ? volume24hUsd * feeTier / 1_000_000 : undefined;
@@ -179,7 +181,7 @@ async function getRobinhoodPools(minTvlUsd: number): Promise<EarnPool[]> {
     const stable = STABLES.has(token0.symbol.toUpperCase()) && STABLES.has(token1.symbol.toUpperCase());
     return [{
       id, project: `uniswap-${version.toLowerCase()}`, dex: row.dexId === 'uniswap' ? 'Uniswap' : row.dexId || 'DEX', version,
-      chain: 'Robinhood Chain', pair: `${token0.symbol}-${token1.symbol}`,
+      chain: 'Robinhood Chain', chainId: 4663, pair: `${token0.symbol}-${token1.symbol}`,
       feeTier, tvlUsd, apy: feeApr, apyBase: feeApr, apyReward: 0,
       volume24hUsd, fees24hUsd, apyChange1d: row.priceChange?.h24,
       stablecoin: stable, ilRisk: stable ? 'no' : 'yes',
@@ -409,12 +411,14 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' } | null {
-  if (p.chain.toLowerCase() !== 'ethereum') return null;
+export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap'; chainId: 1 | 4663 } | null {
+  const chainId = p.chain.toLowerCase() === 'ethereum' ? 1 : p.chain.toLowerCase() === 'robinhood chain' ? 4663 : null;
+  if (!chainId) return null;
+  if (p.dex.toLowerCase() !== 'uniswap' && p.project.startsWith('uniswap-')) return null;
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
-  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap' };
-  if (p.project === 'pancakeswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap' };
-  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap' };
+  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap', chainId };
+  if (chainId === 1 && p.project === 'pancakeswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
+  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
   return null;
 }
 
