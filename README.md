@@ -48,6 +48,26 @@ NEXT_PUBLIC_GRAPH_KEY=your-key-here
 
 Without a key the app still works — pools fall back to DeFiLlama's keyless API.
 
+### Automatic LP management
+
+The Portfolio and Uniswap V3 add-liquidity screens support the fixed-owner smart accounts from [BTBSmartAccount](https://github.com/btb-finance/BTBSmartAccount). Configure each deployed chain in `.env.local`:
+
+```bash
+# Ethereum
+NEXT_PUBLIC_BTB_ACCOUNT_FACTORY_1=0x...
+NEXT_PUBLIC_BTB_PRICE_GUARD_1=0x...
+NEXT_PUBLIC_BTB_SWAP_ADAPTER_1=0x...
+NEXT_PUBLIC_BTB_AGENT_1=0x...
+
+# Robinhood Chain
+NEXT_PUBLIC_BTB_ACCOUNT_FACTORY_4663=0x...
+NEXT_PUBLIC_BTB_PRICE_GUARD_4663=0x...
+NEXT_PUBLIC_BTB_SWAP_ADAPTER_4663=0x...
+NEXT_PUBLIC_BTB_AGENT_4663=0x...
+```
+
+All four values are required for a chain. If any value is missing or invalid, auto-management stays disabled for that chain while normal LP actions continue to work.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

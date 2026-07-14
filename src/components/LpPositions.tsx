@@ -26,6 +26,9 @@ import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/p
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { fetchOwnedNftTokenIds, fetchRobinhoodOwnedNftTokenIds } from '../lib/alchemy';
 import { RebalanceSheet } from './RebalanceSheet';
+import { AutomatePositionSheet } from './AutomatePositionSheet';
+import { SmartAccountPositions } from './SmartAccountPositions';
+import { getSmartAccountDeployment } from '../lib/smartAccount';
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -157,6 +160,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
+  const [automate, setAutomate] = useState<LiquidityPosition | null>(null);
+  const [automationRefresh, setAutomationRefresh] = useState(0);
   const [usd, setUsd] = useState<Record<string, number>>({});
   const [krystal, setKrystal] = useState<KrystalLpResponse | null>(null);
   const [krystalLoading, setKrystalLoading] = useState(false);
@@ -278,13 +283,10 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     ) : null;
   }
   if (!loading && !krystalLoading && positions.length === 0 && (krystal?.positions?.length ?? 0) === 0) {
-    return showEmpty ? (
-      <Glass padding={16} radius={18}>
-        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>
-          No LP positions yet — add one from the Earn tab.
-        </div>
-      </Glass>
-    ) : null;
+    // Portfolio still renders the smart-account overview: a wallet may have no
+    // directly-owned NFT because every position is held by its fixed-owner
+    // account. Embedded Earn views keep their previous compact empty behavior.
+    if (!showEmpty) return null;
   }
 
   const valueOf = (p: LiquidityPosition) => {
@@ -398,12 +400,14 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
           ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
           : p.chainId === 4663 && p.protocol === 'uniswap-v3');
+        const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && !!getSmartAccountDeployment(p.chainId ?? 1);
         const busy = busyId === posKey(p);
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
             <ActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
             {hasLiquidity && <ActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
             <ActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green/>
+            {canAutomate && <ActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>} 
             {canRebalance && (
               <button onClick={() => setRebalance(p)} disabled={busy || !canTransact} style={{
                 height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', whiteSpace: 'nowrap',
@@ -511,6 +515,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         </div>
       )}
 
+      {showEmpty && <SmartAccountPositions address={address as `0x${string}`} canTransact={canTransact} refreshNonce={automationRefresh}/>} 
+
       {krystalStats && (
         <Glass padding={isMobile ? 12 : 16} radius={16} soft>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
@@ -577,6 +583,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
               ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
               : p.chainId === 4663 && p.protocol === 'uniswap-v3');
+            const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && !!getSmartAccountDeployment(p.chainId ?? 1);
             const busy = busyId === posKey(p);
             const value = valueOf(p);
             const analytics = analyticsOf(p);
@@ -632,6 +639,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
                   {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
                   {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
+                  {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>} 
                   {canRebalance && (
                     <MobileActBtn
                       label="⚖ Rebalance"
@@ -733,6 +741,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           account={connectedAddress as `0x${string}`}
           onClose={() => setRebalance(null)}
           onDone={async () => { setRebalance(null); await load(); }}
+        />
+      )}
+
+      {automate && connectedAddress && automate.protocol === 'uniswap-v3' && (
+        <AutomatePositionSheet
+          pos={automate}
+          account={connectedAddress as `0x${string}`}
+          onClose={() => setAutomate(null)}
+          onDone={async () => { setAutomate(null); setAutomationRefresh((value) => value + 1); await load(); }}
         />
       )}
     </div>
