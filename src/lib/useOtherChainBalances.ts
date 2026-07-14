@@ -6,6 +6,7 @@ import {
   fetchAlchemyTokenBalances, fetchAlchemyTokenMetadata, fetchAlchemyTokenPrices, fetchAlchemyNativePrices,
 } from './alchemy';
 import type { Token } from './TokenStore';
+import { fetchRobinhoodBalances } from './robinhoodBalances';
 
 // Ethereum mainnet already has its own dedicated (free, RPC-multicall-based)
 // balance pipeline in TokenStore — this hook only covers the other chains
@@ -28,14 +29,16 @@ export function useOtherChainBalances(walletAddress?: string) {
     setError(null);
 
     (async () => {
+      const robinhood = await fetchRobinhoodBalances(walletAddress).catch(() => [] as Token[]);
       try {
         const res = await fetch(`/api/krystal/tokens?address=${walletAddress}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`Krystal tokens ${res.status}`);
         const json = await res.json() as KrystalTokenBalanceOutput;
-        const result: Token[] = [];
+        const result: Token[] = [...robinhood];
         const seen = new Set<string>();
 
         for (const chain of json.data ?? []) {
+          if (chain.chainId === 4663) continue; // chain-native verified balances win
           for (const item of chain.balances ?? []) {
             const token = item.token;
             if (!token?.address || !token.symbol || token.tag?.toUpperCase().includes('SPAM')) continue;
@@ -108,7 +111,7 @@ export function useOtherChainBalances(walletAddress?: string) {
       ]);
       if (cancelled) return;
 
-      const result: Token[] = [];
+      const result: Token[] = [...robinhood];
 
       for (const b of natives) {
         const native = NATIVE_TOKEN[b.network] ?? { symbol: 'ETH', name: 'Ethereum' };
