@@ -110,6 +110,7 @@ export function buildV4Increase(
   amount0Max: bigint,
   amount1Max: bigint,
   recipient: `0x${string}`,
+  deployment: V4Deployment = UNISWAP_V4,
 ): Call[] {
   const dl = deadline();
   const native0 = isNativeCurrency(pos.token0);
@@ -128,9 +129,9 @@ export function buildV4Increase(
   }
 
   return [
-    ...permit2Approvals(pos.token0, amount0Max, dl),
-    ...permit2Approvals(pos.token1, amount1Max, dl),
-    { to: UNISWAP_V4.positionManager, data: encodeModify(actions, params, dl), value: native0 ? amount0Max : undefined },
+    ...permit2Approvals(pos.token0, amount0Max, dl, deployment),
+    ...permit2Approvals(pos.token1, amount1Max, dl, deployment),
+    { to: deployment.positionManager, data: encodeModify(actions, params, dl), value: native0 ? amount0Max : undefined },
   ];
 }
 
@@ -145,6 +146,7 @@ export function buildV4Remove(
   pctBps: number,
   slippageBps: number,
   recipient: `0x${string}`,
+  deployment: V4Deployment = UNISWAP_V4,
 ): Call[] {
   const dl = deadline();
   const liquidity = (pos.liquidity * BigInt(pctBps)) / 10_000n;
@@ -161,7 +163,7 @@ export function buildV4Remove(
   );
 
   return [{
-    to: UNISWAP_V4.positionManager,
+    to: deployment.positionManager,
     data: encodeModify([Actions.DECREASE_LIQUIDITY, Actions.TAKE_PAIR], [decParams, takeParams], dl),
   }];
 }
@@ -171,7 +173,7 @@ export function buildV4Remove(
  * liquidity decrease leaves principal untouched and surfaces the accrued fees
  * as the only deltas, which TAKE_PAIR sends out. Safe: can't touch principal.
  */
-export function buildV4Collect(pos: LiquidityPosition, recipient: `0x${string}`): Call[] {
+export function buildV4Collect(pos: LiquidityPosition, recipient: `0x${string}`, deployment: V4Deployment = UNISWAP_V4): Call[] {
   const decParams = encodeAbiParameters(
     [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint128' }, { type: 'uint128' }, { type: 'bytes' }],
     [pos.id, 0n, 0n, 0n, '0x'],
@@ -181,7 +183,7 @@ export function buildV4Collect(pos: LiquidityPosition, recipient: `0x${string}`)
     [pos.token0, pos.token1, recipient],
   );
   return [{
-    to: UNISWAP_V4.positionManager,
+    to: deployment.positionManager,
     data: encodeModify([Actions.DECREASE_LIQUIDITY, Actions.TAKE_PAIR], [decParams, takeParams], deadline()),
   }];
 }

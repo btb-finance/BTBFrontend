@@ -146,7 +146,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [usd, setUsd] = useState<Record<string, number>>({});
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
-  const [slippageBps, setSlippageBps] = useState(SLIPPAGE_BPS);
+  const [slippageBps, setSlippageBps] = useState(chainId === 4663 ? 500 : SLIPPAGE_BPS);
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
   const [tab, setTab] = useState<'range' | 'deposit'>('range');

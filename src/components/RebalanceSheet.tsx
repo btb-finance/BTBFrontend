@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, erc20Abi, type PublicClient } from 'viem';
+import { encodeFunctionData, formatUnits, erc20Abi, type PublicClient } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
@@ -12,11 +12,12 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { buildSwapGap } from '../lib/swapGap';
 import {
-  buildRemove, buildMint, rangeTicks, heldHeavyRange, rebalancePlan,
+  buildRemove, buildMint, fetchV3Positions, rangeTicks, heldHeavyRange, rebalancePlan,
   liquidityForAmounts, getAmountsForLiquidity, fmtFeeTier,
   buildV4Remove, buildV4Mint, maxIn, isNativeCurrency,
   SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
-  UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment, type PoolKey,
+  UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, ROBINHOOD_SWAP_ROUTER_02, ROBINHOOD_QUOTER_V2,
+  type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 
@@ -24,7 +25,30 @@ const WIDTH_PRESETS = [5, 10, 25] as const;
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
-  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+}
+
+const QUOTER_ABI = [{ type: 'function', name: 'quoteExactInputSingle', stateMutability: 'nonpayable', inputs: [{ name: 'params', type: 'tuple', components: [{ name: 'tokenIn', type: 'address' }, { name: 'tokenOut', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'fee', type: 'uint24' }, { name: 'sqrtPriceLimitX96', type: 'uint160' }] }], outputs: [{ name: 'amountOut', type: 'uint256' }, { name: 'sqrtPriceX96After', type: 'uint160' }, { name: 'initializedTicksCrossed', type: 'uint32' }, { name: 'gasEstimate', type: 'uint256' }] }] as const;
+const ROUTER02_ABI = [{ type: 'function', name: 'exactInputSingle', stateMutability: 'payable', inputs: [{ name: 'params', type: 'tuple', components: [{ name: 'tokenIn', type: 'address' }, { name: 'tokenOut', type: 'address' }, { name: 'fee', type: 'uint24' }, { name: 'recipient', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'amountOutMinimum', type: 'uint256' }, { name: 'sqrtPriceLimitX96', type: 'uint160' }] }], outputs: [{ name: 'amountOut', type: 'uint256' }] }] as const;
+const ROBINHOOD_SLIPPAGE_BPS = 500;
+
+async function robinhoodSwapCalls(client: PublicClient, pos: LiquidityPosition, sellSide: 0 | 1, fraction: number, budget0: bigint, budget1: bigint, account: `0x${string}`) {
+  const budget = sellSide === 0 ? budget0 : budget1;
+  const bps = BigInt(Math.max(0, Math.min(10_000, Math.round(fraction * 10_000))));
+  const amountIn = budget * bps / 10_000n;
+  if (amountIn <= 0n) return null;
+  const tokenIn = sellSide === 0 ? pos.token0 : pos.token1;
+  const tokenOut = sellSide === 0 ? pos.token1 : pos.token0;
+  const quote = await client.simulateContract({ address: ROBINHOOD_QUOTER_V2, abi: QUOTER_ABI, functionName: 'quoteExactInputSingle', args: [{ tokenIn, tokenOut, amountIn, fee: pos.fee, sqrtPriceLimitX96: 0n }] });
+  const expectedOut = (quote.result as readonly [bigint, bigint, number, bigint])[0];
+  const amountOutMinimum = expectedOut * BigInt(10_000 - ROBINHOOD_SLIPPAGE_BPS) / 10_000n;
+  const maxUint256 = (1n << 256n) - 1n;
+  const ercAllowance = await client.readContract({ address: tokenIn, abi: erc20Abi, functionName: 'allowance', args: [account, ROBINHOOD_SWAP_ROUTER_02] }).catch(() => 0n);
+  const calls = [
+    ...((ercAllowance as bigint) < amountIn ? [{ to: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROBINHOOD_SWAP_ROUTER_02, maxUint256] }) }] : []),
+    { to: ROBINHOOD_SWAP_ROUTER_02, data: encodeFunctionData({ abi: ROUTER02_ABI, functionName: 'exactInputSingle', args: [{ tokenIn, tokenOut, fee: pos.fee, recipient: account, amountIn, amountOutMinimum, sqrtPriceLimitX96: 0n }] }) },
+  ];
+  return { calls, budget0: sellSide === 0 ? budget0 - amountIn : budget0 + expectedOut, budget1: sellSide === 1 ? budget1 - amountIn : budget1 + expectedOut };
 }
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -143,18 +167,36 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   }
 
   /** Build the withdraw calls for whichever protocol the position belongs to. */
-  function removeCalls() {
+  function removeCalls(livePos: LiquidityPosition) {
+    const slippage = livePos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : 100;
     return isV4
-      ? buildV4Remove(pos, 10_000, SLIPPAGE_BPS, account)
-      : buildRemove(pos, 10_000, SLIPPAGE_BPS, account, deployment);
+      ? buildV4Remove(livePos, 10_000, slippage, account)
+      : buildRemove(livePos, 10_000, slippage, account, deployment);
   }
 
   async function run() {
+    if ((pos.chainId ?? 1) !== 1 && !(pos.chainId === 4663 && pos.protocol === 'uniswap-v3')) {
+      setErr('Smart rebalance is not available on this chain yet. No transaction was sent.');
+      setPhase('error');
+      return;
+    }
     setPhase('running'); setErr(null);
     try {
-      const client = getPublicClient(config);
+      const chainId = (pos.chainId ?? 1) as 1 | 4663;
+      const actionSlippage = chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS;
+      const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
-      const tl = range.tickLower, tu = range.tickUpper;
+      // Refresh the NFT and pool state immediately before building minimum
+      // amounts. Portfolio data may be several blocks old on a fast meme pool.
+      const livePos = !isV4
+        ? (await fetchV3Positions(client, account, deployment, [pos.id]))[0] ?? pos
+        : pos;
+      const liveCentered = rangeTicks(livePos.currentTick, spacing, widthPct);
+      const liveWidth = liveCentered.tickUpper - liveCentered.tickLower;
+      const liveRange = strategy === 'balanced'
+        ? liveCentered
+        : heldHeavyRange(livePos.currentTick, spacing, liveWidth, heavySide);
+      const tl = liveRange.tickLower, tu = liveRange.tickUpper;
 
       // Snapshot wallet so we only ever redeploy what THIS position returns,
       // never the user's unrelated balances of the same tokens.
@@ -164,9 +206,9 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       setStepMsg('Withdrawing your liquidity…');
       await runCalls(config, {
         account,
-        calls: removeCalls(),
+        calls: removeCalls(livePos),
         label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`,
-        track,
+        track, chainId,
       });
 
       const [post0, post1] = await readBals(client);
@@ -174,17 +216,17 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       let budget1 = post1 > pre1 ? post1 - pre1 : 0n;
 
       // 2 · Swap only the gap (re-planned against what actually came back).
-      const pl = rebalancePlan(pos.sqrtPriceX96, tl, tu, budget0, budget1);
+      const pl = rebalancePlan(livePos.sqrtPriceX96, tl, tu, budget0, budget1);
       if (pl.sellSide !== null) {
-        const swap = await buildSwapGap({
+        const swap = pos.chainId === 4663 ? await robinhoodSwapCalls(client, livePos, pl.sellSide, pl.swapFraction, budget0, budget1, account) : await buildSwapGap({
           sellSide: pl.sellSide, swapFraction: pl.swapFraction,
           budget0, budget1, token0: pos.token0, token1: pos.token1,
           decimals0: pos.decimals0, decimals1: pos.decimals1,
-          native0, account, slippageBps: SLIPPAGE_BPS,
+          native0, account, slippageBps: actionSlippage,
         });
         if (swap) {
           setStepMsg('Swapping only what the new range needs…');
-          await runCalls(config, { account, calls: swap.calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track });
+          await runCalls(config, { account, calls: swap.calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track, chainId });
           // Budget updated for the swap's output; the mint below caps to the live wallet.
           budget0 = swap.budget0;
           budget1 = swap.budget1;
@@ -202,8 +244,8 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
         : bal0;
       const eff0 = budget0 < cap0 ? budget0 : cap0;
       const eff1 = budget1 < bal1 ? budget1 : bal1;
-      const L = liquidityForAmounts(pos.sqrtPriceX96, tl, tu, eff0, eff1);
-      const [a0, a1] = getAmountsForLiquidity(pos.sqrtPriceX96, tl, tu, L);
+      const L = liquidityForAmounts(livePos.sqrtPriceX96, tl, tu, eff0, eff1);
+      const [a0, a1] = getAmountsForLiquidity(livePos.sqrtPriceX96, tl, tu, L);
       if (a0 === 0n && a1 === 0n) throw new Error('Nothing left to deposit after the swap');
       await runCalls(config, {
         account,
@@ -212,17 +254,17 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               poolKey: poolKey!,
               tickLower: tl, tickUpper: tu,
               liquidity: L,
-              amount0Max: maxIn(a0, SLIPPAGE_BPS), amount1Max: maxIn(a1, SLIPPAGE_BPS),
+              amount0Max: maxIn(a0, actionSlippage), amount1Max: maxIn(a1, actionSlippage),
               recipient: account,
             })
           : buildMint({
               token0: pos.token0, token1: pos.token1, fee: pos.fee,
               tickLower: tl, tickUpper: tu,
               amount0Desired: a0, amount1Desired: a1,
-              slippageBps: SLIPPAGE_BPS, recipient: account, deployment,
+              slippageBps: actionSlippage, recipient: account, deployment,
             }),
         label: `Rebalance · add ${pos.symbol0}/${pos.symbol1}`,
-        track,
+        track, chainId,
       });
 
       setPhase('done');
@@ -344,7 +386,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               {phase === 'running' ? 'Rebalancing…' : phase === 'error' ? 'Retry rebalance' : 'Rebalance position'}
             </Button>
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Withdraw → swap only the gap → re-add, each slippage-protected ({SLIPPAGE_BPS / 100}%). Confirm up to three transactions in your wallet.
+              Withdraw → swap only the gap → re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to three transactions in your wallet.
             </div>
           </>
         )}

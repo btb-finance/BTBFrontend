@@ -20,7 +20,7 @@ import {
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
-  ROBINHOOD_UNISWAP_V4, type LiquidityPosition, type V3Deployment,
+  ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
@@ -29,8 +29,9 @@ import { RebalanceSheet } from './RebalanceSheet';
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
-  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
 }
+const v4DeploymentOf = (p: LiquidityPosition) => p.chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
 
 const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; color: string }> = {
   'uniswap-v3': { label: 'V3', color: '#FF007A' },
@@ -259,10 +260,10 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       await runCalls(config, {
         account: connectedAddress as `0x${string}`,
         calls: pos.protocol === 'uniswap-v4'
-          ? buildV4Collect(pos, connectedAddress as `0x${string}`)
+          ? buildV4Collect(pos, connectedAddress as `0x${string}`, v4DeploymentOf(pos))
           : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos)),
         label: `Collect ${pos.symbol0}/${pos.symbol1} fees`,
-        track,
+        track, chainId: (pos.chainId ?? 1) as 1 | 4663,
       });
       await load();
     } catch { /* surfaced via the global tx pill */ }
@@ -392,10 +393,11 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     {
       key: 'actions', label: '', align: 'right', width: '340px',
       render: p => {
-        if ((p.chainId ?? 1) !== 1) return <div style={{ display: 'flex', justifyContent: 'flex-end' }}><ActBtn label="Read only" onClick={() => {}} disabled /></div>;
         const hasFees = p.fees0 > 0n || p.fees1 > 0n;
         const hasLiquidity = p.liquidity > 0n;
-        const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
+        const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
+          ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
+          : p.chainId === 4663 && p.protocol === 'uniswap-v3');
         const busy = busyId === posKey(p);
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
@@ -572,7 +574,9 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           {positions.map(p => {
             const hasFees = p.fees0 > 0n || p.fees1 > 0n;
             const hasLiquidity = p.liquidity > 0n;
-            const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
+            const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
+              ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
+              : p.chainId === 4663 && p.protocol === 'uniswap-v3');
             const busy = busyId === posKey(p);
             const value = valueOf(p);
             const analytics = analyticsOf(p);
@@ -624,7 +628,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   </div>
                 )}
 
-                {(p.chainId ?? 1) === 1 ? <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
                   <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
                   {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
                   {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
@@ -636,7 +640,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                       amber={!p.inRange}
                     />
                   )}
-                </div> : <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label={`${p.chainName ?? 'Other chain'} · Read only`} onClick={() => {}} disabled /></div>}
+                </div>
               </Glass>
             );
           })}
@@ -723,7 +727,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         />
       )}
 
-      {rebalance && connectedAddress && (
+      {rebalance && connectedAddress && ((rebalance.chainId ?? 1) === 1 || (rebalance.chainId === 4663 && rebalance.protocol === 'uniswap-v3')) && (
         <RebalanceSheet
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
@@ -785,9 +789,11 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const [useEth, setUseEth] = useState(true);
 
   const isV4 = pos.protocol === 'uniswap-v4';
+  const actionSlippageBps = pos.chainId === 4663 ? 500 : SLIPPAGE_BPS;
   // Native-ETH deposit side. V3: the WETH token (user can toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always ETH, nothing to toggle.
-  const wethSide: 0 | 1 | null = isV4 ? null : isWeth(pos.token0) ? 0 : isWeth(pos.token1) ? 1 : null;
+  const chainWeth = pos.chainId === 4663 ? ROBINHOOD_WETH.toLowerCase() : null;
+  const wethSide: 0 | 1 | null = isV4 ? null : (chainWeth ? pos.token0.toLowerCase() === chainWeth : isWeth(pos.token0)) ? 0 : (chainWeth ? pos.token1.toLowerCase() === chainWeth : isWeth(pos.token1)) ? 1 : null;
   const nativeSide: 0 | 1 | null = isV4 ? (isNativeCurrency(pos.token0) ? 0 : null) : wethSide;
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
   const sym0 = ethMode && nativeSide === 0 ? 'ETH' : pos.symbol0;
@@ -812,7 +818,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   useEffect(() => {
     if (mode !== 'add') return;
     let live = true;
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId: (pos.chainId ?? 1) as 1 | 4663 });
     if (!client) return;
     (async () => {
       try {
@@ -848,21 +854,21 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
     try {
       const calls = isV4
         ? (mode === 'withdraw'
-            ? buildV4Remove(pos, pct * 100, SLIPPAGE_BPS, account)
+            ? buildV4Remove(pos, pct * 100, actionSlippageBps, account, v4DeploymentOf(pos))
             : buildV4Increase(
                 pos,
                 liquidityForAmounts(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, add0, add1),
-                maxIn(add0, SLIPPAGE_BPS), maxIn(add1, SLIPPAGE_BPS),
-                account,
+                maxIn(add0, actionSlippageBps), maxIn(add1, actionSlippageBps),
+                account, v4DeploymentOf(pos),
               ))
         : (mode === 'withdraw'
-            ? buildRemove(pos, pct * 100, SLIPPAGE_BPS, account, v3DeploymentOf(pos))
-            : buildIncrease(pos, add0, add1, SLIPPAGE_BPS, ethMode ? wethSide : null, v3DeploymentOf(pos)));
+            ? buildRemove(pos, pct * 100, actionSlippageBps, account, v3DeploymentOf(pos))
+            : buildIncrease(pos, add0, add1, actionSlippageBps, ethMode ? wethSide : null, v3DeploymentOf(pos)));
       await runCalls(config, {
         account,
         calls,
         label: `${mode === 'withdraw' ? 'Withdraw' : 'Add'} ${pos.symbol0}/${pos.symbol1}`,
-        track,
+        track, chainId: (pos.chainId ?? 1) as 1 | 4663,
       });
       await onDone();
     } catch (e) {
@@ -894,7 +900,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               ))}
             </div>
             <Glass padding={14} radius={14} soft>
-              <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>You receive (min, after {SLIPPAGE_BPS / 100}% slippage)</div>
+              <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>You receive (min, after {actionSlippageBps / 100}% slippage)</div>
               <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>
                 ≈ {fmtAmt(out0, pos.decimals0)} {pos.symbol0} + {fmtAmt(out1, pos.decimals1)} {pos.symbol1}
               </div>
@@ -942,7 +948,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
           {busy ? 'Confirming…' : mode === 'withdraw' ? `Withdraw ${pct}%` : 'Add liquidity'}
         </Button>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10 }}>
-          Slippage-protected ({SLIPPAGE_BPS / 100}%). {mode === 'add' ? 'Token approvals are included automatically.' : 'Withdraws principal + fees to your wallet.'}
+          Slippage-protected ({actionSlippageBps / 100}%). {mode === 'add' ? 'Token approvals are included automatically.' : 'Withdraws principal + fees to your wallet.'}
         </div>
       </div>
     </div>

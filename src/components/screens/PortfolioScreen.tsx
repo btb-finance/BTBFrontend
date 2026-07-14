@@ -158,8 +158,12 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
         // chain 1) — showing live Send/Swap/LP buttons for another chain's
         // token would submit a broken/misdirected transaction.
         const isMainnet = (t.chainId ?? 1) === 1;
-        if (!isMainnet) {
+        const isRobinhood = t.chainId === 4663;
+        if (!isMainnet && !isRobinhood) {
           return <span style={{ color: btb.textDim, fontSize: 11.5 }}>View only</span>;
+        }
+        if (isRobinhood) {
+          return <Button variant="ghost" size="sm" onClick={() => onSend?.(t)} style={{ height: 32, border: btb.borderSoft }}>Send</Button>;
         }
         if (isMobile) {
           // icon-only so the table fits a phone without sideways scrolling

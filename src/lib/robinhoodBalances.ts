@@ -13,6 +13,36 @@ type BlockscoutBalance = {
 const client = createPublicClient({ chain: robinhoodChain, transport: http('https://rpc.mainnet.chain.robinhood.com/') });
 const WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73';
 
+async function dexTokenPrices(addresses: string[]): Promise<Record<string, number>> {
+  const best: Record<string, { price: number; liquidity: number }> = {};
+  for (let i = 0; i < addresses.length; i += 30) {
+    try {
+      const batch = addresses.slice(i, i + 30);
+      const res = await fetch(`https://api.dexscreener.com/tokens/v1/robinhood/${batch.join(',')}`, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const rows = await res.json() as {
+        baseToken?: { address?: string }; quoteToken?: { address?: string };
+        priceUsd?: string; priceNative?: string; liquidity?: { usd?: number };
+      }[];
+      for (const row of rows) {
+        const liquidity = row.liquidity?.usd ?? 0;
+        if (liquidity < 10_000) continue;
+        const base = row.baseToken?.address?.toLowerCase();
+        const quote = row.quoteToken?.address?.toLowerCase();
+        const baseUsd = Number(row.priceUsd);
+        const basePerQuote = Number(row.priceNative);
+        const put = (address: string | undefined, price: number) => {
+          if (!address || !Number.isFinite(price) || price <= 0) return;
+          if (!best[address] || liquidity > best[address].liquidity) best[address] = { price, liquidity };
+        };
+        put(base, baseUsd);
+        if (basePerQuote > 0) put(quote, baseUsd / basePerQuote);
+      }
+    } catch { /* an unpriced batch must not hide verified balances */ }
+  }
+  return Object.fromEntries(Object.entries(best).map(([address, item]) => [address, item.price]));
+}
+
 async function ethUsdPrice(): Promise<number> {
   try {
     const res = await fetch(`https://api.dexscreener.com/tokens/v1/robinhood/${WETH}`, { cache: 'no-store' });
@@ -55,6 +85,7 @@ export async function fetchRobinhoodBalances(owner: string): Promise<Token[]> {
     })),
     allowFailure: true,
   });
+  const dexPrices = await dexTokenPrices(indexed.map((row) => row.token!.address_hash!));
 
   const tokens: Token[] = [];
   indexed.forEach((row, index) => {
@@ -64,7 +95,7 @@ export async function fetchRobinhoodBalances(owner: string): Promise<Token[]> {
     const raw = read.result as bigint;
     const decimals = Number(token.decimals ?? 18);
     const balance = formatUnits(raw, Number.isFinite(decimals) ? decimals : 18);
-    const price = Number(token.exchange_rate) || 0;
+    const price = dexPrices[token.address_hash!.toLowerCase()] ?? (Number(token.exchange_rate) || 0);
     tokens.push({
       address: token.address_hash!.toLowerCase(),
       symbol: token.symbol || '?', name: token.name || token.symbol || 'Unknown token',
