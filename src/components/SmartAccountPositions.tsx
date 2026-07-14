@@ -11,6 +11,7 @@ import { Button } from './Button';
 import { TokenIcon } from './TokenIcon';
 import { ManagedRebalanceSheet } from './ManagedRebalanceSheet';
 import { ManagedPolicySheet } from './ManagedPolicySheet';
+import { ManagedAddLiquiditySheet } from './ManagedAddLiquiditySheet';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -71,6 +72,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
   const [err, setErr] = useState<string | null>(null);
   const [manualRebalance, setManualRebalance] = useState<ManagedItem | null>(null);
   const [editPolicy, setEditPolicy] = useState<ManagedItem | null>(null);
+  const [addLiquidity, setAddLiquidity] = useState<ManagedItem | null>(null);
   const [editingEarnings, setEditingEarnings] = useState<SmartAccountChainId | null>(null);
   const [earningsMode, setEarningsMode] = useState(0);
   const [payoutToken, setPayoutToken] = useState('');
@@ -300,6 +302,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
               </div>
             )}
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+              <Button variant="ghost" size="sm" onClick={() => setAddLiquidity(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: '1px solid rgba(82,227,164,.28)', color: btb.green }}>Add more</Button>
               {item.account.chainId === 4663 && item.policy && <Button variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, boxShadow: 'none' }}>Compound / rebalance</Button>}
               {item.account.chainId === 4663 && item.policy && <Button variant="ghost" size="sm" onClick={() => setEditPolicy(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Change rules</Button>}
               {item.policy && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Claim fees</Button>}
@@ -316,6 +319,12 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         policy={manualRebalance.policy}
         onClose={() => setManualRebalance(null)}
         onDone={async () => { setManualRebalance(null); await load(); }}
+      />}
+      {addLiquidity && <ManagedAddLiquiditySheet
+        pos={addLiquidity.pos}
+        account={address}
+        onClose={() => setAddLiquidity(null)}
+        onDone={async () => { setAddLiquidity(null); await load(); }}
       />}
       {editPolicy?.policy && <ManagedPolicySheet
         pos={editPolicy.pos}
