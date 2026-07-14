@@ -14,12 +14,11 @@ import { runCalls } from '../lib/txRunner';
 import { BTB_LP_ACCOUNT_ABI, type RebalancePolicy } from '../lib/smartAccount';
 import {
   fetchV3Positions, getAmountsForLiquidity, heldHeavyRange, liquidityForAmounts,
-  rangeTicks, rebalancePlan, ROBINHOOD_QUOTER_V2, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
+  nearestUsableTick, rebalancePlan, ROBINHOOD_QUOTER_V2, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
   type LiquidityPosition,
 } from '@/protocols/dexs/uniswap';
 
 const QUOTER_ABI = [{ type: 'function', name: 'quoteExactInputSingle', stateMutability: 'nonpayable', inputs: [{ name: 'params', type: 'tuple', components: [{ name: 'tokenIn', type: 'address' }, { name: 'tokenOut', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'fee', type: 'uint24' }, { name: 'sqrtPriceLimitX96', type: 'uint160' }] }], outputs: [{ name: 'amountOut', type: 'uint256' }, { name: 'sqrtPriceX96After', type: 'uint160' }, { name: 'initializedTicksCrossed', type: 'uint32' }, { name: 'gasEstimate', type: 'uint256' }] }] as const;
-const WIDTHS = [5, 10, 25] as const;
 const SLIPPAGE_BPS = 500n;
 
 function amount(raw: bigint, decimals: number) {
@@ -38,7 +37,6 @@ export function ManagedRebalanceSheet({ pos, smartAccount, owner, policy, onClos
   const config = useConfig();
   const { track } = useTx();
   const { width: sidebarWidth } = useSidebar();
-  const [widthPct, setWidthPct] = useState<number>(10);
   const [strategy, setStrategy] = useState<'keep' | 'balanced'>('keep');
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -48,14 +46,15 @@ export function ManagedRebalanceSheet({ pos, smartAccount, owner, policy, onClos
   const holdings0 = pos.amount0 + pos.fees0;
   const holdings1 = pos.amount1 + pos.fees1;
   const heavySide: 0 | 1 = Number(holdings0) * (Number(pos.sqrtPriceX96) / 2 ** 96) ** 2 >= Number(holdings1) ? 0 : 1;
-  const previewRange = useMemo(() => {
-    const centered = rangeTicks(pos.currentTick, spacing, widthPct);
-    const candidate = strategy === 'balanced' ? centered : heldHeavyRange(pos.currentTick, spacing, centered.tickUpper - centered.tickLower, heavySide);
-    return {
-      tickLower: Math.max(candidate.tickLower, policy.minimumAllowedTick),
-      tickUpper: Math.min(candidate.tickUpper, policy.maximumAllowedTick),
-    };
-  }, [pos.currentTick, spacing, widthPct, strategy, heavySide, policy.minimumAllowedTick, policy.maximumAllowedTick]);
+  const targetWidth = policy.targetTickWidth;
+  const targetPct = (Math.pow(1.0001, targetWidth / 2) - 1) * 100;
+  const buildRange = (tick: number) => {
+    const center = nearestUsableTick(tick, spacing);
+    const lower = center - Math.floor(targetWidth / spacing / 2) * spacing;
+    const centered = { tickLower: lower, tickUpper: lower + targetWidth };
+    return strategy === 'balanced' ? centered : heldHeavyRange(tick, spacing, targetWidth, heavySide);
+  };
+  const previewRange = useMemo(() => buildRange(pos.currentTick), [pos.currentTick, spacing, targetWidth, strategy, heavySide]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function rebalance() {
     setRunning(true); setErr(null);
@@ -65,11 +64,9 @@ export function ManagedRebalanceSheet({ pos, smartAccount, owner, policy, onClos
       const live = (await fetchV3Positions(client, smartAccount, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, [pos.id]))[0];
       if (!live) throw new Error('This position is no longer held by your smart account');
 
-      const centered = rangeTicks(live.currentTick, spacing, widthPct);
-      const candidate = strategy === 'balanced' ? centered : heldHeavyRange(live.currentTick, spacing, centered.tickUpper - centered.tickLower, heavySide);
-      const tickLower = Math.max(candidate.tickLower, policy.minimumAllowedTick);
-      const tickUpper = Math.min(candidate.tickUpper, policy.maximumAllowedTick);
-      if (tickLower >= tickUpper) throw new Error('This range is outside your automation rules. Expand the allowed range first.');
+      const candidate = buildRange(live.currentTick);
+      const { tickLower, tickUpper } = candidate;
+      if (tickLower < policy.minimumAllowedTick || tickUpper > policy.maximumAllowedTick) throw new Error('The target range is outside your allowed area. Open Change rules and expand the allowed area first.');
 
       // Performance fee applies only to collected fees, never principal.
       const netFee0 = live.fees0 * BigInt(10_000 - policy.performanceFeeBps) / 10_000n;
@@ -139,9 +136,7 @@ export function ManagedRebalanceSheet({ pos, smartAccount, owner, policy, onClos
             <Button size="sm" variant={strategy === 'keep' ? 'success' : 'ghost'} onClick={() => setStrategy('keep')}>Keep my {heavySide === 0 ? pos.symbol0 : pos.symbol1}</Button>
             <Button size="sm" variant={strategy === 'balanced' ? 'success' : 'ghost'} onClick={() => setStrategy('balanced')}>Balanced</Button>
           </div>
-          <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 14 }}>New range width</div>
-          <div style={{ display: 'flex', gap: 7, marginTop: 6 }}>{WIDTHS.map((w) => <Button key={w} size="sm" variant={widthPct === w ? 'success' : 'ghost'} onClick={() => setWidthPct(w)}>±{w}%</Button>)}</div>
-          <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10 }}>Ticks {previewRange.tickLower} → {previewRange.tickUpper} · 5% swap protection · unused amount returns to your wallet</div>
+          <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 12 }}>Your rule: ≈ ±{targetPct.toFixed(targetPct < 2 ? 1 : 0)}% · ticks {previewRange.tickLower} → {previewRange.tickUpper} · 5% swap protection · unused amount returns to your wallet</div>
           {err && <div style={{ color: btb.loss, fontSize: 11.5, lineHeight: 1.45, marginTop: 10 }}>{err}</div>}
           <Button variant="success" size="md" disabled={running} onClick={rebalance} style={{ width: '100%', marginTop: 16 }}>{running ? 'Building and checking transaction…' : 'Rebalance now'}</Button>
         </>}

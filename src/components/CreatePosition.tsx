@@ -593,7 +593,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             amount0Desired: add0, amount1Desired: add1,
             amount0Min: minWithSlippage(add0, slippageBps), amount1Min: minWithSlippage(add1, slippageBps),
           }];
-      const allowed = rangeTicks(pool.tick, spacing, automationRules.allowedRangePct);
+      const allowedPct = automationRules.allowedRangePct !== null && automationRules.allowedRangePct < automationRules.targetRangePct ? automationRules.targetRangePct : automationRules.allowedRangePct;
+      const allowed = rangeTicks(pool.tick, spacing, allowedPct);
+      const automationTarget = rangeTicks(pool.tick, spacing, automationRules.targetRangePct);
       const policy: RebalancePolicy = {
         enabled: true,
         agent: smartDeployment.agent,
@@ -606,6 +608,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         token1: pool.token1,
         positionId: 0n,
         fee,
+        targetTickWidth: automationTarget.tickUpper - automationTarget.tickLower,
         performanceFeeBps: automationRules.performanceFeePct * 100,
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: automationRules.maxSwapPct * 100,

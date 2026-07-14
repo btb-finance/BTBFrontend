@@ -22,6 +22,7 @@ export interface RebalancePolicy {
   token1: `0x${string}`;
   positionId: bigint;
   fee: number;
+  targetTickWidth: number;
   performanceFeeBps: number;
   maxSlippageBps: number;
   maxSwapBpsOfPosition: number;
@@ -66,6 +67,7 @@ const POLICY_COMPONENTS = [
   { name: 'token1', type: 'address' },
   { name: 'positionId', type: 'uint256' },
   { name: 'fee', type: 'uint24' },
+  { name: 'targetTickWidth', type: 'uint24' },
   { name: 'performanceFeeBps', type: 'uint16' },
   { name: 'maxSlippageBps', type: 'uint16' },
   { name: 'maxSwapBpsOfPosition', type: 'uint16' },
@@ -108,6 +110,7 @@ export const BTB_LP_ACCOUNT_ABI = [
   { name: 'unpauseAutomation', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'revokeAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [] },
   { name: 'withdrawPosition', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [] },
+  { name: 'claimPositionFees', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [] },
   { name: 'configurePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'newPolicy', type: 'tuple', components: POLICY_COMPONENTS }], outputs: [] },
   {
     name: 'rebalance', type: 'function', stateMutability: 'nonpayable',

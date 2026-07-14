@@ -4,6 +4,7 @@ import { btb } from './design-tokens';
 import { shortAddress } from '../lib/smartAccount';
 
 export interface AutomationRuleValues {
+  targetRangePct: 1 | 5 | 10 | 25 | 50;
   allowedRangePct: 10 | 25 | 50 | null;
   maxSwapPct: 10 | 25 | 50 | 100;
   maxDeviationPct: 1 | 3 | 5 | 10;
@@ -14,6 +15,7 @@ export interface AutomationRuleValues {
 }
 
 export const DEFAULT_AUTOMATION_RULES: AutomationRuleValues = {
+  targetRangePct: 10,
   allowedRangePct: 25,
   maxSwapPct: 25,
   maxDeviationPct: 5,
@@ -57,6 +59,11 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
         <span title={agent} style={{ color: btb.green, fontSize: 10, fontWeight: 750, flexShrink: 0 }}>Agent {shortAddress(agent)}</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+        <Rule label="LP range" hint="The width the agent must use when it opens the replacement LP. You can change it later.">
+          <select disabled={disabled} value={value.targetRangePct} onChange={(e) => set('targetRangePct', Number(e.target.value) as 1 | 5 | 10 | 25 | 50)} style={controlStyle}>
+            <option value={1}>±1%</option><option value={5}>±5%</option><option value={10}>±10%</option><option value={25}>±25%</option><option value={50}>±50%</option>
+          </select>
+        </Rule>
         <Rule label="Allowed area" hint="Every future LP range must stay inside this price area around today's pool price.">
           <select disabled={disabled} value={value.allowedRangePct ?? 'full'} onChange={(e) => set('allowedRangePct', e.target.value === 'full' ? null : Number(e.target.value) as 10 | 25 | 50)} style={controlStyle}>
             <option value={10}>±10%</option><option value={25}>±25%</option><option value={50}>±50%</option><option value="full">Full range</option>
@@ -67,7 +74,7 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
             <option value={10}>10% per rebalance</option><option value={25}>25% per rebalance</option><option value={50}>50% per rebalance</option><option value={100}>100% per rebalance</option>
           </select>
         </Rule>
-        <Rule label="Performance fee" hint="Team fee charged only on LP swap-fee earnings realized by an automated rebalance. Principal is never charged.">
+        <Rule label="Performance fee" hint="Team fee charged only on realized LP fee earnings when rebalancing, claiming, or returning the NFT. Principal is never charged.">
           <select disabled={disabled} value={value.performanceFeePct} onChange={(e) => set('performanceFeePct', Number(e.target.value) as 0 | 5 | 10 | 15 | 20)} style={controlStyle}>
             <option value={0}>0% of earnings</option><option value={5}>5% of earnings</option><option value={10}>10% of earnings</option><option value={15}>15% of earnings</option><option value={20}>20% of earnings</option>
           </select>

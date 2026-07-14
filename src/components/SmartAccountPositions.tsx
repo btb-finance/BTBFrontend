@@ -9,6 +9,7 @@ import { Badge } from './Badge';
 import { Button } from './Button';
 import { TokenIcon } from './TokenIcon';
 import { ManagedRebalanceSheet } from './ManagedRebalanceSheet';
+import { ManagedPolicySheet } from './ManagedPolicySheet';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -63,6 +64,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [manualRebalance, setManualRebalance] = useState<ManagedItem | null>(null);
+  const [editPolicy, setEditPolicy] = useState<ManagedItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setErr(null);
@@ -137,16 +139,16 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
     finally { setBusy(null); }
   }
 
-  async function positionAction(item: ManagedItem, mode: 'revoke' | 'withdraw') {
+  async function positionAction(item: ManagedItem, mode: 'revoke' | 'withdraw' | 'claim') {
     const key = `${item.account.chainId}-${item.pos.id}`;
     const chain = CHAINS.find((entry) => entry.chainId === item.account.chainId)!;
     setBusy(key); setErr(null);
     try {
-      const functionName = mode === 'revoke' ? 'revokeAgent' : 'withdrawPosition';
+      const functionName = mode === 'revoke' ? 'revokeAgent' : mode === 'claim' ? 'claimPositionFees' : 'withdrawPosition';
       await runCalls(config, {
         account: address,
         chainId: item.account.chainId,
-        label: mode === 'revoke' ? `Stop ${item.pos.symbol0}/${item.pos.symbol1} automation` : `Return ${item.pos.symbol0}/${item.pos.symbol1} NFT`,
+        label: mode === 'revoke' ? `Stop ${item.pos.symbol0}/${item.pos.symbol1} automation` : mode === 'claim' ? `Claim ${item.pos.symbol0}/${item.pos.symbol1} fees` : `Settle fees and return ${item.pos.symbol0}/${item.pos.symbol1} NFT`,
         track,
         calls: [{
           to: item.account.account,
@@ -230,12 +232,20 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
               {(p.fees0 > 0n || p.fees1 > 0n) && <span style={{ color: btb.green }}> · fees {fmtAmt(p.fees0, p.decimals0)} + {fmtAmt(p.fees1, p.decimals1)}</span>}
             </div>
             {item.policy && (
-              <div style={{ color: btb.textDim, fontSize: 10, marginTop: 4 }}>
-                Earnings fee {item.policy.performanceFeeBps / 100}% · max swap {item.policy.maxSwapBpsOfPosition / 100}% · slippage {item.policy.maxSlippageBps / 100}% · cooldown {Math.max(1, Math.round(item.policy.minRebalanceInterval / 60))}m
+              <div style={{ marginTop: 7, padding: '8px 9px', borderRadius: 10, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
+                <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5 }}>
+                  Agent <a href={`${CHAINS.find((c) => c.chainId === item.account.chainId)!.explorer}${item.policy.agent}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.green, textDecoration: 'none' }}>{shortAddress(item.policy.agent)} ↗</a>
+                  {' · '}target width {item.policy.targetTickWidth.toLocaleString()} ticks · earnings fee {item.policy.performanceFeeBps / 100}%
+                </div>
+                <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.45, marginTop: 2 }}>
+                  Approved: rebalance only inside your range, swap at most {item.policy.maxSwapBpsOfPosition / 100}%, slippage {item.policy.maxSlippageBps / 100}%. The agent cannot claim, withdraw, transfer, change rules, or change the owner.
+                </div>
               </div>
             )}
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-              {item.account.chainId === 4663 && item.policy && <Button variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, boxShadow: 'none' }}>Rebalance now</Button>}
+              {item.account.chainId === 4663 && item.policy && <Button variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, boxShadow: 'none' }}>Compound / rebalance</Button>}
+              {item.account.chainId === 4663 && item.policy && <Button variant="ghost" size="sm" onClick={() => setEditPolicy(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Change rules</Button>}
+              {item.policy && (p.fees0 > 0n || p.fees1 > 0n) && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Claim fees</Button>}
               {item.policy?.enabled && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'revoke')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>{isBusy ? 'Confirming…' : 'Stop agent'}</Button>}
               <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'withdraw')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: '1px solid rgba(255,179,107,0.28)', color: btb.amber }}>{isBusy ? 'Confirming…' : 'Return NFT to wallet'}</Button>
             </div>
@@ -249,6 +259,15 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         policy={manualRebalance.policy}
         onClose={() => setManualRebalance(null)}
         onDone={async () => { setManualRebalance(null); await load(); }}
+      />}
+      {editPolicy?.policy && <ManagedPolicySheet
+        pos={editPolicy.pos}
+        account={editPolicy.account.account}
+        owner={address}
+        policy={editPolicy.policy}
+        deployment={editPolicy.account.deployment}
+        onClose={() => setEditPolicy(null)}
+        onDone={load}
       />}
     </div>
   );

@@ -54,7 +54,9 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
       });
       const spacing = deployment.tickSpacings[pos.fee];
       if (!spacing || pool === '0x0000000000000000000000000000000000000000') throw new Error('This pool is not supported by the deployed V3 factory.');
-      const allowed = rangeTicks(pos.currentTick, spacing, rules.allowedRangePct);
+      const allowedPct = rules.allowedRangePct !== null && rules.allowedRangePct < rules.targetRangePct ? rules.targetRangePct : rules.allowedRangePct;
+      const allowed = rangeTicks(pos.currentTick, spacing, allowedPct);
+      const target = rangeTicks(pos.currentTick, spacing, rules.targetRangePct);
       const policy: RebalancePolicy = {
         enabled: true,
         agent: smartDeployment.agent,
@@ -67,6 +69,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         token1: pos.token1,
         positionId: pos.id,
         fee: pos.fee,
+        targetTickWidth: target.tickUpper - target.tickLower,
         performanceFeeBps: rules.performanceFeePct * 100,
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: rules.maxSwapPct * 100,
