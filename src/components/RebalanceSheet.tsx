@@ -20,6 +20,7 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 
 const WIDTH_PRESETS = [5, 10, 25] as const;
 
@@ -42,10 +43,9 @@ async function robinhoodSwapCalls(client: PublicClient, pos: LiquidityPosition, 
   const quote = await client.simulateContract({ address: ROBINHOOD_QUOTER_V2, abi: QUOTER_ABI, functionName: 'quoteExactInputSingle', args: [{ tokenIn, tokenOut, amountIn, fee: pos.fee, sqrtPriceLimitX96: 0n }] });
   const expectedOut = (quote.result as readonly [bigint, bigint, number, bigint])[0];
   const amountOutMinimum = expectedOut * BigInt(10_000 - ROBINHOOD_SLIPPAGE_BPS) / 10_000n;
-  const maxUint256 = (1n << 256n) - 1n;
   const ercAllowance = await client.readContract({ address: tokenIn, abi: erc20Abi, functionName: 'allowance', args: [account, ROBINHOOD_SWAP_ROUTER_02] }).catch(() => 0n);
   const calls = [
-    ...((ercAllowance as bigint) < amountIn ? [{ to: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROBINHOOD_SWAP_ROUTER_02, maxUint256] }) }] : []),
+    ...((ercAllowance as bigint) < amountIn ? [{ to: tokenIn, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [ROBINHOOD_SWAP_ROUTER_02, amountIn] }) }] : []),
     { to: ROBINHOOD_SWAP_ROUTER_02, data: encodeFunctionData({ abi: ROUTER02_ABI, functionName: 'exactInputSingle', args: [{ tokenIn, tokenOut, fee: pos.fee, recipient: account, amountIn, amountOutMinimum, sqrtPriceLimitX96: 0n }] }) },
   ];
   return { calls, budget0: sellSide === 0 ? budget0 - amountIn : budget0 + expectedOut, budget1: sellSide === 1 ? budget1 - amountIn : budget1 + expectedOut };
@@ -209,6 +209,13 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
         calls: removeCalls(livePos),
         label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`,
         track, chainId,
+        verify: !isV4 ? {
+          test: async () => {
+            const state = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'positions', args: [livePos.id] });
+            return state[7] === 0n && state[10] === 0n && state[11] === 0n;
+          },
+          error: 'Withdrawal confirmed, but the RPC still reports liquidity in the old position. Retry safely in a moment.',
+        } : undefined,
       });
 
       const [post0, post1] = await readBals(client);
@@ -225,8 +232,18 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
           native0, account, slippageBps: actionSlippage,
         });
         if (swap) {
+          const beforeSwap = await readBals(client);
           setStepMsg('Swapping only what the new range needs…');
-          await runCalls(config, { account, calls: swap.calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track, chainId });
+          await runCalls(config, {
+            account, calls: swap.calls, label: `Rebalance · swap ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+            verify: {
+              test: async () => {
+                const after = await readBals(client);
+                return pl.sellSide === 0 ? after[1] > beforeSwap[1] : after[0] > beforeSwap[0];
+              },
+              error: 'Swap confirmed, but the received token is not visible through the RPC yet. The swap will not be sent twice.',
+            },
+          });
           // Budget updated for the swap's output; the mint below caps to the live wallet.
           budget0 = swap.budget0;
           budget1 = swap.budget1;
@@ -247,6 +264,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       const L = liquidityForAmounts(livePos.sqrtPriceX96, tl, tu, eff0, eff1);
       const [a0, a1] = getAmountsForLiquidity(livePos.sqrtPriceX96, tl, tu, L);
       if (a0 === 0n && a1 === 0n) throw new Error('Nothing left to deposit after the swap');
+      const nftCountBefore = !isV4 ? await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [account] }) : 0n;
       await runCalls(config, {
         account,
         calls: isV4
@@ -265,6 +283,13 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
             }),
         label: `Rebalance · add ${pos.symbol0}/${pos.symbol1}`,
         track, chainId,
+        verify: !isV4 ? {
+          test: async () => {
+            const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [account] });
+            return count > nftCountBefore;
+          },
+          error: 'Add-liquidity confirmed, but the new position NFT is not visible through the RPC yet. It will not be minted twice.',
+        } : undefined,
       });
 
       setPhase('done');

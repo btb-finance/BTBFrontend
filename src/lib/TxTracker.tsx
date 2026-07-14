@@ -11,18 +11,19 @@ import { btb } from '@/components/design-tokens';
 // fire-and-forget (with `onConfirmed`) or `await` the returned `done` promise
 // to sequence follow-up calls.
 
-const POLL_MS = 5_000;       // "check every 5 sec"
+const POLL_MS = 1_000;       // fast chains settle quickly; surface reverts promptly
 const TIMEOUT_MS = 180_000;  // give up after 3 min
 const DISMISS_MS = 6_000;    // auto-hide settled pills
 
 export type TxStatus = 'pending' | 'confirmed' | 'failed';
-export type TxRecord = { id: string; label: string; status: TxStatus; hash?: `0x${string}`; error?: string };
+export type TxRecord = { id: string; label: string; status: TxStatus; hash?: `0x${string}`; chainId?: number; error?: string };
 export type Settled = { status: 'confirmed' | 'failed'; error?: string };
 
 type TrackArgs = {
   label: string;
   hash?: `0x${string}`;
   callsId?: string;
+  chainId?: number;
   onConfirmed?: () => void;
 };
 export type TrackFn = (args: TrackArgs) => { id: string; done: Promise<Settled> };
@@ -57,9 +58,9 @@ export function TxProvider({ children }: { children: ReactNode }) {
     timers.current[id] = setTimeout(() => dismiss(id), DISMISS_MS);
   }, [dismiss]);
 
-  const track: TrackFn = useCallback(({ label, hash, callsId, onConfirmed }) => {
+  const track: TrackFn = useCallback(({ label, hash, callsId, chainId, onConfirmed }) => {
     const id = `tx-${++seq}`;
-    setRecords(rs => [...rs, { id, label, status: 'pending', hash }]);
+    setRecords(rs => [...rs, { id, label, status: 'pending', hash, chainId }]);
 
     const done: Promise<Settled> = (async () => {
       try {
@@ -70,7 +71,7 @@ export function TxProvider({ children }: { children: ReactNode }) {
           const last = res.receipts?.[res.receipts.length - 1]?.transactionHash;
           if (last) patch(id, { hash: last });
         } else if (hash) {
-          const receipt = await waitForTransactionReceipt(config, { hash, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
+          const receipt = await waitForTransactionReceipt(config, { hash, chainId: chainId as 1 | 4663 | undefined, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
           ok = receipt.status === 'success';
         }
         if (ok) {
@@ -131,7 +132,7 @@ function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: strin
               </div>
             </div>
             {r.hash && (
-              <a href={`https://etherscan.io/tx/${r.hash}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+              <a href={`${r.chainId === 4663 ? 'https://robinhoodchain.blockscout.com/tx/' : 'https://etherscan.io/tx/'}${r.hash}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                 style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontFamily: 'monospace', textDecoration: 'none' }}>↗</a>
             )}
           </div>

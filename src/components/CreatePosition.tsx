@@ -850,7 +850,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <TokenIcon symbol={sym} size={20} />
-            <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{sym}</span>
+            {wethSide === side && !isV4 ? (
+              <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(255,255,255,0.08)' }}>
+                {([['ETH', true], ['WETH', false]] as const).map(([label, active]) => (
+                  <button key={label} type="button" onClick={() => setUseEth(active)} style={{
+                    height: 24, padding: '0 7px', border: 0, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+                    color: useEth === active ? '#07110D' : btb.textMuted,
+                    background: useEth === active ? btb.green : 'transparent', fontSize: 10.5, fontWeight: 800,
+                  }}>{label}</button>
+                ))}
+              </div>
+            ) : (
+              <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{sym}</span>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
@@ -869,6 +881,29 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         </div>
       </div>
     );
+  }
+
+  function toggleUnevenAmounts() {
+    if (!pool) return;
+    if (!splitRange) {
+      // Seed the independent fields from exactly what the regular deposit cards
+      // currently show, including the automatically paired side.
+      setSplitAmt({
+        str0: add0 > 0n ? formatUnits(add0, pool.decimals0) : '',
+        str1: add1 > 0n ? formatUnits(add1, pool.decimals1) : '',
+      });
+      setSplitRange(true);
+    } else {
+      // Returning to ratio-matched mode can only have one driving input. Keep
+      // the side the user was editing when possible, otherwise the non-empty one.
+      const preferred = amt.side === 0 ? splitAmt.str0 : splitAmt.str1;
+      const fallbackSide: 0 | 1 = splitAmt.str0 ? 0 : 1;
+      setAmt(preferred
+        ? { side: amt.side, str: preferred }
+        : { side: fallbackSide, str: fallbackSide === 0 ? splitAmt.str0 : splitAmt.str1 });
+      setSplitRange(false);
+    }
+    setSwapPreview(null);
   }
 
   // Shared result blocks — rendered on the simulator's single page AND on the
@@ -1177,18 +1212,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Everything on one page, Orca-style — no separate "enter amounts" step */}
             {!simOnly && (
               <>
-                {wethSide !== null && (
-                  <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                    <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                    <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                      <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
-                    </div>
-                  </div>
-                )}
-
                 {!isV4 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '0 2px 8px' }}>
-                    <button onClick={() => { setSplitRange((v) => !v); setSwapPreview(null); }} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
+                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
                       <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(255,255,255,0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
                       Use uneven amounts
                     </button>
