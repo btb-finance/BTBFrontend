@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useConfig } from 'wagmi';
+import { useAction } from 'convex/react';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeFunctionData } from 'viem';
 import { Portal } from './Portal';
@@ -21,6 +22,7 @@ import {
   type LiquidityPosition,
 } from '@/protocols/dexs/uniswap';
 import { FACTORY_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { api } from '../../convex/_generated/api';
 
 export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
   pos: LiquidityPosition;
@@ -31,6 +33,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
   const { width: sidebarWidth, isMobile } = useSidebar();
   const config = useConfig();
   const { track } = useTx();
+  const registerManaged = useAction(api.managedPositionMonitor.register);
   const chainId = (pos.chainId ?? 1) as 1 | 4663;
   const deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
   const smartDeployment = getSmartAccountDeployment(chainId);
@@ -125,6 +128,15 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
           to: smart.account,
           data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'configurePolicy', args: [policy] }),
         }],
+      });
+      await registerManaged({
+        chainId, owner: account, account: smart.account, positionManager: deployment.positionManager,
+        positionId: pos.id.toString(), pool, token0: pos.token0, token1: pos.token1, fee: pos.fee,
+        tickLower: pos.tickLower, tickUpper: pos.tickUpper,
+        targetTickWidth: policy.targetTickWidth, minimumAllowedTick: policy.minimumAllowedTick,
+        maximumAllowedTick: policy.maximumAllowedTick, maxSlippageBps: policy.maxSlippageBps,
+        maxSwapBps: policy.maxSwapBpsOfPosition, twapSeconds: policy.twapSeconds,
+        minRebalanceInterval: policy.minRebalanceInterval, expiresAt: Number(policy.expiresAt), source: 'enrolled',
       });
       await onDone();
       onClose();

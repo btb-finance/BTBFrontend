@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useConnection, useConfig } from 'wagmi';
+import { useAction } from 'convex/react';
 import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
@@ -27,11 +28,13 @@ import {
   ROBINHOOD_UNISWAP_V4, UNISWAP_V4,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier, rebalancePlan,
   backtestRange, SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
+  fetchV3Positions,
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
+import { api } from '../../convex/_generated/api';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -116,6 +119,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
+  const registerManaged = useAction(api.managedPositionMonitor.register);
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
@@ -623,9 +627,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         maximumToken0PerExecution: UINT128_MAX,
         maximumToken1PerExecution: UINT128_MAX,
       };
+      const beforePositions = await fetchV3Positions(client, smart.account, deployment).catch(() => []);
+      const beforeIds = new Set(beforePositions.map(position => position.id.toString()));
       const beforeCount = await client.readContract({
         address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account],
-      }).catch(() => 0n);
+      }).catch(() => BigInt(beforePositions.length));
       const calls = [
         ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
         ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)] : []),
@@ -654,6 +660,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           error: 'The managed position was confirmed but is not visible from this RPC yet.',
         },
       });
+      setStepMsg('Saving automation monitor…');
+      const created = (await fetchV3Positions(client, smart.account, deployment))
+        .filter(position => !beforeIds.has(position.id.toString()));
+      if (created.length === 0) throw new Error('LP confirmed, but its new NFT ID is not indexed by the RPC yet. Reopen your positions to finish monitoring setup.');
+      await Promise.all(created.map(position => registerManaged({
+        chainId, owner, account: smart.account, positionManager: deployment.positionManager,
+        positionId: position.id.toString(), pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
+        tickLower: position.tickLower, tickUpper: position.tickUpper,
+        targetTickWidth: policy.targetTickWidth, minimumAllowedTick: policy.minimumAllowedTick,
+        maximumAllowedTick: policy.maximumAllowedTick, maxSlippageBps: policy.maxSlippageBps,
+        maxSwapBps: policy.maxSwapBpsOfPosition, twapSeconds: policy.twapSeconds,
+        minRebalanceInterval: policy.minRebalanceInterval, expiresAt: Number(policy.expiresAt), source: 'created',
+      })));
       onDone?.();
       onClose();
     } catch (e) {

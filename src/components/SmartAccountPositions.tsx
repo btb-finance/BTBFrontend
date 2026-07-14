@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useConfig } from 'wagmi';
+import { useAction } from 'convex/react';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeFunctionData, isAddress, zeroAddress } from 'viem';
 import { Glass } from './Glass';
@@ -23,6 +24,7 @@ import {
   fetchV3Positions, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, UNISWAP_V3_DEPLOYMENT,
   type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
+import { api } from '../../convex/_generated/api';
 
 interface AccountState {
   chainId: SmartAccountChainId;
@@ -60,6 +62,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
 }) {
   const config = useConfig();
   const { track } = useTx();
+  const registerManaged = useAction(api.managedPositionMonitor.register);
   const { isMobile } = useSidebar();
   const [accounts, setAccounts] = useState<AccountState[]>([]);
   const [positions, setPositions] = useState<ManagedItem[]>([]);
@@ -96,6 +99,19 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
             return { pos: { ...pos, chainId: chain.chainId, chainName: chain.chainName }, account: accountState, policy: policy as RebalancePolicy | null };
           }));
           foundPositions.push(...withPolicies);
+          await Promise.allSettled(withPolicies.filter(item => item.policy).map(item => {
+            const policy = item.policy!;
+            return registerManaged({
+              chainId: chain.chainId, owner: address, account: smart.account,
+              positionManager: chain.v3.positionManager, positionId: item.pos.id.toString(),
+              pool: policy.pool, token0: policy.token0, token1: policy.token1, fee: policy.fee,
+              tickLower: item.pos.tickLower, tickUpper: item.pos.tickUpper,
+              targetTickWidth: policy.targetTickWidth, minimumAllowedTick: policy.minimumAllowedTick,
+              maximumAllowedTick: policy.maximumAllowedTick, maxSlippageBps: policy.maxSlippageBps,
+              maxSwapBps: policy.maxSwapBpsOfPosition, twapSeconds: policy.twapSeconds,
+              minRebalanceInterval: policy.minRebalanceInterval, expiresAt: Number(policy.expiresAt), source: 'reconciled',
+            });
+          }));
         };
 
         await loadDeployment(smartDeployment, true);
@@ -107,7 +123,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
     } catch (e) {
       setErr((e as Error)?.message ?? 'Could not load managed positions');
     } finally { setLoading(false); }
-  }, [address, config, refreshNonce]);
+  }, [address, config, refreshNonce, registerManaged]);
 
   useEffect(() => { load(); }, [load]);
 
