@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 
 const UPSTREAM = 'https://api.krystal.app/all/v1/balance/token';
-const CHAIN_IDS = '1,10,56,130,137,146,2020,324,42161,43114,59144,80094,81457,8453,999';
+const CHAIN_IDS = '1,10,56,130,137,146,2020,324,4663,42161,43114,59144,80094,81457,8453,999';
 const DEX_CHAIN: Record<number, string> = {
   1: 'ethereum', 10: 'optimism', 56: 'bsc', 130: 'unichain', 137: 'polygon',
   146: 'sonic', 324: 'zksync', 42161: 'arbitrum', 43114: 'avalanche',
+  4663: 'robinhood',
   59144: 'linea', 81457: 'blast', 8453: 'base', 999: 'hyperevm',
 };
 

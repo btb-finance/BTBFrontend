@@ -12,7 +12,7 @@
  * whenever the subgraphs are unavailable, so the screen always has actionable
  * pools.
  */
-import type { Abi, PublicClient } from 'viem';
+import { decodeFunctionResult, encodeFunctionData, type Abi, type PublicClient } from 'viem';
 import { getTopPools as getLlamaPools, getTokenPricesUsd, fmtCompactUsd, type LlamaPool } from './defillama';
 import { getV3TopPools } from '@/protocols/dexs/uniswap/v3/subgraph';
 import { getV4TopPools } from '@/protocols/dexs/uniswap/v4/subgraph';
@@ -48,11 +48,145 @@ export interface EarnPool {
   ilRisk: string;         // "yes" | "no"
   underlyingTokens?: string[];
   token1Decimals?: number; // indexer pools only — needed for the range APR
+  externalUrl?: string;
   /** Estimated fee APR % for a ±RANGE_APR_PCT% concentrated position (see addRangeAprs). */
   aprRange?: number;
   /** APY change over the last 24h, in percentage points — DeFiLlama-sourced pools only. */
   apyChange1d?: number;
-  source: 'uniswap' | 'defillama';
+  source: 'uniswap' | 'defillama' | 'dexscreener';
+}
+
+interface BlockscoutTokensPage {
+  items?: Array<{ address_hash?: string; reputation?: string }>;
+  next_page_params?: Record<string, string | number | boolean | null>;
+}
+
+async function getRobinhoodTokenAddresses(): Promise<string[]> {
+  const addresses = new Set<string>();
+  let url = 'https://robinhoodchain.blockscout.com/api/v2/tokens?type=ERC-20';
+  // Five explorer pages = up to 250 contracts. This stays bounded while
+  // covering the active official, stock-token and meme-token universe.
+  for (let page = 0; page < 5; page++) {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) break;
+    const body = await res.json() as BlockscoutTokensPage;
+    for (const token of body.items ?? []) {
+      if (/^0x[0-9a-fA-F]{40}$/.test(token.address_hash ?? '') && token.reputation?.toLowerCase() !== 'spam') {
+        addresses.add(token.address_hash!);
+      }
+    }
+    if (!body.next_page_params) break;
+    const params = new URLSearchParams({ type: 'ERC-20' });
+    for (const [key, value] of Object.entries(body.next_page_params)) {
+      if (value != null) params.set(key, String(value));
+    }
+    url = `https://robinhoodchain.blockscout.com/api/v2/tokens?${params}`;
+  }
+  return [...addresses];
+}
+
+async function getRobinhoodFees(rows: DexScreenerPairRow[]): Promise<Map<string, number>> {
+  const unique = new Map<string, DexScreenerPairRow>();
+  for (const row of rows) {
+    if (row.pairAddress) unique.set(row.pairAddress.toLowerCase(), row);
+  }
+  const pools = [...unique.values()].filter(row => {
+    const id = row.pairAddress ?? '';
+    const labelledV4 = row.labels?.some(label => label.toLowerCase() === 'v4');
+    return /^0x[0-9a-fA-F]{64}$/.test(id) || (/^0x[0-9a-fA-F]{40}$/.test(id) && !labelledV4);
+  });
+  if (pools.length === 0) return new Map();
+  const out = new Map<string, number>();
+  for (let offset = 0; offset < pools.length; offset += 40) {
+    const chunk = pools.slice(offset, offset + 40);
+    const body = chunk.map((row, id) => {
+      const isV4 = /^0x[0-9a-fA-F]{64}$/.test(row.pairAddress ?? '');
+      return {
+        jsonrpc: '2.0', id, method: 'eth_call',
+        params: [isV4
+          ? {
+              to: '0xf3334192d15450cdd385c8b70e03f9a6bd9e673b',
+              data: encodeFunctionData({ abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [row.pairAddress as `0x${string}`] }),
+            }
+          : { to: row.pairAddress, data: '0xddca3f43' }, 'latest'],
+      };
+    });
+    try {
+      const res = await fetch('https://rpc.mainnet.chain.robinhood.com/', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store',
+      });
+      if (!res.ok) continue;
+      const replies = await res.json() as Array<{ id: number; result?: string }>;
+      for (const reply of replies) {
+        const pool = chunk[reply.id];
+        if (!pool?.pairAddress || !reply.result) continue;
+        try {
+          const isV4 = /^0x[0-9a-fA-F]{64}$/.test(pool.pairAddress);
+          const fee = isV4
+            ? Number(decodeFunctionResult({ abi: STATE_VIEW_ABI, functionName: 'getSlot0', data: reply.result as `0x${string}` })[3])
+            : Number(BigInt(reply.result));
+          if (fee > 0 && fee < 1_000_000) out.set(pool.pairAddress.toLowerCase(), fee);
+        } catch { /* one malformed pool must not discard every valid fee */ }
+      }
+    } catch { /* continue with remaining chunks */ }
+  }
+  return out;
+}
+
+interface DexScreenerPairRow {
+  chainId?: string;
+  dexId?: string;
+  url?: string;
+  pairAddress?: string;
+  labels?: string[];
+  baseToken?: { address?: string; symbol?: string };
+  quoteToken?: { address?: string; symbol?: string };
+  liquidity?: { usd?: number };
+  volume?: { h24?: number };
+  priceChange?: { h24?: number };
+}
+
+async function getRobinhoodPools(minTvlUsd: number): Promise<EarnPool[]> {
+  const addresses = await getRobinhoodTokenAddresses();
+  if (addresses.length === 0) throw new Error('Robinhood token registry unavailable');
+  const batches: string[][] = [];
+  for (let i = 0; i < addresses.length; i += 30) batches.push(addresses.slice(i, i + 30));
+  const settled = await Promise.allSettled(batches.map(async batch => {
+    const res = await fetch(`https://api.dexscreener.com/tokens/v1/robinhood/${batch.join(',')}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Robinhood pools ${res.status}`);
+    return res.json() as Promise<DexScreenerPairRow[]>;
+  }));
+  const rows = settled.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+  const poolFees = await getRobinhoodFees(rows).catch(() => new Map<string, number>());
+  const seen = new Set<string>();
+  // Robinhood is a brand-new chain whose canonical stock pools are still
+  // bootstrapping. A $1k floor shows real official markets without opening the
+  // table to zero-liquidity pair spam; callers asking for a lower floor keep it.
+  const tvlFloor = Math.min(minTvlUsd, 1_000);
+  return rows.flatMap((row): EarnPool[] => {
+    const id = row.pairAddress;
+    const token0 = row.baseToken;
+    const token1 = row.quoteToken;
+    const tvlUsd = row.liquidity?.usd ?? 0;
+    const key = id?.toLowerCase();
+    if (row.chainId !== 'robinhood' || !id || !key || seen.has(key) || !token0?.address || !token1?.address || !token0.symbol || !token1.symbol || tvlUsd < tvlFloor) return [];
+    seen.add(key);
+    const version = row.labels?.some(label => label.toLowerCase() === 'v4') ? 'V4' : 'V3';
+    const feeTier = poolFees.get(id.toLowerCase());
+    const volume24hUsd = row.volume?.h24;
+    const fees24hUsd = feeTier != null && volume24hUsd != null ? volume24hUsd * feeTier / 1_000_000 : undefined;
+    const feeApr = fees24hUsd != null && tvlUsd > 0 ? fees24hUsd * 365 / tvlUsd * 100 : 0;
+    const stable = STABLES.has(token0.symbol.toUpperCase()) && STABLES.has(token1.symbol.toUpperCase());
+    return [{
+      id, project: `uniswap-${version.toLowerCase()}`, dex: row.dexId === 'uniswap' ? 'Uniswap' : row.dexId || 'DEX', version,
+      chain: 'Robinhood Chain', pair: `${token0.symbol}-${token1.symbol}`,
+      feeTier, tvlUsd, apy: feeApr, apyBase: feeApr, apyReward: 0,
+      volume24hUsd, fees24hUsd, apyChange1d: row.priceChange?.h24,
+      stablecoin: stable, ilRisk: stable ? 'no' : 'yes',
+      underlyingTokens: [token0.address, token1.address], externalUrl: row.url,
+      source: 'dexscreener',
+    }];
+  });
 }
 
 /** Stablecoin symbols (uppercase) — shared stable-detection across the app. */
@@ -208,7 +342,7 @@ async function ingestDexPaprika(client: PublicClient, existingIds: Set<string>, 
  * `ingestDexPaprika`) to surface pools DeFiLlama/the subgraphs miss entirely.
  */
 export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): Promise<EarnPool[]> {
-  const [v3, v4, cake, llama] = await Promise.allSettled([
+  const [v3, v4, cake, llama, robinhood] = await Promise.allSettled([
     hasGraphKey ? getV3TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getV4TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getPancakeTopPools() : Promise.reject(new Error('no key')),
@@ -216,6 +350,7 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
     // so a handful of giant Curve/Balancer/Aerodrome pools can't crowd the
     // top-N slice before the actionable-project filter below even runs.
     getLlamaPools(200, minTvlUsd, ['uniswap-v3', 'uniswap-v4', 'pancakeswap-amm-v3']),
+    getRobinhoodPools(minTvlUsd),
   ]);
 
   const pools: EarnPool[] = [];
@@ -223,12 +358,20 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
   if (v3.status === 'fulfilled') pools.push(...v3.value.map((p) => fromIndexed(p)));
   if (v4.status === 'fulfilled') pools.push(...v4.value.map((p) => fromIndexed(p)));
   if (cake.status === 'fulfilled') pools.push(...cake.value.map((p) => fromIndexed(p, 'PancakeSwap')));
+  if (robinhood.status === 'fulfilled') pools.push(...robinhood.value);
 
   if (llama.status === 'fulfilled') {
     for (const p of llama.value) {
-      // Mintable-in-app DEXs on mainnet only — every listed pool must be
-      // actionable. DeFiLlama rows back-fill whichever indexer is unavailable.
-      if (p.chain !== 'Ethereum') continue;
+      // Other chains are useful for discovery even though in-app minting is
+      // still Ethereum-only. Ethereum rows continue to back-fill a failed
+      // official indexer; multichain rows are always included read-only.
+      if (p.chain !== 'Ethereum') {
+        pools.push(fromLlama(p, {
+          dex: p.project === 'pancakeswap-amm-v3' ? 'PancakeSwap' : 'Uniswap',
+          version: p.project === 'uniswap-v4' ? 'V4' : 'V3',
+        }));
+        continue;
+      }
       if (p.project === 'uniswap-v3' && v3.status !== 'fulfilled') pools.push(fromLlama(p, { version: 'V3' }));
       if (p.project === 'uniswap-v4' && v4.status !== 'fulfilled') pools.push(fromLlama(p, { version: 'V4' }));
       if (p.project === 'pancakeswap-amm-v3' && cake.status !== 'fulfilled') pools.push(fromLlama(p, { dex: 'PancakeSwap', version: 'V3' }));
@@ -254,6 +397,7 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
 
 /** External link for a pool — Uniswap explore page for indexer pools, DeFiLlama otherwise. */
 export function poolLink(p: EarnPool): string {
+  if (p.externalUrl) return p.externalUrl;
   if (p.project === 'pancakeswap-v3' && p.source === 'uniswap') return `https://pancakeswap.finance/info/v3/eth/pairs/${p.id}`;
   if (p.source === 'uniswap') return `https://app.uniswap.org/explore/pools/ethereum/${p.id}`;
   return `https://defillama.com/yields/pool/${p.id}`;

@@ -54,6 +54,7 @@ export const CHAIN_META: Record<number, { name: string; symbol: string; color: s
   10:     { name: 'Optimism',  symbol: 'ETH',  color: '#FF0420' },
   8453:   { name: 'Base',      symbol: 'ETH',  color: '#0052FF' },
   43114:  { name: 'Avalanche', symbol: 'AVAX', color: '#E84142' },
+  4663:   { name: 'Robinhood Chain', symbol: 'ETH', color: '#00C805' },
   250:    { name: 'Fantom',    symbol: 'FTM',  color: '#1969FF' },
   59144:  { name: 'Linea',     symbol: 'ETH',  color: '#61DFFF' },
   534352: { name: 'Scroll',    symbol: 'ETH',  color: '#FFEEDA' },

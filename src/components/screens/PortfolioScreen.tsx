@@ -41,6 +41,7 @@ const TOKEN_EXPLORER: Record<number, string> = {
   137: 'https://polygonscan.com/token/',
   146: 'https://sonicscan.org/token/',
   2020: 'https://app.roninchain.com/token/',
+  4663: 'https://robinhoodchain.blockscout.com/token/',
   324: 'https://era.zksync.network/address/',
   42161: 'https://arbiscan.io/token/',
   43114: 'https://snowtrace.io/token/',
