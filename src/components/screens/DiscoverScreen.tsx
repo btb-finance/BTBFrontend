@@ -24,14 +24,6 @@ function estFees24h(p: EarnPool): number {
   return p.fees24hUsd ?? (p.tvlUsd * p.apyBase) / 100 / 365;
 }
 
-const COMING_SOON_DEXS: { name: string; color: string }[] = [
-  { name: 'Aerodrome', color: '#2151F5' },
-  { name: 'Curve', color: '#3B6CF6' },
-  { name: 'Velodrome', color: '#FF1100' },
-  { name: 'SushiSwap', color: '#FA52A0' },
-  { name: 'Balancer', color: '#E2E8F0' },
-];
-
 export function DiscoverScreen() {
   const config = useConfig();
   const { isMobile } = useSidebar();
@@ -59,16 +51,20 @@ export function DiscoverScreen() {
     const tok = q
       ? tokens.find(t => t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
       : undefined;
-    if (!tok) {
+    // A pasted address the app's token list doesn't know is still searchable —
+    // the market APIs only need the address itself, not list membership.
+    const addr = tok
+      ? (tok.address === 'ETH' ? WETH_ADDR : tok.address)
+      : /^0x[0-9a-f]{40}$/.test(q) ? q : null;
+    if (!addr) {
       marketReqRef.current++;
       setMarketPools(null); setMarketSymbol(null); setMarketLoading(false);
       return;
     }
     const req = ++marketReqRef.current;
-    setMarketSymbol(tok.symbol);
+    setMarketSymbol(tok?.symbol ?? `${q.slice(0, 6)}…${q.slice(-4)}`);
     setMarketLoading(true);
     const timer = setTimeout(() => {
-      const addr = tok.address === 'ETH' ? WETH_ADDR : tok.address;
       searchMarketPools(addr, undefined, 1000)
         .then(ps => { if (marketReqRef.current === req) setMarketPools(ps); })
         .catch(() => { if (marketReqRef.current === req) setMarketPools([]); })
@@ -355,12 +351,17 @@ export function DiscoverScreen() {
       )}
 
       {/* every pool for the searched token, across all DEXes */}
-      {marketSymbol && (marketLoading || (marketPools && marketPools.length > 0)) && (
+      {marketSymbol && (marketLoading || marketPools) && (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>All {marketSymbol} pools across DEXes</span>
             {marketLoading && <Spinner size={14} color="#fff" track="rgba(255,255,255,0.18)"/>}
           </div>
+          {!marketLoading && (marketPools?.length ?? 0) === 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 2px' }}>
+              No live pools found for this token on any DEX we track.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(marketPools ?? [])
               .filter(p => !pools.some(cp => cp.id.toLowerCase() === p.address))
@@ -396,30 +397,6 @@ export function DiscoverScreen() {
           </div>
         </div>
       )}
-
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none', alignItems: 'center' }}>
-        <span style={{ color: btb.textDim, fontSize: 12, fontWeight: 600, marginRight: 4, flexShrink: 0 }}>More DEXs soon:</span>
-        {COMING_SOON_DEXS.map(d => (
-          <Badge key={d.name} color={btb.textDim} bg={btb.surfaceSoft} border={btb.borderSoft}
-            style={{ height: 30, padding: '0 12px', fontSize: 12, gap: 6, opacity: 0.7, flexShrink: 0 }}>
-            <span style={{ width: 7, height: 7, borderRadius: 4, background: d.color }} />
-            {d.name}
-          </Badge>
-        ))}
-      </div>
-
-      <Glass padding={16} radius={16} soft>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Icon name="shield" size={20} color="#38BDF8" />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>Liquid staking &amp; lending</div>
-            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>stETH, rETH, Aave v4 — lower-risk yield. Coming next.</div>
-          </div>
-          <Badge>Soon</Badge>
-        </div>
-      </Glass>
 
       {sheet && sheetProps && (
         <CreatePosition

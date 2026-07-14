@@ -19,11 +19,12 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
-  fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment,
+  fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
+  ROBINHOOD_UNISWAP_V4, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
-import { fetchOwnedNftTokenIds } from '../lib/alchemy';
+import { fetchOwnedNftTokenIds, fetchRobinhoodOwnedNftTokenIds } from '../lib/alchemy';
 import { RebalanceSheet } from './RebalanceSheet';
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
@@ -47,7 +48,7 @@ function fmtAmt(raw: bigint, decimals: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 4 });
 }
 
-const posKey = (p: LiquidityPosition) => `${p.protocol}-${p.id.toString()}`;
+const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
 
 interface KrystalTokenAmount {
   token?: { symbol?: string; logo?: string; decimals?: number };
@@ -171,7 +172,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     if (!address) { setPositions([]); return; }
     setLoading(true);
     try {
-      const client = getPublicClient(config);
+      const client = getPublicClient(config, { chainId: 1 });
+      const robinhoodClient = getPublicClient(config, { chainId: 4663 });
       if (!client) return;
       // Fast path: every position (V3, V4, Pancake V3) is an NFT — one
       // indexed Alchemy call enumerates all tokenIds at once, replacing the
@@ -184,15 +186,27 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         PANCAKE_V3_DEPLOYMENT.positionManager,
       ]).catch(() => null);
       const idsFor = (contract: string) => ids?.get(contract.toLowerCase());
+      const robinhoodContracts = [ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager, ROBINHOOD_UNISWAP_V4.positionManager];
+      const robinhoodIds = robinhoodClient
+        ? await fetchRobinhoodOwnedNftTokenIds(address, robinhoodContracts).catch(() => null)
+        : null;
+      const robinhoodIdsFor = (contract: string) => robinhoodIds?.get(contract.toLowerCase());
 
       // Each protocol renders as soon as it resolves and degrades
       // independently — a slow/failing V4 log scan can't hold up the V3 list.
-      const merge = (protocol: LiquidityPosition['protocol']) => (items: LiquidityPosition[]) =>
-        setPositions((prev) => [...prev.filter((p) => p.protocol !== protocol), ...items]);
+      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum') => (items: LiquidityPosition[]) =>
+        setPositions((prev) => [
+          ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId),
+          ...items.map((p) => ({ ...p, chainId, chainName })),
+        ]);
       await Promise.allSettled([
         fetchV3Positions(client, address as `0x${string}`, undefined, idsFor(UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3')),
         fetchV4Positions(client, address as `0x${string}`, idsFor(UNISWAP_V4.positionManager)).then(merge('uniswap-v4')),
         fetchPancakePositions(client, address as `0x${string}`, idsFor(PANCAKE_V3_DEPLOYMENT.positionManager)).then(merge('pancakeswap-v3')),
+        ...(robinhoodClient ? [
+          fetchV3Positions(robinhoodClient, address as `0x${string}`, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, robinhoodIdsFor(ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3', 4663, 'Robinhood Chain')),
+          fetchV4Positions(robinhoodClient, address as `0x${string}`, robinhoodIdsFor(ROBINHOOD_UNISWAP_V4.positionManager), ROBINHOOD_UNISWAP_V4, 0n).then(merge('uniswap-v4', 4663, 'Robinhood Chain')),
+        ] : []),
       ]);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
@@ -286,11 +300,12 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
   const analyticsOf = (p: LiquidityPosition) => krystal?.positions?.find((item) =>
-    item.tokenId === p.id.toString() && item.pool?.projectKey?.toLowerCase() === KRYSTAL_PROTOCOL[p.protocol],
+    item.chainId === (p.chainId ?? 1) && item.tokenId === p.id.toString() && item.pool?.projectKey?.toLowerCase() === KRYSTAL_PROTOCOL[p.protocol],
   );
   const krystalStats = krystal?.statsByChain?.all ?? krystal?.statsByChain?.['1'];
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
-    item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0),
+    item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
+    !positions.some((p) => (p.chainId ?? 1) === item.chainId && p.id.toString() === item.tokenId && KRYSTAL_PROTOCOL[p.protocol] === item.pool?.projectKey?.toLowerCase()),
   );
   const closedHistory = (krystal?.positions ?? []).filter((item) =>
     item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0,
@@ -308,6 +323,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           <div>
             <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{p.symbol0} / {p.symbol1}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chainName ?? 'Ethereum'}</Badge>
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
               <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
             </div>
@@ -376,6 +392,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     {
       key: 'actions', label: '', align: 'right', width: '340px',
       render: p => {
+        if ((p.chainId ?? 1) !== 1) return <div style={{ display: 'flex', justifyContent: 'flex-end' }}><ActBtn label="Read only" onClick={() => {}} disabled /></div>;
         const hasFees = p.fees0 > 0n || p.fees1 > 0n;
         const hasLiquidity = p.liquidity > 0n;
         const canRebalance = hasLiquidity && (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY));
@@ -569,6 +586,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{p.symbol0} / {p.symbol1}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
+                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chainName ?? 'Ethereum'}</Badge>
                       <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
                       <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
                     </div>
@@ -606,7 +624,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                {(p.chainId ?? 1) === 1 ? <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
                   <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
                   {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
                   {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
@@ -618,7 +636,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                       amber={!p.inRange}
                     />
                   )}
-                </div>
+                </div> : <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label={`${p.chainName ?? 'Other chain'} · Read only`} onClick={() => {}} disabled /></div>}
               </Glass>
             );
           })}

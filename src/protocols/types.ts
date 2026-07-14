@@ -16,6 +16,8 @@ export interface LiquidityPosition {
   protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
   /** Position id (V3 = NFT tokenId; V4 = position tokenId). */
   id: bigint;
+  chainId?: number;
+  chainName?: string;
   /** V4: currencies — token0 = address(0) means native ETH. */
   token0: `0x${string}`;
   token1: `0x${string}`;
