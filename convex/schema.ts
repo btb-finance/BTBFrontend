@@ -14,6 +14,13 @@ export default defineSchema({
     source: v.string(),       // "core" | "uniswap" | "coingecko" | "sushiswap" | "gemini"
   }).index("by_address", ["address"]),
 
+  // Discover pool list, precomputed hourly by convex/discover.ts (single row).
+  // `json` = { pools: EarnPool[], priceChange: Record<poolId, pct> }.
+  discoverPools: defineTable({
+    json: v.string(),
+    updatedAt: v.float64(),
+  }),
+
   // Prices refreshed every 5 min via cron
   tokenPrices: defineTable({
     address: v.string(),

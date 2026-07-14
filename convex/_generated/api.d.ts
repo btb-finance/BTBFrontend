@@ -10,6 +10,8 @@
 
 import type * as balances from "../balances.js";
 import type * as crons from "../crons.js";
+import type * as discover from "../discover.js";
+import type * as discoverRefresh from "../discoverRefresh.js";
 import type * as prices from "../prices.js";
 import type * as queries from "../queries.js";
 import type * as tokens from "../tokens.js";
@@ -24,6 +26,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   balances: typeof balances;
   crons: typeof crons;
+  discover: typeof discover;
+  discoverRefresh: typeof discoverRefresh;
   prices: typeof prices;
   queries: typeof queries;
   tokens: typeof tokens;

@@ -13,9 +13,16 @@
  * forwards it server-side where CORS doesn't apply.
  */
 const BASE = '/api/dexpaprika';
+const DIRECT_BASE = 'https://api.dexpaprika.com';
 
 function proxied(path: string, params: Record<string, string | number>): string {
-  const qs = new URLSearchParams({ path, ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])) });
+  const flat = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]));
+  // Server side (Convex discover cron, Next server) there's no CORS and a
+  // relative URL has no origin — hit DexPaprika directly. Browsers use the proxy.
+  if (typeof window === 'undefined') {
+    return `${DIRECT_BASE}/${path}?${new URLSearchParams(flat).toString()}`;
+  }
+  const qs = new URLSearchParams({ path, ...flat });
   return `${BASE}?${qs.toString()}`;
 }
 
