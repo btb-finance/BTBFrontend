@@ -15,7 +15,8 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
-  BTB_EARNINGS_PREFERENCES_ABI, BTB_LP_ACCOUNT_ABI, createAccountCall, getSmartAccountDeployment, readSmartAccount,
+  BTB_EARNINGS_PREFERENCES_ABI, BTB_LP_ACCOUNT_ABI, createAccountCall, getLegacySmartAccountDeployment,
+  getSmartAccountDeployment, readSmartAccount,
   shortAddress, type RebalancePolicy, type SmartAccountChainId, type SmartAccountDeployment,
 } from '../lib/smartAccount';
 import {
@@ -80,28 +81,26 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         const smartDeployment = getSmartAccountDeployment(chain.chainId);
         const client = getPublicClient(config, { chainId: chain.chainId });
         if (!smartDeployment || !client) return;
-        const smart = await readSmartAccount(client, address, smartDeployment);
         const preference = smartDeployment.earningsPreferences
           ? await client.readContract({ address: smartDeployment.earningsPreferences, abi: BTB_EARNINGS_PREFERENCES_ABI, functionName: 'preferenceOf', args: [address] }).catch(() => [0, zeroAddress] as const)
           : [0, zeroAddress] as const;
-        const accountState: AccountState = { ...smart, chainId: chain.chainId, chainName: chain.chainName, deployment: smartDeployment, earningsMode: Number(preference[0]), payoutToken: preference[1] };
-        foundAccounts.push(accountState);
-        if (!smart.deployed) return;
-        const owned = await fetchV3Positions(client, smart.account, chain.v3).catch(() => []);
-        const withPolicies = await Promise.all(owned.map(async (pos): Promise<ManagedItem> => {
-          const policy = await client.readContract({
-            address: smart.account,
-            abi: BTB_LP_ACCOUNT_ABI,
-            functionName: 'policy',
-            args: [chain.v3.positionManager, pos.id],
-          }).catch(() => null);
-          return {
-            pos: { ...pos, chainId: chain.chainId, chainName: chain.chainName },
-            account: accountState,
-            policy: policy as RebalancePolicy | null,
-          };
-        }));
-        foundPositions.push(...withPolicies);
+
+        const loadDeployment = async (deployment: SmartAccountDeployment, primary: boolean) => {
+          const smart = await readSmartAccount(client, address, deployment);
+          const accountState: AccountState = { ...smart, chainId: chain.chainId, chainName: chain.chainName, deployment, earningsMode: Number(preference[0]), payoutToken: preference[1] };
+          if (primary) foundAccounts.push(accountState);
+          if (!smart.deployed) return;
+          const owned = await fetchV3Positions(client, smart.account, chain.v3).catch(() => []);
+          const withPolicies = await Promise.all(owned.map(async (pos): Promise<ManagedItem> => {
+            const policy = await client.readContract({ address: smart.account, abi: BTB_LP_ACCOUNT_ABI, functionName: 'policy', args: [chain.v3.positionManager, pos.id] }).catch(() => null);
+            return { pos: { ...pos, chainId: chain.chainId, chainName: chain.chainName }, account: accountState, policy: policy as RebalancePolicy | null };
+          }));
+          foundPositions.push(...withPolicies);
+        };
+
+        await loadDeployment(smartDeployment, true);
+        const legacy = getLegacySmartAccountDeployment(chain.chainId);
+        if (legacy && legacy.factory.toLowerCase() !== smartDeployment.factory.toLowerCase()) await loadDeployment(legacy, false);
       }));
       setAccounts(foundAccounts.sort((a, b) => a.chainId - b.chainId));
       setPositions(foundPositions.sort((a, b) => a.account.chainId - b.account.chainId));
@@ -166,7 +165,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
   }
 
   async function positionAction(item: ManagedItem, mode: 'revoke' | 'withdraw' | 'claim') {
-    const key = `${item.account.chainId}-${item.pos.id}`;
+    const key = `${item.account.account}-${item.pos.id}`;
     const chain = CHAINS.find((entry) => entry.chainId === item.account.chainId)!;
     setBusy(key); setErr(null);
     try {
@@ -252,7 +251,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
 
       {positions.map((item) => {
         const p = item.pos;
-        const key = `${item.account.chainId}-${p.id}`;
+        const key = `${item.account.account}-${p.id}`;
         const isBusy = busy === key;
         const active = !!item.policy?.enabled && !item.account.paused && Number(item.policy.expiresAt) > Date.now() / 1000;
         return (
