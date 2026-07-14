@@ -62,7 +62,14 @@ export function prefetchDiscoverPools(client?: PublicClient) {
       const row = await convex.query(api.discover.get, {});
       if (row && Date.now() - row.updatedAt < SNAPSHOT_FRESH_MS) {
         const snap = JSON.parse(row.json) as { pools: EarnPool[]; priceChange?: Record<string, number> };
-        if (snap.pools?.length > 0) {
+        // Older snapshots were Ethereum-only. Recompute once rather than
+        // letting that legacy cache hide the newly enabled multichain rows.
+        if (snap.pools?.length > 0 && snap.pools.some(pool =>
+          pool.chain === 'Robinhood Chain' &&
+          pool.feeTier != null &&
+          pool.tokenPricesUsd &&
+          Object.values(pool.tokenPricesUsd).some(price => price > 0)
+        )) {
           ts = Date.now();
           set({ pools: snap.pools, priceChange: snap.priceChange ?? {} });
           return;

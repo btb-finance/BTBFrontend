@@ -1,5 +1,5 @@
 import { encodeAbiParameters, encodePacked, keccak256, toHex, type PublicClient } from 'viem';
-import { UNISWAP_V4, V4_DEPLOY_BLOCK, isNativeCurrency, type PoolKey } from './addresses';
+import { UNISWAP_V4, V4_DEPLOY_BLOCK, isNativeCurrency, type PoolKey, type V4Deployment } from './addresses';
 import { POSITION_MANAGER_ABI, STATE_VIEW_ABI, POOL_KEY_COMPONENTS, ERC721_TRANSFER_EVENT } from './abis';
 import { V4_SUBGRAPH_ID } from './subgraph';
 import { getOwnerPositionIds, hasGraphKey } from '../graph';
@@ -23,10 +23,10 @@ export function poolIdOf(key: PoolKey): `0x${string}` {
 }
 
 /** PoolManager position key for a PositionManager-held tokenId (salt = tokenId). */
-function positionKeyOf(tokenId: bigint, tickLower: number, tickUpper: number): `0x${string}` {
+function positionKeyOf(tokenId: bigint, tickLower: number, tickUpper: number, positionManager = UNISWAP_V4.positionManager): `0x${string}` {
   return keccak256(encodePacked(
     ['address', 'int24', 'int24', 'bytes32'],
-    [UNISWAP_V4.positionManager, tickLower, tickUpper, toHex(tokenId, { size: 32 })],
+    [positionManager, tickLower, tickUpper, toHex(tokenId, { size: 32 })],
   ));
 }
 
@@ -55,8 +55,10 @@ export async function fetchV4Positions(
   /** Pre-enumerated position tokenIds (from the Alchemy NFT index) — skips
    * the subgraph query / Transfer-log scan entirely. */
   knownIds?: bigint[],
+  deployment: V4Deployment = UNISWAP_V4,
+  deployBlock: bigint = V4_DEPLOY_BLOCK,
 ): Promise<LiquidityPosition[]> {
-  const posm = UNISWAP_V4.positionManager;
+  const posm = deployment.positionManager;
 
   // 1) candidate tokenIds. Preferred: pre-enumerated ids from the NFT index,
   //    then the V4 subgraph's Position entity (one query, complete). Fallback:
@@ -70,7 +72,7 @@ export async function fetchV4Positions(
     candidates = knownIds;
     found = true;
   }
-  if (!found && hasGraphKey) {
+  if (!found && deployment === UNISWAP_V4 && hasGraphKey) {
     try {
       const ids = await withTimeout(getOwnerPositionIds(V4_SUBGRAPH_ID, owner), 10_000);
       // An empty result could just be indexing lag — only trust a non-empty
@@ -92,7 +94,7 @@ export async function fetchV4Positions(
     try {
       let logs;
       try {
-        logs = await withTimeout(scan(V4_DEPLOY_BLOCK), 15_000);
+        logs = await withTimeout(scan(deployBlock), 15_000);
       } catch {
         const head = await withTimeout(client.getBlockNumber(), 5_000);
         logs = await withTimeout(scan(head > 1_300_000n ? head - 1_300_000n : 0n), 10_000);
@@ -153,11 +155,11 @@ export async function fetchV4Positions(
   const stateRes = await client.multicall({
     contracts: [
       ...uniquePoolIds.map((pid) => ({
-        address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0' as const, args: [pid] as const,
+        address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0' as const, args: [pid] as const,
       })),
       ...raws.flatMap((r) => [
-        { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getFeeGrowthInside' as const, args: [r.poolId, r.tickLower, r.tickUpper] as const },
-        { address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI, functionName: 'getPositionInfo' as const, args: [r.poolId, positionKeyOf(r.id, r.tickLower, r.tickUpper)] as const },
+        { address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getFeeGrowthInside' as const, args: [r.poolId, r.tickLower, r.tickUpper] as const },
+        { address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getPositionInfo' as const, args: [r.poolId, positionKeyOf(r.id, r.tickLower, r.tickUpper, posm)] as const },
       ]),
     ],
     allowFailure: true,

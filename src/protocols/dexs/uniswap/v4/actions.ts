@@ -1,6 +1,6 @@
 import { encodeAbiParameters, encodeFunctionData, erc20Abi } from 'viem';
 import { POSITION_MANAGER_ABI, PERMIT2_ABI, POOL_KEY_COMPONENTS } from './abis';
-import { UNISWAP_V4, isNativeCurrency, type PoolKey } from './addresses';
+import { UNISWAP_V4, isNativeCurrency, type PoolKey, type V4Deployment } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
 import { deadline, minOut } from '../shared';
@@ -47,11 +47,11 @@ function encodeModify(actions: number[], params: `0x${string}`[], dl: bigint): `
  * Permit2, then Permit2 allows the PositionManager (expiring with the deadline).
  * Native ETH needs none — it travels as msg.value.
  */
-function permit2Approvals(token: `0x${string}`, amount: bigint, dl: bigint): Call[] {
+function permit2Approvals(token: `0x${string}`, amount: bigint, dl: bigint, deployment: V4Deployment = UNISWAP_V4): Call[] {
   if (amount === 0n || isNativeCurrency(token)) return [];
   return [
-    { to: token, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [UNISWAP_V4.permit2, amount] }) },
-    { to: UNISWAP_V4.permit2, data: encodeFunctionData({ abi: PERMIT2_ABI, functionName: 'approve', args: [token, UNISWAP_V4.positionManager, amount, Number(dl)] }) },
+    { to: token, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [deployment.permit2, amount] }) },
+    { to: deployment.permit2, data: encodeFunctionData({ abi: PERMIT2_ABI, functionName: 'approve', args: [token, deployment.positionManager, amount, Number(dl)] }) },
   ];
 }
 
@@ -69,8 +69,9 @@ export function buildV4Mint(args: {
   liquidity: bigint;
   amount0Max: bigint; amount1Max: bigint;
   recipient: `0x${string}`;
+  deployment?: V4Deployment;
 }): Call[] {
-  const { poolKey, tickLower, tickUpper, liquidity, amount0Max, amount1Max, recipient } = args;
+  const { poolKey, tickLower, tickUpper, liquidity, amount0Max, amount1Max, recipient, deployment = UNISWAP_V4 } = args;
   const dl = deadline();
   const native0 = isNativeCurrency(poolKey.currency0);
 
@@ -92,9 +93,9 @@ export function buildV4Mint(args: {
   }
 
   return [
-    ...permit2Approvals(poolKey.currency0, amount0Max, dl),
-    ...permit2Approvals(poolKey.currency1, amount1Max, dl),
-    { to: UNISWAP_V4.positionManager, data: encodeModify(actions, params, dl), value: native0 ? amount0Max : undefined },
+    ...permit2Approvals(poolKey.currency0, amount0Max, dl, deployment),
+    ...permit2Approvals(poolKey.currency1, amount1Max, dl, deployment),
+    { to: deployment.positionManager, data: encodeModify(actions, params, dl), value: native0 ? amount0Max : undefined },
   ];
 }
 
@@ -109,6 +110,7 @@ export function buildV4Increase(
   amount0Max: bigint,
   amount1Max: bigint,
   recipient: `0x${string}`,
+  deployment: V4Deployment = UNISWAP_V4,
 ): Call[] {
   const dl = deadline();
   const native0 = isNativeCurrency(pos.token0);
@@ -127,9 +129,9 @@ export function buildV4Increase(
   }
 
   return [
-    ...permit2Approvals(pos.token0, amount0Max, dl),
-    ...permit2Approvals(pos.token1, amount1Max, dl),
-    { to: UNISWAP_V4.positionManager, data: encodeModify(actions, params, dl), value: native0 ? amount0Max : undefined },
+    ...permit2Approvals(pos.token0, amount0Max, dl, deployment),
+    ...permit2Approvals(pos.token1, amount1Max, dl, deployment),
+    { to: deployment.positionManager, data: encodeModify(actions, params, dl), value: native0 ? amount0Max : undefined },
   ];
 }
 
@@ -144,6 +146,7 @@ export function buildV4Remove(
   pctBps: number,
   slippageBps: number,
   recipient: `0x${string}`,
+  deployment: V4Deployment = UNISWAP_V4,
 ): Call[] {
   const dl = deadline();
   const liquidity = (pos.liquidity * BigInt(pctBps)) / 10_000n;
@@ -160,7 +163,7 @@ export function buildV4Remove(
   );
 
   return [{
-    to: UNISWAP_V4.positionManager,
+    to: deployment.positionManager,
     data: encodeModify([Actions.DECREASE_LIQUIDITY, Actions.TAKE_PAIR], [decParams, takeParams], dl),
   }];
 }
@@ -170,7 +173,7 @@ export function buildV4Remove(
  * liquidity decrease leaves principal untouched and surfaces the accrued fees
  * as the only deltas, which TAKE_PAIR sends out. Safe: can't touch principal.
  */
-export function buildV4Collect(pos: LiquidityPosition, recipient: `0x${string}`): Call[] {
+export function buildV4Collect(pos: LiquidityPosition, recipient: `0x${string}`, deployment: V4Deployment = UNISWAP_V4): Call[] {
   const decParams = encodeAbiParameters(
     [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint128' }, { type: 'uint128' }, { type: 'bytes' }],
     [pos.id, 0n, 0n, 0n, '0x'],
@@ -180,7 +183,7 @@ export function buildV4Collect(pos: LiquidityPosition, recipient: `0x${string}`)
     [pos.token0, pos.token1, recipient],
   );
   return [{
-    to: UNISWAP_V4.positionManager,
+    to: deployment.positionManager,
     data: encodeModify([Actions.DECREASE_LIQUIDITY, Actions.TAKE_PAIR], [decParams, takeParams], deadline()),
   }];
 }

@@ -1,12 +1,25 @@
 import { createConfig } from 'wagmi';
 import { mainnet } from 'wagmi/chains';
+import { defineChain, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask } from '@wagmi/connectors';
 import { MAINNET_TRANSPORT } from './rpc';
 
 // Everything in this app lives on Ethereum mainnet — wagmi is locked to chain 1
 // so reads/writes never need an explicit chainId and the wallet can only
 // connect on mainnet.
-export const SUPPORTED_CHAINS = [mainnet] as const;
+export const robinhoodChain = defineChain({
+  id: 4663, name: 'Robinhood Chain',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com/'] } },
+  blockExplorers: { default: { name: 'Robinhood Explorer', url: 'https://robinhoodchain.blockscout.com' } },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 0,
+    },
+  },
+});
+export const SUPPORTED_CHAINS = [mainnet, robinhoodChain] as const;
 export type SupportedChain = typeof SUPPORTED_CHAINS[number];
 
 const DAPP_METADATA = {
@@ -20,7 +33,7 @@ export function makeConfig() {
   const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? 'b56e18d47c72ab683b10814fe9495694';
   return createConfig({
     chains: SUPPORTED_CHAINS,
-    transports: { [mainnet.id]: MAINNET_TRANSPORT },
+    transports: { [mainnet.id]: MAINNET_TRANSPORT, [robinhoodChain.id]: http('https://rpc.mainnet.chain.robinhood.com/') },
     connectors: [
       // MetaMask — handles mobile deep-linking (no window.ethereum needed).
       // On desktop with the extension, this still uses the injected provider.
@@ -54,6 +67,7 @@ export const CHAIN_META: Record<number, { name: string; symbol: string; color: s
   10:     { name: 'Optimism',  symbol: 'ETH',  color: '#FF0420' },
   8453:   { name: 'Base',      symbol: 'ETH',  color: '#0052FF' },
   43114:  { name: 'Avalanche', symbol: 'AVAX', color: '#E84142' },
+  4663:   { name: 'Robinhood Chain', symbol: 'ETH', color: '#00C805' },
   250:    { name: 'Fantom',    symbol: 'FTM',  color: '#1969FF' },
   59144:  { name: 'Linea',     symbol: 'ETH',  color: '#61DFFF' },
   534352: { name: 'Scroll',    symbol: 'ETH',  color: '#FFEEDA' },

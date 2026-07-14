@@ -18,7 +18,8 @@ import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
 import {
   fetchPoolsForMint, buildMint, rangeTicks, addAmounts, addSide, nearestUsableTick,
   liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
-  MIN_TICK, MAX_TICK, isWeth, WETH, UNISWAP_V3_DEPLOYMENT,
+  MIN_TICK, MAX_TICK, WETH, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, ROBINHOOD_WETH,
+  ROBINHOOD_UNISWAP_V4, UNISWAP_V4,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier, rebalancePlan,
   backtestRange, SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
@@ -85,7 +86,7 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
@@ -96,10 +97,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   initialTicks?: { tickLower: number; tickUpper: number };
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
   fees24hUsd?: number;
+  /** Chain-native address-keyed quotes, used when global price APIs lack the token. */
+  tokenPricesUsd?: Record<string, number>;
   /** V4 mint: the bytes32 pool id from the Earn list. */
   v4PoolId?: `0x${string}`;
   /** Open as the earnings simulator (USD amount, no wallet) instead of a deposit. */
   simulate?: boolean;
+  chainId?: 1 | 4663;
   onClose: () => void; onDone?: () => void;
 }) {
   const { width: sidebarWidth, isMobile } = useSidebar();
@@ -109,7 +113,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
-  const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+  const chainWeth = chainId === 4663 ? ROBINHOOD_WETH : WETH;
+  const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
     initialFee !== undefined && deployment.feeTiers.includes(initialFee) ? initialFee : deployment.feeTiers[2],
   );
@@ -139,7 +146,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [usd, setUsd] = useState<Record<string, number>>({});
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
-  const [slippageBps, setSlippageBps] = useState(SLIPPAGE_BPS);
+  const [slippageBps, setSlippageBps] = useState(chainId === 4663 ? 500 : SLIPPAGE_BPS);
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
   const [tab, setTab] = useState<'range' | 'deposit'>('range');
@@ -192,7 +199,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   // Native-ETH deposit side. V3: the WETH token (toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always paid as ETH, no toggle.
-  const wethSide: 0 | 1 | null = !isV4 && pool ? (isWeth(pool.token0) ? 0 : isWeth(pool.token1) ? 1 : null) : null;
+  const wethSide: 0 | 1 | null = !isV4 && pool ? (isChainWeth(pool.token0) ? 0 : isChainWeth(pool.token1) ? 1 : null) : null;
   const nativeSide: 0 | 1 | null = isV4 ? (pool && isNativeCurrency(pool.token0) ? 0 : null) : wethSide;
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
   const sym0 = pool ? (ethMode && nativeSide === 0 ? 'ETH' : pool.symbol0) : '';
@@ -216,11 +223,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   useEffect(() => {
     let live = true;
     setLoadingPool(true); setPools(null); setPoolErr(null);
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId });
     if (!client) { setLoadingPool(false); setPoolErr('No RPC client'); return; }
     if (v4PoolId) {
       // V4: the pool id pins one pool (fee/tickSpacing/hooks) — no tier choice.
-      fetchV4PoolForMint(client, v4PoolId)
+      fetchV4PoolForMint(client, v4PoolId, v4Deployment)
         .then((p) => { if (live) { setPools({ [p.fee]: p }); setFee(p.fee); } })
         .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
         .finally(() => { if (live) setLoadingPool(false); });
@@ -244,14 +251,16 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     }
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, tokenA, tokenB, v4PoolId, dex, retryNonce]);
+  }, [config, tokenA, tokenB, v4PoolId, dex, chainId, retryNonce]);
 
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
     let live = true;
     setHistory(null);
     if (!pool || !pool.exists) return;
-    if (hasGraphKey && !isV4) { // the V4 subgraph has no poolDayData — sim falls back to fees24hUsd
+    const seededUsd = { ...(tokenPricesUsd ?? {}) };
+    setUsd(seededUsd);
+    if (chainId === 1 && hasGraphKey && !isV4) { // Robinhood has no Uniswap subgraph history yet
       getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live) setHistory(h); })
         .catch(() => {}); // chart/sim are progressive extras — never block minting
@@ -262,12 +271,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       .then((p) => {
         if (!live) return;
         if (priceToken0 !== pool.token0 && p[WETH.toLowerCase()]) p[pool.token0.toLowerCase()] = p[WETH.toLowerCase()];
-        setUsd(p);
+        setUsd({ ...seededUsd, ...p });
       })
       .catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, isV4, dex]);
+  }, [pool, isV4, dex, chainId, tokenPricesUsd]);
 
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[fee];
@@ -445,7 +454,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // wallet balances of both tokens (+ native ETH)
   useEffect(() => {
     let live = true;
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId });
     if (!client || !address || !pool) return;
     (async () => {
       try {
@@ -485,7 +494,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             // V4 mints a liquidity amount; the maxes cap what the pool may pull.
             liquidity: liquidityForAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, add0, add1),
             amount0Max: maxIn(add0, slippageBps), amount1Max: maxIn(add1, slippageBps),
-            recipient: address as `0x${string}`,
+            recipient: address as `0x${string}`, deployment: v4Deployment,
           })
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee,
@@ -495,7 +504,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             nativeEthSide: ethMode ? wethSide : null,
             deployment,
           });
-      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       onDone?.();
       onClose();
     } catch (e) {
@@ -528,7 +537,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment,
         }) : []),
       ];
-      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add split ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      await runCalls(config, { account: address as `0x${string}`, calls, label: `Add split ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       onDone?.();
       onClose();
     } catch (e) {
@@ -548,7 +557,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const acct = address as `0x${string}`;
     const native0 = isV4 && nativeSide === 0; // V4 currency0 == native ETH
     const readBals = async (): Promise<[bigint, bigint]> => {
-      const client = getPublicClient(config);
+      const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
       const erc = native0 ? [pool.token1] : [pool.token0, pool.token1];
       const res = await client.multicall({
@@ -578,7 +587,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         });
         if (swap) {
           setStepMsg('Swapping only what the range needs…');
-          await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track });
+          await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
           budget0 = swap.budget0;
           budget1 = swap.budget1;
         }
@@ -597,14 +606,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const calls = v4Pool
         ? buildV4Mint({
             poolKey: v4Pool.poolKey, tickLower: tl, tickUpper: tu, liquidity: L,
-            amount0Max: maxIn(a0, slippageBps), amount1Max: maxIn(a1, slippageBps), recipient: acct,
+            amount0Max: maxIn(a0, slippageBps), amount1Max: maxIn(a1, slippageBps), recipient: acct, deployment: v4Deployment,
           })
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee, tickLower: tl, tickUpper: tu,
             amount0Desired: a0, amount1Desired: a1, slippageBps: slippageBps, recipient: acct,
             nativeEthSide: null, deployment,
           });
-      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track });
+      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       onDone?.();
       onClose();
     } catch (e) {
@@ -841,7 +850,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <TokenIcon symbol={sym} size={20} />
-            <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{sym}</span>
+            {wethSide === side && !isV4 ? (
+              <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(255,255,255,0.08)' }}>
+                {([['ETH', true], ['WETH', false]] as const).map(([label, active]) => (
+                  <button key={label} type="button" onClick={() => setUseEth(active)} style={{
+                    height: 24, padding: '0 7px', border: 0, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
+                    color: useEth === active ? '#07110D' : btb.textMuted,
+                    background: useEth === active ? btb.green : 'transparent', fontSize: 10.5, fontWeight: 800,
+                  }}>{label}</button>
+                ))}
+              </div>
+            ) : (
+              <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{sym}</span>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
@@ -860,6 +881,29 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         </div>
       </div>
     );
+  }
+
+  function toggleUnevenAmounts() {
+    if (!pool) return;
+    if (!splitRange) {
+      // Seed the independent fields from exactly what the regular deposit cards
+      // currently show, including the automatically paired side.
+      setSplitAmt({
+        str0: add0 > 0n ? formatUnits(add0, pool.decimals0) : '',
+        str1: add1 > 0n ? formatUnits(add1, pool.decimals1) : '',
+      });
+      setSplitRange(true);
+    } else {
+      // Returning to ratio-matched mode can only have one driving input. Keep
+      // the side the user was editing when possible, otherwise the non-empty one.
+      const preferred = amt.side === 0 ? splitAmt.str0 : splitAmt.str1;
+      const fallbackSide: 0 | 1 = splitAmt.str0 ? 0 : 1;
+      setAmt(preferred
+        ? { side: amt.side, str: preferred }
+        : { side: fallbackSide, str: fallbackSide === 0 ? splitAmt.str0 : splitAmt.str1 });
+      setSplitRange(false);
+    }
+    setSwapPreview(null);
   }
 
   // Shared result blocks — rendered on the simulator's single page AND on the
@@ -1168,18 +1212,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Everything on one page, Orca-style — no separate "enter amounts" step */}
             {!simOnly && (
               <>
-                {wethSide !== null && (
-                  <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 16, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                    <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                    <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                      <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
-                    </div>
-                  </div>
-                )}
-
                 {!isV4 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '0 2px 8px' }}>
-                    <button onClick={() => { setSplitRange((v) => !v); setSwapPreview(null); }} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
+                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
                       <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(255,255,255,0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
                       Use uneven amounts
                     </button>

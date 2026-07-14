@@ -182,12 +182,10 @@ export function MiniApp() {
   const [readOnlyAddress, setReadOnlyAddress] = useState<string | undefined>();
   useEffect(() => { setMounted(true); }, []);
 
-  // The app lives entirely on Ethereum mainnet. Locking the wagmi config to
-  // chain 1 only changes how the app reads/writes — it does NOT move the
-  // wallet. If the wallet connects on another network (Polygon, BSC, Base…),
-  // nudge it back to mainnet so transactions prompt on the right chain.
+  // Keep supported LP networks as selected. Unsupported networks fall back to
+  // Ethereum; each transaction flow explicitly selects its target chain.
   useEffect(() => {
-    if (status === 'connected' && chainId !== 1) switchChain({ chainId: 1 });
+    if (status === 'connected' && chainId !== 1 && chainId !== 4663) switchChain({ chainId: 1 });
   }, [status, chainId, switchChain]);
 
   const effectiveAddress = address ?? readOnlyAddress;

@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useSendTransaction, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useSendTransaction, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from 'wagmi';
 import { parseUnits, erc20Abi } from 'viem';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
@@ -17,6 +17,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
   const { positions } = useTokenStore();
   const { sendTransactionAsync } = useSendTransaction();
   const { writeContractAsync } = useWriteContract();
+  const { switchChainAsync } = useSwitchChain();
 
   // Same source as PortfolioScreen — only tokens the wallet actually holds.
   const displayTokens = positions
@@ -26,15 +27,15 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
 
   const [to, setTo]         = useState('');
   const [amount, setAmount] = useState('');
-  const [token, setToken]   = useState(initialToken?.symbol ?? displayTokens[0]?.symbol ?? 'ETH');
+  const keyOf = (t: Token) => `${t.chainId ?? 1}:${t.address.toLowerCase()}`;
+  const [selectedKey, setSelectedKey] = useState(initialToken ? keyOf(initialToken) : displayTokens[0] ? keyOf(displayTokens[0]) : '1:eth');
   const [step, setStep]     = useState<'form' | 'confirm' | 'sending' | 'sent' | 'error'>('form');
   const [toError, setToError] = useState('');
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [errMsg, setErrMsg] = useState('');
 
-  const selectedToken = displayTokens.find(t => t.symbol === token && (!initialToken || t.chainId === initialToken.chainId))
-    ?? displayTokens.find(t => t.symbol === token)
-    ?? displayTokens[0];
+  const selectedToken = displayTokens.find(t => keyOf(t) === selectedKey) ?? displayTokens[0];
+  const token = selectedToken?.symbol ?? 'ETH';
 
   const { isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
 
@@ -54,12 +55,15 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
       const isNative = selectedToken.address === 'ETH' || selectedToken.address === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
       const decimals = selectedToken.decimals ?? 18;
       const amountBig = parseUnits(amount, decimals);
+      const chainId = (selectedToken.chainId ?? 1) as 1 | 4663;
+      await switchChainAsync({ chainId });
 
       let hash: `0x${string}`;
       if (isNative) {
         hash = await sendTransactionAsync({
           to: to as `0x${string}`,
           value: amountBig,
+          chainId,
         });
       } else {
         hash = await writeContractAsync({
@@ -67,6 +71,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
           abi: erc20Abi,
           functionName: 'transfer',
           args: [to as `0x${string}`, amountBig],
+          chainId,
         });
       }
 
@@ -116,11 +121,11 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
         {step === 'form' && <>
           <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch', minWidth: 0, maxWidth: '100%' }}>
             {displayTokens.map(t => (
-              <div key={t.address + t.chainId} onClick={() => { setToken(t.symbol); setAmount(''); }} style={{
+              <div key={t.address + t.chainId} onClick={() => { setSelectedKey(keyOf(t)); setAmount(''); }} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '8px 14px 8px 8px', borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-                background: token === t.symbol ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
-                border: token === t.symbol ? '1px solid rgba(255,255,255,0.2)' : btb.borderSoft,
+                background: selectedKey === keyOf(t) ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
+                border: selectedKey === keyOf(t) ? '1px solid rgba(255,255,255,0.2)' : btb.borderSoft,
                 transition: 'all 0.15s', whiteSpace: 'nowrap',
               }}>
                 <TokenIcon symbol={t.symbol} size={24} logoUrl={t.logoURI}/>

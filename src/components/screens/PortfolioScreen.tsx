@@ -21,25 +21,85 @@ function fmtBal(n: number) {
   return n >= 1000 ? fmt(n, 2) : n >= 0.01 ? fmt(n, 4) : n > 0 ? n.toExponential(2) : '0';
 }
 
+function shortAddress(address: string) {
+  return address.startsWith('0x') && address.length > 12
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : address;
+}
+
+function fmtCompactUsd(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 2,
+  }).format(value);
+}
+
+const TOKEN_EXPLORER: Record<number, string> = {
+  1: 'https://etherscan.io/token/',
+  10: 'https://optimistic.etherscan.io/token/',
+  56: 'https://bscscan.com/token/',
+  130: 'https://uniscan.xyz/token/',
+  137: 'https://polygonscan.com/token/',
+  146: 'https://sonicscan.org/token/',
+  2020: 'https://app.roninchain.com/token/',
+  4663: 'https://robinhoodchain.blockscout.com/token/',
+  324: 'https://era.zksync.network/address/',
+  42161: 'https://arbiscan.io/token/',
+  43114: 'https://snowtrace.io/token/',
+  534352: 'https://scrollscan.com/token/',
+  59144: 'https://lineascan.build/token/',
+  80094: 'https://berascan.com/token/',
+  81457: 'https://blastscan.io/token/',
+  8453: 'https://basescan.org/token/',
+  999: 'https://hyperevmscan.io/token/',
+};
+
+function isNativeAddress(address: string) {
+  const normalized = address.toLowerCase();
+  return normalized === 'eth'
+    || normalized === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+    || normalized === '0x0000000000000000000000000000000000000000';
+}
+
 export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (token: Token) => void; onSwap?: (token: Token) => void; onOpenEarn?: () => void } = {}) {
-  const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, showAllChains, setShowAllChains, loadingOtherChains } = useTokenStore();
-  const tokensWithBalance = [...positions]
-    .filter(t => parseFloat(t.balance ?? '0') > 0)
-    .sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0));
-  const loading = (loadingBalances || loadingList) && tokensWithBalance.length === 0;
-  const refreshing = loadingBalances && tokensWithBalance.length > 0;
+  const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
   const [tab, setTab] = useState<'tokens' | 'lps' | 'earn'>('tokens');
   const [lpToken, setLpToken] = useState<Token | null>(null);
+  const [showHiddenAssets, setShowHiddenAssets] = useState(false);
+  const [tokenSearch, setTokenSearch] = useState('');
+  const allTokensWithBalance = [...positions]
+    .filter(t => parseFloat(t.balance ?? '0') > 0)
+    .sort((a, b) => {
+      const trustedA = a.suspiciousQuote ? 0 : 1;
+      const trustedB = b.suspiciousQuote ? 0 : 1;
+      return trustedB - trustedA || (b.usdValue ?? 0) - (a.usdValue ?? 0);
+    });
+  const hiddenAssetCount = allTokensWithBalance.filter(t => (t.usdValue ?? 0) < 1 || t.suspiciousQuote).length;
+  const visibleByValue = showHiddenAssets
+    ? allTokensWithBalance
+    : allTokensWithBalance.filter(t => (t.usdValue ?? 0) >= 1 && !t.suspiciousQuote);
+  const search = tokenSearch.trim().toLowerCase();
+  const tokensWithBalance = search
+    ? allTokensWithBalance.filter(t => {
+        const chainName = CHAIN_META[t.chainId ?? 1]?.name ?? t.chainSlug ?? '';
+        return t.symbol.toLowerCase().includes(search)
+          || t.name.toLowerCase().includes(search)
+          || t.address.toLowerCase().includes(search)
+          || chainName.toLowerCase().includes(search);
+      })
+    : visibleByValue;
+  const loading = (loadingBalances || loadingList || loadingOtherChains) && tokensWithBalance.length === 0;
+  const refreshing = loadingBalances && tokensWithBalance.length > 0;
   const { isMobile } = useSidebar();
 
   // Yearn vault/staking positions from the Earn tab count toward net worth too
   const { vaults } = useYearnVaults();
   const { positions: earnPositions, loading: loadingEarn } = useYearnPositions(walletAddress, vaults);
   const earnUsd = earnPositions.reduce((s, p) => s + p.usd, 0);
-  const totalUsd = tokensWithBalance.reduce((s, t) => s + (t.usdValue ?? 0), 0) + earnUsd;
+  const trustedTokens = allTokensWithBalance.filter(t => !t.suspiciousQuote);
+  const totalUsd = trustedTokens.reduce((s, t) => s + (t.usdValue ?? 0), 0) + earnUsd;
 
   const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8'];
-  const top4 = tokensWithBalance.slice(0, 4);
+  const top4 = trustedTokens.slice(0, 4);
 
   const allTokenColumns: Column<Token>[] = [
     {
@@ -54,7 +114,23 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
           </div>
           <div>
             <div style={{ fontWeight: 700 }}>{t.symbol}</div>
-            <div style={{ color: btb.textMuted, fontSize: 11.5 }}>{t.chainId && CHAIN_META[t.chainId] ? CHAIN_META[t.chainId].name : 'Ethereum'}</div>
+            <div style={{ color: btb.textMuted, fontSize: 11.5 }}>
+              {t.chainId && CHAIN_META[t.chainId] ? CHAIN_META[t.chainId].name : t.chainSlug || 'Ethereum'}
+              {' · '}
+              {isNativeAddress(t.address) ? (
+                <span style={{ color: btb.textDim }}>Native token</span>
+              ) : TOKEN_EXPLORER[t.chainId ?? 1] ? (
+                <a
+                  href={`${TOKEN_EXPLORER[t.chainId ?? 1]}${t.address}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`Open contract ${t.address}`}
+                  onClick={(event) => event.stopPropagation()}
+                  style={{ color: btb.textDim, textDecoration: 'none' }}
+                >{shortAddress(t.address)} ↗</a>
+              ) : <span title={t.address} style={{ color: btb.textDim }}>{shortAddress(t.address)}</span>}
+            </div>
+            {t.suspiciousQuote && <div style={{ color: btb.amber, fontSize: 9.5, fontWeight: 700, marginTop: 1 }}>UNVERIFIED QUOTE · CHECK CONTRACT</div>}
           </div>
         </div>
       ),
@@ -67,8 +143,13 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
       },
     },
     {
-      key: 'value', label: 'Value', align: 'right', sortable: true, sortValue: t => t.usdValue ?? 0,
-      render: t => <span style={{ fontWeight: 700 }}>${fmt(t.usdValue ?? 0)}</span>,
+      key: 'value', label: 'Value', align: 'right', sortable: true, sortValue: t => t.suspiciousQuote ? 0 : t.usdValue ?? 0,
+      render: t => t.suspiciousQuote
+        ? <div title="Shown for reference, but excluded from net worth because the quote has no confirmed market price or timestamp." style={{ textAlign: 'right' }}>
+            <div style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>~{fmtCompactUsd(t.usdValue ?? 0)}</div>
+            <div style={{ color: btb.textDim, fontSize: 9.5, marginTop: 1 }}>Estimate</div>
+          </div>
+        : <span style={{ fontWeight: 700 }}>${fmt(t.usdValue ?? 0)}</span>,
     },
     {
       key: 'actions', label: '', align: 'right', width: isMobile ? '124px' : '220px',
@@ -77,8 +158,12 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
         // chain 1) — showing live Send/Swap/LP buttons for another chain's
         // token would submit a broken/misdirected transaction.
         const isMainnet = (t.chainId ?? 1) === 1;
-        if (!isMainnet) {
+        const isRobinhood = t.chainId === 4663;
+        if (!isMainnet && !isRobinhood) {
           return <span style={{ color: btb.textDim, fontSize: 11.5 }}>View only</span>;
+        }
+        if (isRobinhood) {
+          return <Button variant="ghost" size="sm" onClick={() => onSend?.(t)} style={{ height: 32, border: btb.borderSoft }}>Send</Button>;
         }
         if (isMobile) {
           // icon-only so the table fits a phone without sideways scrolling
@@ -159,7 +244,7 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
             <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>Net worth</div>
             <div style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.6, marginTop: 4 }}>${fmt(totalUsd)}</div>
             <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>
-              {tokensWithBalance.length} tokens{earnUsd > 0 && ` · $${fmt(earnUsd)} earning in Yearn`}
+              {allTokensWithBalance.length} tokens{allTokensWithBalance.length > trustedTokens.length && ` · ${allTokensWithBalance.length - trustedTokens.length} quotes excluded from net worth`}{earnUsd > 0 && ` · $${fmt(earnUsd)} earning in Yearn`}
             </div>
           </div>
           <Glass padding={0} radius={999} style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
@@ -203,22 +288,20 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
         </div>
 
         {tab === 'tokens' && (
-          <div onClick={() => setShowAllChains(!showAllChains)} style={{
-            display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0 4px', height: isMobile ? 32 : 36, flexShrink: 0,
-          }}>
-            <span style={{ color: btb.textMuted, fontSize: isMobile ? 12 : 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
-              {loadingOtherChains ? (isMobile ? 'Loading…' : 'Loading other chains…') : 'All chains'}
-            </span>
-            <div style={{
-              width: 34, height: 20, borderRadius: 999, position: 'relative', flexShrink: 0,
-              background: showAllChains ? btb.gradGreen : 'rgba(255,255,255,0.12)',
-              transition: 'background 0.15s',
-            }}>
-              <div style={{
-                position: 'absolute', top: 2, left: showAllChains ? 16 : 2, width: 16, height: 16, borderRadius: 999,
-                background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-              }} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {loadingOtherChains && <span style={{ color: btb.textDim, fontSize: 11.5 }}>Loading chains…</span>}
+            <input
+              value={tokenSearch}
+              onChange={event => setTokenSearch(event.target.value)}
+              placeholder="Search token or contract"
+              aria-label="Search token or contract"
+              style={{ width: isMobile ? 154 : 210, height: isMobile ? 30 : 32, boxSizing: 'border-box', borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,0.055)', color: btb.text, padding: '0 10px', outline: 'none', fontFamily: 'inherit', fontSize: 11.5 }}
+            />
+            {hiddenAssetCount > 0 && (
+              <button onClick={() => setShowHiddenAssets(value => !value)} style={{ height: isMobile ? 30 : 32, padding: '0 11px', borderRadius: 9, border: btb.borderSoft, background: showHiddenAssets ? 'rgba(255,255,255,0.1)' : 'transparent', color: showHiddenAssets ? btb.text : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                {showHiddenAssets ? 'Hide risky & low value' : `Show hidden (${hiddenAssetCount})`}
+              </button>
+            )}
           </div>
         )}
       </div>

@@ -173,3 +173,23 @@ export async function fetchOwnedNftTokenIds(
   } while (pageKey);
   return out;
 }
+
+/** Enumerate Robinhood Chain ERC-721 holdings through Blockscout. The app
+ * subsequently verifies ownership and reads every position from chain RPC. */
+export async function fetchRobinhoodOwnedNftTokenIds(owner: string, contracts: string[]): Promise<Map<string, bigint[]>> {
+  const out = new Map<string, bigint[]>(contracts.map((c) => [c.toLowerCase(), []]));
+  let params: Record<string, string> | null = null;
+  do {
+    const qs = new URLSearchParams({ type: 'ERC-721', ...(params ?? {}) });
+    const res = await fetch(`https://robinhoodchain.blockscout.com/api/v2/addresses/${owner}/nft?${qs}`, { signal: AbortSignal.timeout(12_000) });
+    if (!res.ok) throw new Error(`Robinhood NFT index ${res.status}`);
+    const json = await res.json() as { items?: { id?: string; token?: { address_hash?: string } }[]; next_page_params?: Record<string, string | number> | null };
+    for (const item of json.items ?? []) {
+      const key = item.token?.address_hash?.toLowerCase();
+      if (!key || item.id == null || !out.has(key)) continue;
+      try { out.get(key)?.push(BigInt(item.id)); } catch { /* malformed id */ }
+    }
+    params = json.next_page_params ? Object.fromEntries(Object.entries(json.next_page_params).map(([k, v]) => [k, String(v)])) : null;
+  } while (params);
+  return out;
+}

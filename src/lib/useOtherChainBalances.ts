@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { formatUnits } from 'viem';
 import {
   ALCHEMY_NETWORKS, ALCHEMY_CHAIN_ID, NATIVE_TOKEN,
   fetchAlchemyTokenBalances, fetchAlchemyTokenMetadata, fetchAlchemyTokenPrices, fetchAlchemyNativePrices,
 } from './alchemy';
 import type { Token } from './TokenStore';
+import { fetchRobinhoodBalances } from './robinhoodBalances';
 
 // Ethereum mainnet already has its own dedicated (free, RPC-multicall-based)
 // balance pipeline in TokenStore — this hook only covers the other chains
@@ -27,6 +29,63 @@ export function useOtherChainBalances(walletAddress?: string) {
     setError(null);
 
     (async () => {
+      const robinhood = await fetchRobinhoodBalances(walletAddress).catch(() => [] as Token[]);
+      try {
+        const res = await fetch(`/api/krystal/tokens?address=${walletAddress}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Krystal tokens ${res.status}`);
+        const json = await res.json() as KrystalTokenBalanceOutput;
+        const result: Token[] = [...robinhood];
+        const seen = new Set<string>();
+
+        for (const chain of json.data ?? []) {
+          if (chain.chainId === 4663) continue; // chain-native verified balances win
+          for (const item of chain.balances ?? []) {
+            const token = item.token;
+            if (!token?.address || !token.symbol || token.tag?.toUpperCase().includes('SPAM')) continue;
+            const tag = token.tag?.toUpperCase() ?? '';
+            const quote = item.quotes?.usd;
+            const hasMarketData = (quote?.value ?? 0) > 0 || (quote?.price ?? quote?.marketPrice ?? 0) > 0;
+            // Krystal returns thousands of unsolicited, unclassified airdrops
+            // on some chains. Keep market-backed and explicitly classified
+            // assets, while excluding unknown zero-value entries from the UI.
+            if (!hasMarketData && tag !== 'VERIFIED' && tag !== 'UNVERIFIED') continue;
+            let raw: bigint;
+            try { raw = BigInt(item.balance ?? '0'); } catch { continue; }
+            if (raw <= 0n) continue;
+            const key = `${chain.chainId}:${token.address.toLowerCase()}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const decimals = typeof token.decimals === 'number' && Number.isFinite(token.decimals) ? token.decimals : 18;
+            const isNative = token.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+              || token.address.toLowerCase() === '0x0000000000000000000000000000000000000000';
+            const suspiciousQuote = !isNative && tag !== 'VERIFIED'
+              && (quote?.value ?? 0) >= 100
+              && (quote?.timestamp ?? 0) <= 0
+              && (quote?.marketPrice ?? 0) <= 0;
+            result.push({
+              address: token.address.toLowerCase(),
+              symbol: token.symbol,
+              name: token.name || token.symbol,
+              decimals,
+              logoURI: token.logo || undefined,
+              balance: formatUnits(raw, decimals),
+              balanceRaw: raw.toString(),
+              usdPrice: quote?.price ?? quote?.marketPrice ?? 0,
+              usdValue: quote?.value ?? 0,
+              verified: tag === 'VERIFIED' ? true : tag === 'UNVERIFIED' ? false : undefined,
+              suspiciousQuote,
+              chainId: chain.chainId,
+              chainSlug: chain.chainName,
+            });
+          }
+        }
+        if (cancelled) return;
+        setTokens(result);
+        return;
+      } catch {
+        // Alchemy remains a fallback only when Krystal is unavailable.
+      }
+
       const balances = await fetchAlchemyTokenBalances(walletAddress, OTHER_NETWORKS);
       const held = balances.filter(b => {
         try { return BigInt(b.tokenBalance) >= MIN_RAW_BALANCE; } catch { return false; }
@@ -52,7 +111,7 @@ export function useOtherChainBalances(walletAddress?: string) {
       ]);
       if (cancelled) return;
 
-      const result: Token[] = [];
+      const result: Token[] = [...robinhood];
 
       for (const b of natives) {
         const native = NATIVE_TOKEN[b.network] ?? { symbol: 'ETH', name: 'Ethereum' };
@@ -97,4 +156,16 @@ export function useOtherChainBalances(walletAddress?: string) {
   }, [walletAddress]);
 
   return { tokens, loading, error };
+}
+
+interface KrystalTokenBalanceOutput {
+  data?: Array<{
+    chainId: number;
+    chainName: string;
+    balances?: Array<{
+      balance?: string;
+      token?: { address?: string; symbol?: string; name?: string; decimals?: number; logo?: string; tag?: string };
+      quotes?: { usd?: { value?: number; price?: number; marketPrice?: number; timestamp?: number } };
+    }>;
+  }>;
 }

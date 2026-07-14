@@ -28,12 +28,12 @@ export { impermanentLossFraction, backtestRange, unitAmounts } from './v3/simula
 export type { BacktestResult, BacktestInput } from './v3/simulate';
 export { fetchPoolForMint, fetchPoolsForMint } from './v3/pool';
 export type { MintPool } from './v3/pool';
-export { UNISWAP_V3, UNISWAP_V3_DEPLOYMENT, FEE_TIERS, WETH, isWeth } from './v3/addresses';
+export { UNISWAP_V3, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, ROBINHOOD_SWAP_ROUTER_02, ROBINHOOD_UNIVERSAL_ROUTER, ROBINHOOD_QUOTER_V2, FEE_TIERS, WETH, ROBINHOOD_WETH, isWeth } from './v3/addresses';
 export type { V3Deployment } from './v3/addresses';
 
 // v4
-export { UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency } from './v4/addresses';
-export type { PoolKey } from './v4/addresses';
+export { UNISWAP_V4, ROBINHOOD_UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency } from './v4/addresses';
+export type { PoolKey, V4Deployment } from './v4/addresses';
 export { fetchV4Positions } from './v4/positions';
 export { buildV4Mint, buildV4Increase, buildV4Remove, buildV4Collect } from './v4/actions';
 export { fetchV4PoolForMint } from './v4/pool';
