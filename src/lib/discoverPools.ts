@@ -64,7 +64,12 @@ export function prefetchDiscoverPools(client?: PublicClient) {
         const snap = JSON.parse(row.json) as { pools: EarnPool[]; priceChange?: Record<string, number> };
         // Older snapshots were Ethereum-only. Recompute once rather than
         // letting that legacy cache hide the newly enabled multichain rows.
-        if (snap.pools?.length > 0 && snap.pools.some(pool => pool.chain === 'Robinhood Chain' && pool.feeTier != null)) {
+        if (snap.pools?.length > 0 && snap.pools.some(pool =>
+          pool.chain === 'Robinhood Chain' &&
+          pool.feeTier != null &&
+          pool.tokenPricesUsd &&
+          Object.values(pool.tokenPricesUsd).some(price => price > 0)
+        )) {
           ts = Date.now();
           set({ pools: snap.pools, priceChange: snap.priceChange ?? {} });
           return;

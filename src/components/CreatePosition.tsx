@@ -86,7 +86,7 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
@@ -97,6 +97,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   initialTicks?: { tickLower: number; tickUpper: number };
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
   fees24hUsd?: number;
+  /** Chain-native address-keyed quotes, used when global price APIs lack the token. */
+  tokenPricesUsd?: Record<string, number>;
   /** V4 mint: the bytes32 pool id from the Earn list. */
   v4PoolId?: `0x${string}`;
   /** Open as the earnings simulator (USD amount, no wallet) instead of a deposit. */
@@ -256,7 +258,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     let live = true;
     setHistory(null);
     if (!pool || !pool.exists) return;
-    if (hasGraphKey && !isV4) { // the V4 subgraph has no poolDayData — sim falls back to fees24hUsd
+    const seededUsd = { ...(tokenPricesUsd ?? {}) };
+    setUsd(seededUsd);
+    if (chainId === 1 && hasGraphKey && !isV4) { // Robinhood has no Uniswap subgraph history yet
       getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live) setHistory(h); })
         .catch(() => {}); // chart/sim are progressive extras — never block minting
@@ -267,12 +271,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       .then((p) => {
         if (!live) return;
         if (priceToken0 !== pool.token0 && p[WETH.toLowerCase()]) p[pool.token0.toLowerCase()] = p[WETH.toLowerCase()];
-        setUsd(p);
+        setUsd({ ...seededUsd, ...p });
       })
       .catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, isV4, dex]);
+  }, [pool, isV4, dex, chainId, tokenPricesUsd]);
 
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[fee];

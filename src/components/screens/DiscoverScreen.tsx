@@ -430,6 +430,7 @@ export function DiscoverScreen() {
           chainId={sheetProps.chainId}
           initialFee={sheet.pool.feeTier}
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
+          tokenPricesUsd={sheet.pool.tokenPricesUsd}
           simulate={sheet.simulate}
           onClose={() => setSheet(null)}
           onDone={() => setSheet(null)}

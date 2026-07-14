@@ -48,6 +48,8 @@ export interface EarnPool {
   stablecoin: boolean;
   ilRisk: string;         // "yes" | "no"
   underlyingTokens?: string[];
+  /** Address-keyed USD quotes from the pool's native chain data source. */
+  tokenPricesUsd?: Record<string, number>;
   token1Decimals?: number; // indexer pools only — needed for the range APR
   externalUrl?: string;
   /** Estimated fee APR % for a ±RANGE_APR_PCT% concentrated position (see addRangeAprs). */
@@ -145,6 +147,8 @@ interface DexScreenerPairRow {
   liquidity?: { usd?: number };
   volume?: { h24?: number };
   priceChange?: { h24?: number };
+  priceUsd?: string;
+  priceNative?: string;
 }
 
 async function getRobinhoodPools(minTvlUsd: number): Promise<EarnPool[]> {
@@ -179,6 +183,13 @@ async function getRobinhoodPools(minTvlUsd: number): Promise<EarnPool[]> {
     const fees24hUsd = feeTier != null && volume24hUsd != null ? volume24hUsd * feeTier / 1_000_000 : undefined;
     const feeApr = fees24hUsd != null && tvlUsd > 0 ? fees24hUsd * 365 / tvlUsd * 100 : 0;
     const stable = STABLES.has(token0.symbol.toUpperCase()) && STABLES.has(token1.symbol.toUpperCase());
+    const baseUsd = Number(row.priceUsd);
+    const baseInQuote = Number(row.priceNative);
+    const quoteUsd = baseUsd > 0 && baseInQuote > 0 ? baseUsd / baseInQuote : 0;
+    const tokenPricesUsd = {
+      ...(baseUsd > 0 ? { [token0.address.toLowerCase()]: baseUsd } : {}),
+      ...(quoteUsd > 0 ? { [token1.address.toLowerCase()]: quoteUsd } : {}),
+    };
     return [{
       id, project: `uniswap-${version.toLowerCase()}`, dex: row.dexId === 'uniswap' ? 'Uniswap' : row.dexId || 'DEX', version,
       chain: 'Robinhood Chain', chainId: 4663, pair: `${token0.symbol}-${token1.symbol}`,
@@ -186,6 +197,7 @@ async function getRobinhoodPools(minTvlUsd: number): Promise<EarnPool[]> {
       volume24hUsd, fees24hUsd, apyChange1d: row.priceChange?.h24,
       stablecoin: stable, ilRisk: stable ? 'no' : 'yes',
       underlyingTokens: [token0.address, token1.address], externalUrl: row.url,
+      tokenPricesUsd,
       source: 'dexscreener',
     }];
   });
