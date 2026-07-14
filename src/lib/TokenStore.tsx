@@ -23,6 +23,7 @@ export interface Token {
   change1d?: number;
   changePct1d?: number;
   verified?: boolean;
+  suspiciousQuote?: boolean;
   positionType?: string;
 }
 
@@ -30,15 +31,12 @@ interface TokenStoreState {
   /** The connected or imported (read-only) wallet address the store is tracking. */
   walletAddress?: string;
   tokens: Token[];               // Convex mainnet token list enriched with wallet balances (swap picker)
-  positions: Token[];            // Wallet token holdings — Ethereum mainnet, plus other chains when showAllChains is on
+  positions: Token[];            // Wallet token holdings across every supported chain
   balanceMap: Map<string, Token>;
   loadingList: boolean;
   loadingBalances: boolean;
   error: string | null;
   refetchBalances: () => void;
-  /** Off by default — mainnet-only. Toggle on to also pull in Polygon/Arbitrum/Base/etc via Alchemy. */
-  showAllChains: boolean;
-  setShowAllChains: (v: boolean) => void;
   loadingOtherChains: boolean;
 }
 
@@ -48,7 +46,7 @@ const Ctx = createContext<TokenStoreState>({
   tokens: [], positions: [], balanceMap: new Map(),
   loadingList: false, loadingBalances: false, error: null,
   refetchBalances: () => {},
-  showAllChains: false, setShowAllChains: () => {}, loadingOtherChains: false,
+  loadingOtherChains: false,
 });
 
 export function useTokenStore() { return useContext(Ctx); }
@@ -149,15 +147,17 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     });
   }, [snapshot, priceMap]);
 
-  // Other chains (Polygon, Arbitrum, Base, …) via Alchemy's free-tier Portfolio
-  // API — off by default so "my balance" means Ethereum mainnet unless the
-  // user explicitly asks to see everything (see `showAllChains`/`setShowAllChains`).
-  const [showAllChains, setShowAllChains] = useState(false);
-  const { tokens: otherChainTokens, loading: loadingOtherChains } = useOtherChainBalances(showAllChains ? walletAddress : undefined);
+  // Krystal is the multichain source; the hook falls back to Alchemy only when
+  // Krystal is unavailable. Load it automatically for every viewed wallet.
+  const { tokens: otherChainTokens, loading: loadingOtherChains } = useOtherChainBalances(walletAddress);
 
   const positions = useMemo<Token[]>(() => {
-    return showAllChains ? [...mainnetPositions, ...otherChainTokens] : mainnetPositions;
-  }, [mainnetPositions, otherChainTokens, showAllChains]);
+    const merged = new Map<string, Token>();
+    for (const token of [...mainnetPositions, ...otherChainTokens]) {
+      merged.set(`${token.chainId ?? 1}:${token.address.toLowerCase()}`, token);
+    }
+    return [...merged.values()];
+  }, [mainnetPositions, otherChainTokens]);
 
   // Balance map for the swap picker — token list merged with live balances/prices.
   const balanceMap = useMemo(() => {
@@ -253,7 +253,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     <Ctx.Provider value={{
       walletAddress, tokens, positions, balanceMap,
       loadingList, loadingBalances, error, refetchBalances,
-      showAllChains, setShowAllChains, loadingOtherChains,
+      loadingOtherChains,
     }}>
       {children}
     </Ctx.Provider>
