@@ -16,6 +16,13 @@ if (process.env.DISABLE_CRONS !== "1") {
   // Precompute the Discover pool list hourly — the frontend reads the snapshot
   // instead of running the slow multi-API pipeline per visitor
   crons.interval("refresh discover pools", { hours: 1 }, internal.discoverRefresh.refresh);
+
+  // Verify managed LP custody, policy and live range on-chain. This queues
+  // work only; the restricted smart account remains the security boundary.
+  crons.interval("monitor managed LP ranges", { minutes: 1 }, internal.managedPositionMonitor.check);
+  // Process at most one durable job per minute. A broadcast job is always
+  // reconciled before another EOA nonce is used.
+  crons.interval("execute managed LP rebalances", { minutes: 1 }, internal.rebalanceWorker.run);
 }
 
 export default crons;

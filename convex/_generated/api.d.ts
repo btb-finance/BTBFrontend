@@ -14,8 +14,12 @@ import type * as balances from "../balances.js";
 import type * as crons from "../crons.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
+import type * as managedPositionMonitor from "../managedPositionMonitor.js";
+import type * as managedPositions from "../managedPositions.js";
 import type * as prices from "../prices.js";
 import type * as queries from "../queries.js";
+import type * as rebalanceMath from "../rebalanceMath.js";
+import type * as rebalanceWorker from "../rebalanceWorker.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
 
@@ -32,8 +36,12 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
+  managedPositionMonitor: typeof managedPositionMonitor;
+  managedPositions: typeof managedPositions;
   prices: typeof prices;
   queries: typeof queries;
+  rebalanceMath: typeof rebalanceMath;
+  rebalanceWorker: typeof rebalanceWorker;
   tokens: typeof tokens;
   users: typeof users;
 }>;

@@ -139,7 +139,7 @@ export const chat = action({
 
     // Tiering is decided server-side from the balance snapshot — the client
     // is never trusted. Free users get 5 messages a day, holders get 50.
-    const btbRow = data.balances.find((b) => b.tokenAddress?.toLowerCase() === BTB_ADDRESS);
+    const btbRow = data.balances.find((b: { tokenAddress?: string }) => b.tokenAddress?.toLowerCase() === BTB_ADDRESS);
     const btbBalance = parseFloat(btbRow?.balanceFormatted ?? "0");
     const isHolder = btbBalance >= REQUIRED_BTB;
     const limit = isHolder ? HOLDER_DAILY_LIMIT : FREE_DAILY_LIMIT;

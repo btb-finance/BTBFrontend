@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useConnection, useConfig } from 'wagmi';
+import { useAction } from 'convex/react';
 import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
@@ -12,6 +13,11 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
+import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } from './AutomationRules';
+import {
+  UINT128_MAX, approvalCall, createAccountCall, fundAndCreateCall, getSmartAccountDeployment,
+  minWithSlippage, readSmartAccount, wrapEthCall, type RebalancePolicy,
+} from '../lib/smartAccount';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
@@ -22,10 +28,13 @@ import {
   ROBINHOOD_UNISWAP_V4, UNISWAP_V4,
   fetchV4PoolForMint, buildV4Mint, maxIn, isNativeCurrency, fmtFeeTier, rebalancePlan,
   backtestRange, SLIPPAGE_BPS, GAS_RESERVE, tickToPrice,
+  fetchV3Positions,
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
+import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
+import { api } from '../../convex/_generated/api';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -110,6 +119,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
+  const registerManaged = useAction(api.managedPositionMonitor.register);
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
@@ -147,6 +157,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
   const [slippageBps, setSlippageBps] = useState(chainId === 4663 ? 500 : SLIPPAGE_BPS);
+  const [autoManage, setAutoManage] = useState(false);
+  const [automationRules, setAutomationRules] = useState<AutomationRuleValues>({
+    ...DEFAULT_AUTOMATION_RULES,
+    twapSeconds: chainId === 4663 ? 60 : 300,
+  });
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
   const [tab, setTab] = useState<'range' | 'deposit'>('range');
@@ -180,6 +195,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
 
   const isV4 = v4PoolId !== undefined;
+  const smartDeployment = !isV4 && dex === 'uniswap' ? getSmartAccountDeployment(chainId) : null;
   // Auto-orientation: quote the volatile token in the stablecoin
   // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH") — the way people read a
   // pair. Only kicks in when exactly one side is a stablecoin; else pool order.
@@ -546,6 +562,125 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }
 
   /**
+   * Create the position inside the user's fixed-owner BTB account and install
+   * the owner-selected rebalance policy in the same account call. Account
+   * creation, optional ETH wrapping and exact ERC-20 approvals are passed to
+   * the shared batch runner, with a receipt-gated fallback for older wallets.
+   */
+  async function mintManaged() {
+    if (!address || !pool || !ticks || !smartDeployment || isV4 || dex !== 'uniswap') return;
+    if (splitRange && (!splitTicks?.below || !splitTicks?.above || add0 === 0n || add1 === 0n)) {
+      setErr('Auto-managed uneven mode needs both token amounts and room for one range on each side of the live price.');
+      return;
+    }
+    const client = getPublicClient(config, { chainId });
+    if (!client) { setErr('No RPC client'); return; }
+    const owner = address as `0x${string}`;
+    setBusy(true); setStepMsg('Preparing smart account…'); setErr(null);
+    try {
+      const smart = await readSmartAccount(client, owner, smartDeployment);
+      const specs = splitRange
+        ? [
+            {
+              tickLower: splitTicks!.below!.tickLower, tickUpper: splitTicks!.below!.tickUpper,
+              amount0Desired: 0n, amount1Desired: add1,
+              amount0Min: 0n, amount1Min: minWithSlippage(add1, slippageBps),
+            },
+            {
+              tickLower: splitTicks!.above!.tickLower, tickUpper: splitTicks!.above!.tickUpper,
+              amount0Desired: add0, amount1Desired: 0n,
+              amount0Min: minWithSlippage(add0, slippageBps), amount1Min: 0n,
+            },
+          ]
+        : [{
+            tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
+            amount0Desired: add0, amount1Desired: add1,
+            amount0Min: minWithSlippage(add0, slippageBps), amount1Min: minWithSlippage(add1, slippageBps),
+          }];
+      const allowedPct = automationRules.allowedRangePct !== null && automationRules.allowedRangePct < automationRules.targetRangePct ? automationRules.targetRangePct : automationRules.allowedRangePct;
+      const allowed = rangeTicks(pool.tick, spacing, allowedPct);
+      const automationTarget = rangeTicks(pool.tick, spacing, automationRules.targetRangePct);
+      const policy: RebalancePolicy = {
+        enabled: true,
+        agent: smartDeployment.agent,
+        positionManager: deployment.positionManager,
+        uniswapFactory: deployment.factory,
+        pool: pool.address,
+        swapAdapter: smartDeployment.swapAdapter,
+        priceGuard: smartDeployment.priceGuard,
+        token0: pool.token0,
+        token1: pool.token1,
+        positionId: 0n,
+        fee,
+        targetTickWidth: automationTarget.tickUpper - automationTarget.tickLower,
+        performanceFeeBps: 1_000,
+        maxSlippageBps: slippageBps,
+        maxSwapBpsOfPosition: automationRules.maxSwapPct * 100,
+        maxSpotTwapDeviationBps: automationRules.maxDeviationPct * 100,
+        twapSeconds: automationRules.twapSeconds,
+        minRebalanceInterval: automationRules.intervalSeconds,
+        expiresAt: BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400),
+        minimumAllowedTick: Math.min(allowed.tickLower, ticks.tickLower),
+        maximumAllowedTick: Math.max(allowed.tickUpper, ticks.tickUpper),
+        // The relative max-swap rule is the useful owner control; uint128 max
+        // avoids accidental lockouts after a position converts fully to one side.
+        maximumToken0PerExecution: UINT128_MAX,
+        maximumToken1PerExecution: UINT128_MAX,
+      };
+      const beforePositions = await fetchV3Positions(client, smart.account, deployment).catch(() => []);
+      const beforeIds = new Set(beforePositions.map(position => position.id.toString()));
+      const beforeCount = await client.readContract({
+        address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account],
+      }).catch(() => BigInt(beforePositions.length));
+      const calls = [
+        ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
+        ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)] : []),
+        ...(ethMode && wethSide === 1 ? [wrapEthCall(chainWeth, add1)] : []),
+        approvalCall(pool.token0, smart.account, add0),
+        approvalCall(pool.token1, smart.account, add1),
+        fundAndCreateCall(smart.account, {
+          pool: pool.address,
+          token0: pool.token0,
+          token1: pool.token1,
+          fee,
+          deadline: BigInt(Math.floor(Date.now() / 1000) + 8 * 60),
+          mode: splitRange ? 1 : 0,
+          specs,
+        }, policy),
+      ].filter((call): call is NonNullable<typeof call> => call !== null);
+      setStepMsg(splitRange ? 'Creating two managed LPs…' : 'Creating managed LP…');
+      await runCalls(config, {
+        account: owner,
+        calls,
+        label: `Create managed ${pool.symbol0}/${pool.symbol1} LP`,
+        track,
+        chainId,
+        verify: {
+          test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account] })) > beforeCount,
+          error: 'The managed position was confirmed but is not visible from this RPC yet.',
+        },
+      });
+      setStepMsg('Saving automation monitor…');
+      const created = (await fetchV3Positions(client, smart.account, deployment))
+        .filter(position => !beforeIds.has(position.id.toString()));
+      if (created.length === 0) throw new Error('LP confirmed, but its new NFT ID is not indexed by the RPC yet. Reopen your positions to finish monitoring setup.');
+      await Promise.all(created.map(position => registerManaged({
+        chainId, owner, account: smart.account, positionManager: deployment.positionManager,
+        positionId: position.id.toString(), pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
+        tickLower: position.tickLower, tickUpper: position.tickUpper,
+        targetTickWidth: policy.targetTickWidth, minimumAllowedTick: policy.minimumAllowedTick,
+        maximumAllowedTick: policy.maximumAllowedTick, maxSlippageBps: policy.maxSlippageBps,
+        maxSwapBps: policy.maxSwapBpsOfPosition, twapSeconds: policy.twapSeconds,
+        minRebalanceInterval: policy.minRebalanceInterval, expiresAt: Number(policy.expiresAt), source: 'created',
+      })));
+      onDone?.();
+      onClose();
+    } catch (e) {
+      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
+    } finally { setBusy(false); setStepMsg(''); }
+  }
+
+  /**
    * Balanced smart-fit deposit: swap only the gap (KyberSwap) so a single-token
    * wallet deposits a real two-sided position, then mint. Same audited pattern
    * as RebalanceSheet (minus the withdraw — funds come straight from the wallet).
@@ -622,8 +757,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }
 
   const canSplit = !!splitTicks && ((add0 > 0n && !!splitTicks.above) || (add1 > 0n && !!splitTicks.below));
+  const canManagedSplit = !!splitTicks?.below && !!splitTicks?.above && add0 > 0n && add1 > 0n;
   const canMint = !!pool?.exists && !!ticks && !busy &&
-    (splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
+    (autoManage
+      ? !!smartDeployment && !swapPreview && (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1
+      : splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
   // CTA is hidden for them. The simulated amounts prefill the deposit inputs.
@@ -1222,9 +1360,53 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   </div>
                 )}
 
+                {!isV4 && dex === 'uniswap' && (
+                  <div style={{ marginBottom: 9 }}>
+                    <button
+                      type="button"
+                      disabled={!smartDeployment}
+                      onClick={() => {
+                        if (!smartDeployment) return;
+                        setAutoManage((enabled) => !enabled);
+                        setSwapPreview(null);
+                      }}
+                      aria-pressed={autoManage}
+                      style={{
+                        width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: smartDeployment ? 'pointer' : 'default',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontFamily: 'inherit', textAlign: 'left',
+                        border: `1px solid ${autoManage ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        background: autoManage ? 'rgba(82,227,164,0.09)' : 'rgba(255,255,255,0.035)',
+                        color: smartDeployment ? btb.text : btb.textDim,
+                      }}
+                    >
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 12, fontWeight: 800 }}>Auto-manage this LP</span>
+                        <span style={{ display: 'block', color: btb.textMuted, fontSize: 9.8, marginTop: 2, lineHeight: 1.3 }}>
+                          {smartDeployment ? 'Your account holds the NFT; only your wallet can withdraw it.' : 'Smart-account contracts are not configured on this chain yet.'}
+                        </span>
+                      </span>
+                      <span style={{ flexShrink: 0, width: 30, height: 17, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: autoManage ? btb.green : 'rgba(255,255,255,0.18)' }}>
+                        <span style={{ display: 'block', width: 13, height: 13, borderRadius: '50%', background: '#fff', transform: `translateX(${autoManage ? 13 : 0}px)`, transition: 'transform 0.18s' }} />
+                      </span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Amounts — enter either side, the other is paired automatically */}
                 {renderAmountInput(0)}
                 {renderAmountInput(1)}
+
+                {autoManage && smartDeployment && (
+                  <div style={{ marginBottom: 10 }}>
+                    <AutomationRules
+                      value={automationRules}
+                      onChange={setAutomationRules}
+                      agent={smartDeployment.agent}
+                      slippageBps={slippageBps}
+                      onSlippageChange={setSlippageBps}
+                    />
+                  </div>
+                )}
 
                 {!splitRange && renderNeedWarning()}
                 {(short0 || short1) && (
@@ -1257,7 +1439,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </>
             ) : (
               <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
-                {swapPreview
+                {autoManage
+                  ? 'Account creation, exact approvals and LP setup are batched when your wallet supports it. Unused tokens return to your wallet.'
+                  : swapPreview
                   ? `Two transactions: swap ~${swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}% to balance, then add — each slippage-protected (${slippageBps / 100}%).`
                   : <>Slippage-protected ({slippageBps / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}</>}
               </div>
@@ -1291,8 +1475,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
                   <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
                 </div>
-                <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
-                  {busy ? (stepMsg || 'Confirming…') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
+                <Button variant="success" size="sm" onClick={() => (autoManage ? mintManaged() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                  {busy ? (stepMsg || 'Confirming…') : autoManage ? (splitRange ? 'Create 2 managed LPs' : 'Create managed LP') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
                 </Button>
           </div>
         </div>

@@ -79,4 +79,62 @@ export default defineSchema({
     updatedAt: v.float64(),
   }).index("by_wallet", ["walletAddress"])
     .index("by_wallet_token", ["walletAddress", "tokenAddress"]),
+
+  // Off-chain index of owner-custodied BTB smart-account LPs. Every row is
+  // re-verified against the chain by the monitor; client writes are never
+  // treated as authorization to rebalance.
+  managedLpPositions: defineTable({
+    key: v.string(),
+    chainId: v.float64(),
+    owner: v.string(),
+    account: v.string(),
+    positionManager: v.string(),
+    positionId: v.string(),
+    pool: v.string(),
+    token0: v.string(),
+    token1: v.string(),
+    fee: v.float64(),
+    tickLower: v.float64(),
+    tickUpper: v.float64(),
+    currentTick: v.optional(v.float64()),
+    targetTickWidth: v.float64(),
+    minimumAllowedTick: v.float64(),
+    maximumAllowedTick: v.float64(),
+    maxSlippageBps: v.float64(),
+    maxSwapBps: v.float64(),
+    twapSeconds: v.float64(),
+    minRebalanceInterval: v.float64(),
+    expiresAt: v.float64(),
+    status: v.string(),
+    enabled: v.boolean(),
+    source: v.string(),
+    registeredAt: v.float64(),
+    updatedAt: v.float64(),
+    nextCheckAt: v.float64(),
+    lastCheckedAt: v.optional(v.float64()),
+    lastRebalanceAt: v.optional(v.float64()),
+    lastError: v.optional(v.string()),
+  }).index("by_key", ["key"])
+    .index("by_owner", ["owner"])
+    .index("by_due", ["nextCheckAt"])
+    .index("by_status", ["status"]),
+
+  // Durable audit/worker queue. Only the on-chain monitor creates jobs.
+  rebalanceJobs: defineTable({
+    positionKey: v.string(),
+    chainId: v.float64(),
+    account: v.string(),
+    positionManager: v.string(),
+    positionId: v.string(),
+    state: v.string(),
+    requestedAt: v.float64(),
+    updatedAt: v.float64(),
+    attempts: v.float64(),
+    nextAttemptAt: v.optional(v.float64()),
+    newPositionId: v.optional(v.string()),
+    txHash: v.optional(v.string()),
+    signedTransaction: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }).index("by_position", ["positionKey"])
+    .index("by_state", ["state"]),
 });
