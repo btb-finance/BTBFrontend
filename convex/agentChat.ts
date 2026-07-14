@@ -23,7 +23,9 @@ const GLM_URL = "https://api.z.ai/api/coding/paas/v4/chat/completions";
 const GLM_MODEL = "glm-5.2";
 const BTB_ADDRESS = "0x88888888c90cd71b35830dabfd24743dbc135b51";
 const REQUIRED_BTB = 10_000_000;
-const DAILY_MESSAGE_LIMIT = 50;
+// Everyone gets a free daily allowance; 10M BTB holders get the full quota.
+const FREE_DAILY_LIMIT = 5;
+const HOLDER_DAILY_LIMIT = 50;
 
 type Pool = {
   pair: string; dex: string; version?: string; feeTier?: number;
@@ -61,13 +63,13 @@ function buildSystemPrompt(
   return [
     "You are the BTB Agent, the in app assistant of BTB Finance (btb.finance), a DeFi app on Ethereum mainnet with swaps, concentrated liquidity LPing (Uniswap V3/V4, PancakeSwap V3), and Yearn vault deposits.",
     "You help the user decide where to deploy their capital: suggest concrete LP pools or vaults that match the tokens they already hold, sized to their balances. Always cover risk honestly: impermanent loss for volatile pairs, out of range risk for concentrated positions, low TVL or low volume pools being unreliable, and that APRs move constantly.",
-    "Ground every suggestion in the data below. If the user holds both sides of a pool pair, say so. Prefer high TVL pools for beginners and stable pairs for low risk. Never invent pools or numbers that are not in the data. Keep replies short and scannable. You are not a licensed financial advisor and say so once when giving allocation advice.",
+    "Ground every suggestion in the data below. If the user holds both sides of a pool pair, say so. Prefer high TVL pools for beginners and stable pairs for low risk. For low risk or stablecoin yield questions, ALWAYS compare LP pools against the Yearn vaults in vaultList: vaults take one token, auto compound, and have no impermanent loss, so when a stable vault pays more APY than a stable LP, recommend the vault (deposits happen in the app's Earn tab). Never invent pools, vaults, or numbers that are not in the data. Keep replies short and scannable, and do not use em dashes. You are not a licensed financial advisor and say so once when giving allocation advice.",
     "",
     "USER TOKEN BALANCES:",
     held || "none on record (ask them to open the Portfolio tab once so balances sync)",
     "",
-    "USER POSITIONS (LPs and Yearn vaults, from the app):",
-    extras && extras.length > 2 ? extras.slice(0, 6000) : "none provided",
+    "APP DATA JSON — lps: the user's LP positions · yearn: the user's vault deposits · vaultList: Yearn vaults available in the Earn tab (apyPct, tvlUsd, stable flag):",
+    extras && extras.length > 2 ? extras.slice(0, 8000) : "none provided",
     "",
     "TOP POOLS RIGHT NOW (pair · dex · fee · TVL · APR):",
     poolLines,
@@ -89,15 +91,16 @@ export const chat = action({
 
     const data = await ctx.runQuery(internal.agent.contextData, { walletAddress });
 
-    // Server-side gate: the UI hides the chat below 10M BTB, but the action
-    // must not trust the client.
+    // Tiering is decided server-side from the balance snapshot — the client
+    // is never trusted. Free users get 5 messages a day, holders get 50.
     const btbRow = data.balances.find((b) => b.tokenAddress?.toLowerCase() === BTB_ADDRESS);
     const btbBalance = parseFloat(btbRow?.balanceFormatted ?? "0");
-    if (!(btbBalance >= REQUIRED_BTB)) {
-      throw new Error("Agent access requires holding 10M BTB. Refresh your portfolio if you just acquired it.");
-    }
-    if (data.userMsgsToday >= DAILY_MESSAGE_LIMIT) {
-      throw new Error(`Daily limit of ${DAILY_MESSAGE_LIMIT} messages reached. The agent resets tomorrow.`);
+    const isHolder = btbBalance >= REQUIRED_BTB;
+    const limit = isHolder ? HOLDER_DAILY_LIMIT : FREE_DAILY_LIMIT;
+    if (data.userMsgsToday >= limit) {
+      throw new Error(isHolder
+        ? `Daily limit of ${HOLDER_DAILY_LIMIT} messages reached. The agent resets tomorrow.`
+        : `You used your ${FREE_DAILY_LIMIT} free messages for today. Hold 10M BTB to unlock ${HOLDER_DAILY_LIMIT} per day.`);
     }
 
     const messages = [

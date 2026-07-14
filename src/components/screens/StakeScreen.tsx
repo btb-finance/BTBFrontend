@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useAction } from 'convex/react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
@@ -47,49 +47,38 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
   const progress = Math.min(balance / AGENT_REQUIRED_BTB, 1);
   const fmtM = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 })}M` : n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 
-  if (hasAccess && walletAddress) {
-    return <AgentChat walletAddress={walletAddress} btbBalance={fmtM(balance)}/>;
+  if (walletAddress) {
+    return <AgentChat walletAddress={walletAddress} holder={hasAccess} btbBalance={fmtM(balance)} onGetBtb={onGetBtb}/>;
   }
+  void progress;
 
   return (
     <Screen gap={18} style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <Badge color="#FFB36B" bg="rgba(255,179,107,0.15)" border="1px solid rgba(255,179,107,0.35)"
+        <Badge color="#52E3A4" bg="rgba(82,227,164,0.15)" border="1px solid rgba(82,227,164,0.35)"
           style={{ gap: 6, padding: '6px 12px', fontSize: 12 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#FFB36B', boxShadow: '0 0 8px #FFB36B' }}/>
-          <span style={{ color: '#FFB36B', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>HOLDERS ONLY</span>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 8px #52E3A4' }}/>
+          <span style={{ color: '#52E3A4', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
         </Badge>
       </div>
 
-      {/* holder gate: 10M BTB unlocks the Agent */}
+      {/* connect prompt: everyone chats free, holders get the full quota */}
       <Glass padding={18} radius={20}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-            background: 'rgba(255,179,107,0.12)', border: '1px solid rgba(255,179,107,0.3)',
+            background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Icon name="lock" size={20} color="#FFB36B"/>
+            <Icon name="bolt" size={20} color="#52E3A4"/>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Hold 10M BTB to unlock the Agent</div>
+            <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Connect a wallet to start chatting</div>
             <div style={{ color: btb.textMuted, fontSize: 12.5, marginTop: 2 }}>
-              {!walletAddress
-                ? 'Connect a wallet to check your balance.'
-                : `You hold ${fmtM(balance)} of ${fmtM(AGENT_REQUIRED_BTB)} BTB needed.`}
+              Everyone gets {5} free messages daily. Hold {fmtM(AGENT_REQUIRED_BTB)} BTB for 50 per day.
             </div>
           </div>
         </div>
-        {walletAddress && (
-          <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 12 }}>
-            <div style={{ width: `${progress * 100}%`, height: '100%', background: btb.gradGreen, borderRadius: 999 }}/>
-          </div>
-        )}
-        {onGetBtb && (
-          <Button variant="success" size="sm" fullWidth icon="swap" onClick={onGetBtb} style={{ height: 42 }}>
-            Get BTB
-          </Button>
-        )}
       </Glass>
 
       {/* hero */}
@@ -149,7 +138,7 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
 // instead of showing literal ** markers — no dependency needed for chat text.
 
 function InlineMd({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*)/g);
   return (
     <>
       {parts.map((p, i) => {
@@ -159,50 +148,98 @@ function InlineMd({ text }: { text: string }) {
         if (p.startsWith('`') && p.endsWith('`')) {
           return <code key={i} style={{ background: 'rgba(255,255,255,0.09)', padding: '1px 5px', borderRadius: 5, fontSize: 12 }}>{p.slice(1, -1)}</code>;
         }
+        if (p.startsWith('*') && p.endsWith('*') && p.length > 2) {
+          return <em key={i} style={{ color: btb.textMuted }}>{p.slice(1, -1)}</em>;
+        }
         return <span key={i}>{p}</span>;
       })}
     </>
   );
 }
 
+const isTableRow = (line: string) => /^\s*\|.*\|\s*$/.test(line);
+const splitCells = (line: string) => line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+const isSeparatorRow = (cells: string[]) => cells.every(c => /^:?-{2,}:?$/.test(c));
+
 function AgentMessage({ content }: { content: string }) {
-  return (
-    <div>
-      {content.split('\n').map((line, i) => {
-        const heading = line.match(/^#{1,4}\s+(.*)/);
-        if (heading) {
-          return <div key={i} style={{ fontWeight: 800, fontSize: 14.5, color: btb.text, margin: '8px 0 4px' }}><InlineMd text={heading[1]}/></div>;
-        }
-        const bullet = line.match(/^\s*[-*•]\s+(.*)/);
-        if (bullet) {
-          return (
-            <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}>
-              <span style={{ color: '#52E3A4', flexShrink: 0 }}>•</span>
-              <span style={{ flex: 1, minWidth: 0 }}><InlineMd text={bullet[1]}/></span>
-            </div>
-          );
-        }
-        const numbered = line.match(/^\s*(\d+)[.)]\s+(.*)/);
-        if (numbered) {
-          return (
-            <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}>
-              <span style={{ color: '#52E3A4', fontWeight: 700, flexShrink: 0 }}>{numbered[1]}.</span>
-              <span style={{ flex: 1, minWidth: 0 }}><InlineMd text={numbered[2]}/></span>
-            </div>
-          );
-        }
-        if (!line.trim()) return <div key={i} style={{ height: 7 }}/>;
-        return <div key={i} style={{ margin: '2px 0' }}><InlineMd text={line}/></div>;
-      })}
-    </div>
-  );
+  const lines = content.split('\n');
+  const out: ReactNode[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // markdown table: consecutive |…| rows, separator row dropped
+    if (isTableRow(line)) {
+      const rows: string[][] = [];
+      while (i < lines.length && isTableRow(lines[i])) {
+        const cells = splitCells(lines[i]);
+        if (!isSeparatorRow(cells)) rows.push(cells);
+        i++;
+      }
+      i--;
+      if (rows.length > 0) {
+        out.push(
+          <div key={`t${i}`} style={{ overflowX: 'auto', margin: '8px 0' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 12.5, minWidth: '100%' }}>
+              <tbody>
+                {rows.map((cells, r) => (
+                  <tr key={r}>
+                    {cells.map((c, ci) => r === 0 ? (
+                      <th key={ci} style={{ textAlign: 'left', padding: '5px 10px 5px 0', borderBottom: '1px solid rgba(255,255,255,0.16)', color: btb.textMuted, fontWeight: 700, fontSize: 11.5, whiteSpace: 'nowrap' }}>
+                        <InlineMd text={c}/>
+                      </th>
+                    ) : (
+                      <td key={ci} style={{ padding: '5px 10px 5px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>
+                        <InlineMd text={c}/>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      continue;
+    }
+
+    const heading = line.match(/^#{1,4}\s+(.*)/);
+    if (heading) {
+      out.push(<div key={i} style={{ fontWeight: 800, fontSize: 14.5, color: btb.text, margin: '8px 0 4px' }}><InlineMd text={heading[1]}/></div>);
+      continue;
+    }
+    const bullet = line.match(/^\s*[-•]\s+(.*)/) ?? line.match(/^\s*\*\s+(.*)/);
+    if (bullet) {
+      out.push(
+        <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}>
+          <span style={{ color: '#52E3A4', flexShrink: 0 }}>•</span>
+          <span style={{ flex: 1, minWidth: 0 }}><InlineMd text={bullet[1]}/></span>
+        </div>
+      );
+      continue;
+    }
+    const numbered = line.match(/^\s*(\d+)[.)]\s+(.*)/);
+    if (numbered) {
+      out.push(
+        <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}>
+          <span style={{ color: '#52E3A4', fontWeight: 700, flexShrink: 0 }}>{numbered[1]}.</span>
+          <span style={{ flex: 1, minWidth: 0 }}><InlineMd text={numbered[2]}/></span>
+        </div>
+      );
+      continue;
+    }
+    if (!line.trim()) { out.push(<div key={i} style={{ height: 7 }}/>); continue; }
+    out.push(<div key={i} style={{ margin: '2px 0' }}><InlineMd text={line}/></div>);
+  }
+  return <div>{out}</div>;
 }
 
 // ─── Live chat (unlocked) ────────────────────────────────────────────────────
 
 type LpSummary = { pair: string; protocol: string; amount0: string; amount1: string; inRange: boolean };
 
-function AgentChat({ walletAddress, btbBalance }: { walletAddress: string; btbBalance: string }) {
+function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
+  walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void;
+}) {
   const config = useConfig();
   const history = useQuery(api.agent.history, { walletAddress });
   const sendChat = useAction(api.agentChat.chat);
@@ -264,6 +301,18 @@ function AgentChat({ walletAddress, btbBalance }: { walletAddress: string; btbBa
           vault: p.vault.name, token: p.vault.token.symbol,
           amount: p.underlying.toPrecision(5), usd: Math.round(p.usd),
         })),
+        // The Earn tab's vault market — lets the agent recommend single-token
+        // auto-compounding yield, not just LP pools.
+        vaultList: (vaults ?? [])
+          .filter(v => v.apy != null && v.tvlUsd > 200_000)
+          .sort((a, b) => (b.apy ?? 0) - (a.apy ?? 0))
+          .slice(0, 15)
+          .map(v => ({
+            vault: v.name, token: v.token.symbol,
+            apyPct: +(((v.apy ?? 0) * 100).toFixed(2)),
+            tvlUsd: Math.round(v.tvlUsd),
+            stable: ['USDC', 'USDT', 'DAI', 'USDS', 'CRVUSD', 'USDE'].includes(v.token.symbol.toUpperCase()),
+          })),
       });
       await sendChat({ walletAddress, message: msg, extras });
     } catch (e) {
@@ -296,11 +345,30 @@ function AgentChat({ walletAddress, btbBalance }: { walletAddress: string; btbBa
           <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>BTB Agent</div>
           <div style={{ color: btb.textMuted, fontSize: 12 }}>Sees your balances, LPs, Earn positions, and live pool data</div>
         </div>
-        <Badge color="#52E3A4" bg="rgba(82,227,164,0.15)" border="1px solid rgba(82,227,164,0.35)" style={{ gap: 6, flexShrink: 0 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 8px #52E3A4' }}/>
-          <span style={{ color: '#52E3A4', fontSize: 11, fontWeight: 700 }}>{btbBalance} BTB</span>
-        </Badge>
+        {holder ? (
+          <Badge color="#52E3A4" bg="rgba(82,227,164,0.15)" border="1px solid rgba(82,227,164,0.35)" style={{ gap: 6, flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 8px #52E3A4' }}/>
+            <span style={{ color: '#52E3A4', fontSize: 11, fontWeight: 700 }}>{btbBalance} BTB</span>
+          </Badge>
+        ) : (
+          <Badge color="#FFB36B" bg="rgba(255,179,107,0.15)" border="1px solid rgba(255,179,107,0.35)" style={{ flexShrink: 0 }}>
+            <span style={{ color: '#FFB36B', fontSize: 11, fontWeight: 700 }}>FREE · 5/DAY</span>
+          </Badge>
+        )}
       </div>
+
+      {/* upsell for free tier */}
+      {!holder && onGetBtb && (
+        <Glass padding={12} radius={16} soft style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="bolt" size={16} color="#FFB36B"/>
+          <span style={{ flex: 1, color: btb.textMuted, fontSize: 12.5 }}>
+            Hold 10M BTB to unlock 50 messages per day.
+          </span>
+          <Button variant="success" size="sm" onClick={onGetBtb} style={{ height: 34, width: 100, flexShrink: 0 }}>
+            Get BTB
+          </Button>
+        </Glass>
+      )}
 
       {/* thread */}
       <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: 380 }}>
@@ -375,7 +443,7 @@ function AgentChat({ walletAddress, btbBalance }: { walletAddress: string; btbBa
       </Glass>
 
       <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', lineHeight: 1.5 }}>
-        The agent gives information, not financial advice. It never holds your keys and cannot move funds. 50 messages per day.
+        The agent gives information, not financial advice. It never holds your keys and cannot move funds. {holder ? 50 : 5} messages per day.
       </div>
     </Screen>
   );
