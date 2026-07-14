@@ -141,12 +141,26 @@ export const savePrices = internalMutation({
     now: v.float64(),
   },
   handler: async (ctx, { updates, now }) => {
+    // Heartbeat: even an unchanged row gets rewritten at least this often so
+    // updatedAt never looks ancient.
+    const HEARTBEAT_MS = 60 * 60_000;
     for (const { address, priceUsd, liquidityUsd } of updates) {
       const existing = await ctx.db
         .query("tokenPrices")
         .withIndex("by_address", (q) => q.eq("address", address))
         .unique();
       if (existing) {
+        // Skip the write when nothing meaningfully moved (price within 0.1%,
+        // liquidity within 5%) — most tokens most of the time. This is the
+        // main lever on database bandwidth: writes every 5 minutes for the
+        // whole token list added up to hundreds of MB a month.
+        const priceSame = existing.priceUsd > 0
+          ? Math.abs(priceUsd - existing.priceUsd) / existing.priceUsd < 0.001
+          : priceUsd === existing.priceUsd;
+        const liqSame = existing.liquidityUsd > 0
+          ? Math.abs(liquidityUsd - existing.liquidityUsd) / existing.liquidityUsd < 0.05
+          : liquidityUsd === existing.liquidityUsd;
+        if (priceSame && liqSame && now - existing.updatedAt < HEARTBEAT_MS) continue;
         await ctx.db.patch(existing._id, { priceUsd, liquidityUsd, updatedAt: now });
       } else {
         await ctx.db.insert("tokenPrices", { address, priceUsd, liquidityUsd, updatedAt: now });

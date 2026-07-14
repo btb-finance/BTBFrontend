@@ -2,8 +2,11 @@
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022", "DOM"],
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "paths": { "@/*": ["./../src/*"] },
+    "types": ["node"],
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true

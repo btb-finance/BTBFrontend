@@ -14,6 +14,21 @@ export default defineSchema({
     source: v.string(),       // "core" | "uniswap" | "coingecko" | "sushiswap" | "gemini"
   }).index("by_address", ["address"]),
 
+  // Agent chat history — one row per message, gated to 10M BTB holders.
+  agentMessages: defineTable({
+    walletAddress: v.string(),   // lowercase
+    role: v.string(),            // "user" | "assistant"
+    content: v.string(),
+    createdAt: v.float64(),
+  }).index("by_wallet", ["walletAddress", "createdAt"]),
+
+  // Discover pool list, precomputed hourly by convex/discover.ts (single row).
+  // `json` = { pools: EarnPool[], priceChange: Record<poolId, pct> }.
+  discoverPools: defineTable({
+    json: v.string(),
+    updatedAt: v.float64(),
+  }),
+
   // Prices refreshed every 5 min via cron
   tokenPrices: defineTable({
     address: v.string(),
