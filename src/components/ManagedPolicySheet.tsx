@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
-import { encodeFunctionData } from 'viem';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { AutomationRules, type AutomationRuleValues } from './AutomationRules';
@@ -10,7 +9,7 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { BTB_LP_ACCOUNT_ABI, type RebalancePolicy, type SmartAccountDeployment } from '../lib/smartAccount';
+import { configurePolicyCall, isModularDeployment, type RebalancePolicy, type SmartAccountDeployment } from '../lib/smartAccount';
 import { rangeTicks, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, type LiquidityPosition } from '@/protocols/dexs/uniswap';
 
 const TARGETS = [1, 5, 10, 25, 50] as const;
@@ -63,6 +62,7 @@ export function ManagedPolicySheet({ pos, account, owner, policy, deployment, on
         ...policy,
         enabled: true,
         agent: deployment.agent,
+        swapAdapter: isModularDeployment(deployment) ? deployment.aggregatorSwapAdapter : deployment.swapAdapter,
         targetTickWidth: target.tickUpper - target.tickLower,
         performanceFeeBps: 1_000,
         maxSlippageBps: slippageBps,
@@ -76,7 +76,7 @@ export function ManagedPolicySheet({ pos, account, owner, policy, deployment, on
       };
       await runCalls(config, {
         account: owner, chainId: 4663, label: `Update ${pos.symbol0}/${pos.symbol1} rules`, track,
-        calls: [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'configurePolicy', args: [next] }) }],
+        calls: [configurePolicyCall(deployment, account, next)],
       });
       await onDone();
       onClose();

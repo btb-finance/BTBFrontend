@@ -9,14 +9,19 @@ import {
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { defineChain } from "viem";
-import { amountsForLiquidity, chooseRange, heavySide, liquidityForAmounts, planSwap } from "./rebalanceMath";
+import { amountsForLiquidity, chooseRange, heavySide } from "./rebalanceMath";
 
 const robinhood = defineChain({
   id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com/"] } },
 });
-const QUOTER = "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7" as const;
+const UNISWAP_QUOTER = "0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7" as const;
+const UNISWAP_ROUTER = "0xCaf681a66D020601342297493863E78C959E5cb2" as const;
+const DEFAULT_BTB_QUOTER = "0x1fde1A449b3A224EFDa2A2bC942DCF46104d92Fc" as const;
+const DEFAULT_AGGREGATOR_ADAPTER = "0x62D768D9a95Dde63495724a0a6Bf12F5b3f205c6" as const;
+const DEFAULT_KYBER_ROUTER = "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5" as const;
 const ZERO = "0x0000000000000000000000000000000000000000" as const;
+const Q192 = 1n << 192n;
 
 const POLICY_COMPONENTS = [
   { name: "enabled", type: "bool" }, { name: "agent", type: "address" },
@@ -27,11 +32,13 @@ const POLICY_COMPONENTS = [
   { name: "fee", type: "uint24" }, { name: "targetTickWidth", type: "uint24" },
   { name: "performanceFeeBps", type: "uint16" }, { name: "maxSlippageBps", type: "uint16" },
   { name: "maxSwapBpsOfPosition", type: "uint16" }, { name: "maxSpotTwapDeviationBps", type: "uint16" },
+  { name: "maxIdleBps", type: "uint16" },
   { name: "twapSeconds", type: "uint32" }, { name: "minRebalanceInterval", type: "uint32" },
   { name: "expiresAt", type: "uint64" }, { name: "minimumAllowedTick", type: "int24" },
   { name: "maximumAllowedTick", type: "int24" }, { name: "maximumToken0PerExecution", type: "uint128" },
   { name: "maximumToken1PerExecution", type: "uint128" },
 ] as const;
+const LEGACY_POLICY_COMPONENTS = POLICY_COMPONENTS.filter(component => component.name !== "maxIdleBps");
 const REQUEST_COMPONENTS = [
   { name: "newTickLower", type: "int24" }, { name: "newTickUpper", type: "int24" },
   { name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" },
@@ -51,6 +58,11 @@ const ACCOUNT_ABI = [
     { name: "request", type: "tuple", components: REQUEST_COMPONENTS }, { name: "swapData", type: "bytes" },
   ], outputs: [{ name: "newPositionId", type: "uint256" }] },
 ] as const;
+const LEGACY_POLICY_ABI = [{
+  name: "policy", type: "function", stateMutability: "view",
+  inputs: [{ type: "address" }, { type: "uint256" }],
+  outputs: [{ name: "result", type: "tuple", components: LEGACY_POLICY_COMPONENTS }],
+}] as const;
 const POSITION_ABI = [
   { name: "ownerOf", type: "function", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
   { name: "positions", type: "function", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [
@@ -78,11 +90,36 @@ const QUOTER_ABI = [{
     { name: "sqrtPriceLimitX96", type: "uint160" },
   ] }], outputs: [{ type: "uint256" }, { type: "uint160" }, { type: "uint32" }, { type: "uint256" }],
 }] as const;
+const ROUTER_ABI = [{
+  name: "exactInputSingle", type: "function", stateMutability: "payable",
+  inputs: [{ name: "params", type: "tuple", components: [
+    { name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" },
+    { name: "fee", type: "uint24" }, { name: "recipient", type: "address" },
+    { name: "amountIn", type: "uint256" }, { name: "amountOutMinimum", type: "uint256" },
+    { name: "sqrtPriceLimitX96", type: "uint160" },
+  ] }], outputs: [{ type: "uint256" }],
+}] as const;
+const BTB_QUOTER_ABI = [
+  {
+    name: "previewSwapToRange", type: "function", stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "int24" }, { type: "int24" }, { type: "uint256" }, { type: "uint256" }],
+    outputs: [{ name: "plan", type: "tuple", components: [
+      { name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" }, { name: "targetAmount0", type: "uint256" },
+      { name: "targetAmount1", type: "uint256" },
+    ] }],
+  },
+  {
+    name: "previewMint", type: "function", stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "int24" }, { type: "int24" }, { type: "uint256" }, { type: "uint256" }],
+    outputs: [{ name: "amount0", type: "uint256" }, { name: "amount1", type: "uint256" }, { name: "liquidity", type: "uint128" }],
+  },
+] as const;
 
 type Policy = {
-  enabled: boolean; agent: Address; positionManager: Address; pool: Address; token0: Address; token1: Address;
+  enabled: boolean; agent: Address; positionManager: Address; pool: Address; swapAdapter: Address; token0: Address; token1: Address;
   positionId: bigint; fee: number; targetTickWidth: number; performanceFeeBps: number; maxSlippageBps: number;
-  maxSwapBpsOfPosition: number; expiresAt: bigint; minimumAllowedTick: number; maximumAllowedTick: number;
+  maxSwapBpsOfPosition: number; maxIdleBps: number; expiresAt: bigint; minimumAllowedTick: number; maximumAllowedTick: number;
   maximumToken0PerExecution: bigint; maximumToken1PerExecution: bigint;
 };
 type Job = { _id: Id<"rebalanceJobs">; positionKey: string; chainId: number; account: string; positionManager: string; positionId: string; state: string; attempts: number; txHash?: string; signedTransaction?: string; newPositionId?: string };
@@ -92,6 +129,35 @@ class PolicyActionRequired extends Error {}
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const min = (a: bigint, b: bigint) => a < b ? a : b;
 const protectedMinimum = (value: bigint, slippageBps: number) => value * BigInt(10_000 - slippageBps) / 10_000n;
+
+function configuredAddress(name: string, fallback: Address): Address {
+  const value = process.env[name] || fallback;
+  if (!isAddress(value)) throw new Error(`${name} is missing or invalid`);
+  return value;
+}
+
+async function kyberSwapData(tokenIn: Address, tokenOut: Address, amountIn: bigint, minimumOut: bigint, adapter: Address, slippageBps: number) {
+  const routesUrl = `https://aggregator-api.kyberswap.com/robinhood/api/v1/routes?tokenIn=${tokenIn}&tokenOut=${tokenOut}&amountIn=${amountIn}&saveGas=0&gasInclude=1`;
+  const routeResponse = await fetch(routesUrl, { headers: { "x-client-id": "btb-finance" } });
+  const routeJson = await routeResponse.json() as { code?: number; message?: string; data?: { routerAddress?: string; routeSummary?: { amountOut?: string } } };
+  if (!routeResponse.ok || routeJson.code !== 0 || !routeJson.data?.routeSummary) throw new Error(routeJson.message || "Kyber route unavailable");
+  const kyberRouter = configuredAddress("KYBER_ROUTER_4663", DEFAULT_KYBER_ROUTER);
+  if (!routeJson.data.routerAddress || !same(routeJson.data.routerAddress, kyberRouter)) throw new Error("Kyber returned an unapproved router");
+  const routeOut = BigInt(routeJson.data.routeSummary.amountOut || "0");
+  if (routeOut < minimumOut) throw new Error("Kyber quote is below the protected minimum");
+  const buildResponse = await fetch("https://aggregator-api.kyberswap.com/robinhood/api/v1/route/build", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-client-id": "btb-finance" },
+    body: JSON.stringify({ routeSummary: routeJson.data.routeSummary, sender: adapter, recipient: adapter, slippageTolerance: slippageBps }),
+  });
+  const buildJson = await buildResponse.json() as { code?: number; message?: string; data?: { data?: string; routerAddress?: string; value?: string } };
+  const tx = buildJson.data;
+  if (!buildResponse.ok || buildJson.code !== 0 || !tx?.data || !/^0x[0-9a-fA-F]+$/.test(tx.data)) throw new Error(buildJson.message || "Kyber build failed");
+  if (!tx.routerAddress || !same(tx.routerAddress, kyberRouter) || BigInt(tx.value || "0") !== 0n) throw new Error("Kyber returned an unsafe transaction");
+  const selector = tx.data.slice(0, 10).toLowerCase();
+  if (selector !== "0xe21fd0e9" && selector !== "0x8af033fb") throw new Error("Kyber returned an unapproved selector");
+  return { expectedOut: routeOut, swapData: encodeAbiParameters([{ type: "address" }, { type: "bytes" }], [kyberRouter, tx.data as Hex]) };
+}
 
 function signer() {
   const raw = process.env.AGENT_PRIVATE_KEY ?? "";
@@ -113,6 +179,17 @@ function clients() {
 function errorText(error: unknown) {
   const value = error as { shortMessage?: string; message?: string };
   return (value.shortMessage || value.message || "Rebalance worker failed").slice(0, 500);
+}
+
+async function readPolicy(
+  publicClient: ReturnType<typeof clients>["publicClient"], account: Address, manager: Address, tokenId: bigint,
+): Promise<Policy> {
+  try {
+    return await publicClient.readContract({ address: account, abi: ACCOUNT_ABI, functionName: "policy", args: [manager, tokenId] }) as Policy;
+  } catch {
+    const legacy = await publicClient.readContract({ address: account, abi: LEGACY_POLICY_ABI, functionName: "policy", args: [manager, tokenId] });
+    return { ...legacy, maxIdleBps: 10_000 } as Policy;
+  }
 }
 
 export const run = internalAction({
@@ -162,7 +239,7 @@ export const run = internalAction({
         publicClient.readContract({ address: accountAddress, abi: ACCOUNT_ABI, functionName: "owner" }),
         publicClient.readContract({ address: manager, abi: POSITION_ABI, functionName: "ownerOf", args: [tokenId] }),
         publicClient.readContract({ address: accountAddress, abi: ACCOUNT_ABI, functionName: "paused" }),
-        publicClient.readContract({ address: accountAddress, abi: ACCOUNT_ABI, functionName: "policy", args: [manager, tokenId] }),
+        readPolicy(publicClient, accountAddress, manager, tokenId),
         publicClient.readContract({ address: manager, abi: POSITION_ABI, functionName: "positions", args: [tokenId] }),
         publicClient.readContract({ address: row.pool as Address, abi: POOL_ABI, functionName: "slot0" }),
         publicClient.readContract({ address: row.pool as Address, abi: POOL_ABI, functionName: "tickSpacing" }),
@@ -197,29 +274,58 @@ export const run = internalAction({
       const side = heavySide(sqrtPriceX96, budget0, budget1);
       const range = chooseRange(currentTick, Number(spacingRaw), Number(policy.targetTickWidth), Number(policy.minimumAllowedTick), Number(policy.maximumAllowedTick), side);
 
+      const btbQuoter = configuredAddress("BTB_LP_QUOTER_4663", DEFAULT_BTB_QUOTER);
+      const aggregatorAdapter = configuredAddress("BTB_AGGREGATOR_ADAPTER_4663", DEFAULT_AGGREGATOR_ADAPTER);
       let tokenIn: Address = ZERO, tokenOut: Address = ZERO, amountIn = 0n, expectedOut = 0n, quotedMinimumOut = 0n;
       let swapData: Hex = "0x";
-      const planned = planSwap(sqrtPriceX96, range.tickLower, range.tickUpper, budget0, budget1);
-      if (planned.sellSide !== null && planned.amountIn > 0n) {
-        const inputBudget = planned.sellSide === 0 ? budget0 : budget1;
+      const planned = await publicClient.readContract({
+        address: btbQuoter, abi: BTB_QUOTER_ABI, functionName: "previewSwapToRange",
+        args: [policy.pool, range.tickLower, range.tickUpper, budget0, budget1],
+      });
+      const sellSide = same(planned.tokenIn, policy.token0) ? 0 : same(planned.tokenIn, policy.token1) ? 1 : null;
+      if (sellSide !== null && planned.amountIn > 0n) {
+        const inputBudget = sellSide === 0 ? budget0 : budget1;
         const percentageCap = inputBudget * BigInt(policy.maxSwapBpsOfPosition) / 10_000n;
-        const absoluteCap = planned.sellSide === 0 ? policy.maximumToken0PerExecution : policy.maximumToken1PerExecution;
+        const absoluteCap = sellSide === 0 ? policy.maximumToken0PerExecution : policy.maximumToken1PerExecution;
         amountIn = min(planned.amountIn, min(percentageCap, absoluteCap));
         if (amountIn > 0n) {
-          tokenIn = planned.sellSide === 0 ? policy.token0 : policy.token1;
-          tokenOut = planned.sellSide === 0 ? policy.token1 : policy.token0;
-          const quote = await publicClient.simulateContract({ address: QUOTER, abi: QUOTER_ABI, functionName: "quoteExactInputSingle", args: [{ tokenIn, tokenOut, amountIn, fee: Number(policy.fee), sqrtPriceLimitX96: 0n }] });
-          expectedOut = (quote.result as readonly [bigint, bigint, number, bigint])[0];
+          tokenIn = sellSide === 0 ? policy.token0 : policy.token1;
+          tokenOut = sellSide === 0 ? policy.token1 : policy.token0;
+          if (same(policy.swapAdapter, aggregatorAdapter)) {
+            try {
+              const kyber = await kyberSwapData(tokenIn, tokenOut, amountIn, 0n, aggregatorAdapter, Number(policy.maxSlippageBps));
+              expectedOut = kyber.expectedOut;
+              swapData = kyber.swapData;
+            } catch {
+              const quote = await publicClient.simulateContract({ address: UNISWAP_QUOTER, abi: QUOTER_ABI, functionName: "quoteExactInputSingle", args: [{ tokenIn, tokenOut, amountIn, fee: Number(policy.fee), sqrtPriceLimitX96: 0n }] });
+              expectedOut = (quote.result as readonly [bigint, bigint, number, bigint])[0];
+              const routerData = encodeFunctionData({ abi: ROUTER_ABI, functionName: "exactInputSingle", args: [{ tokenIn, tokenOut, fee: Number(policy.fee), recipient: aggregatorAdapter, amountIn, amountOutMinimum: protectedMinimum(expectedOut, Number(policy.maxSlippageBps)), sqrtPriceLimitX96: 0n }] });
+              swapData = encodeAbiParameters([{ type: "address" }, { type: "bytes" }], [UNISWAP_ROUTER, routerData]);
+            }
+          } else {
+            const quote = await publicClient.simulateContract({ address: UNISWAP_QUOTER, abi: QUOTER_ABI, functionName: "quoteExactInputSingle", args: [{ tokenIn, tokenOut, amountIn, fee: Number(policy.fee), sqrtPriceLimitX96: 0n }] });
+            expectedOut = (quote.result as readonly [bigint, bigint, number, bigint])[0];
+            swapData = encodeAbiParameters([{ type: "uint24" }, { type: "uint160" }], [Number(policy.fee), 0n]);
+          }
+          if (expectedOut === 0n) throw new PolicyActionRequired("The protected swap output is too small to rebalance");
           quotedMinimumOut = protectedMinimum(expectedOut, Number(policy.maxSlippageBps));
-          swapData = encodeAbiParameters([{ type: "uint24" }, { type: "uint160" }], [Number(policy.fee), 0n]);
-          if (planned.sellSide === 0) { budget0 -= amountIn; budget1 += expectedOut; }
+          if (sellSide === 0) { budget0 -= amountIn; budget1 += expectedOut; }
           else { budget1 -= amountIn; budget0 += expectedOut; }
         }
       }
 
-      const replacementLiquidity = liquidityForAmounts(sqrtPriceX96, range.tickLower, range.tickUpper, budget0, budget1);
-      if (replacementLiquidity === 0n) throw new PolicyActionRequired("Policy swap cap cannot fund a replacement position in the allowed range");
-      const [mint0, mint1] = amountsForLiquidity(sqrtPriceX96, range.tickLower, range.tickUpper, replacementLiquidity);
+      const mintPreview = await publicClient.readContract({
+        address: btbQuoter, abi: BTB_QUOTER_ABI, functionName: "previewMint",
+        args: [policy.pool, range.tickLower, range.tickUpper, budget0, budget1],
+      });
+      const [mint0, mint1, replacementLiquidity] = mintPreview;
+      if (replacementLiquidity < 1_000n || (mint0 === 0n && mint1 === 0n)) throw new PolicyActionRequired("The position is too small to rebalance safely");
+      const sqrtSquared = sqrtPriceX96 * sqrtPriceX96;
+      const totalValue = budget0 * sqrtSquared + budget1 * Q192;
+      const idleValue = (budget0 - mint0) * sqrtSquared + (budget1 - mint1) * Q192;
+      if (totalValue === 0n || idleValue * 10_000n > totalValue * BigInt(policy.maxIdleBps)) {
+        throw new PolicyActionRequired("The swap cap would leave too much capital outside the replacement range");
+      }
       const deadline = BigInt(Math.floor(now / 1000) + 480);
       const request = {
         newTickLower: range.tickLower, newTickUpper: range.tickUpper, tokenIn, tokenOut, amountIn, quotedMinimumOut,

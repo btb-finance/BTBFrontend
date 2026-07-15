@@ -18,7 +18,7 @@ const positionAbi = [{ name: "positions", type: "function", stateMutability: "vi
 const slot0Abi = [{ name: "slot0", type: "function", stateMutability: "view", inputs: [], outputs: [
   { type: "uint160" }, { type: "int24" }, { type: "uint16" }, { type: "uint16" }, { type: "uint16" }, { type: "uint8" }, { type: "bool" },
 ] }] as const;
-const policyAbi = [{ name: "policy", type: "function", stateMutability: "view", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "tuple", components: [
+const legacyPolicyComponents = [
   { name: "enabled", type: "bool" }, { name: "agent", type: "address" }, { name: "positionManager", type: "address" },
   { name: "uniswapFactory", type: "address" }, { name: "pool", type: "address" }, { name: "swapAdapter", type: "address" },
   { name: "priceGuard", type: "address" }, { name: "token0", type: "address" }, { name: "token1", type: "address" },
@@ -28,11 +28,22 @@ const policyAbi = [{ name: "policy", type: "function", stateMutability: "view", 
   { name: "twapSeconds", type: "uint32" }, { name: "minRebalanceInterval", type: "uint32" }, { name: "expiresAt", type: "uint64" },
   { name: "minimumAllowedTick", type: "int24" }, { name: "maximumAllowedTick", type: "int24" },
   { name: "maximumToken0PerExecution", type: "uint128" }, { name: "maximumToken1PerExecution", type: "uint128" },
-] }] }] as const;
+] as const;
+const policyComponents = [
+  ...legacyPolicyComponents.slice(0, 16),
+  { name: "maxIdleBps", type: "uint16" },
+  ...legacyPolicyComponents.slice(16),
+] as const;
+const policyAbi = [{ name: "policy", type: "function", stateMutability: "view", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "tuple", components: policyComponents }] }] as const;
+const legacyPolicyAbi = [{ name: "policy", type: "function", stateMutability: "view", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "tuple", components: legacyPolicyComponents }] }] as const;
 const policyKeyAbi = [{ name: "policyKey", type: "function", stateMutability: "pure", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bytes32" }] }] as const;
 const lastRebalanceAbi = [{ name: "lastRebalanceAt", type: "function", stateMutability: "view", inputs: [{ type: "bytes32" }], outputs: [{ type: "uint64" }] }] as const;
 
 type DueRow = { key: string; chainId: number; owner: string; account: string; positionManager: string; positionId: string; pool: string; expiresAt: number; minRebalanceInterval: number };
+
+function permanentPositionError(message: string) {
+  return /ERC721.*(?:invalid token|nonexistent|owner query)|ERC721NonexistentToken|Position custody changed|Automation policy disabled or changed/i.test(message);
+}
 
 const registration = {
   chainId: v.float64(), owner: v.string(), account: v.string(), positionManager: v.string(),
@@ -55,6 +66,15 @@ function expectedAgent(): string {
   return value.toLowerCase();
 }
 
+async function readPolicy(client: ReturnType<typeof chainClient>, account: Address, manager: Address, tokenId: bigint) {
+  try {
+    return await client.readContract({ address: account, abi: policyAbi, functionName: "policy", args: [manager, tokenId] });
+  } catch {
+    const legacy = await client.readContract({ address: account, abi: legacyPolicyAbi, functionName: "policy", args: [manager, tokenId] });
+    return { ...legacy, maxIdleBps: 10_000 };
+  }
+}
+
 /** Public registration is accepted only after the action proves the complete
  * smart-account/NFT/policy relationship directly against the chain. */
 export const register = action({
@@ -66,7 +86,7 @@ export const register = action({
       client.readContract({ address: args.account as Address, abi: ownerAbi, functionName: "owner" }),
       client.readContract({ address: args.positionManager as Address, abi: ownerOfAbi, functionName: "ownerOf", args: [tokenId] }),
       client.readContract({ address: args.positionManager as Address, abi: positionAbi, functionName: "positions", args: [tokenId] }),
-      client.readContract({ address: args.account as Address, abi: policyAbi, functionName: "policy", args: [args.positionManager as Address, tokenId] }),
+      readPolicy(client, args.account as Address, args.positionManager as Address, tokenId),
     ]);
     const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
     if (!same(accountOwner, args.owner) || !same(nftOwner, args.account)) throw new Error("The wallet does not own this managed account/position");
@@ -96,7 +116,7 @@ export const check = internalAction({
           client.readContract({ address: row.account as Address, abi: ownerAbi, functionName: "owner" }),
           client.readContract({ address: row.positionManager as Address, abi: ownerOfAbi, functionName: "ownerOf", args: [tokenId] }),
           client.readContract({ address: row.positionManager as Address, abi: positionAbi, functionName: "positions", args: [tokenId] }),
-          client.readContract({ address: row.account as Address, abi: policyAbi, functionName: "policy", args: [row.positionManager as Address, tokenId] }),
+          readPolicy(client, row.account as Address, row.positionManager as Address, tokenId),
           client.readContract({ address: row.pool as Address, abi: slot0Abi, functionName: "slot0" }),
           client.readContract({ address: row.account as Address, abi: pausedAbi, functionName: "paused" }),
           client.readContract({ address: row.account as Address, abi: policyKeyAbi, functionName: "policyKey", args: [row.positionManager as Address, tokenId] }),
@@ -127,9 +147,11 @@ export const check = internalAction({
         });
         if (queued) await ctx.scheduler.runAfter(0, internal.rebalanceWorker.run, {});
       } catch (error) {
+        const message = error instanceof Error ? error.message.slice(0, 300) : "Verification failed";
+        const retired = permanentPositionError(message);
         await ctx.runMutation(internal.managedPositions.saveCheck, {
-          key: row.key, status: "verification_error", enabled: true,
-          nextCheckAt: now + 5 * 60_000, error: error instanceof Error ? error.message.slice(0, 300) : "Verification failed",
+          key: row.key, status: retired ? "retired" : "verification_error", enabled: !retired,
+          nextCheckAt: retired ? now : now + 5 * 60_000, error: message,
           queueRebalance: false,
         });
       }

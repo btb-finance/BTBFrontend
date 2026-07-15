@@ -14,8 +14,8 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
-  BTB_LP_ACCOUNT_ABI, ERC721_OWNER_ABI, UINT128_MAX, createAccountCall,
-  getSmartAccountDeployment, readSmartAccount, type RebalancePolicy,
+  ERC721_OWNER_ABI, UINT128_MAX, configurePolicyCall, createAccountCall,
+  getSmartAccountDeployment, isModularDeployment, readSmartAccount, type RebalancePolicy,
 } from '../lib/smartAccount';
 import {
   rangeTicks, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, UNISWAP_V3_DEPLOYMENT,
@@ -66,7 +66,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         positionManager: deployment.positionManager,
         uniswapFactory: deployment.factory,
         pool,
-        swapAdapter: smartDeployment.swapAdapter,
+        swapAdapter: isModularDeployment(smartDeployment) ? smartDeployment.aggregatorSwapAdapter : smartDeployment.swapAdapter,
         priceGuard: smartDeployment.priceGuard,
         token0: pos.token0,
         token1: pos.token1,
@@ -77,6 +77,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: rules.maxSwapPct * 100,
         maxSpotTwapDeviationBps: rules.maxDeviationPct * 100,
+        maxIdleBps: 1_000,
         twapSeconds: rules.twapSeconds,
         minRebalanceInterval: rules.intervalSeconds,
         expiresAt: BigInt(Math.floor(Date.now() / 1000) + rules.expiryDays * 86_400),
@@ -124,10 +125,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
 
       await runCalls(config, {
         account, chainId, label: `Save ${pos.symbol0}/${pos.symbol1} automation rules`, track,
-        calls: [{
-          to: smart.account,
-          data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'configurePolicy', args: [policy] }),
-        }],
+        calls: [configurePolicyCall(smartDeployment, smart.account, policy)],
       });
       await registerManaged({
         chainId, owner: account, account: smart.account, positionManager: deployment.positionManager,
