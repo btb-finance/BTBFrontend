@@ -59,6 +59,12 @@ export function parsePoolPath(path: string): { chain: string; pair: string } | n
     : null;
 }
 
+/** /discover/<chain> → the chain slug (filters Discover to that chain). */
+export function parseDiscoverChainPath(path: string): string | null {
+  const segs = path.split('/').filter(Boolean);
+  return segs.length === 2 && segs[0].toLowerCase() === 'discover' ? segs[1].toLowerCase() : null;
+}
+
 /** True when a pool matches a deep-link's chain + pair (order-insensitive). */
 export function poolMatchesLink(poolChain: string, poolPair: string, link: { chain: string; pair: string }): boolean {
   if (chainSlug(poolChain) !== link.chain) return false;
