@@ -13,6 +13,7 @@ import { TokenIcon } from '../TokenIcon';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
+import { DiscoverStatusBanner } from '../DiscoverStatusBanner';
 import { Glass } from '../Glass';
 import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
@@ -230,6 +231,7 @@ export function DiscoverScreen() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <DiscoverStatusBanner isMobile={isMobile} />
       <div style={{ display: 'flex', gap: 10, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <div style={{
           flex: 1, minWidth: isMobile ? '100%' : 220, display: 'flex', alignItems: 'center', gap: 8,

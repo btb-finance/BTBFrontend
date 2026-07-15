@@ -17,6 +17,27 @@ const OTHER_NETWORKS = ALCHEMY_NETWORKS.filter(n => n !== 'eth-mainnet');
 /** Dust filter — skip balances too small to be worth a metadata+price lookup. */
 const MIN_RAW_BALANCE = 1n;
 
+// Stale-while-revalidate cache: the multichain balance fetch (Krystal upstream) is the slow part
+// of the Portfolio load, so we persist the last result per wallet and paint it instantly on the
+// next visit while a fresh copy loads in the background. Balances are only a display value here —
+// any transaction path re-reads live — so brief staleness is safe.
+const BALANCE_CACHE_PREFIX = 'btb:otherbal:v1:';
+
+function readBalanceCache(walletAddress: string): Token[] | null {
+  try {
+    const raw = window.localStorage.getItem(BALANCE_CACHE_PREFIX + walletAddress.toLowerCase());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { tokens?: Token[] };
+    return Array.isArray(parsed.tokens) ? parsed.tokens : null;
+  } catch { return null; }
+}
+
+function writeBalanceCache(walletAddress: string, tokens: Token[]) {
+  try {
+    window.localStorage.setItem(BALANCE_CACHE_PREFIX + walletAddress.toLowerCase(), JSON.stringify({ at: Date.now(), tokens }));
+  } catch { /* private mode / quota — cache is best-effort */ }
+}
+
 export function useOtherChainBalances(walletAddress?: string) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,7 +46,10 @@ export function useOtherChainBalances(walletAddress?: string) {
   useEffect(() => {
     if (!walletAddress) { setTokens([]); return; }
     let cancelled = false;
-    setLoading(true);
+    // Paint the last-known balances immediately; only show the skeleton on a cold cache.
+    const cached = readBalanceCache(walletAddress);
+    if (cached && cached.length > 0) { setTokens(cached); setLoading(false); }
+    else setLoading(true);
     setError(null);
 
     (async () => {
@@ -81,6 +105,7 @@ export function useOtherChainBalances(walletAddress?: string) {
         }
         if (cancelled) return;
         setTokens(result);
+        writeBalanceCache(walletAddress, result);
         return;
       } catch {
         // Alchemy remains a fallback only when Krystal is unavailable.
@@ -147,7 +172,7 @@ export function useOtherChainBalances(walletAddress?: string) {
         });
       }
 
-      if (!cancelled) setTokens(result);
+      if (!cancelled) { setTokens(result); writeBalanceCache(walletAddress, result); }
     })()
       .catch((e: Error) => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });

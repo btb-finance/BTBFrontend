@@ -11,6 +11,7 @@ import {
 import { Portal } from './Portal';
 import { Glass } from './Glass';
 import { Button } from './Button';
+import { RangeRatioBar } from './RangeRatioBar';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -97,6 +98,7 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rangeQuote, setRangeQuote] = useState<{ amount0: bigint; amount1: bigint; liquidity: bigint; swapPct: number } | null>(null);
+  const [rangeSplit, setRangeSplit] = useState<{ value0Bps: number; value1Bps: number } | null>(null);
 
   const chainId = (pos.chainId ?? 1) as 1 | 4663;
   const deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
@@ -150,6 +152,23 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
     });
     return () => { live = false; };
   }, [owner, chainId, config, pos.token0, pos.token1, smartAccount, smartDeployment.agentRegistry]);
+
+  // The target token mix depends only on the pool and range, not the amount, so it is fetched once.
+  useEffect(() => {
+    setRangeSplit(null);
+    const quoter = smartDeployment.quoter;
+    if (chainId !== 4663 || !isModularDeployment(smartDeployment) || !quoter || !pool) return;
+    let live = true;
+    const client = getPublicClient(config, { chainId });
+    if (!client) return;
+    client.readContract({
+      address: quoter, abi: BTB_LP_QUOTER_ABI, functionName: 'rangeValueSplitBps',
+      args: [pool, pos.tickLower, pos.tickUpper],
+    }).then(([value0Bps, value1Bps]) => {
+      if (live) setRangeSplit({ value0Bps: Number(value0Bps), value1Bps: Number(value1Bps) });
+    }).catch(() => { if (live) setRangeSplit(null); });
+    return () => { live = false; };
+  }, [chainId, config, pool, pos.tickLower, pos.tickUpper, smartDeployment]);
 
   useEffect(() => {
     setRangeQuote(null);
@@ -379,8 +398,17 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
         <input value={amountText} onChange={(event) => setAmountText(event.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" autoFocus style={{ width: '100%', height: 52, boxSizing: 'border-box', borderRadius: 14, padding: '0 14px', outline: 'none', border: btb.borderSoft, background: 'rgba(255,255,255,.055)', color: btb.text, fontFamily: 'inherit', fontSize: 21, fontWeight: 750 }}/>
         {!usesBtbQuoter && inputAmount > 0n && swapPct > 0 && <div style={{ marginTop: 9, color: btb.textMuted, fontSize: 11.5 }}>Swap only ~{swapPct}% to {plan.sellSide === 0 ? pos.symbol1 : pos.symbol0}, then add both sides.</div>}
         {!usesBtbQuoter && inputAmount > 0n && swapPct === 0 && <div style={{ marginTop: 9, color: btb.textMuted, fontSize: 11.5 }}>No swap needed for this range.</div>}
+        {usesBtbQuoter && rangeSplit && (
+          <RangeRatioBar
+            symbol0={pos.symbol0}
+            symbol1={pos.symbol1}
+            value0Bps={rangeSplit.value0Bps}
+            value1Bps={rangeSplit.value1Bps}
+            swapPct={rangeQuote?.swapPct}
+          />
+        )}
         {rangeQuote && <Glass padding={10} radius={12} soft style={{ marginTop: 9 }}>
-          <div style={{ color: btb.textMuted, fontSize: 10.5 }}>BTB range quote · {rangeQuote.swapPct > 0 ? `swap ${rangeQuote.swapPct.toFixed(1)}%` : 'no swap'}</div>
+          <div style={{ color: btb.textMuted, fontSize: 10.5 }}>Estimated deposit</div>
           <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, marginTop: 3 }}>{fmt(rangeQuote.amount0, pos.decimals0)} {pos.symbol0} + {fmt(rangeQuote.amount1, pos.decimals1)} {pos.symbol1}</div>
           {rangeQuote.liquidity < 1_000n && <div style={{ color: btb.loss, fontSize: 10.5, marginTop: 3 }}>Amount is too small for usable liquidity.</div>}
         </Glass>}
