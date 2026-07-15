@@ -66,6 +66,25 @@ export const due = internalQuery({
     .filter(row => row.enabled),
 });
 
+/** Idempotent cleanup for rows created before permanent NFT failures were
+ * classified. The audit record remains, but the monitor will never poll it. */
+export const retirePermanentFailures = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("managedLpPositions").withIndex("by_status", q => q.eq("status", "verification_error")).collect();
+    const now = Date.now();
+    let retired = 0;
+    for (const row of rows) {
+      const message = row.lastError ?? "";
+      if (/ERC721.*(?:invalid token|nonexistent|owner query)|ERC721NonexistentToken|Position custody changed|Automation policy disabled or changed/i.test(message)) {
+        await ctx.db.patch(row._id, { status: "retired", enabled: false, nextCheckAt: now, updatedAt: now });
+        retired += 1;
+      }
+    }
+    return retired;
+  },
+});
+
 export const saveCheck = internalMutation({
   args: {
     key: v.string(), positionId: v.optional(v.string()), tickLower: v.optional(v.float64()),
@@ -134,11 +153,24 @@ export const completeJob = internalMutation({
     const row = await ctx.db.query("managedLpPositions").withIndex("by_key", q => q.eq("key", args.oldKey)).unique();
     if (row) {
       const newKey = positionKey(row.chainId, row.positionManager, args.newPositionId);
+      // The frontend may reconcile the replacement NFT before the receipt
+      // worker runs. Keep the original row's audit history and remove that
+      // short-lived duplicate before atomically migrating old ID -> new ID.
+      const duplicates = await ctx.db.query("managedLpPositions").withIndex("by_key", q => q.eq("key", newKey)).collect();
+      for (const duplicate of duplicates) {
+        if (duplicate._id !== row._id) await ctx.db.delete(duplicate._id);
+      }
       await ctx.db.patch(row._id, {
         key: newKey, positionId: args.newPositionId, tickLower: args.tickLower, tickUpper: args.tickUpper,
         status: "pending_verification", enabled: true, nextCheckAt: args.now,
         lastRebalanceAt: args.now, lastCheckedAt: args.now, updatedAt: args.now, lastError: undefined,
       });
+    }
+    const siblingJobs = await ctx.db.query("rebalanceJobs").withIndex("by_position", q => q.eq("positionKey", args.oldKey)).collect();
+    for (const sibling of siblingJobs) {
+      if (sibling._id !== args.jobId && ["pending", "running", "blocked", "failed"].includes(sibling.state)) {
+        await ctx.db.patch(sibling._id, { state: "superseded", updatedAt: args.now, error: "Position replaced by a successful rebalance" });
+      }
     }
     if (job) await ctx.db.patch(job._id, {
       state: "succeeded", txHash: args.txHash, signedTransaction: undefined, updatedAt: args.now, error: undefined,

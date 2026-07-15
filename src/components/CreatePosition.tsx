@@ -15,8 +15,12 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } from './AutomationRules';
 import {
-  UINT128_MAX, approvalCall, createAccountCall, fundAndCreateCall, getSmartAccountDeployment,
-  minWithSlippage, readSmartAccount, wrapEthCall, type RebalancePolicy,
+  BTB_AGENT_REGISTRY_ABI, CREATE_FROM_ACCOUNT_SELECTOR, CREATE_TWO_TOKENS_SELECTOR,
+  EMPTY_FRESH_SWAP_ARGS, EMPTY_ZAP_LEG,
+  UINT128_MAX, approvalCall, configureSelfAgentCall, createAccountCall, depositTokenCall,
+  encodeCreateZapRequest, encodeDualCreateRequest, fundAndCreateCall,
+  getSmartAccountDeployment, isModularDeployment, minWithSlippage, readSmartAccount,
+  scheduleDualInstructionCall, scheduleSingleInstructionCall, wrapEthCall, type RebalancePolicy,
 } from '../lib/smartAccount';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
@@ -120,6 +124,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const config = useConfig();
   const { track } = useTx();
   const registerManaged = useAction(api.managedPositionMonitor.register);
+  const executeAgentZap = useAction(api.zapAgent.execute);
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
@@ -606,7 +611,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         positionManager: deployment.positionManager,
         uniswapFactory: deployment.factory,
         pool: pool.address,
-        swapAdapter: smartDeployment.swapAdapter,
+        swapAdapter: isModularDeployment(smartDeployment) ? smartDeployment.aggregatorSwapAdapter : smartDeployment.swapAdapter,
         priceGuard: smartDeployment.priceGuard,
         token0: pool.token0,
         token1: pool.token1,
@@ -617,6 +622,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         maxSlippageBps: slippageBps,
         maxSwapBpsOfPosition: automationRules.maxSwapPct * 100,
         maxSpotTwapDeviationBps: automationRules.maxDeviationPct * 100,
+        maxIdleBps: 1_000,
         twapSeconds: automationRules.twapSeconds,
         minRebalanceInterval: automationRules.intervalSeconds,
         expiresAt: BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400),
@@ -632,22 +638,78 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const beforeCount = await client.readContract({
         address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account],
       }).catch(() => BigInt(beforePositions.length));
-      const calls = [
-        ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
-        ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)] : []),
-        ...(ethMode && wethSide === 1 ? [wrapEthCall(chainWeth, add1)] : []),
-        approvalCall(pool.token0, smart.account, add0),
-        approvalCall(pool.token1, smart.account, add1),
-        fundAndCreateCall(smart.account, {
-          pool: pool.address,
-          token0: pool.token0,
-          token1: pool.token1,
-          fee,
-          deadline: BigInt(Math.floor(Date.now() / 1000) + 8 * 60),
-          mode: splitRange ? 1 : 0,
-          specs,
-        }, policy),
-      ].filter((call): call is NonNullable<typeof call> => call !== null);
+      let calls;
+      const pendingZaps: { instructionId: bigint; pinnedArgs: `0x${string}`; freshArgs: `0x${string}` }[] = [];
+      if (isModularDeployment(smartDeployment)) {
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        let instructionId = await client.readContract({
+          address: smartDeployment.agentRegistry,
+          abi: BTB_AGENT_REGISTRY_ABI,
+          functionName: 'nextInstructionId',
+          args: [smart.account],
+        });
+        calls = [
+          ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
+          ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)!] : []),
+          ...(ethMode && wethSide === 1 ? [wrapEthCall(chainWeth, add1)!] : []),
+          approvalCall(pool.token0, smart.account, add0),
+          approvalCall(pool.token1, smart.account, add1),
+          depositTokenCall(smart.account, pool.token0, add0),
+          depositTokenCall(smart.account, pool.token1, add1),
+          configureSelfAgentCall(smartDeployment, smart.account, smartDeployment.agent, 12),
+        ].filter((call): call is NonNullable<typeof call> => call !== null);
+
+        for (const spec of specs) {
+          if (spec.amount0Desired > 0n && spec.amount1Desired > 0n) {
+            const pinned = encodeDualCreateRequest({
+              account: smart.account, token0: pool.token0, token1: pool.token1, fee,
+              tickLower: spec.tickLower, tickUpper: spec.tickUpper,
+              amount0: spec.amount0Desired, amount1: spec.amount1Desired,
+              amount0Min: spec.amount0Min, amount1Min: spec.amount1Min, policy,
+            });
+            calls.push(
+              scheduleDualInstructionCall(
+                smartDeployment, smart.account, smartDeployment.agent,
+                pool.token0, spec.amount0Desired, pool.token1, spec.amount1Desired,
+                now, now + 8n * 60n, 4, CREATE_TWO_TOKENS_SELECTOR, pinned,
+              ),
+            );
+            pendingZaps.push({ instructionId: instructionId++, pinnedArgs: pinned, freshArgs: EMPTY_FRESH_SWAP_ARGS });
+          } else {
+            const fundingToken = spec.amount0Desired > 0n ? pool.token0 : pool.token1;
+            const fundingAmount = spec.amount0Desired > 0n ? spec.amount0Desired : spec.amount1Desired;
+            const directLeg = { tokenOut: fundingToken, amountIn: fundingAmount, quotedMinimumOut: 0n, path: '0x' as const };
+            const pinned = encodeCreateZapRequest({
+              account: smart.account, fundingToken, fundingAmount,
+              token0: pool.token0, token1: pool.token1, fee,
+              tickLower: spec.tickLower, tickUpper: spec.tickUpper,
+              leg0: directLeg, leg1: EMPTY_ZAP_LEG,
+              amount0Min: spec.amount0Min, amount1Min: spec.amount1Min,
+              twapSeconds: policy.twapSeconds, maxSlippageBps: policy.maxSlippageBps,
+              maxSpotTwapDeviationBps: policy.maxSpotTwapDeviationBps, policy,
+            });
+            calls.push(
+              scheduleSingleInstructionCall(
+                smartDeployment, smart.account, smartDeployment.agent, fundingToken, fundingAmount,
+                now, now + 8n * 60n, 4, CREATE_FROM_ACCOUNT_SELECTOR, pinned,
+              ),
+            );
+            pendingZaps.push({ instructionId: instructionId++, pinnedArgs: pinned, freshArgs: EMPTY_FRESH_SWAP_ARGS });
+          }
+        }
+      } else {
+        calls = [
+          ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
+          ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)] : []),
+          ...(ethMode && wethSide === 1 ? [wrapEthCall(chainWeth, add1)] : []),
+          approvalCall(pool.token0, smart.account, add0),
+          approvalCall(pool.token1, smart.account, add1),
+          fundAndCreateCall(smart.account, {
+            pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
+            deadline: BigInt(Math.floor(Date.now() / 1000) + 8 * 60), mode: splitRange ? 1 : 0, specs,
+          }, policy),
+        ].filter((call): call is NonNullable<typeof call> => call !== null);
+      }
       setStepMsg(splitRange ? 'Creating two managed LPs…' : 'Creating managed LP…');
       await runCalls(config, {
         account: owner,
@@ -655,11 +717,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         label: `Create managed ${pool.symbol0}/${pool.symbol1} LP`,
         track,
         chainId,
-        verify: {
+        verify: isModularDeployment(smartDeployment) ? undefined : {
           test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account] })) > beforeCount,
           error: 'The managed position was confirmed but is not visible from this RPC yet.',
         },
       });
+      for (let index = 0; index < pendingZaps.length; index += 1) {
+        setStepMsg(`Agent adding managed LP ${index + 1}/${pendingZaps.length}…`);
+        const zap = pendingZaps[index];
+        await executeAgentZap({
+          chainId, account: smart.account, instructionId: zap.instructionId.toString(),
+          pinnedArgs: zap.pinnedArgs, freshArgs: zap.freshArgs,
+        });
+      }
       setStepMsg('Saving automation monitor…');
       const created = (await fetchV3Positions(client, smart.account, deployment))
         .filter(position => !beforeIds.has(position.id.toString()));

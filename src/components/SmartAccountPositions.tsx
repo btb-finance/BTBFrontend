@@ -17,7 +17,8 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
-  BTB_EARNINGS_PREFERENCES_ABI, BTB_LP_ACCOUNT_ABI, createAccountCall, getLegacySmartAccountDeployments,
+  BTB_EARNINGS_PREFERENCES_ABI, BTB_LEGACY_LP_ACCOUNT_ABI, BTB_LP_ACCOUNT_ABI,
+  createAccountCall, getLegacySmartAccountDeployments,
   getSmartAccountDeployment, readSmartAccount,
   shortAddress, type RebalancePolicy, type SmartAccountChainId, type SmartAccountDeployment,
 } from '../lib/smartAccount';
@@ -42,6 +43,7 @@ interface ManagedItem {
   pos: LiquidityPosition;
   account: AccountState;
   policy: RebalancePolicy | null;
+  earningsMode: number;
 }
 
 const CHAINS: { chainId: SmartAccountChainId; chainName: string; v3: V3Deployment; explorer: string }[] = [
@@ -73,7 +75,8 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
   const [manualRebalance, setManualRebalance] = useState<ManagedItem | null>(null);
   const [editPolicy, setEditPolicy] = useState<ManagedItem | null>(null);
   const [addLiquidity, setAddLiquidity] = useState<ManagedItem | null>(null);
-  const [editingEarnings, setEditingEarnings] = useState<SmartAccountChainId | null>(null);
+  const [editingAccountEarnings, setEditingAccountEarnings] = useState<SmartAccountChainId | null>(null);
+  const [editingPositionEarnings, setEditingPositionEarnings] = useState<ManagedItem | null>(null);
   const [earningsMode, setEarningsMode] = useState(0);
   const [payoutToken, setPayoutToken] = useState('');
 
@@ -86,7 +89,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         const smartDeployment = getSmartAccountDeployment(chain.chainId);
         const client = getPublicClient(config, { chainId: chain.chainId });
         if (!smartDeployment || !client) return;
-        const preference = smartDeployment.earningsPreferences
+        const preference = smartDeployment.earningsPreferences && !smartDeployment.agentRegistry
           ? await client.readContract({ address: smartDeployment.earningsPreferences, abi: BTB_EARNINGS_PREFERENCES_ABI, functionName: 'preferenceOf', args: [address] }).catch(() => [0, zeroAddress] as const)
           : [0, zeroAddress] as const;
 
@@ -97,8 +100,24 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
           if (!smart.deployed) return;
           const owned = await fetchV3Positions(client, smart.account, chain.v3).catch(() => []);
           const withPolicies = await Promise.all(owned.map(async (pos): Promise<ManagedItem> => {
-            const policy = await client.readContract({ address: smart.account, abi: BTB_LP_ACCOUNT_ABI, functionName: 'policy', args: [chain.v3.positionManager, pos.id] }).catch(() => null);
-            return { pos: { ...pos, chainId: chain.chainId, chainName: chain.chainName }, account: accountState, policy: policy as RebalancePolicy | null };
+            const raw = await client.readContract({
+              address: smart.account,
+              abi: deployment.agentRegistry ? BTB_LP_ACCOUNT_ABI : BTB_LEGACY_LP_ACCOUNT_ABI,
+              functionName: 'policy', args: [chain.v3.positionManager, pos.id],
+            }).catch(() => null);
+            const policy = raw ? { ...raw, maxIdleBps: 'maxIdleBps' in raw ? Number(raw.maxIdleBps) : 10_000 } as RebalancePolicy : null;
+            const earnings = deployment.agentRegistry && policy
+              ? await client.readContract({
+                address: smart.account, abi: BTB_LP_ACCOUNT_ABI, functionName: 'earningsConfig',
+                args: [chain.v3.positionManager, pos.id],
+              }).catch(() => null)
+              : null;
+            return {
+              pos: { ...pos, chainId: chain.chainId, chainName: chain.chainName },
+              account: accountState,
+              policy,
+              earningsMode: earnings ? Number(earnings.mode) : accountState.earningsMode,
+            };
           }));
           foundPositions.push(...withPolicies);
           await Promise.allSettled(withPolicies.filter(item => item.policy).map(item => {
@@ -166,7 +185,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
   }
 
   async function saveEarnings(state: AccountState) {
-    const registry = state.deployment.earningsPreferences;
+    const registry = state.deployment.agentRegistry ? undefined : state.deployment.earningsPreferences;
     const token = earningsMode === 2 ? payoutToken.trim() : zeroAddress;
     if (!registry) return;
     if (earningsMode === 2 && (!isAddress(token) || token === zeroAddress)) {
@@ -178,7 +197,32 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         account: address, chainId: state.chainId, label: 'Save LP earnings preference', track,
         calls: [{ to: registry, data: encodeFunctionData({ abi: BTB_EARNINGS_PREFERENCES_ABI, functionName: 'setPreference', args: [earningsMode, token as `0x${string}`] }) }],
       });
-      setEditingEarnings(null); await load();
+      setEditingAccountEarnings(null); await load();
+    } catch (e) { setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed'); }
+    finally { setBusy(null); }
+  }
+
+  async function savePositionEarnings(item: ManagedItem) {
+    const key = `${item.account.account}-${item.pos.id}`;
+    const chain = CHAINS.find((entry) => entry.chainId === item.account.chainId)!;
+    setBusy(key); setErr(null);
+    try {
+      await runCalls(config, {
+        account: address,
+        chainId: item.account.chainId,
+        label: earningsMode === 1 ? `Auto-compound ${item.pos.symbol0}/${item.pos.symbol1} fees` : `Claim ${item.pos.symbol0}/${item.pos.symbol1} fees as pool tokens`,
+        track,
+        calls: [{
+          to: item.account.account,
+          data: encodeFunctionData({
+            abi: BTB_LP_ACCOUNT_ABI,
+            functionName: 'configureEarnings',
+            args: [chain.v3.positionManager, item.pos.id, earningsMode, zeroAddress, '0x', '0x'],
+          }),
+        }],
+      });
+      setEditingPositionEarnings(null);
+      await load();
     } catch (e) { setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed'); }
     finally { setBusy(null); }
   }
@@ -245,11 +289,11 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                   ) : (
                     <>
                       <Button variant="ghost" size="sm" onClick={() => togglePause(state)} disabled={!canTransact || isBusy} style={{ height: 31, fontSize: 11, border: btb.borderSoft }}>{isBusy ? 'Confirming…' : state.paused ? 'Resume all' : 'Pause all'}</Button>
-                      {state.deployment.earningsPreferences && <Button variant="ghost" size="sm" onClick={() => { setEditingEarnings(state.chainId); setEarningsMode(state.earningsMode); setPayoutToken(state.payoutToken === zeroAddress ? '' : state.payoutToken); }} disabled={!canTransact} style={{ height: 31, fontSize: 11, border: btb.borderSoft }}>Earnings</Button>}
+                      {state.deployment.earningsPreferences && !state.deployment.agentRegistry && <Button variant="ghost" size="sm" onClick={() => { setEditingAccountEarnings(state.chainId); setEarningsMode(state.earningsMode); setPayoutToken(state.payoutToken === zeroAddress ? '' : state.payoutToken); }} disabled={!canTransact} style={{ height: 31, fontSize: 11, border: btb.borderSoft }}>Earnings</Button>}
                     </>
                   )}
                 </div>
-                {editingEarnings === state.chainId && state.deployment.earningsPreferences && (
+                {editingAccountEarnings === state.chainId && state.deployment.earningsPreferences && !state.deployment.agentRegistry && (
                   <div style={{ marginTop: 8, paddingTop: 8, borderTop: btb.borderSoft }}>
                     <select value={earningsMode} onChange={(e) => setEarningsMode(Number(e.target.value))} style={{ width: '100%', height: 32, borderRadius: 8, padding: '0 8px', color: btb.text, background: 'rgba(255,255,255,.06)', border: btb.borderSoft }}>
                       <option value={0}>Claim in pool tokens</option><option value={1}>Compound earnings</option><option value={2}>Send as one token</option>
@@ -258,7 +302,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                       <input value={payoutToken} onChange={(e) => setPayoutToken(e.target.value)} placeholder="Token contract (for example USDG)" style={{ boxSizing: 'border-box', width: '100%', height: 32, marginTop: 6, borderRadius: 8, padding: '0 8px', color: btb.text, background: 'rgba(255,255,255,.06)', border: btb.borderSoft, outline: 'none', fontSize: 10.5 }}/>
                     )}
                     <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.4, marginTop: 5 }}>Funds always go to your wallet. Conversion runs only when a protected liquid route exists.</div>
-                    <div style={{ display: 'flex', gap: 6, marginTop: 7 }}><Button variant="success" size="sm" onClick={() => saveEarnings(state)} disabled={busy === `earnings-${state.chainId}`} style={{ height: 30, fontSize: 10.5 }}>{busy === `earnings-${state.chainId}` ? 'Saving…' : 'Save'}</Button><Button variant="ghost" size="sm" onClick={() => setEditingEarnings(null)} style={{ height: 30, fontSize: 10.5 }}>Cancel</Button></div>
+                    <div style={{ display: 'flex', gap: 6, marginTop: 7 }}><Button variant="success" size="sm" onClick={() => saveEarnings(state)} disabled={busy === `earnings-${state.chainId}`} style={{ height: 30, fontSize: 10.5 }}>{busy === `earnings-${state.chainId}` ? 'Saving…' : 'Save'}</Button><Button variant="ghost" size="sm" onClick={() => setEditingAccountEarnings(null)} style={{ height: 30, fontSize: 10.5 }}>Cancel</Button></div>
                   </div>
                 )}
               </div>
@@ -301,10 +345,22 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                 </div>
               </div>
             )}
+            {editingPositionEarnings === item && item.account.deployment.agentRegistry && (
+              <div style={{ marginTop: 8, padding: 9, borderRadius: 10, background: 'rgba(82,227,164,.045)', border: '1px solid rgba(82,227,164,.18)' }}>
+                <div style={{ color: btb.text, fontSize: 11, fontWeight: 800 }}>Fee earnings</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 7 }}>
+                  <button type="button" onClick={() => setEarningsMode(0)} style={{ minHeight: 42, borderRadius: 9, border: earningsMode === 0 ? '1px solid rgba(82,227,164,.55)' : btb.borderSoft, background: earningsMode === 0 ? 'rgba(82,227,164,.1)' : 'rgba(255,255,255,.025)', color: btb.text, fontSize: 10.5, fontWeight: 750, cursor: 'pointer' }}>Claim pool tokens</button>
+                  <button type="button" onClick={() => setEarningsMode(1)} style={{ minHeight: 42, borderRadius: 9, border: earningsMode === 1 ? '1px solid rgba(82,227,164,.55)' : btb.borderSoft, background: earningsMode === 1 ? 'rgba(82,227,164,.1)' : 'rgba(255,255,255,.025)', color: btb.text, fontSize: 10.5, fontWeight: 750, cursor: 'pointer' }}>Auto-compound</button>
+                </div>
+                <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.45, marginTop: 6 }}>{earningsMode === 1 ? 'The approved agent can put earned fees back into this NFT under your swap, range and price limits.' : 'Claim sends your share of both pool tokens to your fixed owner wallet after the protocol fee.'}</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}><Button variant="success" size="sm" onClick={() => savePositionEarnings(item)} disabled={isBusy} style={{ height: 30, fontSize: 10.5 }}>{isBusy ? 'Saving…' : 'Save'}</Button><Button variant="ghost" size="sm" onClick={() => setEditingPositionEarnings(null)} style={{ height: 30, fontSize: 10.5 }}>Cancel</Button></div>
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
               <Button variant="ghost" size="sm" onClick={() => setAddLiquidity(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: '1px solid rgba(82,227,164,.28)', color: btb.green }}>Add more</Button>
               {item.account.chainId === 4663 && item.policy && <Button variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, boxShadow: 'none' }}>Compound / rebalance</Button>}
               {item.account.chainId === 4663 && item.policy && <Button variant="ghost" size="sm" onClick={() => setEditPolicy(item)} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Change rules</Button>}
+              {item.account.deployment.agentRegistry && item.policy && <Button variant="ghost" size="sm" onClick={() => { setEditingPositionEarnings(item); setEarningsMode(item.earningsMode); }} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Fees: {item.earningsMode === 1 ? 'compound' : item.earningsMode === 2 ? 'one token' : 'pool tokens'}</Button>}
               {item.policy && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>Claim fees</Button>}
               {item.policy?.enabled && <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'revoke')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: btb.borderSoft }}>{isBusy ? 'Confirming…' : 'Stop agent'}</Button>}
               <Button variant="ghost" size="sm" onClick={() => positionAction(item, 'withdraw')} disabled={!canTransact || isBusy} style={{ height: 32, fontSize: 11, border: '1px solid rgba(255,179,107,0.28)', color: btb.amber }}>{isBusy ? 'Confirming…' : 'Return NFT to wallet'}</Button>
@@ -322,7 +378,10 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
       />}
       {addLiquidity && <ManagedAddLiquiditySheet
         pos={addLiquidity.pos}
-        account={address}
+        pool={addLiquidity.policy?.pool}
+        owner={address}
+        smartAccount={addLiquidity.account.account}
+        smartDeployment={addLiquidity.account.deployment}
         onClose={() => setAddLiquidity(null)}
         onDone={async () => { setAddLiquidity(null); await load(); }}
       />}
