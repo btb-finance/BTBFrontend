@@ -6,6 +6,7 @@ import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFe
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools, prefetchDiscoverPools } from '../../lib/discoverPools';
 import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { poolPath, parsePoolPath, poolMatchesLink } from '../../lib/routes';
 
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 import { DataTable, Column } from '../DataTable';
@@ -38,6 +39,42 @@ export function DiscoverScreen() {
   useEffect(() => {
     prefetchDiscoverPools(getPublicClient(config));
   }, [config]);
+
+  // Open a pool. Minting flows put a shareable URL in the address bar
+  // (/discover/<chain>/<pair>); simulate previews stay on /discover.
+  const openPool = (pool: EarnPool, simulate: boolean) => {
+    setSheet({ pool, simulate });
+    if (!simulate) window.history.pushState(null, '', poolPath(pool.chain, pool.pair));
+  };
+  const closeSheet = () => {
+    setSheet(null);
+    if (parsePoolPath(window.location.pathname)) window.history.pushState(null, '', '/discover');
+  };
+
+  // Resolve a shared /discover/<chain>/<pair> link once pools are loaded. If the
+  // pool isn't in the list, fall back to seeding the search with the pair.
+  const openedFromUrl = useRef(false);
+  useEffect(() => {
+    if (openedFromUrl.current || sheet || pools.length === 0) return;
+    const link = parsePoolPath(window.location.pathname);
+    if (!link) return;
+    openedFromUrl.current = true;
+    const pool = pools.find(p => poolMatchesLink(p.chain, p.pair, link) && mintTarget(p) !== null);
+    if (pool) setSheet({ pool, simulate: false });
+    else setSearch(link.pair.replace(/-/g, ' '));
+  }, [pools, sheet]);
+
+  // Keep the sheet in sync with browser back/forward on the pool URL.
+  useEffect(() => {
+    const onPop = () => {
+      const link = parsePoolPath(window.location.pathname);
+      if (!link) { setSheet(null); return; }
+      const pool = pools.find(p => poolMatchesLink(p.chain, p.pair, link) && mintTarget(p) !== null);
+      setSheet(pool ? { pool, simulate: false } : null);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [pools]);
 
   // Single-token market search: when the query names a token (symbol or
   // address), pull EVERY pool for it across all DEXes via the same
@@ -212,7 +249,7 @@ export function DiscoverScreen() {
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
             {mintable && (
-              <Button variant="success" size="sm" onClick={() => setSheet({ pool: p, simulate: false })}
+              <Button variant="success" size="sm" onClick={() => openPool(p, false)}
                 style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, boxShadow: 'none', whiteSpace: 'nowrap' }}>
                 <Icon name="plus" size={11} /> Add LP
               </Button>
@@ -275,7 +312,7 @@ export function DiscoverScreen() {
             const mintable = mintTarget(p) !== null;
             const simulatable = mintTarget(p, true) !== null;
             return (
-              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? setSheet({ pool: p, simulate: false }) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
+              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? openPool(p, false) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ display: 'flex', flexShrink: 0 }}>
                     <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
@@ -322,7 +359,7 @@ export function DiscoverScreen() {
 
                 <div style={{ display: 'flex', gap: 8, marginTop: 12 }} onClick={e => e.stopPropagation()}>
                   {mintable && (
-                    <Button variant="success" size="sm" onClick={() => setSheet({ pool: p, simulate: false })}
+                    <Button variant="success" size="sm" onClick={() => openPool(p, false)}
                       style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
                       <Icon name="plus" size={12} /> Add LP
                     </Button>
@@ -346,7 +383,7 @@ export function DiscoverScreen() {
             emptyMessage="No pools found"
             defaultSortKey="tvl"
             onRowClick={p => mintTarget(p, true)
-              ? setSheet({ pool: p, simulate: mintTarget(p) === null })
+              ? openPool(p, mintTarget(p) === null)
               : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
           />
         </div>
@@ -411,8 +448,8 @@ export function DiscoverScreen() {
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
           tokenPricesUsd={sheet.pool.tokenPricesUsd}
           simulate={sheet.simulate}
-          onClose={() => setSheet(null)}
-          onDone={() => setSheet(null)}
+          onClose={closeSheet}
+          onDone={closeSheet}
         />
       )}
     </div>

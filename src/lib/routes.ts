@@ -29,3 +29,40 @@ export function parsePath(path: string): { screen: Tab; overlay: Overlay } {
   const entry = (Object.entries(TAB_PATHS) as [Tab, string][]).find(([, p]) => p === `/${seg}`);
   return entry ? { screen: entry[0], overlay: null } : { screen: 'home', overlay: null };
 }
+
+// ── Shareable pool deep links: /discover/<chain>/<pair> ──────────────────────
+// e.g. /discover/robinhoodchain/cashcat-eth opens the Add-liquidity flow for
+// that pool. WETH is normalised to "eth" so the URL reads the way users expect.
+
+function normSymbol(sym: string): string {
+  const s = sym.toLowerCase();
+  return s === 'weth' ? 'eth' : s;
+}
+
+export function chainSlug(chain: string): string {
+  return chain.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** Order-preserving pair slug, e.g. "CASHCAT-WETH" → "cashcat-eth". */
+export function pairSlug(pair: string): string {
+  return pair.split(/[-/]/).map(normSymbol).filter(Boolean).join('-');
+}
+
+export function poolPath(chain: string, pair: string): string {
+  return `/discover/${chainSlug(chain)}/${pairSlug(pair)}`;
+}
+
+export function parsePoolPath(path: string): { chain: string; pair: string } | null {
+  const segs = path.split('/').filter(Boolean);
+  return segs.length === 3 && segs[0].toLowerCase() === 'discover'
+    ? { chain: segs[1].toLowerCase(), pair: segs[2].toLowerCase() }
+    : null;
+}
+
+/** True when a pool matches a deep-link's chain + pair (order-insensitive). */
+export function poolMatchesLink(poolChain: string, poolPair: string, link: { chain: string; pair: string }): boolean {
+  if (chainSlug(poolChain) !== link.chain) return false;
+  const have = pairSlug(poolPair).split('-').sort().join('-');
+  const want = link.pair.split('-').map(normSymbol).sort().join('-');
+  return have === want;
+}
