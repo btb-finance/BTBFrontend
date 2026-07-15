@@ -514,7 +514,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
             )}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(132px, 1fr))', gap: 7, marginTop: 10 }}>
               <Button fullWidth variant="ghost" size="sm" onClick={() => setAddLiquidity(item)} disabled={!canTransact || isBusy} style={{ height: 36, fontSize: 11, border: '1px solid rgba(82,227,164,.25)', color: btb.green, borderRadius: 11 }}>Add liquidity</Button>
-              {item.account.chainId === 4663 && policy && <Button fullWidth variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 36, fontSize: 11, boxShadow: 'none', borderRadius: 11, gridColumn: isMobile ? '1 / -1' : undefined }}>Compound / rebalance</Button>}
+              {item.account.chainId === 4663 && policy && <Button fullWidth variant="ghost" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 36, fontSize: 11, borderRadius: 11 }}>Rebalance</Button>}
               {/* Desktop has room to show every action; mobile tucks them behind Manage. */}
               {!isMobile && secondaryActions}
               {isMobile && <Button fullWidth variant="ghost" size="sm" onClick={() => setManageOpen(manageOpen === key ? null : key)} style={{ height: 36, fontSize: 11, borderRadius: 11, gridColumn: '1 / -1' }}>{manageOpen === key ? 'Close' : 'Manage'}</Button>}
