@@ -451,6 +451,15 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         const active = !!item.policy?.enabled && !item.account.paused && Number(item.policy.expiresAt) > Date.now() / 1000;
         const hasFees = p.fees0 > 0n || p.fees1 > 0n;
         const policy = item.policy;
+        // Secondary actions — shown inline on desktop, tucked behind Manage on mobile.
+        const secondaryActions = [
+          item.account.chainId === 4663 && policy && <Button key="rules" fullWidth variant="ghost" size="sm" onClick={() => setEditPolicy(item)} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Range & rules</Button>,
+          item.account.deployment.agentRegistry && policy && <Button key="feecfg" fullWidth variant="ghost" size="sm" onClick={() => { setEditingPositionEarnings(item); setEarningsMode(item.earningsMode); }} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Fee settings</Button>,
+          policy && item.account.deployment.aggregatorSwapAdapter && <Button key="claimtok" fullWidth variant="ghost" size="sm" onClick={() => setClaimFees(item)} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Claim as token</Button>,
+          policy && !item.account.deployment.aggregatorSwapAdapter && <Button key="claim" fullWidth variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Claim fees</Button>,
+          policy?.enabled && <Button key="stop" fullWidth variant="ghost" size="sm" onClick={() => positionAction(item, 'revoke')} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>{isBusy ? 'Confirming…' : 'Stop agent'}</Button>,
+          <Button key="return" fullWidth variant="ghost" size="sm" onClick={() => positionAction(item, 'withdraw')} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, border: '1px solid rgba(255,179,107,0.25)', color: btb.amber, borderRadius: 10 }}>{isBusy ? 'Confirming…' : 'Return NFT'}</Button>,
+        ].filter(Boolean);
         return (
           <Glass key={key} padding={isMobile ? 12 : 16} radius={18}>
             <div style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
@@ -503,18 +512,15 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}><Button variant="success" size="sm" onClick={() => savePositionEarnings(item)} disabled={isBusy} style={{ height: 30, fontSize: 10.5 }}>{isBusy ? 'Saving…' : 'Save'}</Button><Button variant="ghost" size="sm" onClick={() => setEditingPositionEarnings(null)} style={{ height: 30, fontSize: 10.5 }}>Cancel</Button></div>
               </div>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'auto auto auto', justifyContent: isMobile ? 'stretch' : 'start', gap: 7, marginTop: 10 }}>
-              <Button fullWidth={isMobile} variant="ghost" size="sm" onClick={() => setAddLiquidity(item)} disabled={!canTransact || isBusy} style={{ height: 36, minWidth: isMobile ? 0 : 112, fontSize: 11, border: '1px solid rgba(82,227,164,.25)', color: btb.green, borderRadius: 11 }}>Add liquidity</Button>
-              {item.account.chainId === 4663 && policy && <Button fullWidth={isMobile} variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 36, minWidth: isMobile ? 0 : 150, fontSize: 11, boxShadow: 'none', borderRadius: 11 }}>Compound / rebalance</Button>}
-              <Button fullWidth={isMobile} variant="ghost" size="sm" onClick={() => setManageOpen(manageOpen === key ? null : key)} style={{ height: 36, minWidth: isMobile ? 0 : 92, fontSize: 11, borderRadius: 11, gridColumn: isMobile ? '1 / -1' : undefined }}>{manageOpen === key ? 'Close' : 'Manage'}</Button>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(132px, 1fr))', gap: 7, marginTop: 10 }}>
+              <Button fullWidth variant="ghost" size="sm" onClick={() => setAddLiquidity(item)} disabled={!canTransact || isBusy} style={{ height: 36, fontSize: 11, border: '1px solid rgba(82,227,164,.25)', color: btb.green, borderRadius: 11 }}>Add liquidity</Button>
+              {item.account.chainId === 4663 && policy && <Button fullWidth variant="success" size="sm" onClick={() => setManualRebalance(item)} disabled={!canTransact || isBusy} style={{ height: 36, fontSize: 11, boxShadow: 'none', borderRadius: 11, gridColumn: isMobile ? '1 / -1' : undefined }}>Compound / rebalance</Button>}
+              {/* Desktop has room to show every action; mobile tucks them behind Manage. */}
+              {!isMobile && secondaryActions}
+              {isMobile && <Button fullWidth variant="ghost" size="sm" onClick={() => setManageOpen(manageOpen === key ? null : key)} style={{ height: 36, fontSize: 11, borderRadius: 11, gridColumn: '1 / -1' }}>{manageOpen === key ? 'Close' : 'Manage'}</Button>}
             </div>
-            {manageOpen === key && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(132px, 1fr))', gap: 6, marginTop: 7, paddingTop: 8, borderTop: btb.borderSoft }}>
-              {item.account.chainId === 4663 && policy && <Button fullWidth variant="ghost" size="sm" onClick={() => setEditPolicy(item)} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Range & rules</Button>}
-              {item.account.deployment.agentRegistry && policy && <Button fullWidth variant="ghost" size="sm" onClick={() => { setEditingPositionEarnings(item); setEarningsMode(item.earningsMode); }} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Fee settings</Button>}
-              {policy && item.account.deployment.aggregatorSwapAdapter && <Button fullWidth variant="ghost" size="sm" onClick={() => setClaimFees(item)} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Claim as token</Button>}
-              {policy && !item.account.deployment.aggregatorSwapAdapter && <Button fullWidth variant="ghost" size="sm" onClick={() => positionAction(item, 'claim')} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>Claim fees</Button>}
-              {policy?.enabled && <Button fullWidth variant="ghost" size="sm" onClick={() => positionAction(item, 'revoke')} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, borderRadius: 10 }}>{isBusy ? 'Confirming…' : 'Stop agent'}</Button>}
-              <Button fullWidth variant="ghost" size="sm" onClick={() => positionAction(item, 'withdraw')} disabled={!canTransact || isBusy} style={{ height: 33, fontSize: 10.5, border: '1px solid rgba(255,179,107,0.25)', color: btb.amber, borderRadius: 10 }}>{isBusy ? 'Confirming…' : 'Return NFT'}</Button>
+            {isMobile && manageOpen === key && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 7, paddingTop: 8, borderTop: btb.borderSoft }}>
+              {secondaryActions}
             </div>}
           </Glass>
         );
