@@ -374,6 +374,23 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
           </div>
           {loading && <span style={{ color: btb.textDim, fontSize: 10.5 }}>Refreshing…</span>}
         </div>
+        <div style={{ display: 'grid', gap: 7, marginBottom: 11, padding: 10, borderRadius: 12, background: 'rgba(82,227,164,0.05)', border: '1px solid rgba(82,227,164,0.16)' }}>
+          <div style={{ color: btb.green, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>What happens when you automate</div>
+          {[
+            ['Create your account', 'A smart-contract wallet only you own — one time per chain. No token approval needed for this step.'],
+            ['Approve only what you fund', 'You approve just the token you deposit, for that exact amount. Other tokens are never touched.'],
+            ['Your LP NFT moves in', 'The position transfers into your account so the agent can manage it. It stays yours and only ever returns to your wallet.'],
+            ['The agent works in your limits', 'It rebalances, compounds or adds inside your rules — and can never withdraw or send anywhere but your fixed wallet.'],
+          ].map(([title, body], i) => (
+            <div key={title} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <span style={{ flexShrink: 0, width: 15, height: 15, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(82,227,164,0.18)', color: btb.green, fontSize: 9, fontWeight: 850, marginTop: 1 }}>{i + 1}</span>
+              <div style={{ fontSize: 10.5, lineHeight: 1.4 }}>
+                <span style={{ color: btb.text, fontWeight: 750 }}>{title}</span>
+                <span style={{ color: btb.textMuted }}> — {body}</span>
+              </div>
+            </div>
+          ))}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : `repeat(${Math.max(accounts.length, 1)}, minmax(0, 1fr))`, gap: 8 }}>
           {accounts.map((state) => {
             const chain = CHAINS.find((item) => item.chainId === state.chainId)!;
