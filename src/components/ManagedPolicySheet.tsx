@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
+import { isAddress } from 'viem';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { AutomationRules, type AutomationRuleValues } from './AutomationRules';
@@ -49,19 +50,21 @@ export function ManagedPolicySheet({ pos, account, owner, policy, deployment, on
   }, [policy, pos.currentTick, spacing]);
   const [rules, setRules] = useState(initial);
   const [slippageBps, setSlippageBps] = useState(policy.maxSlippageBps);
+  const [agentAddress, setAgentAddress] = useState(policy.agent);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function save() {
     setBusy(true); setErr(null);
     try {
+      if (!isAddress(agentAddress)) throw new Error('Enter a valid rebalance agent address');
       const allowedPct = rules.allowedRangePct !== null && rules.allowedRangePct < rules.targetRangePct ? rules.targetRangePct : rules.allowedRangePct;
       const allowed = rangeTicks(pos.currentTick, spacing, allowedPct);
       const target = rangeTicks(pos.currentTick, spacing, rules.targetRangePct);
       const next: RebalancePolicy = {
         ...policy,
         enabled: true,
-        agent: deployment.agent,
+        agent: agentAddress,
         swapAdapter: isModularDeployment(deployment) ? deployment.aggregatorSwapAdapter : deployment.swapAdapter,
         targetTickWidth: target.tickUpper - target.tickLower,
         performanceFeeBps: 1_000,
@@ -89,7 +92,12 @@ export function ManagedPolicySheet({ pos, account, owner, policy, deployment, on
       <div onMouseDown={(e) => e.stopPropagation()} style={{ width: 'min(100%, 480px)', height: '100%', overflowY: 'auto', background: btb.bg, borderLeft: btb.borderSoft, padding: '22px 18px 80px', boxSizing: 'border-box' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 850 }}>Change LP rules</div>
         <div style={{ color: btb.textMuted, fontSize: 12, margin: '4px 0 14px' }}>{pos.symbol0} / {pos.symbol1} · owner approval replaces the old rules</div>
-        <AutomationRules value={rules} onChange={setRules} agent={deployment.agent} slippageBps={slippageBps} onSlippageChange={setSlippageBps} disabled={busy}/>
+        <div style={{ marginBottom: 13 }}>
+          <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 750, marginBottom: 6 }}>Rebalance agent</div>
+          <input value={agentAddress} onChange={(event) => setAgentAddress(event.target.value as `0x${string}`)} spellCheck={false} placeholder="0x…" style={{ width: '100%', height: 42, boxSizing: 'border-box', borderRadius: 12, padding: '0 12px', color: btb.text, background: 'rgba(255,255,255,.05)', border: isAddress(agentAddress) ? btb.borderSoft : '1px solid rgba(255,107,122,.35)', outline: 'none', fontFamily: 'monospace', fontSize: 11 }}/>
+          <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.4, marginTop: 5 }}>Only this address can rebalance this LP under the limits below. A custom agent must run its own executor; BTB automation runs only for the BTB agent.</div>
+        </div>
+        <AutomationRules value={rules} onChange={setRules} agent={agentAddress} slippageBps={slippageBps} onSlippageChange={setSlippageBps} disabled={busy}/>
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 10 }}>{err}</div>}
         <Button variant="success" size="md" onClick={save} disabled={busy} style={{ width: '100%', marginTop: 14 }}>{busy ? 'Saving rules…' : 'Approve new rules'}</Button>
         <Button variant="ghost" size="sm" onClick={onClose} disabled={busy} style={{ width: '100%', marginTop: 8 }}>Cancel</Button>
