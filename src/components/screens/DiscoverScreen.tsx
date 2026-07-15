@@ -100,6 +100,14 @@ export function DiscoverScreen() {
     if (chain) setSelectedChain(chain);
   }, [pools]);
 
+  // Reflect the chain filter into the URL so the current view is shareable
+  // (e.g. selecting Robinhood Chain → /discover/robinhoodchain). No history spam.
+  useEffect(() => {
+    if (parsePoolPath(window.location.pathname)) return; // a pool link owns the URL
+    const target = selectedChain === 'all' ? '/discover' : `/discover/${chainSlug(selectedChain)}`;
+    if (window.location.pathname !== target) window.history.replaceState(null, '', target);
+  }, [selectedChain]);
+
   // Keep the sheet in sync with browser back/forward: reset and let the resolver
   // above re-run against the new URL.
   useEffect(() => {
