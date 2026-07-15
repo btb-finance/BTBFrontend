@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   createPublicClient, createWalletClient, encodeAbiParameters, encodeFunctionData, http, isAddress, keccak256,
+  parseEventLogs,
   type Address, type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -57,6 +58,18 @@ const ACCOUNT_ABI = [
     { name: "positionManager", type: "address" }, { name: "positionId", type: "uint256" },
     { name: "request", type: "tuple", components: REQUEST_COMPONENTS }, { name: "swapData", type: "bytes" },
   ], outputs: [{ name: "newPositionId", type: "uint256" }] },
+  { name: "PositionRebalanced", type: "event", inputs: [
+    { name: "oldPositionId", type: "uint256", indexed: true },
+    { name: "newPositionId", type: "uint256", indexed: true },
+    { name: "agent", type: "address", indexed: true },
+    { name: "tokenIn", type: "address", indexed: false },
+    { name: "tokenOut", type: "address", indexed: false },
+    { name: "amountIn", type: "uint256", indexed: false },
+    { name: "amountOut", type: "uint256", indexed: false },
+    { name: "tickLower", type: "int24", indexed: false },
+    { name: "tickUpper", type: "int24", indexed: false },
+    { name: "liquidity", type: "uint128", indexed: false },
+  ] },
 ] as const;
 const LEGACY_POLICY_ABI = [{
   name: "policy", type: "function", stateMutability: "view",
@@ -215,12 +228,23 @@ export const run = internalAction({
           return;
         }
         if (receipt.status !== "success") throw new Error("Broadcast rebalance transaction reverted");
-        if (!job.newPositionId) throw new Error("Broadcast job is missing its replacement position ID");
         const row = await ctx.runQuery(internal.managedPositions.positionForJob, { key: job.positionKey }) as Row | null;
         if (row) {
-          const position = await publicClient.readContract({ address: row.positionManager as Address, abi: POSITION_ABI, functionName: "positions", args: [BigInt(job.newPositionId)] });
+          // A simulated mint ID is only a hint: other users may mint between
+          // simulation and inclusion. The confirmed event is the canonical ID.
+          const event = parseEventLogs({ abi: ACCOUNT_ABI, logs: receipt.logs, eventName: "PositionRebalanced", strict: false })
+            .find(log => same(log.address, row.account) && log.args.oldPositionId === BigInt(job.positionId));
+          if (!event || event.args.newPositionId === undefined) {
+            throw new Error("Confirmed rebalance receipt is missing PositionRebalanced");
+          }
+          const confirmedPositionId = event.args.newPositionId;
+          const [position, nftOwner] = await Promise.all([
+            publicClient.readContract({ address: row.positionManager as Address, abi: POSITION_ABI, functionName: "positions", args: [confirmedPositionId] }),
+            publicClient.readContract({ address: row.positionManager as Address, abi: POSITION_ABI, functionName: "ownerOf", args: [confirmedPositionId] }),
+          ]);
+          if (!same(nftOwner, row.account)) throw new Error("Confirmed replacement NFT is not owned by the managed account");
           await ctx.runMutation(internal.managedPositions.completeJob, {
-            jobId: job._id, oldKey: job.positionKey, newPositionId: job.newPositionId,
+            jobId: job._id, oldKey: job.positionKey, newPositionId: confirmedPositionId.toString(),
             tickLower: Number(position[5]), tickUpper: Number(position[6]), txHash: job.txHash, now,
           });
         }

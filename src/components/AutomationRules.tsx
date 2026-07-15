@@ -97,11 +97,6 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
             <option value={7}>7 days</option><option value={30}>30 days</option><option value={90}>90 days</option><option value={365}>1 year</option>
           </select>
         </Rule>
-        <div style={{ display: 'flex', alignItems: 'end' }}>
-          <div style={{ width: '100%', minHeight: 34, boxSizing: 'border-box', borderRadius: 9, padding: '7px 9px', color: btb.textMuted, background: 'rgba(255,255,255,0.035)', fontSize: 10, lineHeight: 1.35 }}>
-            Earnings fee is fixed at 10%. Principal is never charged.
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -10,6 +10,7 @@ export const KYBER_CHAINS: Record<number, string> = {
   250:   'fantom',
   59144: 'linea',
   534352:'scroll',
+  4663:  'robinhood',
 };
 
 function base(chainId: number) {

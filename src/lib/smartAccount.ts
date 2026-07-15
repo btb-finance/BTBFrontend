@@ -202,7 +202,9 @@ export const BTB_LP_ACCOUNT_ABI = [
   { name: 'revokeAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [] },
   { name: 'withdrawPosition', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [] },
   { name: 'claimPositionFees', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [] },
+  { name: 'feeBaseline', type: 'function', stateMutability: 'view', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [{ name: 'token0', type: 'uint128' }, { name: 'token1', type: 'uint128' }] },
   { name: 'depositToken', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'withdrawToken', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
   {
     name: 'configureEarnings', type: 'function', stateMutability: 'nonpayable',
     inputs: [
@@ -222,6 +224,18 @@ export const BTB_LP_ACCOUNT_ABI = [
         { name: 'payoutPath1', type: 'bytes' },
       ],
     }],
+  },
+  {
+    name: 'claimAndPayout', type: 'function', stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' },
+      { name: 'request', type: 'tuple', components: [
+        { name: 'quotedMinimumOut0', type: 'uint256' }, { name: 'quotedMinimumOut1', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' }, { name: 'nonce', type: 'uint256' },
+      ] },
+      { name: 'swapData0', type: 'bytes' }, { name: 'swapData1', type: 'bytes' },
+    ],
+    outputs: [{ name: 'payoutAmount', type: 'uint256' }],
   },
   { name: 'configurePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'newPolicy', type: 'tuple', components: POLICY_COMPONENTS }], outputs: [] },
   {
@@ -543,6 +557,11 @@ export function encodeDualIncreaseRequest(request: DualIncreaseRequest): Hex {
 export function configureSelfAgentCall(d: SmartAccountDeployment, account: `0x${string}`, owner: `0x${string}`, roles: number): Call {
   if (!d.agentRegistry) throw new Error('Agent registry is not configured');
   return { to: d.agentRegistry, data: encodeFunctionData({ abi: BTB_AGENT_REGISTRY_ABI, functionName: 'configureAgent', args: [account, owner, roles] }) };
+}
+
+export function removeAgentCall(d: SmartAccountDeployment, account: `0x${string}`, agent: `0x${string}`): Call {
+  if (!d.agentRegistry) throw new Error('Agent registry is not configured');
+  return { to: d.agentRegistry, data: encodeFunctionData({ abi: BTB_AGENT_REGISTRY_ABI, functionName: 'removeAgent', args: [account, agent] }) };
 }
 
 export function scheduleSingleInstructionCall(
