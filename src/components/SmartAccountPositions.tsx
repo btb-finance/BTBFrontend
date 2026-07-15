@@ -541,6 +541,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         chainName={fundAccount.chainName}
         owner={address}
         account={fundAccount.account}
+        deployment={fundAccount.deployment}
         onClose={() => setFundAccount(null)}
         onDone={load}
       />}
