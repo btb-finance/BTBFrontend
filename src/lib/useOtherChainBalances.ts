@@ -7,6 +7,7 @@ import {
 } from './alchemy';
 import type { Token } from './TokenStore';
 import { fetchRobinhoodBalances } from './robinhoodBalances';
+import { fetchKrystalTokenBalances } from './krystal';
 
 // Ethereum mainnet already has its own dedicated (free, RPC-multicall-based)
 // balance pipeline in TokenStore — this hook only covers the other chains
@@ -55,9 +56,7 @@ export function useOtherChainBalances(walletAddress?: string) {
     (async () => {
       const robinhood = await fetchRobinhoodBalances(walletAddress).catch(() => [] as Token[]);
       try {
-        const res = await fetch(`/api/krystal/tokens?address=${walletAddress}`, { cache: 'no-store' });
-        if (!res.ok) throw new Error(`Krystal tokens ${res.status}`);
-        const json = await res.json() as KrystalTokenBalanceOutput;
+        const json = await fetchKrystalTokenBalances(walletAddress);
         const result: Token[] = [...robinhood];
         const seen = new Set<string>();
 
@@ -181,16 +180,4 @@ export function useOtherChainBalances(walletAddress?: string) {
   }, [walletAddress]);
 
   return { tokens, loading, error };
-}
-
-interface KrystalTokenBalanceOutput {
-  data?: Array<{
-    chainId: number;
-    chainName: string;
-    balances?: Array<{
-      balance?: string;
-      token?: { address?: string; symbol?: string; name?: string; decimals?: number; logo?: string; tag?: string };
-      quotes?: { usd?: { value?: number; price?: number; marketPrice?: number; timestamp?: number } };
-    }>;
-  }>;
 }

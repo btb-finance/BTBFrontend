@@ -29,6 +29,12 @@ import { RebalanceSheet } from './RebalanceSheet';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
 import { getSmartAccountDeployment } from '../lib/smartAccount';
+import {
+  fetchKrystalLp,
+  type KrystalLpResponse,
+  type KrystalPositionAnalytics,
+  type KrystalTokenAmount,
+} from '../lib/krystal';
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -53,96 +59,6 @@ function fmtAmt(raw: bigint, decimals: number): string {
 }
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
-
-interface KrystalTokenAmount {
-  token?: { symbol?: string; logo?: string; decimals?: number };
-  balance?: string;
-  quotes?: { usd?: { value?: number } };
-}
-
-interface KrystalPositionAnalytics {
-  chainId: number;
-  chainName: string;
-  tokenAddress?: string;
-  chainLogo?: string;
-  tokenId: string;
-  status: string;
-  pnl: number;
-  returnOnInvestment: number;
-  compareWithHodl: number;
-  apr: number;
-  feeApr: number;
-  farmApr: number;
-  totalDepositValue: number;
-  totalWithdrawValue: number;
-  currentPositionValue: number;
-  createdTime: number;
-  closedTime: number;
-  feePending?: KrystalTokenAmount[];
-  feesClaimed?: KrystalTokenAmount[];
-  currentAmounts?: KrystalTokenAmount[];
-  pool?: { projectKey?: string; project?: string };
-}
-
-interface KrystalLpStats {
-  openPositionCount: number;
-  closedPositionCount: number;
-  currentPositionValue: number;
-  pnl: number;
-  returnOnInvestment: number;
-  compareWithHodl: number;
-  totalFeeEarned: number;
-  unclaimedFees: number;
-  feeApr: number;
-  farmApr: number;
-}
-
-interface KrystalLpResponse {
-  positions?: KrystalPositionAnalytics[];
-  statsByChain?: Record<string, KrystalLpStats>;
-}
-
-const KRYSTAL_LP_UPSTREAM = 'https://api.krystal.app/all/v1/lp/userPositions';
-const KRYSTAL_LP_CHAIN_IDS = '1,10,56,130,137,146,2020,324,42161,43114,59144,80094,81457,8453,999';
-
-/**
- * Krystal explicitly allows browser CORS. Use its public read-only endpoint as
- * a fallback when a hosting provider cannot reach Krystal from its serverless
- * egress network. The proxy remains first choice and no credentials are exposed.
- */
-async function fetchKrystalLpDirect(address: string): Promise<KrystalLpResponse> {
-  const loadPage = async (positionStatus: 'open' | 'closed', offset: number) => {
-    const query = new URLSearchParams({
-      addresses: address,
-      chainIds: KRYSTAL_LP_CHAIN_IDS,
-      positionStatus,
-      orderBy: 'lastAction',
-      orderASC: 'false',
-      limit: '100',
-      offset: String(offset),
-    });
-    const response = await fetch(`${KRYSTAL_LP_UPSTREAM}?${query}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Krystal LP analytics ${response.status}`);
-    return response.json() as Promise<KrystalLpResponse>;
-  };
-
-  const settled = await Promise.allSettled([
-    loadPage('open', 0),
-    loadPage('closed', 0),
-    loadPage('closed', 100),
-    loadPage('closed', 200),
-  ]);
-  const pages = settled.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
-  if (pages.length === 0) throw new Error('Krystal LP analytics unavailable');
-  const seen = new Set<string>();
-  const positions = pages.flatMap(page => page.positions ?? []).filter(position => {
-    const key = `${position.chainId}:${position.tokenAddress ?? ''}:${position.tokenId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return { statsByChain: pages[0]?.statsByChain ?? {}, positions };
-}
 
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
@@ -270,15 +186,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     setKrystal(null);
     setKrystalLoading(!!address);
     if (!address) return;
-    (async () => {
-      let data: KrystalLpResponse | null = null;
-      try {
-        const response = await fetch(`/api/krystal/lp?address=${address}`, { cache: 'no-store' });
-        if (response.ok) data = await response.json() as KrystalLpResponse;
-      } catch { /* fall through to Krystal's browser-safe public endpoint */ }
-      if (!data) data = await fetchKrystalLpDirect(address);
-      if (live) setKrystal(data);
-    })()
+    fetchKrystalLp(address)
+      .then(data => { if (live) setKrystal(data); })
       .catch(() => {})
       .finally(() => { if (live) setKrystalLoading(false); });
     return () => { live = false; };
