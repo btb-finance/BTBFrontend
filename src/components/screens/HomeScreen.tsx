@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isAddress } from 'viem';
 import { Badge } from '../Badge';
 import { Glass } from '../Glass';
 import { Spinner } from '../Spinner';
-import { SmartTradePanel, type TradePreset } from '../SmartTradePanel';
+import { SmartTradePanel, type TradePreset, type TradeStatus } from '../SmartTradePanel';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { type Tab } from '../types';
@@ -70,6 +70,8 @@ export function HomeScreen({ address, onConnectWallet }: {
   const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState(30);
   const [presets, setPresets] = useState<TradePreset[]>([]);
+  const [tradeStatus, setTradeStatus] = useState<TradeStatus | null>(null);
+  const presetMeta = useRef(new Map<string, { address: string; side: 'buy' | 'sell' }>());
 
   const load = useCallback(async (background = false) => {
     background ? setRefreshing(true) : setLoading(true);
@@ -101,6 +103,18 @@ export function HomeScreen({ address, onConnectWallet }: {
     return rows;
   }, [markets, query, view]);
 
+  // Deduped token list for the recurring-buy picker — one entry per token,
+  // most-liquid first, capped so the native <select> stays usable.
+  const dcaMarkets = useMemo(() => {
+    const seen = new Set<string>();
+    return [...markets]
+      .filter(market => isAddress(market.address))
+      .sort((a, b) => b.liquidityUsd - a.liquidityUsd)
+      .filter(market => { const key = market.address.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; })
+      .slice(0, 200)
+      .map(market => ({ address: market.address, symbol: market.symbol, imageUrl: market.imageUrl }));
+  }, [markets]);
+
   const totals = useMemo(() => ({
     volume: markets.reduce((sum, market) => sum + market.volume24h, 0),
     liquidity: markets.reduce((sum, market) => sum + market.liquidityUsd, 0),
@@ -109,12 +123,32 @@ export function HomeScreen({ address, onConnectWallet }: {
 
   function selectTrade(market: MarketToken, side: 'buy' | 'sell') {
     if (!isAddress(market.address)) return;
-    setPresets(current => [...current, { id: crypto.randomUUID(), side, address: market.address as `0x${string}`, symbol: market.symbol, imageUrl: market.imageUrl }].slice(-100));
+    // Ignore a repeat tap on a button whose trade is still working — prevents
+    // accidental duplicate orders. Deliberate repeats go through "Buy again".
+    if (tradeStatus?.phase === 'working') {
+      const active = presetMeta.current.get(tradeStatus.id);
+      if (active && active.address === market.address.toLowerCase() && active.side === side) return;
+    }
+    const id = `trade:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 10)}`;
+    presetMeta.current.set(id, { address: market.address.toLowerCase(), side });
+    setPresets(current => [...current, { id, side, address: market.address as `0x${string}`, symbol: market.symbol, imageUrl: market.imageUrl }].slice(-100));
+  }
+
+  // Label + disabled state for a market's Buy/Dump button, driven by the panel's
+  // live trade status so the tapped button shows progress instead of staying idle.
+  function tradeButtonState(market: MarketToken, side: 'buy' | 'sell') {
+    const meta = tradeStatus ? presetMeta.current.get(tradeStatus.id) : null;
+    const mine = meta && meta.address === market.address.toLowerCase() && meta.side === side;
+    const label = side === 'buy' ? 'Buy' : 'Dump';
+    if (!mine || !tradeStatus) return { label, disabled: false };
+    if (tradeStatus.phase === 'working') return { label: side === 'buy' ? 'Buying…' : 'Selling…', disabled: true };
+    if (tradeStatus.phase === 'confirmed') return { label: side === 'buy' ? 'Bought ✓' : 'Sold ✓', disabled: false };
+    return { label, disabled: false };
   }
 
   return <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 13 : 18 }}>
     <div id="smart-trade-panel" style={{ scrollMarginTop: 16 }}>
-      <SmartTradePanel owner={address} onConnect={onConnectWallet} presets={presets}/>
+      <SmartTradePanel owner={address} onConnect={onConnectWallet} presets={presets} onStatus={setTradeStatus} markets={dcaMarkets}/>
     </div>
 
     <Glass padding={isMobile ? 13 : 17} radius={18} strong>
@@ -170,7 +204,7 @@ export function HomeScreen({ address, onConnectWallet }: {
                 <div><div style={{ color: btb.textDim, fontSize: 8 }}>LIQUIDITY</div><div style={{ color: btb.textMuted, fontSize: 10, marginTop: 2 }}>{usd(market.liquidityUsd)}</div></div>
                 <div><div style={{ color: btb.textDim, fontSize: 8 }}>TRADES / AGE</div><div style={{ color: btb.textMuted, fontSize: 10, marginTop: 2 }}>{(market.buys24h + market.sells24h).toLocaleString('en-US')} · {age(market.pairCreatedAt)}</div></div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 10 }}><button onClick={() => selectTrade(market, 'buy')} style={marketButton('buy')}>Buy</button><button onClick={() => selectTrade(market, 'sell')} style={marketButton('sell')}>Dump</button></div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 10 }}>{(['buy', 'sell'] as const).map(side => { const s = tradeButtonState(market, side); return <button key={side} onClick={() => selectTrade(market, side)} disabled={s.disabled} style={{ ...marketButton(side), opacity: s.disabled ? .65 : 1, cursor: s.disabled ? 'default' : 'pointer' }}>{s.label}</button>; })}</div>
             </div>
           ) : (
             <div key={market.address} style={{ display: 'grid', gridTemplateColumns: 'minmax(190px,1.65fr) .75fr .58fr .72fr .72fr .58fr 126px', gap: 10, alignItems: 'center', minHeight: 62, padding: '0 12px', borderBottom: index < Math.min(visible, filtered.length) - 1 ? btb.borderSoft : undefined }}>
@@ -183,7 +217,7 @@ export function HomeScreen({ address, onConnectWallet }: {
               <span style={{ color: btb.textMuted, fontSize: 10, textAlign: 'right' }}>{usd(market.volume24h)}</span>
               <span style={{ color: btb.textMuted, fontSize: 10, textAlign: 'right' }}>{usd(market.liquidityUsd)}</span>
               <span style={{ color: btb.textMuted, fontSize: 10, textAlign: 'right' }}>{age(market.pairCreatedAt)}</span>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 5 }}><button onClick={() => selectTrade(market, 'buy')} style={marketButton('buy')}>Buy</button><button onClick={() => selectTrade(market, 'sell')} style={marketButton('sell')}>Dump</button></div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 5 }}>{(['buy', 'sell'] as const).map(side => { const s = tradeButtonState(market, side); return <button key={side} onClick={() => selectTrade(market, side)} disabled={s.disabled} style={{ ...marketButton(side), opacity: s.disabled ? .65 : 1, cursor: s.disabled ? 'default' : 'pointer' }}>{s.label}</button>; })}</div>
             </div>
           ))}
       </div>

@@ -12,6 +12,8 @@ import type * as agent from "../agent.js";
 import type * as agentChat from "../agentChat.js";
 import type * as balances from "../balances.js";
 import type * as crons from "../crons.js";
+import type * as dca from "../dca.js";
+import type * as dcaActions from "../dcaActions.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
 import type * as managedPositionMonitor from "../managedPositionMonitor.js";
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   agentChat: typeof agentChat;
   balances: typeof balances;
   crons: typeof crons;
+  dca: typeof dca;
+  dcaActions: typeof dcaActions;
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
   managedPositionMonitor: typeof managedPositionMonitor;
