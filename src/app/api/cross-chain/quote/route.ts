@@ -3,6 +3,7 @@ import { KYBER_CHAINS } from '@/lib/kyberswap';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const AMOUNT = /^\d+$/;
+const BTB_BRIDGE_FEE = 0.01;
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -23,14 +24,11 @@ export async function POST(request: Request) {
   }
 
   const integrator = process.env.LIFI_INTEGRATOR?.trim() || 'btb-finance';
-  const configuredFee = Number(process.env.LIFI_FEE ?? 0);
-  const fee = Number.isFinite(configuredFee) && configuredFee > 0 && configuredFee < 1 ? configuredFee : 0;
   const params = new URLSearchParams({
     fromChain: String(fromChain), toChain: String(toChain), fromToken, toToken,
     fromAmount, fromAddress: wallet, toAddress: wallet,
-    slippage: '0.005', order: 'FASTEST', integrator,
+    slippage: '0.005', order: 'FASTEST', integrator, fee: String(BTB_BRIDGE_FEE),
   });
-  if (fee > 0) params.set('fee', String(fee));
 
   try {
     const response = await fetch(`https://li.quest/v1/quote?${params}`, {
@@ -38,13 +36,14 @@ export async function POST(request: Request) {
     });
     const text = await response.text();
     if (!response.ok) {
-      let message = `No near-instant route (${response.status})`;
+      let message = `No bridge route (${response.status})`;
       try { const parsed = JSON.parse(text) as { message?: string }; if (parsed.message) message = parsed.message; } catch { /* use fallback */ }
+      if (message.includes('not configured for collecting fees')) message = 'BTB bridge fees are not activated yet. Configure the btb-finance fee wallet in the LI.FI Partner Portal.';
       return Response.json({ error: message }, { status: response.status });
     }
     const quote = JSON.parse(text) as Record<string, unknown>;
-    return Response.json({ quote, btbFeePercent: fee * 100 }, { headers: { 'cache-control': 'no-store' } });
+    return Response.json({ quote, btbFeePercent: BTB_BRIDGE_FEE * 100 }, { headers: { 'cache-control': 'no-store' } });
   } catch {
-    return Response.json({ error: 'Near-instant routing is temporarily unavailable' }, { status: 502 });
+    return Response.json({ error: 'Bridge routing is temporarily unavailable' }, { status: 502 });
   }
 }

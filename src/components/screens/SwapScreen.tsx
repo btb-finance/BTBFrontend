@@ -145,12 +145,12 @@ function InfoRow({ label, value, last }: { label: string; value: React.ReactNode
   );
 }
 
-function SwapModeTabs({ mode, onSwap, onInstant }: { mode: 'swap' | 'instant'; onSwap: () => void; onInstant: () => void }) {
+function SwapModeTabs({ mode, onSwap, onBridge }: { mode: 'swap' | 'bridge'; onSwap: () => void; onBridge: () => void }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: 4, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft }}>
       {([
         ['swap', 'Swap', onSwap],
-        ['instant', 'Near-instant', onInstant],
+        ['bridge', 'Bridge', onBridge],
       ] as const).map(([value, label, action]) => (
         <button key={value} onClick={action} style={{ height: 38, border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: mode === value ? btb.text : btb.textMuted, background: mode === value ? 'rgba(255,255,255,0.1)' : 'transparent', boxShadow: mode === value ? 'inset 0 1px 0 rgba(255,255,255,.1)' : 'none' }}>{label}</button>
       ))}
@@ -204,13 +204,13 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Token; onConnectWallet?: () => void } = {}) {
-  const [mode, setMode] = useState<'swap' | 'instant'>('swap');
-  return mode === 'instant'
-    ? <NearInstantSwap onStandardSwap={() => setMode('swap')} onConnectWallet={onConnectWallet}/>
-    : <SameChainSwap initialFrom={initialFrom} onNearInstant={() => setMode('instant')} onConnectWallet={onConnectWallet}/>;
+  const [mode, setMode] = useState<'swap' | 'bridge'>('swap');
+  return mode === 'bridge'
+    ? <BridgeSwap onStandardSwap={() => setMode('swap')} onConnectWallet={onConnectWallet}/>
+    : <SameChainSwap initialFrom={initialFrom} onBridge={() => setMode('bridge')} onConnectWallet={onConnectWallet}/>;
 }
 
-function SameChainSwap({ initialFrom, onConnectWallet, onNearInstant }: { initialFrom?: Token; onConnectWallet?: () => void; onNearInstant: () => void }) {
+function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom?: Token; onConnectWallet?: () => void; onBridge: () => void }) {
   const { tokens, positions } = useTokenStore();
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
@@ -532,7 +532,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onNearInstant }: { initia
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
-      <SwapModeTabs mode="swap" onSwap={() => {}} onInstant={onNearInstant}/>
+      <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
         <select value={chainId} onChange={event => selectChain(Number(event.target.value))} aria-label="Swap network" style={{ height: 40, maxWidth: 230, padding: '0 34px 0 14px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: btb.text, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
           {SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]).map(chain => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
@@ -747,7 +747,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onNearInstant }: { initia
   );
 }
 
-function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () => void; onConnectWallet?: () => void }) {
+function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () => void; onConnectWallet?: () => void }) {
   const { positions } = useTokenStore();
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
@@ -875,7 +875,7 @@ function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: 
         }),
       });
       const body = await response.json() as { quote?: CrossChainQuote; btbFeePercent?: number; error?: string };
-      if (!response.ok || !body.quote) throw new Error(body.error || 'No near-instant route');
+      if (!response.ok || !body.quote) throw new Error(body.error || 'No bridge route');
       if (quoteSeq.current === seq) { setQuote(body.quote); setBtbFeePercent(body.btbFeePercent ?? 0); }
       return body.quote;
     } catch (error) {
@@ -911,7 +911,7 @@ function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: 
       }
       calls.push({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), gas: tx.gasLimit ? BigInt(tx.gasLimit) : undefined });
       setStep(needsApprove ? 'approving' : 'sending');
-      const { lastHash } = await runCalls(config, { account: address, calls, label: `Near-instant ${fromToken.symbol} → ${toToken.symbol}`, track, chainId: fromChainId });
+      const { lastHash } = await runCalls(config, { account: address, calls, label: `Bridge ${fromToken.symbol} → ${toToken.symbol}`, track, chainId: fromChainId });
       if (lastHash) setTxHash(lastHash);
       setStep('success');
       awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).catch(() => {});
@@ -933,7 +933,7 @@ function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: 
 
   if (step === 'form') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
-      <SwapModeTabs mode="instant" onSwap={onStandardSwap} onInstant={() => {}}/>
+      <SwapModeTabs mode="bridge" onSwap={onStandardSwap} onBridge={() => {}}/>
       <div style={{ color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45, padding: '0 4px' }}>Buy on another network from the balance you already have. Destination gas is not required.</div>
       <Glass padding={18} radius={24} strong>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -968,7 +968,7 @@ function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: 
         <InfoRow label="Route" last value={route}/>
       </Glass>}
       {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
-      <Button onClick={() => !address ? onConnectWallet?.() : canReview && setStep('confirm')} disabled={!!address && !canReview} style={{ fontSize: 18 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest route…' : quote ? 'Review near-instant swap' : quoteErr ? 'No route found' : 'Enter amount'}</Button>
+      <Button onClick={() => !address ? onConnectWallet?.() : canReview && setStep('confirm')} disabled={!!address && !canReview} style={{ fontSize: 18 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest bridge…' : quote ? 'Review bridge' : quoteErr ? 'No route found' : 'Enter amount'}</Button>
       {picker && (
         <TokenPicker tokens={picker === 'from' ? fromTokens : toTokens} loading={picker === 'from' ? loadingFrom : loadingTo} selected={picker === 'from' ? fromToken.address : toToken.address} onSelect={token => { picker === 'from' ? setFromToken(token) : setToToken(token); setFromAmt(''); setQuote(null); }} onImport={tokenAddress => importToken(tokenAddress, picker === 'from' ? fromChainId : toChainId)} onClose={() => setPicker(null)}/>
       )}
@@ -977,7 +977,7 @@ function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: 
 
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm near-instant swap</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[fromChainId]?.name} → {CHAIN_META[toChainId]?.name}</div></div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[fromChainId]?.name} → {CHAIN_META[toChainId]?.name}</div></div></div>
       <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
       <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/>{btbFeePercent > 0 && <InfoRow label="BTB fee" value={`${btbFeePercent}%`}/>}<InfoRow label="Route" last value={route}/></Glass>
       <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>
