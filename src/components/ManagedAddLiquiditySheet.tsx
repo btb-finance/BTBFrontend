@@ -5,7 +5,7 @@ import { useConfig } from 'wagmi';
 import { useAction } from 'convex/react';
 import { getPublicClient } from 'wagmi/actions';
 import {
-  encodeAbiParameters, encodeFunctionData, encodePacked, erc20Abi, formatUnits, parseUnits,
+  encodeAbiParameters, encodeFunctionData, encodePacked, erc20Abi, formatUnits, isAddress, parseUnits,
   zeroAddress, type Hex, type PublicClient,
 } from 'viem';
 import { Portal } from './Portal';
@@ -17,6 +17,7 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { buildSwapGap } from '../lib/swapGap';
+import { buildAnyTokenLegs } from '../lib/anyTokenZap';
 import {
   BTB_AGENT_REGISTRY_ABI, BTB_LP_QUOTER_ABI, EMPTY_FRESH_SWAP_ARGS, EMPTY_ZAP_LEG, INCREASE_FROM_ACCOUNT_SELECTOR,
   approvalCall, cancelInstructionCall, configureSelfAgentCall, depositTokenCall, encodeIncreaseZapRequest,
@@ -110,9 +111,16 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
     ? 0 : (chainWeth ? pos.token1.toLowerCase() === chainWeth : isWeth(pos.token1)) ? 1 : null;
   const [fundSide, setFundSide] = useState<0 | 1>(wethSide ?? inputSide);
   const [useEth, setUseEth] = useState(wethSide !== null);
+  // Any token the smart account holds, beyond the pool's own two tokens.
+  const [accountTokens, setAccountTokens] = useState<{ address: `0x${string}`; symbol: string; decimals: number; raw: bigint }[]>([]);
+  const [fundTokenAddr, setFundTokenAddr] = useState('');
   const ethMode = fundSource === 'wallet' && wethSide === fundSide && useEth;
-  const inputDecimals = fundSide === 0 ? pos.decimals0 : pos.decimals1;
-  const inputSymbol = ethMode ? 'ETH' : fundSide === 0 ? pos.symbol0 : pos.symbol1;
+  const anyToken = accountTokens.find(token => token.address.toLowerCase() === fundTokenAddr.toLowerCase());
+  const anyTokenMode = fundSource === 'account' && !!anyToken
+    && anyToken.address.toLowerCase() !== pos.token0.toLowerCase()
+    && anyToken.address.toLowerCase() !== pos.token1.toLowerCase();
+  const inputDecimals = anyTokenMode ? anyToken!.decimals : fundSide === 0 ? pos.decimals0 : pos.decimals1;
+  const inputSymbol = anyTokenMode ? anyToken!.symbol : ethMode ? 'ETH' : fundSide === 0 ? pos.symbol0 : pos.symbol1;
   let inputAmount = 0n;
   try { if (amountText && Number(amountText) > 0) inputAmount = parseUnits(amountText, inputDecimals); } catch { /* typing */ }
   const starting0 = fundSide === 0 ? inputAmount : 0n;
@@ -152,6 +160,28 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
     });
     return () => { live = false; };
   }, [owner, chainId, config, pos.token0, pos.token1, smartAccount, smartDeployment.agentRegistry]);
+
+  // Every token the smart account holds, for the "fund with another token" picker.
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const response = await fetch(`/api/account-assets?address=${smartAccount}`);
+        if (!response.ok) return;
+        const json = await response.json() as { assets?: { address: string; symbol: string; decimals: number; rawBalance: string }[] };
+        if (!live || !Array.isArray(json.assets)) return;
+        setAccountTokens(json.assets
+          .filter(asset => isAddress(asset.address))
+          .map(asset => {
+            let raw = 0n;
+            try { raw = BigInt(asset.rawBalance); } catch { /* skip unparseable */ }
+            return { address: asset.address.toLowerCase() as `0x${string}`, symbol: asset.symbol || 'TOKEN', decimals: Number(asset.decimals) || 18, raw };
+          })
+          .filter(token => token.raw > 0n));
+      } catch { /* explorer hiccup — picker falls back to the pool tokens */ }
+    })();
+    return () => { live = false; };
+  }, [smartAccount, chainId]);
 
   // The target token mix depends only on the pool and range, not the amount, so it is fetched once.
   useEffect(() => {
@@ -211,13 +241,14 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
 
   const accountAvailable0 = accountBalance0 > reserved0 ? accountBalance0 - reserved0 : 0n;
   const accountAvailable1 = accountBalance1 > reserved1 ? accountBalance1 - reserved1 : 0n;
-  const inputBalance = fundSource === 'account'
+  const inputBalance = anyTokenMode ? anyToken!.raw
+    : fundSource === 'account'
     ? fundSide === 0 ? accountAvailable0 : accountAvailable1
     : ethMode ? ethBalance : fundSide === 0 ? balance0 : balance1;
-  const selectedToken = fundSide === 0 ? pos.token0 : pos.token1;
+  const selectedToken = anyTokenMode ? anyToken!.address : fundSide === 0 ? pos.token0 : pos.token1;
   const selectedReservations = pendingReservations.filter(item => item.token.toLowerCase() === selectedToken.toLowerCase());
   const insufficient = inputAmount > inputBalance;
-  const canAdd = inputAmount > 0n && !insufficient && (!usesBtbQuoter || (rangeQuote !== null && rangeQuote.liquidity >= 1_000n));
+  const canAdd = inputAmount > 0n && !insufficient && (anyTokenMode ? rangeSplit !== null : (!usesBtbQuoter || (rangeQuote !== null && rangeQuote.liquidity >= 1_000n)));
 
   async function add() {
     if (!canAdd || busy) return;
@@ -225,6 +256,57 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
     try {
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
+
+      // Funding with a token that is not one of the pool's two tokens: the Zap
+      // swaps it into both sides through the route guard. Funds are already in
+      // the smart account, so there is nothing to deposit first.
+      if (anyTokenMode && isModularDeployment(smartDeployment)) {
+        if (!pool || !smartDeployment.quoter) throw new Error('BTB range quoter is not configured for this position');
+        if (!rangeSplit) throw new Error('Range ratio is still loading');
+        const quoter = smartDeployment.quoter;
+        const fundingToken = anyToken!.address;
+        const legs = await buildAnyTokenLegs({
+          client, factory: deployment.factory, adapter: smartDeployment.aggregatorSwapAdapter,
+          fundingToken, fundingSymbol: anyToken!.symbol, fundingAmount: inputAmount,
+          token0: pos.token0, token1: pos.token1, symbol0: pos.symbol0, symbol1: pos.symbol1,
+          value0Bps: rangeSplit.value0Bps, slippageBps,
+        });
+        const expectedUsed = await client.readContract({
+          address: quoter, abi: BTB_LP_QUOTER_ABI, functionName: 'previewMint',
+          args: [pool, pos.tickLower, pos.tickUpper, legs.expected0, legs.expected1],
+        });
+        if (expectedUsed[2] < 1_000n || (expectedUsed[0] === 0n && expectedUsed[1] === 0n)) {
+          throw new Error('This amount is too small to create usable LP liquidity');
+        }
+        const pinned = encodeIncreaseZapRequest({
+          account: smartAccount, positionId: pos.id, fundingToken, fundingAmount: inputAmount,
+          leg0: legs.leg0, leg1: legs.leg1,
+          amount0Min: minWithSlippage(expectedUsed[0], slippageBps),
+          amount1Min: minWithSlippage(expectedUsed[1], slippageBps),
+          twapSeconds: 60, maxSlippageBps: slippageBps, maxSpotTwapDeviationBps: 500,
+        });
+        const instructionId = await client.readContract({
+          address: smartDeployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI,
+          functionName: 'nextInstructionId', args: [smartAccount],
+        });
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        const freshArgs = encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [legs.fresh0, legs.fresh1]);
+        const currentRoles = await client.readContract({
+          address: smartDeployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI,
+          functionName: 'agentRoles', args: [smartAccount, smartDeployment.agent],
+        });
+        const calls = [
+          ...((Number(currentRoles) & 12) === 12 ? [] : [configureSelfAgentCall(smartDeployment, smartAccount, smartDeployment.agent, 12)]),
+          scheduleSingleInstructionCall(
+            smartDeployment, smartAccount, smartDeployment.agent, fundingToken, inputAmount,
+            now, now + 8n * 60n, 8, INCREASE_FROM_ACCOUNT_SELECTOR, pinned,
+          ),
+        ];
+        await runCalls(config, { account: owner, chainId, calls, label: `Add ${anyToken!.symbol} to ${pos.symbol0}/${pos.symbol1} through your smart account`, track });
+        await executeAgentZap({ chainId, account: smartAccount, instructionId: instructionId.toString(), pinnedArgs: pinned, freshArgs });
+        await onDone();
+        return;
+      }
       if (chainId === 4663 && isModularDeployment(smartDeployment)) {
         if (!pool || !smartDeployment.quoter) throw new Error('BTB range quoter is not configured for this position');
         const quoter = smartDeployment.quoter;
@@ -370,9 +452,12 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
     } finally { setBusy(false); }
   }
 
+  const otherAccountTokens = accountTokens.filter(token => token.address.toLowerCase() !== pos.token0.toLowerCase() && token.address.toLowerCase() !== pos.token1.toLowerCase());
+  const showTokenPicker = fundSource === 'account' && usesBtbQuoter && otherAccountTokens.length > 0;
+
   return <Portal>
     <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, left: sidebarWidth, zIndex: 350, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(9px)' }}>
-      <div onClick={(event) => event.stopPropagation()} style={{ width: '100%', maxWidth: 460, borderRadius: 24, padding: 18, boxSizing: 'border-box', background: '#0b0b10', border: btb.border, boxShadow: '0 24px 80px rgba(0,0,0,.55)' }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: '100%', maxWidth: 460, maxHeight: 'calc(100dvh - 36px)', overflowY: 'auto', borderRadius: 24, padding: 18, boxSizing: 'border-box', background: '#0b0b10', border: btb.border, boxShadow: '0 24px 80px rgba(0,0,0,.55)' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 850 }}>Add more liquidity</div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>{pos.symbol0} / {pos.symbol1} · NFT #{pos.id.toString()}</div>
 
@@ -386,10 +471,19 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
           <button onClick={() => { setFundSource('account'); setUseEth(false); }} style={{ height: 37, borderRadius: 11, border: fundSource === 'account' ? '1px solid rgba(82,227,164,.48)' : btb.borderSoft, background: fundSource === 'account' ? 'rgba(82,227,164,.11)' : 'rgba(255,255,255,.035)', color: fundSource === 'account' ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>From smart account</button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 12 }}>
-          {([0, 1] as const).map(sideIndex => <button key={sideIndex} onClick={() => { setFundSide(sideIndex); setUseEth(sideIndex === wethSide); setAmountText(''); }} style={{ height: 39, borderRadius: 11, border: fundSide === sideIndex ? '1px solid rgba(82,227,164,.48)' : btb.borderSoft, background: fundSide === sideIndex ? 'rgba(82,227,164,.11)' : 'rgba(255,255,255,.035)', color: fundSide === sideIndex ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, cursor: 'pointer' }}>Fund with {sideIndex === wethSide ? (useEth && fundSide === sideIndex ? 'ETH' : 'WETH') : sideIndex === 0 ? pos.symbol0 : pos.symbol1}</button>)}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7, marginTop: 12, opacity: anyTokenMode ? .5 : 1 }}>
+          {([0, 1] as const).map(sideIndex => <button key={sideIndex} onClick={() => { setFundTokenAddr(''); setFundSide(sideIndex); setUseEth(sideIndex === wethSide); setAmountText(''); }} style={{ height: 39, borderRadius: 11, border: !anyTokenMode && fundSide === sideIndex ? '1px solid rgba(82,227,164,.48)' : btb.borderSoft, background: !anyTokenMode && fundSide === sideIndex ? 'rgba(82,227,164,.11)' : 'rgba(255,255,255,.035)', color: !anyTokenMode && fundSide === sideIndex ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, cursor: 'pointer' }}>Fund with {sideIndex === wethSide ? (useEth && fundSide === sideIndex ? 'ETH' : 'WETH') : sideIndex === 0 ? pos.symbol0 : pos.symbol1}</button>)}
         </div>
-        {fundSide === wethSide && <button onClick={() => { setUseEth(value => !value); setAmountText(''); }} style={{ border: 'none', display: 'block', margin: '7px 0 0 auto', padding: 0, background: 'transparent', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}>Use {useEth ? 'WETH' : 'ETH'} instead</button>}
+        {!anyTokenMode && fundSide === wethSide && <button onClick={() => { setUseEth(value => !value); setAmountText(''); }} style={{ border: 'none', display: 'block', margin: '7px 0 0 auto', padding: 0, background: 'transparent', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 700, cursor: 'pointer' }}>Use {useEth ? 'WETH' : 'ETH'} instead</button>}
+
+        {showTokenPicker && <div style={{ marginTop: 10 }}>
+          <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 750, marginBottom: 5 }}>Or fund with another token you hold</div>
+          <select value={anyTokenMode ? fundTokenAddr : ''} onChange={event => { setFundTokenAddr(event.target.value); setAmountText(''); }} style={{ width: '100%', height: 37, padding: '0 10px', borderRadius: 11, border: anyTokenMode ? '1px solid rgba(255,179,107,.5)' : btb.borderSoft, background: anyTokenMode ? 'rgba(255,179,107,.1)' : 'rgba(255,255,255,.035)', color: anyTokenMode ? btb.amber : btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>
+            <option value="">Use {pos.symbol0} or {pos.symbol1} above</option>
+            {otherAccountTokens.map(token => <option key={token.address} value={token.address}>{token.symbol} · {fmt(token.raw, token.decimals)}</option>)}
+          </select>
+          {anyTokenMode && <div style={{ marginTop: 6, color: btb.textMuted, fontSize: 10, lineHeight: 1.45 }}>{anyToken!.symbol} is swapped into {pos.symbol0} and {pos.symbol1} at the range ratio, then added. Any dust returns to your smart account.</div>}
+        </div>}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 14, marginBottom: 6 }}>
           <span style={{ color: btb.textMuted, fontSize: 11.5 }}>{inputSymbol} amount</span>
