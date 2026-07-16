@@ -227,6 +227,9 @@ export const BTB_LP_ACCOUNT_ABI = [
   { name: 'feeBaseline', type: 'function', stateMutability: 'view', inputs: [{ name: 'positionManager', type: 'address' }, { name: 'positionId', type: 'uint256' }], outputs: [{ name: 'token0', type: 'uint128' }, { name: 'token1', type: 'uint128' }] },
   { name: 'depositToken', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
   { name: 'withdrawToken', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'withdrawTokens', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokens', type: 'address[]' }], outputs: [] },
+  { name: 'withdrawNative', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'withdrawAllNative', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   {
     name: 'configureEarnings', type: 'function', stateMutability: 'nonpayable',
     inputs: [

@@ -1,6 +1,8 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import {
   createPublicClient, createWalletClient, defineChain, encodeAbiParameters, encodeFunctionData, encodePacked,
@@ -93,16 +95,43 @@ async function protectedPath(publicClient: ReturnType<typeof createPublicClient>
   return encodePacked(["address", "uint24", "address", "uint24", "address"], [tokenIn, first.fee, weth, second.fee, tokenOut]);
 }
 
-export const execute = action({
+export const enqueue = action({
   args: {
-    chainId: v.float64(), account: v.string(), tokenIn: v.string(), tokenOut: v.string(),
+    orderKey: v.string(), chainId: v.float64(), account: v.string(), tokenIn: v.string(), tokenOut: v.string(),
     amountIn: v.string(), requestKey: v.string(),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args): Promise<{ id: Id<"spotTradeOrders">; state: string; duplicate: boolean }> => {
     if (args.chainId !== 4663 || process.env.AGENT_CHAIN_ID !== "4663" || process.env.AGENT_EXECUTION_ENABLED !== "1") throw new Error("Instant trading is disabled");
+    if (!/^[a-zA-Z0-9:_-]{8,120}$/.test(args.orderKey)) throw new Error("Invalid order key");
     if (!isAddress(args.account) || !isAddress(args.tokenIn) || !isAddress(args.tokenOut) || same(args.tokenIn, args.tokenOut)) throw new Error("Invalid trade tokens");
     if (!/^\d+$/.test(args.amountIn) || BigInt(args.amountIn) <= 0n) throw new Error("Invalid trade amount");
     if (!/^0x[0-9a-fA-F]{64}$/.test(args.requestKey)) throw new Error("This device is not authorized for instant trading");
+    const agent = signer();
+    const rpc = process.env.AGENT_RPC_URL || robinhood.rpcUrls.default.http[0];
+    const publicClient = createPublicClient({ chain: robinhood, transport: http(rpc, { timeout: 15_000, retryCount: 2 }) });
+    const registry = configuredAddress("BTB_AGENT_REGISTRY_4663", DEFAULT_REGISTRY);
+    const accountAddress = args.account as Address;
+    const rawPolicy = await publicClient.readContract({ address: registry, abi: REGISTRY_ABI, functionName: "tradePolicies", args: [accountAddress] });
+    if (!rawPolicy[0] || !same(rawPolicy[1], agent.address) || Number(rawPolicy[7]) <= Math.floor(Date.now() / 1000)) throw new Error("Instant trading permission is disabled or expired");
+    if (keccak256(args.requestKey as Hex) !== rawPolicy[2]) throw new Error("This device is not authorized for this smart account");
+    const roles = await publicClient.readContract({ address: registry, abi: REGISTRY_ABI, functionName: "agentRoles", args: [accountAddress, agent.address] });
+    if ((roles & 16) === 0) throw new Error("The BTB agent does not have trading permission");
+    return ctx.runMutation(internal.spotTradeQueue.insert, {
+      orderKey: args.orderKey, chainId: args.chainId, account: args.account,
+      tokenIn: args.tokenIn, tokenOut: args.tokenOut, amountIn: args.amountIn,
+    });
+  },
+});
+
+export const executeQueued = internalAction({
+  args: {
+    chainId: v.float64(), account: v.string(), tokenIn: v.string(), tokenOut: v.string(),
+    amountIn: v.string(), orderId: v.id("spotTradeOrders"), workerId: v.string(), txHash: v.optional(v.string()), signedTransaction: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (args.chainId !== 4663 || process.env.AGENT_CHAIN_ID !== "4663" || process.env.AGENT_EXECUTION_ENABLED !== "1") throw new Error("Instant trading is disabled");
+    if (!isAddress(args.account) || !isAddress(args.tokenIn) || !isAddress(args.tokenOut) || same(args.tokenIn, args.tokenOut)) throw new Error("Invalid trade tokens");
+    if (!/^\d+$/.test(args.amountIn) || BigInt(args.amountIn) <= 0n) throw new Error("Invalid trade amount");
 
     const agent = signer();
     const rpc = process.env.AGENT_RPC_URL || robinhood.rpcUrls.default.http[0];
@@ -126,9 +155,32 @@ export const execute = action({
       maximumSpotTwapDeviationBps: rawPolicy[5], minimumTwapSeconds: rawPolicy[6], expiresAt: rawPolicy[7],
     };
     if (!policy.enabled || !same(policy.agent, agent.address) || Number(policy.expiresAt) <= Math.floor(Date.now() / 1000)) throw new Error("Instant trading permission is disabled or expired");
-    if (keccak256(args.requestKey as Hex) !== policy.requestKeyHash) throw new Error("This device is not authorized for this smart account");
     const roles = await publicClient.readContract({ address: registry, abi: REGISTRY_ABI, functionName: "agentRoles", args: [accountAddress, agent.address] });
     if ((roles & 16) === 0) throw new Error("The BTB agent does not have trading permission");
+
+    if (args.txHash) {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(args.txHash)) throw new Error("Invalid submitted transaction hash");
+      let receipt = await publicClient.getTransactionReceipt({ hash: args.txHash as Hex }).catch(() => null);
+      if (!receipt && args.signedTransaction && /^0x[0-9a-fA-F]+$/.test(args.signedTransaction)) {
+        try { await publicClient.sendRawTransaction({ serializedTransaction: args.signedTransaction as Hex }); }
+        catch (reason) {
+          const message = (reason as Error).message?.toLowerCase() || "";
+          if (!message.includes("already known") && !message.includes("known transaction")) throw reason;
+        }
+      }
+      receipt ??= await publicClient.waitForTransactionReceipt({ hash: args.txHash as Hex, confirmations: 1, timeout: 60_000 });
+      if (receipt.status !== "success") throw new Error("Instant trade reverted");
+      const event = parseEventLogs({ abi: REGISTRY_ABI, logs: receipt.logs, eventName: "TradeExecuted", strict: false })
+        .find(log => same(log.args.account || "", accountAddress));
+      if (!event) throw new Error("Confirmed trade is missing its settlement event");
+      return {
+        hash: args.txHash,
+        grossAmountOut: event.args.grossAmountOut?.toString() || "0",
+        protocolFee: event.args.protocolFee?.toString() || "0",
+        netAmountOut: event.args.netAmountOut?.toString() || "0",
+        amountInUsd: 0,
+      };
+    }
 
     const routesUrl = `https://aggregator-api.kyberswap.com/robinhood/api/v1/routes?tokenIn=${tokenIn}&tokenOut=${tokenOut}&amountIn=${amountIn}&saveGas=0&gasInclude=1`;
     const routeResponse = await fetch(routesUrl, { headers: { "x-client-id": "btb-finance" } });
@@ -136,7 +188,7 @@ export const execute = action({
     if (!routeResponse.ok || routeJson.code !== 0 || !routeJson.data?.routeSummary) throw new Error(routeJson.message || "No executable route was found");
     if (!routeJson.data.routerAddress || !same(routeJson.data.routerAddress, kyberRouter)) throw new Error("Kyber returned an unapproved router");
     const amountInUsd = Number(routeJson.data.routeSummary.amountInUsd || 0);
-    const minimumTradeUsd = Number(process.env.MIN_SPOT_TRADE_USD || 10);
+    const minimumTradeUsd = Number(process.env.MIN_SPOT_TRADE_USD || 5);
     if (!Number.isFinite(amountInUsd) || amountInUsd < minimumTradeUsd) throw new Error(`Minimum instant trade is $${minimumTradeUsd.toFixed(0)}`);
     const expectedOut = BigInt(routeJson.data.routeSummary.amountOut || "0");
     if (expectedOut === 0n) throw new Error("The quoted output is zero");
@@ -171,7 +223,16 @@ export const execute = action({
     const gas = await publicClient.estimateGas({ account: agent, to: registry, data });
     const gasPrice = await publicClient.getGasPrice();
     if (await publicClient.getBalance({ address: agent.address }) < gas * gasPrice * 12n / 10n) throw new Error("BTB agent needs more native gas");
-    const hash = await walletClient.sendTransaction({ account: agent, to: registry, data, gas: gas * 12n / 10n });
+    const nonce = await publicClient.getTransactionCount({ address: agent.address, blockTag: "pending" });
+    const signedTransaction = await walletClient.signTransaction({ account: agent, chain: robinhood, to: registry, data, gas: gas * 12n / 10n, gasPrice, nonce });
+    const hash = keccak256(signedTransaction);
+    await ctx.runMutation(internal.spotTradeQueue.markSubmitted, { orderId: args.orderId, workerId: args.workerId, txHash: hash, signedTransaction, amountInUsd });
+    try {
+      await publicClient.sendRawTransaction({ serializedTransaction: signedTransaction });
+    } catch (reason) {
+      const message = (reason as Error).message?.toLowerCase() || "";
+      if (!message.includes("already known") && !message.includes("known transaction")) throw reason;
+    }
     const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 60_000 });
     if (receipt.status !== "success") throw new Error("Instant trade reverted");
     const event = parseEventLogs({ abi: REGISTRY_ABI, logs: receipt.logs, eventName: "TradeExecuted", strict: false })
