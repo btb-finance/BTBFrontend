@@ -5,7 +5,6 @@ import { getPublicClient } from 'wagmi/actions';
 import { isAddress } from 'viem';
 import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
-import { useOtherChainBalances } from '../../lib/useOtherChainBalances';
 import { useDiscoverPools, prefetchDiscoverPools } from '../../lib/discoverPools';
 import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chainSlug } from '../../lib/routes';
@@ -33,11 +32,7 @@ export function DiscoverScreen() {
   const { isMobile } = useSidebar();
   const { pools, priceChange, loading } = useDiscoverPools();
   const [search, setSearch] = useState('');
-  // Multi-select chain filter. Until the user touches it, the effective
-  // selection is their balance chains (see effectiveChains); after that,
-  // selectedChains holds their explicit picks. Empty = all chains.
-  const [selectedChains, setSelectedChains] = useState<string[]>([]);
-  const [userTouchedChains, setUserTouchedChains] = useState(false);
+  const [selectedChain, setSelectedChain] = useState('all');
   const [selectedDex, setSelectedDex] = useState('all');
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
@@ -102,17 +97,16 @@ export function DiscoverScreen() {
     if (!slug) return;
     appliedChainFromUrl.current = true;
     const chain = [...new Set(pools.map(p => p.chain))].find(c => chainSlug(c) === slug);
-    if (chain) { setSelectedChains([chain]); setUserTouchedChains(true); }
+    if (chain) setSelectedChain(chain);
   }, [pools]);
 
   // Reflect the chain filter into the URL so the current view is shareable
   // (e.g. selecting Robinhood Chain → /discover/robinhoodchain). No history spam.
   useEffect(() => {
     if (parsePoolPath(window.location.pathname)) return; // a pool link owns the URL
-    // Only a single explicit chain choice is shareable as /discover/<chain>.
-    const target = userTouchedChains && selectedChains.length === 1 ? `/discover/${chainSlug(selectedChains[0])}` : '/discover';
+    const target = selectedChain === 'all' ? '/discover' : `/discover/${chainSlug(selectedChain)}`;
     if (window.location.pathname !== target) window.history.replaceState(null, '', target);
-  }, [selectedChains, userTouchedChains]);
+  }, [selectedChain]);
 
   // Keep the sheet in sync with browser back/forward: reset and let the resolver
   // above re-run against the new URL.
@@ -132,8 +126,7 @@ export function DiscoverScreen() {
   const [marketSymbol, setMarketSymbol] = useState<string | null>(null);
   const [marketLoading, setMarketLoading] = useState(false);
   const marketReqRef = useRef(0);
-  const { tokens, walletAddress } = useTokenStore();
-  const { tokens: otherChainTokens } = useOtherChainBalances(walletAddress);
+  const { tokens } = useTokenStore();
   useEffect(() => {
     const q = search.trim().toLowerCase();
     const tok = q
@@ -180,49 +173,17 @@ export function DiscoverScreen() {
     return (p.underlyingTokens ?? []).map((t, i) => (held.has(t.toLowerCase()) ? syms[i] : null)).filter((x): x is string => !!x);
   };
 
-  const chains = useMemo(() => [...new Set(pools.map(pool => pool.chain))].sort(), [pools]);
-  const chainCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const pool of pools) counts.set(pool.chain, (counts.get(pool.chain) ?? 0) + 1);
-    return counts;
-  }, [pools]);
-  // Chains where the connected wallet actually holds a balance — used as the
-  // default chain selection so users start on pools they can act on.
-  const hasBalance = (token: { balance?: string; balanceRaw?: string }) => {
-    if (token.balanceRaw) { try { return BigInt(token.balanceRaw) > 0n; } catch { /* fall through */ } }
-    return Number(token.balance ?? 0) > 0;
-  };
-  const myChainIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const token of tokens) if (hasBalance(token)) ids.add(token.chainId ?? 1);
-    for (const token of otherChainTokens) if (token.chainId != null && hasBalance(token)) ids.add(token.chainId);
-    return ids;
-  }, [tokens, otherChainTokens]);
-  const chainIdByName = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const pool of pools) if (pool.chainId != null) map.set(pool.chain, pool.chainId);
-    return map;
-  }, [pools]);
-  const myChains = useMemo(() => chains.filter(chain => { const id = chainIdByName.get(chain); return id != null && myChainIds.has(id); }), [chains, chainIdByName, myChainIds]);
-  // Until the user picks chains, default to their balance chains.
-  const effectiveChains = userTouchedChains ? selectedChains : myChains;
-  function toggleChain(chain: string) {
-    setSelectedChains(prev => {
-      const base = userTouchedChains ? prev : myChains;
-      return base.includes(chain) ? base.filter(entry => entry !== chain) : [...base, chain];
-    });
-    setUserTouchedChains(true);
-  }
-  const dexes = useMemo(() => [...new Set(pools.map(pool => pool.dex))].sort(), [pools]);
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return pools.filter(p => {
-      if (effectiveChains.length > 0 && !effectiveChains.includes(p.chain)) return false;
+      if (selectedChain !== 'all' && p.chain !== selectedChain) return false;
       if (selectedDex !== 'all' && p.dex !== selectedDex) return false;
       return !q || p.pair.toLowerCase().includes(q) || p.dex.toLowerCase().includes(q) || p.chain.toLowerCase().includes(q);
     });
-  }, [pools, search, effectiveChains, selectedDex]);
+  }, [pools, search, selectedChain, selectedDex]);
+
+  const chains = useMemo(() => [...new Set(pools.map(pool => pool.chain))].sort(), [pools]);
+  const dexes = useMemo(() => [...new Set(pools.map(pool => pool.dex))].sort(), [pools]);
 
   const splitPair = (p: EarnPool) => p.pair.split('-') as [string, string];
   const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
@@ -351,21 +312,6 @@ export function DiscoverScreen() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DiscoverStatusBanner isMobile={isMobile} />
-      <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 4, marginBottom: 2 }}>
-        {[
-          { key: '__all__', label: 'All chains', count: pools.length, active: effectiveChains.length === 0, onClick: () => { setSelectedChains([]); setUserTouchedChains(true); } },
-          ...chains.map(chain => ({ key: chain, label: chain, count: chainCounts.get(chain) ?? 0, active: effectiveChains.includes(chain), onClick: () => toggleChain(chain) })),
-        ].map(option => (
-          <button key={option.key} onClick={option.onClick} aria-pressed={option.active} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, height: 38, padding: '0 14px', borderRadius: 11, border: option.active ? '1px solid rgba(82,227,164,.5)' : btb.borderSoft, background: option.active ? 'rgba(82,227,164,.12)' : btb.surfaceSoft, color: option.active ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            {option.label}
-            <span style={{ fontSize: 10, fontWeight: 700, color: option.active ? btb.green : btb.textDim, opacity: .85 }}>{option.count}</span>
-          </button>
-        ))}
-      </div>
-      {!userTouchedChains && myChains.length > 0 && (
-        <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 600, margin: '-2px 2px 2px' }}>Selected from your balance · tap chains to add or remove</div>
-      )}
-
       <div style={{ display: 'flex', gap: 10, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <div style={{
           flex: 1, minWidth: isMobile ? '100%' : 220, display: 'flex', alignItems: 'center', gap: 8,
@@ -380,6 +326,10 @@ export function DiscoverScreen() {
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
           />
         </div>
+        <select value={selectedChain} onChange={event => setSelectedChain(event.target.value)} aria-label="Filter pools by chain" style={{ flex: isMobile ? 1 : '0 0 170px', minWidth: 0, height: 42, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+          <option value="all">All chains</option>
+          {chains.map(chain => <option key={chain} value={chain}>{chain}</option>)}
+        </select>
         <select value={selectedDex} onChange={event => setSelectedDex(event.target.value)} aria-label="Filter pools by DEX" style={{ flex: isMobile ? 1 : '0 0 170px', minWidth: 0, height: 42, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
           <option value="all">All DEXs</option>
           {dexes.map(dex => <option key={dex} value={dex}>{dex}</option>)}
