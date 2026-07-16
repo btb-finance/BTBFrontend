@@ -47,12 +47,17 @@ export async function waitForChainState(check: ChainStateCheck): Promise<void> {
 async function ensureTargetChain(config: Config, chainId?: number): Promise<void> {
   if (!chainId) return;
   const target = chainId as SupportedChainId;
-  if (getAccount(config).chainId !== chainId) await switchChain(config, { chainId: target });
+  if (getAccount(config).chainId !== chainId) {
+    const switchedChain = await switchChain(config, { chainId: target });
+    if (switchedChain.id !== chainId) {
+      throw new Error(`Wallet switched to chain ${switchedChain.id}, but chain ${chainId} is required.`);
+    }
+  }
   await waitForChainState({
     test: () => getAccount(config).chainId === chainId,
-    error: `Your wallet did not finish switching to chain ${chainId}. Approve the network switch and retry.`,
-    retries: 10,
-    intervalMs: 250,
+    error: `Your wallet switched networks, but the app did not sync to chain ${chainId}. Retry the transaction.`,
+    retries: 30,
+    intervalMs: 500,
   });
 }
 
