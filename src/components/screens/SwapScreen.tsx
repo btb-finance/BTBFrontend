@@ -48,8 +48,8 @@ function sortedTokens(tokens: Token[]): Token[] {
 
 // ─── Token picker ─────────────────────────────────────────────────────────────
 
-function TokenPicker({ tokens, selected, onSelect, onImport, onClose }: {
-  tokens: Token[]; selected: string; onSelect: (t: Token) => void; onImport: (address: string) => Promise<Token>; onClose: () => void;
+function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose }: {
+  tokens: Token[]; selected: string; loading?: boolean; onSelect: (t: Token) => void; onImport: (address: string) => Promise<Token>; onClose: () => void;
 }) {
   const { width: sidebarWidth } = useSidebar();
   const [q, setQ] = useState('');
@@ -64,6 +64,7 @@ function TokenPicker({ tokens, selected, onSelect, onImport, onClose }: {
         t.address.toLowerCase().includes(ql)
       )
     : sorted; // show every token — balance-first sorted, search-narrowable
+  const visible = ql ? filtered : filtered.slice(0, 100);
 
   return (
     <Portal>
@@ -76,15 +77,15 @@ function TokenPicker({ tokens, selected, onSelect, onImport, onClose }: {
             <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search token…"
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 15, fontFamily: 'inherit' }}/>
           </div>
-          {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>Tokens with balance shown first</div>}
+          {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>{loading ? 'Loading network tokens…' : `${tokens.length.toLocaleString()} tokens · balances shown first`}</div>}
         </div>
         <div style={{ overflowY: 'auto', padding: '0 12px 48px' }}>
           {isAddress(q.trim()) && !filtered.some(token => token.address.toLowerCase() === q.trim().toLowerCase()) && <button onClick={async () => { setImporting(true); setImportError(null); try { const token = await onImport(q.trim()); onSelect(token); onClose(); } catch (error) { setImportError((error as Error).message || 'Could not import token'); } finally { setImporting(false); } }} disabled={importing} style={{ width: '100%', minHeight: 46, margin: '4px 0 8px', borderRadius: 12, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', color: btb.green, fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: importing ? 'wait' : 'pointer' }}>{importing ? 'Checking contract…' : `Import ${q.slice(0, 8)}…${q.slice(-6)}`}</button>}
           {importError && <div style={{ color: btb.red, fontSize: 11, padding: '0 6px 8px' }}>{importError}</div>}
-          {filtered.map(t => (
+          {visible.map(t => (
             <div key={t.address} onClick={() => { onSelect(t); onClose(); }} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderRadius: 14,
-              background: t.address === selected ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
+              background: t.address.toLowerCase() === selected.toLowerCase() ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
             }}>
               <TokenIcon symbol={t.symbol} size={38} logoUrl={t.logoURI}/>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -107,7 +108,7 @@ function TokenPicker({ tokens, selected, onSelect, onImport, onClose }: {
               })()}
             </div>
           ))}
-          {filtered.length === 0 && <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>No tokens found</div>}
+          {filtered.length === 0 && !loading && <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>No tokens found. Paste a contract address to import one.</div>}
         </div>
       </div>
     </div>
@@ -174,6 +175,8 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
       : walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
   const [chainId, setChainId] = useState<number>(initialChain);
   const [customTokens, setCustomTokens] = useState<Token[]>([]);
+  const [listedTokens, setListedTokens] = useState<Token[]>([]);
+  const [loadingTokenList, setLoadingTokenList] = useState(false);
 
   const [fromToken, setFromToken] = useState<Token>(initialFrom ?? ETH_DEFAULT);
   const [toToken,   setToToken]   = useState<Token>(
@@ -197,6 +200,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     };
     add(nativeEthForChain(chainId));
     if (DEFAULT_QUOTES[chainId]) add(DEFAULT_QUOTES[chainId]);
+    for (const token of listedTokens) add(token);
     for (const token of chainId === 1 ? tokens : positions) add(token);
     for (const token of customTokens) add(token);
     return [...merged.values()];
@@ -213,6 +217,21 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const awardXp = useMutation(api.users.awardXp);
 
   const isNativeFrom = fromToken.address === 'ETH';
+
+  useEffect(() => {
+    if (chainId === 1) { setListedTokens([]); setLoadingTokenList(false); return; }
+    const controller = new AbortController();
+    setLoadingTokenList(true);
+    fetch(`/api/swap-tokens?chainId=${chainId}`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Token catalog ${response.status}`);
+        return response.json() as Promise<{ tokens?: Token[] }>;
+      })
+      .then(body => setListedTokens(Array.isArray(body.tokens) ? body.tokens : []))
+      .catch(error => { if ((error as Error).name !== 'AbortError') setListedTokens([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingTokenList(false); });
+    return () => controller.abort();
+  }, [chainId]);
 
   // Pick the pair once when the token list first arrives: URL params win,
   // then the initialFrom prop (portfolio "Swap" buttons), then ETH → USDC.
@@ -267,7 +286,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     if (liveTo && (liveTo.balance !== toToken.balance || liveTo.usdPrice !== toToken.usdPrice)) {
       setToToken(liveTo);
     }
-  }, [chainId, positions, tokens, customTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
+  }, [chainId, positions, tokens, listedTokens, customTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
 
   function selectChain(nextChainId: number) {
     if (!KYBER_CHAINS[nextChainId] || nextChainId === chainId) return;
@@ -508,6 +527,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
       {picker && (
         <TokenPicker
           tokens={chainTokens}
+          loading={loadingTokenList}
           selected={picker === 'from' ? fromToken.address : toToken.address}
           onSelect={t => { picker === 'from' ? setFromToken(t) : setToToken(t); setFromAmt(''); setQuote(null); }}
           onImport={importToken}
