@@ -35,6 +35,8 @@ export type TradePreset = {
   address: `0x${string}`;
   symbol: string;
   imageUrl?: string;
+  /** Sell only this fraction (0-1) of the holding. Omitted/1 means the full balance. */
+  sellFraction?: number;
 };
 
 const CHAIN_ID = 4663 as const;
@@ -68,6 +70,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
   const [buySize, setBuySize] = useState('0.001');
   const [buyToken, setBuyToken] = useState<string>(WETH);
   const [sellToken, setSellToken] = useState<string>(WETH);
+  const [sellFromToken, setSellFromToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ orderId: string } | null>(null);
   const [funding, setFunding] = useState<'deposit' | 'withdraw' | null>(null);
@@ -184,7 +187,9 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
 
   useEffect(() => {
     if (preset?.side === 'sell' && inputMeta && inputMeta.address.toLowerCase() === preset.address.toLowerCase() && !amount) {
-      setAmount(formatUnits(inputMeta.balance, inputMeta.decimals));
+      const fraction = preset.sellFraction && preset.sellFraction > 0 && preset.sellFraction < 1 ? preset.sellFraction : 1;
+      const raw = fraction >= 1 ? inputMeta.balance : (inputMeta.balance * BigInt(Math.round(fraction * 10_000))) / 10_000n;
+      setAmount(formatUnits(raw, inputMeta.decimals));
     }
   }, [amount, inputMeta, preset]);
 
@@ -278,6 +283,21 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
     finally { setBusy(null); setPreset(null); }
   }
 
+  // Sell a chosen fraction (0-1) of one held token into the receive token.
+  function sellPartial(fraction: number) {
+    if (!instantReady) return;
+    const asset = spendableAssets.find(item => item.address?.toLowerCase() === sellFromToken.toLowerCase()) ?? spendableAssets[0];
+    if (!asset?.address) return;
+    setPendingPresets(current => [...current, {
+      id: `sell:${Date.now()}:${fraction}:${asset.address!.toLowerCase()}`,
+      side: 'sell' as const,
+      address: asset.address as `0x${string}`,
+      symbol: asset.symbol,
+      imageUrl: asset.imageUrl,
+      sellFraction: fraction,
+    }]);
+  }
+
   function sellAll() {
     if (!instantReady || sellAllAssets.length === 0) return;
     const stamp = Date.now();
@@ -315,9 +335,11 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
       return;
     }
     const sellAsset = preset.side === 'sell' ? smartAssets.find(asset => asset.address?.toLowerCase() === preset.address.toLowerCase()) : null;
-    if (sellAsset?.priceUsd && sellAsset.usdValue < 5) {
+    const sellFraction = preset.sellFraction && preset.sellFraction > 0 && preset.sellFraction < 1 ? preset.sellFraction : 1;
+    const sellValueUsd = sellAsset ? sellAsset.usdValue * sellFraction : 0;
+    if (sellAsset?.priceUsd && sellValueUsd < 5) {
       executedPreset.current = preset.id;
-      setError(`${sellAsset.symbol} balance is worth ${sellAsset.usdValue.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}. Instant trades require at least $5.`);
+      setError(`${sellFraction < 1 ? `Selling ${Math.round(sellFraction * 100)}% of ${sellAsset.symbol}` : `${sellAsset.symbol} balance`} is worth ${sellValueUsd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}. Instant trades require at least $5${sellFraction < 1 ? ' — sell a larger share' : ''}.`);
       setPreset(null);
       return;
     }
@@ -397,16 +419,24 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
                 <div style={{ minHeight: 72, padding: '8px 9px', boxSizing: 'border-box', borderRadius: 11, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.2)' : btb.borderSoft, background: 'rgba(255,255,255,.027)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: btb.loss, flexShrink: 0 }}/>
-                    <span style={{ color: btb.textDim, fontSize: 8.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .4 }}>Sell for</span>
+                    <span style={{ color: btb.textDim, fontSize: 8.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .4 }}>Sell</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 7, marginTop: 4 }}>
-                    <select aria-label="Sell into" value={sellToken} onChange={event => { setSellToken(event.target.value); if (mode === 'sell') setTokenOut(event.target.value); }} style={{ minWidth: 0, width: '100%', height: 29, padding: '0 6px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
-                      <option value={WETH}>Receive WETH</option>
-                      <option value={USDG}>Receive USDG</option>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,.82fr)', gap: 7, marginTop: 4 }}>
+                    <select aria-label="Sell which token" value={sellFromToken || spendableAssets[0]?.address || ''} onChange={event => setSellFromToken(event.target.value)} disabled={spendableAssets.length === 0} style={{ minWidth: 0, width: '100%', height: 29, padding: '0 6px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+                      {spendableAssets.length === 0 && <option value="">No tokens held</option>}
+                      {spendableAssets.map(asset => <option key={asset.address!} value={asset.address!}>{asset.symbol} · {asset.balance.toLocaleString('en-US', { maximumFractionDigits: 5 })}</option>)}
                     </select>
-                    <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ height: 29, padding: '0 11px', borderRadius: 7, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.32)' : btb.borderSoft, background: sellAllAssets.length ? 'rgba(255,107,122,.09)' : 'rgba(255,255,255,.02)', color: sellAllAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 9.5, fontWeight: 850, cursor: sellAllAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>Sell all</button>
+                    <select aria-label="Sell into" value={sellToken} onChange={event => { setSellToken(event.target.value); if (mode === 'sell') setTokenOut(event.target.value); }} style={{ minWidth: 0, width: '100%', height: 29, padding: '0 6px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+                      <option value={WETH}>for WETH</option>
+                      <option value={USDG}>for USDG</option>
+                    </select>
                   </div>
-                  <div style={{ color: btb.textMuted, fontSize: 8.5, marginTop: 5 }}>{sellAllAssets.length ? `${sellAllAssets.length} eligible asset${sellAllAssets.length === 1 ? '' : 's'} · minimum $5 each` : 'No assets worth $5+'}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 5, marginTop: 6 }}>
+                    {[25, 50, 100].map(pct => (
+                      <button key={pct} onClick={() => sellPartial(pct / 100)} disabled={spendableAssets.length === 0 || busy !== null} style={{ height: 28, borderRadius: 7, border: '1px solid rgba(255,107,122,.28)', background: spendableAssets.length ? 'rgba(255,107,122,.08)' : 'rgba(255,255,255,.02)', color: spendableAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 10, fontWeight: 850, cursor: spendableAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{pct === 100 ? 'Max' : `${pct}%`}</button>
+                    ))}
+                  </div>
+                  <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ border: 0, background: 'transparent', color: sellAllAssets.length ? btb.textMuted : btb.textDim, padding: '5px 0 0', fontFamily: 'inherit', fontSize: 8.5, fontWeight: 750, cursor: sellAllAssets.length ? 'pointer' : 'default' }}>{sellAllAssets.length ? `or sell all ${sellAllAssets.length} tokens · min $5 each` : 'No assets worth $5+'}</button>
                 </div>
               </div>
             </div>
