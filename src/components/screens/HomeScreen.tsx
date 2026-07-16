@@ -103,6 +103,18 @@ export function HomeScreen({ address, onConnectWallet }: {
     return rows;
   }, [markets, query, view]);
 
+  // Deduped token list for the recurring-buy picker — one entry per token,
+  // most-liquid first, capped so the native <select> stays usable.
+  const dcaMarkets = useMemo(() => {
+    const seen = new Set<string>();
+    return [...markets]
+      .filter(market => isAddress(market.address))
+      .sort((a, b) => b.liquidityUsd - a.liquidityUsd)
+      .filter(market => { const key = market.address.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; })
+      .slice(0, 200)
+      .map(market => ({ address: market.address, symbol: market.symbol, imageUrl: market.imageUrl }));
+  }, [markets]);
+
   const totals = useMemo(() => ({
     volume: markets.reduce((sum, market) => sum + market.volume24h, 0),
     liquidity: markets.reduce((sum, market) => sum + market.liquidityUsd, 0),
@@ -136,7 +148,7 @@ export function HomeScreen({ address, onConnectWallet }: {
 
   return <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 13 : 18 }}>
     <div id="smart-trade-panel" style={{ scrollMarginTop: 16 }}>
-      <SmartTradePanel owner={address} onConnect={onConnectWallet} presets={presets} onStatus={setTradeStatus}/>
+      <SmartTradePanel owner={address} onConnect={onConnectWallet} presets={presets} onStatus={setTradeStatus} markets={dcaMarkets}/>
     </div>
 
     <Glass padding={isMobile ? 13 : 17} radius={18} strong>

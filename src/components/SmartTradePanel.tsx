@@ -6,6 +6,7 @@ import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { erc20Abi, formatUnits, isAddress, keccak256, parseUnits, toHex, type Hex } from 'viem';
 import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 import { Button } from './Button';
 import { Glass } from './Glass';
 import { ManagedFundsSheet } from './ManagedFundsSheet';
@@ -53,12 +54,34 @@ function compact(raw: bigint, decimals: number) {
 }
 
 export type TradeStatus = { id: string; phase: 'working' | 'confirmed' | 'failed' };
+export type MarketOption = { address: string; symbol: string; imageUrl?: string };
 
-export function SmartTradePanel({ owner, onConnect, presets = [], onStatus }: { owner?: string; onConnect?: () => void; presets?: TradePreset[]; onStatus?: (status: TradeStatus | null) => void }) {
+const DCA_INTERVALS: { label: string; ms: number }[] = [
+  { label: 'Every 5 minutes', ms: 5 * 60_000 },
+  { label: 'Every 15 minutes', ms: 15 * 60_000 },
+  { label: 'Every hour', ms: 60 * 60_000 },
+  { label: 'Every 6 hours', ms: 6 * 60 * 60_000 },
+  { label: 'Every day', ms: 24 * 60 * 60_000 },
+  { label: 'Every week', ms: 7 * 24 * 60 * 60_000 },
+];
+const intervalLabel = (ms: number) => DCA_INTERVALS.find(option => option.ms === ms)?.label ?? `Every ${Math.round(ms / 60_000)} min`;
+function nextRunLabel(at: number): string {
+  const delta = at - Date.now();
+  if (delta <= 0) return 'due now';
+  const minutes = Math.round(delta / 60_000);
+  if (minutes < 60) return `in ${minutes} min`;
+  if (minutes < 1440) return `in ${Math.round(minutes / 60)} h`;
+  return `in ${Math.round(minutes / 1440)} d`;
+}
+
+export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, markets = [] }: { owner?: string; onConnect?: () => void; presets?: TradePreset[]; onStatus?: (status: TradeStatus | null) => void; markets?: MarketOption[] }) {
   const config = useConfig();
   const { track } = useTx();
   const enqueueTrade = useAction(api.spotTrade.enqueue);
   const cancelQueued = useMutation(api.spotTradeQueue.cancelForAccount);
+  const createSchedule = useAction(api.dcaActions.createSchedule);
+  const setScheduleEnabled = useMutation(api.dca.setEnabled);
+  const removeSchedule = useMutation(api.dca.remove);
   const deployment = getSmartAccountDeployment(CHAIN_ID);
   const validOwner = owner && isAddress(owner) ? owner as `0x${string}` : null;
   const [state, setState] = useState<SmartState | null>(null);
@@ -90,6 +113,12 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus }: { 
   const [noticePreset, setNoticePreset] = useState<TradePreset | null>(null);
   const [tradeLabel, setTradeLabel] = useState('');
   const lastStatus = useRef('');
+  const [showDca, setShowDca] = useState(false);
+  const [dcaTarget, setDcaTarget] = useState('');
+  const [dcaUsd, setDcaUsd] = useState('5');
+  const [dcaIntervalMs, setDcaIntervalMs] = useState(24 * 60 * 60_000);
+  const [dcaBusy, setDcaBusy] = useState(false);
+  const [dcaError, setDcaError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!validOwner || !deployment?.agentRegistry) { setState(null); setLoading(false); return; }
@@ -209,8 +238,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus }: { 
     && !!state?.policy && keccak256(localKey as Hex).toLowerCase() === state.policy.requestKeyHash.toLowerCase();
   const instantReady = policyActive && deviceAuthorized && !!(state.roles & 16);
   const orders = useQuery(api.spotTradeQueue.listForAccount, state?.account ? { account: state.account } : 'skip');
+  const schedules = useQuery(api.dca.listForAccount, state?.account ? { account: state.account } : 'skip');
   const pendingOrderCount = orders?.filter(order => ['queued', 'preparing', 'submitted'].includes(order.state)).length ?? 0;
   const queuedCount = orders?.filter(order => order.state === 'queued').length ?? 0;
+  const activeScheduleCount = schedules?.filter(schedule => schedule.enabled).length ?? 0;
   const latestOrder = success ? orders?.find(order => String(order._id) === success.orderId) : undefined;
   const spendableAssets = smartAssets.filter(asset => !asset.native && asset.address && asset.balance > 0);
   const selectedBuyAsset = spendableAssets.find(asset => asset.address?.toLowerCase() === buyToken.toLowerCase());
@@ -343,6 +374,35 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus }: { 
     setSuccess(null);
     setNoticePreset(null);
     setAddressCopied(false);
+  }
+
+  async function startSchedule() {
+    if (!state?.deployed || !validOwner || !localKey) { setDcaError('This device is not authorized yet'); return; }
+    const target = markets.find(market => market.address.toLowerCase() === dcaTarget.toLowerCase());
+    const usd = Number(dcaUsd);
+    if (!target) { setDcaError('Pick a token to buy'); return; }
+    if (!(usd >= 5)) { setDcaError('Each buy must be at least $5'); return; }
+    setDcaBusy(true); setDcaError(null);
+    try {
+      await createSchedule({
+        account: state.account, owner: validOwner, chainId: CHAIN_ID,
+        tokenIn: buyToken, tokenOut: target.address,
+        tokenInSymbol: buySymbol, tokenOutSymbol: target.symbol, tokenOutImage: target.imageUrl,
+        amountUsd: usd, intervalMs: dcaIntervalMs, requestKey: localKey,
+      });
+      setDcaTarget('');
+    } catch (reason) { setDcaError((reason as Error).message || 'Could not start the recurring buy'); }
+    finally { setDcaBusy(false); }
+  }
+
+  async function toggleSchedule(scheduleId: Id<'spotTradeSchedules'>, enabled: boolean) {
+    if (!localKey) return;
+    try { await setScheduleEnabled({ scheduleId, requestKey: localKey, enabled }); } catch { /* reactive list reflects the truth */ }
+  }
+
+  async function deleteSchedule(scheduleId: Id<'spotTradeSchedules'>) {
+    if (!localKey) return;
+    try { await removeSchedule({ scheduleId, requestKey: localKey }); } catch { /* reactive list reflects the truth */ }
   }
 
   // Re-run the trade the user just confirmed, reusing the same token, side and
@@ -488,6 +548,51 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus }: { 
                   </div>
                   <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ width: '100%', marginTop: 6, height: 28, borderRadius: 7, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.3)' : btb.borderSoft, background: sellAllAssets.length ? 'rgba(255,107,122,.09)' : 'rgba(255,255,255,.03)', color: sellAllAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 9.5, fontWeight: 800, cursor: sellAllAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{sellAllAssets.length ? `Sell all ${sellAllAssets.length} tokens · min $5 each` : 'No assets worth $5+'}</button>
                 </div>
+              </div>
+
+              <div style={{ marginTop: 8, padding: '9px 10px', boxSizing: 'border-box', borderRadius: 11, border: btb.borderSoft, background: 'rgba(255,255,255,.02)' }}>
+                <button onClick={() => setShowDca(value => !value)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, border: 0, background: 'transparent', padding: 0, color: btb.text, fontFamily: 'inherit', cursor: 'pointer' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: btb.amber, flexShrink: 0 }}/>
+                    <span style={{ fontSize: 10.5, fontWeight: 850 }}>Recurring buy{activeScheduleCount > 0 ? ` · ${activeScheduleCount} active` : ''}</span>
+                  </span>
+                  <span style={{ color: btb.textDim, fontSize: 9, fontWeight: 800 }}>{showDca ? 'Hide' : 'Set up'}</span>
+                </button>
+
+                {showDca && <div style={{ marginTop: 9 }}>
+                  <div style={{ color: btb.textMuted, fontSize: 9.5, lineHeight: 1.45, marginBottom: 8 }}>Auto-buy a token on a schedule from funds in this account. The agent sizes each buy to your dollar amount and pays the gas. Keep the account funded, or a run fails and retries next time.</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 6 }}>
+                    <select aria-label="Token to buy" value={dcaTarget} onChange={event => setDcaTarget(event.target.value)} style={{ minWidth: 0, height: 30, padding: '0 7px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+                      <option value="">Buy which token…</option>
+                      {markets.map(market => <option key={market.address} value={market.address}>{market.symbol}</option>)}
+                    </select>
+                    <select aria-label="Fund with" value={buyToken} onChange={event => { setBuyToken(event.target.value); if (mode === 'buy') setTokenIn(event.target.value); }} style={{ minWidth: 0, height: 30, padding: '0 7px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+                      {!spendableAssets.some(asset => asset.address?.toLowerCase() === WETH.toLowerCase()) && <option value={WETH}>with WETH</option>}
+                      {spendableAssets.map(asset => <option key={asset.address!} value={asset.address!}>with {asset.symbol}</option>)}
+                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', height: 30, padding: '0 8px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)' }}>
+                      <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 800 }}>$</span>
+                      <input aria-label="Dollar amount per buy" value={dcaUsd} onChange={event => setDcaUsd(event.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" style={{ minWidth: 0, flex: 1, height: '100%', border: 0, background: 'transparent', color: btb.text, padding: '0 0 0 3px', outline: 'none', fontSize: 11.5, fontWeight: 800 }}/>
+                      <span style={{ color: btb.textDim, fontSize: 8.5 }}>each</span>
+                    </div>
+                    <select aria-label="How often" value={dcaIntervalMs} onChange={event => setDcaIntervalMs(Number(event.target.value))} style={{ minWidth: 0, height: 30, padding: '0 7px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>
+                      {DCA_INTERVALS.map(option => <option key={option.ms} value={option.ms}>{option.label}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={startSchedule} disabled={dcaBusy || !dcaTarget} style={{ width: '100%', marginTop: 8, height: 32, borderRadius: 8, border: '1px solid rgba(255,179,107,.4)', background: dcaTarget ? 'rgba(255,179,107,.14)' : 'rgba(255,255,255,.03)', color: dcaTarget ? btb.amber : btb.textDim, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 850, cursor: dcaBusy || !dcaTarget ? 'default' : 'pointer', opacity: dcaBusy ? .6 : 1 }}>{dcaBusy ? 'Starting…' : 'Start recurring buy'}</button>
+                  {dcaError && <div style={{ marginTop: 7, color: btb.loss, fontSize: 9.5, fontWeight: 700, lineHeight: 1.4 }}>{dcaError}</div>}
+                </div>}
+
+                {schedules && schedules.length > 0 && <div style={{ marginTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {schedules.map(schedule => <div key={schedule._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 8, border: btb.borderSoft, background: 'rgba(255,255,255,.025)' }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ color: btb.text, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>${schedule.amountUsd.toLocaleString('en-US')} {schedule.tokenOutSymbol} · {intervalLabel(schedule.intervalMs)}</div>
+                      <div style={{ color: schedule.lastError ? btb.loss : btb.textDim, fontSize: 8.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{schedule.enabled ? `next ${nextRunLabel(schedule.nextRunAt)}` : 'paused'} · {schedule.runsCompleted} done{schedule.lastError ? ` · ${schedule.lastError}` : ''}</div>
+                    </div>
+                    <button onClick={() => toggleSchedule(schedule._id, !schedule.enabled)} style={{ flexShrink: 0, height: 25, padding: '0 9px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.04)', color: btb.textMuted, fontFamily: 'inherit', fontSize: 9, fontWeight: 800, cursor: 'pointer' }}>{schedule.enabled ? 'Pause' : 'Resume'}</button>
+                    <button onClick={() => deleteSchedule(schedule._id)} aria-label="Delete recurring buy" style={{ flexShrink: 0, height: 25, padding: '0 9px', borderRadius: 7, border: '1px solid rgba(255,107,122,.28)', background: 'rgba(255,107,122,.08)', color: btb.loss, fontFamily: 'inherit', fontSize: 9, fontWeight: 800, cursor: 'pointer' }}>Delete</button>
+                  </div>)}
+                </div>}
               </div>
             </div>
               )}

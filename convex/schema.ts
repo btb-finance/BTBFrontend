@@ -163,4 +163,31 @@ export default defineSchema({
   }).index("by_order_key", ["orderKey"])
     .index("by_account_time", ["account", "requestedAt"])
     .index("by_state_time", ["state", "requestedAt"]),
+
+  // Recurring ("DCA") buys. Device authorization is verified at creation; only
+  // the request-key hash is persisted so pause/delete can re-check ownership.
+  // A minute cron enqueues a normal spotTradeOrder for each due schedule.
+  spotTradeSchedules: defineTable({
+    account: v.string(),
+    owner: v.string(),
+    chainId: v.float64(),
+    tokenIn: v.string(),
+    tokenOut: v.string(),
+    tokenInSymbol: v.string(),
+    tokenOutSymbol: v.string(),
+    tokenOutImage: v.optional(v.string()),
+    amountIn: v.string(),          // token units, re-sized from amountUsd each run
+    amountUsd: v.float64(),        // the dollar target the user set
+    intervalMs: v.float64(),
+    requestKeyHash: v.string(),
+    enabled: v.boolean(),
+    nextRunAt: v.float64(),
+    lastRunAt: v.optional(v.float64()),
+    runsCompleted: v.float64(),
+    maxRuns: v.optional(v.float64()),
+    createdAt: v.float64(),
+    updatedAt: v.float64(),
+    lastError: v.optional(v.string()),
+  }).index("by_account", ["account"])
+    .index("by_enabled_next", ["enabled", "nextRunAt"]),
 });

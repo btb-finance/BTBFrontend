@@ -23,6 +23,9 @@ if (process.env.DISABLE_CRONS !== "1") {
   // Process at most one durable job per minute. A broadcast job is always
   // reconciled before another EOA nonce is used.
   crons.interval("execute managed LP rebalances", { minutes: 1 }, internal.rebalanceWorker.run);
+
+  // Fire due recurring ("DCA") buys — enqueues a normal spot order per schedule.
+  crons.interval("run recurring buys", { minutes: 1 }, internal.dca.tick);
 }
 
 export default crons;
