@@ -1,13 +1,12 @@
 import type { Metadata } from 'next';
-import { Providers } from '@/components/Providers';
-import { MiniApp } from '@/components/MiniApp';
+import { AppClientOnly } from '@/components/AppClientOnly';
 import { buildMetadata } from '@/lib/seo/metadata';
 
-// Chain-scoped Discover, e.g. /discover/robinhoodchain — opens Discover filtered
-// to that chain. The pair-level route /discover/<chain>/<pair> opens a pool.
+const CHAIN_NAMES: Record<string, string> = { robinhoodchain: 'Robinhood Chain', ethereum: 'Ethereum' };
+
 export async function generateMetadata({ params }: { params: Promise<{ chain: string }> }): Promise<Metadata> {
   const { chain } = await params;
-  const chainName = decodeURIComponent(chain).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+  const chainName = CHAIN_NAMES[chain.toLowerCase()] ?? decodeURIComponent(chain).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
   return buildMetadata({
     title: `${chainName} liquidity pools`,
     description: `Discover and add liquidity to ${chainName} pools with BTB Finance — automated, non-custodial LP management.`,
@@ -15,10 +14,6 @@ export async function generateMetadata({ params }: { params: Promise<{ chain: st
   });
 }
 
-export default function DiscoverChainPage() {
-  return (
-    <Providers>
-      <MiniApp/>
-    </Providers>
-  );
+export default function Page() {
+  return <AppClientOnly/>;
 }

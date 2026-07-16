@@ -1,15 +1,13 @@
 import type { Metadata } from 'next';
-import { Providers } from '@/components/Providers';
-import { MiniApp } from '@/components/MiniApp';
+import { AppClientOnly } from '@/components/AppClientOnly';
 import { buildMetadata } from '@/lib/seo/metadata';
 
-// Shareable deep link to a pool's Add-liquidity flow, e.g.
-// /discover/robinhoodchain/cashcat-eth. Renders the same shell; DiscoverScreen
-// reads the path and opens the pool.
+const CHAIN_NAMES: Record<string, string> = { robinhoodchain: 'Robinhood Chain', ethereum: 'Ethereum' };
+
 export async function generateMetadata({ params }: { params: Promise<{ chain: string; pair: string }> }): Promise<Metadata> {
   const { chain, pair } = await params;
-  const pretty = decodeURIComponent(pair).replace(/-/g, '/').toUpperCase();
-  const chainName = decodeURIComponent(chain).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+  const pretty = decodeURIComponent(pair).split('-').join('/').toUpperCase();
+  const chainName = CHAIN_NAMES[chain.toLowerCase()] ?? decodeURIComponent(chain).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
   return buildMetadata({
     title: `Add liquidity to ${pretty}`,
     description: `Open a managed ${pretty} liquidity position on ${chainName} with BTB Finance — automated rebalancing, non-custodial.`,
@@ -17,10 +15,6 @@ export async function generateMetadata({ params }: { params: Promise<{ chain: st
   });
 }
 
-export default function PoolDeepLinkPage() {
-  return (
-    <Providers>
-      <MiniApp/>
-    </Providers>
-  );
+export default function Page() {
+  return <AppClientOnly/>;
 }
