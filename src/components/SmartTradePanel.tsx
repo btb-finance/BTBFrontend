@@ -346,15 +346,23 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 12px', borderRadius: 12, border: '1px solid rgba(82,227,164,.22)', background: 'rgba(82,227,164,.055)' }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
                     <span style={{ color: btb.green, fontSize: 9.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .3 }}>Smart account</span>
                     <span style={{ color: btb.textDim, fontSize: 9, fontWeight: 700 }}>{accountLabel}</span>
                   </div>
-                  <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2, whiteSpace: 'nowrap' }}>
-                    {assetsLoading && walletAssets.length === 0 && smartAssets.length === 0
-                      ? <span style={{ color: btb.textMuted, fontSize: 10.5, fontWeight: 600 }}>Loading balances…</span>
-                      : <>{usd(smartUsd)}<span style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}> · wallet {usd(walletUsd)}{assetsLoading ? ' · refreshing' : ''}</span></>}
-                  </div>
+                  {assetsLoading && walletAssets.length === 0 && smartAssets.length === 0
+                    ? <span style={{ color: btb.textMuted, fontSize: 10.5, fontWeight: 600 }}>Loading balances…</span>
+                    : <div style={{ display: 'flex', gap: 16 }}>
+                        <div>
+                          <div style={{ color: btb.textDim, fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Account</div>
+                          <div style={{ color: btb.text, fontSize: 13, fontWeight: 850, marginTop: 1 }}>{usd(smartUsd)}</div>
+                        </div>
+                        <div>
+                          <div style={{ color: btb.textDim, fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Wallet</div>
+                          <div style={{ color: btb.text, fontSize: 13, fontWeight: 850, marginTop: 1 }}>{usd(walletUsd)}</div>
+                        </div>
+                        {assetsLoading && <span style={{ alignSelf: 'flex-end', color: btb.textDim, fontSize: 8.5 }}>refreshing…</span>}
+                      </div>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                   <button onClick={() => setFunding('deposit')} style={{ height: 32, padding: '0 13px', borderRadius: 9, border: '1px solid rgba(82,227,164,.34)', background: 'rgba(82,227,164,.12)', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 850, cursor: 'pointer' }}>Deposit</button>
