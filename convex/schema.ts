@@ -137,4 +137,30 @@ export default defineSchema({
     error: v.optional(v.string()),
   }).index("by_position", ["positionKey"])
     .index("by_state", ["state"]),
+
+  // Durable instant-trade queue. Device authorization is verified before
+  // insertion; the secret request key is intentionally never persisted.
+  spotTradeOrders: defineTable({
+    orderKey: v.string(),
+    chainId: v.float64(),
+    account: v.string(),
+    tokenIn: v.string(),
+    tokenOut: v.string(),
+    amountIn: v.string(),
+    state: v.string(),
+    requestedAt: v.float64(),
+    updatedAt: v.float64(),
+    attempts: v.float64(),
+    nextAttemptAt: v.optional(v.float64()),
+    leaseUntil: v.optional(v.float64()),
+    workerId: v.optional(v.string()),
+    txHash: v.optional(v.string()),
+    signedTransaction: v.optional(v.string()),
+    submittedAt: v.optional(v.float64()),
+    netAmountOut: v.optional(v.string()),
+    amountInUsd: v.optional(v.float64()),
+    error: v.optional(v.string()),
+  }).index("by_order_key", ["orderKey"])
+    .index("by_account_time", ["account", "requestedAt"])
+    .index("by_state_time", ["state", "requestedAt"]),
 });
