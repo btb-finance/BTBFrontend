@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { useMutation } from 'convex/react';
-import { erc20Abi, encodeFunctionData, formatUnits, isAddress, parseUnits } from 'viem';
+import { erc20Abi, encodeFunctionData, formatUnits, isAddress, isHex, parseUnits } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
@@ -145,6 +145,38 @@ function InfoRow({ label, value, last }: { label: string; value: React.ReactNode
   );
 }
 
+function SwapModeTabs({ mode, onSwap, onInstant }: { mode: 'swap' | 'instant'; onSwap: () => void; onInstant: () => void }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: 4, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft }}>
+      {([
+        ['swap', 'Swap', onSwap],
+        ['instant', 'Near-instant', onInstant],
+      ] as const).map(([value, label, action]) => (
+        <button key={value} onClick={action} style={{ height: 38, border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: mode === value ? btb.text : btb.textMuted, background: mode === value ? 'rgba(255,255,255,0.1)' : 'transparent', boxShadow: mode === value ? 'inset 0 1px 0 rgba(255,255,255,.1)' : 'none' }}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+type CrossChainQuote = {
+  id: string;
+  tool: string;
+  action: { fromChainId: number; toChainId: number };
+  estimate: {
+    approvalAddress: string;
+    fromAmount: string;
+    fromAmountUSD?: string;
+    toAmount: string;
+    toAmountMin: string;
+    toAmountUSD?: string;
+    executionDuration?: number;
+    gasCosts?: Array<{ amountUSD?: string }>;
+    feeCosts?: Array<{ amountUSD?: string; name?: string }>;
+  };
+  transactionRequest: { from: string; to: string; data: string; value: string; chainId: number; gasLimit?: string };
+  includedSteps?: Array<{ tool?: string; toolDetails?: { name?: string } }>;
+};
+
 const ETH_DEFAULT:  Token = { address: 'ETH',  symbol: 'ETH',  name: 'Ethereum', decimals: 18, chainId: 1 };
 const USDC_DEFAULT: Token = { address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 1 };
 
@@ -172,6 +204,13 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Token; onConnectWallet?: () => void } = {}) {
+  const [mode, setMode] = useState<'swap' | 'instant'>('swap');
+  return mode === 'instant'
+    ? <NearInstantSwap onStandardSwap={() => setMode('swap')} onConnectWallet={onConnectWallet}/>
+    : <SameChainSwap initialFrom={initialFrom} onNearInstant={() => setMode('instant')} onConnectWallet={onConnectWallet}/>;
+}
+
+function SameChainSwap({ initialFrom, onConnectWallet, onNearInstant }: { initialFrom?: Token; onConnectWallet?: () => void; onNearInstant: () => void }) {
   const { tokens, positions } = useTokenStore();
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
@@ -493,6 +532,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <SwapModeTabs mode="swap" onSwap={() => {}} onInstant={onNearInstant}/>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
         <select value={chainId} onChange={event => selectChain(Number(event.target.value))} aria-label="Swap network" style={{ height: 40, maxWidth: 230, padding: '0 34px 0 14px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: btb.text, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
           {SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]).map(chain => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
@@ -512,7 +552,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <input value={fromAmt} onChange={e => setFromAmt(e.target.value)} inputMode="decimal" placeholder="0"
+            <input value={fromAmt} onChange={e => { setFromAmt(e.target.value); setQuote(null); }} inputMode="decimal" placeholder="0"
               style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 36, fontWeight: 700, letterSpacing: -1, fontFamily: 'inherit', padding: 0 }}/>
             <TokenPill token={fromToken} onClick={() => setPicker('from')}/>
           </div>
@@ -704,5 +744,251 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: btb.gradPrimary, color: btb.bg, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
       </div>
     </Screen>
+  );
+}
+
+function NearInstantSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () => void; onConnectWallet?: () => void }) {
+  const { positions } = useTokenStore();
+  const { address, chainId: walletChainId } = useConnection();
+  const config = useConfig();
+  const { track } = useTx();
+  const awardXp = useMutation(api.users.awardXp);
+  const availableChains = SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]);
+  const firstChain = walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
+  const firstDestination = firstChain === 8453 ? 42161 : 8453;
+  const [fromChainId, setFromChainId] = useState<number>(firstChain);
+  const [toChainId, setToChainId] = useState<number>(firstDestination);
+  const [fromToken, setFromToken] = useState<Token>(nativeEthForChain(firstChain));
+  const [toToken, setToToken] = useState<Token>(DEFAULT_QUOTES[firstDestination] ?? nativeEthForChain(firstDestination));
+  const [fromCatalog, setFromCatalog] = useState<Token[]>([]);
+  const [toCatalog, setToCatalog] = useState<Token[]>([]);
+  const [customTokens, setCustomTokens] = useState<Token[]>([]);
+  const [liveFrom, setLiveFrom] = useState<Token | null>(null);
+  const [loadingFrom, setLoadingFrom] = useState(true);
+  const [loadingTo, setLoadingTo] = useState(true);
+  const [fromAmt, setFromAmt] = useState('');
+  const [picker, setPicker] = useState<'from' | 'to' | null>(null);
+  const [quote, setQuote] = useState<CrossChainQuote | null>(null);
+  const [btbFeePercent, setBtbFeePercent] = useState(0);
+  const [quoting, setQuoting] = useState(false);
+  const [quoteErr, setQuoteErr] = useState<string | null>(null);
+  const [step, setStep] = useState<SwapStep>('form');
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [errMsg, setErrMsg] = useState('');
+  const quoteSeq = useRef(0);
+
+  function mergedTokens(chainId: number, catalog: Token[], selectedBalance?: Token | null) {
+    const merged = new Map<string, Token>();
+    const add = (token: Token) => {
+      if ((token.chainId ?? 1) !== chainId) return;
+      const tokenAddress = isNativeToken(token.address) ? 'ETH' : token.address.toLowerCase();
+      const key = tokenAddress.toLowerCase();
+      merged.set(key, { ...merged.get(key), ...token, address: tokenAddress, chainId });
+    };
+    add(nativeEthForChain(chainId));
+    if (DEFAULT_QUOTES[chainId]) add(DEFAULT_QUOTES[chainId]);
+    catalog.forEach(add);
+    positions.forEach(add);
+    customTokens.forEach(add);
+    if (selectedBalance) add(selectedBalance);
+    return [...merged.values()];
+  }
+  const fromTokens = mergedTokens(fromChainId, fromCatalog, liveFrom);
+  const toTokens = mergedTokens(toChainId, toCatalog);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async (chainId: number, setter: (tokens: Token[]) => void, setLoading: (value: boolean) => void) => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/swap-tokens?chainId=${chainId}`, { signal: controller.signal });
+        const body = await response.json() as { tokens?: Token[] };
+        if (!response.ok) throw new Error('Token catalog unavailable');
+        setter(Array.isArray(body.tokens) ? body.tokens : []);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') setter([]);
+      } finally { if (!controller.signal.aborted) setLoading(false); }
+    };
+    load(fromChainId, setFromCatalog, setLoadingFrom);
+    load(toChainId, setToCatalog, setLoadingTo);
+    return () => controller.abort();
+  }, [fromChainId, toChainId]);
+
+  useEffect(() => {
+    if (!address) { setLiveFrom(null); return; }
+    let cancelled = false;
+    const client = getPublicClient(config, { chainId: fromChainId as SupportedChainId });
+    if (!client) return;
+    const refresh = async () => {
+      const raw = isNativeToken(fromToken.address)
+        ? await client.getBalance({ address }).catch(() => 0n)
+        : await client.readContract({ address: fromToken.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address] }).catch(() => 0n);
+      if (!cancelled) setLiveFrom({ ...fromToken, address: isNativeToken(fromToken.address) ? 'ETH' : fromToken.address.toLowerCase(), chainId: fromChainId, balanceRaw: raw.toString(), balance: formatUnits(raw, fromToken.decimals) });
+    };
+    refresh();
+    const timer = setInterval(refresh, 15_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [address, config, fromChainId, fromToken.address, fromToken.decimals]);
+
+  function selectFromChain(next: number) {
+    if (next === toChainId) return;
+    setFromChainId(next);
+    setFromToken(nativeEthForChain(next));
+    setFromAmt(''); setQuote(null); setQuoteErr(null);
+  }
+
+  function selectToChain(next: number) {
+    if (next === fromChainId) return;
+    setToChainId(next);
+    setToToken(DEFAULT_QUOTES[next] ?? nativeEthForChain(next));
+    setFromAmt(''); setQuote(null); setQuoteErr(null);
+  }
+
+  async function importToken(tokenAddress: string, targetChainId: number): Promise<Token> {
+    if (!isAddress(tokenAddress)) throw new Error('Enter a valid token contract');
+    const client = getPublicClient(config, { chainId: targetChainId as SupportedChainId });
+    if (!client) throw new Error('RPC is unavailable for this chain');
+    const token = tokenAddress as `0x${string}`;
+    const [symbol, name, decimals, balance] = await Promise.all([
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'symbol' }),
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'name' }).catch(() => 'Imported token'),
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'decimals' }),
+      address ? client.readContract({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [address] }).catch(() => 0n) : 0n,
+    ]);
+    const imported: Token = { address: tokenAddress.toLowerCase(), symbol, name, decimals, chainId: targetChainId, balanceRaw: balance.toString(), balance: formatUnits(balance, decimals) };
+    setCustomTokens(current => [...current.filter(item => item.chainId !== targetChainId || item.address.toLowerCase() !== imported.address), imported]);
+    return imported;
+  }
+
+  async function requestQuote(silent = false): Promise<CrossChainQuote> {
+    if (!address || !fromAmt || parseFloat(fromAmt) <= 0) throw new Error('Enter an amount');
+    const seq = ++quoteSeq.current;
+    if (!silent) { setQuoting(true); setQuoteErr(null); }
+    try {
+      const response = await fetch('/api/cross-chain/quote', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
+        body: JSON.stringify({
+          fromChain: fromChainId, toChain: toChainId,
+          fromToken: isNativeToken(fromToken.address) ? '0x0000000000000000000000000000000000000000' : fromToken.address,
+          toToken: isNativeToken(toToken.address) ? '0x0000000000000000000000000000000000000000' : toToken.address,
+          fromAmount: parseUnits(fromAmt, fromToken.decimals).toString(), wallet: address,
+        }),
+      });
+      const body = await response.json() as { quote?: CrossChainQuote; btbFeePercent?: number; error?: string };
+      if (!response.ok || !body.quote) throw new Error(body.error || 'No near-instant route');
+      if (quoteSeq.current === seq) { setQuote(body.quote); setBtbFeePercent(body.btbFeePercent ?? 0); }
+      return body.quote;
+    } catch (error) {
+      if (quoteSeq.current === seq && !silent) { setQuote(null); setQuoteErr((error as Error).message); }
+      throw error;
+    } finally { if (quoteSeq.current === seq && !silent) setQuoting(false); }
+  }
+
+  useEffect(() => {
+    if (!fromAmt || parseFloat(fromAmt) <= 0 || !address) { setQuote(null); return; }
+    const timer = setTimeout(() => requestQuote(false).catch(() => {}), 650);
+    return () => clearTimeout(timer);
+  }, [address, fromAmt, fromChainId, toChainId, fromToken.address, toToken.address]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function execute() {
+    if (!address || !quote) return;
+    try {
+      setStep('sending');
+      const active = await requestQuote(true);
+      const tx = active.transactionRequest;
+      if (tx.chainId !== fromChainId || tx.from.toLowerCase() !== address.toLowerCase() || !isAddress(tx.to) || !isHex(tx.data) || tx.data === '0x') throw new Error('The bridge returned unsafe transaction data');
+      const calls: Call[] = [];
+      let needsApprove = false;
+      const amountIn = BigInt(active.estimate.fromAmount);
+      if (!isNativeToken(fromToken.address)) {
+        if (!isAddress(active.estimate.approvalAddress)) throw new Error('The bridge returned an invalid approval target');
+        const client = getPublicClient(config, { chainId: fromChainId as SupportedChainId });
+        const allowance = client ? await client.readContract({ address: fromToken.address as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address, active.estimate.approvalAddress as `0x${string}`] }).catch(() => 0n) : 0n;
+        if (allowance < amountIn) {
+          needsApprove = true;
+          calls.push({ to: fromToken.address as `0x${string}`, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [active.estimate.approvalAddress as `0x${string}`, amountIn] }) });
+        }
+      }
+      calls.push({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), gas: tx.gasLimit ? BigInt(tx.gasLimit) : undefined });
+      setStep(needsApprove ? 'approving' : 'sending');
+      const { lastHash } = await runCalls(config, { account: address, calls, label: `Near-instant ${fromToken.symbol} → ${toToken.symbol}`, track, chainId: fromChainId });
+      if (lastHash) setTxHash(lastHash);
+      setStep('success');
+      awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).catch(() => {});
+    } catch (error) {
+      setErrMsg((error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed');
+      setStep('error');
+    }
+  }
+
+  const fromBalance = Number(liveFrom?.balance ?? fromToken.balance ?? 0);
+  const insufficient = liveFrom?.balance != null && Number(fromAmt || 0) > fromBalance;
+  const outFormatted = quote ? Number(formatUnits(BigInt(quote.estimate.toAmount), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '0';
+  const gasUsd = quote?.estimate.gasCosts?.reduce((sum, fee) => sum + Number(fee.amountUSD ?? 0), 0) ?? 0;
+  const routeFeeUsd = quote?.estimate.feeCosts?.reduce((sum, fee) => sum + Number(fee.amountUSD ?? 0), 0) ?? 0;
+  const duration = quote?.estimate.executionDuration ?? 0;
+  const route = [...new Set(quote?.includedSteps?.map(item => item.toolDetails?.name || item.tool).filter(Boolean) ?? [])].join(' → ') || quote?.tool || 'Best bridge';
+  const canReview = !!quote && !!address && !quoting && !insufficient;
+  const explorer = SUPPORTED_CHAINS.find(chain => chain.id === fromChainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
+
+  if (step === 'form') return (
+    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <SwapModeTabs mode="instant" onSwap={onStandardSwap} onInstant={() => {}}/>
+      <div style={{ color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45, padding: '0 4px' }}>Buy on another network from the balance you already have. Destination gas is not required.</div>
+      <Glass padding={18} radius={24} strong>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ color: btb.textMuted, fontSize: 13 }}>Pay from</span>
+          <select value={fromChainId} onChange={event => selectFromChain(Number(event.target.value))} style={{ maxWidth: 190, height: 34, borderRadius: 999, padding: '0 28px 0 10px', color: btb.text, background: 'rgba(255,255,255,.07)', border: btb.borderSoft, fontFamily: 'inherit', fontWeight: 700 }}>
+            {availableChains.map(chain => <option key={chain.id} value={chain.id} disabled={chain.id === toChainId}>{chain.name}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: btb.textMuted, fontSize: 12, marginBottom: 7 }}><span>You pay</span><span>{fromBalance > 0 ? `${fromBalance.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${fromToken.symbol}` : '—'}{fromBalance > 0 && <b onClick={() => setFromAmt(liveFrom?.balance ?? fromToken.balance ?? '')} style={{ color: btb.red, marginLeft: 6, cursor: 'pointer' }}>MAX</b>}</span></div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><input value={fromAmt} onChange={event => { setFromAmt(event.target.value); setQuote(null); }} inputMode="decimal" placeholder="0" style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 34, fontWeight: 800 }}/><TokenPill token={fromToken} onClick={() => setPicker('from')}/></div>
+        {fromToken.usdPrice && fromAmt && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 5 }}>≈ ${(Number(fromAmt) * fromToken.usdPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+      </Glass>
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '-8px 0', zIndex: 2 }}><div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,.1)', border: '4px solid rgba(10,10,15,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="down" size={17}/></div></div>
+      <Glass padding={18} radius={24} strong>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ color: btb.textMuted, fontSize: 13 }}>Receive on</span>
+          <select value={toChainId} onChange={event => selectToChain(Number(event.target.value))} style={{ maxWidth: 190, height: 34, borderRadius: 999, padding: '0 28px 0 10px', color: btb.text, background: 'rgba(255,255,255,.07)', border: btb.borderSoft, fontFamily: 'inherit', fontWeight: 700 }}>
+            {availableChains.map(chain => <option key={chain.id} value={chain.id} disabled={chain.id === fromChainId}>{chain.name}</option>)}
+          </select>
+        </div>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 7 }}>You receive</div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ flex: 1, minWidth: 0, color: quoting ? btb.textMuted : btb.text, fontSize: 34, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis' }}>{quoting ? '…' : outFormatted}</div><TokenPill token={toToken} onClick={() => setPicker('to')}/></div>
+        {quote?.estimate.toAmountUSD && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 5 }}>≈ ${Number(quote.estimate.toAmountUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+      </Glass>
+      {quote && !quoting && <Glass padding={14} radius={18} soft>
+        <InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/>
+        <InfoRow label="Network gas" value={gasUsd > 0 ? `~ $${gasUsd.toFixed(2)}` : 'Included'}/>
+        <InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)}` : 'Included'}/>
+        {btbFeePercent > 0 && (
+          <InfoRow label="BTB fee" value={`${btbFeePercent}% · sending token`}/>
+        )}
+        <InfoRow label="Route" last value={route}/>
+      </Glass>}
+      {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
+      <Button onClick={() => !address ? onConnectWallet?.() : canReview && setStep('confirm')} disabled={!!address && !canReview} style={{ fontSize: 18 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest route…' : quote ? 'Review near-instant swap' : quoteErr ? 'No route found' : 'Enter amount'}</Button>
+      {picker && (
+        <TokenPicker tokens={picker === 'from' ? fromTokens : toTokens} loading={picker === 'from' ? loadingFrom : loadingTo} selected={picker === 'from' ? fromToken.address : toToken.address} onSelect={token => { picker === 'from' ? setFromToken(token) : setToToken(token); setFromAmt(''); setQuote(null); }} onImport={tokenAddress => importToken(tokenAddress, picker === 'from' ? fromChainId : toChainId)} onClose={() => setPicker(null)}/>
+      )}
+    </Screen>
+  );
+
+  if (step === 'confirm' || step === 'approving' || step === 'sending') return (
+    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm near-instant swap</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[fromChainId]?.name} → {CHAIN_META[toChainId]?.name}</div></div></div>
+      <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
+      <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/>{btbFeePercent > 0 && <InfoRow label="BTB fee" value={`${btbFeePercent}%`}/>}<InfoRow label="Route" last value={route}/></Glass>
+      <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>
+    </Screen>
+  );
+
+  if (step === 'success') return (
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}><div style={{ width: 76, height: 76, borderRadius: '50%', background: 'rgba(82,227,164,.15)', border: '2px solid rgba(82,227,164,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={34} color={btb.green}/></div><div><div style={{ color: btb.text, fontSize: 24, fontWeight: 850 }}>Transfer started</div><div style={{ color: btb.textMuted, fontSize: 13, marginTop: 7, lineHeight: 1.5 }}>{outFormatted} {toToken.symbol} will arrive on {CHAIN_META[toChainId]?.name}. You do not need destination gas.</div></div>{txHash && <a href={`${explorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12 }}>Source transaction ↗</a>}<Button onClick={() => { setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); }} style={{ width: '100%', maxWidth: 360 }}>Done</Button></Screen>
+  );
+
+  return (
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}><div style={{ color: btb.red, fontSize: 22, fontWeight: 850 }}>Transfer failed</div><div style={{ color: btb.textMuted, fontSize: 13 }}>{errMsg}</div><Button onClick={() => setStep('form')} style={{ width: '100%', maxWidth: 360 }}>Try again</Button></Screen>
   );
 }
