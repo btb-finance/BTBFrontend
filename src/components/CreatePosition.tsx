@@ -59,6 +59,19 @@ function fmtAmt(raw: bigint, decimals: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
 
+/** Held ERC-20s from the account-assets API, parsed to raw balances. */
+function parseHeldTokens(json: { assets?: { address: string; symbol: string; decimals: number; rawBalance: string }[] }) {
+  if (!Array.isArray(json.assets)) return [];
+  return json.assets
+    .filter(asset => isAddress(asset.address))
+    .map(asset => {
+      let raw = 0n;
+      try { raw = BigInt(asset.rawBalance); } catch { /* skip unparseable */ }
+      return { address: asset.address.toLowerCase() as `0x${string}`, symbol: asset.symbol || 'TOKEN', decimals: Number(asset.decimals) || 18, raw };
+    })
+    .filter(token => token.raw > 0n);
+}
+
 /** Plain re-parseable price string for the min/max inputs. */
 function fmtPrice(p: number): string {
   if (!isFinite(p)) return '∞';
@@ -155,6 +168,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // Optional: fund a managed single-range create with one token the wallet
   // holds; the Zap swaps it into both sides. '' = normal two-token funding.
   const [walletTokens, setWalletTokens] = useState<{ address: `0x${string}`; symbol: string; decimals: number; raw: bigint }[]>([]);
+  const [accountTokens, setAccountTokens] = useState<{ address: `0x${string}`; symbol: string; decimals: number; raw: bigint }[]>([]);
+  const [createFundSource, setCreateFundSource] = useState<'wallet' | 'account'>('wallet');
   const [createFundToken, setCreateFundToken] = useState('');
   const [createFundAmt, setCreateFundAmt] = useState('');
   const [useEth, setUseEth] = useState(true);
@@ -523,7 +538,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return () => { live = false; };
   }, [config, address, pool]);
 
-  // Every token the connected wallet holds, for the single-token funding picker.
+  // Tokens the connected wallet holds, for the single-token funding picker.
   useEffect(() => {
     let live = true;
     if (!address) { setWalletTokens([]); return; }
@@ -532,19 +547,31 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         const response = await fetch(`/api/account-assets?address=${address}`);
         if (!response.ok) return;
         const json = await response.json() as { assets?: { address: string; symbol: string; decimals: number; rawBalance: string }[] };
-        if (!live || !Array.isArray(json.assets)) return;
-        setWalletTokens(json.assets
-          .filter(asset => isAddress(asset.address))
-          .map(asset => {
-            let raw = 0n;
-            try { raw = BigInt(asset.rawBalance); } catch { /* skip unparseable */ }
-            return { address: asset.address.toLowerCase() as `0x${string}`, symbol: asset.symbol || 'TOKEN', decimals: Number(asset.decimals) || 18, raw };
-          })
-          .filter(token => token.raw > 0n));
+        if (live) setWalletTokens(parseHeldTokens(json));
       } catch { /* explorer hiccup — picker stays hidden */ }
     })();
     return () => { live = false; };
   }, [address, chainId]);
+
+  // The smart account's own address and holdings, so a create can be funded by
+  // a token already sitting in the account (no deposit needed).
+  useEffect(() => {
+    let live = true;
+    if (!address || !smartDeployment) { setAccountTokens([]); return; }
+    (async () => {
+      try {
+        const client = getPublicClient(config, { chainId });
+        if (!client) return;
+        const smart = await readSmartAccount(client, address as `0x${string}`, smartDeployment);
+        if (!live) return;
+        const response = await fetch(`/api/account-assets?address=${smart.account}`);
+        if (!response.ok) return;
+        const json = await response.json() as { assets?: { address: string; symbol: string; decimals: number; rawBalance: string }[] };
+        if (live) setAccountTokens(parseHeldTokens(json));
+      } catch { /* no account yet, or explorer hiccup */ }
+    })();
+    return () => { live = false; };
+  }, [address, chainId, config, smartDeployment]);
 
   const effBal0 = ethMode && nativeSide === 0 ? ethBal : bal0;
   const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
@@ -555,14 +582,16 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // Single-token funding: only for a managed, single-range Uniswap V3 create on
   // a modular deployment (needs the range quoter + aggregator adapter).
   const anyCreateEligible = autoManage && !splitRange && !isV4 && dex === 'uniswap' && usesBtbQuoter && !!pool && !!ticks;
-  const createFundMeta = walletTokens.find(token => token.address.toLowerCase() === createFundToken.toLowerCase());
+  const fundingTokenList = createFundSource === 'account' ? accountTokens : walletTokens;
+  const createFundMeta = fundingTokenList.find(token => token.address.toLowerCase() === createFundToken.toLowerCase());
   const anyCreateMode = anyCreateEligible && !!createFundMeta && !!pool
     && createFundMeta.address.toLowerCase() !== pool.token0.toLowerCase()
     && createFundMeta.address.toLowerCase() !== pool.token1.toLowerCase();
   let anyCreateAmount = 0n;
   try { if (anyCreateMode && createFundAmt && Number(createFundAmt) > 0) anyCreateAmount = parseUnits(createFundAmt, createFundMeta!.decimals); } catch { /* typing */ }
   const anyCreateShort = anyCreateMode && (anyCreateAmount <= 0n || anyCreateAmount > createFundMeta!.raw);
-  const otherWalletTokens = pool ? walletTokens.filter(token => token.address.toLowerCase() !== pool.token0.toLowerCase() && token.address.toLowerCase() !== pool.token1.toLowerCase()) : [];
+  const otherFundingTokens = pool ? fundingTokenList.filter(token => token.address.toLowerCase() !== pool.token0.toLowerCase() && token.address.toLowerCase() !== pool.token1.toLowerCase()) : [];
+  const anyCreateHasOptions = (walletTokens.length > 0 || accountTokens.length > 0);
 
   async function mint() {
     if (splitRange) { await mintSplit(); return; }
@@ -733,8 +762,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         });
         calls = [
           ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
-          approvalCall(fundingToken, smart.account, fundingAmount),
-          depositTokenCall(smart.account, fundingToken, fundingAmount),
+          // Funding from the account needs no move; from the wallet, approve + deposit first.
+          ...(createFundSource === 'account' ? [] : [approvalCall(fundingToken, smart.account, fundingAmount), depositTokenCall(smart.account, fundingToken, fundingAmount)]),
           configureSelfAgentCall(smartDeployment, smart.account, smartDeployment.agent, 12),
           scheduleSingleInstructionCall(
             smartDeployment, smart.account, smartDeployment.agent, fundingToken, fundingAmount,
@@ -1587,13 +1616,16 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   </div>
                 )}
 
-                {anyCreateEligible && otherWalletTokens.length > 0 && (
+                {anyCreateEligible && anyCreateHasOptions && (
                   <div style={{ margin: '0 2px 12px' }}>
                     <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 750, marginBottom: 5 }}>Or fund with a single token you hold</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+                      {(['wallet', 'account'] as const).map(source => <button key={source} onClick={() => { setCreateFundSource(source); setCreateFundToken(''); setCreateFundAmt(''); }} style={{ height: 30, borderRadius: 9, border: createFundSource === source ? '1px solid rgba(255,179,107,.5)' : btb.borderSoft, background: createFundSource === source ? 'rgba(255,179,107,.1)' : 'rgba(255,255,255,.035)', color: createFundSource === source ? btb.amber : btb.textMuted, fontFamily: 'inherit', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>{source === 'wallet' ? 'From wallet' : 'From smart account'}</button>)}
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: anyCreateMode ? '1.1fr .9fr' : '1fr', gap: 7 }}>
                       <select value={anyCreateMode ? createFundToken : ''} onChange={event => { setCreateFundToken(event.target.value); setCreateFundAmt(''); }} style={{ width: '100%', height: 36, padding: '0 9px', borderRadius: 10, border: anyCreateMode ? '1px solid rgba(255,179,107,.5)' : btb.borderSoft, background: anyCreateMode ? 'rgba(255,179,107,.1)' : 'rgba(255,255,255,.035)', color: anyCreateMode ? btb.amber : btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>
-                        <option value="">Use {sym0} + {sym1} above</option>
-                        {otherWalletTokens.map(token => <option key={token.address} value={token.address}>{token.symbol} · {fmtAmt(token.raw, token.decimals)}</option>)}
+                        <option value="">{otherFundingTokens.length ? `Use ${sym0} + ${sym1} above` : (createFundSource === 'account' ? 'No other tokens in the account' : 'No other tokens in your wallet')}</option>
+                        {otherFundingTokens.map(token => <option key={token.address} value={token.address}>{token.symbol} · {fmtAmt(token.raw, token.decimals)}</option>)}
                       </select>
                       {anyCreateMode && <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 10px', borderRadius: 10, border: anyCreateShort ? '1px solid rgba(255,107,122,.5)' : btb.borderSoft, background: 'rgba(255,255,255,.045)' }}>
                         <input value={createFundAmt} onChange={event => setCreateFundAmt(event.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" style={{ minWidth: 0, flex: 1, border: 0, background: 'transparent', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 750 }}/>
