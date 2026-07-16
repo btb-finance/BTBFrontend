@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import { btb } from './design-tokens';
+import { Icon } from './Icon';
 import { shortAddress } from '../lib/smartAccount';
 
 export interface AutomationRuleValues {
@@ -30,11 +32,34 @@ const controlStyle = {
 } as const;
 
 function Rule({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const open = hovered || pinned;
   return (
-    <label title={hint} style={{ minWidth: 0 }}>
-      <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.35 }}>{label}</div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+        <span style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.35 }}>{label}</span>
+        <button
+          type="button"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+          onClick={() => setPinned((p) => !p)}
+          aria-label={`What does ${label} mean?`}
+          aria-expanded={open}
+          style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 15, height: 15, flexShrink: 0, borderRadius: 999, padding: 0, cursor: 'pointer',
+            border: 'none', background: 'transparent', opacity: open ? 1 : 0.6, transition: 'opacity .15s',
+          }}
+        >
+          <Icon name="info" size={13} color={open ? btb.green : btb.textMuted} />
+        </button>
+      </div>
       {children}
-    </label>
+      {open && (
+        <div style={{ color: btb.textMuted, fontSize: 9.5, lineHeight: 1.4, marginTop: 5 }}>{hint}</div>
+      )}
+    </div>
   );
 }
 
@@ -67,7 +92,7 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
             <option value={10}>±10%</option><option value={25}>±25%</option><option value={50}>±50%</option><option value="full">Full range</option>
           </select>
         </Rule>
-        <Rule label="Max swap" hint="Maximum share of the tokens removed from this position that one rebalance may swap.">
+        <Rule label="Max swap" hint="When the position goes out of range, the most of it the agent may sell to build the new range.">
           <select disabled={disabled} value={value.maxSwapPct} onChange={(e) => set('maxSwapPct', Number(e.target.value) as 10 | 25 | 50 | 100)} style={controlStyle}>
             <option value={10}>10% per rebalance</option><option value={25}>25% per rebalance</option><option value={50}>50% per rebalance</option><option value={100}>100% per rebalance</option>
           </select>

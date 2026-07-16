@@ -64,13 +64,14 @@ export function ManagedClaimFeesSheet({ pos, policy, owner, account, deployment,
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('RPC unavailable');
       setStage('Reading claimable fees…');
-      const [preview, baseline, nonce] = await Promise.all([
+      const [preview, baseline, nonce, prevEarnings] = await Promise.all([
         client.simulateContract({
           account, address: v3.positionManager, abi: NPM_ABI, functionName: 'collect',
           args: [{ tokenId: pos.id, recipient: account, amount0Max: UINT128_MAX, amount1Max: UINT128_MAX }],
         }),
         client.readContract({ address: account, abi: BTB_LP_ACCOUNT_ABI, functionName: 'feeBaseline', args: [v3.positionManager, pos.id] }),
         client.readContract({ address: account, abi: BTB_LP_ACCOUNT_ABI, functionName: 'nextNonce' }),
+        client.readContract({ address: account, abi: BTB_LP_ACCOUNT_ABI, functionName: 'earningsConfig', args: [v3.positionManager, pos.id] }),
       ]);
       const collected = preview.result as readonly [bigint, bigint];
       const earned0 = collected[0] > baseline[0] ? collected[0] - baseline[0] : 0n;
@@ -101,12 +102,18 @@ export function ManagedClaimFeesSheet({ pos, policy, owner, account, deployment,
       ]);
       const deadline = BigInt(Math.floor(Date.now() / 1_000) + 480);
       setStage('Ready for wallet confirmation…');
+      // A one-off payout claim needs mode = PayoutToken, but the owner's standing earnings choice
+      // (e.g. auto-compound) should survive it. Restore the prior config in the same batch unless it
+      // already matches this exact payout token.
+      const keepsPayout = Number(prevEarnings.mode) === 2 && prevEarnings.payoutToken.toLowerCase() === validToken.toLowerCase();
+      const calls = [
+        { to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'configureEarnings', args: [v3.positionManager, pos.id, 2, validToken, path0, path1] }) },
+        { to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'claimAndPayout', args: [v3.positionManager, pos.id, { quotedMinimumOut0: swap0.minimumOut, quotedMinimumOut1: swap1.minimumOut, deadline, nonce }, swap0.swapData, swap1.swapData] }) },
+        ...(keepsPayout ? [] : [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'configureEarnings', args: [v3.positionManager, pos.id, Number(prevEarnings.mode), prevEarnings.payoutToken, prevEarnings.payoutPath0, prevEarnings.payoutPath1] }) }]),
+      ];
       await runCalls(config, {
         account: owner, chainId, track, label: `Claim ${pos.symbol0}/${pos.symbol1} fees as ${meta.symbol}`,
-        calls: [
-          { to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'configureEarnings', args: [v3.positionManager, pos.id, 2, validToken, path0, path1] }) },
-          { to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'claimAndPayout', args: [v3.positionManager, pos.id, { quotedMinimumOut0: swap0.minimumOut, quotedMinimumOut1: swap1.minimumOut, deadline, nonce }, swap0.swapData, swap1.swapData] }) },
-        ],
+        calls,
       });
       await onDone(); onClose();
     } catch (e) { setError((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Fee payout failed'); }
@@ -125,7 +132,7 @@ export function ManagedClaimFeesSheet({ pos, policy, owner, account, deployment,
           <input value={token} onChange={e => setToken(e.target.value)} placeholder="Token contract 0x…" spellCheck={false} style={{ width: '100%', boxSizing: 'border-box', marginTop: 7, height: 40, borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,.04)', color: btb.text, padding: '0 10px', fontFamily: 'monospace', outline: 'none' }}/>
           {meta && <div style={{ color: btb.green, fontSize: 11, fontWeight: 800, marginTop: 8 }}>Receive {meta.symbol} in your wallet</div>}
         </div>
-        <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.5, marginTop: 9 }}>Both fee tokens are sold atomically. The contract checks a liquid Uniswap V3 TWAP route, your slippage limit, the approved router and the fixed wallet recipient. Tokens without a protected route are rejected.</div>
+        <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.5, marginTop: 9 }}>Both fee tokens are sold atomically. The contract checks a liquid Uniswap V3 TWAP route, your slippage limit, the approved router and the fixed wallet recipient. Tokens without a protected route are rejected. This is a one-time payout — your standing earnings setting for this position is kept.</div>
         {stage && <div style={{ color: btb.green, fontSize: 10.5, marginTop: 9 }}>{stage}</div>}
         {error && <div style={{ color: btb.loss, fontSize: 11, lineHeight: 1.4, marginTop: 9 }}>{error}</div>}
         <Button variant="success" onClick={claim} disabled={busy || !meta || !deployment.aggregatorSwapAdapter || !deployment.routeGuard} style={{ width: '100%', marginTop: 13 }}>{busy ? 'Preparing protected payout…' : meta ? `Claim as ${meta.symbol}` : 'Choose payout token'}</Button>

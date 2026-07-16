@@ -17,11 +17,12 @@ import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } 
 import {
   BTB_AGENT_REGISTRY_ABI, CREATE_FROM_ACCOUNT_SELECTOR, CREATE_TWO_TOKENS_SELECTOR,
   EMPTY_FRESH_SWAP_ARGS, EMPTY_ZAP_LEG,
-  UINT128_MAX, approvalCall, configureSelfAgentCall, createAccountCall, depositTokenCall,
+  BTB_LP_QUOTER_ABI, UINT128_MAX, approvalCall, configureSelfAgentCall, createAccountCall, depositTokenCall,
   encodeCreateZapRequest, encodeDualCreateRequest, fundAndCreateCall,
   getSmartAccountDeployment, isModularDeployment, minWithSlippage, readSmartAccount,
   scheduleDualInstructionCall, scheduleSingleInstructionCall, wrapEthCall, type RebalancePolicy,
 } from '../lib/smartAccount';
+import { RangeRatioBar } from './RangeRatioBar';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
@@ -360,6 +361,25 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     () => (pool && pool.exists && ticks ? addSide(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper) : 'both'),
     [pool, ticks],
   );
+
+  // On-chain target mix for the selected range (BTBLPQuoter). Depends only on pool + range.
+  const usesBtbQuoter = !!smartDeployment && chainId === 4663 && isModularDeployment(smartDeployment)
+    && !!smartDeployment.quoter && !!pool && pool.exists;
+  const [rangeSplit, setRangeSplit] = useState<{ value0Bps: number; value1Bps: number } | null>(null);
+  useEffect(() => {
+    setRangeSplit(null);
+    if (!usesBtbQuoter || !pool || !ticks || !smartDeployment?.quoter) return;
+    let live = true;
+    const client = getPublicClient(config, { chainId });
+    if (!client) return;
+    client.readContract({
+      address: smartDeployment.quoter, abi: BTB_LP_QUOTER_ABI, functionName: 'rangeValueSplitBps',
+      args: [pool.address, ticks.tickLower, ticks.tickUpper],
+    }).then(([value0Bps, value1Bps]) => {
+      if (live) setRangeSplit({ value0Bps: Number(value0Bps), value1Bps: Number(value1Bps) });
+    }).catch(() => { if (live) setRangeSplit(null); });
+    return () => { live = false; };
+  }, [usesBtbQuoter, config, chainId, pool, ticks, smartDeployment]);
 
   // Token USD prices — a missing one is derived from the pool price.
   const tokenUsd = useMemo(() => {
@@ -1154,6 +1174,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const pct1 = total > 0 ? (v1 / total) * 100 : 0;
     return (
       <Glass padding={12} radius={12} soft>
+        {usesBtbQuoter && rangeSplit && (
+          <div style={{ marginBottom: 10 }}>
+            <RangeRatioBar symbol0={sym0} symbol1={sym1} value0Bps={rangeSplit.value0Bps} value1Bps={rangeSplit.value1Bps} />
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <span style={{ color: btb.textMuted, fontSize: 12 }}>{simOnly ? 'You’d deposit' : 'You deposit'}</span>
           {total > 0 && <span style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>${total.toLocaleString('en-US', { maximumFractionDigits: 2 })} total</span>}
