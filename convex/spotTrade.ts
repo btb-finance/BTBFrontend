@@ -51,6 +51,9 @@ const ADAPTER_ABI = [
   { name: "allowedRouter", type: "function", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "bool" }] },
   { name: "allowedSelector", type: "function", stateMutability: "view", inputs: [{ type: "address" }, { type: "bytes4" }], outputs: [{ type: "bool" }] },
 ] as const;
+const ERC20_BALANCE_ABI = [
+  { name: "balanceOf", type: "function", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+] as const;
 
 type TradePolicy = {
   enabled: boolean; agent: Address; requestKeyHash: Hex; maximumBalanceBpsPerTrade: number;
@@ -181,6 +184,13 @@ export const executeQueued = internalAction({
         amountInUsd: 0,
       };
     }
+
+    // Fail fast when the smart account simply cannot fund the trade, instead of
+    // paying for a route quote + on-chain simulation only to revert. "insufficient
+    // balance" is a terminal reason, so the order fails immediately with a clear
+    // message rather than sitting "queued" through six pointless retries.
+    const fundingBalance = await publicClient.readContract({ address: tokenIn, abi: ERC20_BALANCE_ABI, functionName: "balanceOf", args: [accountAddress] });
+    if (fundingBalance < amountIn) throw new Error("Insufficient balance in the smart account — fund it and try again");
 
     const routesUrl = `https://aggregator-api.kyberswap.com/robinhood/api/v1/routes?tokenIn=${tokenIn}&tokenOut=${tokenOut}&amountIn=${amountIn}&saveGas=0&gasInclude=1`;
     const routeResponse = await fetch(routesUrl, { headers: { "x-client-id": "btb-finance" } });

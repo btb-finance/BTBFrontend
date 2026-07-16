@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { erc20Abi, formatUnits, isAddress, keccak256, parseUnits, toHex, type Hex } from 'viem';
@@ -52,10 +52,13 @@ function compact(raw: bigint, decimals: number) {
   return value.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
 
-export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: string; onConnect?: () => void; presets?: TradePreset[] }) {
+export type TradeStatus = { id: string; phase: 'working' | 'confirmed' | 'failed' };
+
+export function SmartTradePanel({ owner, onConnect, presets = [], onStatus }: { owner?: string; onConnect?: () => void; presets?: TradePreset[]; onStatus?: (status: TradeStatus | null) => void }) {
   const config = useConfig();
   const { track } = useTx();
   const enqueueTrade = useAction(api.spotTrade.enqueue);
+  const cancelQueued = useMutation(api.spotTradeQueue.cancelForAccount);
   const deployment = getSmartAccountDeployment(CHAIN_ID);
   const validOwner = owner && isAddress(owner) ? owner as `0x${string}` : null;
   const [state, setState] = useState<SmartState | null>(null);
@@ -85,6 +88,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
   const [pendingPresets, setPendingPresets] = useState<TradePreset[]>([]);
   const [preset, setPreset] = useState<TradePreset | null>(null);
   const [noticePreset, setNoticePreset] = useState<TradePreset | null>(null);
+  const [tradeLabel, setTradeLabel] = useState('');
+  const lastStatus = useRef('');
 
   const load = useCallback(async () => {
     if (!validOwner || !deployment?.agentRegistry) { setState(null); setLoading(false); return; }
@@ -205,12 +210,16 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
   const instantReady = policyActive && deviceAuthorized && !!(state.roles & 16);
   const orders = useQuery(api.spotTradeQueue.listForAccount, state?.account ? { account: state.account } : 'skip');
   const pendingOrderCount = orders?.filter(order => ['queued', 'preparing', 'submitted'].includes(order.state)).length ?? 0;
+  const queuedCount = orders?.filter(order => order.state === 'queued').length ?? 0;
   const latestOrder = success ? orders?.find(order => String(order._id) === success.orderId) : undefined;
   const spendableAssets = smartAssets.filter(asset => !asset.native && asset.address && asset.balance > 0);
   const selectedBuyAsset = spendableAssets.find(asset => asset.address?.toLowerCase() === buyToken.toLowerCase());
   const buySymbol = selectedBuyAsset?.symbol || (buyToken.toLowerCase() === WETH.toLowerCase() ? 'WETH' : inputMeta?.symbol || 'TOKEN');
   const minimumBuyAmount = selectedBuyAsset?.priceUsd ? 5.1 / selectedBuyAsset.priceUsd : null;
   const minimumBuyText = minimumBuyAmount ? (Math.ceil(minimumBuyAmount * 1e8) / 1e8).toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 8 }) : null;
+  // Human-readable form of the minimum — the precise minimumBuyText can be a
+  // 15-digit number for cheap tokens, which looks broken in a button.
+  const minimumBuyDisplay = minimumBuyAmount ? minimumBuyAmount.toLocaleString('en-US', { maximumFractionDigits: minimumBuyAmount >= 1000 ? 0 : minimumBuyAmount >= 1 ? 2 : 6 }) : null;
   const belowMinimum = minimumBuyAmount != null && Number(buySize || 0) < minimumBuyAmount;
   const sellAllAssets = smartAssets.filter(asset => !asset.native && asset.address && asset.balance > 0 && asset.address.toLowerCase() !== sellToken.toLowerCase() && asset.usdValue >= 5);
 
@@ -229,6 +238,21 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
     const retries = [2_000, 5_000, 10_000, 20_000].map(delay => window.setTimeout(() => setBalanceRefresh(value => value + 1), delay));
     return () => retries.forEach(window.clearTimeout);
   }, [orders]);
+
+  // Report the active trade's progress up to the market list so the button the
+  // user tapped can show "Buying…" and stop them from firing duplicate orders.
+  useEffect(() => {
+    let next: TradeStatus | null = null;
+    if (noticePreset) {
+      const state = latestOrder?.state;
+      const phase = error || state === 'failed' ? 'failed' : state === 'confirmed' ? 'confirmed' : 'working';
+      next = { id: noticePreset.id, phase };
+    }
+    const key = next ? `${next.id}:${next.phase}` : '';
+    if (key === lastStatus.current) return;
+    lastStatus.current = key;
+    onStatus?.(next);
+  }, [noticePreset, latestOrder, error, onStatus]);
 
   async function enableInstantTrading() {
     if (!validOwner || !deployment?.agentRegistry || !state) { onConnect?.(); return; }
@@ -266,6 +290,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
 
   async function trade() {
     if (!preset || !state || !inputMeta || !outputMeta || !localKey || parsedAmount <= 0n || parsedAmount > inputMeta.balance) return;
+    const spent = compact(parsedAmount, inputMeta.decimals);
+    setTradeLabel(preset.side === 'buy'
+      ? `Buying ${outputMeta.symbol} with ${spent} ${inputMeta.symbol}`
+      : `Selling ${spent} ${inputMeta.symbol} for ${outputMeta.symbol}`);
     setBusy('trade'); setError(null); setSuccess(null);
     try {
       const result = await enqueueTrade({
@@ -317,6 +345,15 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
     setAddressCopied(false);
   }
 
+  // Re-run the trade the user just confirmed, reusing the same token, side and
+  // amount — the deliberate "buy again", separate from an accidental re-tap.
+  function repeatTrade() {
+    if (!noticePreset || busy !== null) return;
+    const again = { ...noticePreset, id: `${noticePreset.side}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}` };
+    dismissTradeNotice();
+    setPendingPresets(current => [...current, again]);
+  }
+
   useEffect(() => {
     if (!preset || !instantReady || busy !== null || executedPreset.current === preset.id) return;
     const expectedInput = preset.side === 'buy' ? buyToken : preset.address;
@@ -343,9 +380,19 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
       setPreset(null);
       return;
     }
-    if (parsedAmount <= 0n || parsedAmount > inputMeta.balance) {
+    if (parsedAmount > inputMeta.balance) {
       executedPreset.current = preset.id;
-      setError(parsedAmount > inputMeta.balance ? `Not enough ${inputMeta.symbol}. Smart account balance: ${compact(inputMeta.balance, inputMeta.decimals)} ${inputMeta.symbol}.` : preset.side === 'sell' ? `No available ${inputMeta.symbol} to dump.` : 'Set a buy amount first.');
+      setError(`Not enough ${inputMeta.symbol}. Smart account balance: ${compact(inputMeta.balance, inputMeta.decimals)} ${inputMeta.symbol}.`);
+      setPreset(null);
+      return;
+    }
+    if (parsedAmount <= 0n) {
+      // A sell auto-fills its amount from the balance a tick after the token
+      // resolves — don't mistake that gap for an empty account. Only bail when
+      // the balance itself is genuinely zero; otherwise wait for the fill.
+      if (preset.side === 'sell' && inputMeta.balance > 0n) return;
+      executedPreset.current = preset.id;
+      setError(preset.side === 'sell' ? `No available ${inputMeta.symbol} to dump.` : 'Set a buy amount first.');
       setPreset(null);
       return;
     }
@@ -400,7 +447,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
                 </div>
               ) : (
             <div style={{ marginTop: 7 }}>
-              {pendingOrderCount > 0 && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 7 }}><span style={{ color: btb.amber, fontSize: 9.5, fontWeight: 800 }}>{pendingOrderCount} trade{pendingOrderCount === 1 ? '' : 's'} queued</span></div>}
+              {pendingOrderCount > 0 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7, padding: '7px 9px', borderRadius: 9, border: '1px solid rgba(255,179,107,.28)', background: 'rgba(255,179,107,.09)' }}>
+                <span style={{ color: btb.amber, fontSize: 9.5, fontWeight: 750, lineHeight: 1.4 }}>{pendingOrderCount} trade{pendingOrderCount === 1 ? '' : 's'} waiting{queuedCount > 0 ? ' · fund the account or they auto-cancel in 5 min' : ''}</span>
+                {queuedCount > 0 && state?.account && <button onClick={async () => { try { await cancelQueued({ account: state.account }); } catch { /* reactive list will reflect the real state */ } }} style={{ flexShrink: 0, height: 26, padding: '0 10px', borderRadius: 7, border: '1px solid rgba(255,107,122,.32)', background: 'rgba(255,107,122,.1)', color: btb.loss, fontFamily: 'inherit', fontSize: 9, fontWeight: 850, cursor: 'pointer' }}>Cancel all</button>}
+              </div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 7 }}>
                 <div style={{ minHeight: 72, padding: '8px 9px', boxSizing: 'border-box', borderRadius: 11, border: belowMinimum ? '1px solid rgba(255,179,107,.4)' : btb.borderSoft, background: 'rgba(255,255,255,.027)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -414,7 +464,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
                     </select>
                     <div style={{ display: 'flex', alignItems: 'center', height: 29, padding: '0 7px', borderRadius: 7, border: btb.borderSoft, background: 'rgba(255,255,255,.035)' }}><input aria-label="Buy amount" value={buySize} onChange={event => { const next = event.target.value.replace(/[^0-9.]/g, ''); setBuySize(next); if (mode === 'buy') setAmount(next); if (Number(next) > 0) localStorage.setItem(sizeKey(state!.account), next); }} inputMode="decimal" style={{ minWidth: 0, flex: 1, height: '100%', border: 0, background: 'transparent', color: btb.text, padding: 0, outline: 'none', fontSize: 11.5, fontWeight: 800 }}/><span style={{ color: btb.textDim, fontSize: 8.5 }}>{buySymbol}</span></div>
                   </div>
-                  <button disabled={!minimumBuyText} onClick={() => { if (!minimumBuyText) return; setBuySize(minimumBuyText); if (mode === 'buy') setAmount(minimumBuyText); localStorage.setItem(sizeKey(state!.account), minimumBuyText); }} style={{ border: 0, background: 'transparent', color: belowMinimum ? btb.amber : btb.textDim, padding: '4px 0 0', fontFamily: 'inherit', fontSize: 8.5, fontWeight: 750, cursor: minimumBuyText ? 'pointer' : 'default' }}>{minimumBuyText ? `Minimum ${minimumBuyText} ${buySymbol} · use` : 'Minimum shown when priced'}</button>
+                  <button disabled={!minimumBuyText} onClick={() => { if (!minimumBuyText) return; setBuySize(minimumBuyText); if (mode === 'buy') setAmount(minimumBuyText); localStorage.setItem(sizeKey(state!.account), minimumBuyText); }} style={{ alignSelf: 'flex-start', marginTop: 6, height: 26, padding: '0 10px', borderRadius: 7, border: belowMinimum ? '1px solid rgba(255,179,107,.45)' : btb.borderSoft, background: belowMinimum ? 'rgba(255,179,107,.13)' : 'rgba(255,255,255,.04)', color: belowMinimum ? btb.amber : btb.textMuted, fontFamily: 'inherit', fontSize: 9, fontWeight: 800, cursor: minimumBuyText ? 'pointer' : 'default', opacity: minimumBuyText ? 1 : .55 }}>{minimumBuyText ? `Use minimum · ${minimumBuyDisplay} ${buySymbol}` : 'Minimum shown when priced'}</button>
                 </div>
                 <div style={{ minHeight: 72, padding: '8px 9px', boxSizing: 'border-box', borderRadius: 11, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.2)' : btb.borderSoft, background: 'rgba(255,255,255,.027)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -436,7 +486,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
                       <button key={pct} onClick={() => sellPartial(pct / 100)} disabled={spendableAssets.length === 0 || busy !== null} style={{ height: 28, borderRadius: 7, border: '1px solid rgba(255,107,122,.28)', background: spendableAssets.length ? 'rgba(255,107,122,.08)' : 'rgba(255,255,255,.02)', color: spendableAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 10, fontWeight: 850, cursor: spendableAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{pct === 100 ? 'Max' : `${pct}%`}</button>
                     ))}
                   </div>
-                  <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ border: 0, background: 'transparent', color: sellAllAssets.length ? btb.textMuted : btb.textDim, padding: '5px 0 0', fontFamily: 'inherit', fontSize: 8.5, fontWeight: 750, cursor: sellAllAssets.length ? 'pointer' : 'default' }}>{sellAllAssets.length ? `or sell all ${sellAllAssets.length} tokens · min $5 each` : 'No assets worth $5+'}</button>
+                  <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ width: '100%', marginTop: 6, height: 28, borderRadius: 7, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.3)' : btb.borderSoft, background: sellAllAssets.length ? 'rgba(255,107,122,.09)' : 'rgba(255,255,255,.03)', color: sellAllAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 9.5, fontWeight: 800, cursor: sellAllAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{sellAllAssets.length ? `Sell all ${sellAllAssets.length} tokens · min $5 each` : 'No assets worth $5+'}</button>
                 </div>
               </div>
             </div>
@@ -446,7 +496,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
       </Glass>
       {noticePreset && (busy === 'trade' || error || success) && <div role="status" style={{ position: 'fixed', zIndex: 1400, left: '50%', bottom: 22, transform: 'translateX(-50%)', width: 'min(440px,calc(100vw - 28px))', padding: '12px 42px 12px 14px', boxSizing: 'border-box', borderRadius: 13, border: error || latestOrder?.state === 'failed' ? '1px solid rgba(255,107,122,.35)' : '1px solid rgba(82,227,164,.3)', background: 'rgba(18,18,25,.96)', boxShadow: '0 16px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', color: error || latestOrder?.state === 'failed' ? btb.loss : latestOrder?.state === 'confirmed' ? btb.green : btb.amber, fontSize: 11, fontWeight: 750, textAlign: 'center' }}>
         {busy !== 'trade' && <button aria-label="Dismiss message" onClick={dismissTradeNotice} style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, padding: 0, borderRadius: 8, border: btb.borderSoft, background: 'rgba(255,255,255,.045)', color: btb.textMuted, fontFamily: 'inherit', fontSize: 17, lineHeight: 1, cursor: 'pointer' }}>×</button>}
-        {busy === 'trade' ? `Adding ${noticePreset.symbol} trade to the queue…` : error ? <div>
+        {busy === 'trade' ? `${tradeLabel || `Buying ${noticePreset.symbol}`}…` : error ? <div>
           <div>{error}</div>
           {insufficientBalance && state?.deployed && <div style={{ marginTop: 9, paddingTop: 9, borderTop: btb.borderSoft }}>
             <div style={{ color: btb.textMuted, fontSize: 9.5, lineHeight: 1.45, fontWeight: 600 }}>
@@ -457,7 +507,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
               <button onClick={() => { void navigator.clipboard.writeText(state.account); setAddressCopied(true); window.setTimeout(() => setAddressCopied(false), 1600); }} style={{ height: 34, borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,.04)', color: btb.text, fontFamily: 'inherit', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>{addressCopied ? 'Address copied' : 'Copy address'}</button>
             </div>
           </div>}
-        </div> : latestOrder?.state === 'confirmed' ? <>Trade confirmed · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.green }}>View transaction ↗</a></> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View ↗</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
+        </div> : latestOrder?.state === 'confirmed' ? <div>
+          <div>Trade confirmed · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.green }}>View transaction ↗</a></div>
+          <button onClick={repeatTrade} disabled={busy !== null} style={{ marginTop: 9, height: 32, padding: '0 14px', borderRadius: 9, border: '1px solid rgba(82,227,164,.32)', background: 'rgba(82,227,164,.12)', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 850, cursor: busy ? 'default' : 'pointer' }}>{noticePreset.side === 'buy' ? `Buy ${noticePreset.symbol} again` : `Sell more ${noticePreset.symbol}`}</button>
+        </div> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View ↗</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
       </div>}
       {funding && state?.deployed && validOwner && (
         <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} deployment={deployment} initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { setBalanceRefresh(value => value + 1); await load(); }}/>

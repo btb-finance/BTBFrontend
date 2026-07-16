@@ -1,8 +1,11 @@
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
 const ACTIVE_LEASE_MS = 90_000;
+// A queued order that never gets funded is auto-cancelled after this long, so a
+// user who queued trades without balance is not left with a stuck "queued" list.
+const QUEUED_EXPIRY_MS = 5 * 60_000;
 
 export const insert = internalMutation({
   args: {
@@ -34,8 +37,13 @@ export const claim = internalMutation({
     }
 
     const submitted = await ctx.db.query("spotTradeOrders").withIndex("by_state_time", q => q.eq("state", "submitted")).order("asc").first();
-    const queued = submitted ? null : (await ctx.db.query("spotTradeOrders").withIndex("by_state_time", q => q.eq("state", "queued")).order("asc").collect())
-      .find(order => (order.nextAttemptAt ?? 0) <= now) ?? null;
+    const queuedRows = submitted ? [] : await ctx.db.query("spotTradeOrders").withIndex("by_state_time", q => q.eq("state", "queued")).order("asc").collect();
+    // Auto-cancel anything that has waited past the funding window before picking work.
+    for (const stale of queuedRows) {
+      if (now - stale.requestedAt < QUEUED_EXPIRY_MS) continue;
+      await ctx.db.patch(stale._id, { state: "failed", error: "Cancelled automatically — the smart account was not funded within 5 minutes.", updatedAt: now, nextAttemptAt: undefined, leaseUntil: undefined, workerId: undefined });
+    }
+    const queued = queuedRows.find(order => now - order.requestedAt < QUEUED_EXPIRY_MS && (order.nextAttemptAt ?? 0) <= now) ?? null;
     const order = submitted ?? queued;
     if (!order) return { locked: false, retryAfter: 0, order: null };
     await ctx.db.patch(order._id, {
@@ -94,6 +102,25 @@ export const release = internalMutation({
 export const getInternal = internalQuery({
   args: { orderId: v.id("spotTradeOrders") },
   handler: (ctx, args) => ctx.db.get(args.orderId),
+});
+
+// Cancel every trade still waiting in the queue for an account. Only "queued"
+// orders are touched — anything already broadcast on-chain (submitted) or being
+// prepared by a worker is left alone so we never abandon an in-flight transaction.
+export const cancelForAccount = mutation({
+  args: { account: v.string() },
+  handler: async (ctx, { account }) => {
+    const target = account.toLowerCase();
+    const now = Date.now();
+    const queued = await ctx.db.query("spotTradeOrders").withIndex("by_state_time", q => q.eq("state", "queued")).collect();
+    let cancelled = 0;
+    for (const order of queued) {
+      if (order.account !== target || order.txHash) continue;
+      await ctx.db.patch(order._id, { state: "failed", error: "Cancelled by you.", updatedAt: now, nextAttemptAt: undefined, leaseUntil: undefined, workerId: undefined });
+      cancelled += 1;
+    }
+    return { cancelled };
+  },
 });
 
 export const listForAccount = query({
