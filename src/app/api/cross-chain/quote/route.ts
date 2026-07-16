@@ -3,6 +3,10 @@ import { KYBER_CHAINS } from '@/lib/kyberswap';
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const AMOUNT = /^\d+$/;
+// Cross-chain routes can contain a source-chain swap and a destination fill.
+// A 0.5% floor was too tight between quote construction and wallet simulation,
+// especially for small routes into newer Robinhood Chain markets.
+const BRIDGE_SLIPPAGE = '0.03';
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -28,7 +32,7 @@ export async function POST(request: Request) {
   const params = new URLSearchParams({
     fromChain: String(fromChain), toChain: String(toChain), fromToken, toToken,
     fromAmount, fromAddress: wallet, toAddress: wallet,
-    slippage: '0.005', order: 'FASTEST', integrator,
+    slippage: BRIDGE_SLIPPAGE, order: 'FASTEST', integrator,
   });
   if (btbFee > 0) params.set('fee', String(btbFee));
 

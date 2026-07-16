@@ -171,7 +171,7 @@ type CrossChainQuote = {
     toAmountUSD?: string;
     executionDuration?: number;
     gasCosts?: Array<{ amountUSD?: string }>;
-    feeCosts?: Array<{ amountUSD?: string; name?: string }>;
+    feeCosts?: Array<{ amountUSD?: string; name?: string; description?: string; percentage?: string }>;
   };
   transactionRequest: { from: string; to: string; data: string; value: string; chainId: number; gasLimit?: string };
   includedSteps?: Array<{ tool?: string; toolDetails?: { name?: string } }>;
@@ -916,7 +916,10 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
       setStep('success');
       awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).catch(() => {});
     } catch (error) {
-      setErrMsg((error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed');
+      const rawMessage = (error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed';
+      setErrMsg(rawMessage.toLowerCase().includes('return amount is not enough')
+        ? 'The bridge price moved past the protected minimum. No funds were sent. Try again for a fresh quote.'
+        : rawMessage);
       setStep('error');
     }
   }
@@ -926,8 +929,13 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   const outFormatted = quote ? Number(formatUnits(BigInt(quote.estimate.toAmount), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '0';
   const gasUsd = quote?.estimate.gasCosts?.reduce((sum, fee) => sum + Number(fee.amountUSD ?? 0), 0) ?? 0;
   const routeFeeUsd = quote?.estimate.feeCosts?.reduce((sum, fee) => sum + Number(fee.amountUSD ?? 0), 0) ?? 0;
+  const lifiFee = quote?.estimate.feeCosts?.find(fee => fee.name?.toLowerCase().includes('lifi'));
+  const lifiFeePercent = Number(lifiFee?.percentage ?? 0) * 100;
   const duration = quote?.estimate.executionDuration ?? 0;
-  const route = [...new Set(quote?.includedSteps?.map(item => item.toolDetails?.name || item.tool).filter(Boolean) ?? [])].join(' → ') || quote?.tool || 'Best bridge';
+  const route = [...new Set(quote?.includedSteps
+    ?.filter(item => item.tool !== 'feeCollection')
+    .map(item => item.toolDetails?.name || item.tool)
+    .filter(Boolean) ?? [])].join(' → ') || quote?.tool || 'Best bridge';
   const canReview = !!quote && !!address && !quoting && !insufficient;
   const explorer = SUPPORTED_CHAINS.find(chain => chain.id === fromChainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
 
@@ -960,11 +968,13 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
       </Glass>
       {quote && !quoting && <Glass padding={14} radius={18} soft>
         <InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/>
-        <InfoRow label="Network gas" value={gasUsd > 0 ? `~ $${gasUsd.toFixed(2)}` : 'Included'}/>
-        <InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)}` : 'Included'}/>
+        <InfoRow label="Network gas" value={gasUsd > 0 ? `~ $${gasUsd.toFixed(2)} · paid by wallet` : 'Paid by wallet'}/>
+        <InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · deducted` : 'None'}/>
+        {lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}% · included above`}/>}
         {btbFeePercent > 0 && (
           <InfoRow label="BTB fee" value={`${btbFeePercent}% · sending token`}/>
         )}
+        {btbFeePercent === 0 && <InfoRow label="BTB fee" value="Free"/>}
         <InfoRow label="Route" last value={route}/>
       </Glass>}
       {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
@@ -979,7 +989,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[fromChainId]?.name} → {CHAIN_META[toChainId]?.name}</div></div></div>
       <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
-      <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/>{btbFeePercent > 0 && <InfoRow label="BTB fee" value={`${btbFeePercent}%`}/>}<InfoRow label="Route" last value={route}/></Glass>
+      <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/><InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · from amount` : 'None'}/>{lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}%`}/>}<InfoRow label="BTB fee" value={btbFeePercent > 0 ? `${btbFeePercent}%` : 'Free'}/><InfoRow label="Route" last value={route}/></Glass>
       <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>
     </Screen>
   );
