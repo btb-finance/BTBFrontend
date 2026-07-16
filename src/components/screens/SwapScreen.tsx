@@ -21,6 +21,15 @@ import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/w
 import { api } from '../../../convex/_generated/api';
 
 const SWAP_XP = 100;
+const NATIVE_ADDRESSES = new Set([
+  'eth',
+  '0x0000000000000000000000000000000000000000',
+  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+]);
+
+function isNativeToken(address: string) {
+  return NATIVE_ADDRESSES.has(address.toLowerCase());
+}
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -176,7 +185,9 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const [chainId, setChainId] = useState<number>(initialChain);
   const [customTokens, setCustomTokens] = useState<Token[]>([]);
   const [listedTokens, setListedTokens] = useState<Token[]>([]);
+  const [liveBalanceTokens, setLiveBalanceTokens] = useState<Token[]>([]);
   const [loadingTokenList, setLoadingTokenList] = useState(false);
+  const [balanceRefreshNonce, setBalanceRefreshNonce] = useState(0);
 
   const [fromToken, setFromToken] = useState<Token>(initialFrom ?? ETH_DEFAULT);
   const [toToken,   setToToken]   = useState<Token>(
@@ -196,13 +207,16 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     const merged = new Map<string, Token>();
     const add = (token: Token) => {
       if ((token.chainId ?? 1) !== chainId) return;
-      merged.set(token.address.toLowerCase(), { ...merged.get(token.address.toLowerCase()), ...token, chainId });
+      const address = isNativeToken(token.address) ? 'ETH' : token.address.toLowerCase();
+      const key = address.toLowerCase();
+      merged.set(key, { ...merged.get(key), ...token, address, chainId });
     };
     add(nativeEthForChain(chainId));
     if (DEFAULT_QUOTES[chainId]) add(DEFAULT_QUOTES[chainId]);
     for (const token of listedTokens) add(token);
     for (const token of chainId === 1 ? tokens : positions) add(token);
     for (const token of customTokens) add(token);
+    for (const token of liveBalanceTokens) add(token);
     return [...merged.values()];
   })();
 
@@ -232,6 +246,41 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
       .finally(() => { if (!controller.signal.aborted) setLoadingTokenList(false); });
     return () => controller.abort();
   }, [chainId]);
+
+  // The token catalog contains metadata, not wallet balances. Read both assets
+  // directly from the selected chain so Pay/Receive/MAX never depend on an
+  // indexer's refresh cadence.
+  useEffect(() => {
+    if (!address) { setLiveBalanceTokens([]); return; }
+    let cancelled = false;
+    const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
+    if (!client) { setLiveBalanceTokens([]); return; }
+
+    const read = async (token: Token): Promise<Token> => {
+      const raw = isNativeToken(token.address)
+        ? await client.getBalance({ address }).catch(() => 0n)
+        : await client.readContract({
+            address: token.address as `0x${string}`,
+            abi: erc20Abi,
+            functionName: 'balanceOf',
+            args: [address],
+          }).catch(() => 0n);
+      return {
+        ...token,
+        address: isNativeToken(token.address) ? 'ETH' : token.address.toLowerCase(),
+        chainId,
+        balanceRaw: raw.toString(),
+        balance: formatUnits(raw, token.decimals),
+        usdValue: token.usdPrice ? Number(formatUnits(raw, token.decimals)) * token.usdPrice : undefined,
+      };
+    };
+
+    const refresh = () => Promise.all([read(fromToken), read(toToken)])
+      .then(next => { if (!cancelled) setLiveBalanceTokens(next); });
+    refresh();
+    const timer = setInterval(refresh, 15_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [address, chainId, config, fromToken.address, fromToken.decimals, toToken.address, toToken.decimals, balanceRefreshNonce]);
 
   // Pick the pair once when the token list first arrives: URL params win,
   // then the initialFrom prop (portfolio "Swap" buttons), then ETH → USDC.
@@ -286,7 +335,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
     if (liveTo && (liveTo.balance !== toToken.balance || liveTo.usdPrice !== toToken.usdPrice)) {
       setToToken(liveTo);
     }
-  }, [chainId, positions, tokens, listedTokens, customTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
+  }, [chainId, positions, tokens, listedTokens, customTokens, liveBalanceTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
 
   function selectChain(nextChainId: number) {
     if (!KYBER_CHAINS[nextChainId] || nextChainId === chainId) return;
@@ -422,6 +471,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
 
       if (lastHash) setTxHash(lastHash);
       setStep('success');
+      setBalanceRefreshNonce(value => value + 1);
       if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
     } catch (e: any) {
       setErrMsg(e?.shortMessage ?? e?.message ?? 'Transaction failed');
@@ -431,12 +481,13 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
 
   const fromBal = fromToken.balance ? parseFloat(fromToken.balance) : 0;
   const fromUsd = fromToken.usdPrice && fromAmt ? parseFloat(fromAmt) * fromToken.usdPrice : null;
+  const insufficientBalance = fromToken.balance != null && parseFloat(fromAmt || '0') > fromBal;
 
   const bestOutFormatted = quote?.amountOutFormatted ?? '0';
   const toUsd = quote?.amountOutUsd ?? null;
   const dispRate = quote?.rate ?? 0;
   const dispGasUsd = quote?.gasUsd ?? null;
-  const canSwap = !!quote && !!address && !quoting;
+  const canSwap = !!quote && !!address && !quoting && !insufficientBalance;
   const chainExplorer = SUPPORTED_CHAINS.find(chain => chain.id === chainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
 
   // ── Form step ──────────────────────────────────────────────────────────────
@@ -521,7 +572,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         disabled={!address ? false : !canSwap}
         style={{ marginTop: 4, fontSize: 18 }}
       >
-        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : quote ? 'Review swap' : quoteErr ? 'No route found' : 'Enter amount'}
+        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? 'Review swap' : quoteErr ? 'No route found' : 'Enter amount'}
       </Button>
 
       {picker && (
