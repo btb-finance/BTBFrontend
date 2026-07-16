@@ -342,17 +342,20 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
       <Glass padding={13} radius={16} strong style={{ overflow: 'hidden' }}>
         {!validOwner ? <Button variant="success" size="sm" onClick={onConnect}>Connect wallet</Button>
           : loading ? <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 13 }}>Loading smart account…</div>
-          : !instantReady ? (
-            <div style={{ padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
-              <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>One-time permission</div>
-              <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: 4 }}>The agent may swap available tokens inside this account. It cannot withdraw, change the receiver or spend funds reserved for LP instructions. Every received token pays a fixed 10% BTB fee.</div>
-              <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Confirming setup…' : policyActive ? 'Authorize this device' : 'Enable instant trading'}</Button>
-            </div>
-          ) : (
+          : (
             <div>
+              <button onClick={() => setFunding('deposit')} style={{ width: '100%', minHeight: 65, padding: '10px 11px', borderRadius: 11, border: '1px solid rgba(82,227,164,.27)', background: 'rgba(82,227,164,.065)', color: btb.text, fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><span style={{ color: btb.green, fontSize: 11, fontWeight: 850 }}>Smart-account funds</span><span style={{ color: btb.textDim, fontSize: 9, fontWeight: 750 }}>{accountLabel}</span></span><span style={{ display: 'block', color: btb.textMuted, fontSize: 9, lineHeight: 1.45, marginTop: 5 }}>{assetsLoading && walletAssets.length === 0 && smartAssets.length === 0 ? 'Loading balances…' : `Wallet ${usd(walletUsd)} · Account ${usd(smartUsd)}${assetsLoading ? ' · Refreshing…' : ''}`}</span><span style={{ display: 'block', color: btb.textDim, fontSize: 8.5, marginTop: 4 }}>Deposit · withdraw · copy address</span></button>
+              {!instantReady ? (
+                <div style={{ marginTop: 7, padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
+                  <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{policyActive ? 'This link is not authorized' : 'Enable one-click trading'}</div>
+                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: 4 }}>{policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Allow the agent to swap available tokens inside this account. It cannot withdraw, change the receiver or spend funds reserved for LP instructions. Every received token pays a fixed 10% BTB fee.'}</div>
+                  {policyActive && <div style={{ color: btb.amber, fontSize: 9, lineHeight: 1.4, marginTop: 5 }}>Authorizing this link replaces the instant-trade key saved by another link. It does not change account ownership or move funds.</div>}
+                  <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Confirming setup…' : policyActive ? 'Authorize this link' : 'Enable instant trading'}</Button>
+                </div>
+              ) : (
+            <div style={{ marginTop: 7 }}>
               {pendingOrderCount > 0 && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 7 }}><span style={{ color: btb.amber, fontSize: 9.5, fontWeight: 800 }}>{pendingOrderCount} trade{pendingOrderCount === 1 ? '' : 's'} queued</span></div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 7 }}>
-                <button onClick={() => setFunding('deposit')} style={{ minHeight: 72, padding: '10px 11px', borderRadius: 11, border: '1px solid rgba(82,227,164,.27)', background: 'rgba(82,227,164,.065)', color: btb.text, fontFamily: 'inherit', textAlign: 'left', cursor: 'pointer' }}><span style={{ display: 'block', color: btb.green, fontSize: 11, fontWeight: 850 }}>Funds</span><span style={{ display: 'block', color: btb.textMuted, fontSize: 9, lineHeight: 1.45, marginTop: 5 }}>{assetsLoading && walletAssets.length === 0 && smartAssets.length === 0 ? 'Loading balances…' : `Wallet ${usd(walletUsd)} · Account ${usd(smartUsd)}${assetsLoading ? ' · Refreshing…' : ''}`}</span><span style={{ display: 'block', color: btb.textDim, fontSize: 8.5, marginTop: 4 }}>Deposit · withdraw · account address</span></button>
                 <div style={{ minHeight: 72, padding: '8px 9px', boxSizing: 'border-box', borderRadius: 11, border: belowMinimum ? '1px solid rgba(255,179,107,.4)' : btb.borderSoft, background: 'rgba(255,255,255,.027)' }}>
                   <div style={{ color: btb.textDim, fontSize: 8.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .4 }}>Buy settings</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(90px,.72fr)', gap: 7, marginTop: 4 }}>
@@ -376,6 +379,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
                   <div style={{ color: btb.textMuted, fontSize: 8.5, marginTop: 5 }}>{sellAllAssets.length ? `${sellAllAssets.length} eligible asset${sellAllAssets.length === 1 ? '' : 's'} · minimum $5 each` : 'No assets worth $5+'}</div>
                 </div>
               </div>
+            </div>
+              )}
             </div>
           )}
       </Glass>
