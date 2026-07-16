@@ -4,6 +4,7 @@ import { useConfig } from 'wagmi';
 import { waitForTransactionReceipt, waitForCallsStatus } from 'wagmi/actions';
 import { Icon } from '@/components/Icon';
 import { btb } from '@/components/design-tokens';
+import { SUPPORTED_CHAINS, type SupportedChainId } from './wagmi';
 
 // One global place that watches every pending on-chain action (mint, swap,
 // stake, approve, claim, unstake), polls confirmation every 5s, and surfaces a
@@ -71,7 +72,7 @@ export function TxProvider({ children }: { children: ReactNode }) {
           const last = res.receipts?.[res.receipts.length - 1]?.transactionHash;
           if (last) patch(id, { hash: last });
         } else if (hash) {
-          const receipt = await waitForTransactionReceipt(config, { hash, chainId: chainId as 1 | 4663 | undefined, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
+          const receipt = await waitForTransactionReceipt(config, { hash, chainId: chainId as SupportedChainId | undefined, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
           ok = receipt.status === 'success';
         }
         if (ok) {
@@ -114,6 +115,7 @@ function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: strin
     }}>
       {shown.map(r => {
         const color = r.status === 'confirmed' ? btb.green : r.status === 'failed' ? btb.loss : '#fff';
+        const explorer = r.chainId ? SUPPORTED_CHAINS.find(chain => chain.id === r.chainId)?.blockExplorers?.default.url : undefined;
         return (
           <div key={r.id} onClick={() => dismiss(r.id)} style={{
             pointerEvents: 'auto', cursor: 'pointer', width: '100%', maxWidth: 360,
@@ -132,7 +134,7 @@ function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: strin
               </div>
             </div>
             {r.hash && (
-              <a href={`${r.chainId === 4663 ? 'https://robinhoodchain.blockscout.com/tx/' : 'https://etherscan.io/tx/'}${r.hash}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+              <a href={`${explorer ?? 'https://etherscan.io'}/tx/${r.hash}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
                 style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontFamily: 'monospace', textDecoration: 'none' }}>↗</a>
             )}
           </div>
