@@ -157,6 +157,28 @@ const INCREASE_REQUEST_COMPONENTS = [
   { name: 'maxSpotTwapDeviationBps', type: 'uint16' },
 ] as const;
 
+export const TRADE_POLICY_COMPONENTS = [
+  { name: 'enabled', type: 'bool' },
+  { name: 'agent', type: 'address' },
+  { name: 'requestKeyHash', type: 'bytes32' },
+  { name: 'maximumBalanceBpsPerTrade', type: 'uint16' },
+  { name: 'maximumSlippageBps', type: 'uint16' },
+  { name: 'maximumSpotTwapDeviationBps', type: 'uint16' },
+  { name: 'minimumTwapSeconds', type: 'uint32' },
+  { name: 'expiresAt', type: 'uint64' },
+] as const;
+
+export interface TradePolicy {
+  enabled: boolean;
+  agent: `0x${string}`;
+  requestKeyHash: Hex;
+  maximumBalanceBpsPerTrade: number;
+  maximumSlippageBps: number;
+  maximumSpotTwapDeviationBps: number;
+  minimumTwapSeconds: number;
+  expiresAt: bigint;
+}
+
 const REBALANCE_REQUEST_COMPONENTS = [
   { name: 'newTickLower', type: 'int24' },
   { name: 'newTickUpper', type: 'int24' },
@@ -280,6 +302,7 @@ const BTB_LEGACY_CREATE_ABI = [{
 export const BTB_AGENT_REGISTRY_ABI = [
   { name: 'ROLE_ADD_LP', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
   { name: 'ROLE_INCREASE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
+  { name: 'ROLE_TRADE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
   { name: 'agents', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'address[]' }] },
   { name: 'agentRoles', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }, { name: 'agent', type: 'address' }], outputs: [{ type: 'uint8' }] },
   { name: 'nextInstructionId', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: [{ type: 'uint256' }] },
@@ -293,6 +316,9 @@ export const BTB_AGENT_REGISTRY_ABI = [
   ] },
   { name: 'configureAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'account', type: 'address' }, { name: 'agent', type: 'address' }, { name: 'roles', type: 'uint8' }], outputs: [] },
   { name: 'removeAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'account', type: 'address' }, { name: 'agent', type: 'address' }], outputs: [] },
+  { name: 'tradePolicies', type: 'function', stateMutability: 'view', inputs: [{ name: 'account', type: 'address' }], outputs: TRADE_POLICY_COMPONENTS },
+  { name: 'configureTradePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'account', type: 'address' }, { name: 'policy', type: 'tuple', components: TRADE_POLICY_COMPONENTS }], outputs: [] },
+  { name: 'revokeTradePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'account', type: 'address' }], outputs: [] },
   {
     name: 'scheduleInstruction', type: 'function', stateMutability: 'nonpayable', inputs: [
       { name: 'account', type: 'address' }, { name: 'agent', type: 'address' },
@@ -557,6 +583,21 @@ export function encodeDualIncreaseRequest(request: DualIncreaseRequest): Hex {
 export function configureSelfAgentCall(d: SmartAccountDeployment, account: `0x${string}`, owner: `0x${string}`, roles: number): Call {
   if (!d.agentRegistry) throw new Error('Agent registry is not configured');
   return { to: d.agentRegistry, data: encodeFunctionData({ abi: BTB_AGENT_REGISTRY_ABI, functionName: 'configureAgent', args: [account, owner, roles] }) };
+}
+
+export function configureAgentCall(d: SmartAccountDeployment, account: `0x${string}`, agent: `0x${string}`, roles: number): Call {
+  if (!d.agentRegistry) throw new Error('Agent registry is not configured');
+  return { to: d.agentRegistry, data: encodeFunctionData({ abi: BTB_AGENT_REGISTRY_ABI, functionName: 'configureAgent', args: [account, agent, roles] }) };
+}
+
+export function configureTradePolicyCall(d: SmartAccountDeployment, account: `0x${string}`, policy: TradePolicy): Call {
+  if (!d.agentRegistry) throw new Error('Agent registry is not configured');
+  return { to: d.agentRegistry, data: encodeFunctionData({ abi: BTB_AGENT_REGISTRY_ABI, functionName: 'configureTradePolicy', args: [account, policy] }) };
+}
+
+export function revokeTradePolicyCall(d: SmartAccountDeployment, account: `0x${string}`): Call {
+  if (!d.agentRegistry) throw new Error('Agent registry is not configured');
+  return { to: d.agentRegistry, data: encodeFunctionData({ abi: BTB_AGENT_REGISTRY_ABI, functionName: 'revokeTradePolicy', args: [account] }) };
 }
 
 export function removeAgentCall(d: SmartAccountDeployment, account: `0x${string}`, agent: `0x${string}`): Call {

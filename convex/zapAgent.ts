@@ -12,7 +12,7 @@ const robinhood = defineChain({
   id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com/"] } },
 });
-const DEFAULT_REGISTRY = "0xAbF60682CA4025f356Cf41547b39603FD8E3C0be" as const;
+const DEFAULT_REGISTRY = "0x3fD9F511fd3E244CF8566E8B52D26E539f6c02aF" as const;
 const ALLOWED_SELECTORS = new Set([
   toFunctionSelector("createFromAccount(bytes,bytes)"),
   toFunctionSelector("increaseFromAccount(bytes,bytes)"),

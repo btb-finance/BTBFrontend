@@ -63,7 +63,7 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, onClose,
     setBusy(true); setError(null);
     try {
       await runCalls(config, {
-        account: owner, chainId, track, label: mode === 'deposit' ? `Deposit ${meta.symbol} into LP account` : `Withdraw ${meta.symbol} from LP account`,
+        account: owner, chainId, track, label: mode === 'deposit' ? `Deposit ${meta.symbol} into smart account` : `Withdraw ${meta.symbol} from smart account`,
         calls: mode === 'deposit'
           ? [approvalCall(validToken, account, parsed), depositTokenCall(account, validToken, parsed)].filter((call): call is NonNullable<typeof call> => call !== null)
           : [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawToken', args: [validToken, parsed] }) }],
@@ -92,7 +92,7 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, onClose,
             <button onClick={() => meta && setAmount(formatUnits(mode === 'deposit' ? meta.wallet : meta.account, meta.decimals))} disabled={!meta} style={{ padding: '0 12px', borderRadius: 9, border: btb.borderSoft, background: 'rgba(82,227,164,.08)', color: btb.green, fontWeight: 800, cursor: 'pointer' }}>MAX</button>
           </div>
         </div>
-        <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.45, marginTop: 9 }}>Any ERC-20 can be stored. It is swapped only through a separately authorized LP instruction; unused funds remain withdrawable by you.</div>
+        <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.45, marginTop: 9 }}>Any ERC-20 can be stored. Approved LP and instant-trade actions can use it; everything else remains withdrawable only by you.</div>
         {error && <div style={{ color: btb.loss, fontSize: 11, lineHeight: 1.4, marginTop: 9 }}>{error}</div>}
         <Button variant="success" onClick={deposit} disabled={busy || !meta || parsed <= 0n || parsed > (mode === 'deposit' ? meta.wallet : meta.account)} style={{ width: '100%', marginTop: 13 }}>{busy ? mode === 'deposit' ? 'Depositing…' : 'Withdrawing…' : meta && parsed > (mode === 'deposit' ? meta.wallet : meta.account) ? `Insufficient ${meta.symbol}` : `${mode === 'deposit' ? 'Deposit' : 'Withdraw'}${meta ? ` ${meta.symbol}` : ''}`}</Button>
       </div>

@@ -83,6 +83,7 @@ function agentRoleLabel(roles: number) {
   const labels = [];
   if (roles & 4) labels.push('create LP');
   if (roles & 8) labels.push('increase LP');
+  if (roles & 16) labels.push('buy / sell');
   return labels.join(' · ') || 'no permissions';
 }
 
@@ -417,7 +418,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                 {editingAgents === state.chainId && state.deployment.agentRegistry && (
                   <div style={{ marginTop: 9, paddingTop: 9, borderTop: btb.borderSoft }}>
                     <div style={{ color: btb.text, fontSize: 11.5, fontWeight: 800 }}>Authorized agents</div>
-                    <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.4, marginTop: 2 }}>Maximum five for creating or increasing LPs. Set a custom rebalance agent per position under Range & rules. Agents cannot withdraw funds, transfer NFTs, change ownership, or change rules.</div>
+                    <div style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.4, marginTop: 2 }}>Maximum five for LP and trading automation. Agents cannot withdraw funds, transfer NFTs, change ownership, or change your rules.</div>
                     {state.agents.length > 0 && <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
                       {state.agents.map((agent) => <div key={agent.address} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 8px', borderRadius: 9, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -428,8 +429,8 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
                       </div>)}
                     </div>}
                     <input value={newAgent} onChange={(event) => setNewAgent(event.target.value)} spellCheck={false} placeholder="Agent address 0x…" style={{ width: '100%', height: 36, boxSizing: 'border-box', borderRadius: 9, padding: '0 9px', marginTop: 8, color: btb.text, background: 'rgba(255,255,255,.05)', border: newAgent && !isAddress(newAgent) ? '1px solid rgba(255,107,122,.35)' : btb.borderSoft, outline: 'none', fontFamily: 'monospace', fontSize: 10.5 }}/>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 5, marginTop: 6 }}>
-                      {([{ bit: 4, label: 'Create LP' }, { bit: 8, label: 'Increase LP' }] as const).map(role => {
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 5, marginTop: 6 }}>
+                      {([{ bit: 4, label: 'Create LP' }, { bit: 8, label: 'Increase LP' }, { bit: 16, label: 'Buy / sell' }] as const).map(role => {
                         const selected = (agentRoles & role.bit) !== 0;
                         return <button key={role.bit} onClick={() => setAgentRoles(value => selected ? value & ~role.bit : value | role.bit)} style={{ height: 32, borderRadius: 8, border: selected ? '1px solid rgba(82,227,164,.4)' : btb.borderSoft, background: selected ? 'rgba(82,227,164,.09)' : 'rgba(255,255,255,.025)', color: selected ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 9.5, fontWeight: 750, cursor: 'pointer' }}>{role.label}</button>;
                       })}

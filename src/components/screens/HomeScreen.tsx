@@ -12,6 +12,7 @@ import { Tab } from '../types';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { useSidebar } from '../../lib/SidebarContext';
 import { api } from '../../../convex/_generated/api';
+import { SmartTradePanel } from '../SmartTradePanel';
 
 function fmtUsd(n: number) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -158,6 +159,8 @@ export function HomeScreen({ goto, address, onSend, onReceive, onConnectWallet }
           </button>
         </Glass>
       </div>
+
+      <SmartTradePanel owner={address} onConnect={onConnectWallet}/>
 
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
