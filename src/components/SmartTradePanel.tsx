@@ -356,7 +356,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [] }: { owner?: st
                       : <>{usd(smartUsd)}<span style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}> · wallet {usd(walletUsd)}{assetsLoading ? ' · refreshing' : ''}</span></>}
                   </div>
                 </div>
-                <button onClick={() => setFunding('deposit')} style={{ flexShrink: 0, height: 32, padding: '0 13px', borderRadius: 9, border: '1px solid rgba(82,227,164,.32)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 850, cursor: 'pointer' }}>Deposit / Withdraw</button>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => setFunding('deposit')} style={{ height: 32, padding: '0 13px', borderRadius: 9, border: '1px solid rgba(82,227,164,.34)', background: 'rgba(82,227,164,.12)', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 850, cursor: 'pointer' }}>Deposit</button>
+                  <button onClick={() => setFunding('withdraw')} style={{ height: 32, padding: '0 13px', borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,.04)', color: btb.text, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>Withdraw</button>
+                </div>
               </div>
               {!instantReady ? (
                 <div style={{ marginTop: 7, padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
