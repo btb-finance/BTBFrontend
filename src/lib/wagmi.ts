@@ -1,12 +1,13 @@
 import { createConfig } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
+import {
+  arbitrum, avalanche, base, berachain, blast, bsc, etherlink, fantom, hyperEvm,
+  linea, mainnet, mantle, megaeth, monad, optimism, plasma, polygon, ronin, scroll,
+  sonic, unichain, zkSync,
+} from 'wagmi/chains';
 import { defineChain, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask } from '@wagmi/connectors';
 import { MAINNET_TRANSPORT } from './rpc';
 
-// Everything in this app lives on Ethereum mainnet — wagmi is locked to chain 1
-// so reads/writes never need an explicit chainId and the wallet can only
-// connect on mainnet.
 export const robinhoodChain = defineChain({
   id: 4663, name: 'Robinhood Chain',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -19,8 +20,13 @@ export const robinhoodChain = defineChain({
     },
   },
 });
-export const SUPPORTED_CHAINS = [mainnet, robinhoodChain] as const;
+export const SUPPORTED_CHAINS = [
+  mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain, sonic,
+  ronin, unichain, linea, hyperEvm, plasma, etherlink, mantle, scroll, fantom,
+  blast, zkSync, monad, megaeth, robinhoodChain,
+] as const;
 export type SupportedChain = typeof SUPPORTED_CHAINS[number];
+export type SupportedChainId = SupportedChain['id'];
 
 const DAPP_METADATA = {
   name: 'BTB Finance',
@@ -33,7 +39,15 @@ export function makeConfig() {
   const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? 'b56e18d47c72ab683b10814fe9495694';
   return createConfig({
     chains: SUPPORTED_CHAINS,
-    transports: { [mainnet.id]: MAINNET_TRANSPORT, [robinhoodChain.id]: http('https://rpc.mainnet.chain.robinhood.com/') },
+    transports: {
+      [mainnet.id]: MAINNET_TRANSPORT,
+      [bsc.id]: http(), [polygon.id]: http(), [arbitrum.id]: http(), [optimism.id]: http(),
+      [base.id]: http(), [avalanche.id]: http(), [berachain.id]: http(), [sonic.id]: http(),
+      [ronin.id]: http(), [unichain.id]: http(), [linea.id]: http(), [hyperEvm.id]: http(),
+  [plasma.id]: http(), [etherlink.id]: http(), [mantle.id]: http(), [monad.id]: http(), [scroll.id]: http(),
+      [fantom.id]: http(), [blast.id]: http(), [zkSync.id]: http(), [megaeth.id]: http(),
+      [robinhoodChain.id]: http('https://rpc.mainnet.chain.robinhood.com/'),
+    },
     connectors: [
       // MetaMask — handles mobile deep-linking (no window.ethereum needed).
       // On desktop with the extension, this still uses the injected provider.
@@ -73,4 +87,14 @@ export const CHAIN_META: Record<number, { name: string; symbol: string; color: s
   534352: { name: 'Scroll',    symbol: 'ETH',  color: '#FFEEDA' },
   324:    { name: 'zkSync',    symbol: 'ETH',  color: '#8C8DFC' },
   81457:  { name: 'Blast',     symbol: 'ETH',  color: '#FCFC03' },
+  80094:  { name: 'Berachain', symbol: 'BERA', color: '#FF8A00' },
+  146:    { name: 'Sonic', symbol: 'S', color: '#7C5CFC' },
+  2020:   { name: 'Ronin', symbol: 'RON', color: '#1273EA' },
+  130:    { name: 'Unichain', symbol: 'ETH', color: '#FF37C7' },
+  999:    { name: 'HyperEVM', symbol: 'HYPE', color: '#50E3C2' },
+  9745:   { name: 'Plasma', symbol: 'XPL', color: '#7B61FF' },
+  42793:  { name: 'Etherlink', symbol: 'XTZ', color: '#2C7DF7' },
+  5000:   { name: 'Mantle', symbol: 'MNT', color: '#00D1B2' },
+  143:    { name: 'Monad', symbol: 'MON', color: '#836EF9' },
+  4326:   { name: 'MegaETH', symbol: 'ETH', color: '#F04E45' },
 };

@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useConnection, useConfig, useReadContract } from 'wagmi';
+import { useConnection, useConfig } from 'wagmi';
+import { getPublicClient } from 'wagmi/actions';
 import { useMutation } from 'convex/react';
-import { erc20Abi, encodeFunctionData } from 'viem';
+import { erc20Abi, encodeFunctionData, formatUnits, isAddress, isHex, parseUnits } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
@@ -15,15 +16,20 @@ import { useSidebar } from '../../lib/SidebarContext';
 import { Screen } from '../Screen';
 import { Badge } from '../Badge';
 import { useTokenStore, Token } from '../../lib/TokenStore';
-import { getKyberQuote, buildKyberTx, KyberQuote } from '../../lib/kyberswap';
-import { getUniswapQuote, prepareUniswapExecution, buildClassicSwapTx, submitUniswapXOrder, waitForOrderFill, type UniQuote } from '../../lib/uniswapTrading';
-import { signTypedData } from 'wagmi/actions';
-import { formatUnits } from 'viem';
-import { CHAIN_META } from '../../lib/wagmi';
-import { parseUnits } from 'viem';
+import { BTB_SWAP_FEE_PERCENT, buildKyberTx, getKyberQuote, KYBER_CHAINS, type KyberQuote } from '../../lib/kyberswap';
+import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { api } from '../../../convex/_generated/api';
 
 const SWAP_XP = 100;
+const NATIVE_ADDRESSES = new Set([
+  'eth',
+  '0x0000000000000000000000000000000000000000',
+  '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+]);
+
+function isNativeToken(address: string) {
+  return NATIVE_ADDRESSES.has(address.toLowerCase());
+}
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -51,11 +57,13 @@ function sortedTokens(tokens: Token[]): Token[] {
 
 // ─── Token picker ─────────────────────────────────────────────────────────────
 
-function TokenPicker({ tokens, selected, onSelect, onClose }: {
-  tokens: Token[]; selected: string; onSelect: (t: Token) => void; onClose: () => void;
+function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose }: {
+  tokens: Token[]; selected: string; loading?: boolean; onSelect: (t: Token) => void; onImport: (address: string) => Promise<Token>; onClose: () => void;
 }) {
   const { width: sidebarWidth } = useSidebar();
   const [q, setQ] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const sorted = sortedTokens(tokens);
   const ql = q.toLowerCase();
   const filtered = ql
@@ -65,6 +73,7 @@ function TokenPicker({ tokens, selected, onSelect, onClose }: {
         t.address.toLowerCase().includes(ql)
       )
     : sorted; // show every token — balance-first sorted, search-narrowable
+  const visible = ql ? filtered : filtered.slice(0, 100);
 
   return (
     <Portal>
@@ -77,13 +86,15 @@ function TokenPicker({ tokens, selected, onSelect, onClose }: {
             <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search token…"
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 15, fontFamily: 'inherit' }}/>
           </div>
-          {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>Tokens with balance shown first</div>}
+          {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>{loading ? 'Loading network tokens…' : `${tokens.length.toLocaleString()} tokens · balances shown first`}</div>}
         </div>
         <div style={{ overflowY: 'auto', padding: '0 12px 48px' }}>
-          {filtered.map(t => (
+          {isAddress(q.trim()) && !filtered.some(token => token.address.toLowerCase() === q.trim().toLowerCase()) && <button onClick={async () => { setImporting(true); setImportError(null); try { const token = await onImport(q.trim()); onSelect(token); onClose(); } catch (error) { setImportError((error as Error).message || 'Could not import token'); } finally { setImporting(false); } }} disabled={importing} style={{ width: '100%', minHeight: 46, margin: '4px 0 8px', borderRadius: 12, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', color: btb.green, fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: importing ? 'wait' : 'pointer' }}>{importing ? 'Checking contract…' : `Import ${q.slice(0, 8)}…${q.slice(-6)}`}</button>}
+          {importError && <div style={{ color: btb.red, fontSize: 11, padding: '0 6px 8px' }}>{importError}</div>}
+          {visible.map(t => (
             <div key={t.address} onClick={() => { onSelect(t); onClose(); }} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderRadius: 14,
-              background: t.address === selected ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
+              background: t.address.toLowerCase() === selected.toLowerCase() ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
             }}>
               <TokenIcon symbol={t.symbol} size={38} logoUrl={t.logoURI}/>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -106,7 +117,7 @@ function TokenPicker({ tokens, selected, onSelect, onClose }: {
               })()}
             </div>
           ))}
-          {filtered.length === 0 && <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>No tokens found</div>}
+          {filtered.length === 0 && !loading && <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>No tokens found. Paste a contract address to import one.</div>}
         </div>
       </div>
     </div>
@@ -134,11 +145,58 @@ function InfoRow({ label, value, last }: { label: string; value: React.ReactNode
   );
 }
 
+function SwapModeTabs({ mode, onSwap, onBridge }: { mode: 'swap' | 'bridge'; onSwap: () => void; onBridge: () => void }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: 4, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft }}>
+      {([
+        ['swap', 'Swap', onSwap],
+        ['bridge', 'Bridge', onBridge],
+      ] as const).map(([value, label, action]) => (
+        <button key={value} onClick={action} style={{ height: 38, border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: mode === value ? btb.text : btb.textMuted, background: mode === value ? 'rgba(255,255,255,0.1)' : 'transparent', boxShadow: mode === value ? 'inset 0 1px 0 rgba(255,255,255,.1)' : 'none' }}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+type CrossChainQuote = {
+  id: string;
+  tool: string;
+  action: { fromChainId: number; toChainId: number };
+  estimate: {
+    approvalAddress: string;
+    fromAmount: string;
+    fromAmountUSD?: string;
+    toAmount: string;
+    toAmountMin: string;
+    toAmountUSD?: string;
+    executionDuration?: number;
+    gasCosts?: Array<{ amountUSD?: string }>;
+    feeCosts?: Array<{ amountUSD?: string; name?: string; description?: string; percentage?: string }>;
+  };
+  transactionRequest: { from: string; to: string; data: string; value: string; chainId: number; gasLimit?: string };
+  includedSteps?: Array<{ tool?: string; toolDetails?: { name?: string } }>;
+};
+
 const ETH_DEFAULT:  Token = { address: 'ETH',  symbol: 'ETH',  name: 'Ethereum', decimals: 18, chainId: 1 };
 const USDC_DEFAULT: Token = { address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 1 };
 
+const DEFAULT_QUOTES: Record<number, Token> = {
+  1: USDC_DEFAULT,
+  56: { address: '0x55d398326f99059ff775485246999027b3197955', symbol: 'USDT', name: 'Tether USD', decimals: 18, chainId: 56 },
+  137: { address: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 137 },
+  42161: { address: '0xaf88d065e77c8cc2239327c5edb3a432268e5831', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 42161 },
+  10: { address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 10 },
+  8453: { address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 8453 },
+  43114: { address: '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 43114 },
+  59144: { address: '0x176211869ca2b568f2a7d4ee941e073a821ee1ff', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 59144 },
+  534352: { address: '0x06efdbff2a14a7c8e15944d1f4a48f9f95f663a4', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 534352 },
+  81457: { address: '0x4300000000000000000000000000000000000003', symbol: 'USDB', name: 'USDB', decimals: 18, chainId: 81457 },
+  4663: { address: '0x5fc5360d0400a0fd4f2af552add042d716f1d168', symbol: 'USDG', name: 'Global Dollar', decimals: 6, chainId: 4663 },
+};
+
 function nativeEthForChain(chainId: number): Token {
-  return { address: 'ETH', symbol: 'ETH', name: 'Ethereum', decimals: 18, chainId };
+  const meta = CHAIN_META[chainId] ?? { name: 'Native token', symbol: 'ETH' };
+  return { address: 'ETH', symbol: meta.symbol, name: meta.name, decimals: 18, chainId };
 }
 
 type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'error';
@@ -146,33 +204,60 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Token; onConnectWallet?: () => void } = {}) {
-  const { tokens } = useTokenStore();
-  const { address } = useConnection();
+  const [mode, setMode] = useState<'swap' | 'bridge'>('swap');
+  return mode === 'bridge'
+    ? <BridgeSwap onStandardSwap={() => setMode('swap')} onConnectWallet={onConnectWallet}/>
+    : <SameChainSwap initialFrom={initialFrom} onBridge={() => setMode('bridge')} onConnectWallet={onConnectWallet}/>;
+}
+
+function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom?: Token; onConnectWallet?: () => void; onBridge: () => void }) {
+  const { tokens, positions } = useTokenStore();
+  const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
   const { track } = useTx();
-  // KyberSwap API needs an explicit chain in its URL — we're mainnet only.
-  const chainId = 1;
+  const urlChain = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('chain')) : 0;
+  const initialChain = Number.isFinite(urlChain) && KYBER_CHAINS[urlChain]
+    ? urlChain
+    : initialFrom?.chainId && KYBER_CHAINS[initialFrom.chainId]
+      ? initialFrom.chainId
+      : walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
+  const [chainId, setChainId] = useState<number>(initialChain);
+  const [customTokens, setCustomTokens] = useState<Token[]>([]);
+  const [listedTokens, setListedTokens] = useState<Token[]>([]);
+  const [liveBalanceTokens, setLiveBalanceTokens] = useState<Token[]>([]);
+  const [loadingTokenList, setLoadingTokenList] = useState(false);
+  const [balanceRefreshNonce, setBalanceRefreshNonce] = useState(0);
 
   const [fromToken, setFromToken] = useState<Token>(initialFrom ?? ETH_DEFAULT);
   const [toToken,   setToToken]   = useState<Token>(
-    initialFrom ? nativeEthForChain(initialFrom.chainId ?? 1) : USDC_DEFAULT
+    initialFrom ? DEFAULT_QUOTES[initialFrom.chainId ?? 1] ?? nativeEthForChain(initialFrom.chainId ?? 1) : USDC_DEFAULT
   );
   const [fromAmt,   setFromAmt]   = useState('');
   const [picker,    setPicker]    = useState<'from' | 'to' | null>(null);
   const [step,      setStep]      = useState<SwapStep>('form');
   const [quote,     setQuote]     = useState<KyberQuote | null>(null);
-  // Second routing source (UNI.md Phases 1+2): Uniswap Trading API quote
-  // (CLASSIC or gasless UniswapX), fetched alongside Kyber — whichever nets
-  // the user more (after gas) wins the execution.
-  const [uniQuote,  setUniQuote]  = useState<UniQuote | null>(null);
-  // Prefer gasless fills when they're within a whisker of the best net price —
-  // no ETH needed for gas, MEV protected, and failure costs nothing.
-  const [preferGasless, setPreferGasless] = useState(true);
   const [quoting,   setQuoting]   = useState(false);
   const [quoteErr,  setQuoteErr]  = useState<string | null>(null);
   const [txHash,    setTxHash]    = useState<`0x${string}` | undefined>();
   const [errMsg,    setErrMsg]    = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const chainTokens = (() => {
+    const merged = new Map<string, Token>();
+    const add = (token: Token) => {
+      if ((token.chainId ?? 1) !== chainId) return;
+      const address = isNativeToken(token.address) ? 'ETH' : token.address.toLowerCase();
+      const key = address.toLowerCase();
+      merged.set(key, { ...merged.get(key), ...token, address, chainId });
+    };
+    add(nativeEthForChain(chainId));
+    if (DEFAULT_QUOTES[chainId]) add(DEFAULT_QUOTES[chainId]);
+    for (const token of listedTokens) add(token);
+    for (const token of chainId === 1 ? tokens : positions) add(token);
+    for (const token of customTokens) add(token);
+    for (const token of liveBalanceTokens) add(token);
+    return [...merged.values()];
+  })();
 
   // Deep-linkable pair: /swap?from=<address|symbol>&to=<address|symbol>.
   // The query string is captured once on first render — the URL-writer effect
@@ -185,42 +270,85 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   const awardXp = useMutation(api.users.awardXp);
 
   const isNativeFrom = fromToken.address === 'ETH';
-  const { refetch: refetchAllowance } = useReadContract({
-    address: isNativeFrom ? undefined : fromToken.address as `0x${string}`,
-    abi: erc20Abi,
-    functionName: 'allowance',
-    args: address && quote ? [address, quote.routerAddress as `0x${string}`] : undefined,
-    query: { enabled: !isNativeFrom && !!address && !!quote },
-  });
+
+  useEffect(() => {
+    if (chainId === 1) { setListedTokens([]); setLoadingTokenList(false); return; }
+    const controller = new AbortController();
+    setLoadingTokenList(true);
+    fetch(`/api/swap-tokens?chainId=${chainId}`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Token catalog ${response.status}`);
+        return response.json() as Promise<{ tokens?: Token[] }>;
+      })
+      .then(body => setListedTokens(Array.isArray(body.tokens) ? body.tokens : []))
+      .catch(error => { if ((error as Error).name !== 'AbortError') setListedTokens([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingTokenList(false); });
+    return () => controller.abort();
+  }, [chainId]);
+
+  // The token catalog contains metadata, not wallet balances. Read both assets
+  // directly from the selected chain so Pay/Receive/MAX never depend on an
+  // indexer's refresh cadence.
+  useEffect(() => {
+    if (!address) { setLiveBalanceTokens([]); return; }
+    let cancelled = false;
+    const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
+    if (!client) { setLiveBalanceTokens([]); return; }
+
+    const read = async (token: Token): Promise<Token> => {
+      const raw = isNativeToken(token.address)
+        ? await client.getBalance({ address }).catch(() => 0n)
+        : await client.readContract({
+            address: token.address as `0x${string}`,
+            abi: erc20Abi,
+            functionName: 'balanceOf',
+            args: [address],
+          }).catch(() => 0n);
+      return {
+        ...token,
+        address: isNativeToken(token.address) ? 'ETH' : token.address.toLowerCase(),
+        chainId,
+        balanceRaw: raw.toString(),
+        balance: formatUnits(raw, token.decimals),
+        usdValue: token.usdPrice ? Number(formatUnits(raw, token.decimals)) * token.usdPrice : undefined,
+      };
+    };
+
+    const refresh = () => Promise.all([read(fromToken), read(toToken)])
+      .then(next => { if (!cancelled) setLiveBalanceTokens(next); });
+    refresh();
+    const timer = setInterval(refresh, 15_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [address, chainId, config, fromToken.address, fromToken.decimals, toToken.address, toToken.decimals, balanceRefreshNonce]);
 
   // Pick the pair once when the token list first arrives: URL params win,
   // then the initialFrom prop (portfolio "Swap" buttons), then ETH → USDC.
   const defaultsAppliedRef = useRef(false);
   useEffect(() => {
-    if (tokens.length === 0 || defaultsAppliedRef.current) return;
+    if (chainTokens.length === 0 || defaultsAppliedRef.current) return;
     defaultsAppliedRef.current = true;
     const sp = new URLSearchParams(initialQueryRef.current ?? '');
     const resolve = (q: string | null) => q
-      ? tokens.find(t => t.address.toLowerCase() === q.toLowerCase() || t.symbol.toLowerCase() === q.toLowerCase())
+      ? chainTokens.find(t => t.address.toLowerCase() === q.toLowerCase() || t.symbol.toLowerCase() === q.toLowerCase())
       : undefined;
     const urlFrom = resolve(sp.get('from'));
     const urlTo   = resolve(sp.get('to'));
     if (urlFrom) setFromToken(urlFrom);
     if (urlTo)   setToToken(urlTo);
     if (initialFrom && !urlFrom) {
-      const live = tokens.find(t => t.address === initialFrom.address && t.chainId === initialFrom.chainId);
+      const live = chainTokens.find(t => t.address === initialFrom.address && t.chainId === initialFrom.chainId);
       if (live) setFromToken(live);
     } else if (!initialFrom) {
       if (!urlFrom) {
-        const eth = tokens.find(t => t.address === 'ETH' || t.symbol === 'ETH');
+        const eth = chainTokens.find(t => t.address === 'ETH');
         if (eth) setFromToken(eth);
       }
       if (!urlTo) {
-        const usdc = tokens.find(t => t.symbol === 'USDC');
+        const usdc = chainTokens.find(t => t.address !== 'ETH');
         if (usdc) setToToken(usdc);
       }
     }
-  }, [tokens, initialFrom]);
+  }, [chainId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the URL carrying the full pair so the current swap is always
   // shareable. replaceState (not push) — token picking shouldn't pile up
@@ -228,146 +356,111 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
   useEffect(() => {
     if (typeof window === 'undefined' || window.location.pathname !== '/swap') return;
     if (!defaultsAppliedRef.current) return; // don't clobber params before they're consumed
-    const next = `/swap?from=${encodeURIComponent(fromToken.address)}&to=${encodeURIComponent(toToken.address)}`;
+    const next = `/swap?chain=${chainId}&from=${encodeURIComponent(fromToken.address)}&to=${encodeURIComponent(toToken.address)}`;
     if (window.location.pathname + window.location.search !== next) {
       window.history.replaceState(null, '', next);
     }
-  }, [fromToken.address, toToken.address]);
+  }, [chainId, fromToken.address, toToken.address]);
 
   // Keep the selected from/to tokens in sync with the live store — balances
   // and prices arrive asynchronously, so the picked tokens must refresh too.
   useEffect(() => {
-    if (tokens.length === 0) return;
-    const liveFrom = tokens.find(t => t.address === fromToken.address);
+    if (chainTokens.length === 0) return;
+    const liveFrom = chainTokens.find(t => t.address.toLowerCase() === fromToken.address.toLowerCase());
     if (liveFrom && (liveFrom.balance !== fromToken.balance || liveFrom.usdPrice !== fromToken.usdPrice)) {
       setFromToken(liveFrom);
     }
-    const liveTo = tokens.find(t => t.address === toToken.address);
+    const liveTo = chainTokens.find(t => t.address.toLowerCase() === toToken.address.toLowerCase());
     if (liveTo && (liveTo.balance !== toToken.balance || liveTo.usdPrice !== toToken.usdPrice)) {
       setToToken(liveTo);
     }
-  }, [tokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
+  }, [chainId, positions, tokens, listedTokens, customTokens, liveBalanceTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
 
-  // KyberSwap and Uniswap Trading API quotes in parallel. `silent` refreshes
-  // update the numbers without flashing the loading state.
+  function selectChain(nextChainId: number) {
+    if (!KYBER_CHAINS[nextChainId] || nextChainId === chainId) return;
+    const native = nativeEthForChain(nextChainId);
+    const heldToken = positions.find(token => token.chainId === nextChainId && token.address !== 'ETH');
+    setChainId(nextChainId);
+    setFromToken(native);
+    setToToken(DEFAULT_QUOTES[nextChainId] ?? heldToken ?? native);
+    setFromAmt(''); setQuote(null); setQuoteErr(null); setStep('form');
+  }
+
+  async function importToken(tokenAddress: string): Promise<Token> {
+    if (!isAddress(tokenAddress)) throw new Error('Enter a valid token contract');
+    const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
+    if (!client) throw new Error('RPC is unavailable for this chain');
+    const token = tokenAddress as `0x${string}`;
+    const [symbol, name, decimals, balance] = await Promise.all([
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'symbol' }),
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'name' }).catch(() => 'Imported token'),
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'decimals' }),
+      address ? client.readContract({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [address] }).catch(() => 0n) : 0n,
+    ]);
+    const imported: Token = { address: tokenAddress.toLowerCase(), symbol, name, decimals, chainId, balance: formatUnits(balance, decimals), balanceRaw: balance.toString() };
+    setCustomTokens(current => [...current.filter(item => item.chainId !== chainId || item.address.toLowerCase() !== imported.address), imported]);
+    return imported;
+  }
+
+  // Kyber routes carry the BTB output-token fee. `silent` refreshes update the
+  // numbers without flashing the loading state.
   const quoteSeq = useRef(0);
   async function fetchQuotes(silent: boolean) {
     if (!fromAmt || parseFloat(fromAmt) <= 0) return;
     const seq = ++quoteSeq.current;
     if (!silent) { setQuoting(true); setQuoteErr(null); }
     const amtIn = parseUnits(fromAmt, fromToken.decimals).toString();
-    // Uniswap source is best-effort: unconfigured key or API error just
-    // means Kyber-only, never a user-facing failure.
-    const uniP = getUniswapQuote({
-      tokenIn: fromToken.address, tokenOut: toToken.address, amountIn: amtIn,
-      swapper: address ?? '0x0000000000000000000000000000000000000001', slippagePct: 0.5,
-    }).catch(() => null);
     try {
-      const q = await getKyberQuote(fromToken.address, toToken.address, amtIn, toToken.decimals, chainId);
+      const q = await getKyberQuote(fromToken.address, toToken.address, amtIn, toToken.decimals, chainId, {
+        chargeBtbFee: true,
+        decimalsIn: fromToken.decimals,
+      });
       if (quoteSeq.current === seq) setQuote(q);
     } catch (e) {
       if (quoteSeq.current === seq && !silent) {
         setQuoteErr((e as Error).message);
         setQuote(null);
       }
-    }
-    const u = await uniP;
-    if (quoteSeq.current === seq) {
-      setUniQuote(u);
-      if (!silent) setQuoting(false);
+    } finally {
+      if (quoteSeq.current === seq && !silent) setQuoting(false);
     }
   }
 
   // Debounced fetch on input changes
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); setUniQuote(null); return; }
+    if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); return; }
     debounceRef.current = setTimeout(() => fetchQuotes(false), 600);
   }, [fromAmt, fromToken.address, toToken.address, chainId, address]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Quotes go stale in ~30s — refresh quietly while the form is open so the
-  // user never reviews a price from minutes ago.
+  // Kyber recommends refreshing routes within 5–10 seconds.
   useEffect(() => {
     if (step !== 'form' || !fromAmt || parseFloat(fromAmt) <= 0) return;
-    const id = setInterval(() => fetchQuotes(true), 30_000);
+    const id = setInterval(() => fetchQuotes(true), 8_000);
     return () => clearInterval(id);
   }, [step, fromAmt, fromToken.address, toToken.address, chainId, address]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function flip() {
     setFromToken(toToken); setToToken(fromToken);
-    setFromAmt(''); setQuote(null); setUniQuote(null);
+    setFromAmt(''); setQuote(null);
   }
 
   function reset() {
-    setStep('form'); setFromAmt(''); setQuote(null); setUniQuote(null); setTxHash(undefined); setErrMsg('');
+    setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); setErrMsg('');
   }
 
   async function executeSwap() {
-    if (!address || (!quote && !uniQuote)) return;
+    if (!address || !quote) return;
     try {
-      // Uniswap wins (or Kyber has no route): fresh Trading API quote, then
-      // either a CLASSIC tx batch or a gasless UniswapX order.
-      if (uniBetter || !quote) {
-        setStep('approving');
-        const plan = await prepareUniswapExecution({
-          tokenIn: fromToken.address, tokenOut: toToken.address,
-          amountIn: parseUnits(fromAmt, fromToken.decimals).toString(),
-          swapper: address, slippagePct: 0.5,
-        });
-
-        if (plan.kind === 'classic') {
-          // Quote may carry a Permit2 authorization to sign; signature and
-          // permitData then travel together to /swap.
-          const signature = plan.permit
-            ? await signTypedData(config, {
-                domain: plan.permit.domain, types: plan.permit.types,
-                primaryType: plan.permit.primaryType, message: plan.permit.message,
-              })
-            : undefined;
-          const swapCall = await buildClassicSwapTx(plan.raw, signature);
-          setStep('sending');
-          const { lastHash } = await runCalls(config, {
-            account: address,
-            calls: [...plan.approval, swapCall],
-            label: `Swap ${fromToken.symbol} → ${toToken.symbol} (Uniswap)`,
-            track,
-          });
-          if (lastHash) setTxHash(lastHash);
-        } else {
-          // UniswapX: one-time Permit2 approval must confirm before signing,
-          // then the order itself is just a signature — fillers pay the gas.
-          if (plan.approval.length > 0) {
-            await runCalls(config, {
-              account: address,
-              calls: plan.approval,
-              label: `Approve ${fromToken.symbol} for gasless swaps`,
-              track,
-            });
-          }
-          setStep('sending');
-          const signature = await signTypedData(config, {
-            domain: plan.permit.domain,
-            types: plan.permit.types,
-            primaryType: plan.permit.primaryType,
-            message: plan.permit.message,
-          });
-          await submitUniswapXOrder(plan.raw, signature);
-          const fill = await waitForOrderFill(plan.orderHash);
-          if (fill.status !== 'filled') {
-            throw new Error(
-              fill.status === 'expired' || fill.status === 'timeout'
-                ? 'Order was not filled (nothing was spent). Try again.'
-                : `Order ${fill.status} (nothing was spent).`,
-            );
-          }
-          if (fill.txHash) setTxHash(fill.txHash);
-        }
-
-        setStep('success');
-        awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
-        return;
-      }
-
+      setStep('sending');
+      // A user can leave the confirmation screen open. Always build from a
+      // fresh fee-bearing route instead of submitting the preview route.
+      const amountIn = parseUnits(fromAmt, fromToken.decimals).toString();
+      const activeQuote = await getKyberQuote(fromToken.address, toToken.address, amountIn, toToken.decimals, chainId, {
+        chargeBtbFee: true,
+        decimalsIn: fromToken.decimals,
+      });
+      setQuote(activeQuote);
       const calls: Call[] = [];
 
       // ERC-20: approve the router first if the allowance is short. Batched with
@@ -375,24 +468,30 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
       // runner approves, WAITS for it to confirm, then swaps.
       let needsApprove = false;
       if (!isNativeFrom) {
-        const amountIn = BigInt(quote.routeSummary.amountIn ?? '0');
-        const currentAllowance = (await refetchAllowance()).data ?? BigInt(0);
-        if (currentAllowance < amountIn) {
+        const amountInRaw = BigInt(activeQuote.routeSummary.amountIn ?? '0');
+        const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
+        const currentAllowance = client ? await client.readContract({
+          address: fromToken.address as `0x${string}`,
+          abi: erc20Abi,
+          functionName: 'allowance',
+          args: [address, activeQuote.routerAddress as `0x${string}`],
+        }).catch(() => 0n) : 0n;
+        if (currentAllowance < amountInRaw) {
           needsApprove = true;
           calls.push({
             to: fromToken.address as `0x${string}`,
             data: encodeFunctionData({
               abi: erc20Abi,
               functionName: 'approve',
-              args: [quote.routerAddress as `0x${string}`, amountIn],
+              args: [activeQuote.routerAddress as `0x${string}`, amountInRaw],
             }),
           });
         }
       }
 
-      const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, address, address, 50, chainId);
+      const tx = await buildKyberTx(activeQuote.routeSummary, activeQuote.routerAddress, address, address, 50, chainId);
       const txValue = isNativeFrom
-        ? BigInt(quote.routeSummary.amountIn ?? '0')
+        ? BigInt(activeQuote.routeSummary.amountIn ?? '0')
         : BigInt(tx.value && tx.value !== '0' ? tx.value : '0');
       calls.push({
         to: tx.to as `0x${string}`,
@@ -406,11 +505,12 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         account: address,
         calls,
         label: `Swap ${fromToken.symbol} → ${toToken.symbol}`,
-        track,
+        track, chainId,
       });
 
       if (lastHash) setTxHash(lastHash);
       setStep('success');
+      setBalanceRefreshNonce(value => value + 1);
       if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
     } catch (e: any) {
       setErrMsg(e?.shortMessage ?? e?.message ?? 'Transaction failed');
@@ -420,57 +520,23 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
 
   const fromBal = fromToken.balance ? parseFloat(fromToken.balance) : 0;
   const fromUsd = fromToken.usdPrice && fromAmt ? parseFloat(fromAmt) * fromToken.usdPrice : null;
+  const insufficientBalance = fromToken.balance != null && parseFloat(fromAmt || '0') > fromBal;
 
-  // Route comparison in NET terms: Kyber's output is gross (user pays gas on
-  // top), UniswapX output is already net (fillers' gas is priced in). Raw
-  // output comparison would systematically hide gasless routes that actually
-  // pay the user more.
-  const uniOutNum = uniQuote ? parseFloat(formatUnits(uniQuote.amountOut, toToken.decimals)) : 0;
-  const uniBetter = (() => {
-    if (!uniQuote) return false;
-    if (!quote) return true;
-    const uniOutUsd = toToken.usdPrice ? uniOutNum * toToken.usdPrice : null;
-    if (uniOutUsd != null && quote.amountOutUsd > 0) {
-      const kyberNet = quote.amountOutUsd - (quote.gasUsd > 0 ? quote.gasUsd : 0);
-      const uniNet = uniOutUsd - (uniQuote.gasless ? 0 : uniQuote.gasFeeUSD ?? 0);
-      // With the preference on, gasless also wins near-ties (within 0.5%).
-      return preferGasless && uniQuote.gasless ? uniNet >= kyberNet * 0.995 : uniNet > kyberNet;
-    }
-    // No USD prices to compare with — fall back to raw output units (the
-    // gasless near-tie preference still applies).
-    const kyberOut = BigInt(quote.amountOut ?? '0');
-    if (preferGasless && uniQuote.gasless) {
-      return uniQuote.amountOut * 1000n >= kyberOut * 995n;
-    }
-    return uniQuote.amountOut > kyberOut;
-  })();
-  const bestOutFormatted = uniBetter
-    ? uniOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 })
-    : quote?.amountOutFormatted ?? '0';
-  const toUsd = uniBetter
-    ? (toToken.usdPrice ? uniOutNum * toToken.usdPrice : quote?.amountOutUsd ?? null)
-    : quote?.amountOutUsd ?? null;
-  const dispRate = uniBetter && parseFloat(fromAmt) > 0 ? uniOutNum / parseFloat(fromAmt) : quote?.rate ?? 0;
-  const dispGasUsd = uniBetter ? uniQuote!.gasFeeUSD : quote?.gasUsd ?? null;
-  const canSwap = (!!quote || !!uniQuote) && !!address && !quoting;
+  const bestOutFormatted = quote?.amountOutFormatted ?? '0';
+  const toUsd = quote?.amountOutUsd ?? null;
+  const dispRate = quote?.rate ?? 0;
+  const dispGasUsd = quote?.gasUsd ?? null;
+  const canSwap = !!quote && !!address && !quoting && !insufficientBalance;
+  const chainExplorer = SUPPORTED_CHAINS.find(chain => chain.id === chainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
 
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-        <div
-          onClick={() => setPreferGasless(g => !g)}
-          title="Prefer gasless UniswapX fills when they net you as much as the best route: no ETH needed for gas, MEV protected, failed orders cost nothing."
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-            height: 40, padding: '0 14px', borderRadius: 999,
-            background: preferGasless ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.05)',
-            border: `1px solid ${preferGasless ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
-          }}
-        >
-          <Icon name="bolt" size={14} color={preferGasless ? '#52E3A4' : btb.textMuted}/>
-          <span style={{ color: preferGasless ? '#52E3A4' : btb.textMuted, fontSize: 12.5, fontWeight: 700 }}>Gasless</span>
-        </div>
+        <select value={chainId} onChange={event => selectChain(Number(event.target.value))} aria-label="Swap network" style={{ height: 40, maxWidth: 230, padding: '0 34px 0 14px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: btb.text, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+          {SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]).map(chain => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
+        </select>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="settings" size={18}/>
         </Glass>
@@ -486,7 +552,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <input value={fromAmt} onChange={e => setFromAmt(e.target.value)} inputMode="decimal" placeholder="0"
+            <input value={fromAmt} onChange={e => { setFromAmt(e.target.value); setQuote(null); }} inputMode="decimal" placeholder="0"
               style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 36, fontWeight: 700, letterSpacing: -1, fontFamily: 'inherit', padding: 0 }}/>
             <TokenPill token={fromToken} onClick={() => setPicker('from')}/>
           </div>
@@ -512,7 +578,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, color: quoting ? btb.textMuted : btb.text, fontSize: 36, fontWeight: 700, letterSpacing: -1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {quoting ? '…' : (quote || uniQuote) ? bestOutFormatted : '0'}
+              {quoting ? '…' : quote ? bestOutFormatted : '0'}
             </div>
             <TokenPill token={toToken} onClick={() => setPicker('to')}/>
           </div>
@@ -520,31 +586,18 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         </Glass>
       </div>
 
-      {(quote || uniQuote) && !quoting && (
+      {quote && !quoting && (
         <Glass padding={14} radius={18} soft>
           <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`}/>
-          <InfoRow label="Network fee"  value={
-            uniBetter && uniQuote!.gasless
-              ? <span style={{ color: '#52E3A4', fontWeight: 700 }}>Free · gasless</span>
-              : dispGasUsd != null && dispGasUsd > 0 ? `~ $${dispGasUsd.toFixed(2)}` : '—'
-          }/>
-          {!uniBetter && quote && (
-            <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : '#52E3A4' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>
-          )}
+          <InfoRow label="Network fee"  value={dispGasUsd != null && dispGasUsd > 0 ? `~ $${dispGasUsd.toFixed(2)}` : '—'}/>
+          <InfoRow label="BTB fee" value={`${BTB_SWAP_FEE_PERCENT}% · received token`}/>
+          <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : '#52E3A4' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>
           <InfoRow label="Route" last value={
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Icon name="bolt" size={12} color={btb.amber}/>
-              {uniBetter
-                ? <span style={{ color: '#FF37C7' }}>{uniQuote!.gasless ? 'UniswapX · gasless, MEV protected' : 'Uniswap · best price'}</span>
-                : quote!.route}
+              {quote.route}
             </span>
           }/>
-          {preferGasless && !(uniBetter && uniQuote?.gasless) && (
-            <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8, lineHeight: 1.4 }}>
-              No gasless fill is offered for this pair right now (fillers skip thin or exotic tokens),
-              so the best regular route is used and normal gas applies.
-            </div>
-          )}
         </Glass>
       )}
 
@@ -559,14 +612,16 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         disabled={!address ? false : !canSwap}
         style={{ marginTop: 4, fontSize: 18 }}
       >
-        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : quoting ? 'Getting best price…' : (quote || uniQuote) ? 'Review swap' : quoteErr ? 'No route found' : 'Enter amount'}
+        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? 'Review swap' : quoteErr ? 'No route found' : 'Enter amount'}
       </Button>
 
       {picker && (
         <TokenPicker
-          tokens={tokens}
+          tokens={chainTokens}
+          loading={loadingTokenList}
           selected={picker === 'from' ? fromToken.address : toToken.address}
-          onSelect={t => { picker === 'from' ? setFromToken(t) : setToToken(t); setFromAmt(''); setQuote(null); setUniQuote(null); }}
+          onSelect={t => { picker === 'from' ? setFromToken(t) : setToToken(t); setFromAmt(''); setQuote(null); }}
+          onImport={importToken}
           onClose={() => setPicker(null)}
         />
       )}
@@ -623,6 +678,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
           ['Network fee',  quote.gasUsd > 0 ? `~ $${quote.gasUsd.toFixed(2)}` : '—'],
           ['Price impact', `${quote.priceImpact > 0 ? quote.priceImpact.toFixed(2) : '< 0.01'}%`],
           ['Slippage',     '0.5%'],
+          ['BTB fee',      `${BTB_SWAP_FEE_PERCENT}% · received token`],
           ['Route',        quote.route],
         ].map(([label, value], i, arr) => (
           <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
@@ -664,7 +720,7 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         </Badge>
       </div>
       {txHash && (
-        <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer"
+        <a href={`${chainExplorer}/tx/${txHash}`} target="_blank" rel="noreferrer"
           style={{ color: btb.textMuted, fontSize: 12, fontFamily: 'monospace' }}>
           {txHash.slice(0, 14)}…{txHash.slice(-8)} ↗
         </a>
@@ -688,5 +744,261 @@ export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Tok
         <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: btb.gradPrimary, color: btb.bg, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
       </div>
     </Screen>
+  );
+}
+
+function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () => void; onConnectWallet?: () => void }) {
+  const { positions } = useTokenStore();
+  const { address, chainId: walletChainId } = useConnection();
+  const config = useConfig();
+  const { track } = useTx();
+  const awardXp = useMutation(api.users.awardXp);
+  const availableChains = SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]);
+  const firstChain = walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
+  const firstDestination = firstChain === 8453 ? 42161 : 8453;
+  const [fromChainId, setFromChainId] = useState<number>(firstChain);
+  const [toChainId, setToChainId] = useState<number>(firstDestination);
+  const [fromToken, setFromToken] = useState<Token>(nativeEthForChain(firstChain));
+  const [toToken, setToToken] = useState<Token>(DEFAULT_QUOTES[firstDestination] ?? nativeEthForChain(firstDestination));
+  const [fromCatalog, setFromCatalog] = useState<Token[]>([]);
+  const [toCatalog, setToCatalog] = useState<Token[]>([]);
+  const [customTokens, setCustomTokens] = useState<Token[]>([]);
+  const [liveFrom, setLiveFrom] = useState<Token | null>(null);
+  const [loadingFrom, setLoadingFrom] = useState(true);
+  const [loadingTo, setLoadingTo] = useState(true);
+  const [fromAmt, setFromAmt] = useState('');
+  const [picker, setPicker] = useState<'from' | 'to' | null>(null);
+  const [quote, setQuote] = useState<CrossChainQuote | null>(null);
+  const [btbFeePercent, setBtbFeePercent] = useState(0);
+  const [quoting, setQuoting] = useState(false);
+  const [quoteErr, setQuoteErr] = useState<string | null>(null);
+  const [step, setStep] = useState<SwapStep>('form');
+  const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
+  const [errMsg, setErrMsg] = useState('');
+  const quoteSeq = useRef(0);
+
+  function mergedTokens(chainId: number, catalog: Token[], selectedBalance?: Token | null) {
+    const merged = new Map<string, Token>();
+    const add = (token: Token) => {
+      if ((token.chainId ?? 1) !== chainId) return;
+      const tokenAddress = isNativeToken(token.address) ? 'ETH' : token.address.toLowerCase();
+      const key = tokenAddress.toLowerCase();
+      merged.set(key, { ...merged.get(key), ...token, address: tokenAddress, chainId });
+    };
+    add(nativeEthForChain(chainId));
+    if (DEFAULT_QUOTES[chainId]) add(DEFAULT_QUOTES[chainId]);
+    catalog.forEach(add);
+    positions.forEach(add);
+    customTokens.forEach(add);
+    if (selectedBalance) add(selectedBalance);
+    return [...merged.values()];
+  }
+  const fromTokens = mergedTokens(fromChainId, fromCatalog, liveFrom);
+  const toTokens = mergedTokens(toChainId, toCatalog);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async (chainId: number, setter: (tokens: Token[]) => void, setLoading: (value: boolean) => void) => {
+      setLoading(true);
+      try {
+        const response = await fetch(`/api/swap-tokens?chainId=${chainId}`, { signal: controller.signal });
+        const body = await response.json() as { tokens?: Token[] };
+        if (!response.ok) throw new Error('Token catalog unavailable');
+        setter(Array.isArray(body.tokens) ? body.tokens : []);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') setter([]);
+      } finally { if (!controller.signal.aborted) setLoading(false); }
+    };
+    load(fromChainId, setFromCatalog, setLoadingFrom);
+    load(toChainId, setToCatalog, setLoadingTo);
+    return () => controller.abort();
+  }, [fromChainId, toChainId]);
+
+  useEffect(() => {
+    if (!address) { setLiveFrom(null); return; }
+    let cancelled = false;
+    const client = getPublicClient(config, { chainId: fromChainId as SupportedChainId });
+    if (!client) return;
+    const refresh = async () => {
+      const raw = isNativeToken(fromToken.address)
+        ? await client.getBalance({ address }).catch(() => 0n)
+        : await client.readContract({ address: fromToken.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address] }).catch(() => 0n);
+      if (!cancelled) setLiveFrom({ ...fromToken, address: isNativeToken(fromToken.address) ? 'ETH' : fromToken.address.toLowerCase(), chainId: fromChainId, balanceRaw: raw.toString(), balance: formatUnits(raw, fromToken.decimals) });
+    };
+    refresh();
+    const timer = setInterval(refresh, 15_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [address, config, fromChainId, fromToken.address, fromToken.decimals]);
+
+  function selectFromChain(next: number) {
+    if (next === toChainId) return;
+    setFromChainId(next);
+    setFromToken(nativeEthForChain(next));
+    setFromAmt(''); setQuote(null); setQuoteErr(null);
+  }
+
+  function selectToChain(next: number) {
+    if (next === fromChainId) return;
+    setToChainId(next);
+    setToToken(DEFAULT_QUOTES[next] ?? nativeEthForChain(next));
+    setFromAmt(''); setQuote(null); setQuoteErr(null);
+  }
+
+  async function importToken(tokenAddress: string, targetChainId: number): Promise<Token> {
+    if (!isAddress(tokenAddress)) throw new Error('Enter a valid token contract');
+    const client = getPublicClient(config, { chainId: targetChainId as SupportedChainId });
+    if (!client) throw new Error('RPC is unavailable for this chain');
+    const token = tokenAddress as `0x${string}`;
+    const [symbol, name, decimals, balance] = await Promise.all([
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'symbol' }),
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'name' }).catch(() => 'Imported token'),
+      client.readContract({ address: token, abi: erc20Abi, functionName: 'decimals' }),
+      address ? client.readContract({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [address] }).catch(() => 0n) : 0n,
+    ]);
+    const imported: Token = { address: tokenAddress.toLowerCase(), symbol, name, decimals, chainId: targetChainId, balanceRaw: balance.toString(), balance: formatUnits(balance, decimals) };
+    setCustomTokens(current => [...current.filter(item => item.chainId !== targetChainId || item.address.toLowerCase() !== imported.address), imported]);
+    return imported;
+  }
+
+  async function requestQuote(silent = false): Promise<CrossChainQuote> {
+    if (!address || !fromAmt || parseFloat(fromAmt) <= 0) throw new Error('Enter an amount');
+    const seq = ++quoteSeq.current;
+    if (!silent) { setQuoting(true); setQuoteErr(null); }
+    try {
+      const response = await fetch('/api/cross-chain/quote', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store',
+        body: JSON.stringify({
+          fromChain: fromChainId, toChain: toChainId,
+          fromToken: isNativeToken(fromToken.address) ? '0x0000000000000000000000000000000000000000' : fromToken.address,
+          toToken: isNativeToken(toToken.address) ? '0x0000000000000000000000000000000000000000' : toToken.address,
+          fromAmount: parseUnits(fromAmt, fromToken.decimals).toString(), wallet: address,
+        }),
+      });
+      const body = await response.json() as { quote?: CrossChainQuote; btbFeePercent?: number; error?: string };
+      if (!response.ok || !body.quote) throw new Error(body.error || 'No bridge route');
+      if (quoteSeq.current === seq) { setQuote(body.quote); setBtbFeePercent(body.btbFeePercent ?? 0); }
+      return body.quote;
+    } catch (error) {
+      if (quoteSeq.current === seq && !silent) { setQuote(null); setQuoteErr((error as Error).message); }
+      throw error;
+    } finally { if (quoteSeq.current === seq && !silent) setQuoting(false); }
+  }
+
+  useEffect(() => {
+    if (!fromAmt || parseFloat(fromAmt) <= 0 || !address) { setQuote(null); return; }
+    const timer = setTimeout(() => requestQuote(false).catch(() => {}), 650);
+    return () => clearTimeout(timer);
+  }, [address, fromAmt, fromChainId, toChainId, fromToken.address, toToken.address]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function execute() {
+    if (!address || !quote) return;
+    try {
+      setStep('sending');
+      const active = await requestQuote(true);
+      const tx = active.transactionRequest;
+      if (tx.chainId !== fromChainId || tx.from.toLowerCase() !== address.toLowerCase() || !isAddress(tx.to) || !isHex(tx.data) || tx.data === '0x') throw new Error('The bridge returned unsafe transaction data');
+      const calls: Call[] = [];
+      let needsApprove = false;
+      const amountIn = BigInt(active.estimate.fromAmount);
+      if (!isNativeToken(fromToken.address)) {
+        if (!isAddress(active.estimate.approvalAddress)) throw new Error('The bridge returned an invalid approval target');
+        const client = getPublicClient(config, { chainId: fromChainId as SupportedChainId });
+        const allowance = client ? await client.readContract({ address: fromToken.address as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address, active.estimate.approvalAddress as `0x${string}`] }).catch(() => 0n) : 0n;
+        if (allowance < amountIn) {
+          needsApprove = true;
+          calls.push({ to: fromToken.address as `0x${string}`, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [active.estimate.approvalAddress as `0x${string}`, amountIn] }) });
+        }
+      }
+      calls.push({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), gas: tx.gasLimit ? BigInt(tx.gasLimit) : undefined });
+      setStep(needsApprove ? 'approving' : 'sending');
+      const { lastHash } = await runCalls(config, { account: address, calls, label: `Bridge ${fromToken.symbol} → ${toToken.symbol}`, track, chainId: fromChainId });
+      if (lastHash) setTxHash(lastHash);
+      setStep('success');
+      awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).catch(() => {});
+    } catch (error) {
+      const rawMessage = (error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed';
+      setErrMsg(rawMessage.toLowerCase().includes('return amount is not enough')
+        ? 'The bridge price moved past the protected minimum. No funds were sent. Try again for a fresh quote.'
+        : rawMessage);
+      setStep('error');
+    }
+  }
+
+  const fromBalance = Number(liveFrom?.balance ?? fromToken.balance ?? 0);
+  const insufficient = liveFrom?.balance != null && Number(fromAmt || 0) > fromBalance;
+  const outFormatted = quote ? Number(formatUnits(BigInt(quote.estimate.toAmount), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '0';
+  const gasUsd = quote?.estimate.gasCosts?.reduce((sum, fee) => sum + Number(fee.amountUSD ?? 0), 0) ?? 0;
+  const routeFeeUsd = quote?.estimate.feeCosts?.reduce((sum, fee) => sum + Number(fee.amountUSD ?? 0), 0) ?? 0;
+  const lifiFee = quote?.estimate.feeCosts?.find(fee => fee.name?.toLowerCase().includes('lifi'));
+  const lifiFeePercent = Number(lifiFee?.percentage ?? 0) * 100;
+  const duration = quote?.estimate.executionDuration ?? 0;
+  const route = [...new Set(quote?.includedSteps
+    ?.filter(item => item.tool !== 'feeCollection')
+    .map(item => item.toolDetails?.name || item.tool)
+    .filter(Boolean) ?? [])].join(' → ') || quote?.tool || 'Best bridge';
+  const canReview = !!quote && !!address && !quoting && !insufficient;
+  const explorer = SUPPORTED_CHAINS.find(chain => chain.id === fromChainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
+
+  if (step === 'form') return (
+    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <SwapModeTabs mode="bridge" onSwap={onStandardSwap} onBridge={() => {}}/>
+      <div style={{ color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45, padding: '0 4px' }}>Buy on another network from the balance you already have. Destination gas is not required.</div>
+      <Glass padding={18} radius={24} strong>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ color: btb.textMuted, fontSize: 13 }}>Pay from</span>
+          <select value={fromChainId} onChange={event => selectFromChain(Number(event.target.value))} style={{ maxWidth: 190, height: 34, borderRadius: 999, padding: '0 28px 0 10px', color: btb.text, background: 'rgba(255,255,255,.07)', border: btb.borderSoft, fontFamily: 'inherit', fontWeight: 700 }}>
+            {availableChains.map(chain => <option key={chain.id} value={chain.id} disabled={chain.id === toChainId}>{chain.name}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', color: btb.textMuted, fontSize: 12, marginBottom: 7 }}><span>You pay</span><span>{fromBalance > 0 ? `${fromBalance.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${fromToken.symbol}` : '—'}{fromBalance > 0 && <b onClick={() => setFromAmt(liveFrom?.balance ?? fromToken.balance ?? '')} style={{ color: btb.red, marginLeft: 6, cursor: 'pointer' }}>MAX</b>}</span></div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><input value={fromAmt} onChange={event => { setFromAmt(event.target.value); setQuote(null); }} inputMode="decimal" placeholder="0" style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 34, fontWeight: 800 }}/><TokenPill token={fromToken} onClick={() => setPicker('from')}/></div>
+        {fromToken.usdPrice && fromAmt && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 5 }}>≈ ${(Number(fromAmt) * fromToken.usdPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+      </Glass>
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '-8px 0', zIndex: 2 }}><div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,.1)', border: '4px solid rgba(10,10,15,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="down" size={17}/></div></div>
+      <Glass padding={18} radius={24} strong>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <span style={{ color: btb.textMuted, fontSize: 13 }}>Receive on</span>
+          <select value={toChainId} onChange={event => selectToChain(Number(event.target.value))} style={{ maxWidth: 190, height: 34, borderRadius: 999, padding: '0 28px 0 10px', color: btb.text, background: 'rgba(255,255,255,.07)', border: btb.borderSoft, fontFamily: 'inherit', fontWeight: 700 }}>
+            {availableChains.map(chain => <option key={chain.id} value={chain.id} disabled={chain.id === fromChainId}>{chain.name}</option>)}
+          </select>
+        </div>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 7 }}>You receive</div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ flex: 1, minWidth: 0, color: quoting ? btb.textMuted : btb.text, fontSize: 34, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis' }}>{quoting ? '…' : outFormatted}</div><TokenPill token={toToken} onClick={() => setPicker('to')}/></div>
+        {quote?.estimate.toAmountUSD && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 5 }}>≈ ${Number(quote.estimate.toAmountUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+      </Glass>
+      {quote && !quoting && <Glass padding={14} radius={18} soft>
+        <InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/>
+        <InfoRow label="Network gas" value={gasUsd > 0 ? `~ $${gasUsd.toFixed(2)} · paid by wallet` : 'Paid by wallet'}/>
+        <InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · deducted` : 'None'}/>
+        {lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}% · included above`}/>}
+        {btbFeePercent > 0 && (
+          <InfoRow label="BTB fee" value={`${btbFeePercent}% · sending token`}/>
+        )}
+        {btbFeePercent === 0 && <InfoRow label="BTB fee" value="Free"/>}
+        <InfoRow label="Route" last value={route}/>
+      </Glass>}
+      {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
+      <Button onClick={() => !address ? onConnectWallet?.() : canReview && setStep('confirm')} disabled={!!address && !canReview} style={{ fontSize: 18 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest bridge…' : quote ? 'Review bridge' : quoteErr ? 'No route found' : 'Enter amount'}</Button>
+      {picker && (
+        <TokenPicker tokens={picker === 'from' ? fromTokens : toTokens} loading={picker === 'from' ? loadingFrom : loadingTo} selected={picker === 'from' ? fromToken.address : toToken.address} onSelect={token => { picker === 'from' ? setFromToken(token) : setToToken(token); setFromAmt(''); setQuote(null); }} onImport={tokenAddress => importToken(tokenAddress, picker === 'from' ? fromChainId : toChainId)} onClose={() => setPicker(null)}/>
+      )}
+    </Screen>
+  );
+
+  if (step === 'confirm' || step === 'approving' || step === 'sending') return (
+    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[fromChainId]?.name} → {CHAIN_META[toChainId]?.name}</div></div></div>
+      <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
+      <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/><InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · from amount` : 'None'}/>{lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}%`}/>}<InfoRow label="BTB fee" value={btbFeePercent > 0 ? `${btbFeePercent}%` : 'Free'}/><InfoRow label="Route" last value={route}/></Glass>
+      <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>
+    </Screen>
+  );
+
+  if (step === 'success') return (
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}><div style={{ width: 76, height: 76, borderRadius: '50%', background: 'rgba(82,227,164,.15)', border: '2px solid rgba(82,227,164,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={34} color={btb.green}/></div><div><div style={{ color: btb.text, fontSize: 24, fontWeight: 850 }}>Transfer started</div><div style={{ color: btb.textMuted, fontSize: 13, marginTop: 7, lineHeight: 1.5 }}>{outFormatted} {toToken.symbol} will arrive on {CHAIN_META[toChainId]?.name}. You do not need destination gas.</div></div>{txHash && <a href={`${explorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12 }}>Source transaction ↗</a>}<Button onClick={() => { setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); }} style={{ width: '100%', maxWidth: 360 }}>Done</Button></Screen>
+  );
+
+  return (
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}><div style={{ color: btb.red, fontSize: 22, fontWeight: 850 }}>Transfer failed</div><div style={{ color: btb.textMuted, fontSize: 13 }}>{errMsg}</div><Button onClick={() => setStep('form')} style={{ width: '100%', maxWidth: 360 }}>Try again</Button></Screen>
   );
 }

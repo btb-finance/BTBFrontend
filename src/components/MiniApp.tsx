@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { useConnection, useDisconnect, useSwitchChain, useConfig } from 'wagmi';
+import { useConnection, useDisconnect, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { prefetchDiscoverPools } from '../lib/discoverPools';
 import { prefetchYearnVaults } from '../lib/yearn';
@@ -174,19 +174,12 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
 export function MiniApp() {
   const [mounted, setMounted] = useState(false);
-  const { address, chainId, status } = useConnection();
+  const { address } = useConnection();
   const { disconnect } = useDisconnect();
-  const { switchChain } = useSwitchChain();
   // Read-only address — set when the user "imports" a wallet without connecting.
   // Falls back to the connected wagmi address when both are present.
   const [readOnlyAddress, setReadOnlyAddress] = useState<string | undefined>();
   useEffect(() => { setMounted(true); }, []);
-
-  // Keep supported LP networks as selected. Unsupported networks fall back to
-  // Ethereum; each transaction flow explicitly selects its target chain.
-  useEffect(() => {
-    if (status === 'connected' && chainId !== 1 && chainId !== 4663) switchChain({ chainId: 1 });
-  }, [status, chainId, switchChain]);
 
   const effectiveAddress = address ?? readOnlyAddress;
   const isReadOnly = !address && !!readOnlyAddress;

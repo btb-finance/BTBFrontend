@@ -2,6 +2,7 @@ import type { Config } from 'wagmi';
 import { getAccount, getPublicClient, sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
 import { decodeFunctionData, erc20Abi } from 'viem';
 import type { TrackFn } from './TxTracker';
+import type { SupportedChainId } from './wagmi';
 
 // A single call in a (possibly batched) action.
 export type Call = {
@@ -45,13 +46,18 @@ export async function waitForChainState(check: ChainStateCheck): Promise<void> {
 /** Switch the connected wallet and wait until wagmi observes the new chain. */
 async function ensureTargetChain(config: Config, chainId?: number): Promise<void> {
   if (!chainId) return;
-  const target = chainId as 1 | 4663;
-  if (getAccount(config).chainId !== chainId) await switchChain(config, { chainId: target });
+  const target = chainId as SupportedChainId;
+  if (getAccount(config).chainId !== chainId) {
+    const switchedChain = await switchChain(config, { chainId: target });
+    if (switchedChain.id !== chainId) {
+      throw new Error(`Wallet switched to chain ${switchedChain.id}, but chain ${chainId} is required.`);
+    }
+  }
   await waitForChainState({
     test: () => getAccount(config).chainId === chainId,
-    error: `Your wallet did not finish switching to chain ${chainId}. Approve the network switch and retry.`,
-    retries: 10,
-    intervalMs: 250,
+    error: `Your wallet switched networks, but the app did not sync to chain ${chainId}. Retry the transaction.`,
+    retries: 30,
+    intervalMs: 500,
   });
 }
 
@@ -95,7 +101,7 @@ export async function runCalls(
       await ensureTargetChain(config, chainId);
       const { id } = await sendCalls(config, {
         account,
-        chainId: chainId as 1 | 4663 | undefined,
+        chainId: chainId as SupportedChainId | undefined,
         calls: pendingCalls.map(c => ({ to: c.to, data: c.data, value: c.value })),
       });
       const { done } = track({ callsId: id, label, chainId });
@@ -119,7 +125,7 @@ export async function runCalls(
     if (await isSatisfiedApproval(config, account, c, chainId)) continue;
     await ensureTargetChain(config, chainId);
     const stepLabel = pendingCalls.length > 1 ? `${label} (${i + 1}/${pendingCalls.length})` : label;
-    const hash = await sendTransaction(config, { account, chainId: chainId as 1 | 4663 | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas });
+    const hash = await sendTransaction(config, { account, chainId: chainId as SupportedChainId | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas });
     lastHash = hash;
     const { done } = track({ hash, label: stepLabel, chainId });
     const res = await done;
@@ -135,7 +141,7 @@ async function isSatisfiedApproval(config: Config, owner: `0x${string}`, call: C
     const decoded = decodeFunctionData({ abi: erc20Abi, data: call.data });
     if (decoded.functionName !== 'approve') return false;
     const [spender, required] = decoded.args;
-    const client = getPublicClient(config, chainId ? { chainId: chainId as 1 | 4663 } : undefined);
+    const client = getPublicClient(config, chainId ? { chainId: chainId as SupportedChainId } : undefined);
     if (!client) return false;
     const allowance = await client.readContract({
       address: call.to,

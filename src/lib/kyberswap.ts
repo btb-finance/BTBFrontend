@@ -7,14 +7,27 @@ export const KYBER_CHAINS: Record<number, string> = {
   10:    'optimism',
   8453:  'base',
   43114: 'avalanche',
-  250:   'fantom',
   59144: 'linea',
-  534352:'scroll',
+  80094: 'berachain',
+  146:   'sonic',
+  2020:  'ronin',
+  130:   'unichain',
+  999:   'hyperevm',
+  9745:  'plasma',
+  42793: 'etherlink',
+  143:   'monad',
+  4326:  'megaeth',
   4663:  'robinhood',
 };
 
+export const BTB_SWAP_FEE_BPS = 100;
+export const BTB_SWAP_FEE_PERCENT = BTB_SWAP_FEE_BPS / 100;
+const BTB_SWAP_FEE_RECEIVER = process.env.NEXT_PUBLIC_BTB_SWAP_FEE_RECEIVER
+  ?? '0xfed2Ff614E0289D41937139730B49Ee158D02299';
+
 function base(chainId: number) {
-  const slug = KYBER_CHAINS[chainId] ?? 'ethereum';
+  const slug = KYBER_CHAINS[chainId];
+  if (!slug) throw new Error(`KyberSwap is not configured for chain ${chainId}`);
   return `https://aggregator-api.kyberswap.com/${slug}/api/v1`;
 }
 
@@ -36,12 +49,20 @@ export async function getKyberQuote(
   amountIn: string,
   decimalsOut: number,
   chainId = 1,
+  options: { chargeBtbFee?: boolean; decimalsIn?: number } = {},
 ): Promise<KyberQuote> {
   const nativeAddr = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
   const inAddr  = tokenIn  === 'ETH' ? nativeAddr : tokenIn;
   const outAddr = tokenOut === 'ETH' ? nativeAddr : tokenOut;
 
-  const url = `${base(chainId)}/routes?tokenIn=${inAddr}&tokenOut=${outAddr}&amountIn=${amountIn}&saveGas=0&gasInclude=1`;
+  const params = new URLSearchParams({ tokenIn: inAddr, tokenOut: outAddr, amountIn, saveGas: '0', gasInclude: '1' });
+  if (options.chargeBtbFee) {
+    params.set('chargeFeeBy', 'currency_out');
+    params.set('isInBps', 'true');
+    params.set('feeAmount', String(BTB_SWAP_FEE_BPS));
+    params.set('feeReceiver', BTB_SWAP_FEE_RECEIVER);
+  }
+  const url = `${base(chainId)}/routes?${params.toString()}`;
   const res = await fetch(url, { headers: { 'x-client-id': 'btb-finance' } });
   if (!res.ok) throw new Error(`KyberSwap routes ${res.status}`);
   const json = await res.json();
@@ -63,7 +84,7 @@ export async function getKyberQuote(
     amountOutFormatted: amountOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 }),
     amountOutUsd:  parseFloat(rs?.amountOutUsd ?? '0'),
     rate:          parseFloat(rs?.amountInUsd ?? '1') > 0
-                   ? amountOutNum / (parseInt(rs?.amountIn ?? '1') / Math.pow(10, 18))
+                   ? amountOutNum / (parseInt(rs?.amountIn ?? '1') / Math.pow(10, options.decimalsIn ?? 18))
                    : 0,
     priceImpact:   parseFloat(rs?.priceImpact ?? '0'),
     gasUsd:        parseFloat(rs?.gasUsd ?? '0'),
