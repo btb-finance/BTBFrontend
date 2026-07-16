@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import { useConnection, useConfig } from 'wagmi';
 import { useAction } from 'convex/react';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseUnits, erc20Abi } from 'viem';
+import { encodeAbiParameters, formatUnits, isAddress, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
@@ -24,6 +24,7 @@ import {
 } from '../lib/smartAccount';
 import { RangeRatioBar } from './RangeRatioBar';
 import { buildSwapGap } from '../lib/swapGap';
+import { buildAnyTokenLegs } from '../lib/anyTokenZap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
 import {
@@ -151,6 +152,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // closest one-sided ranges below/above the live price (Meteora-style).
   const [splitRange, setSplitRange] = useState(false);
   const [splitAmt, setSplitAmt] = useState<{ str0: string; str1: string }>({ str0: '', str1: '' });
+  // Optional: fund a managed single-range create with one token the wallet
+  // holds; the Zap swaps it into both sides. '' = normal two-token funding.
+  const [walletTokens, setWalletTokens] = useState<{ address: `0x${string}`; symbol: string; decimals: number; raw: bigint }[]>([]);
+  const [createFundToken, setCreateFundToken] = useState('');
+  const [createFundAmt, setCreateFundAmt] = useState('');
   const [useEth, setUseEth] = useState(true);
   const [busy, setBusy] = useState(false);
   const [stepMsg, setStepMsg] = useState('');
@@ -517,11 +523,46 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return () => { live = false; };
   }, [config, address, pool]);
 
+  // Every token the connected wallet holds, for the single-token funding picker.
+  useEffect(() => {
+    let live = true;
+    if (!address) { setWalletTokens([]); return; }
+    (async () => {
+      try {
+        const response = await fetch(`/api/account-assets?address=${address}`);
+        if (!response.ok) return;
+        const json = await response.json() as { assets?: { address: string; symbol: string; decimals: number; rawBalance: string }[] };
+        if (!live || !Array.isArray(json.assets)) return;
+        setWalletTokens(json.assets
+          .filter(asset => isAddress(asset.address))
+          .map(asset => {
+            let raw = 0n;
+            try { raw = BigInt(asset.rawBalance); } catch { /* skip unparseable */ }
+            return { address: asset.address.toLowerCase() as `0x${string}`, symbol: asset.symbol || 'TOKEN', decimals: Number(asset.decimals) || 18, raw };
+          })
+          .filter(token => token.raw > 0n));
+      } catch { /* explorer hiccup — picker stays hidden */ }
+    })();
+    return () => { live = false; };
+  }, [address, chainId]);
+
   const effBal0 = ethMode && nativeSide === 0 ? ethBal : bal0;
   const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
   // The simulator doesn't spend anything — wallet balances don't apply.
   const short0 = !simOnly && add0 > effBal0;
   const short1 = !simOnly && add1 > effBal1;
+
+  // Single-token funding: only for a managed, single-range Uniswap V3 create on
+  // a modular deployment (needs the range quoter + aggregator adapter).
+  const anyCreateEligible = autoManage && !splitRange && !isV4 && dex === 'uniswap' && usesBtbQuoter && !!pool && !!ticks;
+  const createFundMeta = walletTokens.find(token => token.address.toLowerCase() === createFundToken.toLowerCase());
+  const anyCreateMode = anyCreateEligible && !!createFundMeta && !!pool
+    && createFundMeta.address.toLowerCase() !== pool.token0.toLowerCase()
+    && createFundMeta.address.toLowerCase() !== pool.token1.toLowerCase();
+  let anyCreateAmount = 0n;
+  try { if (anyCreateMode && createFundAmt && Number(createFundAmt) > 0) anyCreateAmount = parseUnits(createFundAmt, createFundMeta!.decimals); } catch { /* typing */ }
+  const anyCreateShort = anyCreateMode && (anyCreateAmount <= 0n || anyCreateAmount > createFundMeta!.raw);
+  const otherWalletTokens = pool ? walletTokens.filter(token => token.address.toLowerCase() !== pool.token0.toLowerCase() && token.address.toLowerCase() !== pool.token1.toLowerCase()) : [];
 
   async function mint() {
     if (splitRange) { await mintSplit(); return; }
@@ -660,7 +701,48 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       }).catch(() => BigInt(beforePositions.length));
       let calls;
       const pendingZaps: { instructionId: bigint; pinnedArgs: `0x${string}`; freshArgs: `0x${string}` }[] = [];
-      if (isModularDeployment(smartDeployment)) {
+      if (isModularDeployment(smartDeployment) && anyCreateMode) {
+        // Fund a new managed position with a single token: deposit it, then let
+        // the Zap swap it into both sides through the route guard.
+        if (!smartDeployment.quoter) throw new Error('BTB range quoter is not configured');
+        if (!rangeSplit) throw new Error('Range ratio is still loading');
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        const instructionId = await client.readContract({
+          address: smartDeployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI, functionName: 'nextInstructionId', args: [smart.account],
+        });
+        const fundingToken = createFundMeta!.address;
+        const fundingAmount = anyCreateAmount;
+        const legs = await buildAnyTokenLegs({
+          client, factory: deployment.factory, adapter: smartDeployment.aggregatorSwapAdapter,
+          fundingToken, fundingSymbol: createFundMeta!.symbol, fundingAmount,
+          token0: pool.token0, token1: pool.token1, symbol0: pool.symbol0, symbol1: pool.symbol1,
+          value0Bps: rangeSplit.value0Bps, slippageBps,
+        });
+        const expectedUsed = await client.readContract({
+          address: smartDeployment.quoter, abi: BTB_LP_QUOTER_ABI, functionName: 'previewMint',
+          args: [pool.address, ticks.tickLower, ticks.tickUpper, legs.expected0, legs.expected1],
+        });
+        if (expectedUsed[2] < 1_000n || (expectedUsed[0] === 0n && expectedUsed[1] === 0n)) throw new Error('This amount is too small to create usable LP liquidity');
+        const pinned = encodeCreateZapRequest({
+          account: smart.account, fundingToken, fundingAmount,
+          token0: pool.token0, token1: pool.token1, fee,
+          tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
+          leg0: legs.leg0, leg1: legs.leg1,
+          amount0Min: minWithSlippage(expectedUsed[0], slippageBps), amount1Min: minWithSlippage(expectedUsed[1], slippageBps),
+          twapSeconds: policy.twapSeconds, maxSlippageBps: policy.maxSlippageBps, maxSpotTwapDeviationBps: policy.maxSpotTwapDeviationBps, policy,
+        });
+        calls = [
+          ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
+          approvalCall(fundingToken, smart.account, fundingAmount),
+          depositTokenCall(smart.account, fundingToken, fundingAmount),
+          configureSelfAgentCall(smartDeployment, smart.account, smartDeployment.agent, 12),
+          scheduleSingleInstructionCall(
+            smartDeployment, smart.account, smartDeployment.agent, fundingToken, fundingAmount,
+            now, now + 8n * 60n, 4, CREATE_FROM_ACCOUNT_SELECTOR, pinned,
+          ),
+        ].filter((call): call is NonNullable<typeof call> => call !== null);
+        pendingZaps.push({ instructionId, pinnedArgs: pinned, freshArgs: encodeAbiParameters([{ type: 'bytes' }, { type: 'bytes' }], [legs.fresh0, legs.fresh1]) });
+      } else if (isModularDeployment(smartDeployment)) {
         const now = BigInt(Math.floor(Date.now() / 1000));
         let instructionId = await client.readContract({
           address: smartDeployment.agentRegistry,
@@ -850,7 +932,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const canManagedSplit = !!splitTicks?.below && !!splitTicks?.above && add0 > 0n && add1 > 0n;
   const canMint = !!pool?.exists && !!ticks && !busy &&
     (autoManage
-      ? !!smartDeployment && !swapPreview && (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1
+      ? !!smartDeployment && !swapPreview && (anyCreateMode
+        ? anyCreateAmount > 0n && !anyCreateShort
+        : (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1)
       : splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
@@ -1503,8 +1587,24 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   </div>
                 )}
 
-                {!splitRange && renderNeedWarning()}
-                {(short0 || short1) && (
+                {anyCreateEligible && otherWalletTokens.length > 0 && (
+                  <div style={{ margin: '0 2px 12px' }}>
+                    <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 750, marginBottom: 5 }}>Or fund with a single token you hold</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: anyCreateMode ? '1.1fr .9fr' : '1fr', gap: 7 }}>
+                      <select value={anyCreateMode ? createFundToken : ''} onChange={event => { setCreateFundToken(event.target.value); setCreateFundAmt(''); }} style={{ width: '100%', height: 36, padding: '0 9px', borderRadius: 10, border: anyCreateMode ? '1px solid rgba(255,179,107,.5)' : btb.borderSoft, background: anyCreateMode ? 'rgba(255,179,107,.1)' : 'rgba(255,255,255,.035)', color: anyCreateMode ? btb.amber : btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 11, fontWeight: 750, cursor: 'pointer' }}>
+                        <option value="">Use {sym0} + {sym1} above</option>
+                        {otherWalletTokens.map(token => <option key={token.address} value={token.address}>{token.symbol} · {fmtAmt(token.raw, token.decimals)}</option>)}
+                      </select>
+                      {anyCreateMode && <div style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 10px', borderRadius: 10, border: anyCreateShort ? '1px solid rgba(255,107,122,.5)' : btb.borderSoft, background: 'rgba(255,255,255,.045)' }}>
+                        <input value={createFundAmt} onChange={event => setCreateFundAmt(event.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0" style={{ minWidth: 0, flex: 1, border: 0, background: 'transparent', color: btb.text, outline: 'none', fontFamily: 'inherit', fontSize: 14, fontWeight: 750 }}/>
+                        <button onClick={() => setCreateFundAmt(formatUnits(createFundMeta!.raw, createFundMeta!.decimals))} style={{ border: 'none', padding: 0, background: 'transparent', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, cursor: 'pointer' }}>MAX</button>
+                      </div>}
+                    </div>
+                    {anyCreateMode && <div style={{ color: btb.textMuted, fontSize: 10, marginTop: 6, lineHeight: 1.45 }}>{createFundMeta!.symbol} is swapped into {sym0} and {sym1} at the range ratio, then the managed position is created. Any dust returns to your smart account.</div>}
+                  </div>
+                )}
+                {!splitRange && !anyCreateMode && renderNeedWarning()}
+                {!anyCreateMode && (short0 || short1) && (
                   <div style={{ color: btb.loss, fontSize: 11, margin: '-2px 2px 10px' }}>
                     Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}.
                   </div>
