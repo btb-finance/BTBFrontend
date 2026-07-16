@@ -457,7 +457,7 @@ export function ManagedAddLiquiditySheet({ pos, pool, owner, smartAccount, smart
 
   return <Portal>
     <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, left: sidebarWidth, zIndex: 350, display: 'grid', placeItems: 'center', padding: 18, background: 'rgba(0,0,0,.7)', backdropFilter: 'blur(9px)' }}>
-      <div onClick={(event) => event.stopPropagation()} style={{ width: '100%', maxWidth: 460, borderRadius: 24, padding: 18, boxSizing: 'border-box', background: '#0b0b10', border: btb.border, boxShadow: '0 24px 80px rgba(0,0,0,.55)' }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: '100%', maxWidth: 460, maxHeight: 'calc(100dvh - 36px)', overflowY: 'auto', borderRadius: 24, padding: 18, boxSizing: 'border-box', background: '#0b0b10', border: btb.border, boxShadow: '0 24px 80px rgba(0,0,0,.55)' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 850 }}>Add more liquidity</div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>{pos.symbol0} / {pos.symbol1} · NFT #{pos.id.toString()}</div>
 
