@@ -319,7 +319,15 @@ export function DiscoverScreen() {
     for (const pool of pools) byName.set(pool.chain, { name: pool.chain, chainId: discoverChainId(pool.chain, pool.chainId) });
     return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [pools]);
-  const dexes = useMemo(() => [...new Set(pools.map(pool => pool.dex))].sort(), [pools]);
+  const dexes = useMemo(() => [...new Set(
+    pools
+      .filter(pool => selectedChain === 'all' || pool.chain === selectedChain)
+      .map(pool => pool.dex)
+  )].sort(), [pools, selectedChain]);
+
+  useEffect(() => {
+    if (selectedDex !== 'all' && !dexes.includes(selectedDex)) setSelectedDex('all');
+  }, [dexes, selectedDex]);
 
   const splitPair = (p: EarnPool) => p.pair.split('-') as [string, string];
   const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
@@ -462,6 +470,9 @@ export function DiscoverScreen() {
         </div>
         <DiscoverChainSelect chains={chains} value={selectedChain} onChange={(chainName) => {
           setSelectedChain(chainName);
+          setSelectedDex(current => current === 'all' || pools.some(pool =>
+            (chainName === 'all' || pool.chain === chainName) && pool.dex === current
+          ) ? current : 'all');
           const chain = chains.find(item => item.name === chainName);
           if (chain?.chainId) setThemeChainId(chain.chainId);
         }} mobile={isMobile}/>
