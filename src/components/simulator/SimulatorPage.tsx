@@ -15,7 +15,7 @@ import { CreatePosition } from '../CreatePosition';
 import { useSidebar } from '../../lib/SidebarContext';
 import { STABLES } from '../../lib/pools';
 import {
-  nearestUsableTick, fmtFeeTier, isNativeCurrency, WETH, UNISWAP_V3_DEPLOYMENT,
+  nearestUsableTick, fmtFeeTier, isNativeCurrency, uniswapV3DeploymentForChain,
   type V4MintPool,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
@@ -34,6 +34,7 @@ import { SensitivityPanel } from './sections/SensitivityPanel';
 import { ScenarioCards } from './sections/ScenarioCards';
 import { Timeline } from './sections/Timeline';
 import { DeployFooter } from './sections/DeployFooter';
+import type { ChainDataNetwork } from '../../lib/chainDataNetworks';
 
 /** Gas is intentionally excluded from forward LP estimates. It varies by chain,
  * wallet route and market conditions; a stale flat USD charge misleads more
@@ -45,29 +46,36 @@ const GAS_EST_USD = 0;
 export interface SimPoolChoice {
   protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
   feeTier: number;
+  address?: `0x${string}`;
   v4PoolId?: `0x${string}`;
   tvlUsd?: number;
   apy?: number;
   fees24hUsd?: number;
 }
 
-export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
+export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, chainName, wrappedNative, networks, onClose }: {
   /** Token addresses for V3-architecture pools ('eth' allowed). Unused for V4. */
   tokenA?: string;
   tokenB?: string;
   selected: SimPoolChoice;
   /** Same-protocol pools at other fee tiers, for the fee tier cards' TVL/APR. */
   siblings: SimPoolChoice[];
+  chainId: number;
+  chainName: string;
+  wrappedNative: `0x${string}`;
+  networks: ChainDataNetwork;
   onClose: () => void;
 }) {
   const { width: sidebarWidth, isMobile } = useSidebar();
   const isV4 = selected.protocol === 'uniswap-v4';
   const dex = selected.protocol === 'pancakeswap-v3' ? 'pancakeswap' : 'uniswap';
-  const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const deployment = dex === 'pancakeswap'
+    ? PANCAKE_V3_DEPLOYMENT
+    : uniswapV3DeploymentForChain(chainId) ?? PANCAKE_V3_DEPLOYMENT;
   // The simulator accepts the friendly `ETH` token alias, while the V3 mint
   // flow must receive its ERC-20 WETH address to resolve the pool correctly.
-  const mintTokenA = tokenA?.toLowerCase() === 'eth' ? WETH : tokenA as `0x${string}` | undefined;
-  const mintTokenB = tokenB?.toLowerCase() === 'eth' ? WETH : tokenB as `0x${string}` | undefined;
+  const mintTokenA = tokenA?.toLowerCase() === 'eth' ? wrappedNative : tokenA as `0x${string}` | undefined;
+  const mintTokenB = tokenB?.toLowerCase() === 'eth' ? wrappedNative : tokenB as `0x${string}` | undefined;
 
   const [feeTier, setFeeTier] = useState(selected.feeTier);
   const [depositStr, setDepositStr] = useState('10000');
@@ -78,7 +86,16 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
   const [deploying, setDeploying] = useState(false);
 
-  const { pools, loading, error, retry } = useSimPools(tokenA, tokenB, selected.v4PoolId, dex);
+  const { pools, loading, error, retry } = useSimPools(
+    tokenA,
+    tokenB,
+    selected.v4PoolId,
+    dex,
+    chainId,
+    wrappedNative,
+    selected.address,
+    selected.feeTier,
+  );
 
   // If the chosen tier has no pool (or V4 pinned a different fee), jump to the
   // deepest existing one so the page never dead-ends on a valid pair.
@@ -96,7 +113,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
   const v4Pool = isV4 && pool ? (pool as V4MintPool) : null;
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[feeTier] ?? 60;
 
-  const { history, fallbackCloses, tokenUsd } = usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing);
+  const { history, fallbackCloses, tokenUsd } = usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks);
 
   // Per-tier market data (TVL/APR/fees) from the Simulate screen's findings.
   const tierData = (fee: number) => siblings.find((s) => s.feeTier === fee) ?? (fee === selected.feeTier ? selected : undefined);
@@ -159,7 +176,9 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
     setStrategy('custom');
   }, [pool, flip, spacing]);
 
-  const canDeploy = !isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks));
+  const deploySupported = chainId === 1 || (chainId === 4663 && dex === 'uniswap');
+  const deployChainId: 1 | 4663 = chainId === 4663 ? 4663 : 1;
+  const canDeploy = deploySupported && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
   const dexLabel = dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
 
   const sectionProps = { isMobile };
@@ -180,7 +199,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.1 }}>LP Simulator</div>
               <div style={{ color: btb.textMuted, fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {pool ? `${pool.symbol0} / ${pool.symbol1} · ${fmtFeeTier(feeTier)} · ${dexLabel}` : `${dexLabel} · Ethereum`}
+                {pool ? `${pool.symbol0} / ${pool.symbol1} · ${fmtFeeTier(feeTier)} · ${dexLabel}` : `${dexLabel} · ${chainName}`}
               </div>
             </div>
             {/* Horizon quick picker */}
@@ -266,6 +285,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, onClose }: {
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
             dex={dex}
+            chainId={deployChainId}
             fees24hUsd={current?.fees24hUsd}
             onClose={() => setDeploying(false)}
             onDone={() => { setDeploying(false); onClose(); }}

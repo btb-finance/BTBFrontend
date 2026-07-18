@@ -26,9 +26,9 @@ export { addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts
 export { SLIPPAGE_BPS, GAS_RESERVE, deadline, minOut, maxIn, tickToPrice } from './shared';
 export { impermanentLossFraction, backtestRange, unitAmounts } from './v3/simulate';
 export type { BacktestResult, BacktestInput } from './v3/simulate';
-export { fetchPoolForMint, fetchPoolsForMint } from './v3/pool';
+export { fetchKnownV3Pool, fetchPoolForMint, fetchPoolsForMint } from './v3/pool';
 export type { MintPool } from './v3/pool';
-export { UNISWAP_V3, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, ROBINHOOD_SWAP_ROUTER_02, ROBINHOOD_UNIVERSAL_ROUTER, ROBINHOOD_QUOTER_V2, FEE_TIERS, WETH, ROBINHOOD_WETH, isWeth } from './v3/addresses';
+export { UNISWAP_V3, UNISWAP_V3_DEPLOYMENT, UNISWAP_V3_DEPLOYMENTS, uniswapV3DeploymentForChain, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, ROBINHOOD_SWAP_ROUTER_02, ROBINHOOD_UNIVERSAL_ROUTER, ROBINHOOD_QUOTER_V2, FEE_TIERS, WETH, ROBINHOOD_WETH, isWeth } from './v3/addresses';
 export type { V3Deployment } from './v3/addresses';
 
 // v4

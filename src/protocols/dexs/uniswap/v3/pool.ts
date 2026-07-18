@@ -20,6 +20,47 @@ export interface MintPool {
 const ZERO = '0x0000000000000000000000000000000000000000';
 
 /**
+ * Read a V3-compatible pool that was already resolved by a factory probe.
+ * This avoids repeating factory discovery when opening a progressive result.
+ */
+export async function fetchKnownV3Pool(
+  client: PublicClient,
+  pool: `0x${string}`,
+  tokenA: `0x${string}`,
+  tokenB: `0x${string}`,
+  fee: number,
+): Promise<MintPool> {
+  const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
+  const [slot0, liquidity, metaRes] = await Promise.all([
+    client.readContract({ address: pool, abi: POOL_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
+    client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
+    client.multicall({
+      contracts: [
+        { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
+        { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
+        { address: token1, abi: ERC20_META_ABI, functionName: 'symbol' },
+        { address: token1, abi: ERC20_META_ABI, functionName: 'decimals' },
+      ],
+      allowFailure: true,
+    }),
+  ]);
+  return {
+    address: pool,
+    token0,
+    token1,
+    symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
+    decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
+    symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
+    decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
+    fee,
+    exists: (slot0[0] as bigint) > 0n,
+    sqrtPriceX96: slot0[0] as bigint,
+    tick: Number(slot0[1]),
+    liquidity,
+  };
+}
+
+/**
  * Resolve the Uniswap V3 pool for a token pair + fee tier, returning sorted
  * tokens (token0 = lower address), their metadata, whether the pool exists, and
  * its current price/tick. Read-only.

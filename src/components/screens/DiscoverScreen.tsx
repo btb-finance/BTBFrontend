@@ -333,7 +333,9 @@ export function DiscoverScreen() {
     // The simulator owns pair comparison. Pass the exact addresses so its
     // token pickers are pre-filled rather than opening a separate mini-sheet.
     if (pair?.[0] && pair[1]) {
-      window.location.href = `/simulate?tokenA=${encodeURIComponent(pair[0])}&tokenB=${encodeURIComponent(pair[1])}`;
+      const chainId = discoverChainId(pool.chain, pool.chainId);
+      const chainQuery = chainId ? `chain=${chainId}&` : '';
+      window.location.href = `/simulate?${chainQuery}tokenA=${encodeURIComponent(pair[0])}&tokenB=${encodeURIComponent(pair[1])}`;
       return;
     }
     // A legacy/indexer row without token addresses cannot safely be mapped by

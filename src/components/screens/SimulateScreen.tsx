@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import { useConfig } from 'wagmi';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useConfig, useConnection } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeAbiParameters, keccak256, parseAbiParameters, type PublicClient } from 'viem';
 import { Glass } from '../Glass';
@@ -10,20 +10,30 @@ import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
+import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { FACTORY_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { fmtFeeTier, DYNAMIC_FEE_FLAG } from '@/protocols/dexs/uniswap/graph';
-import { UNISWAP_V3_DEPLOYMENT } from '@/protocols/dexs/uniswap/v3/addresses';
-import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
+import {
+  uniswapV3DeploymentForChain, WETH,
+  type V3Deployment,
+} from '@/protocols/dexs/uniswap/v3/addresses';
+import {
+  ROBINHOOD_UNISWAP_V4, UNISWAP_V4, NATIVE_CURRENCY,
+  type V4Deployment,
+} from '@/protocols/dexs/uniswap/v4/addresses';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
 import { searchMarketPools } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
+import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
+import { KYBER_CHAINS } from '../../lib/kyberswap';
+import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
+import { useChainTheme } from '../../lib/ChainThemeContext';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 
@@ -38,14 +48,30 @@ const PROTOCOLS: { id: Protocol; label: string; dex: 'uniswap' | 'pancakeswap' }
 // spacings or it doesn't.
 const V4_TICK_SPACINGS: Record<number, number> = { 100: 1, 500: 10, 3000: 60, 10000: 200 };
 const V4_FEE_TIERS = [100, 500, 3000, 10000];
+const WRAPPED_NATIVE_FALLBACKS: Record<number, `0x${string}`> = {
+  1: WETH,
+  56: '0xBB4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
+  137: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
+  42161: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+  10: '0x4200000000000000000000000000000000000006',
+  8453: '0x4200000000000000000000000000000000000006',
+  43114: '0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7',
+  59144: '0xe5D7C2a44FfDDf6b295A15c148167DaAf5Cf4Cea',
+  81457: '0x4300000000000000000000000000000000000004',
+  130: '0x4200000000000000000000000000000000000006',
+  324: '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91',
+  143: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
+  4326: '0x4200000000000000000000000000000000000006',
+  4663: '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73',
+};
 
 function toCurrency(address: string): `0x${string}` {
   return (address.toLowerCase() === 'eth' ? NATIVE_CURRENCY : address) as `0x${string}`;
 }
 
 /** V3/PancakeSwap V3 have no native-ETH pools — 'ETH' always means the WETH contract there. */
-function toV3Address(address: string): `0x${string}` {
-  return (address.toLowerCase() === 'eth' ? WETH : address) as `0x${string}`;
+function toV3Address(address: string, wrappedNative: `0x${string}` = WETH): `0x${string}` {
+  return (address.toLowerCase() === 'eth' ? wrappedNative : address) as `0x${string}`;
 }
 
 /** One retry for transient RPC hiccups — a public multicall failing once
@@ -91,6 +117,53 @@ interface FoundPool {
   external?: { dexLabel: string; url: string };
 }
 
+function foundPoolKey(pool: FoundPool): string {
+  return pool.v4PoolId?.toLowerCase()
+    ?? pool.address?.toLowerCase()
+    ?? `${pool.protocol}:${pool.feeTier}`;
+}
+
+/** Merge provider responses without making an already-actionable on-chain row
+ * fall back to a read-only market row that happened to finish later. */
+function mergeFoundPools(current: FoundPool[], incoming: FoundPool[]): FoundPool[] {
+  const merged = new Map(current.map(pool => [foundPoolKey(pool), pool]));
+  for (const pool of incoming) {
+    const key = foundPoolKey(pool);
+    const previous = merged.get(key);
+    if (!previous) {
+      merged.set(key, pool);
+      continue;
+    }
+    if (!previous.external && pool.external) {
+      merged.set(key, {
+        ...pool,
+        ...previous,
+        tvlUsd: previous.tvlUsd ?? pool.tvlUsd,
+        apy: previous.apy ?? pool.apy,
+        fees24hUsd: previous.fees24hUsd ?? pool.fees24hUsd,
+      });
+      continue;
+    }
+    const next = { ...previous, ...pool };
+    if (!pool.external) delete next.external;
+    merged.set(key, next);
+  }
+  return [...merged.values()].sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
+}
+
+function marketPoolRows(marketPools: Awaited<ReturnType<typeof searchMarketPools>>): FoundPool[] {
+  return marketPools.map(mp => ({
+    protocol: 'uniswap-v3' as const, // unused for external rows
+    feeTier: mp.feePct != null ? Math.round(mp.feePct * 1_000_000) : 0,
+    address: mp.address as `0x${string}`,
+    tvlUsd: mp.tvlUsd,
+    apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
+    aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 ? true : undefined,
+    fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
+    external: { dexLabel: mp.dexLabel, url: mp.url },
+  }));
+}
+
 
 const PROTOCOL_FOR_EARN_POOL = (p: EarnPool): Protocol | null => {
   if (p.dex === 'PancakeSwap') return 'pancakeswap-v3';
@@ -107,12 +180,24 @@ function pairMatches(p: EarnPool, tokenA: Token, tokenB: Token): boolean {
   return syms.length === 2 && [syms[0], syms[1]].map(norm).sort().join() === want.map(norm).sort().join();
 }
 
+function normalizedChainName(name: string): string {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return {
+    bnbchain: 'bsc',
+    bnbsmartchain: 'bsc',
+    arbitrumone: 'arbitrum',
+    opmainnet: 'optimism',
+    polygonmainnet: 'polygon',
+  }[normalized] ?? normalized;
+}
+
 /** Enriches on-chain-probed pools with real TVL/APR, and adds any pools the
  * indexer knows about that our standard-fee-tier probe can't find — mainly
  * V4, which allows arbitrary (non-standard) fee tiers since pools are
  * permissionless, unlike V3's fixed tier set. */
-function mergeWithEarnPools(probed: FoundPool[], earnPools: EarnPool[], tokenA: Token, tokenB: Token): FoundPool[] {
-  const matched = earnPools.filter(p => p.chain === 'Ethereum' && pairMatches(p, tokenA, tokenB));
+function mergeWithEarnPools(probed: FoundPool[], earnPools: EarnPool[], tokenA: Token, tokenB: Token, chainName: string): FoundPool[] {
+  const wantedChain = normalizedChainName(chainName);
+  const matched = earnPools.filter(p => normalizedChainName(p.chain) === wantedChain && pairMatches(p, tokenA, tokenB));
   // Same headline APR everywhere: the ±5% concentrated-range figure (aprRange)
   // when we have it, never the whole-pool fees/TVL number — that understates
   // concentrated LPing by 10-100x and would read as a different, lower APR
@@ -199,11 +284,11 @@ function TokenPickerButton({ label, token, onPick, tokens }: {
   );
 }
 
-async function findV4Pools(client: PublicClient, tokenA: Token, tokenB: Token): Promise<FoundPool[]> {
+async function findV4Pools(client: PublicClient, tokenA: Token, tokenB: Token, deployment: V4Deployment): Promise<FoundPool[]> {
   const [c0, c1] = sortCurrencies(toCurrency(tokenA.address), toCurrency(tokenB.address));
   const results = await client.multicall({
     contracts: V4_FEE_TIERS.map(fee => ({
-      address: UNISWAP_V4.stateView,
+      address: deployment.stateView,
       abi: STATE_VIEW_ABI,
       functionName: 'getSlot0' as const,
       args: [computeV4PoolId(c0, c1, fee, V4_TICK_SPACINGS[fee], NATIVE_CURRENCY)],
@@ -222,10 +307,16 @@ async function findV4Pools(client: PublicClient, tokenA: Token, tokenB: Token): 
   return pools;
 }
 
-async function findV3Pools(client: PublicClient, protocol: 'uniswap-v3' | 'pancakeswap-v3', tokenA: Token, tokenB: Token): Promise<FoundPool[]> {
-  const deployment = protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-  const addrA = toV3Address(tokenA.address);
-  const addrB = toV3Address(tokenB.address);
+async function findV3Pools(
+  client: PublicClient,
+  protocol: 'uniswap-v3' | 'pancakeswap-v3',
+  tokenA: Token,
+  tokenB: Token,
+  deployment: V3Deployment,
+  wrappedNative: `0x${string}`,
+): Promise<FoundPool[]> {
+  const addrA = toV3Address(tokenA.address, wrappedNative);
+  const addrB = toV3Address(tokenB.address, wrappedNative);
   const results = await client.multicall({
     contracts: deployment.feeTiers.map(fee => ({
       address: deployment.factory,
@@ -246,8 +337,38 @@ async function findV3Pools(client: PublicClient, protocol: 'uniswap-v3' | 'panca
 
 export function SimulateScreen() {
   const config = useConfig();
+  const { chainId: walletChainId } = useConnection();
   const { isMobile } = useSidebar();
-  const { tokens } = useTokenStore();
+  const { tokens, positions } = useTokenStore();
+  const urlChain = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('chain')) : 0;
+  const initialChain = Number.isFinite(urlChain) && KYBER_CHAINS[urlChain]
+    ? urlChain
+    : walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
+  const [chainId, setChainId] = useState(initialChain);
+  const [listedTokens, setListedTokens] = useState<Token[]>([]);
+  const [loadingTokens, setLoadingTokens] = useState(false);
+  const { setThemeChainId } = useChainTheme();
+  const networks = CHAIN_DATA_NETWORKS[chainId] ?? CHAIN_DATA_NETWORKS[1];
+  const chainName = CHAIN_META[chainId]?.name ?? SUPPORTED_CHAINS.find(chain => chain.id === chainId)?.name ?? 'Ethereum';
+  const availableChains = SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]);
+  const chainTokens = useMemo(() => {
+    const merged = new Map<string, Token>();
+    const add = (token: Token) => {
+      if ((token.chainId ?? 1) !== chainId) return;
+      const address = token.address.toLowerCase() === 'eth' ? 'ETH' : token.address.toLowerCase();
+      merged.set(address.toLowerCase(), { ...merged.get(address.toLowerCase()), ...token, address, chainId });
+    };
+    for (const token of listedTokens) add(token);
+    for (const token of tokens) add(token);
+    for (const token of positions) add(token);
+    return [...merged.values()];
+  }, [chainId, listedTokens, positions, tokens]);
+  const wrappedNative = useMemo(() => {
+    const nativeSymbol = CHAIN_META[chainId]?.symbol?.toUpperCase() ?? 'ETH';
+    const wanted = new Set([`W${nativeSymbol}`, nativeSymbol === 'MATIC' ? 'WPOL' : '', nativeSymbol === 'S' ? 'WS' : '']);
+    const listed = chainTokens.find(token => wanted.has(token.symbol.toUpperCase()) && token.address.toLowerCase() !== 'eth');
+    return (listed?.address ?? WRAPPED_NATIVE_FALLBACKS[chainId] ?? WETH) as `0x${string}`;
+  }, [chainId, chainTokens]);
   const [presetPair] = useState(() => {
     if (typeof window === 'undefined') return { a: null, b: null };
     const params = new URLSearchParams(window.location.search);
@@ -256,11 +377,48 @@ export function SimulateScreen() {
   const [tokenA, setTokenA] = useState<Token | null>(null);
   const [tokenB, setTokenB] = useState<Token | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundPool[] | null>(null);
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
   const appliedPair = useRef(false);
   const autoComparedPair = useRef(false);
+
+  useEffect(() => {
+    setThemeChainId(chainId);
+  }, [chainId, setThemeChainId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoadingTokens(true);
+    fetch(`/api/swap-tokens?chainId=${chainId}`, { signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error(`Token catalog ${response.status}`);
+        return response.json() as Promise<{ tokens?: Token[] }>;
+      })
+      .then(body => setListedTokens(Array.isArray(body.tokens) ? body.tokens : []))
+      .catch(error => { if ((error as Error).name !== 'AbortError') setListedTokens([]); })
+      .finally(() => { if (!controller.signal.aborted) setLoadingTokens(false); });
+    return () => controller.abort();
+  }, [chainId]);
+
+  function selectChain(nextChainId: number) {
+    if (nextChainId === chainId) return;
+    setChainId(nextChainId);
+    setTokenA(null);
+    setTokenB(null);
+    setFound(null);
+    setError(null);
+    setProgress(null);
+    setSheetFee(null);
+    appliedPair.current = true;
+    autoComparedPair.current = false;
+    const params = new URLSearchParams(window.location.search);
+    params.set('chain', String(nextChainId));
+    params.delete('tokenA');
+    params.delete('tokenB');
+    window.history.replaceState(null, '', `/simulate?${params.toString()}`);
+  }
 
   // Discover links here with the pool's exact underlying-token addresses.
   // Keep the comparison screen in control: the two pickers are filled in, but
@@ -269,32 +427,46 @@ export function SimulateScreen() {
     if (appliedPair.current || tokens.length === 0) return;
     const { a, b } = presetPair;
     if (!a || !b) return;
-    const findToken = (address: string) => tokens.find((t) =>
-      t.address.toLowerCase() === address || toV3Address(t.address).toLowerCase() === address,
+    const findToken = (address: string) => chainTokens.find((t) =>
+      t.address.toLowerCase() === address || toV3Address(t.address, wrappedNative).toLowerCase() === address,
     );
     const presetA = findToken(a);
     const presetB = findToken(b);
     if (!presetA || !presetB) return;
     appliedPair.current = true;
     setTokenA(presetA); setTokenB(presetB);
-  }, [presetPair, tokens]);
+  }, [chainTokens, presetPair, wrappedNative]);
 
   const canSearch = !!tokenA && !!tokenB && tokenA.address.toLowerCase() !== tokenB.address.toLowerCase();
 
   async function findPools() {
     if (!tokenA || !tokenB) return;
     setError(null);
-    setFound(null);
+    setFound([]);
     setSheetFee(null);
     setLoading(true);
+    setProgress(`Checking pools on ${chainName}…`);
     try {
-      const client = getPublicClient(config);
+      const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
       if (!client) throw new Error('No RPC client available');
+      const uniswapV3 = uniswapV3DeploymentForChain(chainId);
+      const uniswapV4 = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
 
       // Full-market pool discovery (GeckoTerminal + DexScreener) runs in
       // parallel with the on-chain probes — it finds pools on DEXes the
       // probes can't (Uniswap V2, SushiSwap, Balancer, …).
-      const externalP = searchMarketPools(toV3Address(tokenA.address), toV3Address(tokenB.address)).catch(() => []);
+      const externalP = searchMarketPools(
+        toV3Address(tokenA.address, wrappedNative),
+        toV3Address(tokenB.address, wrappedNative),
+        100,
+        networks,
+      )
+        .then(marketPools => {
+          setFound(current => mergeFoundPools(current ?? [], marketPoolRows(marketPools)));
+          if (marketPools.length > 0) setProgress(`Found ${marketPools.length} market pools · loading TVL and APR…`);
+          return marketPools;
+        })
+        .catch(() => []);
 
       // Compare across every protocol we can act on in one search, instead
       // of making the user re-run this per protocol tab. Real TVL/APR (and
@@ -305,25 +477,36 @@ export function SimulateScreen() {
       // genuine "no pool exists" — an RPC hiccup must never be presented as
       // the pair having no pool when we simply couldn't check.
       const checks: { label: string; run: () => Promise<FoundPool[]> }[] = [
-        { label: 'Uniswap V3', run: () => findV3Pools(client, 'uniswap-v3', tokenA, tokenB) },
-        { label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB) },
-        { label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB) },
+        ...(uniswapV3 ? [{ label: 'Uniswap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, uniswapV3, wrappedNative) }] : []),
+        { label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) },
+        { label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, PANCAKE_V3_DEPLOYMENT, wrappedNative) },
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
-        (v): { ok: true; pools: FoundPool[] } => ({ ok: true, pools: v }),
+        (v): { ok: true; pools: FoundPool[] } => {
+          setFound(current => mergeFoundPools(current ?? [], v));
+          if (v.length > 0) {
+            setProgress(`Found ${v.length} ${c.label} pool${v.length > 1 ? 's' : ''} · loading TVL and APR…`);
+          }
+          return { ok: true, pools: v };
+        },
         (e): { ok: false; error: Error } => ({ ok: false, error: e as Error }),
       )));
       const failedChecks = checks.filter((_, i) => !results[i].ok).map(c => c.label);
       const probed = results.flatMap(r => (r.ok ? r.pools : []));
+      setProgress(probed.length > 0 ? `Found ${probed.length} on-chain pools · loading TVL and APR…` : 'Checking market liquidity…');
 
       // No TVL floor — a pool we just confirmed exists on-chain should still
       // get its real (if small) TVL/APR rather than being silently dropped.
-      const earnPoolsRaw = await withRetry(() => getEarnPools(0, client)).catch(() => [] as EarnPool[]);
+      const earnPoolsRaw = chainId === 1
+        ? await withRetry(() => getEarnPools(0, client)).catch(() => [] as EarnPool[])
+        : [] as EarnPool[];
       // Same ±5%-range APR upgrade Discover applies — otherwise this table's
       // APR would be the (much lower, misleading) whole-pool figure for
       // indexer-sourced pools while Discover shows the range-adjusted one.
-      const earnPools = await addRangeAprs(client, earnPoolsRaw).catch(() => earnPoolsRaw);
-      const merged = mergeWithEarnPools(probed, earnPools, tokenA, tokenB);
+      const earnPools = chainId === 1
+        ? await addRangeAprs(client, earnPoolsRaw).catch(() => earnPoolsRaw)
+        : earnPoolsRaw;
+      const merged = mergeWithEarnPools(probed, earnPools, tokenA, tokenB, chainName);
 
       // DeFiLlama only indexes a subset of pools (PancakeSwap-on-Ethereum
       // especially sparsely) — for anything it missed, fall back to
@@ -334,7 +517,7 @@ export function SimulateScreen() {
       // rather than presented as the same metric.
       const needsData = merged.filter(f => (f.tvlUsd == null || f.apy == null) && f.address);
       if (needsData.length > 0) {
-        const stats = await fetchPoolStats(needsData.map(f => f.address!)).catch(() => ({} as Record<string, { tvlUsd: number; volume24hUsd: number; aprPct: number | null }>));
+        const stats = await fetchPoolStats(needsData.map(f => f.address!), networks.gecko).catch(() => ({} as Record<string, { tvlUsd: number; volume24hUsd: number; aprPct: number | null }>));
         for (const f of merged) {
           if (!f.address) continue;
           const s = stats[f.address.toLowerCase()];
@@ -357,8 +540,8 @@ export function SimulateScreen() {
       if (stillNeeds.length > 0) {
         const ids = stillNeeds.map(f => f.v4PoolId ?? f.address).filter((x): x is `0x${string}` => !!x);
         const [ds, dp] = await Promise.all([
-          fetchDexScreenerPools(ids).catch(() => ({} as Record<string, { tvlUsd: number; volume24hUsd: number }>)),
-          fetchDexPaprikaPools(ids).catch(() => ({} as Record<string, { tvlUsd: number; volume24hUsd: number }>)),
+          fetchDexScreenerPools(ids, networks.dexScreener).catch(() => ({} as Record<string, { tvlUsd: number; volume24hUsd: number }>)),
+          fetchDexPaprikaPools(ids, networks.dexPaprika).catch(() => ({} as Record<string, { tvlUsd: number; volume24hUsd: number }>)),
         ]);
         for (const f of merged) {
           const id = (f.v4PoolId ?? f.address)?.toLowerCase();
@@ -384,19 +567,7 @@ export function SimulateScreen() {
       const known = new Set(
         merged.flatMap(f => [f.address?.toLowerCase(), f.v4PoolId?.toLowerCase()]).filter(Boolean),
       );
-      for (const mp of marketPools) {
-        if (known.has(mp.address)) continue;   // already listed via the on-chain probe
-        merged.push({
-          protocol: 'uniswap-v3', // unused for external rows — label comes from `external`
-          feeTier: mp.feePct != null ? Math.round(mp.feePct * 1_000_000) : 0,
-          address: mp.address as `0x${string}`,
-          tvlUsd: mp.tvlUsd,
-          apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
-          aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 ? true : undefined,
-          fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
-          external: { dexLabel: mp.dexLabel, url: mp.url },
-        });
-      }
+      merged.push(...marketPoolRows(marketPools).filter(pool => !known.has(foundPoolKey(pool))));
 
       const pools = merged.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
 
@@ -408,8 +579,10 @@ export function SimulateScreen() {
         setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error) — results below may be incomplete. Try again to include them.`);
       }
       setFound(pools);
+      setProgress('Comparison complete');
     } catch (e) {
       setError(`Couldn't look up pools — ${(e as Error).message?.slice(0, 120)}`);
+      setProgress(null);
     } finally {
       setLoading(false);
     }
@@ -431,18 +604,28 @@ export function SimulateScreen() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 760 }}>
       <Glass padding={20} radius={22}>
-        <div style={{ color: btb.text, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Compare pools for a pair</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+          <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>Compare pools for a pair</div>
+          <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
+        </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick the two tokens — no pool address needed. We check Uniswap V3, Uniswap V4, and PancakeSwap V3 at once so you can compare fee tiers and versions side by side.
+          Pick two tokens on {chainName}. We check Uniswap V3, Uniswap V4, PancakeSwap V3, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-          <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={tokens} />
-          <TokenPickerButton label="Token 2" token={tokenB} onPick={t => { setTokenB(t); setFound(null); }} tokens={tokens} />
+          <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} />
+          <TokenPickerButton label="Token 2" token={tokenB} onPick={t => { setTokenB(t); setFound(null); }} tokens={chainTokens} />
         </div>
+        {loadingTokens && <div style={{ color: btb.textDim, fontSize: 11.5, margin: '-6px 0 10px' }}>Loading {chainName} tokens…</div>}
 
         <Button variant="success" size="md" onClick={findPools} disabled={!canSearch} loading={loading} style={{ borderRadius: 12 }}>
           {loading ? 'Comparing pools…' : 'Compare pools'}
         </Button>
+        {progress && (
+          <div aria-live="polite" style={{ marginTop: 10, color: loading ? btb.textMuted : btb.green, fontSize: 12, display: 'flex', alignItems: 'center', gap: 7 }}>
+            {loading && <span className="spin" style={{ width: 10, height: 10, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,.22)', borderTopColor: btb.text }} />}
+            {progress}
+          </div>
+        )}
 
         {error && (
           <div style={{ marginTop: 12, background: 'rgba(255,107,122,0.12)', border: '1px solid rgba(255,107,122,0.35)', borderRadius: 12, padding: '10px 14px', color: btb.loss, fontSize: 13 }}>
@@ -454,7 +637,7 @@ export function SimulateScreen() {
       {found && found.length > 0 && (
         <Glass padding={0} radius={22} style={{ overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px 4px', color: btb.text, fontSize: 14, fontWeight: 700 }}>
-            {found.length} pool{found.length > 1 ? 's' : ''} found for {tokenA?.symbol}/{tokenB?.symbol}
+            {found.length} pool{found.length > 1 ? 's' : ''} found{loading ? ' so far' : ''} for {tokenA?.symbol}/{tokenB?.symbol}
           </div>
           <div style={{ padding: '0 18px 10px', color: btb.textMuted, fontSize: 11.5 }}>
             Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
@@ -556,6 +739,10 @@ export function SimulateScreen() {
             fees24hUsd: sheetFee.fees24hUsd ?? (sheetFee.tvlUsd != null && sheetFee.apy != null ? (sheetFee.tvlUsd * sheetFee.apy) / 100 / 365 : undefined),
           }}
           siblings={(found ?? []).filter((f) => !f.external && f.protocol === sheetFee.protocol)}
+          chainId={chainId}
+          chainName={chainName}
+          wrappedNative={wrappedNative}
+          networks={networks}
           onClose={() => setSheetFee(null)}
         />
       )}

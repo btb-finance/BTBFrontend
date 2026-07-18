@@ -117,14 +117,14 @@ export async function fetchPoolChart(poolId: string): Promise<PoolChartPoint[]> 
  * Current USD prices for Ethereum mainnet tokens via DeFiLlama's keyless
  * coins API. Returns a map keyed by lowercase address; missing tokens omitted.
  */
-export async function getTokenPricesUsd(addresses: string[]): Promise<Record<string, number>> {
-  const keys = addresses.map((a) => `ethereum:${a.toLowerCase()}`);
+export async function getTokenPricesUsd(addresses: string[], chain = 'ethereum'): Promise<Record<string, number>> {
+  const keys = addresses.map((a) => `${chain}:${a.toLowerCase()}`);
   const res = await fetch(`https://coins.llama.fi/prices/current/${keys.join(',')}`);
   if (!res.ok) throw new Error(`llama prices ${res.status}`);
   const json = await res.json();
   const out: Record<string, number> = {};
   for (const a of addresses) {
-    const price = json?.coins?.[`ethereum:${a.toLowerCase()}`]?.price;
+    const price = json?.coins?.[`${chain}:${a.toLowerCase()}`]?.price;
     if (typeof price === 'number' && price > 0) out[a.toLowerCase()] = price;
   }
   return out;

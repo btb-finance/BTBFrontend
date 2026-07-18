@@ -37,7 +37,7 @@ function isNativeToken(address: string) {
 
 type ChainOption = { id: number; name: string };
 
-function ChainSelect({ chains, value, onChange, disabledId, small = false, ariaLabel }: {
+export function ChainSelect({ chains, value, onChange, disabledId, small = false, ariaLabel }: {
   chains: readonly ChainOption[];
   value: number;
   onChange: (chainId: number) => void;
