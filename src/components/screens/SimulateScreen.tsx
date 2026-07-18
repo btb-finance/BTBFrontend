@@ -44,6 +44,8 @@ type CrossChainPair = {
   tokenA: string;
   tokenB: string;
   label: string;
+  tokenAByChain?: Record<number, Token>;
+  tokenBByChain?: Record<number, Token>;
 };
 
 type CrossChainResearchResult = {
@@ -63,6 +65,7 @@ type ResearchTokenOption = {
   name: string;
   logoURI?: string;
   chainIds: number[];
+  tokensByChain?: Record<number, Token>;
 };
 
 const PROTOCOLS: { id: Protocol; label: string; dex: 'uniswap' | 'pancakeswap' }[] = [
@@ -268,15 +271,69 @@ function mergeWithEarnPools(probed: FoundPool[], earnPools: EarnPool[], tokenA: 
   return merged.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
 }
 
-function TokenPickerButton({ label, token, onPick, tokens }: {
-  label: string; token: Token | null; onPick: (t: Token) => void; tokens: Token[];
+async function readTokenMetadata(client: PublicClient, chainId: number, address: string): Promise<Token | null> {
+  if (!isAddress(address)) return null;
+  const tokenAddress = address.toLowerCase() as `0x${string}`;
+  try {
+    const [symbol, decimals, name] = await Promise.all([
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'symbol' }),
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'decimals' }),
+      client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'name' }).catch(() => ''),
+    ]);
+    if (!symbol?.trim()) return null;
+    return {
+      address: tokenAddress,
+      symbol: symbol.trim(),
+      name: name?.trim() || symbol.trim(),
+      decimals,
+      chainId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function TokenPickerButton({ label, token, onPick, tokens, onImportAddress }: {
+  label: string;
+  token: Token | null;
+  onPick: (t: Token) => void;
+  tokens: Token[];
+  onImportAddress?: (address: string) => Promise<Token | null>;
 }) {
   const { width: sidebarWidth } = useSidebar();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const pastedAddress = isAddress(q.trim()) ? q.trim().toLowerCase() : null;
+  const addressAlreadyListed = pastedAddress
+    ? tokens.some(candidate => candidate.address.toLowerCase() === pastedAddress)
+    : false;
   const filtered = q
-    ? tokens.filter(t => t.symbol.toLowerCase().includes(q.toLowerCase()) || t.name.toLowerCase().includes(q.toLowerCase()))
+    ? tokens.filter(t =>
+      t.symbol.toLowerCase().includes(q.toLowerCase())
+      || t.name.toLowerCase().includes(q.toLowerCase())
+      || t.address.toLowerCase().includes(q.toLowerCase())
+    )
     : tokens;
+
+  async function importAddress() {
+    if (!pastedAddress || !onImportAddress || importing) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const imported = await onImportAddress(pastedAddress);
+      if (!imported) {
+        setImportError('No ERC-20 contract found at this address on this chain.');
+        return;
+      }
+      onPick(imported);
+      setOpen(false);
+      setQ('');
+    } finally {
+      setImporting(false);
+    }
+  }
 
   return (
     <>
@@ -296,7 +353,7 @@ function TokenPickerButton({ label, token, onPick, tokens }: {
 
       {open && (
         <Portal>
-          <div onClick={() => setOpen(false)} style={{
+          <div onClick={() => { setOpen(false); setImportError(null); }} style={{
             position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 300,
             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto',
@@ -309,11 +366,21 @@ function TokenPickerButton({ label, token, onPick, tokens }: {
                 <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Select {label.toLowerCase()}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: btb.borderSoft, borderRadius: 14, padding: '10px 14px', marginBottom: 8 }}>
                   <Icon name="search" size={16} color={btb.textMuted} />
-                  <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search token…"
+                  <input autoFocus value={q} onChange={e => { setQ(e.target.value); setImportError(null); }} placeholder="Search name, symbol, or paste address…"
                     style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 15, fontFamily: 'inherit' }} />
                 </div>
               </div>
               <div style={{ overflowY: 'auto', padding: '0 12px 20px' }}>
+                {pastedAddress && onImportAddress && !addressAlreadyListed && (
+                  <button type="button" disabled={importing} onClick={importAddress} style={{
+                    width: '100%', minHeight: 48, marginBottom: 5, borderRadius: 13, border: '1px solid rgba(82,227,164,.3)',
+                    background: 'rgba(82,227,164,.08)', color: btb.green, padding: '8px 11px', cursor: importing ? 'wait' : 'pointer',
+                    fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, textAlign: 'left',
+                  }}>
+                    {importing ? 'Checking this chain…' : `Find ${pastedAddress.slice(0, 8)}…${pastedAddress.slice(-6)} on this chain`}
+                  </button>
+                )}
+                {importError && <div style={{ color: btb.loss, fontSize: 11, padding: '4px 8px 9px' }}>{importError}</div>}
                 {filtered.slice(0, 200).map(t => (
                   <div key={t.address} onClick={() => { onPick(t); setOpen(false); setQ(''); }} style={{
                     display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderRadius: 14, cursor: 'pointer',
@@ -325,7 +392,7 @@ function TokenPickerButton({ label, token, onPick, tokens }: {
                     </div>
                   </div>
                 ))}
-                {filtered.length === 0 && <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center', padding: 24 }}>No tokens found</div>}
+                {filtered.length === 0 && !pastedAddress && <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center', padding: 24 }}>No tokens found</div>}
               </div>
             </div>
           </div>
@@ -413,22 +480,60 @@ function resolveCrossChainToken(catalog: Token[], chainId: number, symbol: strin
   })[0];
 }
 
-function ResearchTokenPicker({ label, selected, options, selectedChainCount, loading, disabled, onSelect }: {
+function ResearchTokenPicker({ label, selected, options, selectedChainIds, loading, disabled, onSelect }: {
   label: string;
   selected: ResearchTokenOption | null;
   options: ResearchTokenOption[];
-  selectedChainCount: number;
+  selectedChainIds: number[];
   loading: boolean;
   disabled: boolean;
   onSelect: (token: ResearchTokenOption) => void;
 }) {
+  const config = useConfig();
   const { width: sidebarWidth } = useSidebar();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const selectedChainCount = selectedChainIds.length;
   const normalizedQuery = query.trim().toLowerCase();
+  const pastedAddress = isAddress(query.trim()) ? query.trim().toLowerCase() as `0x${string}` : null;
   const filtered = normalizedQuery
     ? options.filter(token => token.symbol.toLowerCase().includes(normalizedQuery) || token.name.toLowerCase().includes(normalizedQuery))
     : options;
+
+  async function importAddress() {
+    if (!pastedAddress || importing) return;
+    setImporting(true);
+    setImportError(null);
+    try {
+      const found = (await Promise.all(selectedChainIds.map(async (selectedChainId): Promise<Token | null> => {
+        const client = getPublicClient(config, { chainId: selectedChainId as SupportedChainId });
+        return client ? readTokenMetadata(client, selectedChainId, pastedAddress) : null;
+      }))).filter((token): token is Token => token != null);
+      if (found.length === 0) {
+        setImportError('No ERC-20 contract found at this address on the selected chains.');
+        return;
+      }
+
+      const reference = found[0];
+      const matching = found.filter(token =>
+        token.symbol.toUpperCase() === reference.symbol.toUpperCase()
+        && token.decimals === reference.decimals
+      );
+      const tokensByChain = Object.fromEntries(matching.map(token => [token.chainId!, token]));
+      onSelect({
+        symbol: reference.symbol.toUpperCase(),
+        name: reference.name,
+        chainIds: matching.map(token => token.chainId!),
+        tokensByChain,
+      });
+      setOpen(false);
+      setQuery('');
+    } finally {
+      setImporting(false);
+    }
+  }
 
   return (
     <>
@@ -452,7 +557,7 @@ function ResearchTokenPicker({ label, selected, options, selectedChainCount, loa
 
       {open && (
         <Portal>
-          <div onClick={() => { setOpen(false); setQuery(''); }} style={{
+          <div onClick={() => { setOpen(false); setQuery(''); setImportError(null); }} style={{
             position: 'fixed', inset: 0, left: sidebarWidth, zIndex: 320, background: 'rgba(0,0,0,.64)',
             backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '32px 18px', overflowY: 'auto',
@@ -463,10 +568,20 @@ function ResearchTokenPicker({ label, selected, options, selectedChainCount, loa
                 <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>{options.length.toLocaleString()} token symbols across {selectedChainCount} selected chain{selectedChainCount === 1 ? '' : 's'}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, borderRadius: 13, border: btb.borderSoft, background: btb.surfaceSoft, padding: '0 12px' }}>
                   <Icon name="search" size={15} color={btb.textMuted}/>
-                  <input autoFocus aria-label={`Search ${label.toLowerCase()}`} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name or symbol…" style={{ height: 42, flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 13 }}/>
+                  <input autoFocus aria-label={`Search ${label.toLowerCase()}`} value={query} onChange={event => { setQuery(event.target.value); setImportError(null); }} placeholder="Search name, symbol, or paste address…" style={{ height: 42, flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 13 }}/>
                 </div>
               </div>
               <div style={{ overflowY: 'auto', padding: '0 10px 16px' }}>
+                {pastedAddress && (
+                  <button type="button" disabled={importing} onClick={importAddress} style={{
+                    width: '100%', minHeight: 48, marginBottom: 5, borderRadius: 13, border: '1px solid rgba(82,227,164,.3)',
+                    background: 'rgba(82,227,164,.08)', color: btb.green, padding: '8px 11px', cursor: importing ? 'wait' : 'pointer',
+                    fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, textAlign: 'left',
+                  }}>
+                    {importing ? `Checking ${selectedChainCount} chains…` : `Find ${pastedAddress.slice(0, 8)}…${pastedAddress.slice(-6)} on selected chains`}
+                  </button>
+                )}
+                {importError && <div style={{ color: btb.loss, fontSize: 11, padding: '4px 8px 9px' }}>{importError}</div>}
                 {filtered.slice(0, 250).map(token => (
                   <button key={token.symbol} type="button" onClick={() => { onSelect(token); setOpen(false); setQuery(''); }} style={{
                     width: '100%', minHeight: 52, border: 0, borderRadius: 13, background: selected?.symbol === token.symbol ? 'rgba(82,227,164,.08)' : 'transparent',
@@ -592,7 +707,14 @@ function CrossChainResearch({ chains, isMobile }: {
       setPairError(`${tokenA} / ${tokenB} is already selected.`);
       return;
     }
-    setPairs(current => [...current, { id, tokenA, tokenB, label: `${tokenA} / ${tokenB}` }]);
+    setPairs(current => [...current, {
+      id,
+      tokenA,
+      tokenB,
+      label: `${tokenA} / ${tokenB}`,
+      tokenAByChain: pairTokenA.tokensByChain,
+      tokenBByChain: pairTokenB.tokensByChain,
+    }]);
     setPairTokenA(null);
     setPairTokenB(null);
     setPairError(null);
@@ -649,8 +771,12 @@ function CrossChainResearch({ chains, isMobile }: {
         updateResult(task.key, { status: 'loading', message: 'Resolving local token addresses…' });
         try {
           const catalog = await loadCatalog(task.chainId);
-          const tokenA = resolveCrossChainToken(catalog, task.chainId, task.pair.tokenA);
-          const tokenB = resolveCrossChainToken(catalog, task.chainId, task.pair.tokenB);
+          const tokenA = task.pair.tokenAByChain
+            ? task.pair.tokenAByChain[task.chainId] ?? null
+            : resolveCrossChainToken(catalog, task.chainId, task.pair.tokenA);
+          const tokenB = task.pair.tokenBByChain
+            ? task.pair.tokenBByChain[task.chainId] ?? null
+            : resolveCrossChainToken(catalog, task.chainId, task.pair.tokenB);
           if (!tokenA || !tokenB) {
             const missing = [!tokenA && task.pair.tokenA, !tokenB && task.pair.tokenB].filter(Boolean).join(' and ');
             updateResult(task.key, {
@@ -747,8 +873,8 @@ function CrossChainResearch({ chains, isMobile }: {
 
         <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, marginTop: 18, marginBottom: 9 }}>Your pairs</div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr auto', gap: 8 }}>
-          <ResearchTokenPicker label="First token" selected={pairTokenA} options={pairTokenOptions} selectedChainCount={selectedChains.length} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenA(token); setPairError(null); }}/>
-          <ResearchTokenPicker label="Second token" selected={pairTokenB} options={pairTokenOptions} selectedChainCount={selectedChains.length} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenB(token); setPairError(null); }}/>
+          <ResearchTokenPicker label="First token" selected={pairTokenA} options={pairTokenOptions} selectedChainIds={selectedChains} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenA(token); setPairError(null); }}/>
+          <ResearchTokenPicker label="Second token" selected={pairTokenB} options={pairTokenOptions} selectedChainIds={selectedChains} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenB(token); setPairError(null); }}/>
           <button type="button" disabled={researching || !pairTokenA || !pairTokenB} onClick={addPair} style={{
             height: 48, gridColumn: isMobile ? '1 / -1' : undefined, borderRadius: 12, border: '1px solid rgba(82,227,164,.32)',
             background: 'rgba(82,227,164,.09)', color: btb.green, padding: '0 15px', cursor: researching || !pairTokenA || !pairTokenB ? 'default' : 'pointer',
@@ -975,6 +1101,11 @@ export function SimulateScreen() {
     window.history.replaceState(null, '', `/simulate?${params.toString()}`);
   }
 
+  async function importSingleChainToken(address: string): Promise<Token | null> {
+    const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
+    return client ? readTokenMetadata(client, chainId, address) : null;
+  }
+
   // Discover links here with the pool's exact underlying-token addresses.
   // Some discovered assets are not in our curated picker, so resolve missing
   // metadata from the selected chain before starting the comparison.
@@ -1009,25 +1140,7 @@ export function SimulateScreen() {
       if (!isAddress(address)) return null;
 
       const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
-      if (!client) return null;
-      const tokenAddress = normalized as `0x${string}`;
-      try {
-        const [symbol, decimals, name] = await Promise.all([
-          client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'symbol' }),
-          client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'decimals' }),
-          client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'name' }).catch(() => ''),
-        ]);
-        if (!symbol) return null;
-        return {
-          address: normalized,
-          symbol,
-          name: name || symbol,
-          decimals,
-          chainId,
-        };
-      } catch {
-        return null;
-      }
+      return client ? readTokenMetadata(client, chainId, normalized) : null;
     }
 
     void Promise.all([resolveToken(a), resolveToken(b)]).then(([presetA, presetB]) => {
@@ -1236,8 +1349,8 @@ export function SimulateScreen() {
           Pick two tokens on {chainName}. We check Uniswap V3, Uniswap V4, PancakeSwap V3, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-          <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} />
-          <TokenPickerButton label="Token 2" token={tokenB} onPick={t => { setTokenB(t); setFound(null); }} tokens={chainTokens} />
+          <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
+          <TokenPickerButton label="Token 2" token={tokenB} onPick={t => { setTokenB(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
         </div>
         {loadingTokens && <div style={{ color: btb.textDim, fontSize: 11.5, margin: '-6px 0 10px' }}>Loading {chainName} tokens…</div>}
 
