@@ -12,11 +12,15 @@ type LifiToken = {
 };
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const TOKEN_CATALOG_VARY = { 'Netlify-Vary': 'query=chainId' };
 
 export async function GET(request: Request) {
   const chainId = Number(new URL(request.url).searchParams.get('chainId'));
   if (!Number.isInteger(chainId) || !KYBER_CHAINS[chainId]) {
-    return Response.json({ error: 'Unsupported swap network', tokens: [] }, { status: 400 });
+    return Response.json(
+      { error: 'Unsupported swap network', tokens: [] },
+      { status: 400, headers: TOKEN_CATALOG_VARY },
+    );
   }
 
   try {
@@ -46,9 +50,15 @@ export async function GET(request: Request) {
       }];
     });
     return Response.json({ tokens }, {
-      headers: { 'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400' },
+      headers: {
+        ...TOKEN_CATALOG_VARY,
+        'cache-control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      },
     });
   } catch {
-    return Response.json({ error: 'Token catalog unavailable', tokens: [] }, { status: 502 });
+    return Response.json(
+      { error: 'Token catalog unavailable', tokens: [] },
+      { status: 502, headers: TOKEN_CATALOG_VARY },
+    );
   }
 }
