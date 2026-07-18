@@ -24,6 +24,7 @@ import { CreatePosition } from '../CreatePosition';
 import { useSidebar } from '../../lib/SidebarContext';
 import { CHAIN_META } from '../../lib/wagmi';
 import { useChainTheme } from '../../lib/ChainThemeContext';
+import { KYBER_CHAINS } from '../../lib/kyberswap';
 
 /** Fee-based estimate used when the indexer doesn't report real 24h fees (DeFiLlama-sourced rows). */
 function estFees24h(p: EarnPool): number {
@@ -46,6 +47,13 @@ function discoverChainId(name: string, explicitId?: number): number | undefined 
   return Number(Object.entries(CHAIN_META).find(([, meta]) =>
     meta.name.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized
   )?.[0]) || undefined;
+}
+
+function canSimulatePool(pool: EarnPool): boolean {
+  const chainId = discoverChainId(pool.chain, pool.chainId);
+  const pair = pool.underlyingTokens;
+  return !!chainId && !!KYBER_CHAINS[chainId] && !!pair?.[0] && !!pair[1]
+    && isAddress(pair[0]) && isAddress(pair[1]);
 }
 
 function ChainMark({ chainId, size }: { chainId?: number; size: number }) {
@@ -325,10 +333,6 @@ export function DiscoverScreen() {
   const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
   const hasVolumeData = pools.some(p => p.volume24hUsd != null);
   const openSimulator = (pool: EarnPool) => {
-    if (pool.chainId === 4663 || pool.chain === 'Robinhood Chain') {
-      setSheet({ pool, simulate: true });
-      return;
-    }
     const pair = pool.underlyingTokens;
     // The simulator owns pair comparison. Pass the exact addresses so its
     // token pickers are pre-filled rather than opening a separate mini-sheet.
@@ -426,7 +430,7 @@ export function DiscoverScreen() {
       key: 'actions', label: '', align: 'right', width: '210px',
       render: p => {
         const mintable = mintTarget(p) !== null;
-        const simulatable = mintTarget(p, true) !== null;
+        const simulatable = canSimulatePool(p);
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
             {mintable && (
@@ -492,7 +496,7 @@ export function DiscoverScreen() {
             const [addr0, addr1] = p.underlyingTokens ?? [];
             const pct = p.apyChange1d ?? priceChange[p.id];
             const mintable = mintTarget(p) !== null;
-            const simulatable = mintTarget(p, true) !== null;
+            const simulatable = canSimulatePool(p);
             return (
               <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? openPool(p, false) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -564,8 +568,8 @@ export function DiscoverScreen() {
             loading={loading}
             emptyMessage="No pools found"
             defaultSortKey="tvl"
-            onRowClick={p => mintTarget(p, true)
-              ? openPool(p, mintTarget(p) === null)
+            onRowClick={p => canSimulatePool(p)
+              ? openSimulator(p)
               : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
           />
         </div>
