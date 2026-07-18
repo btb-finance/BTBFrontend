@@ -29,6 +29,13 @@ export default defineSchema({
     updatedAt: v.float64(),
   }),
 
+  // Robinhood market feed, refreshed once server-side and read by every
+  // Dashboard visitor without repeating the explorer/DexScreener scan.
+  marketSnapshots: defineTable({
+    json: v.string(),
+    updatedAt: v.float64(),
+  }),
+
   // Prices refreshed every 5 min via cron
   tokenPrices: defineTable({
     address: v.string(),

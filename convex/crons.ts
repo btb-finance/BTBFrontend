@@ -17,6 +17,10 @@ if (process.env.DISABLE_CRONS !== "1") {
   // instead of running the slow multi-API pipeline per visitor
   crons.interval("refresh discover pools", { hours: 1 }, internal.discoverRefresh.refresh);
 
+  // One shared hourly snapshot replaces every visitor polling the explorer
+  // and DexScreener independently, keeping Convex/upstream usage bounded.
+  crons.interval("refresh dashboard markets", { hours: 1 }, internal.marketsRefresh.refresh);
+
   // Verify managed LP custody, policy and live range on-chain. This queues
   // work only; the restricted smart account remains the security boundary.
   crons.interval("monitor managed LP ranges", { minutes: 1 }, internal.managedPositionMonitor.check);

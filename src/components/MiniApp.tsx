@@ -29,6 +29,7 @@ import { btb } from './design-tokens';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
+import { useMarketFeed } from '../lib/marketFeed';
 
 function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   effectiveAddress?: string;
@@ -53,6 +54,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
   const { isMobile } = useSidebar();
   const config = useConfig();
+  const marketFeed = useMarketFeed();
 
   // Warm the heavy tab data (Discover pools, Yearn vaults) in the background
   // right after the shell mounts, so those tabs open instantly instead of
@@ -107,7 +109,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
   const content = (() => {
     switch (screen) {
-      case 'home':      return <HomeScreen goto={goto} address={effectiveAddress}
+      case 'home':      return <HomeScreen goto={goto} marketFeed={marketFeed} address={effectiveAddress}
                           onDisconnect={handleLeave}
                           onReceive={requireWallet(() => setShowReceive(true))} onSend={requireWallet(() => setShowSend(true))}
                           onDocs={() => openOverlay('docs')} onEarn={() => openOverlay('earn')}

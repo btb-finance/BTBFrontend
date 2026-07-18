@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isAddress } from 'viem';
 import { Badge } from '../Badge';
 import { Glass } from '../Glass';
@@ -10,7 +10,7 @@ import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { type Tab } from '../types';
 import { useSidebar } from '../../lib/SidebarContext';
-import { fetchMarketFeed, type MarketToken } from '../../lib/marketFeed';
+import type { MarketFeedData, MarketToken } from '../../lib/marketFeed';
 
 type MarketView = 'trending' | 'new' | 'top' | 'all';
 
@@ -51,8 +51,9 @@ const marketButton = (tone: 'buy' | 'sell') => ({
   cursor: 'pointer',
 } as const);
 
-export function HomeScreen({ address, onConnectWallet }: {
+export function HomeScreen({ address, onConnectWallet, marketFeed }: {
   goto: (t: Tab) => void;
+  marketFeed: MarketFeedData;
   address?: string;
   onDisconnect?: () => void;
   onReceive?: () => void;
@@ -62,30 +63,13 @@ export function HomeScreen({ address, onConnectWallet }: {
   onConnectWallet?: () => void;
 }) {
   const { isMobile } = useSidebar();
-  const [markets, setMarkets] = useState<MarketToken[]>([]);
+  const { markets, updatedAt, loading, error } = marketFeed;
   const [view, setView] = useState<MarketView>('trending');
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [visible, setVisible] = useState(30);
   const [presets, setPresets] = useState<TradePreset[]>([]);
   const [tradeStatus, setTradeStatus] = useState<TradeStatus | null>(null);
   const presetMeta = useRef(new Map<string, { address: string; side: 'buy' | 'sell' }>());
-
-  const load = useCallback(async (background = false) => {
-    background ? setRefreshing(true) : setLoading(true);
-    setError(null);
-    try { setMarkets(await fetchMarketFeed()); }
-    catch { setError('Live markets could not be loaded. Try again in a moment.'); }
-    finally { setLoading(false); setRefreshing(false); }
-  }, []);
-
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(true), 45_000);
-    return () => window.clearInterval(timer);
-  }, [load]);
 
   useEffect(() => { setVisible(30); }, [query, view]);
 
@@ -160,7 +144,9 @@ export function HomeScreen({ address, onConnectWallet }: {
           </div>
           <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 4 }}>Discover a token, then buy or sell from your guarded smart account.</div>
         </div>
-        <button onClick={() => void load(true)} disabled={refreshing} style={{ height: 32, padding: '0 11px', borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.textMuted, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 750, cursor: refreshing ? 'default' : 'pointer' }}>{refreshing ? 'Updating…' : 'Refresh'}</button>
+        <span style={{ height: 32, padding: '0 11px', borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.textMuted, display: 'inline-flex', alignItems: 'center', fontSize: 10.5, fontWeight: 750 }}>
+          {updatedAt ? `Updated ${age(updatedAt)} ago` : 'Convex snapshot'}
+        </span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(3,minmax(130px,1fr))', gap: 7, marginTop: 13 }}>
