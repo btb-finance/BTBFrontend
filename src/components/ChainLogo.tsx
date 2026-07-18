@@ -9,6 +9,9 @@ export function ChainLogo({ chainId, size = 22 }: { chainId: number; size?: numb
       aria-hidden="true"
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
       style={{
         width: size,
         height: size,
