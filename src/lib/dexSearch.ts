@@ -22,6 +22,11 @@ export interface MarketPool {
   url: string;              // pool page on DexScreener
 }
 
+export interface MarketPoolNetworks {
+  gecko: string;
+  dexScreener: string;
+}
+
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
@@ -45,10 +50,15 @@ export function prettyDexLabel(dexId: string): string {
  * All pools for a token (tokenB omitted) or an exact pair (tokenB given).
  * Dust pools under `minTvlUsd` are dropped as noise.
  */
-export async function searchMarketPools(tokenAAddress: string, tokenBAddress?: string, minTvlUsd = 100): Promise<MarketPool[]> {
+export async function searchMarketPools(
+  tokenAAddress: string,
+  tokenBAddress?: string,
+  minTvlUsd = 100,
+  networks: MarketPoolNetworks = { gecko: 'eth', dexScreener: 'ethereum' },
+): Promise<MarketPool[]> {
   const [gt, ds] = await Promise.all([
-    searchPairPools(tokenAAddress, tokenBAddress).catch(() => []),
-    fetchDexScreenerPairPools(tokenAAddress, tokenBAddress).catch(() => []),
+    searchPairPools(tokenAAddress, tokenBAddress, networks.gecko).catch(() => []),
+    fetchDexScreenerPairPools(tokenAAddress, tokenBAddress, networks.dexScreener).catch(() => []),
   ]);
 
   type Raw = { address: string; dexId: string; name: string; tvlUsd: number; volume24hUsd: number; fee: number | null };
@@ -86,7 +96,7 @@ export async function searchMarketPools(tokenAAddress: string, tokenBAddress?: s
       tvlUsd: r.tvlUsd,
       volume24hUsd: r.volume24hUsd,
       aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null,
-      url: `https://dexscreener.com/ethereum/${r.address}`,
+      url: `https://dexscreener.com/${networks.dexScreener}/${r.address}`,
     });
   }
   out.sort((a, b) => b.tvlUsd - a.tvlUsd);

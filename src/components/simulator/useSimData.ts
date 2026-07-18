@@ -13,8 +13,9 @@ import { useEffect, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import {
-  fetchPoolsForMint, fetchV4PoolForMint, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
-  WETH, UNISWAP_V3_DEPLOYMENT, isNativeCurrency,
+  fetchKnownV3Pool, fetchPoolsForMint, fetchV4PoolForMint, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
+  uniswapV3DeploymentForChain,
+  UNISWAP_V4, ROBINHOOD_UNISWAP_V4, isNativeCurrency,
   type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
@@ -22,9 +23,19 @@ import { getTokenPricesUsd } from '../../lib/defillama';
 import { fetchPoolDailyHistory } from '../../lib/geckoterminal';
 import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
+import type { SupportedChainId } from '../../lib/wagmi';
+import type { ChainDataNetwork } from '../../lib/chainDataNetworks';
 
-function toV3Address(address: string): `0x${string}` {
-  return (address.toLowerCase() === 'eth' ? WETH : address) as `0x${string}`;
+function toV3Address(address: string, wrappedNative: `0x${string}`): `0x${string}` {
+  return (address.toLowerCase() === 'eth' ? wrappedNative : address) as `0x${string}`;
+}
+
+async function retryRead<T>(read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch {
+    return read();
+  }
 }
 
 export interface SimPools {
@@ -40,6 +51,10 @@ export function useSimPools(
   tokenB: string | undefined,
   v4PoolId: `0x${string}` | undefined,
   dex: 'uniswap' | 'pancakeswap',
+  chainId: number,
+  wrappedNative: `0x${string}`,
+  selectedPoolAddress?: `0x${string}`,
+  selectedFee?: number,
 ): SimPools {
   const config = useConfig();
   const [pools, setPools] = useState<Record<number, MintPool> | null>(null);
@@ -50,21 +65,29 @@ export function useSimPools(
   useEffect(() => {
     let live = true;
     setLoading(true); setPools(null); setError(null);
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
     if (!client) { setLoading(false); setError('No RPC client'); return; }
-    const deployment = dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+    const deployment = dex === 'pancakeswap'
+      ? PANCAKE_V3_DEPLOYMENT
+      : uniswapV3DeploymentForChain(chainId);
+    const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+    const token0 = tokenA ? toV3Address(tokenA, wrappedNative) : undefined;
+    const token1 = tokenB ? toV3Address(tokenB, wrappedNative) : undefined;
     const run = v4PoolId
-      ? fetchV4PoolForMint(client, v4PoolId).then((p) => ({ [p.fee]: p as MintPool }))
-      : tokenA && tokenB
-        ? fetchPoolsForMint(client, toV3Address(tokenA), toV3Address(tokenB), deployment)
-        : Promise.reject(new Error('Missing token pair'));
+      ? fetchV4PoolForMint(client, v4PoolId, v4Deployment).then((p) => ({ [p.fee]: p as MintPool }))
+      : token0 && token1 && deployment
+        ? selectedPoolAddress && selectedFee != null
+          ? retryRead(() => fetchKnownV3Pool(client, selectedPoolAddress, token0, token1, selectedFee))
+              .then(selected => ({ [selected.fee]: selected }))
+          : fetchPoolsForMint(client, token0, token1, deployment)
+        : Promise.reject(new Error(deployment ? 'Missing token pair' : 'Uniswap V3 is not deployed on this chain'));
     run
       .then((record) => { if (live) setPools(record); })
       .catch((e: Error) => { if (live) setError(e?.message ?? 'network error'); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, tokenA, tokenB, v4PoolId, dex, nonce]);
+  }, [config, tokenA, tokenB, v4PoolId, dex, chainId, wrappedNative, selectedPoolAddress, selectedFee, nonce]);
 
   return { pools, loading, error, retry: () => setNonce((n) => n + 1) };
 }
@@ -85,6 +108,9 @@ export function usePoolExtras(
   v4PoolId: `0x${string}` | undefined,
   dex: 'uniswap' | 'pancakeswap',
   spacing: number,
+  chainId: number,
+  wrappedNative: `0x${string}`,
+  networks: ChainDataNetwork,
 ): PoolExtras {
   const config = useConfig();
   const [history, setHistory] = useState<PoolDay[] | null>(null);
@@ -98,14 +124,14 @@ export function usePoolExtras(
     if (!pool || !pool.exists) return;
     const price = ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1);
 
-    if (hasGraphKey && !isV4) {
+    if (chainId === 1 && hasGraphKey && !isV4) {
       getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
         .then((h) => { if (live && h.length > 1) setHistory(h); })
         .catch(() => {});
     } else {
       const chartId = isV4 ? v4PoolId : pool.address;
       if (chartId) {
-        fetchPoolDailyHistory(chartId, 30)
+        fetchPoolDailyHistory(chartId, 30, networks.gecko)
           .then((bars) => {
             if (!live || bars.length < 2) return;
             const last = bars[bars.length - 1].close;
@@ -116,32 +142,39 @@ export function usePoolExtras(
       }
     }
 
-    const priceToken0 = isNativeCurrency(pool.token0) ? WETH : pool.token0;
-    getTokenPricesUsd([priceToken0, pool.token1])
+    const priceToken0 = isNativeCurrency(pool.token0) ? wrappedNative : pool.token0;
+    getTokenPricesUsd([priceToken0, pool.token1], networks.llama)
       .then((p) => {
         if (!live) return;
-        if (priceToken0 !== pool.token0 && p[WETH.toLowerCase()]) p[pool.token0.toLowerCase()] = p[WETH.toLowerCase()];
+        if (priceToken0 !== pool.token0 && p[wrappedNative.toLowerCase()]) p[pool.token0.toLowerCase()] = p[wrappedNative.toLowerCase()];
         setUsd(p);
       })
       .catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, isV4, dex]);
+  }, [pool, isV4, dex, chainId, wrappedNative, networks.gecko, networks.llama, v4PoolId]);
 
   useEffect(() => {
     let live = true;
     setTickLiq(null);
     if (!pool || !pool.exists) return;
-    const client = getPublicClient(config);
+    const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
     if (!client) return;
     const v4Pool = isV4 ? (pool as V4MintPool) : null;
     const fetcher = v4Pool
-      ? fetchV4TickLiquidityDistribution(client, v4Pool.poolId, pool.tick, pool.liquidity, spacing)
+      ? fetchV4TickLiquidityDistribution(
+          client,
+          v4Pool.poolId,
+          pool.tick,
+          pool.liquidity,
+          spacing,
+          chainId === 4663 ? ROBINHOOD_UNISWAP_V4.stateView : UNISWAP_V4.stateView,
+        )
       : fetchTickLiquidityDistribution(client, pool.address, pool.tick, pool.liquidity, spacing);
     fetcher.then((pts) => { if (live && pts.length > 0) setTickLiq(pts); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, pool, isV4, spacing]);
+  }, [config, pool, isV4, spacing, chainId]);
 
   // Derived USD pair with pool-price backfill for a missing side.
   const price = pool && pool.exists ? ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1) : 0;

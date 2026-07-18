@@ -19,22 +19,57 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
-  fmtFeeTier, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
+  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
   ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { fetchOwnedNftTokenIds, fetchRobinhoodOwnedNftTokenIds } from '../lib/alchemy';
+import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
 import { getSmartAccountDeployment } from '../lib/smartAccount';
 import {
-  fetchKrystalLp,
-  type KrystalLpResponse,
   type KrystalPositionAnalytics,
   type KrystalTokenAmount,
 } from '../lib/krystal';
+import { getCachedLpPositions, setCachedLpPositions, useKrystalLp } from '../lib/appData';
+import { ChainLogo } from './ChainLogo';
+
+const fmtPrice = (v: number) => !Number.isFinite(v) || v === 0 || v >= 1e12 ? '∞'
+  : v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : v.toPrecision(5);
+
+/** Price range, current price, and a position-of-price bar for one position. */
+function RangeDetails({ p, compact }: { p: LiquidityPosition; compact?: boolean }) {
+  const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
+  const pLow = tickToPrice(p.tickLower, p.decimals0, p.decimals1);
+  const pHigh = tickToPrice(p.tickUpper, p.decimals0, p.decimals1);
+  const pNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
+  return (
+    <div style={{ minWidth: compact ? undefined : 150 }}>
+      <div style={{ color: btb.textMuted, fontSize: compact ? 11.5 : 11, whiteSpace: 'nowrap' }}>
+        {fullRange ? 'Full range' : <>{fmtPrice(pLow)} to {fmtPrice(pHigh)}</>}
+        <span style={{ color: btb.textDim }}> {p.symbol1} per {p.symbol0}</span>
+      </div>
+      <div style={{ color: btb.textDim, fontSize: compact ? 11 : 10.5, marginTop: 2, whiteSpace: 'nowrap' }}>
+        now {fmtPrice(pNow)} {p.symbol1}
+      </div>
+      {!fullRange && p.tickUpper > p.tickLower && (
+        <div style={{ position: 'relative', height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.09)', marginTop: 6 }}>
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0, left: '15%', right: '15%', borderRadius: 999,
+            background: p.inRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,179,107,0.35)',
+          }}/>
+          <div style={{
+            position: 'absolute', top: -2.5, width: 2, height: 10, borderRadius: 2, background: '#fff',
+            left: `${Math.max(2, Math.min(98, 15 + 70 * (p.currentTick - p.tickLower) / (p.tickUpper - p.tickLower)))}%`,
+          }}/>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -65,6 +100,14 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
 };
+
+function LpChainLogo({ chainId, chainName }: { chainId: number; chainName: string }) {
+  return (
+    <span title={chainName} aria-label={chainName} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+      <ChainLogo chainId={chainId} size={17}/>
+    </span>
+  );
+}
 
 function sumKrystalUsd(items?: KrystalTokenAmount[]): number {
   return (items ?? []).reduce((sum, item) => sum + (item.quotes?.usd?.value ?? 0), 0);
@@ -122,20 +165,27 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const [automate, setAutomate] = useState<LiquidityPosition | null>(null);
   const [automationRefresh, setAutomationRefresh] = useState(0);
   const [usd, setUsd] = useState<Record<string, number>>({});
-  const [krystal, setKrystal] = useState<KrystalLpResponse | null>(null);
-  const [krystalLoading, setKrystalLoading] = useState(false);
+
   const [showClosedHistory, setShowClosedHistory] = useState(false);
   // TokenStore prices cover tokens DeFiLlama doesn't index (BTB, small caps) —
   // read through a ref so balance refreshes don't retrigger the price effect.
   const { tokens: storeTokens, walletAddress } = useTokenStore();
   const address = walletAddress ?? connectedAddress;
+  // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
+  const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
+  const krystal = krystalData ?? null;
   const canTransact = !!connectedAddress && !!address && connectedAddress.toLowerCase() === address.toLowerCase();
   const storeTokensRef = useRef(storeTokens);
   storeTokensRef.current = storeTokens;
 
+  const positionsRef = useRef<LiquidityPosition[]>([]);
+
   const load = useCallback(async () => {
     if (!address) { setPositions([]); return; }
-    setLoading(true);
+    // A previous full snapshot renders instantly; the refresh runs silently.
+    const cached = getCachedLpPositions(address);
+    if (cached && positionsRef.current.length === 0) setPositions(cached);
+    setLoading(!cached);
     try {
       const client = getPublicClient(config, { chainId: 1 });
       const robinhoodClient = getPublicClient(config, { chainId: 4663 });
@@ -160,10 +210,14 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       // Each protocol renders as soon as it resolves and degrades
       // independently — a slow/failing V4 log scan can't hold up the V3 list.
       const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum') => (items: LiquidityPosition[]) =>
-        setPositions((prev) => [
-          ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId),
-          ...items.map((p) => ({ ...p, chainId, chainName })),
-        ]);
+        setPositions((prev) => {
+          const next = [
+            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId),
+            ...items.map((p) => ({ ...p, chainId, chainName })),
+          ];
+          positionsRef.current = next;
+          return next;
+        });
       await Promise.allSettled([
         fetchV3Positions(client, address as `0x${string}`, undefined, idsFor(UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3')),
         fetchV4Positions(client, address as `0x${string}`, idsFor(UNISWAP_V4.positionManager)).then(merge('uniswap-v4')),
@@ -173,25 +227,13 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           fetchV4Positions(robinhoodClient, address as `0x${string}`, robinhoodIdsFor(ROBINHOOD_UNISWAP_V4.positionManager), ROBINHOOD_UNISWAP_V4, 0n).then(merge('uniswap-v4', 4663, 'Robinhood Chain')),
         ] : []),
       ]);
+      setCachedLpPositions(address, positionsRef.current);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
   }, [address, config]);
 
   useEffect(() => { load(); }, [load]);
-
-  // Optional cost-basis/history enrichment. Failure never hides or changes the
-  // on-chain position list and never affects transaction construction.
-  useEffect(() => {
-    let live = true;
-    setKrystal(null);
-    setKrystalLoading(!!address);
-    if (!address) return;
-    fetchKrystalLp(address)
-      .then(data => { if (live) setKrystal(data); })
-      .catch(() => {})
-      .finally(() => { if (live) setKrystalLoading(false); });
-    return () => { live = false; };
-  }, [address]);
+  useEffect(() => { positionsRef.current = positions; }, [positions]);
 
   // Live USD prices for every token held across positions — used only for the
   // stats strip (current value + unclaimed fees), both real on-chain amounts.
@@ -272,116 +314,86 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0,
   );
 
-  const columns: Column<LiquidityPosition>[] = [
-    {
-      key: 'pool', label: 'Pool', sortable: true, sortValue: p => `${p.symbol0}${p.symbol1}`,
-      render: p => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex' }}>
-            <TokenIcon symbol={p.symbol0} size={26} />
-            <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={26} /></div>
+  /** Desktop position card: labeled stats on top, labeled actions below. */
+  const renderPositionCard = (p: LiquidityPosition) => {
+    const hasFees = p.fees0 > 0n || p.fees1 > 0n;
+    const hasLiquidity = p.liquidity > 0n;
+    const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
+      ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
+      : p.chainId === 4663 && p.protocol === 'uniswap-v3');
+    const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && !!getSmartAccountDeployment(p.chainId ?? 1);
+    const busy = busyId === posKey(p);
+    const v = valueOf(p);
+    const f = feesValueOf(p);
+    const a = analyticsOf(p);
+    const statLabel = { color: btb.textDim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 };
+    return (
+      <Glass key={posKey(p)} padding={16} radius={18}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexShrink: 0 }}>
+            <TokenIcon symbol={p.symbol0} size={30} />
+            <div style={{ marginLeft: -9 }}><TokenIcon symbol={p.symbol1} size={30} /></div>
           </div>
           <div>
-            <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{p.symbol0} / {p.symbol1}</div>
+            <div style={{ color: btb.text, fontWeight: 800, fontSize: 15.5 }}>{p.symbol0} / {p.symbol1}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chainName ?? 'Ethereum'}</Badge>
+              <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
               <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+              <Badge size="sm" color={btb.textDim} bg="transparent" border="none" style={{ fontSize: 10, padding: '1px 2px' }}>#{p.id.toString()}</Badge>
             </div>
+          </div>
+          <div style={{ flex: 1 }}/>
+          <div style={{ textAlign: 'right' }}>
+            {v > 0 && <div style={{ color: btb.text, fontSize: 19, fontWeight: 800 }}>${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+            <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ marginTop: v > 0 ? 3 : 0, whiteSpace: 'nowrap' }}>
+              {p.inRange ? 'In range, earning' : 'Out of range, not earning'}
+            </Badge>
           </div>
         </div>
-      ),
-    },
-    {
-      key: 'amounts', label: 'Position', align: 'left',
-      render: p => (
-        <div style={{ color: btb.textMuted, fontSize: 12.5, lineHeight: 1.5, whiteSpace: 'nowrap' }}>
-          <div>{fmtAmt(p.amount0, p.decimals0)} {p.symbol0}</div>
-          <div>{fmtAmt(p.amount1, p.decimals1)} {p.symbol1}</div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginTop: 14 }}>
+          <div>
+            <div style={statLabel}>Position</div>
+            <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, lineHeight: 1.5 }}>
+              {fmtAmt(p.amount0, p.decimals0)} {p.symbol0}<br/>{fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
+            </div>
+          </div>
+          <div>
+            <div style={statLabel}>Unclaimed fees</div>
+            {hasFees ? (
+              <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5 }}>
+                {f > 0 && <div>${f.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+                {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
+              </div>
+            ) : <div style={{ color: btb.textDim, fontSize: 12.5 }}>Nothing to claim yet</div>}
+          </div>
+          <div>
+            <div style={statLabel}>Range</div>
+            <RangeDetails p={p} compact/>
+          </div>
+          <div>
+            <div style={statLabel}>Performance</div>
+            {a ? (
+              <div style={{ lineHeight: 1.5 }}>
+                <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800 }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
+                <div style={{ color: btb.textMuted, fontSize: 11 }}>lifetime fees ${(sumKrystalUsd(a.feePending) + sumKrystalUsd(a.feesClaimed)).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
+                {a.feeApr > 0 && <div style={{ color: btb.textDim, fontSize: 10.5 }}>fee APR {a.feeApr.toFixed(1)}%</div>}
+              </div>
+            ) : <div style={{ color: btb.textDim, fontSize: 12.5 }}>No history yet</div>}
+          </div>
         </div>
-      ),
-    },
-    {
-      key: 'value', label: 'Value', align: 'right', sortable: true, sortValue: p => valueOf(p),
-      render: p => {
-        const v = valueOf(p);
-        return v > 0
-          ? <span style={{ color: btb.text, fontWeight: 700, whiteSpace: 'nowrap' }}>${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}</span>
-          : <span style={{ color: btb.textDim }}>—</span>;
-      },
-    },
-    {
-      key: 'fees', label: 'Unclaimed fees', align: 'right', sortable: true, sortValue: p => feesValueOf(p),
-      render: p => {
-        if (p.fees0 === 0n && p.fees1 === 0n) return <span style={{ color: btb.textDim }}>—</span>;
-        const v = feesValueOf(p);
-        return (
-          <div style={{ lineHeight: 1.4 }}>
-            <div style={{ color: btb.green, fontWeight: 700, fontSize: 13 }}>
-              {v > 0 ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '—'}
-            </div>
-            <div style={{ color: btb.textMuted, fontSize: 11, whiteSpace: 'nowrap' }}>
-              {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      key: 'status', label: 'Status', align: 'left', sortable: true, sortValue: p => (p.inRange ? 1 : 0),
-      render: p => (
-        <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
-          {p.inRange ? 'In range' : 'Out of range'}
-        </Badge>
-      ),
-    },
-    {
-      key: 'performance', label: 'Performance', align: 'right', sortable: true, sortValue: p => analyticsOf(p)?.pnl ?? Number.NEGATIVE_INFINITY,
-      render: p => {
-        const a = analyticsOf(p);
-        if (!a) return <span style={{ color: btb.textDim }}>—</span>;
-        const lifetimeFees = sumKrystalUsd(a.feePending) + sumKrystalUsd(a.feesClaimed);
-        return (
-          <div style={{ lineHeight: 1.4, whiteSpace: 'nowrap' }} title="Third-party historical estimate from Krystal">
-            <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontWeight: 800, fontSize: 13 }}>{fmtSignedMoney(a.pnl)} <span style={{ fontSize: 10.5 }}>({fmtSignedPercent(a.returnOnInvestment)})</span></div>
-            <div style={{ color: btb.textMuted, fontSize: 10.5 }}>fees ${lifetimeFees.toLocaleString('en-US', { maximumFractionDigits: 2 })} · vs hold {fmtSignedMoney(a.compareWithHodl)}</div>
-            {(a.feeApr > 0 || a.farmApr > 0) && <div style={{ color: btb.textDim, fontSize: 10 }}>fee APR {a.feeApr.toFixed(1)}%{a.farmApr > 0 ? ` · farm ${a.farmApr.toFixed(1)}%` : ''}</div>}
-          </div>
-        );
-      },
-    },
-    {
-      key: 'actions', label: '', align: 'right', width: '340px',
-      render: p => {
-        const hasFees = p.fees0 > 0n || p.fees1 > 0n;
-        const hasLiquidity = p.liquidity > 0n;
-        const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
-          ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
-          : p.chainId === 4663 && p.protocol === 'uniswap-v3');
-        const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && !!getSmartAccountDeployment(p.chainId ?? 1);
-        const busy = busyId === posKey(p);
-        return (
-          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-            <ActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-            {hasLiquidity && <ActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
-            <ActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green/>
-            {canAutomate && <ActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>} 
-            {canRebalance && (
-              <button onClick={() => setRebalance(p)} disabled={busy || !canTransact} style={{
-                height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', whiteSpace: 'nowrap',
-                border: p.inRange ? '1px solid rgba(255,255,255,0.14)' : '1px solid rgba(255,179,107,0.4)',
-                fontSize: 11.5, fontWeight: 700, cursor: busy || !canTransact ? 'default' : 'pointer',
-                background: p.inRange ? 'rgba(255,255,255,0.07)' : 'rgba(255,179,107,0.14)',
-                color: p.inRange ? btb.text : btb.amber,
-              }}>
-                ⚖ Rebalance
-              </button>
-            )}
-          </div>
-        );
-      },
-    },
-  ];
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap' }}>
+          <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
+          {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+          <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
+          {canAutomate && <CardActBtn icon="bolt" label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
+          {canRebalance && <CardActBtn icon="refresh" label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact} amber={!p.inRange}/>}
+        </div>
+      </Glass>
+    );
+  };
 
   const otherChainColumns: Column<KrystalPositionAnalytics>[] = [
     {
@@ -402,7 +414,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{item.chainName || `Chain ${item.chainId}`}</Badge>
+                <LpChainLogo chainId={item.chainId} chainName={item.chainName || `Chain ${item.chainId}`}/>
                 <Badge size="sm" color={btb.red} bg="rgba(255,76,107,0.13)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{compactProjectLabel(item.pool?.project, item.pool?.projectKey)}</Badge>
               </div>
             </div>
@@ -555,7 +567,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{p.symbol0} / {p.symbol1}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chainName ?? 'Ethereum'}</Badge>
+                      <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
                       <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
                       <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
                     </div>
@@ -580,6 +592,9 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                     Fees: {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
                   </div>
                 )}
+                <div style={{ marginTop: 9 }}>
+                  <RangeDetails p={p} compact/>
+                </div>
                 {analytics && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 9 }}>
                     <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
@@ -629,7 +644,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{item.chainName || `Chain ${item.chainId}`}</Badge>
+                      <LpChainLogo chainId={item.chainId} chainName={item.chainName || `Chain ${item.chainId}`}/>
                       <Badge size="sm" color={btb.red} bg="rgba(255,76,107,0.13)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{compactProjectLabel(item.pool?.project, item.pool?.projectKey)}</Badge>
                     </div>
                   </div>
@@ -655,30 +670,31 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                     <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>${lifetimeFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label={`${item.chainName || 'Other chain'} · Read only`} onClick={() => {}} disabled /></div>
+                <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label="Read only" onClick={() => {}} disabled /></div>
               </Glass>
             );
           })}
         </div>
       ) : (
-        <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
-          {(positions.length > 0 || loading || otherChainPositions.length === 0) && (
-            <DataTable
-              columns={columns}
-              rows={positions}
-              rowKey={posKey}
-              loading={loading && positions.length === 0}
-              emptyMessage={krystalLoading ? 'Loading positions…' : 'No LP positions yet'}
-              defaultSortKey="value"
-            />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {loading && positions.length === 0 && (
+            <div style={{ color: btb.textDim, fontSize: 13, textAlign: 'center', padding: 28 }}>
+              {krystalLoading ? 'Loading positions…' : 'Loading positions…'}
+            </div>
           )}
+          {!loading && positions.length === 0 && otherChainPositions.length === 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
+          )}
+          {[...positions].sort((a, b) => valueOf(b) - valueOf(a)).map(renderPositionCard)}
           {otherChainPositions.length > 0 && (
+            <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
             <DataTable
               columns={otherChainColumns}
               rows={otherChainPositions}
               rowKey={item => `${item.chainId}-${item.pool?.projectKey}-${item.tokenId}`}
               defaultSortKey="value"
             />
+            </div>
           )}
         </div>
       )}
@@ -730,6 +746,35 @@ function MobileActBtn({ label, onClick, disabled, green, amber }: {
         : 'rgba(255,255,255,0.1)',
       color: disabled ? btb.textDim : amber ? btb.amber : '#fff',
     }}>{label}</button>
+  );
+}
+
+/** Labeled card action: icon plus text, no guessing what a button does. */
+function CardActBtn({ icon, label, onClick, disabled, green, amber }: {
+  icon: string; label: string; onClick: () => void; disabled?: boolean; green?: boolean; amber?: boolean;
+}) {
+  const tint = disabled ? btb.textDim : green ? btb.green : amber ? btb.amber : btb.text;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        height: 36, padding: '0 14px', borderRadius: 10, fontFamily: 'inherit', whiteSpace: 'nowrap',
+        display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
+        cursor: disabled ? 'default' : 'pointer', color: tint,
+        background: disabled ? 'rgba(255,255,255,0.05)'
+          : green ? 'rgba(82,227,164,0.12)'
+          : amber ? 'rgba(255,179,107,0.14)'
+          : 'rgba(255,255,255,0.07)',
+        border: disabled ? btb.borderSoft
+          : green ? '1px solid rgba(82,227,164,0.35)'
+          : amber ? '1px solid rgba(255,179,107,0.4)'
+          : '1px solid rgba(255,255,255,0.13)',
+      }}
+    >
+      <Icon name={icon} size={14} color={tint}/>
+      {label}
+    </button>
   );
 }
 

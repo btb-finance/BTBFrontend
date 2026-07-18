@@ -52,6 +52,58 @@ export const ROBINHOOD_UNISWAP_V3_DEPLOYMENT: V3Deployment = {
   feeTiers: FEE_TIERS,
   tickSpacings: { 100: 1, 500: 10, 3000: 60, 10000: 200 },
 };
+
+/**
+ * Official Uniswap V3 deployments by chain. The V3 ABI and simulator math are
+ * shared, but factory/NPM addresses are not guaranteed to be the same.
+ * Source: https://developers.uniswap.org/docs/protocols/v3/deployments
+ */
+export const UNISWAP_V3_DEPLOYMENTS: Record<number, V3Deployment> = {
+  1: UNISWAP_V3_DEPLOYMENT,
+  10: UNISWAP_V3_DEPLOYMENT,
+  137: UNISWAP_V3_DEPLOYMENT,
+  42161: UNISWAP_V3_DEPLOYMENT,
+  8453: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD',
+    positionManager: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1',
+  },
+  56: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7',
+    positionManager: '0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613',
+  },
+  43114: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD',
+    positionManager: '0x655C406EBFa14EE2006250925e54ec43AD184f8B',
+  },
+  130: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0x1f98400000000000000000000000000000000003',
+    positionManager: '0x943e6e07a7e8e791dafc44083e54041d743c46e9',
+  },
+  324: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0x8FdA5a7a8dCA67BBcDd10F02Fa0649A937215422',
+    positionManager: '0x0616e5762c1E7Dc3723c50663dF10a162D690a86',
+  },
+  143: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0x204faca1764b154221e35c0d20abb3c525710498',
+    positionManager: '0x7197e214c0b767cfb76fb734ab638e2c192f4e53',
+  },
+  4326: {
+    ...UNISWAP_V3_DEPLOYMENT,
+    factory: '0x3a5f0cd7d62452b7f899b2a5758bfa57be0de478',
+    positionManager: '0xcdc86e98184e96436f733a8bf31bd4f0214e6d7d',
+  },
+  4663: ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
+};
+
+export function uniswapV3DeploymentForChain(chainId: number): V3Deployment | null {
+  return UNISWAP_V3_DEPLOYMENTS[chainId] ?? null;
+}
 export const ROBINHOOD_WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as `0x${string}`;
 export const ROBINHOOD_SWAP_ROUTER_02 = '0xcaf681a66d020601342297493863e78c959e5cb2' as `0x${string}`;
 export const ROBINHOOD_UNIVERSAL_ROUTER = '0x8876789976decbfcbbbe364623c63652db8c0904' as `0x${string}`;

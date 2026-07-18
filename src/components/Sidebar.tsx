@@ -21,6 +21,7 @@ const NAV_SECTIONS: { label: string; items: { id: Tab; label: string; icon: stri
       { id: 'portfolio', label: 'Portfolio', icon: 'pie' },
       { id: 'nft',       label: 'NFT',       icon: 'nft' },
       { id: 'stake',     label: 'Agent',     icon: 'bolt' },
+      { id: 'studio',    label: 'Agent Studio', icon: 'rocket' },
     ],
   },
 ];

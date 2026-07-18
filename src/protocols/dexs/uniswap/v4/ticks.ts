@@ -27,6 +27,7 @@ export async function fetchV4TickLiquidityDistribution(
   currentTick: number,
   currentLiquidity: bigint,
   tickSpacing: number,
+  stateView: `0x${string}` = UNISWAP_V4.stateView,
 ): Promise<TickLiquidityPoint[]> {
   if (tickSpacing <= 0) return [];
   const compactedTick = Math.floor(currentTick / tickSpacing);
@@ -37,7 +38,7 @@ export async function fetchV4TickLiquidityDistribution(
 
   const bitmapRes = await client.multicall({
     contracts: wordPositions.map((w) => ({
-      address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getTickBitmap', args: [poolId, w],
+      address: stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getTickBitmap', args: [poolId, w],
     })),
     allowFailure: true,
   });
@@ -51,7 +52,7 @@ export async function fetchV4TickLiquidityDistribution(
 
   const tickInfoRes = await client.multicall({
     contracts: initializedTicks.map((t) => ({
-      address: UNISWAP_V4.stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getTickInfo', args: [poolId, t],
+      address: stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getTickInfo', args: [poolId, t],
     })),
     allowFailure: true,
   });

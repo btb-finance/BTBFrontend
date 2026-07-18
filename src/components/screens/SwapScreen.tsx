@@ -15,10 +15,12 @@ import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
 import { Screen } from '../Screen';
 import { Badge } from '../Badge';
+import { ChainLogo } from '../ChainLogo';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { BTB_SWAP_FEE_PERCENT, buildKyberTx, getKyberQuote, KYBER_CHAINS, type KyberQuote } from '../../lib/kyberswap';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { api } from '../../../convex/_generated/api';
+import { useChainTheme } from '../../lib/ChainThemeContext';
 
 const SWAP_XP = 100;
 const NATIVE_ADDRESSES = new Set([
@@ -32,6 +34,129 @@ function isNativeToken(address: string) {
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
+
+type ChainOption = { id: number; name: string };
+
+export function ChainSelect({ chains, value, onChange, disabledId, small = false, ariaLabel }: {
+  chains: readonly ChainOption[];
+  value: number;
+  onChange: (chainId: number) => void;
+  disabledId?: number;
+  small?: boolean;
+  ariaLabel: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = chains.find(chain => chain.id === value) ?? chains[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  if (!selected) return null;
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative', width: small ? 190 : 230, maxWidth: '100%', flexShrink: 1 }}>
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(value => !value)}
+        style={{
+          width: '100%',
+          height: small ? 34 : 40,
+          padding: small ? '0 10px' : '0 12px',
+          borderRadius: 999,
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          color: btb.text,
+          fontFamily: 'inherit',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        <ChainLogo chainId={selected.id} size={small ? 20 : 23}/>
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: small ? 12 : 12.5, fontWeight: 750 }}>{selected.name}</span>
+        <Icon name="down" size={13} color={btb.textMuted}/>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          aria-label={ariaLabel}
+          style={{
+            position: 'absolute',
+            zIndex: 80,
+            top: 'calc(100% + 8px)',
+            right: 0,
+            width: 260,
+            maxWidth: 'min(260px, calc(100vw - 40px))',
+            maxHeight: 310,
+            overflowY: 'auto',
+            padding: 7,
+            borderRadius: 18,
+            background: 'rgba(12,12,18,.98)',
+            border: '1px solid rgba(255,255,255,.13)',
+            boxShadow: '0 18px 50px rgba(0,0,0,.5)',
+            backdropFilter: 'blur(18px)',
+            WebkitBackdropFilter: 'blur(18px)',
+          }}
+        >
+          {chains.map(chain => {
+            const disabled = chain.id === disabledId;
+            const active = chain.id === value;
+            return (
+              <button
+                key={chain.id}
+                type="button"
+                role="option"
+                aria-selected={active}
+                disabled={disabled}
+                onClick={() => {
+                  onChange(chain.id);
+                  setOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  height: 42,
+                  padding: '0 9px',
+                  border: 'none',
+                  borderRadius: 12,
+                  background: active ? 'rgba(255,255,255,.1)' : 'transparent',
+                  color: disabled ? btb.textDim : btb.text,
+                  opacity: disabled ? .42 : 1,
+                  fontFamily: 'inherit',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <ChainLogo chainId={chain.id} size={24}/>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
+                {active && <Icon name="check" size={15} color={btb.green}/>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function balanceNum(t: Token): number {
   const bal = parseFloat(t.balance ?? '0');
@@ -222,6 +347,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       ? initialFrom.chainId
       : walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
   const [chainId, setChainId] = useState<number>(initialChain);
+  const { setThemeChainId } = useChainTheme();
   const [customTokens, setCustomTokens] = useState<Token[]>([]);
   const [listedTokens, setListedTokens] = useState<Token[]>([]);
   const [liveBalanceTokens, setLiveBalanceTokens] = useState<Token[]>([]);
@@ -270,6 +396,10 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const awardXp = useMutation(api.users.awardXp);
 
   const isNativeFrom = fromToken.address === 'ETH';
+
+  useEffect(() => {
+    setThemeChainId(chainId);
+  }, [chainId, setThemeChainId]);
 
   useEffect(() => {
     if (chainId === 1) { setListedTokens([]); setLoadingTokenList(false); return; }
@@ -534,9 +664,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
       <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-        <select value={chainId} onChange={event => selectChain(Number(event.target.value))} aria-label="Swap network" style={{ height: 40, maxWidth: 230, padding: '0 34px 0 14px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', color: btb.text, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-          {SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]).map(chain => <option key={chain.id} value={chain.id}>{chain.name}</option>)}
-        </select>
+        <ChainSelect chains={SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id])} value={chainId} onChange={selectChain} ariaLabel="Swap network"/>
         <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon name="settings" size={18}/>
         </Glass>
@@ -637,7 +765,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         </div>
         <div>
           <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>Confirm swap</div>
-          {CHAIN_META[chainId] && <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}><div style={{ width: 7, height: 7, borderRadius: '50%', background: CHAIN_META[chainId].color }}/><span style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[chainId].name}</span></div>}
+          {CHAIN_META[chainId] && <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={chainId} size={16}/><span style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[chainId].name}</span></div>}
         </div>
       </div>
 
@@ -757,6 +885,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   const firstChain = walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
   const firstDestination = firstChain === 8453 ? 42161 : 8453;
   const [fromChainId, setFromChainId] = useState<number>(firstChain);
+  const { setThemeChainId } = useChainTheme();
   const [toChainId, setToChainId] = useState<number>(firstDestination);
   const [fromToken, setFromToken] = useState<Token>(nativeEthForChain(firstChain));
   const [toToken, setToToken] = useState<Token>(DEFAULT_QUOTES[firstDestination] ?? nativeEthForChain(firstDestination));
@@ -776,6 +905,10 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [errMsg, setErrMsg] = useState('');
   const quoteSeq = useRef(0);
+
+  useEffect(() => {
+    setThemeChainId(fromChainId);
+  }, [fromChainId, setThemeChainId]);
 
   function mergedTokens(chainId: number, catalog: Token[], selectedBalance?: Token | null) {
     const merged = new Map<string, Token>();
@@ -946,9 +1079,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
       <Glass padding={18} radius={24} strong>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span style={{ color: btb.textMuted, fontSize: 13 }}>Pay from</span>
-          <select value={fromChainId} onChange={event => selectFromChain(Number(event.target.value))} style={{ maxWidth: 190, height: 34, borderRadius: 999, padding: '0 28px 0 10px', color: btb.text, background: 'rgba(255,255,255,.07)', border: btb.borderSoft, fontFamily: 'inherit', fontWeight: 700 }}>
-            {availableChains.map(chain => <option key={chain.id} value={chain.id} disabled={chain.id === toChainId}>{chain.name}</option>)}
-          </select>
+          <ChainSelect chains={availableChains} value={fromChainId} onChange={selectFromChain} disabledId={toChainId} small ariaLabel="Source network"/>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', color: btb.textMuted, fontSize: 12, marginBottom: 7 }}><span>You pay</span><span>{fromBalance > 0 ? `${fromBalance.toLocaleString('en-US', { maximumFractionDigits: 6 })} ${fromToken.symbol}` : '—'}{fromBalance > 0 && <b onClick={() => setFromAmt(liveFrom?.balance ?? fromToken.balance ?? '')} style={{ color: btb.red, marginLeft: 6, cursor: 'pointer' }}>MAX</b>}</span></div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><input value={fromAmt} onChange={event => { setFromAmt(event.target.value); setQuote(null); }} inputMode="decimal" placeholder="0" style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 34, fontWeight: 800 }}/><TokenPill token={fromToken} onClick={() => setPicker('from')}/></div>
@@ -958,9 +1089,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
       <Glass padding={18} radius={24} strong>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span style={{ color: btb.textMuted, fontSize: 13 }}>Receive on</span>
-          <select value={toChainId} onChange={event => selectToChain(Number(event.target.value))} style={{ maxWidth: 190, height: 34, borderRadius: 999, padding: '0 28px 0 10px', color: btb.text, background: 'rgba(255,255,255,.07)', border: btb.borderSoft, fontFamily: 'inherit', fontWeight: 700 }}>
-            {availableChains.map(chain => <option key={chain.id} value={chain.id} disabled={chain.id === fromChainId}>{chain.name}</option>)}
-          </select>
+          <ChainSelect chains={availableChains} value={toChainId} onChange={selectToChain} disabledId={fromChainId} small ariaLabel="Destination network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 7 }}>You receive</div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ flex: 1, minWidth: 0, color: quoting ? btb.textMuted : btb.text, fontSize: 34, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis' }}>{quoting ? '…' : outFormatted}</div><TokenPill token={toToken} onClick={() => setPicker('to')}/></div>
@@ -987,7 +1116,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
 
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
     <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[fromChainId]?.name} → {CHAIN_META[toChainId]?.name}</div></div></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={fromChainId} size={16}/>{CHAIN_META[fromChainId]?.name}<span>→</span><ChainLogo chainId={toChainId} size={16}/>{CHAIN_META[toChainId]?.name}</div></div></div>
       <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
       <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/><InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · from amount` : 'None'}/>{lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}%`}/>}<InfoRow label="BTB fee" value={btbFeePercent > 0 ? `${btbFeePercent}%` : 'Free'}/><InfoRow label="Route" last value={route}/></Glass>
       <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>

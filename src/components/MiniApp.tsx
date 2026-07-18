@@ -20,6 +20,7 @@ import { SwapScreen } from './screens/SwapScreen';
 import { PortfolioScreen } from './screens/PortfolioScreen';
 import { NFTScreen } from './screens/NFTScreen';
 import { StakeScreen } from './screens/StakeScreen';
+import { AgentStudioScreen } from './screens/AgentStudioScreen';
 import { ReceiveModal } from './ReceiveModal';
 import { SendModal } from './SendModal';
 import { DocsScreen } from './screens/DocsScreen';
@@ -118,6 +119,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })} onOpenEarn={() => openOverlay('earn')}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
+      case 'studio':    return <AgentStudioScreen/>;
     }
   })();
 
@@ -128,7 +130,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
     : null;
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', background: btb.bg, display: 'flex' }}>
+    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--chain-app-background, #0A0A0F)', display: 'flex', transition: 'background 280ms ease' }}>
       {!isMobile && (
         <Sidebar
           tab={screen}

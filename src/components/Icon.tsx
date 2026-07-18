@@ -46,6 +46,7 @@ export function Icon({ name, size = 22, color = '#fff' }: IconProps) {
     case 'vote':    return <svg viewBox="0 0 24 24" {...s}><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>;
     case 'users':   return <svg viewBox="0 0 24 24" {...s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
     case 'map':     return <svg viewBox="0 0 24 24" {...s}><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>;
+    case 'globe':   return <svg viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>;
     case 'star':    return <svg viewBox="0 0 24 24" {...s}><path d="M12 2l3 7 7 .8-5.2 4.8L18.5 22 12 18 5.5 22l1.7-7.4L2 9.8 9 9z"/></svg>;
     case 'close':   return <svg viewBox="0 0 24 24" {...s}><path d="M18 6L6 18M6 6l12 12"/></svg>;
     case 'menu':    return <svg viewBox="0 0 24 24" {...s}><path d="M4 6h16M4 12h16M4 18h16"/></svg>;

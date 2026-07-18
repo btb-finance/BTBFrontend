@@ -16,6 +16,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   portfolio: '/portfolio',
   nft: '/nft',
   stake: '/agent',
+  studio: '/studio',
 };
 
 export function pathFor(screen: Tab, overlay: Overlay): string {

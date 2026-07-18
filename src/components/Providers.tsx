@@ -5,6 +5,7 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { makeConfig } from '@/lib/wagmi';
 import { TxProvider } from '@/lib/TxTracker';
 import { ReactNode, useState } from 'react';
+import { ChainThemeProvider } from '@/lib/ChainThemeContext';
 
 // Public Convex URL — hardcoded fallback so Netlify SSG doesn't crash when
 // NEXT_PUBLIC_CONVEX_URL isn't set in the deploy env. Override via env var.
@@ -32,9 +33,11 @@ export function Providers({ children }: { children: ReactNode }) {
     <ConvexProvider client={convex}>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
-          <TxProvider>
-            {children}
-          </TxProvider>
+          <ChainThemeProvider>
+            <TxProvider>
+              {children}
+            </TxProvider>
+          </ChainThemeProvider>
         </QueryClientProvider>
       </WagmiProvider>
     </ConvexProvider>

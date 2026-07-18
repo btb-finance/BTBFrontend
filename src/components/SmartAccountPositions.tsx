@@ -13,6 +13,7 @@ import { ManagedRebalanceSheet } from './ManagedRebalanceSheet';
 import { ManagedPolicySheet } from './ManagedPolicySheet';
 import { ManagedAddLiquiditySheet } from './ManagedAddLiquiditySheet';
 import { ManagedFundsSheet } from './ManagedFundsSheet';
+import { ChainLogo } from './ChainLogo';
 import { ManagedClaimFeesSheet } from './ManagedClaimFeesSheet';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
@@ -401,7 +402,9 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
               <div key={state.chainId} style={{ borderRadius: 12, padding: 10, background: 'rgba(255,255,255,0.035)', border: btb.borderSoft }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
                   <div>
-                    <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{state.chainName}</div>
+                    <span title={state.chainName} aria-label={state.chainName} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      <ChainLogo chainId={state.chainId} size={18}/>
+                    </span>
                     <a href={`${chain.explorer}${state.account}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 10, textDecoration: 'none' }}>{shortAddress(state.account)} ↗</a>
                   </div>
                   <Badge size="sm" border="none" bg={state.deployed ? state.paused ? 'rgba(255,179,107,0.13)' : 'rgba(82,227,164,0.13)' : 'rgba(255,255,255,0.06)'} color={state.deployed ? state.paused ? btb.amber : btb.green : btb.textDim}>
@@ -485,7 +488,9 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.text, fontSize: isMobile ? 15 : 16, fontWeight: 850, letterSpacing: -.25 }}>{p.symbol0} / {p.symbol1}</div>
                 <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
-                  <Badge size="sm" border="none" bg={btb.surfaceSoft} color={btb.textMuted}>{p.chainName}</Badge>
+                  <span title={p.chainName} aria-label={p.chainName} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <ChainLogo chainId={item.account.chainId} size={17}/>
+                  </span>
                   <Badge size="sm" border="none" bg={btb.surfaceSoft} color={btb.textMuted}>{fmtFeeTier(p.fee)}</Badge>
                   <Badge size="sm" border="none" bg="rgba(106,124,255,.12)" color="#91A1FF">Uniswap V3</Badge>
                   <span style={{ color: btb.textDim, fontSize: 9.5 }}>NFT #{p.id.toString()}</span>

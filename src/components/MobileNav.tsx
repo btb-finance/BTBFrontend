@@ -20,6 +20,7 @@ const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'simulate', label: 'Simulate',  icon: 'layers' },
   { id: 'nft',      label: 'NFT',       icon: 'nft' },
   { id: 'stake',    label: 'Agent',     icon: 'bolt' },
+  { id: 'studio',   label: 'Agent Studio', icon: 'rocket' },
 ];
 
 export function MobileNav({ tab, setTab, address, isReadOnly, onEarn, onDocs, onConnect, onDisconnect }: {
