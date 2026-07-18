@@ -35,13 +35,18 @@ const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
  * reports a raw factory address instead of a name — those become "Other DEX"
  * rather than leaking a 0x… string into the UI. */
 export function prettyDexLabel(dexId: string): string {
-  const clean = dexId.replace(/_ethereum$/, '').replace(/[_-]+/g, ' ').trim();
+  const clean = dexId
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+(ethereum|base|bsc|polygon|arbitrum|optimism|avalanche|linea|berachain|sonic|ronin|unichain|hyperevm|plasma|etherlink|monad|megaeth|robinhood)$/i, '')
+    .trim();
   if (!clean || clean.toLowerCase() === 'unknown' || /^0x[0-9a-f]{6,}/i.test(clean)) return 'Other DEX';
+  if (/^aerodrome slipstream(?: \d+)?$/i.test(clean)) return 'Aerodrome Slipstream';
   const KNOWN: Record<string, string> = {
     'uniswap v2': 'Uniswap V2', 'uniswap v3': 'Uniswap V3', 'uniswap': 'Uniswap',
     'sushiswap': 'SushiSwap', 'shibaswap': 'ShibaSwap', 'sakeswap': 'SakeSwap',
     'balancer': 'Balancer', 'defi swap': 'DeFi Swap', 'curve': 'Curve',
-    'pancakeswap v3': 'PancakeSwap V3',
+    'pancakeswap': 'PancakeSwap', 'pancakeswap v3': 'PancakeSwap V3',
+    'aerodrome': 'Aerodrome', 'baseswap': 'BaseSwap', 'quickswap': 'QuickSwap',
   };
   return KNOWN[clean.toLowerCase()] ?? clean.replace(/\b\w/g, c => c.toUpperCase());
 }

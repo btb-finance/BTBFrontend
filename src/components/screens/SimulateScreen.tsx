@@ -218,6 +218,25 @@ function marketPoolRows(marketPools: Awaited<ReturnType<typeof searchMarketPools
   }));
 }
 
+function foundPoolDexLabel(pool: FoundPool): string {
+  return pool.external?.dexLabel ?? PROTOCOLS.find(protocol => protocol.id === pool.protocol)?.label ?? 'DEX';
+}
+
+function dexBrand(label: string): string {
+  return label
+    .replace(/\s+V\d+.*$/i, '')
+    .replace(/\s+Slipstream.*$/i, '')
+    .trim();
+}
+
+function foundPoolDexCount(pools: FoundPool[]): number {
+  return new Set(pools.map(pool => dexBrand(foundPoolDexLabel(pool)))).size;
+}
+
+function marketPoolDexCount(pools: MarketPool[]): number {
+  return new Set(pools.map(pool => dexBrand(pool.dexLabel))).size;
+}
+
 
 const PROTOCOL_FOR_EARN_POOL = (p: EarnPool): Protocol | null => {
   if (p.dex === 'PancakeSwap') return 'pancakeswap-v3';
@@ -801,7 +820,9 @@ function CrossChainResearch({ chains, isMobile }: {
             tokenA,
             tokenB,
             pools,
-            message: pools.length === 0 ? 'No indexed pool found for this pair.' : undefined,
+            message: pools.length === 0
+              ? 'No indexed pool found for this pair.'
+              : `${pools.length} pools across ${marketPoolDexCount(pools)} DEX${marketPoolDexCount(pools) === 1 ? '' : 's'}`,
           });
         } catch (cause) {
           updateResult(task.key, {
@@ -1183,7 +1204,10 @@ export function SimulateScreen() {
       )
         .then(marketPools => {
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(marketPools)));
-          if (marketPools.length > 0) setProgress(`Found ${marketPools.length} market pools · loading TVL and APR…`);
+          if (marketPools.length > 0) {
+            const dexCount = marketPoolDexCount(marketPools);
+            setProgress(`Found ${marketPools.length} pools across ${dexCount} DEX${dexCount === 1 ? '' : 's'} · loading TVL and APR…`);
+          }
           return marketPools;
         })
         .catch(() => []);
@@ -1374,7 +1398,7 @@ export function SimulateScreen() {
       {found && found.length > 0 && (
         <Glass padding={0} radius={22} style={{ overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px 4px', color: btb.text, fontSize: 14, fontWeight: 700 }}>
-            {found.length} pool{found.length > 1 ? 's' : ''} found{loading ? ' so far' : ''} for {tokenA?.symbol}/{tokenB?.symbol}
+            {found.length} pool{found.length > 1 ? 's' : ''} across {foundPoolDexCount(found)} DEX{foundPoolDexCount(found) === 1 ? '' : 's'}{loading ? ' found so far' : ''} for {tokenA?.symbol}/{tokenB?.symbol}
           </div>
           <div style={{ padding: '0 18px 10px', color: btb.textMuted, fontSize: 11.5 }}>
             Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
@@ -1384,7 +1408,7 @@ export function SimulateScreen() {
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
               {found.map((f, i) => {
-                const label = f.external?.dexLabel ?? PROTOCOLS.find(x => x.id === f.protocol)!.label;
+                const label = foundPoolDexLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
                   <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{
@@ -1431,7 +1455,7 @@ export function SimulateScreen() {
               ))}
             </div>
             {found.map((f, i) => {
-              const label = f.external?.dexLabel ?? PROTOCOLS.find(x => x.id === f.protocol)!.label;
+              const label = foundPoolDexLabel(f);
               return (
                 <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
