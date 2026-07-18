@@ -655,7 +655,7 @@ export function SimulateScreen() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 760 }}>
-      <Glass padding={20} radius={22}>
+      <Glass padding={20} radius={22} style={{ overflow: 'visible', zIndex: 2 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
           <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>Compare pools for a pair</div>
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
