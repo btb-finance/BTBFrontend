@@ -7,6 +7,7 @@
  */
 import { searchPairPools } from './geckoterminal';
 import { fetchDexScreenerPairPools } from './dexscreener';
+import type { PublicClient } from 'viem';
 
 export interface MarketPool {
   address: string;          // lowercase pool address
@@ -33,6 +34,14 @@ const marketPoolCache = new Map<string, { expiresAt: number; request: Promise<Ma
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
+const FEE_BEARING_POOL = /(?:^|[\s_-])v3(?:$|[\s_-])|slipstream|integral/i;
+const POOL_FEE_ABI = [{
+  type: 'function',
+  name: 'fee',
+  stateMutability: 'view',
+  inputs: [],
+  outputs: [{ type: 'uint24' }],
+}] as const;
 
 /** "uniswap_v3" / "balancer_ethereum" → a human label. DexScreener sometimes
  * reports a raw factory address instead of a name — those become "Other DEX"
@@ -134,4 +143,56 @@ export function searchMarketPools(
     });
   marketPoolCache.set(key, { expiresAt: Date.now() + MARKET_CACHE_TTL_MS, request });
   return request;
+}
+
+/**
+ * Fill fee APRs that the market APIs could not calculate by reading every
+ * missing V3-style pool fee in one EVM multicall. This is especially
+ * important for Robinhood (not indexed by GeckoTerminal) and also makes
+ * transient Gecko rate limits harmless: DexScreener can still provide
+ * TVL/volume while the chain supplies the fee.
+ */
+export async function enrichMarketPoolApr(
+  client: PublicClient,
+  pools: MarketPool[],
+): Promise<MarketPool[]> {
+  const missing = pools.filter(pool =>
+    pool.feePct == null &&
+    /^0x[0-9a-f]{40}$/i.test(pool.address) &&
+    FEE_BEARING_POOL.test(pool.dexId),
+  );
+  if (missing.length === 0) return pools;
+
+  const reads = await client.multicall({
+    contracts: missing.map(pool => ({
+      address: pool.address as `0x${string}`,
+      abi: POOL_FEE_ABI,
+      functionName: 'fee' as const,
+    })),
+    allowFailure: true,
+  }).catch(() => []);
+  const feeByAddress = new Map<string, number>();
+  reads.forEach((read, index) => {
+    if (read.status !== 'success') return;
+    const fee = Number(read.result);
+    // V3-style fees use millionths. Reject zero and the V4 dynamic-fee flag
+    // rather than turning either into a fabricated APR.
+    if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
+      feeByAddress.set(missing[index].address, fee / 1_000_000);
+    }
+  });
+  if (feeByAddress.size === 0) return pools;
+
+  return pools.map(pool => {
+    const feePct = feeByAddress.get(pool.address);
+    if (feePct == null) return pool;
+    const aprPct = pool.tvlUsd > 0
+      ? (pool.volume24hUsd * feePct * 365 / pool.tvlUsd) * 100
+      : null;
+    return {
+      ...pool,
+      feePct,
+      aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null,
+    };
+  });
 }

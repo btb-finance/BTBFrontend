@@ -29,7 +29,7 @@ import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
-import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { enrichMarketPoolApr, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
@@ -628,6 +628,7 @@ function CrossChainResearch({ chains, isMobile }: {
   chains: readonly { id: number; name: string }[];
   isMobile: boolean;
 }) {
+  const config = useConfig();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
@@ -809,12 +810,22 @@ function CrossChainResearch({ chains, isMobile }: {
 
           updateResult(task.key, { tokenA, tokenB, message: 'Searching indexed DEX liquidity…' });
           const wrappedNative = WRAPPED_NATIVE_FALLBACKS[task.chainId] ?? WETH;
-          const pools = await searchMarketPools(
+          const indexedPools = await searchMarketPools(
             toV3Address(tokenA.address, wrappedNative),
             toV3Address(tokenB.address, wrappedNative),
             100,
             CHAIN_DATA_NETWORKS[task.chainId],
           );
+          updateResult(task.key, {
+            tokenA,
+            tokenB,
+            pools: indexedPools,
+            message: `${indexedPools.length} pools found · loading missing APRs on-chain…`,
+          });
+          const client = getPublicClient(config, { chainId: task.chainId as SupportedChainId });
+          const pools = client
+            ? await enrichMarketPoolApr(client, indexedPools).catch(() => indexedPools)
+            : indexedPools;
           updateResult(task.key, {
             status: 'complete',
             tokenA,
@@ -1202,13 +1213,15 @@ export function SimulateScreen() {
         100,
         networks,
       )
-        .then(marketPools => {
+        .then(async marketPools => {
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(marketPools)));
           if (marketPools.length > 0) {
             const dexCount = marketPoolDexCount(marketPools);
             setProgress(`Found ${marketPools.length} pools across ${dexCount} DEX${dexCount === 1 ? '' : 's'} · loading TVL and APR…`);
           }
-          return marketPools;
+          const enriched = await enrichMarketPoolApr(client, marketPools).catch(() => marketPools);
+          setFound(current => mergeFoundPools(current ?? [], marketPoolRows(enriched)));
+          return enriched;
         })
         .catch(() => []);
 
