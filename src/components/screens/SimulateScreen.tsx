@@ -58,6 +58,13 @@ type CrossChainResearchResult = {
   message?: string;
 };
 
+type ResearchTokenOption = {
+  symbol: string;
+  name: string;
+  logoURI?: string;
+  chainIds: number[];
+};
+
 const PROTOCOLS: { id: Protocol; label: string; dex: 'uniswap' | 'pancakeswap' }[] = [
   { id: 'uniswap-v3',     label: 'Uniswap V3',     dex: 'uniswap' },
   { id: 'uniswap-v4',     label: 'Uniswap V4',     dex: 'uniswap' },
@@ -406,6 +413,83 @@ function resolveCrossChainToken(catalog: Token[], chainId: number, symbol: strin
   })[0];
 }
 
+function ResearchTokenPicker({ label, selected, options, selectedChainCount, loading, disabled, onSelect }: {
+  label: string;
+  selected: ResearchTokenOption | null;
+  options: ResearchTokenOption[];
+  selectedChainCount: number;
+  loading: boolean;
+  disabled: boolean;
+  onSelect: (token: ResearchTokenOption) => void;
+}) {
+  const { width: sidebarWidth } = useSidebar();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = normalizedQuery
+    ? options.filter(token => token.symbol.toLowerCase().includes(normalizedQuery) || token.name.toLowerCase().includes(normalizedQuery))
+    : options;
+
+  return (
+    <>
+      <button type="button" disabled={disabled} onClick={() => setOpen(true)} style={{
+        height: 48, minWidth: 0, borderRadius: 13, border: btb.borderSoft, background: btb.surfaceSoft,
+        color: btb.text, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 9,
+        cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', textAlign: 'left',
+      }}>
+        {selected
+          ? <TokenIcon symbol={selected.symbol} size={28} logoUrl={selected.logoURI}/>
+          : <div style={{ width: 28, height: 28, borderRadius: 999, border: '1.5px dashed rgba(255,255,255,.22)' }}/>
+        }
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: 'block', color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>{label}</span>
+          <span style={{ display: 'block', color: selected ? btb.text : btb.textMuted, fontSize: 12.5, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+            {selected?.symbol ?? (loading ? 'Loading tokens…' : 'Select token')}
+          </span>
+        </span>
+        <Icon name="down" size={13} color={btb.textMuted}/>
+      </button>
+
+      {open && (
+        <Portal>
+          <div onClick={() => { setOpen(false); setQuery(''); }} style={{
+            position: 'fixed', inset: 0, left: sidebarWidth, zIndex: 320, background: 'rgba(0,0,0,.64)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '32px 18px', overflowY: 'auto',
+          }}>
+            <div onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: 440, maxHeight: '82vh', display: 'flex', flexDirection: 'column', borderRadius: 24, background: 'rgba(10,10,15,.98)', border: btb.border }}>
+              <div style={{ padding: '18px 18px 8px' }}>
+                <div style={{ color: btb.text, fontSize: 17, fontWeight: 850 }}>Select {label.toLowerCase()}</div>
+                <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>{options.length.toLocaleString()} token symbols across {selectedChainCount} selected chain{selectedChainCount === 1 ? '' : 's'}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, borderRadius: 13, border: btb.borderSoft, background: btb.surfaceSoft, padding: '0 12px' }}>
+                  <Icon name="search" size={15} color={btb.textMuted}/>
+                  <input autoFocus aria-label={`Search ${label.toLowerCase()}`} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search by name or symbol…" style={{ height: 42, flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 13 }}/>
+                </div>
+              </div>
+              <div style={{ overflowY: 'auto', padding: '0 10px 16px' }}>
+                {filtered.slice(0, 250).map(token => (
+                  <button key={token.symbol} type="button" onClick={() => { onSelect(token); setOpen(false); setQuery(''); }} style={{
+                    width: '100%', minHeight: 52, border: 0, borderRadius: 13, background: selected?.symbol === token.symbol ? 'rgba(82,227,164,.08)' : 'transparent',
+                    color: btb.text, padding: '7px 9px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}>
+                    <TokenIcon symbol={token.symbol} size={32} logoUrl={token.logoURI}/>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ display: 'block', fontSize: 13, fontWeight: 800 }}>{token.symbol}</span>
+                      <span style={{ display: 'block', color: btb.textMuted, fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>{token.name}</span>
+                    </span>
+                    <span style={{ color: token.chainIds.length === selectedChainCount ? btb.green : btb.textDim, fontSize: 10.5, fontWeight: 750 }}>{token.chainIds.length}/{selectedChainCount} chains</span>
+                  </button>
+                ))}
+                {filtered.length === 0 && <div style={{ color: btb.textMuted, textAlign: 'center', fontSize: 12, padding: 28 }}>No matching token in the selected chain catalogs.</div>}
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+    </>
+  );
+}
+
 function CrossChainResearch({ chains, isMobile }: {
   chains: readonly { id: number; name: string }[];
   isMobile: boolean;
@@ -413,27 +497,91 @@ function CrossChainResearch({ chains, isMobile }: {
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
-  const [pairTokenA, setPairTokenA] = useState('');
-  const [pairTokenB, setPairTokenB] = useState('');
+  const [pairTokenA, setPairTokenA] = useState<ResearchTokenOption | null>(null);
+  const [pairTokenB, setPairTokenB] = useState<ResearchTokenOption | null>(null);
+  const [pairTokenOptions, setPairTokenOptions] = useState<ResearchTokenOption[]>([]);
+  const [loadingPairTokens, setLoadingPairTokens] = useState(true);
   const [pairError, setPairError] = useState<string | null>(null);
   const [results, setResults] = useState<CrossChainResearchResult[]>([]);
   const [researching, setResearching] = useState(false);
   const [rankBy, setRankBy] = useState<'volume' | 'tvl' | 'apr'>('volume');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    if (selectedChains.length === 0) {
+      setPairTokenOptions([]);
+      setLoadingPairTokens(false);
+      setPairTokenA(null);
+      setPairTokenB(null);
+      return () => controller.abort();
+    }
+
+    setLoadingPairTokens(true);
+    void Promise.all(selectedChains.map(async selectedChainId => {
+      try {
+        const response = await fetch(`/api/swap-tokens?chainId=${selectedChainId}`, { signal: controller.signal });
+        if (!response.ok) return [] as Token[];
+        const body = await response.json() as { tokens?: Token[] };
+        const catalog = Array.isArray(body.tokens) ? body.tokens : [];
+        const meta = CHAIN_META[selectedChainId];
+        const native: Token = { address: 'ETH', symbol: meta?.symbol ?? 'ETH', name: meta?.name ?? 'Native token', decimals: 18, chainId: selectedChainId };
+        return [native, ...catalog, ...Object.values(CROSS_CHAIN_TOKEN_OVERRIDES[selectedChainId] ?? {})];
+      } catch (cause) {
+        if ((cause as Error).name === 'AbortError') throw cause;
+        return [] as Token[];
+      }
+    })).then(catalogs => {
+      if (controller.signal.aborted) return;
+      const aggregated = new Map<string, { option: ResearchTokenOption; chainIds: Set<number>; quality: number }>();
+      catalogs.forEach((catalog, index) => {
+        const selectedChainId = selectedChains[index];
+        const seenOnChain = new Set<string>();
+        for (const token of catalog) {
+          const symbol = token.symbol?.trim().toUpperCase();
+          if (!symbol || symbol.length > 16 || seenOnChain.has(symbol)) continue;
+          seenOnChain.add(symbol);
+          const quality = Number(Boolean(token.verified)) * 4 + Number(Boolean(token.usdPrice)) * 2 + Number(Boolean(token.logoURI));
+          const existing = aggregated.get(symbol);
+          if (!existing) {
+            aggregated.set(symbol, {
+              option: { symbol, name: token.name || token.symbol, logoURI: token.logoURI, chainIds: [] },
+              chainIds: new Set([selectedChainId]),
+              quality,
+            });
+          } else {
+            existing.chainIds.add(selectedChainId);
+            if (quality > existing.quality) {
+              existing.option = { ...existing.option, name: token.name || token.symbol, logoURI: token.logoURI };
+              existing.quality = quality;
+            }
+          }
+        }
+      });
+      const options = [...aggregated.values()].map(entry => ({ ...entry.option, chainIds: [...entry.chainIds] }))
+        .sort((a, b) => b.chainIds.length - a.chainIds.length || a.symbol.localeCompare(b.symbol));
+      setPairTokenOptions(options);
+      setPairTokenA(current => current && options.some(option => option.symbol === current.symbol) ? current : null);
+      setPairTokenB(current => current && options.some(option => option.symbol === current.symbol) ? current : null);
+    }).catch(cause => {
+      if ((cause as Error).name !== 'AbortError' && !controller.signal.aborted) setPairTokenOptions([]);
+    }).finally(() => { if (!controller.signal.aborted) setLoadingPairTokens(false); });
+
+    return () => controller.abort();
+  }, [selectedChains]);
 
   const toggleChain = (id: number) => {
     if (researching) return;
     setSelectedChains(current => current.includes(id) ? current.filter(chainId => chainId !== id) : [...current, id]);
     setResults([]);
   };
-  const normalizeSymbol = (value: string) => value.trim().toUpperCase();
   const addPair = () => {
     if (researching) return;
-    const tokenA = normalizeSymbol(pairTokenA);
-    const tokenB = normalizeSymbol(pairTokenB);
-    if (!/^[A-Z0-9][A-Z0-9.+_-]{0,14}$/.test(tokenA) || !/^[A-Z0-9][A-Z0-9.+_-]{0,14}$/.test(tokenB)) {
-      setPairError('Enter two token symbols, such as ETH and USDC.');
+    if (!pairTokenA || !pairTokenB) {
+      setPairError('Select two tokens first.');
       return;
     }
+    const tokenA = pairTokenA.symbol;
+    const tokenB = pairTokenB.symbol;
     if (tokenA === tokenB) {
       setPairError('Choose two different token symbols.');
       return;
@@ -445,8 +593,8 @@ function CrossChainResearch({ chains, isMobile }: {
       return;
     }
     setPairs(current => [...current, { id, tokenA, tokenB, label: `${tokenA} / ${tokenB}` }]);
-    setPairTokenA('');
-    setPairTokenB('');
+    setPairTokenA(null);
+    setPairTokenB(null);
     setPairError(null);
     setResults([]);
   };
@@ -599,20 +747,17 @@ function CrossChainResearch({ chains, isMobile }: {
 
         <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, marginTop: 18, marginBottom: 9 }}>Your pairs</div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr auto', gap: 8 }}>
-          {[
-            { value: pairTokenA, setValue: setPairTokenA, placeholder: 'ETH', label: 'First token symbol' },
-            { value: pairTokenB, setValue: setPairTokenB, placeholder: 'USDC', label: 'Second token symbol' },
-          ].map(input => (
-            <input key={input.label} aria-label={input.label} value={input.value} disabled={researching} onChange={event => { input.setValue(event.target.value); setPairError(null); }} onKeyDown={event => { if (event.key === 'Enter') addPair(); }} placeholder={input.placeholder} style={{
-              height: 39, minWidth: 0, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft,
-              color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700,
-            }}/>
-          ))}
-          <button type="button" disabled={researching} onClick={addPair} style={{
-            height: 39, gridColumn: isMobile ? '1 / -1' : undefined, borderRadius: 12, border: '1px solid rgba(82,227,164,.32)',
-            background: 'rgba(82,227,164,.09)', color: btb.green, padding: '0 15px', cursor: researching ? 'default' : 'pointer',
+          <ResearchTokenPicker label="First token" selected={pairTokenA} options={pairTokenOptions} selectedChainCount={selectedChains.length} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenA(token); setPairError(null); }}/>
+          <ResearchTokenPicker label="Second token" selected={pairTokenB} options={pairTokenOptions} selectedChainCount={selectedChains.length} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenB(token); setPairError(null); }}/>
+          <button type="button" disabled={researching || !pairTokenA || !pairTokenB} onClick={addPair} style={{
+            height: 48, gridColumn: isMobile ? '1 / -1' : undefined, borderRadius: 12, border: '1px solid rgba(82,227,164,.32)',
+            background: 'rgba(82,227,164,.09)', color: btb.green, padding: '0 15px', cursor: researching || !pairTokenA || !pairTokenB ? 'default' : 'pointer',
+            opacity: !pairTokenA || !pairTokenB ? .55 : 1,
             fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
           }}>Add pair</button>
+        </div>
+        <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 7 }}>
+          {loadingPairTokens ? 'Loading token catalogs for the selected networks…' : `${pairTokenOptions.length.toLocaleString()} searchable token symbols found across the selected networks.`}
         </div>
         {pairError && <div style={{ color: btb.amber, fontSize: 11, marginTop: 7 }}>{pairError}</div>}
         {pairs.length > 0 && (
