@@ -49,19 +49,18 @@ function hexRgb(hex: string): string {
 
 export function chainThemeCss(theme: ChainTheme): Record<string, string> {
   const accentRgb = hexRgb(theme.accent);
-  const accent2Rgb = hexRgb(theme.accent2);
   return {
     '--chain-bg': '#0A0A0F',
     '--chain-accent': theme.accent,
     '--chain-accent-2': theme.accent2,
-    '--chain-accent-soft': `rgba(${accentRgb}, .075)`,
-    '--chain-surface': `linear-gradient(135deg, rgba(${accentRgb},.016), rgba(255,255,255,.052))`,
-    '--chain-surface-strong': `linear-gradient(135deg, rgba(${accentRgb},.035), rgba(255,255,255,.07))`,
-    '--chain-surface-soft': `linear-gradient(135deg, rgba(${accentRgb},.008), rgba(255,255,255,.03))`,
-    '--chain-border': `1px solid rgba(${accentRgb}, .095)`,
-    '--chain-border-soft': `1px solid rgba(${accentRgb}, .055)`,
-    '--chain-shadow': `0 8px 32px rgba(0,0,0,.38), 0 0 30px rgba(${accentRgb},.015), 0 1px 0 rgba(255,255,255,.055) inset`,
-    '--chain-gradient': `linear-gradient(135deg, rgba(255,255,255,.97), rgba(${accentRgb},.24))`,
-    '--chain-app-background': `radial-gradient(circle at 84% -18%, rgba(${accentRgb},.035), transparent 38%), radial-gradient(circle at 6% 110%, rgba(${accent2Rgb},.018), transparent 36%), #0A0A0F`,
+    '--chain-accent-soft': `rgba(${accentRgb}, .08)`,
+    '--chain-surface': 'rgba(255,255,255,.052)',
+    '--chain-surface-strong': 'rgba(255,255,255,.075)',
+    '--chain-surface-soft': 'rgba(255,255,255,.03)',
+    '--chain-border': '1px solid rgba(255,255,255,.10)',
+    '--chain-border-soft': '1px solid rgba(255,255,255,.06)',
+    '--chain-shadow': '0 8px 32px rgba(0,0,0,.38), 0 1px 0 rgba(255,255,255,.055) inset',
+    '--chain-gradient': 'linear-gradient(135deg, rgba(255,255,255,.97), rgba(215,218,225,.88))',
+    '--chain-app-background': '#0A0A0F',
   };
 }

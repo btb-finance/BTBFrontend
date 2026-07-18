@@ -12,8 +12,8 @@ export const btb = {
   text:        '#FFFFFF',
   textMuted:   'rgba(255,255,255,0.55)',
   textDim:     'rgba(255,255,255,0.35)',
-  // Keep large text and error surfaces neutral; chain color is reserved for
-  // ambient tint, borders and small identity accents.
+  // Keep large text and surfaces neutral; chain color is reserved for compact
+  // identity accents such as the selected network logo.
   red:         '#FFFFFF',
   redDeep:     'rgba(255,255,255,0.7)',
   pink:        '#FFFFFF',
