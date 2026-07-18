@@ -961,7 +961,7 @@ function CrossChainResearch({ chains, isMobile }: {
               <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green, fontSize: 17 }}>★</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
-                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2 }}>{winner.result.chainName} · {winner.result.pair.label} · {winner.pool.dexLabel}</div>
+                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2 }}>{winner.result.pair.label} · {winner.pool.dexLabel}</div>
                 <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>
                   {winnerMetric} {rankLabel}{winnerLead != null ? ` · ${winnerLead.toLocaleString(undefined, { maximumFractionDigits: 2 })}× the runner-up` : ' · only comparable pool so far'}
                 </div>
@@ -988,7 +988,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ChainLogo chainId={result.chainId} size={22}/>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.chainName} · {result.pair.label}</div>
+                    <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.pair.label}</div>
                     <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 1 }}>{pool.dexLabel}</div>
                   </div>
                 </div>
@@ -996,7 +996,6 @@ function CrossChainResearch({ chains, isMobile }: {
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.volume24hUsd)}</span>}
                 {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <a href={pool.url} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 11, textDecoration: 'none' }}>View ↗</a>
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
               </div>
@@ -1017,7 +1016,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 <div style={{ minHeight: 58, padding: '11px 15px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: topPools.length > 0 ? btb.borderSoft : undefined }}>
                   <ChainLogo chainId={result.chainId} size={28}/>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{result.chainName} · {result.pair.label}</div>
+                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{result.pair.label}</div>
                     <div style={{ color: result.status === 'error' || result.status === 'unavailable' ? btb.amber : btb.textMuted, fontSize: 11, marginTop: 2 }}>
                       {result.status === 'queued' ? 'Waiting…' : result.status === 'loading' ? result.message : result.message ?? `${result.pools.length} pool${result.pools.length === 1 ? '' : 's'} found`}
                     </div>
@@ -1030,11 +1029,10 @@ function CrossChainResearch({ chains, isMobile }: {
                   )}
                 </div>
                 {topPools.map((pool, index) => (
-                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr .8fr .8fr auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
+                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr .8fr', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
                     <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
-                    <a href={pool.url} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 11.5, textDecoration: 'none' }}>View ↗</a>
                   </div>
                 ))}
               </Glass>
