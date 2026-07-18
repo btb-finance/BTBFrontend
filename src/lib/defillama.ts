@@ -31,13 +31,23 @@ export interface LlamaPool {
 const DEX_NAMES: Record<string, string> = {
   'uniswap-v3': 'Uniswap', 'uniswap-v2': 'Uniswap', 'uniswap-v4': 'Uniswap',
   'aerodrome-v1': 'Aerodrome', 'aerodrome-slipstream': 'Aerodrome',
+  'alien-base-v3': 'Alien Base',
   'blackhole-clmm': 'Blackhole', 'blackhole': 'Blackhole',
+  'beets-dex-v3': 'Beets',
   'velodrome-v2': 'Velodrome', 'velodrome-v3': 'Velodrome',
   'pancakeswap-amm': 'PancakeSwap', 'pancakeswap-amm-v3': 'PancakeSwap',
   'sushiswap': 'SushiSwap', 'sushiswap-v3': 'SushiSwap',
   'curve-dex': 'Curve',
   'balancer-v2': 'Balancer', 'balancer-v3': 'Balancer',
-  'camelot-v3': 'Camelot',
+  'camelot-v2': 'Camelot', 'camelot-v3': 'Camelot',
+  'fluid-dex': 'Fluid',
+  'hyperswap-v2': 'HyperSwap', 'hyperswap-v3': 'HyperSwap',
+  'joe-v2.2': 'Trader Joe',
+  'kyberswap-fairflow': 'KyberSwap',
+  'pharaoh-v3': 'Pharaoh',
+  'quickswap-dex': 'QuickSwap',
+  'ramses-cl-v2': 'Ramses',
+  'sparkdex-v3.1': 'SparkDEX', 'sparkdex-v4': 'SparkDEX',
 };
 
 interface RawPool {

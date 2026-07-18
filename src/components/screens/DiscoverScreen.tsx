@@ -1,11 +1,9 @@
 'use client';
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useConfig } from 'wagmi';
-import { getPublicClient } from 'wagmi/actions';
 import { isAddress } from 'viem';
 import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
-import { useDiscoverPools, prefetchDiscoverPools } from '../../lib/discoverPools';
+import { useDiscoverPools } from '../../lib/discoverPools';
 import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chainSlug } from '../../lib/routes';
 
@@ -167,7 +165,6 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
 }
 
 export function DiscoverScreen() {
-  const config = useConfig();
   const { isMobile } = useSidebar();
   const { pools, priceChange, loading } = useDiscoverPools();
   const [search, setSearch] = useState('');
@@ -177,11 +174,6 @@ export function DiscoverScreen() {
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
   const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 } | null>(null);
-
-  // No-op when the app shell already warmed the data (or it's still fresh).
-  useEffect(() => {
-    prefetchDiscoverPools(getPublicClient(config));
-  }, [config]);
 
   // Open a pool. Minting flows put a shareable URL in the address bar with the
   // token addresses carried in the query, so the link resolves forever even if

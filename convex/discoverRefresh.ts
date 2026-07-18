@@ -59,7 +59,7 @@ export const refresh = internalAction({
     }
 
     await ctx.runMutation(internal.discover.save, {
-      json: JSON.stringify({ pools: withRange, priceChange }),
+      json: JSON.stringify({ version: 2, pools: withRange, priceChange }),
     });
   },
 });

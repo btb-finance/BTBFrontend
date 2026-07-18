@@ -11,6 +11,7 @@ const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyste
 // The Convex cron refreshes hourly; accept up to 2h staleness before falling
 // back to computing client-side.
 const SNAPSHOT_FRESH_MS = 2 * 60 * 60_000;
+const SNAPSHOT_VERSION = 2;
 
 // ─── Discover pool data store ────────────────────────────────────────────────
 // Lives at module level so the data survives the screen unmounting, and so the
@@ -61,10 +62,16 @@ export function prefetchDiscoverPools(client?: PublicClient) {
       const convex = new ConvexHttpClient(CONVEX_URL);
       const row = await convex.query(api.discover.get, {});
       if (row && Date.now() - row.updatedAt < SNAPSHOT_FRESH_MS) {
-        const snap = JSON.parse(row.json) as { pools: EarnPool[]; priceChange?: Record<string, number> };
+        const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
+        // During a snapshot schema upgrade, keep the previous rows visible
+        // while the one-time background refresh builds the wider catalog.
+        // Navigation never falls back to an empty loading table.
+        if (snap.pools?.length > 0) {
+          set({ pools: snap.pools, priceChange: snap.priceChange ?? {}, loading: false });
+        }
         // Older snapshots were Ethereum-only. Recompute once rather than
         // letting that legacy cache hide the newly enabled multichain rows.
-        if (snap.pools?.length > 0 && snap.pools.some(pool =>
+        if (snap.version === SNAPSHOT_VERSION && snap.pools?.length > 0 && snap.pools.some(pool =>
           pool.chain === 'Robinhood Chain' &&
           pool.feeTier != null &&
           pool.tokenPricesUsd &&

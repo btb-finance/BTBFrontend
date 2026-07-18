@@ -21,7 +21,7 @@ export const save = internalMutation({
   },
 });
 
-/** The latest snapshot — `json` is `{ pools: EarnPool[], priceChange: Record<string, number> }`. */
+/** The latest snapshot — `json` is `{ version, pools: EarnPool[], priceChange: Record<string, number> }`. */
 export const get = query({
   args: {},
   handler: async (ctx) => {

@@ -27,6 +27,9 @@ export interface MarketPoolNetworks {
   dexScreener: string;
 }
 
+const MARKET_CACHE_TTL_MS = 5 * 60_000;
+const marketPoolCache = new Map<string, { expiresAt: number; request: Promise<MarketPool[]> }>();
+
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
@@ -55,7 +58,7 @@ export function prettyDexLabel(dexId: string): string {
  * All pools for a token (tokenB omitted) or an exact pair (tokenB given).
  * Dust pools under `minTvlUsd` are dropped as noise.
  */
-export async function searchMarketPools(
+async function loadMarketPools(
   tokenAAddress: string,
   tokenBAddress?: string,
   minTvlUsd = 100,
@@ -106,4 +109,29 @@ export async function searchMarketPools(
   }
   out.sort((a, b) => b.tvlUsd - a.tvlUsd);
   return out;
+}
+
+/**
+ * Shared cached entry point for Discover and Simulate. Pair keys are order
+ * independent, so A/B and B/A navigation reuse the same provider response.
+ */
+export function searchMarketPools(
+  tokenAAddress: string,
+  tokenBAddress?: string,
+  minTvlUsd = 100,
+  networks: MarketPoolNetworks = { gecko: 'eth', dexScreener: 'ethereum' },
+): Promise<MarketPool[]> {
+  const tokens = [tokenAAddress.toLowerCase(), tokenBAddress?.toLowerCase()].filter((token): token is string => !!token);
+  if (tokens.length === 2) tokens.sort();
+  const key = `${networks.gecko}:${networks.dexScreener}:${minTvlUsd}:${tokens.join(':')}`;
+  const cached = marketPoolCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.request;
+
+  const request = loadMarketPools(tokenAAddress, tokenBAddress, minTvlUsd, networks)
+    .catch(error => {
+      marketPoolCache.delete(key);
+      throw error;
+    });
+  marketPoolCache.set(key, { expiresAt: Date.now() + MARKET_CACHE_TTL_MS, request });
+  return request;
 }

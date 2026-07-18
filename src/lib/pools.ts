@@ -1,16 +1,9 @@
 /**
- * Unified pool list for the Earn tab — Uniswap V3 + V4 and PancakeSwap V3,
- * Ethereum mainnet only.
- *
- * Primary source: the DEXs' own indexers (official subgraphs) — real pool
- * addresses, fee tiers, 24h volume/fees, and fee APR computed from actual fees
- * earned. Set NEXT_PUBLIC_GRAPH_KEY (free Graph API key) to enable.
- *
- * Other DEXs (Aerodrome, Curve, …) are staged — the Earn tab shows them as
- * "coming soon" instead of listing pools we can't act on. DeFiLlama's keyless
- * yields API remains as a fallback for Uniswap V3 / PancakeSwap V3 mainnet
- * whenever the subgraphs are unavailable, so the screen always has actionable
- * pools.
+ * Shared multichain pool catalog used by Discover, Simulate enrichment, and LP
+ * suggestions. Official indexers provide the actionable Uniswap/PancakeSwap
+ * rows; one DeFiLlama snapshot supplies the wider DEX market (Aerodrome,
+ * Curve, Balancer, SushiSwap, chain-native venues, and others) without a
+ * request per DEX.
  */
 import { decodeFunctionResult, encodeFunctionData, type Abi, type PublicClient } from 'viem';
 import { getTopPools as getLlamaPools, getTokenPricesUsd, fmtCompactUsd, type LlamaPool } from './defillama';
@@ -360,10 +353,9 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
     hasGraphKey ? getV3TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getV4TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getPancakeTopPools() : Promise.reject(new Error('no key')),
-    // Rank within just the DEXs this app can actually act on (Add LP / Simulate),
-    // so a handful of giant Curve/Balancer/Aerodrome pools can't crowd the
-    // top-N slice before the actionable-project filter below even runs.
-    getLlamaPools(200, minTvlUsd, ['uniswap-v3', 'uniswap-v4', 'pancakeswap-amm-v3']),
+    // DeFiLlama already returns all supported DEX projects in one response.
+    // Keep the wider market here so every consumer sees the same catalog.
+    getLlamaPools(300, minTvlUsd),
     getRobinhoodPools(minTvlUsd),
   ]);
 
@@ -376,19 +368,16 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
 
   if (llama.status === 'fulfilled') {
     for (const p of llama.value) {
-      // Other chains are useful for discovery even though in-app minting is
-      // still Ethereum-only. Ethereum rows continue to back-fill a failed
-      // official indexer; multichain rows are always included read-only.
-      if (p.chain !== 'Ethereum') {
-        pools.push(fromLlama(p, {
-          dex: p.project === 'pancakeswap-amm-v3' ? 'PancakeSwap' : 'Uniswap',
-          version: p.project === 'uniswap-v4' ? 'V4' : 'V3',
-        }));
-        continue;
-      }
-      if (p.project === 'uniswap-v3' && v3.status !== 'fulfilled') pools.push(fromLlama(p, { version: 'V3' }));
-      if (p.project === 'uniswap-v4' && v4.status !== 'fulfilled') pools.push(fromLlama(p, { version: 'V4' }));
-      if (p.project === 'pancakeswap-amm-v3' && cake.status !== 'fulfilled') pools.push(fromLlama(p, { dex: 'PancakeSwap', version: 'V3' }));
+      // Ethereum's official indexers win when available; all other DEX/chain
+      // rows come directly from the same already-fetched market snapshot.
+      if (p.chain === 'Ethereum' && p.project === 'uniswap-v3' && v3.status === 'fulfilled') continue;
+      if (p.chain === 'Ethereum' && p.project === 'uniswap-v4' && v4.status === 'fulfilled') continue;
+      if (p.chain === 'Ethereum' && p.project === 'pancakeswap-amm-v3' && cake.status === 'fulfilled') continue;
+      const version = /(?:^|-)v4(?:$|\.)/i.test(p.project) ? 'V4'
+        : /(?:^|-)v3(?:$|\.)/i.test(p.project) ? 'V3'
+          : /(?:^|-)v2(?:$|\.)/i.test(p.project) ? 'V2'
+            : undefined;
+      pools.push(fromLlama(p, { version }));
     }
   }
 

@@ -23,7 +23,7 @@ export default defineSchema({
   }).index("by_wallet", ["walletAddress", "createdAt"]),
 
   // Discover pool list, precomputed hourly by convex/discover.ts (single row).
-  // `json` = { pools: EarnPool[], priceChange: Record<poolId, pct> }.
+  // `json` = { version, pools: EarnPool[], priceChange: Record<poolId, pct> }.
   discoverPools: defineTable({
     json: v.string(),
     updatedAt: v.float64(),
