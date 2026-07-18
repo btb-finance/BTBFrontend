@@ -9,6 +9,7 @@ import { DataTable, Column } from '../DataTable';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions } from '../LpPositions';
+import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { useYearnVaults, useYearnPositions, type YearnPosition } from '../../lib/yearn';
 import { useSidebar } from '../../lib/SidebarContext';
@@ -307,7 +308,10 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
       </div>
 
       {tab === 'lps' ? (
-        <LpPositions showEmpty />
+        <>
+          <StudioPositions />
+          <LpPositions showEmpty />
+        </>
       ) : tab === 'earn' ? (
         <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
           <DataTable

@@ -10,7 +10,8 @@ import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { approvalCall, BTB_AGENT_REGISTRY_ABI, BTB_LP_ACCOUNT_ABI, depositTokenCall, type SmartAccountDeployment } from '../lib/smartAccount';
-import { fetchAccountAssets, type AccountAsset } from '../lib/accountAssets';
+import { type AccountAsset } from '../lib/accountAssets';
+import { useAccountAssets } from '../lib/appData';
 import { TokenIcon } from './TokenIcon';
 
 function compact(raw: bigint, decimals: number) {
@@ -38,9 +39,12 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, deployme
   const [meta, setMeta] = useState<{ symbol: string; decimals: number; wallet: bigint; account: bigint; reserved: bigint } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [walletAssets, setWalletAssets] = useState<AccountAsset[]>(initialWalletAssets);
-  const [accountAssets, setAccountAssets] = useState<AccountAsset[]>(initialAccountAssets);
-  const [assetsLoading, setAssetsLoading] = useState(initialWalletAssets.length === 0 && initialAccountAssets.length === 0);
+  // Shared balance cache — the same entries SmartTradePanel and Home read.
+  const { data: walletAssetsData, isFetching: walletFetching } = useAccountAssets(owner);
+  const { data: accountAssetsData, isFetching: accountFetching } = useAccountAssets(account);
+  const walletAssets = walletAssetsData ?? initialWalletAssets;
+  const accountAssets = accountAssetsData ?? initialAccountAssets;
+  const assetsLoading = (walletFetching || accountFetching) && walletAssets.length === 0 && accountAssets.length === 0;
   const [showContract, setShowContract] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
 
@@ -53,16 +57,6 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, deployme
   // Withdrawals are capped at the unreserved account balance; a pending LP instruction locks the rest.
   const withdrawable = meta ? (meta.account > meta.reserved ? meta.account - meta.reserved : 0n) : 0n;
   const available = meta ? (mode === 'deposit' ? meta.wallet : withdrawable) : 0n;
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setAssetsLoading(walletAssets.length === 0 && accountAssets.length === 0);
-    void Promise.all([fetchAccountAssets(owner, controller.signal), fetchAccountAssets(account, controller.signal)])
-      .then(([wallet, held]) => { setWalletAssets(wallet); setAccountAssets(held); })
-      .catch(() => undefined)
-      .finally(() => { if (!controller.signal.aborted) setAssetsLoading(false); });
-    return () => controller.abort();
-  }, [account, owner]);
 
   useEffect(() => {
     let cancelled = false;

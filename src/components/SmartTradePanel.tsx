@@ -13,7 +13,7 @@ import { ManagedFundsSheet } from './ManagedFundsSheet';
 import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { fetchAccountAssets, type AccountAsset } from '../lib/accountAssets';
+import { useAccountAssets, useRefreshAssets } from '../lib/appData';
 import {
   BTB_AGENT_REGISTRY_ABI, configureAgentCall, configureTradePolicyCall, createAccountCall,
   getSmartAccountDeployment, readSmartAccount,
@@ -102,9 +102,6 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const [funding, setFunding] = useState<'deposit' | 'withdraw' | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
   const [balanceRefresh, setBalanceRefresh] = useState(0);
-  const [walletAssets, setWalletAssets] = useState<AccountAsset[]>([]);
-  const [smartAssets, setSmartAssets] = useState<AccountAsset[]>([]);
-  const [assetsLoading, setAssetsLoading] = useState(false);
   const executedPreset = useRef<string | null>(null);
   const handledPresets = useRef(new Set<string>());
   const lastConfirmedOrder = useRef<string | null>(null);
@@ -151,6 +148,18 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
 
   useEffect(() => { void load(); }, [load]);
 
+  // Shared balances: the same cache Home, sheets, and portfolio read.
+  const refreshAssets = useRefreshAssets();
+  const { data: walletAssetsData, isFetching: walletAssetsFetching } = useAccountAssets(validOwner);
+  const { data: smartAssetsData, isFetching: smartAssetsFetching } = useAccountAssets(state?.deployed ? state.account : undefined);
+  const walletAssets = walletAssetsData ?? [];
+  const smartAssets = smartAssetsData ?? [];
+  const assetsLoading = walletAssetsFetching || smartAssetsFetching;
+  const bumpBalances = useCallback(() => {
+    setBalanceRefresh(value => value + 1);
+    refreshAssets(validOwner, state?.account);
+  }, [refreshAssets, state?.account, validOwner]);
+
   useEffect(() => {
     const incoming = presets.filter(item => !handledPresets.current.has(item.id));
     if (!incoming.length) return;
@@ -164,17 +173,6 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
     setNoticePreset(pendingPresets[0]);
     setPendingPresets(current => current.slice(1));
   }, [pendingPresets, preset]);
-
-  useEffect(() => {
-    if (!validOwner) { setWalletAssets([]); setSmartAssets([]); return; }
-    const controller = new AbortController();
-    setAssetsLoading(true);
-    void Promise.all([
-      fetchAccountAssets(validOwner, controller.signal, balanceRefresh),
-      state?.deployed ? fetchAccountAssets(state.account, controller.signal, balanceRefresh) : Promise.resolve([]),
-    ]).then(([wallet, smart]) => { setWalletAssets(wallet); setSmartAssets(smart); }).catch(() => undefined).finally(() => { if (!controller.signal.aborted) setAssetsLoading(false); });
-    return () => controller.abort();
-  }, [balanceRefresh, state?.account, state?.deployed, validOwner]);
 
   useEffect(() => {
     if (!state?.account) return;
@@ -265,8 +263,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
     const confirmed = orders?.find(order => order.state === 'confirmed');
     if (!confirmed || String(confirmed._id) === lastConfirmedOrder.current) return;
     lastConfirmedOrder.current = String(confirmed._id);
-    setBalanceRefresh(value => value + 1);
-    const retries = [2_000, 5_000, 10_000, 20_000].map(delay => window.setTimeout(() => setBalanceRefresh(value => value + 1), delay));
+    bumpBalances();
+    const retries = [2_000, 5_000, 10_000, 20_000].map(delay => window.setTimeout(bumpBalances, delay));
     return () => retries.forEach(window.clearTimeout);
   }, [orders]);
 
@@ -618,7 +616,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         </div> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View ↗</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
       </div>}
       {funding && state?.deployed && validOwner && (
-        <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} deployment={deployment} initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { setBalanceRefresh(value => value + 1); await load(); }}/>
+        <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} deployment={deployment} initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { bumpBalances(); await load(); }}/>
       )}
     </>
   );
