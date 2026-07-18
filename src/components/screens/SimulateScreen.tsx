@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig, useConnection } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { encodeAbiParameters, keccak256, parseAbiParameters, type PublicClient } from 'viem';
+import { encodeAbiParameters, erc20Abi, isAddress, keccak256, parseAbiParameters, zeroAddress, type PublicClient } from 'viem';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { Button } from '../Button';
@@ -346,7 +346,7 @@ export function SimulateScreen() {
     : walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
   const [chainId, setChainId] = useState(initialChain);
   const [listedTokens, setListedTokens] = useState<Token[]>([]);
-  const [loadingTokens, setLoadingTokens] = useState(false);
+  const [loadingTokens, setLoadingTokens] = useState(true);
   const { setThemeChainId } = useChainTheme();
   const networks = CHAIN_DATA_NETWORKS[chainId] ?? CHAIN_DATA_NETWORKS[1];
   const chainName = CHAIN_META[chainId]?.name ?? SUPPORTED_CHAINS.find(chain => chain.id === chainId)?.name ?? 'Ethereum';
@@ -421,21 +421,73 @@ export function SimulateScreen() {
   }
 
   // Discover links here with the pool's exact underlying-token addresses.
-  // Keep the comparison screen in control: the two pickers are filled in, but
-  // the user explicitly chooses when to run the comparison.
+  // Some discovered assets are not in our curated picker, so resolve missing
+  // metadata from the selected chain before starting the comparison.
   useEffect(() => {
-    if (appliedPair.current || tokens.length === 0) return;
+    if (appliedPair.current || loadingTokens) return;
     const { a, b } = presetPair;
     if (!a || !b) return;
-    const findToken = (address: string) => chainTokens.find((t) =>
-      t.address.toLowerCase() === address || toV3Address(t.address, wrappedNative).toLowerCase() === address,
-    );
-    const presetA = findToken(a);
-    const presetB = findToken(b);
-    if (!presetA || !presetB) return;
-    appliedPair.current = true;
-    setTokenA(presetA); setTokenB(presetB);
-  }, [chainTokens, presetPair, wrappedNative]);
+
+    let cancelled = false;
+    const nativeSymbol = CHAIN_META[chainId]?.symbol ?? 'ETH';
+    const nativeToken = chainTokens.find(token => token.address.toLowerCase() === 'eth') ?? {
+      address: 'ETH',
+      symbol: nativeSymbol,
+      name: nativeSymbol,
+      decimals: 18,
+      chainId,
+    };
+
+    async function resolveToken(address: string): Promise<Token | null> {
+      const normalized = address.toLowerCase();
+      if (
+        normalized === 'eth'
+        || normalized === zeroAddress
+        || normalized === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+        || normalized === wrappedNative.toLowerCase()
+      ) {
+        return nativeToken;
+      }
+
+      const listed = chainTokens.find(token => token.address.toLowerCase() === normalized);
+      if (listed) return listed;
+      if (!isAddress(address)) return null;
+
+      const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
+      if (!client) return null;
+      const tokenAddress = normalized as `0x${string}`;
+      try {
+        const [symbol, decimals, name] = await Promise.all([
+          client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'symbol' }),
+          client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'decimals' }),
+          client.readContract({ address: tokenAddress, abi: erc20Abi, functionName: 'name' }).catch(() => ''),
+        ]);
+        if (!symbol) return null;
+        return {
+          address: normalized,
+          symbol,
+          name: name || symbol,
+          decimals,
+          chainId,
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    void Promise.all([resolveToken(a), resolveToken(b)]).then(([presetA, presetB]) => {
+      if (cancelled) return;
+      if (!presetA || !presetB) {
+        setError(`Couldn't load the linked token pair on ${chainName}.`);
+        return;
+      }
+      appliedPair.current = true;
+      setTokenA(presetA);
+      setTokenB(presetB);
+    });
+
+    return () => { cancelled = true; };
+  }, [chainId, chainName, chainTokens, config, loadingTokens, presetPair, wrappedNative]);
 
   const canSearch = !!tokenA && !!tokenB && tokenA.address.toLowerCase() !== tokenB.address.toLowerCase();
 
