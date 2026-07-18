@@ -163,24 +163,41 @@ export async function enrichMarketPoolApr(
   );
   if (missing.length === 0) return pools;
 
-  const reads = await client.multicall({
-    contracts: missing.map(pool => ({
-      address: pool.address as `0x${string}`,
-      abi: POOL_FEE_ABI,
-      functionName: 'fee' as const,
-    })),
-    allowFailure: true,
-  }).catch(() => []);
   const feeByAddress = new Map<string, number>();
-  reads.forEach((read, index) => {
-    if (read.status !== 'success') return;
-    const fee = Number(read.result);
-    // V3-style fees use millionths. Reject zero and the V4 dynamic-fee flag
-    // rather than turning either into a fabricated APR.
-    if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
-      feeByAddress.set(missing[index].address, fee / 1_000_000);
+  let pending = missing;
+  for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
+    const batch = pending;
+    const reads = await client.multicall({
+      contracts: batch.map(pool => ({
+        address: pool.address as `0x${string}`,
+        abi: POOL_FEE_ABI,
+        functionName: 'fee' as const,
+      })),
+      allowFailure: true,
+    }).catch(() => []);
+    const failed: MarketPool[] = [];
+    batch.forEach((pool, index) => {
+      const read = reads[index];
+      if (!read || read.status !== 'success') {
+        failed.push(pool);
+        return;
+      }
+      const fee = Number(read.result);
+      // V3-style fees use millionths. Reject zero and the V4 dynamic-fee flag
+      // rather than turning either into a fabricated APR. A successful but
+      // incompatible fee result is not transient, so it is not retried.
+      if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
+        feeByAddress.set(pool.address, fee / 1_000_000);
+      }
+    });
+    pending = failed;
+    if (reads.length === 0 && attempt === 0) {
+      // The whole RPC batch failed. The next iteration retries the same
+      // unresolved subset through the client's fallback transport.
+      pending = batch;
     }
-  });
+  }
   if (feeByAddress.size === 0) return pools;
 
   return pools.map(pool => {
