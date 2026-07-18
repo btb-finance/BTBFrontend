@@ -16,15 +16,146 @@ import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { DiscoverStatusBanner } from '../DiscoverStatusBanner';
+import { ChainLogo } from '../ChainLogo';
 import { Glass } from '../Glass';
 import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
 import { useSidebar } from '../../lib/SidebarContext';
+import { CHAIN_META } from '../../lib/wagmi';
+import { useChainTheme } from '../../lib/ChainThemeContext';
 
 /** Fee-based estimate used when the indexer doesn't report real 24h fees (DeFiLlama-sourced rows). */
 function estFees24h(p: EarnPool): number {
   return p.fees24hUsd ?? (p.tvlUsd * p.apyBase) / 100 / 365;
+}
+
+type DiscoverChain = { name: string; chainId?: number };
+
+function discoverChainId(name: string, explicitId?: number): number | undefined {
+  if (explicitId && CHAIN_META[explicitId]) return explicitId;
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const aliases: Record<string, number> = {
+    ethereum: 1, ethereummainnet: 1, bsc: 56, bnbchain: 56, bnbsmartchain: 56,
+    polygon: 137, polygonmainnet: 137, arbitrum: 42161, arbitrumone: 42161,
+    optimism: 10, opmainnet: 10, base: 8453, avalanche: 43114,
+    avalanchecchain: 43114, robinhoodchain: 4663, zksync: 324, zksyncera: 324,
+  };
+  const direct = aliases[normalized];
+  if (direct) return direct;
+  return Number(Object.entries(CHAIN_META).find(([, meta]) =>
+    meta.name.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized
+  )?.[0]) || undefined;
+}
+
+function ChainMark({ chainId, size }: { chainId?: number; size: number }) {
+  if (chainId) return <ChainLogo chainId={chainId} size={size}/>;
+  return (
+    <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.1)', boxShadow: '0 0 0 1px rgba(255,255,255,.12)', flexShrink: 0 }}>
+      <Icon name="globe" size={Math.max(10, size - 7)} color={btb.textMuted}/>
+    </span>
+  );
+}
+
+function ChainBadge({ name, chainId }: DiscoverChain) {
+  return (
+    <span
+      title={name}
+      aria-label={name}
+      style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
+    >
+      <ChainMark chainId={chainId} size={17}/>
+    </span>
+  );
+}
+
+function DiscoverChainSelect({ chains, value, onChange, mobile }: {
+  chains: DiscoverChain[];
+  value: string;
+  onChange: (chain: string) => void;
+  mobile: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = chains.find(chain => chain.name === value);
+  const logoChains = chains.filter((chain): chain is DiscoverChain & { chainId: number } => chain.chainId != null).slice(0, 2);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative', flex: mobile ? 1 : '0 0 170px', minWidth: 0 }}>
+      <button
+        type="button"
+        aria-label="Filter pools by chain"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(isOpen => !isOpen)}
+        style={{
+          width: '100%',
+          height: 42,
+          borderRadius: 12,
+          border: btb.borderSoft,
+          background: btb.surfaceSoft,
+          color: btb.text,
+          padding: '0 10px',
+          fontFamily: 'inherit',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
+        {selected ? (
+          <ChainMark chainId={selected.chainId} size={23}/>
+        ) : (
+          <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
+            {logoChains.map((chain, index) => (
+              <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}>
+                <ChainLogo chainId={chain.chainId} size={21}/>
+              </span>
+            ))}
+          </span>
+        )}
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: 12.5, fontWeight: 750 }}>{selected?.name ?? 'All chains'}</span>
+        <Icon name="down" size={13} color={btb.textMuted}/>
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
+          <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
+              {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
+            </span>
+            <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All chains</span>
+            {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
+          </button>
+          {chains.map(chain => {
+            const active = value === chain.name;
+            return (
+              <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+                <ChainMark chainId={chain.chainId} size={23}/>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
+                {active && <Icon name="check" size={15} color={btb.green}/>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function DiscoverScreen() {
@@ -34,6 +165,7 @@ export function DiscoverScreen() {
   const [search, setSearch] = useState('');
   const [selectedChain, setSelectedChain] = useState('all');
   const [selectedDex, setSelectedDex] = useState('all');
+  const { setThemeChainId } = useChainTheme();
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
   const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 } | null>(null);
@@ -182,7 +314,11 @@ export function DiscoverScreen() {
     });
   }, [pools, search, selectedChain, selectedDex]);
 
-  const chains = useMemo(() => [...new Set(pools.map(pool => pool.chain))].sort(), [pools]);
+  const chains = useMemo(() => {
+    const byName = new Map<string, DiscoverChain>();
+    for (const pool of pools) byName.set(pool.chain, { name: pool.chain, chainId: discoverChainId(pool.chain, pool.chainId) });
+    return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [pools]);
   const dexes = useMemo(() => [...new Set(pools.map(pool => pool.dex))].sort(), [pools]);
 
   const splitPair = (p: EarnPool) => p.pair.split('-') as [string, string];
@@ -226,7 +362,7 @@ export function DiscoverScreen() {
                 <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
                   {p.dex}{p.version ? ` ${p.version}` : ''}
                 </Badge>
-                <Badge size="sm" bg="rgba(148,163,184,0.1)" color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chain}</Badge>
+                <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
@@ -326,10 +462,11 @@ export function DiscoverScreen() {
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
           />
         </div>
-        <select value={selectedChain} onChange={event => setSelectedChain(event.target.value)} aria-label="Filter pools by chain" style={{ flex: isMobile ? 1 : '0 0 170px', minWidth: 0, height: 42, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-          <option value="all">All chains</option>
-          {chains.map(chain => <option key={chain} value={chain}>{chain}</option>)}
-        </select>
+        <DiscoverChainSelect chains={chains} value={selectedChain} onChange={(chainName) => {
+          setSelectedChain(chainName);
+          const chain = chains.find(item => item.name === chainName);
+          if (chain?.chainId) setThemeChainId(chain.chainId);
+        }} mobile={isMobile}/>
         <select value={selectedDex} onChange={event => setSelectedDex(event.target.value)} aria-label="Filter pools by DEX" style={{ flex: isMobile ? 1 : '0 0 170px', minWidth: 0, height: 42, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
           <option value="all">All DEXs</option>
           {dexes.map(dex => <option key={dex} value={dex}>{dex}</option>)}
@@ -367,7 +504,7 @@ export function DiscoverScreen() {
                       <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
                         {p.dex}{p.version ? ` ${p.version}` : ''}
                       </Badge>
-                      <Badge size="sm" bg="rgba(148,163,184,0.1)" color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chain}</Badge>
+                      <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (

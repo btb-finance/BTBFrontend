@@ -7,6 +7,7 @@ import { Badge } from './Badge';
 import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { useTokenStore } from '../lib/TokenStore';
+import { ChainLogo } from './ChainLogo';
 import {
   BTB_CHAIN_ID, fetchStudioLp, positionAmounts, sqrtPriceToPrice, tickToPrice,
   type StudioLpSnapshot,
@@ -55,7 +56,9 @@ export function StudioPositions() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px 10px' }}>
         <Icon name="bolt" size={14} color={btb.green}/>
         <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>Smart Account LP</span>
-        <Badge size="sm" color={btb.textMuted}>Robinhood Chain</Badge>
+        <span title="Robinhood Chain" aria-label="Robinhood Chain" style={{ display: 'inline-flex', alignItems: 'center' }}>
+          <ChainLogo chainId={4663} size={17}/>
+        </span>
         <div style={{ flex: 1 }}/>
         <span onClick={goStudio} style={{
           color: btb.green, fontSize: 12, fontWeight: 700, cursor: 'pointer',

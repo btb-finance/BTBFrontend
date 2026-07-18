@@ -13,6 +13,7 @@ import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { useYearnVaults, useYearnPositions, type YearnPosition } from '../../lib/yearn';
 import { useSidebar } from '../../lib/SidebarContext';
+import { ChainLogo } from '../ChainLogo';
 
 function fmt(n: number, dp = 2) {
   return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -109,15 +110,13 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <TokenIcon symbol={t.symbol} size={30} logoUrl={t.logoURI} />
-            {t.chainId && t.chainId !== 1 && CHAIN_META[t.chainId] && (
-              <div style={{ position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: '50%', background: CHAIN_META[t.chainId].color, border: `2px solid ${btb.bg}` }} />
-            )}
           </div>
           <div>
             <div style={{ fontWeight: 700 }}>{t.symbol}</div>
-            <div style={{ color: btb.textMuted, fontSize: 11.5 }}>
-              {t.chainId && CHAIN_META[t.chainId] ? CHAIN_META[t.chainId].name : t.chainSlug || 'Ethereum'}
-              {' · '}
+            <div style={{ color: btb.textMuted, fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span title={CHAIN_META[t.chainId ?? 1]?.name ?? t.chainSlug ?? 'Ethereum'} aria-label={CHAIN_META[t.chainId ?? 1]?.name ?? t.chainSlug ?? 'Ethereum'} style={{ display: 'inline-flex', flexShrink: 0 }}>
+                <ChainLogo chainId={t.chainId ?? 1} size={17}/>
+              </span>
               {isNativeAddress(t.address) ? (
                 <span style={{ color: btb.textDim }}>Native token</span>
               ) : TOKEN_EXPLORER[t.chainId ?? 1] ? (

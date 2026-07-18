@@ -1,27 +1,29 @@
 export const btb = {
-  bg:          '#0A0A0F',
-  glass:       'rgba(255,255,255,0.06)',
-  glassStrong: 'rgba(255,255,255,0.10)',
-  glassSoft:   'rgba(255,255,255,0.03)',
+  bg:          'var(--chain-bg, #0A0A0F)',
+  glass:       'var(--chain-surface, rgba(255,255,255,0.06))',
+  glassStrong: 'var(--chain-surface-strong, rgba(255,255,255,0.10))',
+  glassSoft:   'var(--chain-surface-soft, rgba(255,255,255,0.03))',
   // Flat translucent-white surfaces (non-blurred) used for chips, inputs, rows.
-  surface:     'rgba(255,255,255,0.06)',
-  surfaceStrong:'rgba(255,255,255,0.08)',
-  surfaceSoft: 'rgba(255,255,255,0.04)',
-  border:      '1px solid rgba(255,255,255,0.12)',
-  borderSoft:  '1px solid rgba(255,255,255,0.07)',
+  surface:     'var(--chain-surface, rgba(255,255,255,0.06))',
+  surfaceStrong:'var(--chain-surface-strong, rgba(255,255,255,0.08))',
+  surfaceSoft: 'var(--chain-surface-soft, rgba(255,255,255,0.04))',
+  border:      'var(--chain-border, 1px solid rgba(255,255,255,0.12))',
+  borderSoft:  'var(--chain-border-soft, 1px solid rgba(255,255,255,0.07))',
   text:        '#FFFFFF',
   textMuted:   'rgba(255,255,255,0.55)',
   textDim:     'rgba(255,255,255,0.35)',
+  // Keep large text and error surfaces neutral; chain color is reserved for
+  // ambient tint, borders and small identity accents.
   red:         '#FFFFFF',
   redDeep:     'rgba(255,255,255,0.7)',
   pink:        '#FFFFFF',
   amber:       '#FFB36B',
   green:       '#52E3A4',
   loss:        '#FF6B7A',
-  shadow:      '0 8px 32px rgba(0,0,0,0.35), 0 1px 0 rgba(255,255,255,0.06) inset',
+  shadow:      'var(--chain-shadow, 0 8px 32px rgba(0,0,0,0.35))',
   blur:        'blur(32px) saturate(140%)',
   // Shared gradients — keep button/CTA fills consistent in one place.
-  gradPrimary: 'linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9))',
+  gradPrimary: 'var(--chain-gradient, linear-gradient(135deg,rgba(255,255,255,0.95),rgba(200,210,220,0.9)))',
   gradGreen:   'linear-gradient(135deg,#52E3A4,#1aad77)',
 } as const;
 

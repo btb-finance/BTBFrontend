@@ -130,7 +130,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
     : null;
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', background: btb.bg, display: 'flex' }}>
+    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--chain-app-background, #0A0A0F)', display: 'flex', transition: 'background 280ms ease' }}>
       {!isMobile && (
         <Sidebar
           tab={screen}

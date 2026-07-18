@@ -35,6 +35,7 @@ import {
   type KrystalTokenAmount,
 } from '../lib/krystal';
 import { getCachedLpPositions, setCachedLpPositions, useKrystalLp } from '../lib/appData';
+import { ChainLogo } from './ChainLogo';
 
 const fmtPrice = (v: number) => !Number.isFinite(v) || v === 0 || v >= 1e12 ? '∞'
   : v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : v.toPrecision(5);
@@ -99,6 +100,14 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
 };
+
+function LpChainLogo({ chainId, chainName }: { chainId: number; chainName: string }) {
+  return (
+    <span title={chainName} aria-label={chainName} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+      <ChainLogo chainId={chainId} size={17}/>
+    </span>
+  );
+}
 
 function sumKrystalUsd(items?: KrystalTokenAmount[]): number {
   return (items ?? []).reduce((sum, item) => sum + (item.quotes?.usd?.value ?? 0), 0);
@@ -328,7 +337,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           <div>
             <div style={{ color: btb.text, fontWeight: 800, fontSize: 15.5 }}>{p.symbol0} / {p.symbol1}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chainName ?? 'Ethereum'}</Badge>
+              <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
               <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
               <Badge size="sm" color={btb.textDim} bg="transparent" border="none" style={{ fontSize: 10, padding: '1px 2px' }}>#{p.id.toString()}</Badge>
@@ -405,7 +414,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{item.chainName || `Chain ${item.chainId}`}</Badge>
+                <LpChainLogo chainId={item.chainId} chainName={item.chainName || `Chain ${item.chainId}`}/>
                 <Badge size="sm" color={btb.red} bg="rgba(255,76,107,0.13)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{compactProjectLabel(item.pool?.project, item.pool?.projectKey)}</Badge>
               </div>
             </div>
@@ -558,7 +567,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{p.symbol0} / {p.symbol1}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{p.chainName ?? 'Ethereum'}</Badge>
+                      <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
                       <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
                       <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
                     </div>
@@ -635,7 +644,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{item.chainName || `Chain ${item.chainId}`}</Badge>
+                      <LpChainLogo chainId={item.chainId} chainName={item.chainName || `Chain ${item.chainId}`}/>
                       <Badge size="sm" color={btb.red} bg="rgba(255,76,107,0.13)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{compactProjectLabel(item.pool?.project, item.pool?.projectKey)}</Badge>
                     </div>
                   </div>
@@ -661,7 +670,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                     <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>${lifetimeFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label={`${item.chainName || 'Other chain'} · Read only`} onClick={() => {}} disabled /></div>
+                <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label="Read only" onClick={() => {}} disabled /></div>
               </Glass>
             );
           })}
