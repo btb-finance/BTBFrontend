@@ -50,31 +50,51 @@ export interface DexScreenerPairPool {
  * than limited to the protocols the app can mint on.
  */
 export async function fetchDexScreenerPairPools(tokenAAddress: string, tokenBAddress?: string, chain = 'ethereum'): Promise<DexScreenerPairPool[]> {
+  const a = tokenAAddress.toLowerCase();
   const b = tokenBAddress?.toLowerCase();
-  const out: DexScreenerPairPool[] = [];
+  const byAddress = new Map<string, DexScreenerPairPool>();
   try {
-    const res = await fetch(`https://api.dexscreener.com/token-pairs/v1/${chain}/${tokenAAddress}`, {
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return out;
-    const pairs = await res.json() as {
-      pairAddress?: string; dexId?: string; labels?: string[];
-      baseToken?: { address?: string }; quoteToken?: { address?: string };
-      liquidity?: { usd?: number }; volume?: { h24?: number };
-    }[];
-    for (const p of pairs ?? []) {
-      const side = new Set([p.baseToken?.address?.toLowerCase(), p.quoteToken?.address?.toLowerCase()]);
-      if ((b && !side.has(b)) || !p.pairAddress) continue;
-      // Balancer multi-token pool ids etc. aren't plain addresses — skip those.
-      if (!/^0x[0-9a-fA-F]{40}$/.test(p.pairAddress)) continue;
-      out.push({
-        address: p.pairAddress.toLowerCase(),
-        dexId: p.dexId ?? 'unknown',
-        labels: p.labels ?? [],
-        tvlUsd: p.liquidity?.usd ?? 0,
-        volume24hUsd: p.volume?.h24 ?? 0,
+    // Query both token indexes for an exact pair. Each endpoint returns a
+    // capped token-centric list; taking their union prevents the busier
+    // token from hiding chain-native DEXes farther down its ranking.
+    const queries = b ? [a, b] : [a];
+    const responses = await Promise.allSettled(queries.map(async query => {
+      const res = await fetch(`https://api.dexscreener.com/token-pairs/v1/${chain}/${query}`, {
+        signal: AbortSignal.timeout(10000),
       });
+      if (!res.ok) return [];
+      return res.json() as Promise<{
+        pairAddress?: string; dexId?: string; labels?: string[];
+        baseToken?: { address?: string }; quoteToken?: { address?: string };
+        liquidity?: { usd?: number }; volume?: { h24?: number };
+      }[]>;
+    }));
+
+    for (const result of responses) {
+      if (result.status !== 'fulfilled') continue;
+      for (const p of result.value ?? []) {
+        const side = new Set([p.baseToken?.address?.toLowerCase(), p.quoteToken?.address?.toLowerCase()]);
+        if (!side.has(a) || (b && !side.has(b)) || !p.pairAddress) continue;
+        // Balancer multi-token pool ids etc. aren't plain addresses — skip those.
+        if (!/^0x[0-9a-fA-F]{40}$/.test(p.pairAddress)) continue;
+        const address = p.pairAddress.toLowerCase();
+        const pool: DexScreenerPairPool = {
+          address,
+          dexId: p.dexId ?? 'unknown',
+          labels: p.labels ?? [],
+          tvlUsd: p.liquidity?.usd ?? 0,
+          volume24hUsd: p.volume?.h24 ?? 0,
+        };
+        const previous = byAddress.get(address);
+        byAddress.set(address, previous ? {
+          ...previous,
+          ...pool,
+          labels: [...new Set([...previous.labels, ...pool.labels])],
+          tvlUsd: Math.max(previous.tvlUsd, pool.tvlUsd),
+          volume24hUsd: Math.max(previous.volume24hUsd, pool.volume24hUsd),
+        } : pool);
+      }
     }
   } catch { /* best-effort — caller merges whatever arrives */ }
-  return out;
+  return [...byAddress.values()];
 }

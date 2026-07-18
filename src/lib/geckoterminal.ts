@@ -66,43 +66,62 @@ export interface PairPool {
 export async function searchPairPools(tokenAAddress: string, tokenBAddress?: string, network = 'eth'): Promise<PairPool[]> {
   const a = tokenAAddress.toLowerCase();
   const b = tokenBAddress?.toLowerCase();
-  const out: PairPool[] = [];
+  const byAddress = new Map<string, PairPool>();
   try {
-    const res = await fetch(`${BASE}/search/pools?query=${a}&network=${network}&page=1`, {
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) return out;
-    const json = await res.json() as {
-      data?: {
-        attributes: PoolAttrs & { name?: string };
-        relationships?: {
-          dex?: { data?: { id?: string } };
-          base_token?: { data?: { id?: string } };
-          quote_token?: { data?: { id?: string } };
-        };
-      }[];
-    };
-    for (const row of json.data ?? []) {
-      const base = row.relationships?.base_token?.data?.id?.split('_').pop()?.toLowerCase();
-      const quote = row.relationships?.quote_token?.data?.id?.split('_').pop()?.toLowerCase();
-      const pair = new Set([base, quote]);
-      if (!pair.has(a) || (b && !pair.has(b))) continue;
-      const address = row.attributes.address?.toLowerCase();
-      if (!address) continue;
-      const name = row.attributes.name ?? '';
-      // Fee is embedded in the pool name for fee-tiered DEXes ("COMP / WETH 0.3%")
-      const feeMatch = name.match(/([\d.]+)%\s*$/);
-      out.push({
-        address,
-        dexId: row.relationships?.dex?.data?.id ?? 'unknown',
-        name,
-        tvlUsd: parseFloat(row.attributes.reserve_in_usd ?? '0') || 0,
-        volume24hUsd: parseFloat(row.attributes.volume_usd?.h24 ?? '0') || 0,
-        fee: feeMatch ? parseFloat(feeMatch[1]) / 100 : null,
+    // Pair searches run from both token sides. Provider result pages are
+    // capped, so a busy asset such as WETH can otherwise push a valid
+    // Aerodrome/Curve/Balancer pool out of token A's first page.
+    const queries = b ? [a, b] : [a];
+    const responses = await Promise.allSettled(queries.map(async query => {
+      const res = await fetch(`${BASE}/search/pools?query=${encodeURIComponent(query)}&network=${network}&page=1`, {
+        signal: AbortSignal.timeout(10000),
       });
+      if (!res.ok) return [];
+      const json = await res.json() as {
+        data?: {
+          attributes: PoolAttrs & { name?: string };
+          relationships?: {
+            dex?: { data?: { id?: string } };
+            base_token?: { data?: { id?: string } };
+            quote_token?: { data?: { id?: string } };
+          };
+        }[];
+      };
+      return json.data ?? [];
+    }));
+
+    for (const result of responses) {
+      if (result.status !== 'fulfilled') continue;
+      for (const row of result.value) {
+        const base = row.relationships?.base_token?.data?.id?.split('_').pop()?.toLowerCase();
+        const quote = row.relationships?.quote_token?.data?.id?.split('_').pop()?.toLowerCase();
+        const pair = new Set([base, quote]);
+        if (!pair.has(a) || (b && !pair.has(b))) continue;
+        const address = row.attributes.address?.toLowerCase();
+        if (!address) continue;
+        const name = row.attributes.name ?? '';
+        // Fee is embedded in the pool name for fee-tiered DEXes ("COMP / WETH 0.3%")
+        const feeMatch = name.match(/([\d.]+)%\s*$/);
+        const pool: PairPool = {
+          address,
+          dexId: row.relationships?.dex?.data?.id ?? 'unknown',
+          name,
+          tvlUsd: parseFloat(row.attributes.reserve_in_usd ?? '0') || 0,
+          volume24hUsd: parseFloat(row.attributes.volume_usd?.h24 ?? '0') || 0,
+          fee: feeMatch ? parseFloat(feeMatch[1]) / 100 : null,
+        };
+        const previous = byAddress.get(address);
+        byAddress.set(address, previous ? {
+          ...previous,
+          ...pool,
+          tvlUsd: Math.max(previous.tvlUsd, pool.tvlUsd),
+          volume24hUsd: Math.max(previous.volume24hUsd, pool.volume24hUsd),
+          fee: previous.fee ?? pool.fee,
+        } : pool);
+      }
     }
   } catch { /* search is best-effort — caller merges whatever arrives */ }
-  return out;
+  return [...byAddress.values()];
 }
 
 /**

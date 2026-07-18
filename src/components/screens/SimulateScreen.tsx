@@ -29,7 +29,7 @@ import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
-import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { enrichMarketPoolApr, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
@@ -102,6 +102,7 @@ const CROSS_CHAIN_TOKEN_OVERRIDES: Record<number, Record<string, Token>> = {
 // spacings or it doesn't.
 const V4_TICK_SPACINGS: Record<number, number> = { 100: 1, 500: 10, 3000: 60, 10000: 200 };
 const V4_FEE_TIERS = [100, 500, 3000, 10000];
+const CROSS_CHAIN_RANK_COLUMNS = 'minmax(0, 1.15fr) minmax(0, .7fr) minmax(0, .7fr) minmax(0, .7fr) 64px';
 const WRAPPED_NATIVE_FALLBACKS: Record<number, `0x${string}`> = {
   1: WETH,
   56: '0xBB4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
@@ -216,6 +217,25 @@ function marketPoolRows(marketPools: Awaited<ReturnType<typeof searchMarketPools
     fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
     external: { dexLabel: mp.dexLabel, url: mp.url },
   }));
+}
+
+function foundPoolDexLabel(pool: FoundPool): string {
+  return pool.external?.dexLabel ?? PROTOCOLS.find(protocol => protocol.id === pool.protocol)?.label ?? 'DEX';
+}
+
+function dexBrand(label: string): string {
+  return label
+    .replace(/\s+V\d+.*$/i, '')
+    .replace(/\s+Slipstream.*$/i, '')
+    .trim();
+}
+
+function foundPoolDexCount(pools: FoundPool[]): number {
+  return new Set(pools.map(pool => dexBrand(foundPoolDexLabel(pool)))).size;
+}
+
+function marketPoolDexCount(pools: MarketPool[]): number {
+  return new Set(pools.map(pool => dexBrand(pool.dexLabel))).size;
 }
 
 
@@ -609,6 +629,7 @@ function CrossChainResearch({ chains, isMobile }: {
   chains: readonly { id: number; name: string }[];
   isMobile: boolean;
 }) {
+  const config = useConfig();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
@@ -790,18 +811,30 @@ function CrossChainResearch({ chains, isMobile }: {
 
           updateResult(task.key, { tokenA, tokenB, message: 'Searching indexed DEX liquidity…' });
           const wrappedNative = WRAPPED_NATIVE_FALLBACKS[task.chainId] ?? WETH;
-          const pools = await searchMarketPools(
+          const indexedPools = await searchMarketPools(
             toV3Address(tokenA.address, wrappedNative),
             toV3Address(tokenB.address, wrappedNative),
             100,
             CHAIN_DATA_NETWORKS[task.chainId],
           );
           updateResult(task.key, {
+            tokenA,
+            tokenB,
+            pools: indexedPools,
+            message: `${indexedPools.length} pools found · loading missing APRs on-chain…`,
+          });
+          const client = getPublicClient(config, { chainId: task.chainId as SupportedChainId });
+          const pools = client
+            ? await enrichMarketPoolApr(client, indexedPools).catch(() => indexedPools)
+            : indexedPools;
+          updateResult(task.key, {
             status: 'complete',
             tokenA,
             tokenB,
             pools,
-            message: pools.length === 0 ? 'No indexed pool found for this pair.' : undefined,
+            message: pools.length === 0
+              ? 'No indexed pool found for this pair.'
+              : `${pools.length} pools across ${marketPoolDexCount(pools)} DEX${marketPoolDexCount(pools) === 1 ? '' : 's'}`,
           });
         } catch (cause) {
           updateResult(task.key, {
@@ -929,7 +962,7 @@ function CrossChainResearch({ chains, isMobile }: {
               <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green, fontSize: 17 }}>★</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
-                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2 }}>{winner.result.chainName} · {winner.result.pair.label} · {winner.pool.dexLabel}</div>
+                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2 }}>{winner.result.pair.label} · {winner.pool.dexLabel}</div>
                 <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>
                   {winnerMetric} {rankLabel}{winnerLead != null ? ` · ${winnerLead.toLocaleString(undefined, { maximumFractionDigits: 2 })}× the runner-up` : ' · only comparable pool so far'}
                 </div>
@@ -938,7 +971,7 @@ function CrossChainResearch({ chains, isMobile }: {
             </div>
           )}
           {!isMobile && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.15fr .7fr .7fr .7fr auto', gap: 10, padding: '7px 15px', borderTop: btb.borderSoft, borderBottom: btb.borderSoft }}>
+            <div style={{ display: 'grid', gridTemplateColumns: CROSS_CHAIN_RANK_COLUMNS, gap: 10, padding: '7px 15px', borderTop: btb.borderSoft, borderBottom: btb.borderSoft }}>
               {['Pool', 'TVL', '24h volume', 'APR', ''].map(label => <span key={label} style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .35 }}>{label}</span>)}
             </div>
           )}
@@ -948,7 +981,7 @@ function CrossChainResearch({ chains, isMobile }: {
               : null;
             return (
               <div key={`${result.key}:${pool.address}`} style={{
-                display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.15fr .7fr .7fr .7fr auto',
+                display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : CROSS_CHAIN_RANK_COLUMNS,
                 alignItems: 'center', gap: 10, padding: '10px 15px',
                 borderBottom: index < rankedPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined,
                 background: index === 0 ? 'rgba(82,227,164,.045)' : undefined,
@@ -956,7 +989,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ChainLogo chainId={result.chainId} size={22}/>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.chainName} · {result.pair.label}</div>
+                    <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.pair.label}</div>
                     <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 1 }}>{pool.dexLabel}</div>
                   </div>
                 </div>
@@ -964,7 +997,6 @@ function CrossChainResearch({ chains, isMobile }: {
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.volume24hUsd)}</span>}
                 {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <a href={pool.url} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 11, textDecoration: 'none' }}>View ↗</a>
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
               </div>
@@ -985,7 +1017,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 <div style={{ minHeight: 58, padding: '11px 15px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: topPools.length > 0 ? btb.borderSoft : undefined }}>
                   <ChainLogo chainId={result.chainId} size={28}/>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{result.chainName} · {result.pair.label}</div>
+                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{result.pair.label}</div>
                     <div style={{ color: result.status === 'error' || result.status === 'unavailable' ? btb.amber : btb.textMuted, fontSize: 11, marginTop: 2 }}>
                       {result.status === 'queued' ? 'Waiting…' : result.status === 'loading' ? result.message : result.message ?? `${result.pools.length} pool${result.pools.length === 1 ? '' : 's'} found`}
                     </div>
@@ -998,11 +1030,10 @@ function CrossChainResearch({ chains, isMobile }: {
                   )}
                 </div>
                 {topPools.map((pool, index) => (
-                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr .8fr .8fr auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
+                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr .8fr', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
                     <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
-                    <a href={pool.url} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 11.5, textDecoration: 'none' }}>View ↗</a>
                   </div>
                 ))}
               </Glass>
@@ -1181,10 +1212,15 @@ export function SimulateScreen() {
         100,
         networks,
       )
-        .then(marketPools => {
+        .then(async marketPools => {
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(marketPools)));
-          if (marketPools.length > 0) setProgress(`Found ${marketPools.length} market pools · loading TVL and APR…`);
-          return marketPools;
+          if (marketPools.length > 0) {
+            const dexCount = marketPoolDexCount(marketPools);
+            setProgress(`Found ${marketPools.length} pools across ${dexCount} DEX${dexCount === 1 ? '' : 's'} · loading TVL and APR…`);
+          }
+          const enriched = await enrichMarketPoolApr(client, marketPools).catch(() => marketPools);
+          setFound(current => mergeFoundPools(current ?? [], marketPoolRows(enriched)));
+          return enriched;
         })
         .catch(() => []);
 
@@ -1374,7 +1410,7 @@ export function SimulateScreen() {
       {found && found.length > 0 && (
         <Glass padding={0} radius={22} style={{ overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px 4px', color: btb.text, fontSize: 14, fontWeight: 700 }}>
-            {found.length} pool{found.length > 1 ? 's' : ''} found{loading ? ' so far' : ''} for {tokenA?.symbol}/{tokenB?.symbol}
+            {found.length} pool{found.length > 1 ? 's' : ''} across {foundPoolDexCount(found)} DEX{foundPoolDexCount(found) === 1 ? '' : 's'}{loading ? ' found so far' : ''} for {tokenA?.symbol}/{tokenB?.symbol}
           </div>
           <div style={{ padding: '0 18px 10px', color: btb.textMuted, fontSize: 11.5 }}>
             Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
@@ -1384,7 +1420,7 @@ export function SimulateScreen() {
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
               {found.map((f, i) => {
-                const label = f.external?.dexLabel ?? PROTOCOLS.find(x => x.id === f.protocol)!.label;
+                const label = foundPoolDexLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
                   <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{
@@ -1431,7 +1467,7 @@ export function SimulateScreen() {
               ))}
             </div>
             {found.map((f, i) => {
-              const label = f.external?.dexLabel ?? PROTOCOLS.find(x => x.id === f.protocol)!.label;
+              const label = foundPoolDexLabel(f);
               return (
                 <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>

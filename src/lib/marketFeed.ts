@@ -1,31 +1,35 @@
-export type MarketToken = {
-  address: string;
-  symbol: string;
-  name: string;
-  quoteSymbol: string;
-  quoteAddress: string;
-  pairAddress: string;
-  dex: string;
-  version: string;
-  priceUsd: number;
-  change5m: number | null;
-  change1h: number | null;
-  change24h: number | null;
-  volume24h: number;
-  liquidityUsd: number;
-  buys24h: number;
-  sells24h: number;
-  marketCap: number;
-  pairCreatedAt: number | null;
-  imageUrl: string;
-  boosts: number;
-  url: string;
-  trendingScore: number;
+'use client';
+
+import { useMemo } from 'react';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import type { MarketToken } from './robinhoodMarkets';
+
+export type { MarketToken } from './robinhoodMarkets';
+
+export type MarketFeedData = {
+  markets: MarketToken[];
+  updatedAt: number | null;
+  loading: boolean;
+  error: string | null;
 };
 
-export async function fetchMarketFeed(signal?: AbortSignal): Promise<MarketToken[]> {
-  const response = await fetch('/api/markets', { signal, cache: 'no-store' });
-  if (!response.ok) throw new Error('Markets are unavailable');
-  const body = await response.json() as { markets?: MarketToken[] };
-  return Array.isArray(body.markets) ? body.markets : [];
+export function useMarketFeed(): MarketFeedData {
+  const row = useQuery(api.markets.get, {});
+  return useMemo(() => {
+    if (row === undefined) return { markets: [], updatedAt: null, loading: true, error: null };
+    if (!row) return { markets: [], updatedAt: null, loading: false, error: 'Market snapshot is not ready yet.' };
+    try {
+      const snapshot = JSON.parse(row.json) as { version?: number; markets?: MarketToken[] };
+      const markets = Array.isArray(snapshot.markets) ? snapshot.markets : [];
+      return {
+        markets,
+        updatedAt: row.updatedAt,
+        loading: false,
+        error: markets.length > 0 ? null : 'Market snapshot is empty.',
+      };
+    } catch {
+      return { markets: [], updatedAt: row.updatedAt, loading: false, error: 'Market snapshot is invalid.' };
+    }
+  }, [row]);
 }

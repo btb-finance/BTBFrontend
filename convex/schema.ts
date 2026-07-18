@@ -23,8 +23,15 @@ export default defineSchema({
   }).index("by_wallet", ["walletAddress", "createdAt"]),
 
   // Discover pool list, precomputed hourly by convex/discover.ts (single row).
-  // `json` = { pools: EarnPool[], priceChange: Record<poolId, pct> }.
+  // `json` = { version, pools: EarnPool[], priceChange: Record<poolId, pct> }.
   discoverPools: defineTable({
+    json: v.string(),
+    updatedAt: v.float64(),
+  }),
+
+  // Robinhood market feed, refreshed once server-side and read by every
+  // Dashboard visitor without repeating the explorer/DexScreener scan.
+  marketSnapshots: defineTable({
     json: v.string(),
     updatedAt: v.float64(),
   }),

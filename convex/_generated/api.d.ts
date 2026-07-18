@@ -18,6 +18,8 @@ import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
 import type * as managedPositionMonitor from "../managedPositionMonitor.js";
 import type * as managedPositions from "../managedPositions.js";
+import type * as markets from "../markets.js";
+import type * as marketsRefresh from "../marketsRefresh.js";
 import type * as prices from "../prices.js";
 import type * as queries from "../queries.js";
 import type * as rebalanceMath from "../rebalanceMath.js";
@@ -46,6 +48,8 @@ declare const fullApi: ApiFromModules<{
   discoverRefresh: typeof discoverRefresh;
   managedPositionMonitor: typeof managedPositionMonitor;
   managedPositions: typeof managedPositions;
+  markets: typeof markets;
+  marketsRefresh: typeof marketsRefresh;
   prices: typeof prices;
   queries: typeof queries;
   rebalanceMath: typeof rebalanceMath;
