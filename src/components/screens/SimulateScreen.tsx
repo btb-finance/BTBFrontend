@@ -102,6 +102,7 @@ const CROSS_CHAIN_TOKEN_OVERRIDES: Record<number, Record<string, Token>> = {
 // spacings or it doesn't.
 const V4_TICK_SPACINGS: Record<number, number> = { 100: 1, 500: 10, 3000: 60, 10000: 200 };
 const V4_FEE_TIERS = [100, 500, 3000, 10000];
+const CROSS_CHAIN_RANK_COLUMNS = 'minmax(0, 1.15fr) minmax(0, .7fr) minmax(0, .7fr) minmax(0, .7fr) 64px';
 const WRAPPED_NATIVE_FALLBACKS: Record<number, `0x${string}`> = {
   1: WETH,
   56: '0xBB4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
@@ -970,7 +971,7 @@ function CrossChainResearch({ chains, isMobile }: {
             </div>
           )}
           {!isMobile && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.15fr .7fr .7fr .7fr auto', gap: 10, padding: '7px 15px', borderTop: btb.borderSoft, borderBottom: btb.borderSoft }}>
+            <div style={{ display: 'grid', gridTemplateColumns: CROSS_CHAIN_RANK_COLUMNS, gap: 10, padding: '7px 15px', borderTop: btb.borderSoft, borderBottom: btb.borderSoft }}>
               {['Pool', 'TVL', '24h volume', 'APR', ''].map(label => <span key={label} style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .35 }}>{label}</span>)}
             </div>
           )}
@@ -980,7 +981,7 @@ function CrossChainResearch({ chains, isMobile }: {
               : null;
             return (
               <div key={`${result.key}:${pool.address}`} style={{
-                display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.15fr .7fr .7fr .7fr auto',
+                display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : CROSS_CHAIN_RANK_COLUMNS,
                 alignItems: 'center', gap: 10, padding: '10px 15px',
                 borderBottom: index < rankedPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined,
                 background: index === 0 ? 'rgba(82,227,164,.045)' : undefined,
