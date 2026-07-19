@@ -102,9 +102,11 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
   mobile: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = chains.find(chain => chain.name === value);
   const logoChains = chains.filter((chain): chain is DiscoverChain & { chainId: number } => chain.chainId != null).slice(0, 2);
+  const filteredChains = chains.filter(chain => chain.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   useEffect(() => {
     if (!open) return;
@@ -129,7 +131,10 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         aria-label="Filter pools by chain"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen(isOpen => !isOpen)}
+        onClick={() => setOpen(isOpen => {
+          if (!isOpen) setQuery('');
+          return !isOpen;
+        })}
         style={{
           width: '100%',
           height: 42,
@@ -160,15 +165,27 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         <Icon name="down" size={13} color={btb.textMuted}/>
       </button>
       {open && (
-        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
-          <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="search" size={13} color={btb.textMuted}/>
+            <input
+              autoFocus
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              onKeyDown={event => event.stopPropagation()}
+              placeholder="Search chains"
+              aria-label="Search chains"
+              style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
+            />
+          </div>
+          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
             <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
               {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
             </span>
             <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All chains</span>
             {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
-          </button>
-          {chains.map(chain => {
+          </button>}
+          {filteredChains.map(chain => {
             const active = value === chain.name;
             return (
               <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -178,6 +195,9 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
               </button>
             );
           })}
+          {filteredChains.length === 0 && (
+            <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No chains found</div>
+          )}
         </div>
       )}
     </div>
@@ -191,9 +211,11 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
   mobile: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = value === 'all' ? null : value;
   const logoDexes = dexes.slice(0, 3);
+  const filteredDexes = dexes.filter(dex => dex.toLowerCase().includes(query.trim().toLowerCase()));
 
   useEffect(() => {
     if (!open) return;
@@ -228,7 +250,10 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
         aria-label="Filter pools by DEX"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen(isOpen => !isOpen)}
+        onClick={() => setOpen(isOpen => {
+          if (!isOpen) setQuery('');
+          return !isOpen;
+        })}
         style={{
           width: '100%', height: 42, borderRadius: 12, border: btb.borderSoft,
           background: btb.surfaceSoft, color: btb.text, padding: '0 10px',
@@ -251,7 +276,19 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
           boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
         }}>
-          <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="search" size={13} color={btb.textMuted}/>
+            <input
+              autoFocus
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              onKeyDown={event => event.stopPropagation()}
+              placeholder="Search DEXs"
+              aria-label="Search DEXs"
+              style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
+            />
+          </div>
+          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
             width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
             background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent',
             color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
@@ -260,8 +297,8 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
             {allLogos}
             <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All DEXs</span>
             {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
-          </button>
-          {dexes.map(dex => {
+          </button>}
+          {filteredDexes.map(dex => {
             const active = value === dex;
             return (
               <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
@@ -276,6 +313,9 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
               </button>
             );
           })}
+          {filteredDexes.length === 0 && (
+            <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No DEXs found</div>
+          )}
         </div>
       )}
     </div>
