@@ -238,6 +238,38 @@ function marketPoolDexCount(pools: MarketPool[]): number {
   return new Set(pools.map(pool => dexBrand(pool.dexLabel))).size;
 }
 
+function MobilePoolMetrics({ pool }: { pool: MarketPool }) {
+  const metrics = [
+    ['TVL', fmtCompactUsd(pool.tvlUsd)],
+    ['24H VOLUME', fmtCompactUsd(pool.volume24hUsd)],
+    ['APR', pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'],
+  ];
+  return (
+    <div style={{
+      gridColumn: '1 / -1',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+      gap: 7,
+      paddingTop: 3,
+    }}>
+      {metrics.map(([label, value]) => (
+        <div key={label} style={{ minWidth: 0 }}>
+          <div style={{ color: btb.textDim, fontSize: 8.5, fontWeight: 800, letterSpacing: .35 }}>{label}</div>
+          <div style={{
+            color: label === 'APR' && pool.aprPct != null ? btb.amber : btb.text,
+            fontSize: 11.5,
+            fontWeight: 750,
+            marginTop: 2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>{value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 const PROTOCOL_FOR_EARN_POOL = (p: EarnPool): Protocol | null => {
   if (p.dex === 'PancakeSwap') return 'pancakeswap-v3';
@@ -999,6 +1031,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
+                {isMobile && <MobilePoolMetrics pool={pool}/>}
               </div>
             );
           })}
@@ -1034,6 +1067,7 @@ function CrossChainResearch({ chains, isMobile }: {
                     <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
+                    {isMobile && <MobilePoolMetrics pool={pool}/>}
                   </div>
                 ))}
               </Glass>
