@@ -165,6 +165,104 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
   );
 }
 
+function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
+  dexes: string[];
+  value: string;
+  onChange: (dex: string) => void;
+  mobile: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = value === 'all' ? null : value;
+  const logoDexes = dexes.slice(0, 3);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  const allLogos = (
+    <span style={{ width: 37, height: 23, position: 'relative', flexShrink: 0 }}>
+      {logoDexes.map((dex, index) => (
+        <span key={dex} style={{ position: 'absolute', left: index * 8, top: 1 }}>
+          <DexLogo name={dex} size={21}/>
+        </span>
+      ))}
+    </span>
+  );
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative', flex: mobile ? 1 : '0 0 170px', minWidth: 0 }}>
+      <button
+        type="button"
+        aria-label="Filter pools by DEX"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(isOpen => !isOpen)}
+        style={{
+          width: '100%', height: 42, borderRadius: 12, border: btb.borderSoft,
+          background: btb.surfaceSoft, color: btb.text, padding: '0 10px',
+          fontFamily: 'inherit', cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: 8,
+        }}
+      >
+        {selected ? <DexLogo name={selected} size={23}/> : allLogos}
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: 12.5, fontWeight: 750 }}>
+          {selected ?? 'All DEXs'}
+        </span>
+        <Icon name="down" size={13} color={btb.textMuted}/>
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Filter pools by DEX" style={{
+          position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0,
+          width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', maxHeight: 360,
+          overflowY: 'auto', padding: 7, borderRadius: 16,
+          background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)',
+          boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+        }}>
+          <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
+            width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
+            background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent',
+            color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 9,
+          }}>
+            {allLogos}
+            <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All DEXs</span>
+            {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
+          </button>
+          {dexes.map(dex => {
+            const active = value === dex;
+            return (
+              <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
+                width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
+                background: active ? 'rgba(255,255,255,.1)' : 'transparent',
+                color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 9,
+              }}>
+                <DexLogo name={dex} size={23}/>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{dex}</span>
+                {active && <Icon name="check" size={15} color={btb.green}/>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function DiscoverScreen() {
   const { isMobile } = useSidebar();
   const { pools, priceChange, loading } = useDiscoverPools();
@@ -478,10 +576,7 @@ export function DiscoverScreen() {
           const chain = chains.find(item => item.name === chainName);
           if (chain?.chainId) setThemeChainId(chain.chainId);
         }} mobile={isMobile}/>
-        <select value={selectedDex} onChange={event => setSelectedDex(event.target.value)} aria-label="Filter pools by DEX" style={{ flex: isMobile ? 1 : '0 0 170px', minWidth: 0, height: 42, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-          <option value="all">All DEXs</option>
-          {dexes.map(dex => <option key={dex} value={dex}>{dex}</option>)}
-        </select>
+        <DiscoverDexSelect dexes={dexes} value={selectedDex} onChange={setSelectedDex} mobile={isMobile}/>
       </div>
 
       {isMobile ? (
