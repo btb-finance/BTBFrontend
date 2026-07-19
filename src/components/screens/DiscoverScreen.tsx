@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { isAddress } from 'viem';
+import { useConfig } from 'wagmi';
+import { getPublicClient } from 'wagmi/actions';
 import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools } from '../../lib/discoverPools';
-import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chainSlug } from '../../lib/routes';
 
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
@@ -21,7 +23,8 @@ import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
 import { useSidebar } from '../../lib/SidebarContext';
-import { CHAIN_META } from '../../lib/wagmi';
+import { CHAIN_META, type SupportedChainId } from '../../lib/wagmi';
+import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 
@@ -345,6 +348,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
 }
 
 export function DiscoverScreen() {
+  const config = useConfig();
   const { isMobile } = useSidebar();
   const { pools, priceChange, loading } = useDiscoverPools();
   const [search, setSearch] = useState('');
@@ -441,15 +445,21 @@ export function DiscoverScreen() {
   const { tokens } = useTokenStore();
   useEffect(() => {
     const q = search.trim().toLowerCase();
+    const selectedChainId = selectedChain === 'all' ? undefined : discoverChainId(selectedChain);
     const tok = q
-      ? tokens.find(t => t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
+      ? tokens.find(t =>
+          (t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
+          && (selectedChainId == null || (t.chainId ?? 1) === selectedChainId)
+        )
       : undefined;
     // A pasted address the app's token list doesn't know is still searchable —
     // the market APIs only need the address itself, not list membership.
     const addr = tok
       ? (tok.address === 'ETH' ? WETH_ADDR : tok.address)
       : /^0x[0-9a-f]{40}$/.test(q) ? q : null;
-    if (!addr) {
+    const targetChainId = selectedChainId ?? tok?.chainId ?? 1;
+    const networks = CHAIN_DATA_NETWORKS[targetChainId];
+    if (!addr || !networks) {
       marketReqRef.current++;
       setMarketPools(null); setMarketSymbol(null); setMarketLoading(false);
       return;
@@ -458,13 +468,23 @@ export function DiscoverScreen() {
     setMarketSymbol(tok?.symbol ?? `${q.slice(0, 6)}…${q.slice(-4)}`);
     setMarketLoading(true);
     const timer = setTimeout(() => {
-      searchMarketPools(addr, undefined, 1000)
-        .then(ps => { if (marketReqRef.current === req) setMarketPools(ps); })
+      searchMarketPools(addr, undefined, 1000, networks)
+        .then(async market => {
+          const client = getPublicClient(config, { chainId: targetChainId as SupportedChainId });
+          return enrichMarketPools(
+            client,
+            market,
+            pools,
+            CHAIN_META[targetChainId]?.name ?? selectedChain,
+            addr,
+          );
+        })
+        .then(market => { if (marketReqRef.current === req) setMarketPools(market); })
         .catch(() => { if (marketReqRef.current === req) setMarketPools([]); })
         .finally(() => { if (marketReqRef.current === req) setMarketLoading(false); });
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, tokens]);
+  }, [config, pools, search, selectedChain, tokens]);
 
   const { positions } = useTokenStore();
   const logoByAddress = useMemo(() => {
@@ -796,8 +816,8 @@ export function DiscoverScreen() {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ color: p.aprPct != null ? btb.green : btb.textDim, fontSize: 14, fontWeight: 800 }}>
-                        {p.aprPct != null ? fmtApr(p.aprPct) : '—'}
+                      <div title={p.aprLabel} style={{ color: p.aprPct != null ? btb.green : btb.textDim, fontSize: 14, fontWeight: 800 }}>
+                        {p.aprPct != null ? fmtApr(p.aprPct) : p.aprLabel ? 'RFQ' : '—'}
                       </div>
                       <div style={{ color: btb.textDim, fontSize: 10.5 }}>fee APR</div>
                     </div>

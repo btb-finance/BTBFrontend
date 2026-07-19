@@ -38,8 +38,11 @@ const marketPoolCache = new Map<string, { expiresAt: number; request: Promise<Ma
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
-const FEE_BEARING_POOL = /(?:^|[\s_-])v3(?:$|[\s_-])|slipstream|integral|clamm|pancake|hydrex|aerodrome|velodrome|ramses|pharaoh|blackhole/i;
 const ALGEBRA_STYLE_POOL = /hydrex|integral|clamm/i;
+const SOLIDLY_CLASSIC_POOL = /^(?:aerodrome|velodrome)(?!.*slipstream).*$/i;
+const INFUSION_POOL = /^infusion(?:[\s_-]+v[12])?$/i;
+const SWAAP_VAULT_ID = '0x03c01acae3d0173a93d819efdc832c7c4f153b06';
+const INFUSION_BASE_FACTORY = '0x2D9A3a2bd6400eE28d770c7254cA840c82faf23f' as const;
 const POOL_FEE_ABI = [{
   type: 'function',
   name: 'fee',
@@ -61,11 +64,55 @@ const ALGEBRA_GLOBAL_STATE_ABI = [{
     { name: 'unlocked', type: 'bool' },
   ],
 }] as const;
+const SOLIDLY_POOL_ABI = [
+  {
+    type: 'function',
+    name: 'stable',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'factory',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'address' }],
+  },
+] as const;
+const SOLIDLY_FACTORY_FEE_ABI = [{
+  type: 'function',
+  name: 'getFee',
+  stateMutability: 'view',
+  inputs: [{ type: 'address' }, { type: 'bool' }],
+  outputs: [{ type: 'uint256' }],
+}] as const;
+const INFUSION_FACTORY_FEE_ABI = [{
+  type: 'function',
+  name: 'getFee',
+  stateMutability: 'view',
+  inputs: [{ type: 'bool' }],
+  outputs: [{ type: 'uint256' }],
+}] as const;
+
+async function retryRpcOnce<T>(read: () => Promise<T>): Promise<T | null> {
+  try {
+    return await read();
+  } catch {
+    await new Promise(resolve => setTimeout(resolve, 250));
+    try {
+      return await read();
+    } catch {
+      return null;
+    }
+  }
+}
 
 /** "uniswap_v3" / "balancer_ethereum" → a human label. DexScreener sometimes
  * reports a raw factory address instead of a name — those become "Other DEX"
  * rather than leaking a 0x… string into the UI. */
 export function prettyDexLabel(dexId: string): string {
+  if (dexId.trim().toLowerCase() === SWAAP_VAULT_ID) return 'Swaap V2';
   const clean = dexId
     .replace(/[_-]+/g, ' ')
     .replace(/\s+(ethereum|base|bsc|polygon|arbitrum|optimism|avalanche|linea|berachain|sonic|ronin|unichain|hyperevm|plasma|etherlink|monad|megaeth|robinhood)$/i, '')
@@ -121,15 +168,20 @@ export function applyGaugeAprCatalog(
   earnPools: EarnPool[],
   chainName: string,
   tokenAAddress: string,
-  tokenBAddress: string,
+  tokenBAddress?: string,
 ): MarketPool[] {
-  const pairKey = [tokenAAddress, tokenBAddress].map(address => address.toLowerCase()).sort().join(':');
+  const tokenA = tokenAAddress.toLowerCase();
+  const pairKey = tokenBAddress
+    ? [tokenA, tokenBAddress.toLowerCase()].sort().join(':')
+    : null;
   const candidates = earnPools.filter(pool =>
     pool.yieldMode !== undefined
     && pool.yieldMode !== 'combined'
     && normalizedMarketChain(pool.chain) === normalizedMarketChain(chainName)
     && pool.underlyingTokens?.length === 2
-    && pool.underlyingTokens.map(address => address.toLowerCase()).sort().join(':') === pairKey
+    && (pairKey
+      ? pool.underlyingTokens.map(address => address.toLowerCase()).sort().join(':') === pairKey
+      : pool.underlyingTokens.some(address => address.toLowerCase() === tokenA))
   );
   if (candidates.length === 0) return marketPools;
 
@@ -219,6 +271,9 @@ async function loadMarketPools(
       tvlUsd: r.tvlUsd,
       volume24hUsd: r.volume24hUsd,
       aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null,
+      aprLabel: r.dexId.trim().toLowerCase() === SWAAP_VAULT_ID
+        ? 'Swaap V2 has no on-chain swap fee. LP economics are included in signed RFQ quotes, so volume cannot be converted into a fee APR.'
+        : undefined,
       url: `https://dexscreener.com/${networks.dexScreener}/${r.address}`,
     });
   }
@@ -265,7 +320,7 @@ export async function enrichMarketPoolApr(
   const missing = pools.filter(pool =>
     pool.feePct == null &&
     /^0x[0-9a-f]{40}$/i.test(pool.address) &&
-    FEE_BEARING_POOL.test(pool.dexId),
+    pool.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID,
   );
   if (missing.length === 0) return pools;
 
@@ -297,7 +352,91 @@ export async function enrichMarketPoolApr(
     pendingAlgebra = reads.length === 0 && attempt === 0 ? batch : failed;
   }
 
-  let pending = missing.filter(pool => !ALGEBRA_STYLE_POOL.test(pool.dexId));
+  const solidlyPools = missing.filter(pool => SOLIDLY_CLASSIC_POOL.test(pool.dexId));
+  if (solidlyPools.length > 0) {
+    const metadata = await retryRpcOnce(() => client.multicall({
+      contracts: solidlyPools.flatMap(pool => [
+        {
+          address: pool.address as `0x${string}`,
+          abi: SOLIDLY_POOL_ABI,
+          functionName: 'stable' as const,
+        },
+        {
+          address: pool.address as `0x${string}`,
+          abi: SOLIDLY_POOL_ABI,
+          functionName: 'factory' as const,
+        },
+      ]),
+      allowFailure: true,
+    })) ?? [];
+    const resolved = solidlyPools.flatMap((pool, index) => {
+      const stableRead = metadata[index * 2];
+      const factoryRead = metadata[index * 2 + 1];
+      if (stableRead?.status !== 'success' || factoryRead?.status !== 'success') return [];
+      return [{
+        pool,
+        stable: stableRead.result as boolean,
+        factory: factoryRead.result as `0x${string}`,
+      }];
+    });
+    const fees = resolved.length > 0
+      ? await retryRpcOnce(() => client.multicall({
+          contracts: resolved.map(({ pool, stable, factory }) => ({
+            address: factory,
+            abi: SOLIDLY_FACTORY_FEE_ABI,
+            functionName: 'getFee' as const,
+            args: [pool.address as `0x${string}`, stable] as const,
+          })),
+          allowFailure: true,
+        })) ?? []
+      : [];
+    resolved.forEach(({ pool }, index) => {
+      const read = fees[index];
+      const fee = read?.status === 'success' ? Number(read.result) : NaN;
+      if (Number.isInteger(fee) && fee > 0 && fee < 10_000) {
+        feeByAddress.set(pool.address, fee / 10_000);
+      }
+    });
+  }
+
+  const infusionPools = missing.filter(pool => INFUSION_POOL.test(pool.dexId));
+  if (infusionPools.length > 0) {
+    const stableReads = await retryRpcOnce(() => client.multicall({
+      contracts: infusionPools.map(pool => ({
+        address: pool.address as `0x${string}`,
+        abi: SOLIDLY_POOL_ABI,
+        functionName: 'stable' as const,
+      })),
+      allowFailure: true,
+    })) ?? [];
+    const resolved = infusionPools.flatMap((pool, index) => {
+      const read = stableReads[index];
+      return read?.status === 'success' ? [{ pool, stable: read.result as boolean }] : [];
+    });
+    const fees = resolved.length > 0
+      ? await retryRpcOnce(() => client.multicall({
+          contracts: resolved.map(({ stable }) => ({
+            address: INFUSION_BASE_FACTORY,
+            abi: INFUSION_FACTORY_FEE_ABI,
+            functionName: 'getFee' as const,
+            args: [stable] as const,
+          })),
+          allowFailure: true,
+        })) ?? []
+      : [];
+    resolved.forEach(({ pool }, index) => {
+      const read = fees[index];
+      const fee = read?.status === 'success' ? Number(read.result) : NaN;
+      if (Number.isInteger(fee) && fee > 0 && fee < 10_000) {
+        feeByAddress.set(pool.address, fee / 10_000);
+      }
+    });
+  }
+
+  let pending = missing.filter(pool =>
+    !ALGEBRA_STYLE_POOL.test(pool.dexId)
+    && !feeByAddress.has(pool.address),
+  );
   for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
     const batch = pending;
@@ -345,4 +484,37 @@ export async function enrichMarketPoolApr(
       aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null,
     };
   });
+}
+
+/**
+ * One enrichment pipeline for single-chain search and cross-chain research.
+ * The hourly catalog supplies gauge/reward APRs, while the chain supplies
+ * missing pool fee tiers. Reapplying the catalog last ensures an actionable
+ * gauge route is not overwritten by the generic whole-pool fee estimate.
+ */
+export async function enrichMarketPools(
+  client: PublicClient | undefined,
+  pools: MarketPool[],
+  earnPools: EarnPool[],
+  chainName: string,
+  tokenAAddress: string,
+  tokenBAddress?: string,
+): Promise<MarketPool[]> {
+  const catalogEnriched = applyGaugeAprCatalog(
+    pools,
+    earnPools,
+    chainName,
+    tokenAAddress,
+    tokenBAddress,
+  );
+  const feeEnriched = client
+    ? await enrichMarketPoolApr(client, catalogEnriched).catch(() => catalogEnriched)
+    : catalogEnriched;
+  return applyGaugeAprCatalog(
+    feeEnriched,
+    earnPools,
+    chainName,
+    tokenAAddress,
+    tokenBAddress,
+  );
 }

@@ -30,13 +30,13 @@ import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
-import { applyGaugeAprCatalog, enrichMarketPoolApr, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
-import { useDiscoverPools } from '../../lib/discoverPools';
+import { useDiscoverPools, waitForDiscoverPools } from '../../lib/discoverPools';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 type SimulateMode = 'single' | 'cross-chain';
@@ -169,10 +169,12 @@ interface FoundPool {
    * (DeFiLlama doesn't index this pool — common for PancakeSwap on Ethereum)
    * rather than the ±5% range-adjusted figure everywhere else uses. */
   aprIsUnranged?: boolean;
+  aprKind?: MarketPool['aprKind'];
+  aprLabel?: string;
   /** Pool on a DEX the app can't mint on (Uniswap V2, SushiSwap, Balancer, …)
    * from the GeckoTerminal/DexScreener pair search — shown for completeness
    * with a link out instead of a Simulate button. */
-  external?: { dexLabel: string; url: string };
+  external?: { dexLabel: string; url: string; aprLabel?: string };
 }
 
 function foundPoolKey(pool: FoundPool): string {
@@ -216,9 +218,11 @@ function marketPoolRows(marketPools: Awaited<ReturnType<typeof searchMarketPools
     address: mp.address as `0x${string}`,
     tvlUsd: mp.tvlUsd,
     apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
-    aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 ? true : undefined,
+    aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 && mp.aprKind !== 'gauge' ? true : undefined,
+    aprKind: mp.aprKind,
+    aprLabel: mp.aprLabel,
     fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
-    external: { dexLabel: mp.dexLabel, url: mp.url },
+    external: { dexLabel: mp.dexLabel, url: mp.url, aprLabel: mp.aprLabel },
   }));
 }
 
@@ -234,12 +238,21 @@ function dexBrand(label: string): string {
 }
 
 function marketAprText(pool: MarketPool): string {
-  if (pool.aprPct == null) return '—';
+  if (pool.aprPct == null) return pool.aprLabel ? 'RFQ' : '—';
   if (pool.aprKind === 'gauge') {
     const reward = pool.aprLabel?.split('·').at(-1)?.trim();
     return `${fmtApr(pool.aprPct)}${reward ? ` · ${reward}` : ''}`;
   }
   return `${fmtApr(pool.aprPct)}†`;
+}
+
+function foundAprText(pool: FoundPool): string {
+  if (pool.apy == null) return pool.external?.aprLabel ? 'RFQ' : '—';
+  if (pool.aprKind === 'gauge') {
+    const reward = pool.aprLabel?.split('·').at(-1)?.trim();
+    return `${fmtApr(pool.apy)}${reward ? ` · ${reward}` : ''}`;
+  }
+  return `${fmtApr(pool.apy)}${pool.aprIsUnranged ? '†' : ''}`;
 }
 
 function foundPoolDexCount(pools: FoundPool[]): number {
@@ -794,6 +807,7 @@ function CrossChainResearch({ chains, isMobile }: {
   };
 
   async function researchAcrossChains() {
+    const earnCatalog = earnPools.length > 0 ? earnPools : await waitForDiscoverPools();
     const tasks = selectedChains.flatMap(selectedChainId => {
       const selectedChain = chains.find(chain => chain.id === selectedChainId);
       if (!selectedChain) return [];
@@ -865,27 +879,21 @@ function CrossChainResearch({ chains, isMobile }: {
             100,
             CHAIN_DATA_NETWORKS[task.chainId],
           );
-          const indexedPools = applyGaugeAprCatalog(
+          updateResult(task.key, {
+            tokenA,
+            tokenB,
+            pools: indexedPoolsRaw,
+            message: `${indexedPoolsRaw.length} pools found · loading missing APRs on-chain…`,
+          });
+          const client = getPublicClient(config, { chainId: task.chainId as SupportedChainId });
+          const pools = await enrichMarketPools(
+            client,
             indexedPoolsRaw,
-            earnPools,
+            earnCatalog,
             task.chainName,
             marketTokenA,
             marketTokenB,
           );
-          updateResult(task.key, {
-            tokenA,
-            tokenB,
-            pools: indexedPools,
-            message: `${indexedPools.length} pools found · loading missing APRs on-chain…`,
-          });
-          const client = getPublicClient(config, { chainId: task.chainId as SupportedChainId });
-          const feeEnriched = client
-            ? await enrichMarketPoolApr(client, indexedPools).catch(() => indexedPools)
-            : indexedPools;
-          // On-chain fee probing cannot see gauge emissions. Re-apply the
-          // already-cached protocol catalog so AERO/VELO/RAM/PHAR/BLACK APR
-          // remains the comparable headline without another API request.
-          const pools = applyGaugeAprCatalog(feeEnriched, earnPools, task.chainName, marketTokenA, marketTokenB);
           updateResult(task.key, {
             status: 'complete',
             tokenA,
@@ -1121,6 +1129,7 @@ export function SimulateScreen() {
   const { chainId: walletChainId } = useConnection();
   const { isMobile } = useSidebar();
   const { tokens, positions } = useTokenStore();
+  const { pools: sharedEarnPools } = useDiscoverPools();
   const [mode, setMode] = useState<SimulateMode>('single');
   const urlChain = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('chain')) : 0;
   const initialChain = Number.isFinite(urlChain) && KYBER_CHAINS[urlChain]
@@ -1289,7 +1298,14 @@ export function SimulateScreen() {
             const dexCount = marketPoolDexCount(marketPools);
             setProgress(`Found ${marketPools.length} pools across ${dexCount} DEX${dexCount === 1 ? '' : 's'} · loading TVL and APR…`);
           }
-          const enriched = await enrichMarketPoolApr(client, marketPools).catch(() => marketPools);
+          const enriched = await enrichMarketPools(
+            client,
+            marketPools,
+            sharedEarnPools.length > 0 ? sharedEarnPools : await waitForDiscoverPools(),
+            chainName,
+            toV3Address(tokenA.address, wrappedNative),
+            toV3Address(tokenB.address, wrappedNative),
+          );
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(enriched)));
           return enriched;
         })
@@ -1507,9 +1523,9 @@ export function SimulateScreen() {
                       </span>
                       <span
                         style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
-                        title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : undefined}
+                        title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
                       >
-                        {f.apy != null ? fmtApr(f.apy) : '—'}{f.aprIsUnranged && '†'}
+                        {foundAprText(f)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -1552,9 +1568,9 @@ export function SimulateScreen() {
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
                   <span
                     style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 13, fontWeight: 700, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
-                    title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : undefined}
+                    title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
                   >
-                    {f.apy != null ? fmtApr(f.apy) : '—'}{f.aprIsUnranged && '†'}
+                    {foundAprText(f)}
                   </span>
                   {f.external ? (
                     <a href={f.external.url} target="_blank" rel="noreferrer" style={{
