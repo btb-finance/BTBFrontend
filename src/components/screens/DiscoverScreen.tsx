@@ -56,8 +56,26 @@ function canSimulatePool(pool: EarnPool): boolean {
     && isAddress(pair[0]) && isAddress(pair[1]);
 }
 
-function ChainMark({ chainId, size }: { chainId?: number; size: number }) {
+function ChainMark({ name, chainId, size }: { name: string; chainId?: number; size: number }) {
   if (chainId) return <ChainLogo chainId={chainId} size={size}/>;
+  const nonEvmAsset = {
+    solana: '/chains/solana.webp',
+    sui: '/chains/sui.webp',
+  }[name.toLowerCase()];
+  if (nonEvmAsset) {
+    return (
+      <img
+        src={nonEvmAsset}
+        alt=""
+        aria-hidden="true"
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(255,255,255,.12)' }}
+      />
+    );
+  }
   return (
     <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.1)', boxShadow: '0 0 0 1px rgba(255,255,255,.12)', flexShrink: 0 }}>
       <Icon name="globe" size={Math.max(10, size - 7)} color={btb.textMuted}/>
@@ -72,7 +90,7 @@ function ChainBadge({ name, chainId }: DiscoverChain) {
       aria-label={name}
       style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
     >
-      <ChainMark chainId={chainId} size={17}/>
+      <ChainMark name={name} chainId={chainId} size={17}/>
     </span>
   );
 }
@@ -128,7 +146,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         }}
       >
         {selected ? (
-          <ChainMark chainId={selected.chainId} size={23}/>
+          <ChainMark name={selected.name} chainId={selected.chainId} size={23}/>
         ) : (
           <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
             {logoChains.map((chain, index) => (
@@ -154,7 +172,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
             const active = value === chain.name;
             return (
               <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-                <ChainMark chainId={chain.chainId} size={23}/>
+                <ChainMark name={chain.name} chainId={chain.chainId} size={23}/>
                 <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
               </button>

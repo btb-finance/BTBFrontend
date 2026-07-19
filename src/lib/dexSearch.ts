@@ -69,6 +69,11 @@ export function prettyDexLabel(dexId: string): string {
     'brownfi': 'BrownFi', 'gliquid': 'Gliquid', 'noxa': 'NOXA',
     'spinup': 'SpinUp', 'hx finance': 'HX Finance', 'hyperbrick': 'HyperBrick',
     'wombat exchange': 'Wombat Exchange', 'skate amm': 'Skate AMM', 'woofi': 'WOOFi',
+    'raydium': 'Raydium', 'raydium amm': 'Raydium',
+    'orca': 'Orca', 'orca dex': 'Orca',
+    'bluefin': 'Bluefin', 'bluefin spot': 'Bluefin',
+    'cetus': 'Cetus', 'cetus clmm': 'Cetus',
+    'turbos': 'Turbos', 'flowx': 'FlowX', 'full sail': 'Full Sail',
   };
   return KNOWN[clean.toLowerCase()] ?? clean.replace(/\b\w/g, c => c.toUpperCase());
 }

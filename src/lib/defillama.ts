@@ -64,6 +64,13 @@ const DEX_NAMES: Record<string, string> = {
   'quickswap-dex': 'QuickSwap',
   'ramses-cl-v2': 'Ramses',
   'sparkdex-v3.1': 'SparkDEX', 'sparkdex-v4': 'SparkDEX',
+  'raydium-amm': 'Raydium',
+  'orca-dex': 'Orca',
+  'bluefin-spot': 'Bluefin',
+  'cetus-clmm': 'Cetus',
+  'turbos': 'Turbos',
+  'flowx-v2': 'FlowX', 'flowx-v3': 'FlowX',
+  'full-sail': 'Full Sail',
 };
 
 interface RawPool {
@@ -127,6 +134,27 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
     selected.push(pool);
     selectedIds.add(pool.id);
     chainCounts.set(pool.chain, (chainCounts.get(pool.chain) ?? 0) + 1);
+  }
+
+  // Non-EVM discovery is intentionally read-only for now, so DeFiLlama is
+  // its complete catalog. Retain a few qualifying pools per DEX as well as
+  // per chain; otherwise the largest Raydium/Bluefin rows can hide smaller
+  // venues such as Orca, Turbos, FlowX, and Full Sail.
+  const nonEvmChains = new Set(['Solana', 'Sui']);
+  const venueCounts = new Map<string, number>();
+  for (const pool of selected) {
+    if (!nonEvmChains.has(pool.chain)) continue;
+    const key = `${pool.chain}:${pool.project}`;
+    venueCounts.set(key, (venueCounts.get(key) ?? 0) + 1);
+  }
+  const minPoolsPerNonEvmVenue = 3;
+  for (const pool of ranked) {
+    if (!nonEvmChains.has(pool.chain) || selectedIds.has(pool.id)) continue;
+    const key = `${pool.chain}:${pool.project}`;
+    if ((venueCounts.get(key) ?? 0) >= minPoolsPerNonEvmVenue) continue;
+    selected.push(pool);
+    selectedIds.add(pool.id);
+    venueCounts.set(key, (venueCounts.get(key) ?? 0) + 1);
   }
   return selected.sort((a, b) => b.tvlUsd - a.tvlUsd);
 }
