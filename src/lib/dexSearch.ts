@@ -8,6 +8,7 @@
 import { searchPairPools } from './geckoterminal';
 import { fetchDexScreenerPairPools } from './dexscreener';
 import type { PublicClient } from 'viem';
+import type { EarnPool } from './pools';
 
 export interface MarketPool {
   address: string;          // lowercase pool address
@@ -20,6 +21,9 @@ export interface MarketPool {
   volume24hUsd: number;
   /** Whole-pool fee APR % (volume × fee / TVL, annualized) when the fee is known. */
   aprPct: number | null;
+  /** Gauge-backed APR replaces generic fee math for ve(3,3) pools. */
+  aprKind?: 'fee' | 'gauge';
+  aprLabel?: string;
   url: string;              // pool page on DexScreener
 }
 
@@ -34,7 +38,7 @@ const marketPoolCache = new Map<string, { expiresAt: number; request: Promise<Ma
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
-const FEE_BEARING_POOL = /(?:^|[\s_-])v3(?:$|[\s_-])|slipstream|integral/i;
+const FEE_BEARING_POOL = /(?:^|[\s_-])v3(?:$|[\s_-])|slipstream|integral|aerodrome|velodrome|ramses|pharaoh|blackhole/i;
 const POOL_FEE_ABI = [{
   type: 'function',
   name: 'fee',
@@ -76,6 +80,78 @@ export function prettyDexLabel(dexId: string): string {
     'turbos': 'Turbos', 'flowx': 'FlowX', 'full sail': 'Full Sail',
   };
   return KNOWN[clean.toLowerCase()] ?? clean.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function normalizedMarketChain(name: string): string {
+  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return {
+    bnbchain: 'bsc',
+    bnbsmartchain: 'bsc',
+    arbitrumone: 'arbitrum',
+    opmainnet: 'optimism',
+    polygonmainnet: 'polygon',
+    hyperliquidl1: 'hyperevm',
+  }[normalized] ?? normalized;
+}
+
+function marketDexBrand(label: string): string {
+  return label.replace(/\s+V\d+.*$/i, '').replace(/\s+Slipstream.*$/i, '').trim().toLowerCase();
+}
+
+/** Reuse the hourly shared gauge catalog to attach real ve(3,3) APRs without
+ * another protocol request. Multiple pools can share the same token pair, so
+ * fee tier, liquidity model, TVL, and volume identify the closest row. */
+export function applyGaugeAprCatalog(
+  marketPools: MarketPool[],
+  earnPools: EarnPool[],
+  chainName: string,
+  tokenAAddress: string,
+  tokenBAddress: string,
+): MarketPool[] {
+  const pairKey = [tokenAAddress, tokenBAddress].map(address => address.toLowerCase()).sort().join(':');
+  const candidates = earnPools.filter(pool =>
+    pool.yieldMode !== undefined
+    && pool.yieldMode !== 'combined'
+    && normalizedMarketChain(pool.chain) === normalizedMarketChain(chainName)
+    && pool.underlyingTokens?.length === 2
+    && pool.underlyingTokens.map(address => address.toLowerCase()).sort().join(':') === pairKey
+  );
+  if (candidates.length === 0) return marketPools;
+
+  const ratioDistance = (a: number, b?: number) => b != null && a > 0 && b > 0
+    ? Math.abs(Math.log(a / b))
+    : 0;
+  const distance = (market: MarketPool, pool: EarnPool): number => {
+    const marketText = `${market.dexId} ${market.dexLabel} ${market.name}`.toLowerCase();
+    const asksForCl = /slipstream|concentrated|\bcl\b|\bv3\b/.test(marketText);
+    const modelPenalty = asksForCl && pool.liquidityModel !== 'CLMM' ? 4 : 0;
+    const poolFee = pool.feeTier != null ? pool.feeTier / 1_000_000 : undefined;
+    const feePenalty = market.feePct != null && poolFee != null
+      // ve(3,3) CL fees can move dynamically; use the fee as a tie-breaker,
+      // while TVL and volume remain the stronger identity signals.
+      ? ratioDistance(market.feePct, poolFee)
+      : 0;
+    return modelPenalty
+      + feePenalty
+      + ratioDistance(market.tvlUsd, pool.tvlUsd)
+      + ratioDistance(market.volume24hUsd, pool.volume24hUsd);
+  };
+
+  return marketPools.map(market => {
+    const sameDex = candidates.filter(pool => marketDexBrand(pool.dex) === marketDexBrand(market.dexLabel));
+    if (sameDex.length === 0) return market;
+    const match = [...sameDex].sort((a, b) => distance(market, a) - distance(market, b))[0];
+    // Do not smear one popular pair's gauge APR onto a different small pool
+    // merely because its token symbols and DEX are the same.
+    if (!match || distance(market, match) > 2.5 || !(match.apy > 0)) return market;
+    const reward = match.rewardTokenSymbols?.join(' + ') || 'gauge';
+    return {
+      ...market,
+      aprPct: match.apy,
+      aprKind: match.requiresStaking ? 'gauge' : 'fee',
+      aprLabel: match.requiresStaking ? `Stake LP · ${reward}` : 'Unstaked fees',
+    };
+  });
 }
 
 /**

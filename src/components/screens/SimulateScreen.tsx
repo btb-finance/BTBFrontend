@@ -30,12 +30,13 @@ import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
-import { enrichMarketPoolApr, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { applyGaugeAprCatalog, enrichMarketPoolApr, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
+import { useDiscoverPools } from '../../lib/discoverPools';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 type SimulateMode = 'single' | 'cross-chain';
@@ -232,6 +233,15 @@ function dexBrand(label: string): string {
     .trim();
 }
 
+function marketAprText(pool: MarketPool): string {
+  if (pool.aprPct == null) return '—';
+  if (pool.aprKind === 'gauge') {
+    const reward = pool.aprLabel?.split('·').at(-1)?.trim();
+    return `${fmtApr(pool.aprPct)}${reward ? ` · ${reward}` : ''}`;
+  }
+  return `${fmtApr(pool.aprPct)}†`;
+}
+
 function foundPoolDexCount(pools: FoundPool[]): number {
   return new Set(pools.map(pool => dexBrand(foundPoolDexLabel(pool)))).size;
 }
@@ -244,7 +254,7 @@ function MobilePoolMetrics({ pool }: { pool: MarketPool }) {
   const metrics = [
     ['TVL', fmtCompactUsd(pool.tvlUsd)],
     ['24H VOLUME', fmtCompactUsd(pool.volume24hUsd)],
-    ['APR', pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'],
+    [pool.aprLabel ? `APR · ${pool.aprLabel}` : 'APR', marketAprText(pool)],
   ];
   return (
     <div style={{
@@ -665,6 +675,7 @@ function CrossChainResearch({ chains, isMobile }: {
   isMobile: boolean;
 }) {
   const config = useConfig();
+  const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
@@ -846,11 +857,20 @@ function CrossChainResearch({ chains, isMobile }: {
 
           updateResult(task.key, { tokenA, tokenB, message: 'Searching indexed DEX liquidity…' });
           const wrappedNative = WRAPPED_NATIVE_FALLBACKS[task.chainId] ?? WETH;
-          const indexedPools = await searchMarketPools(
-            toV3Address(tokenA.address, wrappedNative),
-            toV3Address(tokenB.address, wrappedNative),
+          const marketTokenA = toV3Address(tokenA.address, wrappedNative);
+          const marketTokenB = toV3Address(tokenB.address, wrappedNative);
+          const indexedPoolsRaw = await searchMarketPools(
+            marketTokenA,
+            marketTokenB,
             100,
             CHAIN_DATA_NETWORKS[task.chainId],
+          );
+          const indexedPools = applyGaugeAprCatalog(
+            indexedPoolsRaw,
+            earnPools,
+            task.chainName,
+            marketTokenA,
+            marketTokenB,
           );
           updateResult(task.key, {
             tokenA,
@@ -859,9 +879,13 @@ function CrossChainResearch({ chains, isMobile }: {
             message: `${indexedPools.length} pools found · loading missing APRs on-chain…`,
           });
           const client = getPublicClient(config, { chainId: task.chainId as SupportedChainId });
-          const pools = client
+          const feeEnriched = client
             ? await enrichMarketPoolApr(client, indexedPools).catch(() => indexedPools)
             : indexedPools;
+          // On-chain fee probing cannot see gauge emissions. Re-apply the
+          // already-cached protocol catalog so AERO/VELO/RAM/PHAR/BLACK APR
+          // remains the comparable headline without another API request.
+          const pools = applyGaugeAprCatalog(feeEnriched, earnPools, task.chainName, marketTokenA, marketTokenB);
           updateResult(task.key, {
             status: 'complete',
             tokenA,
@@ -901,7 +925,7 @@ function CrossChainResearch({ chains, isMobile }: {
   const winnerValue = winner ? metricValue(winner.pool) : 0;
   const runnerUpValue = runnerUp ? metricValue(runnerUp.pool) : 0;
   const winnerLead = runnerUpValue > 0 ? winnerValue / runnerUpValue : null;
-  const rankLabel = rankBy === 'volume' ? '24h volume' : rankBy === 'tvl' ? 'TVL' : 'fee APR';
+  const rankLabel = rankBy === 'volume' ? '24h volume' : rankBy === 'tvl' ? 'TVL' : 'APR';
   const winnerMetric = winner
     ? rankBy === 'volume' ? fmtCompactUsd(winner.pool.volume24hUsd)
       : rankBy === 'tvl' ? fmtCompactUsd(winner.pool.tvlUsd)
@@ -1037,7 +1061,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 </div>
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.volume24hUsd)}</span>}
-                {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
+                {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{marketAprText(pool)}</span>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
@@ -1079,7 +1103,7 @@ function CrossChainResearch({ chains, isMobile }: {
                       <span>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
                     </span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
-                    {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
+                    {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{marketAprText(pool)}</span>}
                     {isMobile && <MobilePoolMetrics pool={pool}/>}
                   </div>
                 ))}
