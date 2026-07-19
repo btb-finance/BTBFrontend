@@ -38,13 +38,28 @@ const marketPoolCache = new Map<string, { expiresAt: number; request: Promise<Ma
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
-const FEE_BEARING_POOL = /(?:^|[\s_-])v3(?:$|[\s_-])|slipstream|integral|aerodrome|velodrome|ramses|pharaoh|blackhole/i;
+const FEE_BEARING_POOL = /(?:^|[\s_-])v3(?:$|[\s_-])|slipstream|integral|clamm|pancake|hydrex|aerodrome|velodrome|ramses|pharaoh|blackhole/i;
+const ALGEBRA_STYLE_POOL = /hydrex|integral|clamm/i;
 const POOL_FEE_ABI = [{
   type: 'function',
   name: 'fee',
   stateMutability: 'view',
   inputs: [],
   outputs: [{ type: 'uint24' }],
+}] as const;
+const ALGEBRA_GLOBAL_STATE_ABI = [{
+  type: 'function',
+  name: 'globalState',
+  stateMutability: 'view',
+  inputs: [],
+  outputs: [
+    { name: 'price', type: 'uint160' },
+    { name: 'tick', type: 'int24' },
+    { name: 'lastFee', type: 'uint16' },
+    { name: 'pluginConfig', type: 'uint8' },
+    { name: 'communityFee', type: 'uint16' },
+    { name: 'unlocked', type: 'bool' },
+  ],
 }] as const;
 
 /** "uniswap_v3" / "balancer_ethereum" → a human label. DexScreener sometimes
@@ -237,11 +252,11 @@ export function searchMarketPools(
 }
 
 /**
- * Fill fee APRs that the market APIs could not calculate by reading every
- * missing V3-style pool fee in one EVM multicall. This is especially
- * important for Robinhood (not indexed by GeckoTerminal) and also makes
- * transient Gecko rate limits harmless: DexScreener can still provide
- * TVL/volume while the chain supplies the fee.
+ * Fill fee APRs that the market APIs could not calculate by reading pool fees
+ * from the chain. Standard V3 pools expose fee(), while Algebra-style CLAMMs
+ * expose their active fee through globalState(). This also makes transient
+ * Gecko rate limits harmless: DexScreener can provide TVL/volume while the
+ * chain supplies the fee.
  */
 export async function enrichMarketPoolApr(
   client: PublicClient,
@@ -255,7 +270,34 @@ export async function enrichMarketPoolApr(
   if (missing.length === 0) return pools;
 
   const feeByAddress = new Map<string, number>();
-  let pending = missing;
+  let pendingAlgebra = missing.filter(pool => ALGEBRA_STYLE_POOL.test(pool.dexId));
+  for (let attempt = 0; attempt < 2 && pendingAlgebra.length > 0; attempt++) {
+    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
+    const batch = pendingAlgebra;
+    const reads = await client.multicall({
+      contracts: batch.map(pool => ({
+        address: pool.address as `0x${string}`,
+        abi: ALGEBRA_GLOBAL_STATE_ABI,
+        functionName: 'globalState' as const,
+      })),
+      allowFailure: true,
+    }).catch(() => []);
+    const failed: MarketPool[] = [];
+    batch.forEach((pool, index) => {
+      const read = reads[index];
+      if (!read || read.status !== 'success') {
+        failed.push(pool);
+        return;
+      }
+      const fee = Number(read.result[2]);
+      if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
+        feeByAddress.set(pool.address, fee / 1_000_000);
+      }
+    });
+    pendingAlgebra = reads.length === 0 && attempt === 0 ? batch : failed;
+  }
+
+  let pending = missing.filter(pool => !ALGEBRA_STYLE_POOL.test(pool.dexId));
   for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
     const batch = pending;
