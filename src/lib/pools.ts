@@ -33,9 +33,19 @@ export interface EarnPool {
   /** V4 only — zero address (or unset) means no hook. */
   hooks?: string;
   tvlUsd: number;
-  apy: number;            // total APY % (indexer pools: fee APR)
+  apy: number;            // actionable headline APY/APR % for one LP strategy
   apyBase: number;        // fee APY/APR %
   apyReward: number;      // incentive APY % (DeFiLlama only)
+  /** Gauge reward token addresses, e.g. AERO/RAM/PHAR. */
+  rewardTokens?: string[];
+  /** Human symbols for known gauge reward tokens. */
+  rewardTokenSymbols?: string[];
+  /** Whether the headline reward requires depositing the LP position in a gauge. */
+  requiresStaking?: boolean;
+  /** ve(3,3) pools may offer gauge emissions instead of, rather than on top of, LP fees. */
+  yieldMode?: 'combined' | 'stake-or-fees' | 'staked-rewards';
+  liquidityModel?: 'AMM' | 'CLMM' | 'DLMM';
+  poolMeta?: string;
   volume24hUsd?: number;  // last complete day — indexer pools only
   fees24hUsd?: number;
   stablecoin: boolean;
@@ -234,6 +244,38 @@ function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'vers
     ? p.volume24hUsd * (p.feeTierPct / 100)
     : undefined;
   const isHyperEvm = p.chain === 'Hyperliquid L1';
+  const isStakeOrFees = p.project === 'aerodrome-v1'
+    || p.project === 'aerodrome-slipstream'
+    || p.project === 'velodrome-v2'
+    || p.project === 'velodrome-v3';
+  const isGaugeRewardOnly = p.project === 'ramses-cl-v2'
+    || p.project === 'pharaoh-v3'
+    || p.project === 'blackhole-clmm';
+  const yieldMode: EarnPool['yieldMode'] = isStakeOrFees
+    ? 'stake-or-fees'
+    : isGaugeRewardOnly ? 'staked-rewards' : 'combined';
+  // These ve(3,3) routes do not simply add every number together. Aerodrome
+  // and Velodrome LPs choose unstaked fee yield or staked emissions; Ramses,
+  // Pharaoh, and Blackhole gauged rows report the staked emission route. Keep
+  // the components, but rank one achievable strategy rather than their sum.
+  const actionableApy = isStakeOrFees
+    ? Math.max(p.apyBase, p.apyReward)
+    : isGaugeRewardOnly ? p.apyReward : p.apy;
+  const rewardTokenSymbols = p.rewardTokens?.map(address => {
+    const normalized = address.toLowerCase();
+    if (normalized === '0x940181a94a35a4569e4529a3cdfb74e38fd98631') return 'AERO';
+    if (normalized === '0x9560e827af36c94d2ac33a39bce1fe78631088db') return 'VELO';
+    if (normalized === '0x555570a286f15ebdfe42b66ede2f724aa1ab5555') return 'RAM';
+    if (normalized === '0x13a466998ce03db73abc2d4df3bbd845ed1f28e7') return 'PHAR';
+    if (normalized === '0xcd94a87696fac69edae3a70fe5725307ae1c43f6') return 'BLACK';
+    if (p.project.startsWith('velodrome-')) return 'VELO';
+    return `${address.slice(0, 6)}…${address.slice(-4)}`;
+  });
+  const isConcentrated = p.project === 'aerodrome-slipstream'
+    || p.project === 'velodrome-v3'
+    || p.project === 'ramses-cl-v2'
+    || p.project === 'pharaoh-v3'
+    || p.project === 'blackhole-clmm';
   return {
     id: p.id,
     project: p.project,
@@ -244,10 +286,19 @@ function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'vers
     pair: p.pair,
     feeTier,
     tvlUsd: p.tvlUsd,
-    apy: p.apy,
+    apy: actionableApy,
     apyBase: p.apyBase,
     apyReward: p.apyReward,
-    apyChange1d: p.apyPct1D,
+    rewardTokens: p.rewardTokens,
+    rewardTokenSymbols,
+    requiresStaking: p.apyReward > 0 && (isStakeOrFees ? p.apyReward >= p.apyBase : isGaugeRewardOnly),
+    yieldMode,
+    liquidityModel: isConcentrated ? 'CLMM' : 'AMM',
+    poolMeta: p.poolMeta,
+    // DeFiLlama's change is for its summed APY. Once a ve(3,3) pool is split
+    // into mutually exclusive fee/staking routes, that delta is no longer
+    // comparable to our actionable headline and should not be presented.
+    apyChange1d: yieldMode === 'combined' ? p.apyPct1D : undefined,
     volume24hUsd: p.volume24hUsd,
     fees24hUsd,
     stablecoin: p.stablecoin,

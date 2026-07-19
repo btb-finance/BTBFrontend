@@ -30,6 +30,28 @@ function estFees24h(p: EarnPool): number {
   return p.fees24hUsd ?? (p.tvlUsd * p.apyBase) / 100 / 365;
 }
 
+function headlineApr(p: EarnPool): number {
+  return p.aprRange ?? p.apy;
+}
+
+function aprContext(p: EarnPool): { label: string; title: string } | null {
+  const reward = p.rewardTokenSymbols?.join(' + ') || 'gauge';
+  if (p.yieldMode === 'stake-or-fees') {
+    const route = p.requiresStaking ? `Stake LP · ${reward}` : 'Unstaked fee yield';
+    return {
+      label: route,
+      title: `${route}. Gauge rewards: ${fmtApr(p.apyReward)}; unstaked fee APR: ${fmtApr(p.apyBase)}. These alternatives are not added together.`,
+    };
+  }
+  if (p.yieldMode === 'staked-rewards') {
+    return {
+      label: `Stake LP · ${reward}`,
+      title: `Gauge reward APR paid to staked LP positions in ${reward}: ${fmtApr(p.apyReward)}. Fee APR is shown separately and is not added to this staked route.`,
+    };
+  }
+  return null;
+}
+
 type DiscoverChain = { name: string; chainId?: number };
 
 function discoverChainId(name: string, explicitId?: number): number | undefined {
@@ -523,10 +545,10 @@ export function DiscoverScreen() {
             <div>
               <div style={{ fontWeight: 700 }}>{p.pair.replace('-', '/')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                <span title={`${p.dex}${p.version ? ` ${p.version}` : ''}`} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
-                  <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version ? '1px 6px' : 2 }}>
+                <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                  <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
                     <DexLogo name={p.dex} size={13}/>
-                    {p.version}
+                    {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
                   </Badge>
                 </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
@@ -554,12 +576,14 @@ export function DiscoverScreen() {
       },
     },
     {
-      key: 'apr', label: 'APR', align: 'right', sortable: true, sortValue: p => p.aprRange ?? p.apy,
+      key: 'apr', label: 'APR', align: 'right', sortable: true, sortValue: headlineApr,
       render: p => p.source === 'dexscreener' && p.feeTier == null ? <span title="Fee tier data is not available from this source" style={{ color: btb.textDim }}>—</span> : (
-        <span title={p.aprRange != null ? '±5% concentrated-range APR at current volume' : 'Whole-pool fees/TVL APR — no range data available for this pool'}
-          style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
-          {fmtApr(p.aprRange ?? p.apy)}
-        </span>
+        <div title={aprContext(p)?.title ?? (p.aprRange != null ? '±5% concentrated-range APR at current volume' : 'Whole-pool fees/TVL APR — no range data available for this pool')}>
+          <div style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+            {fmtApr(headlineApr(p))}
+          </div>
+          {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
+        </div>
       ),
     },
     {
@@ -668,10 +692,10 @@ export function DiscoverScreen() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span title={`${p.dex}${p.version ? ` ${p.version}` : ''}`} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
-                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version ? '1px 6px' : 2 }}>
+                      <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
                           <DexLogo name={p.dex} size={13}/>
-                          {p.version}
+                          {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
                         </Badge>
                       </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
@@ -685,8 +709,8 @@ export function DiscoverScreen() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(p.aprRange ?? p.apy)}</div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>APR</div>
+                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
+                    <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
                   </div>
                 </div>
 

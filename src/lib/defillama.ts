@@ -22,6 +22,8 @@ export interface LlamaPool {
   apyPct1D?: number;   // APY change over the last 24h, in percentage points
   volume24hUsd?: number;
   feeTierPct?: number; // e.g. 0.3 for "0.30%" — DeFiLlama's `poolMeta` on AMM rows
+  poolMeta?: string;
+  rewardTokens?: string[];
   stablecoin: boolean;
   ilRisk: string;      // "yes" | "no"
   underlyingTokens?: string[];
@@ -77,13 +79,16 @@ interface RawPool {
   pool: string; project: string; chain: string; symbol: string;
   tvlUsd?: number; apy?: number; apyBase?: number; apyReward?: number; apyPct1D?: number;
   volumeUsd1d?: number; poolMeta?: string;
-  stablecoin?: boolean; ilRisk?: string; underlyingTokens?: string[];
+  stablecoin?: boolean; ilRisk?: string; underlyingTokens?: string[]; rewardTokens?: string[];
 }
 
 function parseFeeTierPct(poolMeta?: string): number | undefined {
   if (!poolMeta) return undefined;
-  const n = parseFloat(poolMeta.replace('%', ''));
-  return isFinite(n) ? n : undefined;
+  const matches = [...poolMeta.matchAll(/(\d+(?:\.\d+)?)\s*%/g)];
+  const n = Number(matches.at(-1)?.[1]);
+  // Some protocol APIs round tiny dynamic fees to "0.00%". Treat that as
+  // unknown instead of fabricating zero fees from non-zero trading volume.
+  return isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -115,6 +120,8 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
       apyPct1D: r.apyPct1D ?? undefined,
       volume24hUsd: r.volumeUsd1d ?? undefined,
       feeTierPct: parseFeeTierPct(r.poolMeta),
+      poolMeta: r.poolMeta,
+      rewardTokens: r.rewardTokens,
       stablecoin: !!r.stablecoin,
       ilRisk: r.ilRisk ?? 'yes',
       underlyingTokens: r.underlyingTokens,
@@ -155,6 +162,32 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
     selected.push(pool);
     selectedIds.add(pool.id);
     venueCounts.set(key, (venueCounts.get(key) ?? 0) + 1);
+  }
+
+  // Keep enough rows to make the protocol-specific gauge integration useful,
+  // even when a venue is smaller than the global leaders.
+  const gaugeProjects = new Set([
+    'aerodrome-v1',
+    'aerodrome-slipstream',
+    'velodrome-v2',
+    'velodrome-v3',
+    'ramses-cl-v2',
+    'pharaoh-v3',
+    'blackhole-clmm',
+  ]);
+  const gaugeCounts = new Map<string, number>();
+  for (const pool of selected) {
+    if (gaugeProjects.has(pool.project)) {
+      gaugeCounts.set(pool.project, (gaugeCounts.get(pool.project) ?? 0) + 1);
+    }
+  }
+  const minPoolsPerGaugeProject = 12;
+  for (const pool of ranked) {
+    if (!gaugeProjects.has(pool.project) || selectedIds.has(pool.id)) continue;
+    if ((gaugeCounts.get(pool.project) ?? 0) >= minPoolsPerGaugeProject) continue;
+    selected.push(pool);
+    selectedIds.add(pool.id);
+    gaugeCounts.set(pool.project, (gaugeCounts.get(pool.project) ?? 0) + 1);
   }
   return selected.sort((a, b) => b.tvlUsd - a.tvlUsd);
 }
