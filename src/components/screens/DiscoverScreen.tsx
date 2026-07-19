@@ -464,10 +464,12 @@ export function DiscoverScreen() {
             <div>
               <div style={{ fontWeight: 700 }}>{p.pair.replace('-', '/')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
-                  <DexLogo name={p.dex} size={13}/>
-                  {p.dex}{p.version ? ` ${p.version}` : ''}
-                </Badge>
+                <span title={`${p.dex}${p.version ? ` ${p.version}` : ''}`} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                  <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version ? '1px 6px' : 2 }}>
+                    <DexLogo name={p.dex} size={13}/>
+                    {p.version}
+                  </Badge>
+                </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
@@ -607,10 +609,12 @@ export function DiscoverScreen() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
-                        <DexLogo name={p.dex} size={13}/>
-                        {p.dex}{p.version ? ` ${p.version}` : ''}
-                      </Badge>
+                      <span title={`${p.dex}${p.version ? ` ${p.version}` : ''}`} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version ? '1px 6px' : 2 }}>
+                          <DexLogo name={p.dex} size={13}/>
+                          {p.version}
+                        </Badge>
+                      </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
