@@ -9,6 +9,7 @@ import { Button } from '../Button';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { ChainLogo } from '../ChainLogo';
+import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { ChainSelect } from './SwapScreen';
@@ -994,7 +995,11 @@ function CrossChainResearch({ chains, isMobile }: {
               <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green, fontSize: 17 }}>★</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
-                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2 }}>{winner.result.pair.label} · {winner.pool.dexLabel}</div>
+                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>{winner.result.pair.label} ·</span>
+                  <DexLogo name={winner.pool.dexLabel} size={16}/>
+                  <span>{winner.pool.dexLabel}</span>
+                </div>
                 <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>
                   {winnerMetric} {rankLabel}{winnerLead != null ? ` · ${winnerLead.toLocaleString(undefined, { maximumFractionDigits: 2 })}× the runner-up` : ' · only comparable pool so far'}
                 </div>
@@ -1022,7 +1027,10 @@ function CrossChainResearch({ chains, isMobile }: {
                   <ChainLogo chainId={result.chainId} size={22}/>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.pair.label}</div>
-                    <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 1 }}>{pool.dexLabel}</div>
+                    <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <DexLogo name={pool.dexLabel} size={14}/>
+                      <span>{pool.dexLabel}</span>
+                    </div>
                   </div>
                 </div>
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
@@ -1064,7 +1072,10 @@ function CrossChainResearch({ chains, isMobile }: {
                 </div>
                 {topPools.map((pool, index) => (
                   <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr .8fr', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
-                    <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
+                    <span style={{ color: btb.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <DexLogo name={pool.dexLabel} size={16}/>
+                      <span>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
+                    </span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
                     {isMobile && <MobilePoolMetrics pool={pool}/>}
@@ -1461,7 +1472,8 @@ export function SimulateScreen() {
                     borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
                     background: i === 0 ? 'rgba(82,227,164,0.05)' : 'rgba(255,255,255,0.03)',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <DexLogo name={label} size={19}/>
                       <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
                         {label} · {feeLabel}
                         {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>Highest TVL</span>}
@@ -1505,6 +1517,7 @@ export function SimulateScreen() {
               return (
                 <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <DexLogo name={label} size={20}/>
                     {label}
                     {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10 }}>Highest TVL</span>}
                     {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ color: btb.green, fontSize: 10 }}>No protocol fee</span>}

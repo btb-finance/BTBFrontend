@@ -10,6 +10,7 @@ import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chain
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 import { DataTable, Column } from '../DataTable';
 import { TokenIcon } from '../TokenIcon';
+import { DexLogo } from '../DexLogo';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
@@ -366,6 +367,7 @@ export function DiscoverScreen() {
               <div style={{ fontWeight: 700 }}>{p.pair.replace('-', '/')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                 <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
+                  <DexLogo name={p.dex} size={13}/>
                   {p.dex}{p.version ? ` ${p.version}` : ''}
                 </Badge>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
@@ -511,6 +513,7 @@ export function DiscoverScreen() {
                     <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                       <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
+                        <DexLogo name={p.dex} size={13}/>
                         {p.dex}{p.version ? ` ${p.version}` : ''}
                       </Badge>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
@@ -601,10 +604,13 @@ export function DiscoverScreen() {
                       <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>
                         {p.name || `${marketSymbol} pool`}
                       </div>
-                      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
-                        {p.dexLabel}
-                        {p.feePct != null && ` · ${(p.feePct * 100).toFixed(2)}% fee`}
-                        {` · TVL ${fmtCompactUsd(p.tvlUsd)} · ${fmtCompactUsd(p.volume24hUsd)} vol 24h`}
+                      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <DexLogo name={p.dexLabel} size={15}/>
+                        <span>
+                          {p.dexLabel}
+                          {p.feePct != null && ` · ${(p.feePct * 100).toFixed(2)}% fee`}
+                          {` · TVL ${fmtCompactUsd(p.tvlUsd)} · ${fmtCompactUsd(p.volume24hUsd)} vol 24h`}
+                        </span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
