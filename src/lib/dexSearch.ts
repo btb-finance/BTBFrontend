@@ -59,6 +59,16 @@ export function prettyDexLabel(dexId: string): string {
     'balancer': 'Balancer', 'defi swap': 'DeFi Swap', 'curve': 'Curve',
     'pancakeswap': 'PancakeSwap', 'pancakeswap v3': 'PancakeSwap V3',
     'aerodrome': 'Aerodrome', 'baseswap': 'BaseSwap', 'quickswap': 'QuickSwap',
+    'prjx': 'Project X', 'project x': 'Project X',
+    'nest': 'Nest', 'nest cl': 'Nest V3',
+    'hyperswap': 'HyperSwap', 'hyperswap v3': 'HyperSwap V3',
+    'ramses': 'Ramses', 'kittenswap': 'Kittenswap',
+    'hybra finance': 'Hybra', 'hybra finance v3': 'Hybra V3',
+    'ultrasolid': 'Ultrasolid', 'hypertrade': 'Hypertrade',
+    'upheaval finance': 'Upheaval Finance', 'hyperlynx': 'HyperLynx',
+    'brownfi': 'BrownFi', 'gliquid': 'Gliquid', 'noxa': 'NOXA',
+    'spinup': 'SpinUp', 'hx finance': 'HX Finance', 'hyperbrick': 'HyperBrick',
+    'wombat exchange': 'Wombat Exchange', 'skate amm': 'Skate AMM', 'woofi': 'WOOFi',
   };
   return KNOWN[clean.toLowerCase()] ?? clean.replace(/\b\w/g, c => c.toUpperCase());
 }

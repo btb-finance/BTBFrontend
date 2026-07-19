@@ -233,12 +233,14 @@ function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'vers
   const fees24hUsd = p.volume24hUsd != null && p.feeTierPct != null
     ? p.volume24hUsd * (p.feeTierPct / 100)
     : undefined;
+  const isHyperEvm = p.chain === 'Hyperliquid L1';
   return {
     id: p.id,
     project: p.project,
     dex: overrides.dex ?? p.dex,
     version: overrides.version,
-    chain: p.chain,
+    chain: isHyperEvm ? 'HyperEVM' : p.chain,
+    chainId: isHyperEvm ? 999 : undefined,
     pair: p.pair,
     feeTier,
     tvlUsd: p.tvlUsd,

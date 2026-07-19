@@ -41,7 +41,23 @@ const DEX_NAMES: Record<string, string> = {
   'balancer-v2': 'Balancer', 'balancer-v3': 'Balancer',
   'camelot-v2': 'Camelot', 'camelot-v3': 'Camelot',
   'fluid-dex': 'Fluid',
+  'project-x': 'Project X',
+  'nest-amm': 'Nest', 'nest-cl': 'Nest',
+  'hybra-v4': 'Hybra',
   'hyperswap-v2': 'HyperSwap', 'hyperswap-v3': 'HyperSwap',
+  'ultrasolid-v2': 'Ultrasolid', 'ultrasolid-v3': 'Ultrasolid',
+  'hypertrade-v2': 'Hypertrade', 'hypertrade-v3': 'Hypertrade',
+  'upheaval-v2': 'Upheaval Finance', 'upheaval-v3': 'Upheaval Finance',
+  'hyperlynx-v2': 'HyperLynx', 'hyperlynx-v3': 'HyperLynx',
+  'brownfi-v2': 'BrownFi', 'brownfi-v3': 'BrownFi',
+  'gliquid': 'Gliquid',
+  'noxa-dex-v2': 'NOXA', 'noxa-dex-v3': 'NOXA',
+  'spinup-dex': 'SpinUp',
+  'hx-finance': 'HX Finance',
+  'hyperbrick': 'HyperBrick',
+  'wombat-exchange': 'Wombat Exchange',
+  'skate-amm': 'Skate AMM',
+  'woofi-swap': 'WOOFi',
   'joe-v2.2': 'Trader Joe',
   'kyberswap-fairflow': 'KyberSwap',
   'pharaoh-v3': 'Pharaoh',
@@ -77,7 +93,7 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
   const rows: RawPool[] = json?.data ?? [];
   const allowed = projects ? new Set(projects) : null;
 
-  return rows
+  const ranked = rows
     .filter((r) => DEX_NAMES[r.project] && (!allowed || allowed.has(r.project)) && (r.tvlUsd ?? 0) >= minTvlUsd)
     .map((r) => ({
       id: r.pool,
@@ -96,8 +112,23 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
       ilRisk: r.ilRisk ?? 'yes',
       underlyingTokens: r.underlyingTokens,
     }))
-    .sort((a, b) => b.tvlUsd - a.tvlUsd)
-    .slice(0, limit);
+    .sort((a, b) => b.tvlUsd - a.tvlUsd);
+
+  // Keep the global leaders, then reserve enough rows for every indexed chain.
+  // Otherwise Ethereum/Base consume the entire global slice and healthy pools
+  // on HyperEVM and other smaller chains never reach the shared snapshot.
+  const selected = ranked.slice(0, limit);
+  const selectedIds = new Set(selected.map((pool) => pool.id));
+  const chainCounts = new Map<string, number>();
+  for (const pool of selected) chainCounts.set(pool.chain, (chainCounts.get(pool.chain) ?? 0) + 1);
+  const minPoolsPerChain = 12;
+  for (const pool of ranked) {
+    if (selectedIds.has(pool.id) || (chainCounts.get(pool.chain) ?? 0) >= minPoolsPerChain) continue;
+    selected.push(pool);
+    selectedIds.add(pool.id);
+    chainCounts.set(pool.chain, (chainCounts.get(pool.chain) ?? 0) + 1);
+  }
+  return selected.sort((a, b) => b.tvlUsd - a.tvlUsd);
 }
 
 export interface PoolChartPoint { timestamp: number; tvlUsd: number; apy: number; }

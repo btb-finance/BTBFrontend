@@ -116,6 +116,7 @@ const WRAPPED_NATIVE_FALLBACKS: Record<number, `0x${string}`> = {
   81457: '0x4300000000000000000000000000000000000004',
   130: '0x4200000000000000000000000000000000000006',
   324: '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91',
+  999: '0x5555555555555555555555555555555555555555',
   143: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
   4326: '0x4200000000000000000000000000000000000006',
   4663: '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73',
@@ -295,6 +296,7 @@ function normalizedChainName(name: string): string {
     arbitrumone: 'arbitrum',
     opmainnet: 'optimism',
     polygonmainnet: 'polygon',
+    hyperliquidl1: 'hyperevm',
   }[normalized] ?? normalized;
 }
 

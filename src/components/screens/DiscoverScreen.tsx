@@ -40,6 +40,7 @@ function discoverChainId(name: string, explicitId?: number): number | undefined 
     polygon: 137, polygonmainnet: 137, arbitrum: 42161, arbitrumone: 42161,
     optimism: 10, opmainnet: 10, base: 8453, avalanche: 43114,
     avalanchecchain: 43114, robinhoodchain: 4663, zksync: 324, zksyncera: 324,
+    hyperevm: 999, hyperliquidl1: 999,
   };
   const direct = aliases[normalized];
   if (direct) return direct;
