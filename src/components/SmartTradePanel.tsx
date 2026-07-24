@@ -81,7 +81,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const createSchedule = useAction(api.dcaActions.createSchedule);
   const setScheduleEnabled = useMutation(api.dca.setEnabled);
   const removeSchedule = useMutation(api.dca.remove);
-  const deployment = getUniversalWalletDeployment();
+  const deployment = useMemo(() => getUniversalWalletDeployment(), []);
   const validOwner = owner && isAddress(owner) ? owner as `0x${string}` : null;
   const [state, setState] = useState<SmartState | null>(null);
   const [loading, setLoading] = useState(true);
