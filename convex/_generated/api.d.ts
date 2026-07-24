@@ -24,6 +24,7 @@ import type * as prices from "../prices.js";
 import type * as queries from "../queries.js";
 import type * as rebalanceMath from "../rebalanceMath.js";
 import type * as rebalanceWorker from "../rebalanceWorker.js";
+import type * as spotSetup from "../spotSetup.js";
 import type * as spotTrade from "../spotTrade.js";
 import type * as spotTradeQueue from "../spotTradeQueue.js";
 import type * as spotTradeWorker from "../spotTradeWorker.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   queries: typeof queries;
   rebalanceMath: typeof rebalanceMath;
   rebalanceWorker: typeof rebalanceWorker;
+  spotSetup: typeof spotSetup;
   spotTrade: typeof spotTrade;
   spotTradeQueue: typeof spotTradeQueue;
   spotTradeWorker: typeof spotTradeWorker;
