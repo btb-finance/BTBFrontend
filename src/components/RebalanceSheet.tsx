@@ -21,6 +21,7 @@ import {
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 const WIDTH_PRESETS = [5, 10, 25] as const;
 
@@ -154,7 +155,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   async function readBals(client: PublicClient): Promise<readonly [bigint, bigint]> {
     // token1 is always an ERC-20; token0 is native ETH only on a V4 native pool.
     const erc = native0 ? [pos.token1] : [pos.token0, pos.token1];
-    const res = await client.multicall({
+    const res = await withSafeMulticall(client).multicall({
       contracts: erc.map((a) => ({ address: a, abi: erc20Abi, functionName: 'balanceOf' as const, args: [account] as const })),
       allowFailure: true,
     });

@@ -14,6 +14,7 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } from './AutomationRules';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
@@ -478,7 +479,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     if (!client || !address || !pool) return;
     (async () => {
       try {
-        const [b0, b1] = await client.multicall({
+        const [b0, b1] = await withSafeMulticall(client).multicall({
           contracts: [
             { address: pool.token0, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] },
             { address: pool.token1, abi: erc20Abi, functionName: 'balanceOf', args: [address as `0x${string}`] },
@@ -679,7 +680,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
       const erc = native0 ? [pool.token1] : [pool.token0, pool.token1];
-      const res = await client.multicall({
+      const res = await withSafeMulticall(client).multicall({
         contracts: erc.map((a) => ({ address: a, abi: erc20Abi, functionName: 'balanceOf' as const, args: [acct] as const })),
         allowFailure: true,
       });

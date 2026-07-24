@@ -33,6 +33,7 @@ import { fetchDexScreenerPools } from '../../lib/dexscreener';
 import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
+import { withSafeMulticall } from '../../lib/safeMulticall';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
@@ -482,7 +483,7 @@ function TokenPickerButton({ label, token, onPick, tokens, onImportAddress }: {
 
 async function findV4Pools(client: PublicClient, tokenA: Token, tokenB: Token, deployment: V4Deployment): Promise<FoundPool[]> {
   const [c0, c1] = sortCurrencies(toCurrency(tokenA.address), toCurrency(tokenB.address));
-  const results = await client.multicall({
+  const results = await withSafeMulticall(client).multicall({
     contracts: V4_FEE_TIERS.map(fee => ({
       address: deployment.stateView,
       abi: STATE_VIEW_ABI,
@@ -513,7 +514,7 @@ async function findV3Pools(
 ): Promise<FoundPool[]> {
   const addrA = toV3Address(tokenA.address, wrappedNative);
   const addrB = toV3Address(tokenB.address, wrappedNative);
-  const results = await client.multicall({
+  const results = await withSafeMulticall(client).multicall({
     contracts: deployment.feeTiers.map(fee => ({
       address: deployment.factory,
       abi: FACTORY_ABI,

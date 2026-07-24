@@ -1,5 +1,5 @@
 import {
-  concatHex, encodeAbiParameters, keccak256, stringToHex, toFunctionSelector,
+  concatHex, encodeAbiParameters, getAddress, isAddress, keccak256, stringToHex, toFunctionSelector,
   type Address, type Hex,
 } from 'viem';
 
@@ -12,16 +12,47 @@ import {
 
 export const BTB_CHAIN_ID = 4663;
 
+function deploymentAddress(value: string | undefined, fallback: Address): Address {
+  return value && isAddress(value) ? getAddress(value) : fallback;
+}
+
 export const BTB_V2 = {
-  registry:        '0x8dBC7bF6db62aeA395190B70038A749Db7dD70D6' as Address,
-  implementation:  '0x8825dFb3a2E529d07ae9c39b48Bf87F6Af08F30A' as Address,
-  accountFactory:  '0x2c608e3a0FFda0e01106E0e2FDf6b344D43A45C6' as Address,
-  erc4626Adapter:  '0xA67c43Cc3fda09285a6E340432901B5804Ac5cF7' as Address,
-  uniV3Adapter:    '0xe7dA4a93191d4efdF3eeF5bF11F9F5bC597B8379' as Address,
-  keeperIncentives:'0x58ca2C3Db055D7c608D4FA26BdbEa7fd3BF30d1C' as Address,
-  uniV3Factory:    '0x1f7d7550B1b028f7571E69A784071F0205FD2EfA' as Address,
-  positionManager: '0x73991a25C818Bf1f1128dEAaB1492D45638DE0D3' as Address,
-  registryOwner:   '0x09Be3c244a52772f9108Cf1a1A47774E176C066d' as Address,
+  registry: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_REGISTRY_4663,
+    '0x017FC49F14E68935543Fc84C6EEFB4c465Be2195',
+  ),
+  implementation: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_IMPLEMENTATION_4663,
+    '0x56ba12b51A1F6Aac515B9cb137E06128C79CfC53',
+  ),
+  accountFactory: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_ACCOUNT_FACTORY_4663,
+    '0xca0429f250a14963F73c5522b0087E96Da19675D',
+  ),
+  erc4626Adapter: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_ERC4626_ADAPTER_4663,
+    '0x5Aab51DB29250a83825Da545F42b0e60f9C0a004',
+  ),
+  uniV3Adapter: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_UNISWAP_V3_ADAPTER_4663,
+    '0x367EB3190C4788183c0a6243D8428AF628283fB0',
+  ),
+  keeperIncentives: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_KEEPER_INCENTIVES_4663,
+    '0xF39d00A06eC8325447d2b4D3736d73bf8a9059c5',
+  ),
+  uniV3Factory: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_UNISWAP_V3_FACTORY_4663,
+    '0x1f7d7550B1b028f7571E69A784071F0205FD2EfA',
+  ),
+  positionManager: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_POSITION_MANAGER_4663,
+    '0x73991a25C818Bf1f1128dEAaB1492D45638DE0D3',
+  ),
+  registryOwner: deploymentAddress(
+    process.env.NEXT_PUBLIC_BTB_V2_REGISTRY_OWNER_4663,
+    '0x09Be3c244a52772f9108Cf1a1A47774E176C066d',
+  ),
 } as const;
 
 export const CAPABILITY_EPOCH = 1n;

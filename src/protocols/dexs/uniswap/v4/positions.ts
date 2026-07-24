@@ -6,6 +6,7 @@ import { getOwnerPositionIds, hasGraphKey } from '../graph';
 import { ERC20_META_ABI } from '../v3/abis';
 import { getAmountsForLiquidity } from '../v3/math';
 import type { LiquidityPosition } from '@/protocols/types';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 const MASK256 = (1n << 256n) - 1n;
 const Q128 = 1n << 128n;
@@ -108,7 +109,7 @@ export async function fetchV4Positions(
   candidates = candidates.slice(-300); // safety cap for extreme wallets
 
   // 2) keep only tokenIds still owned (drops transfers-away; burns revert)
-  const ownerRes = await client.multicall({
+  const ownerRes = await withSafeMulticall(client).multicall({
     contracts: candidates.map((id) => ({
       address: posm, abi: POSITION_MANAGER_ABI, functionName: 'ownerOf' as const, args: [id] as const,
     })),
@@ -121,7 +122,7 @@ export async function fetchV4Positions(
   if (tokenIds.length === 0) return [];
 
   // 3) pool key + packed range info + liquidity per position
-  const infoRes = await client.multicall({
+  const infoRes = await withSafeMulticall(client).multicall({
     contracts: tokenIds.flatMap((id) => [
       { address: posm, abi: POSITION_MANAGER_ABI, functionName: 'getPoolAndPositionInfo' as const, args: [id] as const },
       { address: posm, abi: POSITION_MANAGER_ABI, functionName: 'getPositionLiquidity' as const, args: [id] as const },
@@ -152,7 +153,7 @@ export async function fetchV4Positions(
 
   // 4) pool state (price/tick) per unique pool + fee growth per position
   const uniquePoolIds = [...new Set(raws.map((r) => r.poolId))];
-  const stateRes = await client.multicall({
+  const stateRes = await withSafeMulticall(client).multicall({
     contracts: [
       ...uniquePoolIds.map((pid) => ({
         address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0' as const, args: [pid] as const,
@@ -186,7 +187,7 @@ export async function fetchV4Positions(
   // 5) token metadata — native ETH (address 0) is hardcoded, ERC-20s are read
   const tokens = [...new Set(raws.flatMap((r) => [r.key.currency0, r.key.currency1]))]
     .filter((t) => !isNativeCurrency(t));
-  const metaRes = await client.multicall({
+  const metaRes = await withSafeMulticall(client).multicall({
     contracts: tokens.flatMap((t) => [
       { address: t, abi: ERC20_META_ABI, functionName: 'symbol' as const },
       { address: t, abi: ERC20_META_ABI, functionName: 'decimals' as const },

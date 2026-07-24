@@ -3,6 +3,7 @@ import { UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency, type PoolKey, type V4Dep
 import { POSITION_MANAGER_ABI, STATE_VIEW_ABI } from './abis';
 import { ERC20_META_ABI } from '../v3/abis';
 import type { MintPool } from '../v3/pool';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 /**
  * A V4 pool ready for the mint sheet — same shape as V3's MintPool (so the
@@ -37,13 +38,13 @@ export async function fetchV4PoolForMint(
     { address: deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [id] },
   ] as const;
 
-  let [keyRes, slotRes, liqRes] = await client.multicall({ contracts, allowFailure: true });
+  let [keyRes, slotRes, liqRes] = await withSafeMulticall(client).multicall({ contracts, allowFailure: true });
   // `poolKeys` is a plain mapping getter — it can't revert on-chain, so a
   // failed read is an RPC hiccup, not a missing pool. Retry once before
   // giving up (a pool that genuinely isn't registered returns zeros instead,
   // handled by the `exists` check below).
   if (keyRes.status !== 'success') {
-    [keyRes, slotRes, liqRes] = await client.multicall({ contracts, allowFailure: true });
+    [keyRes, slotRes, liqRes] = await withSafeMulticall(client).multicall({ contracts, allowFailure: true });
   }
   if (keyRes.status !== 'success') throw new Error('network read failed, please retry');
   const [currency0, currency1, fee, tickSpacing, hooks] = keyRes.result as readonly [
@@ -63,7 +64,7 @@ export async function fetchV4PoolForMint(
 
   // token metadata — currency0 may be native ETH (address 0)
   const erc20s = [currency0, currency1].filter((t) => !isNativeCurrency(t));
-  const metaRes = await client.multicall({
+  const metaRes = await withSafeMulticall(client).multicall({
     contracts: erc20s.flatMap((t) => [
       { address: t, abi: ERC20_META_ABI, functionName: 'symbol' as const },
       { address: t, abi: ERC20_META_ABI, functionName: 'decimals' as const },

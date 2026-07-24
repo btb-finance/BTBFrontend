@@ -17,6 +17,7 @@ import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/address
 import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchDexPaprikaTopPools, type DexPaprikaPoolRaw } from './dexpaprika';
 import { fetchDexScreenerPool } from './dexscreener';
+import { withSafeMulticall } from './safeMulticall';
 
 export { fmtCompactUsd, fmtFeeTier };
 
@@ -335,14 +336,14 @@ async function ingestDexPaprika(client: PublicClient, existingIds: Set<string>, 
     if (fresh.length === 0) continue;
 
     const feeCalls = m.version === 'V4'
-      ? await client.multicall({
+      ? await withSafeMulticall(client).multicall({
           contracts: fresh.map((r) => ({
             address: UNISWAP_V4.positionManager, abi: POSITION_MANAGER_ABI as Abi, functionName: 'poolKeys',
             args: [r.id.toLowerCase().slice(0, 52) as `0x${string}`],
           })),
           allowFailure: true,
         })
-      : await client.multicall({
+      : await withSafeMulticall(client).multicall({
           contracts: fresh.map((r) => ({ address: r.id as `0x${string}`, abi: POOL_ABI as Abi, functionName: 'fee' })),
           allowFailure: true,
         });
@@ -538,7 +539,7 @@ export async function addRangeAprs(client: PublicClient, pools: EarnPool[]): Pro
         { address: p.id as `0x${string}`, abi: POOL_ABI as Abi, functionName: 'liquidity' },
       ]);
   const [stateRes, prices] = await Promise.all([
-    client.multicall({ contracts, allowFailure: true }),
+    withSafeMulticall(client).multicall({ contracts, allowFailure: true }),
     getTokenPricesUsd(targets.map((p) => p.underlyingTokens![1] as `0x${string}`)).catch(() => ({} as Record<string, number>)),
   ]);
 
