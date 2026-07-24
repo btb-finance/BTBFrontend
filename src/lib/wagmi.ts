@@ -46,6 +46,15 @@ const DAPP_METADATA = {
 
 export function makeConfig() {
   const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? 'b56e18d47c72ab683b10814fe9495694';
+  // WalletConnect and other wallet connectors access indexedDB at construction
+  // time, which crashes Node.js serverless (Netlify). Only create them in the
+  // browser. See: https://github.com/vercel/next.js/discussions/82963
+  const connectors = typeof window === 'undefined' ? [] : [
+      metaMask({ dapp: { name: DAPP_METADATA.name, url: DAPP_METADATA.url } }),
+      walletConnect({ projectId, showQrModal: true, metadata: DAPP_METADATA }),
+      coinbaseWallet({ appName: DAPP_METADATA.name }),
+      injected({ shimDisconnect: true }),
+    ];
   return createConfig({
     chains: SUPPORTED_CHAINS,
     transports: {
@@ -57,18 +66,7 @@ export function makeConfig() {
       [fantom.id]: http(), [blast.id]: http(), [zkSync.id]: http(), [megaeth.id]: http(),
       [robinhoodChain.id]: robinhoodTransport(),
     },
-    connectors: [
-      // MetaMask — handles mobile deep-linking (no window.ethereum needed).
-      // On desktop with the extension, this still uses the injected provider.
-      // wagmi v3 / @metamask/connect-evm: `dapp` replaces the old `dappMetadata`.
-      metaMask({ dapp: { name: DAPP_METADATA.name, url: DAPP_METADATA.url } }),
-      // WalletConnect v2 — explicit `showQrModal: true` so the wallet picker
-      // actually opens on every device (including mobile browsers).
-      walletConnect({ projectId, showQrModal: true, metadata: DAPP_METADATA }),
-      coinbaseWallet({ appName: DAPP_METADATA.name }),
-      // Catch-all for any other injected provider (Brave, Rabby, OKX, etc.).
-      injected({ shimDisconnect: true }),
-    ],
+    connectors,
   });
 }
 
