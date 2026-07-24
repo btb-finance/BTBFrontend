@@ -1,7 +1,4 @@
-export const dynamic = 'force-dynamic';
-
-import { Providers } from '@/components/Providers';
-import { MiniApp } from '@/components/MiniApp';
+import { Providers, MiniApp } from '@/components/ClientOnly';
 
 export default function Page() {
   return (
