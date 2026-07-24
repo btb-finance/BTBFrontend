@@ -1,4 +1,4 @@
-import { encodeFunctionData, isAddress, keccak256, zeroAddress, type Hex, type PublicClient } from 'viem';
+import { encodeAbiParameters, encodeFunctionData, isAddress, keccak256, zeroAddress, type Hex, type PublicClient } from 'viem';
 import type { Call } from './txRunner';
 import { UNIVERSAL_WALLET_ABI, type UniversalWalletDeployment } from './universalWallet';
 
@@ -47,6 +47,19 @@ const APPROVAL_POLICY_COMPONENTS = [
   { name: 'enabled', type: 'bool' },
 ] as const;
 
+const GUARDED_SETUP_COMPONENTS = [
+  { name: 'agent', type: 'address' },
+  { name: 'payoutReceiver', type: 'address' },
+  { name: 'expiresAt', type: 'uint64' },
+  { name: 'guard', type: 'address' },
+  { name: 'guardCodeHash', type: 'bytes32' },
+  { name: 'guardConfigHash', type: 'bytes32' },
+  { name: 'callPoliciesHash', type: 'bytes32' },
+  { name: 'approvalPoliciesHash', type: 'bytes32' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'deadline', type: 'uint64' },
+] as const;
+
 export const UNIVERSAL_LP_WALLET_ABI = [
   ...UNIVERSAL_WALLET_ABI,
   { name: 'guardPolicies', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ name: 'codeHash', type: 'bytes32' }, { name: 'expiresAt', type: 'uint64' }, { name: 'enabled', type: 'bool' }] },
@@ -54,7 +67,39 @@ export const UNIVERSAL_LP_WALLET_ABI = [
   { name: 'setCallPolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'target', type: 'address' }, { name: 'selector', type: 'bytes4' }, { name: 'policy', type: 'tuple', components: CALL_POLICY_COMPONENTS }], outputs: [] },
   { name: 'setApprovalPolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }, { name: 'spender', type: 'address' }, { name: 'policy', type: 'tuple', components: APPROVAL_POLICY_COMPONENTS }], outputs: [] },
   { name: 'withdrawERC721', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'collection', type: 'address' }, { name: 'tokenId', type: 'uint256' }], outputs: [] },
+  { name: 'guardedSetupNonce', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'configureGuardedWorkflowBySig', type: 'function', stateMutability: 'nonpayable', inputs: [
+    { name: 'setup', type: 'tuple', components: GUARDED_SETUP_COMPONENTS },
+    { name: 'callPolicyUpdates', type: 'tuple[]', components: [{ name: 'target', type: 'address' }, { name: 'selector', type: 'bytes4' }, { name: 'policy', type: 'tuple', components: CALL_POLICY_COMPONENTS }] },
+    { name: 'approvalPolicyUpdates', type: 'tuple[]', components: [{ name: 'token', type: 'address' }, { name: 'spender', type: 'address' }, { name: 'policy', type: 'tuple', components: APPROVAL_POLICY_COMPONENTS }] },
+    { name: 'guardConfiguration', type: 'bytes' },
+    { name: 'ownerSignature', type: 'bytes' },
+  ], outputs: [] },
 ] as const;
+
+export const GUARDED_SETUP_TYPES = {
+  GuardedSetup: GUARDED_SETUP_COMPONENTS,
+} as const;
+
+const CALL_POLICY_UPDATE_PARAMETER = {
+  type: 'tuple[]',
+  components: [
+    { name: 'target', type: 'address' },
+    { name: 'selector', type: 'bytes4' },
+    { name: 'policy', type: 'tuple', components: CALL_POLICY_COMPONENTS },
+  ],
+} as const;
+
+const APPROVAL_POLICY_UPDATE_PARAMETER = {
+  type: 'tuple[]',
+  components: [
+    { name: 'token', type: 'address' },
+    { name: 'spender', type: 'address' },
+    { name: 'policy', type: 'tuple', components: APPROVAL_POLICY_COMPONENTS },
+  ],
+} as const;
+
+const POOL_POLICY_PARAMETER = { type: 'tuple', components: POOL_POLICY_COMPONENTS } as const;
 
 export type UniversalLpPolicy = {
   positionManager: `0x${string}`;
@@ -76,7 +121,33 @@ export type UniversalLpPolicy = {
   enabled: boolean;
 };
 
-const guardAddress = (process.env.NEXT_PUBLIC_BTB_UNISWAP_V3_GUARD_4663 ?? '') as `0x${string}`;
+export type GuardedLpSetup = {
+  setup: {
+    agent: `0x${string}`;
+    payoutReceiver: `0x${string}`;
+    expiresAt: bigint;
+    guard: `0x${string}`;
+    guardCodeHash: Hex;
+    guardConfigHash: Hex;
+    callPoliciesHash: Hex;
+    approvalPoliciesHash: Hex;
+    nonce: bigint;
+    deadline: bigint;
+  };
+  callPolicyUpdates: readonly {
+    target: `0x${string}`;
+    selector: Hex;
+    policy: { targetCodeHash: Hex; maximumNativeValue: bigint; recipientOffset: number; recipientMode: number; enabled: boolean };
+  }[];
+  approvalPolicyUpdates: readonly {
+    token: `0x${string}`;
+    spender: `0x${string}`;
+    policy: { maximumPerExecution: bigint; maximumPerWindow: bigint; window: bigint; windowStart: bigint; spentInWindow: bigint; enabled: boolean };
+  }[];
+  guardConfiguration: Hex;
+};
+
+const guardAddress = (process.env.NEXT_PUBLIC_BTB_UNISWAP_V3_GUARD_4663 ?? '0xfD6cf126B7f748717F97AF1F6eaA649446E570c8') as `0x${string}`;
 
 export function getUniversalLpGuard(): `0x${string}` | null {
   return isAddress(guardAddress) && guardAddress.toLowerCase() !== zeroAddress ? guardAddress : null;
@@ -169,6 +240,69 @@ export async function configureUniversalLpCalls(args: {
     );
   }
   return calls;
+}
+
+/** Build the same complete LP permission set as one owner-signed payload. */
+export async function prepareUniversalLpSetup(args: Parameters<typeof configureUniversalLpCalls>[0] & {
+  nonce: bigint;
+  deadline: bigint;
+}): Promise<GuardedLpSetup> {
+  const guard = getUniversalLpGuard();
+  if (!guard) throw new Error('The universal Uniswap V3 guard is not configured.');
+  const [guardCodeHash, managerCodeHash] = await Promise.all([
+    contractCodeHash(args.client, guard), contractCodeHash(args.client, args.positionManager),
+  ]);
+  const poolPolicy: UniversalLpPolicy = {
+    positionManager: args.positionManager,
+    pool: args.pool,
+    router: args.deployment.router,
+    routerCodeHash: args.deployment.routerCodeHash,
+    routerSelector0: '0xe21fd0e9',
+    routerSelector1: '0x8af033fb',
+    token0: args.token0,
+    token1: args.token1,
+    maximumToken0PerRebalance: args.maximumToken0PerRebalance,
+    maximumToken1PerRebalance: args.maximumToken1PerRebalance,
+    fee: args.fee,
+    targetTickWidth: args.targetTickWidth,
+    maximumSlippageBps: args.maximumSlippageBps,
+    minimumTick: args.minimumTick,
+    maximumTick: args.maximumTick,
+    expiresAt: args.expiresAt,
+    enabled: true,
+  };
+  const callPolicy = (targetCodeHash: Hex) => ({ targetCodeHash, maximumNativeValue: 0n, recipientOffset: 0, recipientMode: 0, enabled: true });
+  const approvalPolicy = { maximumPerExecution: UINT128_MAX, maximumPerWindow: 0n, window: 0n, windowStart: 0n, spentInWindow: 0n, enabled: true };
+  const callPolicyUpdates = [
+    ...(['0x0c49ccbe', '0xfc6f7865', '0x42966c68', '0x88316456'] as const).map(selector => ({ target: args.positionManager, selector, policy: callPolicy(managerCodeHash) })),
+    ...(['0xe21fd0e9', '0x8af033fb'] as const).map(selector => ({ target: args.deployment.router, selector, policy: callPolicy(args.deployment.routerCodeHash) })),
+  ];
+  const approvalPolicyUpdates = [args.token0, args.token1]
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+    .flatMap(token => [
+      { token, spender: args.positionManager, policy: approvalPolicy },
+      { token, spender: args.deployment.router, policy: approvalPolicy },
+    ]);
+  const guardConfiguration = encodeAbiParameters([POOL_POLICY_PARAMETER], [poolPolicy]);
+  const callPoliciesHash = keccak256(encodeAbiParameters([CALL_POLICY_UPDATE_PARAMETER], [callPolicyUpdates]));
+  const approvalPoliciesHash = keccak256(encodeAbiParameters([APPROVAL_POLICY_UPDATE_PARAMETER], [approvalPolicyUpdates]));
+  return {
+    setup: {
+      agent: args.deployment.agent,
+      payoutReceiver: args.deployment.agent,
+      expiresAt: args.expiresAt,
+      guard,
+      guardCodeHash,
+      guardConfigHash: keccak256(guardConfiguration),
+      callPoliciesHash,
+      approvalPoliciesHash,
+      nonce: args.nonce,
+      deadline: args.deadline,
+    },
+    callPolicyUpdates,
+    approvalPolicyUpdates,
+    guardConfiguration,
+  };
 }
 
 export function withdrawUniversalLpCall(account: `0x${string}`, manager: `0x${string}`, tokenId: bigint): Call {

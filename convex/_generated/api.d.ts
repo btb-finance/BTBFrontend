@@ -16,6 +16,7 @@ import type * as dca from "../dca.js";
 import type * as dcaActions from "../dcaActions.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
+import type * as lpSetup from "../lpSetup.js";
 import type * as managedPositionMonitor from "../managedPositionMonitor.js";
 import type * as managedPositions from "../managedPositions.js";
 import type * as markets from "../markets.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   dcaActions: typeof dcaActions;
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
+  lpSetup: typeof lpSetup;
   managedPositionMonitor: typeof managedPositionMonitor;
   managedPositions: typeof managedPositions;
   markets: typeof markets;

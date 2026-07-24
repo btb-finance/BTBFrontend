@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useConfig } from 'wagmi';
 import { useAction } from 'convex/react';
-import { getPublicClient } from 'wagmi/actions';
+import { getPublicClient, signTypedData } from 'wagmi/actions';
 import { encodeFunctionData } from 'viem';
 import { Portal } from './Portal';
 import { Button } from './Button';
@@ -15,8 +15,9 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
   createUniversalWalletCall, getUniversalWalletDeployment, readUniversalWallet, upgradeUniversalWalletCalls,
+  tradingSetupDomain,
 } from '../lib/universalWallet';
-import { configureUniversalLpCalls, readUniversalLpPolicy } from '../lib/universalLp';
+import { GUARDED_SETUP_TYPES, prepareUniversalLpSetup, readUniversalLpPolicy, UNIVERSAL_LP_WALLET_ABI } from '../lib/universalLp';
 import {
   rangeTicks, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
   type LiquidityPosition,
@@ -39,6 +40,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
   const config = useConfig();
   const { track } = useTx();
   const registerManaged = useAction(api.managedPositionMonitor.register);
+  const configureSignedLp = useAction(api.lpSetup.configure);
   const chainId = pos.chainId ?? 1;
   const deployment = ROBINHOOD_UNISWAP_V3_DEPLOYMENT;
   const smartDeployment = chainId === 4663 ? getUniversalWalletDeployment() : null;
@@ -81,15 +83,16 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         });
         smart = await readUniversalWallet(client, account, smartDeployment);
       }
-      if (!smart.upgraded) {
+      if (!smart.guardedSetupReady) {
         await runCalls(config, {
           account, chainId, label: 'Upgrade my BTB account for guarded LP automation', track,
           calls: upgradeUniversalWalletCalls(smart.account, smartDeployment.implementation, smart.paused),
           verify: {
-            test: async () => (await readUniversalWallet(client, account, smartDeployment)).upgraded,
+            test: async () => (await readUniversalWallet(client, account, smartDeployment)).guardedSetupReady,
             error: 'The wallet upgrade confirmed, but the current implementation is not visible yet.',
           },
         });
+        smart = await readUniversalWallet(client, account, smartDeployment);
       }
 
       const nftOwner = await client.readContract({
@@ -112,22 +115,32 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         });
       }
 
-      const policyCalls = await configureUniversalLpCalls({
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
+      const guarded = await prepareUniversalLpSetup({
         client, account: smart.account, deployment: smartDeployment,
         positionManager: deployment.positionManager, pool, token0: pos.token0, token1: pos.token1, fee: pos.fee,
         targetTickWidth, maximumSlippageBps: slippageBps,
         maximumToken0PerRebalance: (pos.amount0 + pos.fees0) * BigInt(rules.maxSwapPct * 100) / 10_000n,
         maximumToken1PerRebalance: (pos.amount1 + pos.fees1) * BigInt(rules.maxSwapPct * 100) / 10_000n,
         minimumTick: minimumAllowedTick, maximumTick: maximumAllowedTick, expiresAt,
+        nonce: smart.guardedSetupNonce, deadline,
       });
-      await runCalls(config, {
-        account, chainId, label: `Save guarded ${pos.symbol0}/${pos.symbol1} automation`, track,
-        calls: policyCalls,
-        verify: {
-          test: async () => !!(await readUniversalLpPolicy(client, smart.account, pos.token0, pos.token1, pos.fee)),
-          error: 'The automation transaction confirmed, but the guard policy is not visible yet.',
-        },
+      const ownerSignature = await signTypedData(config, {
+        account,
+        domain: tradingSetupDomain(smart.account),
+        types: GUARDED_SETUP_TYPES,
+        primaryType: 'GuardedSetup',
+        message: guarded.setup,
       });
+      const setupCall = encodeFunctionData({
+        abi: UNIVERSAL_LP_WALLET_ABI,
+        functionName: 'configureGuardedWorkflowBySig',
+        args: [guarded.setup, guarded.callPolicyUpdates, guarded.approvalPolicyUpdates, guarded.guardConfiguration, ownerSignature],
+      });
+      await configureSignedLp({ owner: account, account: smart.account, deployed: true, setupCall });
+      if (!(await readUniversalLpPolicy(client, smart.account, pos.token0, pos.token1, pos.fee))) {
+        throw new Error('The signed setup confirmed, but the LP policy is not visible yet.');
+      }
       await registerManaged({
         chainId, owner: account, account: smart.account, positionManager: deployment.positionManager,
         positionId: pos.id.toString(), pool, token0: pos.token0, token1: pos.token1, fee: pos.fee,
@@ -171,10 +184,10 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
           )}
           {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12, lineHeight: 1.45 }}>{err}</div>}
           <Button variant="success" size="md" onClick={enroll} disabled={busy || !smartDeployment} style={{ marginTop: 14, fontWeight: 800 }}>
-            {busy ? 'Checking each confirmed step…' : 'Move to my account & enable'}
+            {busy ? 'Setting up securely…' : 'Move to my account & enable'}
           </Button>
           <div style={{ color: btb.textDim, textAlign: 'center', fontSize: 10.5, lineHeight: 1.45, marginTop: 9 }}>
-            First enrollment may create your universal account, transfer the NFT, then install its guarded pool policy. Every rebalance is one atomic agent transaction.
+            LP rules are installed with one signature. A new account or an NFT still in your wallet may need a one-time on-chain move first. Every rebalance is one atomic agent transaction.
           </div>
         </div>
       </div>

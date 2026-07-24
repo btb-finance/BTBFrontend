@@ -3,7 +3,7 @@ import type { Call } from './txRunner';
 
 export type UniversalWalletDeployment = {
   factory: `0x${string}`;
-  migrationFactory: `0x${string}`;
+  migrationFactories: readonly `0x${string}`[];
   implementation: `0x${string}`;
   agent: `0x${string}`;
   router: `0x${string}`;
@@ -41,7 +41,9 @@ export const UNIVERSAL_WALLET_ABI = [
   { name: 'initializeV5', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
   { name: 'SPOT_TRADE_V5_TYPEHASH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { name: 'TRADING_SETUP_TYPEHASH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
+  { name: 'GUARDED_SETUP_TYPEHASH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { name: 'tradingSetupNonce', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'guardedSetupNonce', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
   { name: 'setPaused', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'paused', type: 'bool' }], outputs: [] },
   { name: 'setAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'agent', type: 'address' }, { name: 'payoutReceiver', type: 'address' }, { name: 'expiresAt', type: 'uint64' }, { name: 'enabled', type: 'bool' }], outputs: [] },
   { name: 'setSpotTradePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'policy', type: 'tuple', components: SPOT_POLICY_COMPONENTS }], outputs: [] },
@@ -57,25 +59,33 @@ function address(value?: string): `0x${string}` | null {
 
 export function getUniversalWalletDeployment(): UniversalWalletDeployment | null {
   const factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_FACTORY_4663)
-    ?? '0x4cDC938b3Ece8A82c1658827cFc30Bbc1DF65EA3';
-  const migrationFactory = '0x632f02d54F6F37eA7Ae41E02402aCAF9cd1c08b3';
+    ?? '0x2C2360b0e662ffB535e0c501B2Fd28Cd3792815d';
+  const migrationFactories = [
+    '0x4cDC938b3Ece8A82c1658827cFc30Bbc1DF65EA3',
+    '0x632f02d54F6F37eA7Ae41E02402aCAF9cd1c08b3',
+  ] as const;
   const implementation = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_IMPLEMENTATION_4663)
-    ?? '0xa6745c2a20cB812f97BF55A1c8ABA99F4e876ecF';
+    ?? '0xe914F22F270C5E402d8Ab1D2697CC0CA9225d8a7';
   const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663);
   const router = address(process.env.NEXT_PUBLIC_KYBER_ROUTER_4663)
     ?? '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5';
   const routerCodeHash = process.env.NEXT_PUBLIC_KYBER_ROUTER_CODEHASH_4663 as `0x${string}` | undefined
     ?? '0xdc6eb20a6d4701d8f0f04f9a3342d254eb2698bbad281d8578d6efba21865867';
   return factory && implementation && agent && /^0x[0-9a-fA-F]{64}$/.test(routerCodeHash)
-    ? { factory, migrationFactory, implementation, agent, router, routerCodeHash }
+    ? { factory, migrationFactories, implementation, agent, router, routerCodeHash }
     : null;
 }
 
 export async function readUniversalWallet(client: PublicClient, owner: `0x${string}`, deployment: UniversalWalletDeployment) {
   const current = await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] });
-  const migration = current === zeroAddress
-    ? await client.readContract({ address: deployment.migrationFactory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] })
-    : zeroAddress;
+  let migration: `0x${string}` = zeroAddress;
+  if (current === zeroAddress) {
+    for (const factory of deployment.migrationFactories) {
+      if (factory.toLowerCase() === deployment.factory.toLowerCase()) continue;
+      const candidate = await client.readContract({ address: factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] }).catch(() => zeroAddress);
+      if (candidate !== zeroAddress) { migration = candidate; break; }
+    }
+  }
   const existing = current !== zeroAddress ? current : migration;
   const account = existing === zeroAddress
     ? await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'predictWallet', args: [owner] })
@@ -85,19 +95,25 @@ export async function readUniversalWallet(client: PublicClient, owner: `0x${stri
   let paused = false;
   let upgraded = false;
   let setupNonce = 0n;
+  let guardedSetupNonce = 0n;
+  let guardedSetupReady = false;
   if (deployed) {
-    const [raw, pausedValue, setupTypehash, nonce] = await Promise.all([
+    const [raw, pausedValue, setupTypehash, nonce, guardedTypehash, guardedNonce] = await Promise.all([
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'spotTradePolicy' }).catch(() => null),
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'paused' }).catch(() => false),
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'TRADING_SETUP_TYPEHASH' }).catch(() => null),
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'tradingSetupNonce' }).catch(() => 0n),
+      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'GUARDED_SETUP_TYPEHASH' }).catch(() => null),
+      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'guardedSetupNonce' }).catch(() => 0n),
     ]);
     paused = pausedValue;
     upgraded = setupTypehash !== null;
     setupNonce = nonce;
+    guardedSetupReady = guardedTypehash !== null;
+    guardedSetupNonce = guardedNonce;
     if (raw) policy = { agent: raw[0], sessionSigner: raw[1], maximumBalanceSpendBps: Number(raw[2]), expiresAt: raw[3], enabled: raw[4] };
   }
-  return { account, deployed, upgraded, paused, policy, setupNonce, migrationWallet: migration !== zeroAddress };
+  return { account, deployed, upgraded, guardedSetupReady, paused, policy, setupNonce, guardedSetupNonce, migrationWallet: migration !== zeroAddress };
 }
 
 export function createUniversalWalletCall(deployment: UniversalWalletDeployment, owner: `0x${string}`): Call {

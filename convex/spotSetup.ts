@@ -22,7 +22,7 @@ const robinhood = defineChain({
   rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com/"] } },
 });
 
-const FACTORY = "0x4cDC938b3Ece8A82c1658827cFc30Bbc1DF65EA3" as const;
+const FACTORY = "0x2C2360b0e662ffB535e0c501B2Fd28Cd3792815d" as const;
 const ROUTER = "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5" as const;
 const ROUTER_CODE_HASH = "0xdc6eb20a6d4701d8f0f04f9a3342d254eb2698bbad281d8578d6efba21865867" as const;
 const SELECTOR_0 = "0xe21fd0e9" as const;

@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { useAction } from 'convex/react';
-import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseUnits, erc20Abi } from 'viem';
+import { getPublicClient, signTypedData } from 'wagmi/actions';
+import { encodeFunctionData, formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
@@ -33,8 +33,9 @@ import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
 import {
   createUniversalWalletCall, getUniversalWalletDeployment, readUniversalWallet, upgradeUniversalWalletCalls,
+  tradingSetupDomain,
 } from '../lib/universalWallet';
-import { configureUniversalLpCalls } from '../lib/universalLp';
+import { GUARDED_SETUP_TYPES, prepareUniversalLpSetup, UNIVERSAL_LP_WALLET_ABI } from '../lib/universalLp';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -121,6 +122,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const { track } = useTx();
   const registerManaged = useAction(api.managedPositionMonitor.register);
   const executeAgentZap = useAction(api.zapAgent.execute);
+  const configureSignedLp = useAction(api.lpSetup.configure);
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
@@ -588,11 +590,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         });
         smart = await readUniversalWallet(client, owner, universalDeployment);
       }
-      if (!smart.upgraded) {
+      if (!smart.guardedSetupReady) {
         await runCalls(config, {
           account: owner, chainId, label: 'Upgrade my BTB account for guarded LPs', track,
           calls: upgradeUniversalWalletCalls(smart.account, universalDeployment.implementation, smart.paused),
         });
+        smart = await readUniversalWallet(client, owner, universalDeployment);
+        if (!smart.guardedSetupReady) throw new Error('The wallet upgrade confirmed, but guarded LP setup is not available yet.');
       }
       const specs = splitRange
         ? [
@@ -620,17 +624,30 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const expiresAt = BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400);
       const maximumToken0PerRebalance = (add0 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
       const maximumToken1PerRebalance = (add1 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
-      setStepMsg('Installing your on-chain range and swap limits…');
-      await runCalls(config, {
-        account: owner, chainId, label: `Protect ${pool.symbol0}/${pool.symbol1} automation`, track,
-        calls: await configureUniversalLpCalls({
-          client, account: smart.account, deployment: universalDeployment, positionManager: deployment.positionManager,
-          pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
-          targetTickWidth: target.tickUpper - target.tickLower, maximumSlippageBps: slippageBps,
-          maximumToken0PerRebalance, maximumToken1PerRebalance,
-          minimumTick: Math.min(allowed.tickLower, ticks.tickLower), maximumTick: Math.max(allowed.tickUpper, ticks.tickUpper), expiresAt,
-        }),
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
+      setStepMsg('Sign once to protect this LP…');
+      const guarded = await prepareUniversalLpSetup({
+        client, account: smart.account, deployment: universalDeployment, positionManager: deployment.positionManager,
+        pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
+        targetTickWidth: target.tickUpper - target.tickLower, maximumSlippageBps: slippageBps,
+        maximumToken0PerRebalance, maximumToken1PerRebalance,
+        minimumTick: Math.min(allowed.tickLower, ticks.tickLower), maximumTick: Math.max(allowed.tickUpper, ticks.tickUpper), expiresAt,
+        nonce: smart.guardedSetupNonce, deadline,
       });
+      const ownerSignature = await signTypedData(config, {
+        account: owner,
+        domain: tradingSetupDomain(smart.account),
+        types: GUARDED_SETUP_TYPES,
+        primaryType: 'GuardedSetup',
+        message: guarded.setup,
+      });
+      const setupCall = encodeFunctionData({
+        abi: UNIVERSAL_LP_WALLET_ABI,
+        functionName: 'configureGuardedWorkflowBySig',
+        args: [guarded.setup, guarded.callPolicyUpdates, guarded.approvalPolicyUpdates, guarded.guardConfiguration, ownerSignature],
+      });
+      setStepMsg('Installing all LP permissions…');
+      await configureSignedLp({ owner, account: smart.account, deployed: true, setupCall });
       await Promise.all(created.map(position => registerManaged({
         chainId, owner, account: smart.account, positionManager: deployment.positionManager,
         positionId: position.id.toString(), pool: pool.address, token0: pool.token0, token1: pool.token1, fee,

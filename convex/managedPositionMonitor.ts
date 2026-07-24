@@ -9,7 +9,7 @@ const robinhood = defineChain({
   id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com/"] } },
 });
-const DEFAULT_GUARD = "0x32421Fc3E2c446B29847BBC06D4886549A303484" as const;
+const DEFAULT_GUARD = "0xfD6cf126B7f748717F97AF1F6eaA649446E570c8" as const;
 
 const accountAbi = [
   { name: "owner", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },

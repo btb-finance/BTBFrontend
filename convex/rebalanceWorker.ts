@@ -14,7 +14,7 @@ const robinhood = defineChain({
   id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: ["https://rpc.mainnet.chain.robinhood.com/"] } },
 });
-const DEFAULT_GUARD = "0x32421Fc3E2c446B29847BBC06D4886549A303484" as const;
+const DEFAULT_GUARD = "0xfD6cf126B7f748717F97AF1F6eaA649446E570c8" as const;
 const DEFAULT_BTB_QUOTER = "0x249B56FB5FC527F0CfaAbEc418aCF5ccEd1652f6" as const;
 const DEFAULT_KYBER_ROUTER = "0x6131B5fae19EA4f9D964eAc0408E4408b66337b5" as const;
 const ZERO = "0x0000000000000000000000000000000000000000" as const;
