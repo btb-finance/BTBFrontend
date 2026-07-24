@@ -11,7 +11,7 @@ export const insert = internalMutation({
   args: {
     orderKey: v.string(), chainId: v.float64(), account: v.string(),
     tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
-    minimumGrossOutput: v.optional(v.string()), nonce: v.optional(v.string()),
+    minimumGrossOutput: v.optional(v.string()), minimumProtocolFee: v.optional(v.string()), nonce: v.optional(v.string()),
     deadline: v.optional(v.float64()), sessionSignature: v.optional(v.string()),
   },
   handler: async (ctx, args) => {

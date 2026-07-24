@@ -35,6 +35,7 @@ export const drain = internalAction({
         tokenOut: order.tokenOut,
         amountIn: order.amountIn,
         minimumGrossOutput: order.minimumGrossOutput,
+        minimumProtocolFee: order.minimumProtocolFee,
         nonce: order.nonce,
         deadline: order.deadline,
         sessionSignature: order.sessionSignature,
