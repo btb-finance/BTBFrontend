@@ -10,6 +10,7 @@ import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { approvalCall, BTB_AGENT_REGISTRY_ABI, BTB_LP_ACCOUNT_ABI, depositTokenCall, type SmartAccountDeployment } from '../lib/smartAccount';
+import { UNIVERSAL_WALLET_ABI } from '../lib/universalWallet';
 import { type AccountAsset } from '../lib/accountAssets';
 import { useAccountAssets } from '../lib/appData';
 import { TokenIcon } from './TokenIcon';
@@ -19,12 +20,13 @@ function compact(raw: bigint, decimals: number) {
   return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
 }
 
-export function ManagedFundsSheet({ chainId, chainName, owner, account, deployment, onClose, onDone, initialMode = 'deposit', initialWalletAssets = [], initialAccountAssets = [] }: {
+export function ManagedFundsSheet({ chainId, chainName, owner, account, deployment, universal = false, onClose, onDone, initialMode = 'deposit', initialWalletAssets = [], initialAccountAssets = [] }: {
   chainId: 1 | 4663;
   chainName: string;
   owner: `0x${string}`;
   account: `0x${string}`;
-  deployment: SmartAccountDeployment;
+  deployment: Pick<SmartAccountDeployment, 'agentRegistry'>;
+  universal?: boolean;
   onClose: () => void;
   onDone: () => void | Promise<void>;
   initialMode?: 'deposit' | 'withdraw';
@@ -65,7 +67,7 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, deployme
       const wallet = walletAssets.find(asset => asset.native);
       const held = accountAssets.find(asset => asset.native);
       const client = getPublicClient(config, { chainId });
-      void (deployment.agentRegistry && client
+      void (!universal && deployment.agentRegistry && client
         ? client.readContract({ address: deployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI, functionName: 'reservedBalance', args: [account, zeroAddress] }).catch(() => 0n)
         : Promise.resolve(0n)
       ).then(reserved => {
@@ -83,14 +85,14 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, deployme
         client.readContract({ address: validToken, abi: erc20Abi, functionName: 'balanceOf', args: [owner] }),
         client.readContract({ address: validToken, abi: erc20Abi, functionName: 'balanceOf', args: [account] }),
         // Funds a pending LP instruction has earmarked cannot be withdrawn (the contract reverts).
-        deployment.agentRegistry
+        !universal && deployment.agentRegistry
           ? client.readContract({ address: deployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI, functionName: 'reservedBalance', args: [account, validToken] }).catch(() => 0n)
           : 0n,
       ]);
       if (!cancelled) setMeta({ symbol, decimals, wallet, account: held, reserved });
     })().catch(() => { if (!cancelled) setError('This is not a readable ERC-20 contract on the selected chain.'); });
     return () => { cancelled = true; };
-  }, [account, accountAssets, chainId, config, deployment.agentRegistry, nativeToken, owner, validToken, walletAssets]);
+  }, [account, accountAssets, chainId, config, deployment.agentRegistry, nativeToken, owner, universal, validToken, walletAssets]);
 
   async function deposit() {
     if ((!validToken && !nativeToken) || !meta || parsed <= 0n || parsed > available) return;
@@ -101,10 +103,16 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, deployme
         calls: nativeToken
           ? mode === 'deposit'
             ? [{ to: account, value: parsed }]
-            : [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawNative', args: [parsed] }) }]
+            : [{ to: account, data: universal
+              ? encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'withdraw', args: [zeroAddress, parsed] })
+              : encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawNative', args: [parsed] }) }]
           : mode === 'deposit'
-            ? [approvalCall(validToken!, account, parsed), depositTokenCall(account, validToken!, parsed)].filter((call): call is NonNullable<typeof call> => call !== null)
-            : [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawToken', args: [validToken!, parsed] }) }],
+            ? universal
+              ? [{ to: validToken!, data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [account, parsed] }) }]
+              : [approvalCall(validToken!, account, parsed), depositTokenCall(account, validToken!, parsed)].filter((call): call is NonNullable<typeof call> => call !== null)
+            : [{ to: account, data: universal
+              ? encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'withdraw', args: [validToken!, parsed] })
+              : encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawToken', args: [validToken!, parsed] }) }],
       });
       await onDone(); onClose();
     } catch (e) { setError((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? `${mode === 'deposit' ? 'Deposit' : 'Withdrawal'} failed`); }
@@ -122,8 +130,12 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, deployme
       await runCalls(config, {
         account: owner, chainId, track, label: 'Withdraw all available smart-account funds',
         calls: [
-          ...(tokens.length > 0 ? [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawTokens', args: [tokens] }) }] : []),
-          ...(hasNative ? [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawAllNative' }) }] : []),
+          ...(tokens.length > 0 ? universal
+            ? tokens.map(token => ({ to: account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'withdraw', args: [token, BigInt(accountAssets.find(asset => asset.address?.toLowerCase() === token.toLowerCase())?.rawBalance ?? 0)] }) }))
+            : [{ to: account, data: encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawTokens', args: [tokens] }) }] : []),
+          ...(hasNative ? [{ to: account, data: universal
+            ? encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'withdraw', args: [zeroAddress, BigInt(accountAssets.find(asset => asset.native)?.rawBalance ?? 0)] })
+            : encodeFunctionData({ abi: BTB_LP_ACCOUNT_ABI, functionName: 'withdrawAllNative' }) }] : []),
         ],
       });
       await onDone(); onClose();

@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { erc20Abi, formatUnits, isAddress, keccak256, parseUnits, toHex, type Hex } from 'viem';
+import { erc20Abi, formatUnits, isAddress, parseUnits } from 'viem';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { Button } from './Button';
@@ -15,19 +16,16 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useAccountAssets, useRefreshAssets } from '../lib/appData';
 import {
-  BTB_AGENT_REGISTRY_ABI, configureAgentCall, configureTradePolicyCall, createAccountCall,
-  getSmartAccountDeployment, readSmartAccount,
-  type TradePolicy,
-} from '../lib/smartAccount';
+  configureUniversalTradeCalls, createUniversalWalletCall, getUniversalWalletDeployment,
+  readUniversalWallet, SPOT_TRADE_TYPES, spotTradeDomain, type SpotTradePolicy,
+} from '../lib/universalWallet';
 
 type TokenMeta = { address: `0x${string}`; symbol: string; decimals: number; balance: bigint };
 type SmartState = {
   account: `0x${string}`;
   deployed: boolean;
-  roles: number;
-  policy: TradePolicy | null;
-  nativeBalance: bigint;
-  wethBalance: bigint;
+  upgraded: boolean;
+  policy: SpotTradePolicy | null;
 };
 
 export type TradePreset = {
@@ -77,12 +75,13 @@ function nextRunLabel(at: number): string {
 export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, markets = [] }: { owner?: string; onConnect?: () => void; presets?: TradePreset[]; onStatus?: (status: TradeStatus | null) => void; markets?: MarketOption[] }) {
   const config = useConfig();
   const { track } = useTx();
+  const prepareTrade = useAction(api.spotTrade.prepare);
   const enqueueTrade = useAction(api.spotTrade.enqueue);
   const cancelQueued = useMutation(api.spotTradeQueue.cancelForAccount);
   const createSchedule = useAction(api.dcaActions.createSchedule);
   const setScheduleEnabled = useMutation(api.dca.setEnabled);
   const removeSchedule = useMutation(api.dca.remove);
-  const deployment = getSmartAccountDeployment(CHAIN_ID);
+  const deployment = getUniversalWalletDeployment();
   const validOwner = owner && isAddress(owner) ? owner as `0x${string}` : null;
   const [state, setState] = useState<SmartState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,29 +117,17 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const [dcaError, setDcaError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!validOwner || !deployment?.agentRegistry) { setState(null); setLoading(false); return; }
+    if (!validOwner || !deployment) { setState(null); setLoading(false); return; }
     setLoading(true);
     try {
       const client = getPublicClient(config, { chainId: CHAIN_ID });
       if (!client) throw new Error('Robinhood RPC is unavailable');
-      const smart = await readSmartAccount(client, validOwner, deployment);
+      const smart = await readUniversalWallet(client, validOwner, deployment);
       if (!smart.deployed) {
-        setState({ account: smart.account, deployed: false, roles: 0, policy: null, nativeBalance: 0n, wethBalance: 0n });
+        setState({ account: smart.account, deployed: false, upgraded: false, policy: null });
         return;
       }
-      const [roles, rawPolicy, nativeBalance, wethBalance] = await Promise.all([
-        client.readContract({ address: deployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI, functionName: 'agentRoles', args: [smart.account, deployment.agent] }).catch(() => 0),
-        client.readContract({ address: deployment.agentRegistry, abi: BTB_AGENT_REGISTRY_ABI, functionName: 'tradePolicies', args: [smart.account] }).catch(() => null),
-        client.getBalance({ address: smart.account }).catch(() => 0n),
-        client.readContract({ address: WETH, abi: erc20Abi, functionName: 'balanceOf', args: [smart.account] }).catch(() => 0n),
-      ]);
-      const policy: TradePolicy | null = rawPolicy ? {
-        enabled: rawPolicy[0], agent: rawPolicy[1], requestKeyHash: rawPolicy[2],
-        maximumBalanceBpsPerTrade: Number(rawPolicy[3]), maximumSlippageBps: Number(rawPolicy[4]),
-        maximumSpotTwapDeviationBps: Number(rawPolicy[5]), minimumTwapSeconds: Number(rawPolicy[6]),
-        expiresAt: rawPolicy[7],
-      } : null;
-      setState({ account: smart.account, deployed: true, roles: Number(roles), policy, nativeBalance, wethBalance });
+      setState({ account: smart.account, deployed: true, upgraded: smart.upgraded, policy: smart.policy });
     } catch (reason) {
       setError((reason as Error).message || 'Could not load the smart trading account');
     } finally { setLoading(false); }
@@ -233,8 +220,9 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const localKey = state ? globalThis.localStorage?.getItem(storageKey(state.account)) : null;
   const policyActive = !!state?.policy?.enabled && Number(state.policy.expiresAt) > Date.now() / 1000;
   const deviceAuthorized = !!localKey && /^0x[0-9a-fA-F]{64}$/.test(localKey)
-    && !!state?.policy && keccak256(localKey as Hex).toLowerCase() === state.policy.requestKeyHash.toLowerCase();
-  const instantReady = policyActive && deviceAuthorized && !!(state.roles & 16);
+    && !!state?.policy && privateKeyToAccount(localKey as `0x${string}`).address.toLowerCase() === state.policy.sessionSigner.toLowerCase();
+  const instantReady = policyActive && deviceAuthorized
+    && !!state?.policy && state.policy.agent.toLowerCase() === deployment?.agent.toLowerCase();
   const orders = useQuery(api.spotTradeQueue.listForAccount, state?.account ? { account: state.account } : 'skip');
   const schedules = useQuery(api.dca.listForAccount, state?.account ? { account: state.account } : 'skip');
   const pendingOrderCount = orders?.filter(order => ['queued', 'preparing', 'submitted'].includes(order.state)).length ?? 0;
@@ -284,20 +272,11 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   }, [noticePreset, latestOrder, error, onStatus]);
 
   async function enableInstantTrading() {
-    if (!validOwner || !deployment?.agentRegistry || !state) { onConnect?.(); return; }
+    if (!validOwner || !deployment || !state) { onConnect?.(); return; }
     setBusy('setup'); setError(null); setSuccess(null);
-    const requestKey = toHex(crypto.getRandomValues(new Uint8Array(32)));
+    const requestKey = generatePrivateKey();
+    const sessionSigner = privateKeyToAccount(requestKey).address;
     const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60);
-    const policy: TradePolicy = {
-      enabled: true,
-      agent: deployment.agent,
-      requestKeyHash: keccak256(requestKey),
-      maximumBalanceBpsPerTrade: 10_000,
-      maximumSlippageBps: 500,
-      maximumSpotTwapDeviationBps: 500,
-      minimumTwapSeconds: 60,
-      expiresAt,
-    };
     try {
       await runCalls(config, {
         account: validOwner,
@@ -305,9 +284,14 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         track,
         label: 'Enable BTB instant trading',
         calls: [
-          ...(state.deployed ? [] : [createAccountCall(deployment, validOwner)]),
-          configureAgentCall(deployment, state.account, deployment.agent, state.roles | 16),
-          configureTradePolicyCall(deployment, state.account, policy),
+          ...(state.deployed ? [] : [createUniversalWalletCall(deployment, validOwner)]),
+          ...configureUniversalTradeCalls({
+            account: state.account,
+            deployment,
+            sessionSigner,
+            expiresAt,
+            needsUpgrade: !state.upgraded,
+          }),
         ],
       });
       localStorage.setItem(storageKey(state.account), requestKey);
@@ -325,6 +309,28 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       : `Selling ${spent} ${inputMeta.symbol} for ${outputMeta.symbol}`);
     setBusy('trade'); setError(null); setSuccess(null);
     try {
+      const prepared = await prepareTrade({
+        chainId: CHAIN_ID,
+        account: state.account,
+        tokenIn: inputMeta.address,
+        tokenOut: outputMeta.address,
+        amountIn: parsedAmount.toString(),
+        sessionSigner: privateKeyToAccount(localKey as `0x${string}`).address,
+      });
+      const session = privateKeyToAccount(localKey as `0x${string}`);
+      const signature = await session.signTypedData({
+        domain: spotTradeDomain(state.account),
+        types: SPOT_TRADE_TYPES,
+        primaryType: 'SpotTrade',
+        message: {
+          tokenIn: inputMeta.address,
+          tokenOut: outputMeta.address,
+          amountIn: parsedAmount,
+          minimumGrossOutput: BigInt(prepared.minimumGrossOutput),
+          nonce: BigInt(prepared.nonce),
+          deadline: BigInt(prepared.deadline),
+        },
+      });
       const result = await enqueueTrade({
         orderKey: `spot:${state.account.toLowerCase()}:${preset.id}`,
         chainId: CHAIN_ID,
@@ -332,7 +338,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         tokenIn: inputMeta.address,
         tokenOut: outputMeta.address,
         amountIn: parsedAmount.toString(),
-        requestKey: localKey,
+        minimumGrossOutput: prepared.minimumGrossOutput,
+        nonce: prepared.nonce,
+        deadline: prepared.deadline,
+        sessionSignature: signature,
       });
       setSuccess({ orderId: String(result.id) });
       setAmount('');
@@ -425,7 +434,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
     }
     if (preset.side === 'buy' && belowMinimum) {
       executedPreset.current = preset.id;
-      setError(`Minimum buy is ${minimumBuyText} ${buySymbol} (about $10). Update the amount above and tap Buy again.`);
+      setError(`Minimum buy is ${minimumBuyText} ${buySymbol} (about $5). Update the amount above and tap Buy again.`);
       setPreset(null);
       return;
     }
@@ -458,7 +467,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
     void trade();
   }, [belowMinimum, busy, buySymbol, buyToken, inputMeta, instantReady, minimumBuyText, outputMeta, parsedAmount, preset, sellToken, smartAssets]);
 
-  if (!deployment?.agentRegistry) return null;
+  if (!deployment) return null;
   const walletUsd = walletAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
   const smartUsd = smartAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
   const insufficientBalance = Boolean(error?.startsWith('Not enough '));
@@ -499,12 +508,13 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
               {!instantReady ? (
                 <div style={{ marginTop: 7, padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
                   {policyActive && <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>This link is not authorized</div>}
-                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: policyActive ? 4 : 0 }}>{policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. It can only swap tokens already in this account, and can never withdraw, change where funds go, or touch balances reserved for LP. Gas is on us: the agent pays the network fee.'}</div>
+                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: policyActive ? 4 : 0 }}>{policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. Every click signs the exact tokens and protected minimum locally; the agent cannot withdraw your funds. A fixed 10% of received tokens goes to BTB.'}</div>
                   {policyActive && <div style={{ color: btb.amber, fontSize: 9, lineHeight: 1.4, marginTop: 5 }}>Authorizing this link replaces the instant-trade key saved by another link. It does not change account ownership or move funds.</div>}
                   <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Confirming setup…' : policyActive ? 'Authorize this link' : 'Enable instant trading'}</Button>
                 </div>
               ) : (
             <div style={{ marginTop: 7 }}>
+              <div style={{ marginBottom: 7, color: btb.textDim, fontSize: 9, fontWeight: 700 }}>KyberSwap best route · 5% price protection · 10% of received tokens to BTB · agent pays gas</div>
               {pendingOrderCount > 0 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7, padding: '7px 9px', borderRadius: 9, border: '1px solid rgba(255,179,107,.28)', background: 'rgba(255,179,107,.09)' }}>
                 <span style={{ color: btb.amber, fontSize: 9.5, fontWeight: 750, lineHeight: 1.4 }}>{pendingOrderCount} trade{pendingOrderCount === 1 ? '' : 's'} waiting{queuedCount > 0 ? ' · fund the account or they auto-cancel in 5 min' : ''}</span>
                 {queuedCount > 0 && state?.account && <button onClick={async () => { try { await cancelQueued({ account: state.account }); } catch { /* reactive list will reflect the real state */ } }} style={{ flexShrink: 0, height: 26, padding: '0 10px', borderRadius: 7, border: '1px solid rgba(255,107,122,.32)', background: 'rgba(255,107,122,.1)', color: btb.loss, fontFamily: 'inherit', fontSize: 9, fontWeight: 850, cursor: 'pointer' }}>Cancel all</button>}
@@ -548,7 +558,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
                 </div>
               </div>
 
-              <div style={{ marginTop: 8, padding: '9px 10px', boxSizing: 'border-box', borderRadius: 11, border: btb.borderSoft, background: 'rgba(255,255,255,.02)' }}>
+              {false && <div style={{ marginTop: 8, padding: '9px 10px', boxSizing: 'border-box', borderRadius: 11, border: btb.borderSoft, background: 'rgba(255,255,255,.02)' }}>
                 <button onClick={() => setShowDca(value => !value)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, border: 0, background: 'transparent', padding: 0, color: btb.text, fontFamily: 'inherit', cursor: 'pointer' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span aria-hidden style={{ width: 6, height: 6, borderRadius: 999, background: btb.amber, flexShrink: 0 }}/>
@@ -581,8 +591,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
                   {dcaError && <div style={{ marginTop: 7, color: btb.loss, fontSize: 9.5, fontWeight: 700, lineHeight: 1.4 }}>{dcaError}</div>}
                 </div>}
 
-                {schedules && schedules.length > 0 && <div style={{ marginTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {schedules.map(schedule => <div key={schedule._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 8, border: btb.borderSoft, background: 'rgba(255,255,255,.025)' }}>
+                {!!schedules?.length && <div style={{ marginTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {schedules?.map(schedule => <div key={schedule._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 8, border: btb.borderSoft, background: 'rgba(255,255,255,.025)' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ color: btb.text, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>${schedule.amountUsd.toLocaleString('en-US')} {schedule.tokenOutSymbol} · {intervalLabel(schedule.intervalMs)}</div>
                       <div style={{ color: schedule.lastError ? btb.loss : btb.textDim, fontSize: 8.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{schedule.enabled ? `next ${nextRunLabel(schedule.nextRunAt)}` : 'paused'} · {schedule.runsCompleted} done{schedule.lastError ? ` · ${schedule.lastError}` : ''}</div>
@@ -591,7 +601,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
                     <button onClick={() => deleteSchedule(schedule._id)} aria-label="Delete recurring buy" style={{ flexShrink: 0, height: 25, padding: '0 9px', borderRadius: 7, border: '1px solid rgba(255,107,122,.28)', background: 'rgba(255,107,122,.08)', color: btb.loss, fontFamily: 'inherit', fontSize: 9, fontWeight: 800, cursor: 'pointer' }}>Delete</button>
                   </div>)}
                 </div>}
-              </div>
+              </div>}
             </div>
               )}
             </div>
@@ -616,7 +626,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         </div> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View ↗</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
       </div>}
       {funding && state?.deployed && validOwner && (
-        <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} deployment={deployment} initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { bumpBalances(); await load(); }}/>
+        <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} deployment={{}} universal initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { bumpBalances(); await load(); }}/>
       )}
     </>
   );
