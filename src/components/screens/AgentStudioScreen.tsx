@@ -34,7 +34,7 @@ const HELP = {
   wallet: 'Your wallet is the key to everything here. It signs every rule and every action, and it is the only address that can ever change your setup. We connect it to Robinhood Chain, a fast low fee network where your smart account lives. Nothing happens without your signature, and connecting alone moves no funds.',
   account: 'A smart account is your personal vault contract on chain. It holds your tokens and positions instead of your wallet doing it directly. The magic is the rule system inside it. You write spending limits and permissions once, and then agents or bots can operate the account without ever being able to withdraw, redirect, or break those rules. Only your wallet controls it, forever, and you can predict its address before it even exists.',
   pool: 'A Uniswap pool is a market between two tokens where you deposit both sides and earn a cut of every trade. The fee tier is what traders pay you, so stable pairs use low tiers and volatile pairs use higher ones. The range is the price zone where your money works. A tight range earns much more while the price stays inside it, but the price can walk out. Full range always earns something but much less. If the price leaves your range the position stops earning and holds mostly one token until you recenter it. Your daily caps become hard on chain rules that nothing can spend past.',
-  release: 'Every adapter build must be registered behind a 24 hour timelock before any account can use it. This is a safety window. If a bad or fake adapter were ever scheduled, there is a full day for everyone to see it and for the release to be cancelled before it can touch a single account. Your account also verifies the adapter code hash on every single execution, so swapped or upgraded code is rejected automatically.',
+  release: 'Every adapter build must be registered before an account can use it. This testing registry has no delay, so a scheduled build can be activated immediately. Your account still verifies the adapter code hash on every execution, so swapped or upgraded code is rejected.',
   install: 'Installing writes your strategy into your account as one permission plus five action policies for mint, increase, decrease, collect, and burn. Each policy carries the exact hashes of your spending rules. From then on the account enforces them on every execution, checking amounts, tokens, and targets against cryptographic proofs. Nobody can loosen these rules but your wallet. Not us, not an agent, not a hacker with the agent key.',
   fund: 'Funding moves tokens from your wallet into your own smart account and reserves them for this one strategy. Reserved means fenced. Another strategy on the same account can never touch them, and even the withdraw function respects the fence until you release it. The approve step is a standard token permission that lets your account pull the exact amount, nothing more.',
   run: 'Mint deposits your reserved tokens into a Uniswap position, which arrives as an NFT owned by your account. Collect harvests the trading fees it has earned, and they land back in your reserves. Remove liquidity pulls your tokens out of the pool, and burn deletes the empty position. Withdraw sends reserved funds back to your wallet whenever you want. Every one of these runs through your on chain rules with a cryptographic proof attached.',
@@ -179,6 +179,7 @@ export function AgentStudioScreen() {
   const [ok, setOk] = useState<string | null>(null);
   const [data, setData] = useState<Loaded | null>(null);
   const [now, setNow] = useState(Math.floor(Date.now() / 1000));
+  const [publicReleaseState, setPublicReleaseState] = useState<'loading' | 'active' | 'pending' | 'none'>('loading');
 
   const [tokenA, setTokenA] = useState('');
   const [tokenB, setTokenB] = useState('');
@@ -204,6 +205,32 @@ export function AgentStudioScreen() {
     if (!code || code === '0x') throw new Error(`No code at ${target}`);
     return keccak256(code);
   }, [client]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [npmCodeHash, adapterCodeHash] = await Promise.all([
+          codeHash(BTB_V2.positionManager),
+          codeHash(BTB_V2.uniV3Adapter),
+        ]);
+        const capabilityRoot = merkleRoot(ACTION_ORDER.map(a =>
+          callLeaf(BTB_V2.uniV3Adapter, ACTION[a], BTB_V2.positionManager, NPM_SELECTOR[a], 0n, npmCodeHash)));
+        const releaseK = await client.readContract({
+          address: BTB_V2.registry, abi: REGISTRY_ABI, functionName: 'releaseKey',
+          args: [BTB_V2.uniV3Adapter, adapterCodeHash, capabilityRoot, CAPABILITY_EPOCH],
+        });
+        const [release, pending] = await Promise.all([
+          client.readContract({ address: BTB_V2.registry, abi: REGISTRY_ABI, functionName: 'releases', args: [releaseK] }),
+          client.readContract({ address: BTB_V2.registry, abi: REGISTRY_ABI, functionName: 'pendingReleases', args: [releaseK] }),
+        ]);
+        if (!cancelled) setPublicReleaseState(release[0] ? 'active' : BigInt(pending[0]) > 0n ? 'pending' : 'none');
+      } catch {
+        if (!cancelled) setPublicReleaseState('none');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client, codeHash]);
 
   const refresh = useCallback(async () => {
     if (!address) { setData(null); return; }
@@ -581,8 +608,8 @@ export function AgentStudioScreen() {
     return n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 2 }) : s.length > 10 ? n.toPrecision(6) : s;
   };
 
-  const releaseState: 'active' | 'pending' | 'none' = data?.releaseKnown ? 'active'
-    : data && data.releaseExecutableAt > 0n ? 'pending' : 'none';
+  const releaseState: 'loading' | 'active' | 'pending' | 'none' = data?.releaseKnown ? 'active'
+    : data && data.releaseExecutableAt > 0n ? 'pending' : publicReleaseState;
   const releaseReady = data ? data.releaseExecutableAt > 0n && BigInt(now) >= data.releaseExecutableAt : false;
   const countdown = data && data.releaseExecutableAt > BigInt(now) ? Number(data.releaseExecutableAt - BigInt(now)) : 0;
   const hh = Math.floor(countdown / 3600); const mm = Math.floor((countdown % 3600) / 60); const ss = countdown % 60;
@@ -611,6 +638,50 @@ export function AgentStudioScreen() {
           Watch the film
         </span>
       </div>
+
+      <Glass padding={14} radius={16}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11 }}>
+          <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>V2 modules</span>
+          <span style={{ color: btb.textDim, fontSize: 10.5 }}>live contract status</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 8 }}>
+          {[
+            { name: 'Smart account', address: BTB_V2.accountFactory, note: 'Factory + fixed implementation', status: 'Ready', color: btb.green },
+            { name: 'Adapter registry', address: BTB_V2.registry, note: 'Testing · zero-delay releases', status: 'Ready', color: btb.green },
+            {
+              name: 'Uniswap V3', address: BTB_V2.uniV3Adapter, note: 'Mint, add, remove, collect, burn',
+              status: releaseState === 'active' ? 'Active' : releaseState === 'pending' ? 'Ready to activate' : releaseState === 'loading' ? 'Checking' : 'Needs release',
+              color: releaseState === 'active' ? btb.green : '#FFB36B',
+            },
+            { name: 'ERC-4626 vaults', address: BTB_V2.erc4626Adapter, note: 'Deposit, mint, withdraw, redeem', status: 'Deployed', color: '#78A8FF' },
+            { name: 'Keeper incentives', address: BTB_V2.keeperIncentives, note: 'Optional sponsored automation', status: 'Deployed', color: '#78A8FF' },
+            { name: 'Uniswap contracts', address: BTB_V2.positionManager, note: 'Official manager + factory', status: 'Connected', color: btb.green },
+          ].map(module => (
+            <a
+              key={module.name}
+              href={`https://robinhoodchain.blockscout.com/address/${module.address}`}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'flex', flexDirection: 'column', gap: 5, padding: '10px 11px', borderRadius: 12,
+                background: btb.surfaceSoft, border: btb.borderSoft, textDecoration: 'none', minWidth: 0,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ color: btb.text, fontSize: 11.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {module.name}
+                </span>
+                <span style={{ flex: 1 }}/>
+                <Badge size="sm" color={module.color} bg={`${module.color}18`} border={`1px solid ${module.color}45`}>
+                  {module.status}
+                </Badge>
+              </div>
+              <span style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.35 }}>{module.note}</span>
+              <span style={{ color: btb.textMuted, fontSize: 9.5, fontFamily: 'monospace' }}>{short(module.address)} ↗</span>
+            </a>
+          ))}
+        </div>
+      </Glass>
 
       {(err || ok || busy) && (
         <div style={{

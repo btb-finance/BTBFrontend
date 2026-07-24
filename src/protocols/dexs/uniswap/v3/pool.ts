@@ -1,6 +1,7 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 export interface MintPool {
   /** Pool contract address (zero when the pool doesn't exist). */
@@ -34,7 +35,7 @@ export async function fetchKnownV3Pool(
   const [slot0, liquidity, metaRes] = await Promise.all([
     client.readContract({ address: pool, abi: POOL_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
     client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
-    client.multicall({
+    withSafeMulticall(client).multicall({
       contracts: [
         { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
         { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
@@ -79,7 +80,7 @@ export async function fetchPoolForMint(
   })) as `0x${string}`;
   const exists = !!pool && pool.toLowerCase() !== ZERO;
 
-  const metaRes = await client.multicall({
+  const metaRes = await withSafeMulticall(client).multicall({
     contracts: [
       { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
       { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
@@ -124,13 +125,13 @@ export async function fetchPoolsForMint(
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
 
   const [addrRes, metaRes] = await Promise.all([
-    client.multicall({
+    withSafeMulticall(client).multicall({
       contracts: d.feeTiers.map((fee) => ({
         address: d.factory, abi: FACTORY_ABI, functionName: 'getPool' as const, args: [token0, token1, fee] as const,
       })),
       allowFailure: true,
     }),
-    client.multicall({
+    withSafeMulticall(client).multicall({
       contracts: [
         { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
         { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
@@ -149,7 +150,7 @@ export async function fetchPoolsForMint(
 
   // slot0 + liquidity for every existing tier, one batch
   const stateRes = existing.length > 0
-    ? await client.multicall({
+    ? await withSafeMulticall(client).multicall({
         contracts: existing.flatMap((a) => [
           { address: a.pool, abi: POOL_ABI, functionName: 'slot0' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'liquidity' as const },

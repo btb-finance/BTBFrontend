@@ -5,6 +5,7 @@ import type { Abi, PublicClient } from 'viem';
 import { STATE_VIEW_ABI } from './abis';
 import { UNISWAP_V4 } from './addresses';
 import type { TickLiquidityPoint } from '../v3/ticks';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 const WORDS_EACH_SIDE = 12;
 
@@ -36,7 +37,7 @@ export async function fetchV4TickLiquidityDistribution(
   const wordPositions: number[] = [];
   for (let w = currentWordPos - WORDS_EACH_SIDE; w <= currentWordPos + WORDS_EACH_SIDE; w++) wordPositions.push(w);
 
-  const bitmapRes = await client.multicall({
+  const bitmapRes = await withSafeMulticall(client).multicall({
     contracts: wordPositions.map((w) => ({
       address: stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getTickBitmap', args: [poolId, w],
     })),
@@ -50,7 +51,7 @@ export async function fetchV4TickLiquidityDistribution(
   });
   if (initializedTicks.length === 0) return [];
 
-  const tickInfoRes = await client.multicall({
+  const tickInfoRes = await withSafeMulticall(client).multicall({
     contracts: initializedTicks.map((t) => ({
       address: stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getTickInfo', args: [poolId, t],
     })),

@@ -11,6 +11,7 @@
  */
 import type { Abi, PublicClient } from 'viem';
 import { POOL_ABI } from './abis';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 export interface TickLiquidityPoint {
   tick: number;
@@ -52,7 +53,7 @@ export async function fetchTickLiquidityDistribution(
   const wordPositions: number[] = [];
   for (let w = currentWordPos - WORDS_EACH_SIDE; w <= currentWordPos + WORDS_EACH_SIDE; w++) wordPositions.push(w);
 
-  const bitmapRes = await client.multicall({
+  const bitmapRes = await withSafeMulticall(client).multicall({
     contracts: wordPositions.map((w) => ({
       address: poolAddress, abi: POOL_ABI as Abi, functionName: 'tickBitmap', args: [w],
     })),
@@ -66,7 +67,7 @@ export async function fetchTickLiquidityDistribution(
   });
   if (initializedTicks.length === 0) return [];
 
-  const tickInfoRes = await client.multicall({
+  const tickInfoRes = await withSafeMulticall(client).multicall({
     contracts: initializedTicks.map((t) => ({
       address: poolAddress, abi: POOL_ABI as Abi, functionName: 'ticks', args: [t],
     })),

@@ -30,6 +30,7 @@ import { RebalanceSheet } from './RebalanceSheet';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
 import { getUniversalWalletDeployment } from '../lib/universalWallet';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   type KrystalPositionAnalytics,
   type KrystalTokenAmount,
@@ -842,7 +843,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
     if (!client) return;
     (async () => {
       try {
-        const [b0, b1] = await client.multicall({
+        const [b0, b1] = await withSafeMulticall(client).multicall({
           contracts: [
             { address: pos.token0, abi: erc20Abi, functionName: 'balanceOf', args: [account] },
             { address: pos.token1, abi: erc20Abi, functionName: 'balanceOf', args: [account] },

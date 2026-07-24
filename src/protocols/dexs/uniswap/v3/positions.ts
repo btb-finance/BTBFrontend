@@ -3,6 +3,7 @@ import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
+import { withSafeMulticall } from '@/lib/safeMulticall';
 
 /**
  * Read every V3-architecture position the owner holds on mainnet, with current
@@ -35,7 +36,7 @@ export async function fetchV3Positions(
     const idxCalls = Array.from({ length: n }, (_, i) => ({
       address: npm, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex' as const, args: [owner, BigInt(i)] as const,
     }));
-    tokenIds = (await client.multicall({ contracts: idxCalls, allowFailure: true }))
+    tokenIds = (await withSafeMulticall(client).multicall({ contracts: idxCalls, allowFailure: true }))
       .map((r) => (r.status === 'success' ? (r.result as bigint) : undefined))
       .filter((x): x is bigint => x !== undefined);
   }
@@ -44,7 +45,7 @@ export async function fetchV3Positions(
   const posCalls = tokenIds.map((id) => ({
     address: npm, abi: NPM_ABI, functionName: 'positions' as const, args: [id] as const,
   }));
-  const posRes = await client.multicall({ contracts: posCalls, allowFailure: true });
+  const posRes = await withSafeMulticall(client).multicall({ contracts: posCalls, allowFailure: true });
 
   type Raw = {
     id: bigint; token0: `0x${string}`; token1: `0x${string}`; fee: number;
@@ -75,7 +76,7 @@ export async function fetchV3Positions(
   // 3) resolve pools + slot0 (current price/tick) for each unique (t0,t1,fee)
   const poolKey = (r: Raw) => `${r.token0}-${r.token1}-${r.fee}`;
   const uniquePools = [...new Map(raws.map((r) => [poolKey(r), r])).values()];
-  const poolAddrs = (await client.multicall({
+  const poolAddrs = (await withSafeMulticall(client).multicall({
     contracts: uniquePools.map((r) => ({
       address: d.factory, abi: FACTORY_ABI, functionName: 'getPool' as const,
       args: [r.token0, r.token1, r.fee] as const,
@@ -83,7 +84,7 @@ export async function fetchV3Positions(
     allowFailure: true,
   })).map((r) => (r.status === 'success' ? (r.result as `0x${string}`) : undefined));
 
-  const slot0Res = await client.multicall({
+  const slot0Res = await withSafeMulticall(client).multicall({
     contracts: poolAddrs.map((addr) => ({
       address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
       abi: POOL_ABI, functionName: 'slot0' as const,
@@ -100,7 +101,7 @@ export async function fetchV3Positions(
 
   // 4) token metadata (symbol/decimals) for every token involved
   const tokens = [...new Set(raws.flatMap((r) => [r.token0, r.token1]))] as `0x${string}`[];
-  const metaRes = await client.multicall({
+  const metaRes = await withSafeMulticall(client).multicall({
     contracts: tokens.flatMap((t) => [
       { address: t, abi: ERC20_META_ABI, functionName: 'symbol' as const },
       { address: t, abi: ERC20_META_ABI, functionName: 'decimals' as const },

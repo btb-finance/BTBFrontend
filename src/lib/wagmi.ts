@@ -4,22 +4,31 @@ import {
   linea, mainnet, mantle, megaeth, monad, optimism, plasma, polygon, ronin, scroll,
   sonic, unichain, zkSync,
 } from 'wagmi/chains';
-import { defineChain, http } from 'viem';
+import { defineChain, fallback, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask } from '@wagmi/connectors';
 import { MAINNET_TRANSPORT } from './rpc';
+import { ALCHEMY_KEY } from './alchemy';
+
+const ALCHEMY_ROBINHOOD_RPC = `https://robinhood-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`;
 
 export const robinhoodChain = defineChain({
   id: 4663, name: 'Robinhood Chain',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com/'] } },
+  rpcUrls: { default: { http: [ALCHEMY_ROBINHOOD_RPC] } },
   blockExplorers: { default: { name: 'Robinhood Explorer', url: 'https://robinhoodchain.blockscout.com' } },
-  contracts: {
-    multicall3: {
-      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
-      blockCreated: 0,
-    },
-  },
 });
+
+export const ROBINHOOD_RPC_URLS = Array.from(new Set([
+  ALCHEMY_ROBINHOOD_RPC,
+  process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL,
+  'https://robinhood-mainnet-rpc.blockreq.com/v1/rpc/public',
+  'https://rpc.nodeflare.app/robinhood/public',
+  'https://rpc.mainnet.chain.robinhood.com/',
+].filter((url): url is string => Boolean(url))));
+
+export function robinhoodTransport() {
+  return fallback(ROBINHOOD_RPC_URLS.map(url => http(url, { retryCount: 0 })));
+}
 export const SUPPORTED_CHAINS = [
   mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain, sonic,
   ronin, unichain, linea, hyperEvm, plasma, etherlink, mantle, scroll, fantom,
@@ -46,7 +55,7 @@ export function makeConfig() {
       [ronin.id]: http(), [unichain.id]: http(), [linea.id]: http(), [hyperEvm.id]: http(),
   [plasma.id]: http(), [etherlink.id]: http(), [mantle.id]: http(), [monad.id]: http(), [scroll.id]: http(),
       [fantom.id]: http(), [blast.id]: http(), [zkSync.id]: http(), [megaeth.id]: http(),
-      [robinhoodChain.id]: http('https://rpc.mainnet.chain.robinhood.com/'),
+      [robinhoodChain.id]: robinhoodTransport(),
     },
     connectors: [
       // MetaMask — handles mobile deep-linking (no window.ethereum needed).

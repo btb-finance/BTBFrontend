@@ -1,6 +1,6 @@
 // Alchemy Portfolio API — token balances + NFTs across chains
 
-const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? 'INhvk7-hUrgf5niZBGbae';
+export const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? 'INhvk7-hUrgf5niZBGbae';
 const BASE = `https://api.g.alchemy.com/data/v1/${ALCHEMY_KEY}`;
 
 // Alchemy network slug → wagmi chainId

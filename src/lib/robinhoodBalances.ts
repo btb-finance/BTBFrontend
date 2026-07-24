@@ -1,6 +1,7 @@
-import { createPublicClient, erc20Abi, formatUnits, http } from 'viem';
-import { robinhoodChain } from './wagmi';
+import { createPublicClient, erc20Abi, formatUnits } from 'viem';
+import { robinhoodChain, robinhoodTransport } from './wagmi';
 import type { Token } from './TokenStore';
+import { withSafeMulticall } from './safeMulticall';
 
 type BlockscoutBalance = {
   value?: string;
@@ -10,7 +11,7 @@ type BlockscoutBalance = {
   };
 };
 
-const client = createPublicClient({ chain: robinhoodChain, transport: http('https://rpc.mainnet.chain.robinhood.com/') });
+const client = createPublicClient({ chain: robinhoodChain, transport: robinhoodTransport() });
 const WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73';
 
 async function dexTokenPrices(addresses: string[]): Promise<Record<string, number>> {
@@ -76,7 +77,7 @@ export async function fetchRobinhoodBalances(owner: string): Promise<Token[]> {
     row.token?.type === 'ERC-20' && /^0x[0-9a-fA-F]{40}$/.test(row.token.address_hash ?? ''),
   );
 
-  const verified = await client.multicall({
+  const verified = await withSafeMulticall(client).multicall({
     contracts: indexed.map((row) => ({
       address: row.token!.address_hash as `0x${string}`,
       abi: erc20Abi,

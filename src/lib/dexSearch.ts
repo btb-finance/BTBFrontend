@@ -9,6 +9,7 @@ import { searchPairPools } from './geckoterminal';
 import { fetchDexScreenerPairPools } from './dexscreener';
 import type { PublicClient } from 'viem';
 import type { EarnPool } from './pools';
+import { withSafeMulticall } from './safeMulticall';
 
 export interface MarketPool {
   address: string;          // lowercase pool address
@@ -329,7 +330,7 @@ export async function enrichMarketPoolApr(
   for (let attempt = 0; attempt < 2 && pendingAlgebra.length > 0; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
     const batch = pendingAlgebra;
-    const reads = await client.multicall({
+    const reads = await withSafeMulticall(client).multicall({
       contracts: batch.map(pool => ({
         address: pool.address as `0x${string}`,
         abi: ALGEBRA_GLOBAL_STATE_ABI,
@@ -354,7 +355,7 @@ export async function enrichMarketPoolApr(
 
   const solidlyPools = missing.filter(pool => SOLIDLY_CLASSIC_POOL.test(pool.dexId));
   if (solidlyPools.length > 0) {
-    const metadata = await retryRpcOnce(() => client.multicall({
+    const metadata = await retryRpcOnce(() => withSafeMulticall(client).multicall({
       contracts: solidlyPools.flatMap(pool => [
         {
           address: pool.address as `0x${string}`,
@@ -380,7 +381,7 @@ export async function enrichMarketPoolApr(
       }];
     });
     const fees = resolved.length > 0
-      ? await retryRpcOnce(() => client.multicall({
+      ? await retryRpcOnce(() => withSafeMulticall(client).multicall({
           contracts: resolved.map(({ pool, stable, factory }) => ({
             address: factory,
             abi: SOLIDLY_FACTORY_FEE_ABI,
@@ -401,7 +402,7 @@ export async function enrichMarketPoolApr(
 
   const infusionPools = missing.filter(pool => INFUSION_POOL.test(pool.dexId));
   if (infusionPools.length > 0) {
-    const stableReads = await retryRpcOnce(() => client.multicall({
+    const stableReads = await retryRpcOnce(() => withSafeMulticall(client).multicall({
       contracts: infusionPools.map(pool => ({
         address: pool.address as `0x${string}`,
         abi: SOLIDLY_POOL_ABI,
@@ -414,7 +415,7 @@ export async function enrichMarketPoolApr(
       return read?.status === 'success' ? [{ pool, stable: read.result as boolean }] : [];
     });
     const fees = resolved.length > 0
-      ? await retryRpcOnce(() => client.multicall({
+      ? await retryRpcOnce(() => withSafeMulticall(client).multicall({
           contracts: resolved.map(({ stable }) => ({
             address: INFUSION_BASE_FACTORY,
             abi: INFUSION_FACTORY_FEE_ABI,
@@ -440,7 +441,7 @@ export async function enrichMarketPoolApr(
   for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
     const batch = pending;
-    const reads = await client.multicall({
+    const reads = await withSafeMulticall(client).multicall({
       contracts: batch.map(pool => ({
         address: pool.address as `0x${string}`,
         abi: POOL_FEE_ABI,
