@@ -14,15 +14,6 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } from './AutomationRules';
-import {
-  BTB_AGENT_REGISTRY_ABI, CREATE_FROM_ACCOUNT_SELECTOR, CREATE_TWO_TOKENS_SELECTOR,
-  EMPTY_FRESH_SWAP_ARGS, EMPTY_ZAP_LEG,
-  BTB_LP_QUOTER_ABI, UINT128_MAX, approvalCall, configureSelfAgentCall, createAccountCall, depositTokenCall,
-  encodeCreateZapRequest, encodeDualCreateRequest, fundAndCreateCall,
-  getSmartAccountDeployment, isModularDeployment, minWithSlippage, readSmartAccount,
-  scheduleDualInstructionCall, scheduleSingleInstructionCall, wrapEthCall, type RebalancePolicy,
-} from '../lib/smartAccount';
-import { RangeRatioBar } from './RangeRatioBar';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
@@ -40,6 +31,10 @@ import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
+import {
+  createUniversalWalletCall, getUniversalWalletDeployment, readUniversalWallet, upgradeUniversalWalletCalls,
+} from '../lib/universalWallet';
+import { configureUniversalLpCalls } from '../lib/universalLp';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -201,7 +196,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
 
   const isV4 = v4PoolId !== undefined;
-  const smartDeployment = !isV4 && dex === 'uniswap' ? getSmartAccountDeployment(chainId) : null;
+  const universalDeployment = !isV4 && dex === 'uniswap' && chainId === 4663 ? getUniversalWalletDeployment() : null;
   // Auto-orientation: quote the volatile token in the stablecoin
   // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH") — the way people read a
   // pair. Only kicks in when exactly one side is a stablecoin; else pool order.
@@ -362,24 +357,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     [pool, ticks],
   );
 
-  // On-chain target mix for the selected range (BTBLPQuoter). Depends only on pool + range.
-  const usesBtbQuoter = !!smartDeployment && chainId === 4663 && isModularDeployment(smartDeployment)
-    && !!smartDeployment.quoter && !!pool && pool.exists;
-  const [rangeSplit, setRangeSplit] = useState<{ value0Bps: number; value1Bps: number } | null>(null);
-  useEffect(() => {
-    setRangeSplit(null);
-    if (!usesBtbQuoter || !pool || !ticks || !smartDeployment?.quoter) return;
-    let live = true;
-    const client = getPublicClient(config, { chainId });
-    if (!client) return;
-    client.readContract({
-      address: smartDeployment.quoter, abi: BTB_LP_QUOTER_ABI, functionName: 'rangeValueSplitBps',
-      args: [pool.address, ticks.tickLower, ticks.tickUpper],
-    }).then(([value0Bps, value1Bps]) => {
-      if (live) setRangeSplit({ value0Bps: Number(value0Bps), value1Bps: Number(value1Bps) });
-    }).catch(() => { if (live) setRangeSplit(null); });
-    return () => { live = false; };
-  }, [usesBtbQuoter, config, chainId, pool, ticks, smartDeployment]);
 
   // Token USD prices — a missing one is derived from the pool price.
   const tokenUsd = useMemo(() => {
@@ -593,7 +570,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
    * the shared batch runner, with a receipt-gated fallback for older wallets.
    */
   async function mintManaged() {
-    if (!address || !pool || !ticks || !smartDeployment || isV4 || dex !== 'uniswap') return;
+    if (!address || !pool || !ticks || !universalDeployment || chainId !== 4663 || isV4 || dex !== 'uniswap') return;
     if (splitRange && (!splitTicks?.below || !splitTicks?.above || add0 === 0n || add1 === 0n)) {
       setErr('Auto-managed uneven mode needs both token amounts and room for one range on each side of the live price.');
       return;
@@ -601,170 +578,70 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const client = getPublicClient(config, { chainId });
     if (!client) { setErr('No RPC client'); return; }
     const owner = address as `0x${string}`;
-    setBusy(true); setStepMsg('Preparing smart account…'); setErr(null);
+    setBusy(true); setStepMsg('Preparing your universal account…'); setErr(null);
     try {
-      const smart = await readSmartAccount(client, owner, smartDeployment);
+      let smart = await readUniversalWallet(client, owner, universalDeployment);
+      if (!smart.deployed) {
+        await runCalls(config, {
+          account: owner, chainId, label: 'Create my universal BTB account', track,
+          calls: [createUniversalWalletCall(universalDeployment, owner)],
+        });
+        smart = await readUniversalWallet(client, owner, universalDeployment);
+      }
+      if (!smart.upgraded) {
+        await runCalls(config, {
+          account: owner, chainId, label: 'Upgrade my BTB account for guarded LPs', track,
+          calls: upgradeUniversalWalletCalls(smart.account, universalDeployment.implementation, smart.paused),
+        });
+      }
       const specs = splitRange
         ? [
-            {
-              tickLower: splitTicks!.below!.tickLower, tickUpper: splitTicks!.below!.tickUpper,
-              amount0Desired: 0n, amount1Desired: add1,
-              amount0Min: 0n, amount1Min: minWithSlippage(add1, slippageBps),
-            },
-            {
-              tickLower: splitTicks!.above!.tickLower, tickUpper: splitTicks!.above!.tickUpper,
-              amount0Desired: add0, amount1Desired: 0n,
-              amount0Min: minWithSlippage(add0, slippageBps), amount1Min: 0n,
-            },
+            { tickLower: splitTicks!.below!.tickLower, tickUpper: splitTicks!.below!.tickUpper, amount0Desired: 0n, amount1Desired: add1 },
+            { tickLower: splitTicks!.above!.tickLower, tickUpper: splitTicks!.above!.tickUpper, amount0Desired: add0, amount1Desired: 0n },
           ]
-        : [{
-            tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
-            amount0Desired: add0, amount1Desired: add1,
-            amount0Min: minWithSlippage(add0, slippageBps), amount1Min: minWithSlippage(add1, slippageBps),
-          }];
-      const allowedPct = automationRules.allowedRangePct !== null && automationRules.allowedRangePct < automationRules.targetRangePct ? automationRules.targetRangePct : automationRules.allowedRangePct;
-      const allowed = rangeTicks(pool.tick, spacing, allowedPct);
-      const automationTarget = rangeTicks(pool.tick, spacing, automationRules.targetRangePct);
-      const policy: RebalancePolicy = {
-        enabled: true,
-        agent: smartDeployment.agent,
-        positionManager: deployment.positionManager,
-        uniswapFactory: deployment.factory,
-        pool: pool.address,
-        swapAdapter: isModularDeployment(smartDeployment) ? smartDeployment.aggregatorSwapAdapter : smartDeployment.swapAdapter,
-        priceGuard: smartDeployment.priceGuard,
-        token0: pool.token0,
-        token1: pool.token1,
-        positionId: 0n,
-        fee,
-        targetTickWidth: automationTarget.tickUpper - automationTarget.tickLower,
-        performanceFeeBps: 1_000,
-        maxSlippageBps: slippageBps,
-        maxSwapBpsOfPosition: automationRules.maxSwapPct * 100,
-        maxSpotTwapDeviationBps: automationRules.maxDeviationPct * 100,
-        maxIdleBps: 1_000,
-        twapSeconds: automationRules.twapSeconds,
-        minRebalanceInterval: automationRules.intervalSeconds,
-        expiresAt: BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400),
-        minimumAllowedTick: Math.min(allowed.tickLower, ticks.tickLower),
-        maximumAllowedTick: Math.max(allowed.tickUpper, ticks.tickUpper),
-        // The relative max-swap rule is the useful owner control; uint128 max
-        // avoids accidental lockouts after a position converts fully to one side.
-        maximumToken0PerExecution: UINT128_MAX,
-        maximumToken1PerExecution: UINT128_MAX,
-      };
-      const beforePositions = await fetchV3Positions(client, smart.account, deployment).catch(() => []);
-      const beforeIds = new Set(beforePositions.map(position => position.id.toString()));
-      const beforeCount = await client.readContract({
-        address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account],
-      }).catch(() => BigInt(beforePositions.length));
-      let calls;
-      const pendingZaps: { instructionId: bigint; pinnedArgs: `0x${string}`; freshArgs: `0x${string}` }[] = [];
-      if (isModularDeployment(smartDeployment)) {
-        const now = BigInt(Math.floor(Date.now() / 1000));
-        let instructionId = await client.readContract({
-          address: smartDeployment.agentRegistry,
-          abi: BTB_AGENT_REGISTRY_ABI,
-          functionName: 'nextInstructionId',
-          args: [smart.account],
-        });
-        calls = [
-          ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
-          ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)!] : []),
-          ...(ethMode && wethSide === 1 ? [wrapEthCall(chainWeth, add1)!] : []),
-          approvalCall(pool.token0, smart.account, add0),
-          approvalCall(pool.token1, smart.account, add1),
-          depositTokenCall(smart.account, pool.token0, add0),
-          depositTokenCall(smart.account, pool.token1, add1),
-          configureSelfAgentCall(smartDeployment, smart.account, smartDeployment.agent, 12),
-        ].filter((call): call is NonNullable<typeof call> => call !== null);
+        : [{ tickLower: ticks.tickLower, tickUpper: ticks.tickUpper, amount0Desired: add0, amount1Desired: add1 }];
+      const before = await fetchV3Positions(client, smart.account, deployment).catch(() => []);
+      const beforeIds = new Set(before.map(position => position.id.toString()));
+      const mintCalls = specs.flatMap(spec => buildMint({
+        token0: pool.token0, token1: pool.token1, fee,
+        tickLower: spec.tickLower, tickUpper: spec.tickUpper,
+        amount0Desired: spec.amount0Desired, amount1Desired: spec.amount1Desired,
+        slippageBps, recipient: smart.account, nativeEthSide: ethMode ? wethSide : null, deployment,
+      }));
+      setStepMsg(splitRange ? 'Creating two LP NFTs in your account…' : 'Creating LP NFT in your account…');
+      await runCalls(config, { account: owner, chainId, calls: mintCalls, label: `Create guarded ${pool.symbol0}/${pool.symbol1} LP`, track });
 
-        for (const spec of specs) {
-          if (spec.amount0Desired > 0n && spec.amount1Desired > 0n) {
-            const pinned = encodeDualCreateRequest({
-              account: smart.account, token0: pool.token0, token1: pool.token1, fee,
-              tickLower: spec.tickLower, tickUpper: spec.tickUpper,
-              amount0: spec.amount0Desired, amount1: spec.amount1Desired,
-              amount0Min: spec.amount0Min, amount1Min: spec.amount1Min, policy,
-            });
-            calls.push(
-              scheduleDualInstructionCall(
-                smartDeployment, smart.account, smartDeployment.agent,
-                pool.token0, spec.amount0Desired, pool.token1, spec.amount1Desired,
-                now, now + 8n * 60n, 4, CREATE_TWO_TOKENS_SELECTOR, pinned,
-              ),
-            );
-            pendingZaps.push({ instructionId: instructionId++, pinnedArgs: pinned, freshArgs: EMPTY_FRESH_SWAP_ARGS });
-          } else {
-            const fundingToken = spec.amount0Desired > 0n ? pool.token0 : pool.token1;
-            const fundingAmount = spec.amount0Desired > 0n ? spec.amount0Desired : spec.amount1Desired;
-            const directLeg = { tokenOut: fundingToken, amountIn: fundingAmount, quotedMinimumOut: 0n, path: '0x' as const };
-            const pinned = encodeCreateZapRequest({
-              account: smart.account, fundingToken, fundingAmount,
-              token0: pool.token0, token1: pool.token1, fee,
-              tickLower: spec.tickLower, tickUpper: spec.tickUpper,
-              leg0: directLeg, leg1: EMPTY_ZAP_LEG,
-              amount0Min: spec.amount0Min, amount1Min: spec.amount1Min,
-              twapSeconds: policy.twapSeconds, maxSlippageBps: policy.maxSlippageBps,
-              maxSpotTwapDeviationBps: policy.maxSpotTwapDeviationBps, policy,
-            });
-            calls.push(
-              scheduleSingleInstructionCall(
-                smartDeployment, smart.account, smartDeployment.agent, fundingToken, fundingAmount,
-                now, now + 8n * 60n, 4, CREATE_FROM_ACCOUNT_SELECTOR, pinned,
-              ),
-            );
-            pendingZaps.push({ instructionId: instructionId++, pinnedArgs: pinned, freshArgs: EMPTY_FRESH_SWAP_ARGS });
-          }
-        }
-      } else {
-        calls = [
-          ...(!smart.deployed ? [createAccountCall(smartDeployment, owner)] : []),
-          ...(ethMode && wethSide === 0 ? [wrapEthCall(chainWeth, add0)] : []),
-          ...(ethMode && wethSide === 1 ? [wrapEthCall(chainWeth, add1)] : []),
-          approvalCall(pool.token0, smart.account, add0),
-          approvalCall(pool.token1, smart.account, add1),
-          fundAndCreateCall(smart.account, {
-            pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
-            deadline: BigInt(Math.floor(Date.now() / 1000) + 8 * 60), mode: splitRange ? 1 : 0, specs,
-          }, policy),
-        ].filter((call): call is NonNullable<typeof call> => call !== null);
-      }
-      setStepMsg(splitRange ? 'Creating two managed LPs…' : 'Creating managed LP…');
+      const created = (await fetchV3Positions(client, smart.account, deployment)).filter(position => !beforeIds.has(position.id.toString()));
+      if (created.length === 0) throw new Error('The LP confirmed, but its NFT is not visible from this RPC yet. Reopen the portfolio to finish automation.');
+      const allowedPct = automationRules.allowedRangePct !== null && automationRules.allowedRangePct < automationRules.targetRangePct
+        ? automationRules.targetRangePct : automationRules.allowedRangePct;
+      const allowed = rangeTicks(pool.tick, spacing, allowedPct);
+      const target = rangeTicks(pool.tick, spacing, automationRules.targetRangePct);
+      const expiresAt = BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400);
+      const maximumToken0PerRebalance = (add0 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
+      const maximumToken1PerRebalance = (add1 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
+      setStepMsg('Installing your on-chain range and swap limits…');
       await runCalls(config, {
-        account: owner,
-        calls,
-        label: `Create managed ${pool.symbol0}/${pool.symbol1} LP`,
-        track,
-        chainId,
-        verify: isModularDeployment(smartDeployment) ? undefined : {
-          test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [smart.account] })) > beforeCount,
-          error: 'The managed position was confirmed but is not visible from this RPC yet.',
-        },
+        account: owner, chainId, label: `Protect ${pool.symbol0}/${pool.symbol1} automation`, track,
+        calls: await configureUniversalLpCalls({
+          client, account: smart.account, deployment: universalDeployment, positionManager: deployment.positionManager,
+          pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
+          targetTickWidth: target.tickUpper - target.tickLower, maximumSlippageBps: slippageBps,
+          maximumToken0PerRebalance, maximumToken1PerRebalance,
+          minimumTick: Math.min(allowed.tickLower, ticks.tickLower), maximumTick: Math.max(allowed.tickUpper, ticks.tickUpper), expiresAt,
+        }),
       });
-      for (let index = 0; index < pendingZaps.length; index += 1) {
-        setStepMsg(`Agent adding managed LP ${index + 1}/${pendingZaps.length}…`);
-        const zap = pendingZaps[index];
-        await executeAgentZap({
-          chainId, account: smart.account, instructionId: zap.instructionId.toString(),
-          pinnedArgs: zap.pinnedArgs, freshArgs: zap.freshArgs,
-        });
-      }
-      setStepMsg('Saving automation monitor…');
-      const created = (await fetchV3Positions(client, smart.account, deployment))
-        .filter(position => !beforeIds.has(position.id.toString()));
-      if (created.length === 0) throw new Error('LP confirmed, but its new NFT ID is not indexed by the RPC yet. Reopen your positions to finish monitoring setup.');
       await Promise.all(created.map(position => registerManaged({
         chainId, owner, account: smart.account, positionManager: deployment.positionManager,
         positionId: position.id.toString(), pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
         tickLower: position.tickLower, tickUpper: position.tickUpper,
-        targetTickWidth: policy.targetTickWidth, minimumAllowedTick: policy.minimumAllowedTick,
-        maximumAllowedTick: policy.maximumAllowedTick, maxSlippageBps: policy.maxSlippageBps,
-        maxSwapBps: policy.maxSwapBpsOfPosition, twapSeconds: policy.twapSeconds,
-        minRebalanceInterval: policy.minRebalanceInterval, expiresAt: Number(policy.expiresAt), source: 'created',
+        targetTickWidth: target.tickUpper - target.tickLower,
+        minimumAllowedTick: Math.min(allowed.tickLower, ticks.tickLower), maximumAllowedTick: Math.max(allowed.tickUpper, ticks.tickUpper),
+        maxSlippageBps: slippageBps, maxSwapBps: automationRules.maxSwapPct * 100,
+        twapSeconds: automationRules.twapSeconds, minRebalanceInterval: automationRules.intervalSeconds,
+        expiresAt: Number(expiresAt), source: 'universal-v5',
       })));
-      onDone?.();
-      onClose();
+      onDone?.(); onClose();
     } catch (e) {
       setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
     } finally { setBusy(false); setStepMsg(''); }
@@ -850,7 +727,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const canManagedSplit = !!splitTicks?.below && !!splitTicks?.above && add0 > 0n && add1 > 0n;
   const canMint = !!pool?.exists && !!ticks && !busy &&
     (autoManage
-      ? !!smartDeployment && !swapPreview && (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1
+      ? !!universalDeployment && !swapPreview && (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1
       : splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
@@ -1174,11 +1051,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const pct1 = total > 0 ? (v1 / total) * 100 : 0;
     return (
       <Glass padding={12} radius={12} soft>
-        {usesBtbQuoter && rangeSplit && (
-          <div style={{ marginBottom: 10 }}>
-            <RangeRatioBar symbol0={sym0} symbol1={sym1} value0Bps={rangeSplit.value0Bps} value1Bps={rangeSplit.value1Bps} />
-          </div>
-        )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <span style={{ color: btb.textMuted, fontSize: 12 }}>{simOnly ? 'You’d deposit' : 'You deposit'}</span>
           {total > 0 && <span style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>${total.toLocaleString('en-US', { maximumFractionDigits: 2 })} total</span>}
@@ -1459,25 +1331,25 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <div style={{ marginBottom: 9 }}>
                     <button
                       type="button"
-                      disabled={!smartDeployment}
+                      disabled={!universalDeployment}
                       onClick={() => {
-                        if (!smartDeployment) return;
+                        if (!universalDeployment) return;
                         setAutoManage((enabled) => !enabled);
                         setSwapPreview(null);
                       }}
                       aria-pressed={autoManage}
                       style={{
-                        width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: smartDeployment ? 'pointer' : 'default',
+                        width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: universalDeployment ? 'pointer' : 'default',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontFamily: 'inherit', textAlign: 'left',
                         border: `1px solid ${autoManage ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.1)'}`,
                         background: autoManage ? 'rgba(82,227,164,0.09)' : 'rgba(255,255,255,0.035)',
-                        color: smartDeployment ? btb.text : btb.textDim,
+                        color: universalDeployment ? btb.text : btb.textDim,
                       }}
                     >
                       <span style={{ minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: 12, fontWeight: 800 }}>Auto-manage this LP</span>
                         <span style={{ display: 'block', color: btb.textMuted, fontSize: 9.8, marginTop: 2, lineHeight: 1.3 }}>
-                          {smartDeployment ? 'Your account holds the NFT; only your wallet can withdraw it.' : 'Smart-account contracts are not configured on this chain yet.'}
+                          {universalDeployment ? 'The NFT is created directly in your universal account; only your wallet can withdraw it.' : 'Guarded automation currently supports Robinhood Chain.'}
                         </span>
                       </span>
                       <span style={{ flexShrink: 0, width: 30, height: 17, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: autoManage ? btb.green : 'rgba(255,255,255,0.18)' }}>
@@ -1491,12 +1363,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 {renderAmountInput(0)}
                 {renderAmountInput(1)}
 
-                {autoManage && smartDeployment && (
+                {autoManage && universalDeployment && (
                   <div style={{ marginBottom: 10 }}>
                     <AutomationRules
                       value={automationRules}
                       onChange={setAutomationRules}
-                      agent={smartDeployment.agent}
+                      agent={universalDeployment.agent}
                       slippageBps={slippageBps}
                       onSlippageChange={setSlippageBps}
                     />

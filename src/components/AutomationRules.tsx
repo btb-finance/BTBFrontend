@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { btb } from './design-tokens';
 import { Icon } from './Icon';
-import { shortAddress } from '../lib/smartAccount';
+const shortAddress = (value: string) => `${value.slice(0, 6)}…${value.slice(-4)}`;
 
 export interface AutomationRuleValues {
   targetRangePct: 1 | 5 | 10 | 25 | 50;
