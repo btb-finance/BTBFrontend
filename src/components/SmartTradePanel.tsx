@@ -288,7 +288,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         account: validOwner,
         chainId: CHAIN_ID,
         track,
-        label: 'Enable BTB instant trading',
+        label: state.deployed ? 'Authorize BTB instant trading' : 'Create and authorize your BTB smart account',
         calls: [
           ...(state.deployed ? [] : [createUniversalWalletCall(deployment, validOwner)]),
           ...configureUniversalTradeCalls({
@@ -518,7 +518,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
                   {policyActive && <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>This link is not authorized</div>}
                   <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: policyActive ? 4 : 0 }}>{policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. Every click signs the exact tokens and protected minimum locally; the agent cannot withdraw your funds. A fixed 10% of received tokens goes to BTB.'}</div>
                   {policyActive && <div style={{ color: btb.amber, fontSize: 9, lineHeight: 1.4, marginTop: 5 }}>Authorizing this link replaces the instant-trade key saved by another link. It does not change account ownership or move funds.</div>}
-                  <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Confirming setup…' : policyActive ? 'Authorize this link' : 'Enable instant trading'}</Button>
+                  <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Follow the wallet steps…' : !state?.deployed ? 'Create smart account' : !state.upgraded ? 'Upgrade & authorize' : policyActive ? 'Authorize this device' : 'Authorize instant trading'}</Button>
                 </div>
               ) : (
             <div style={{ marginTop: 7 }}>
