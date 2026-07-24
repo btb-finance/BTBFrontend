@@ -164,7 +164,11 @@ export const executeQueued = internalAction({
     if (args.txHash) {
       let receipt = await publicClient.getTransactionReceipt({ hash: args.txHash as Hex }).catch(() => null);
       if (!receipt && args.signedTransaction) {
-        try { await publicClient.sendRawTransaction({ serializedTransaction: args.signedTransaction as Hex }); } catch { /* already known is harmless */ }
+        try { await publicClient.sendRawTransaction({ serializedTransaction: args.signedTransaction as Hex }); }
+        catch (reason) {
+          const message = reason instanceof Error ? reason.message.toLowerCase() : "";
+          if (!message.includes("already known") && !message.includes("known transaction")) throw reason;
+        }
       }
       receipt ??= await publicClient.waitForTransactionReceipt({ hash: args.txHash as Hex, confirmations: 1, timeout: 60_000 });
       if (receipt.status !== "success") throw new Error("Instant trade reverted");
@@ -193,7 +197,10 @@ export const executeQueued = internalAction({
     await publicClient.simulateContract(call);
     const data = encodeFunctionData({ abi: WALLET_ABI, functionName: "executeSpotTrade", args: call.args });
     const gas = await publicClient.estimateGas({ account: agent, to: account, data });
-    const gasPrice = await publicClient.getGasPrice();
+    // Robinhood's base fee can move between estimation and broadcast. A legacy
+    // transaction caps its fee at gasPrice, so sign above the current quote or
+    // a tiny next-block increase leaves the queue retrying an invalid raw tx.
+    const gasPrice = await publicClient.getGasPrice() * 125n / 100n;
     if (await publicClient.getBalance({ address: agent.address }) < gas * gasPrice * 12n / 10n) throw new Error("BTB agent needs more native gas");
     const transactionNonce = await publicClient.getTransactionCount({ address: agent.address, blockTag: "pending" });
     const signedTransaction = await walletClient.signTransaction({ account: agent, chain: robinhood, to: account, data, gas: gas * 12n / 10n, gasPrice, nonce: transactionNonce });

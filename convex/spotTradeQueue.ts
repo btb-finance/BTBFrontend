@@ -83,6 +83,15 @@ export const release = internalMutation({
     const order = await ctx.db.get(args.orderId);
     if (!order || order.workerId !== args.workerId) return;
     const now = Date.now();
+    const feeTooLow = /max fee per gas less than block base fee|fee cap less than block base fee/i.test(args.error);
+    if (order.txHash && feeTooLow) {
+      await ctx.db.patch(order._id, {
+        state: "queued", txHash: undefined, signedTransaction: undefined, submittedAt: undefined,
+        error: "Gas price moved before broadcast — rebuilding transaction.", updatedAt: now,
+        nextAttemptAt: now, leaseUntil: undefined, workerId: undefined,
+      });
+      return;
+    }
     const nonceConsumed = /nonce too low|nonce has already been used|replacement transaction underpriced/i.test(args.error);
     if (order.txHash && nonceConsumed && !args.terminal && now - (order.submittedAt ?? now) >= 15_000) {
       await ctx.db.patch(order._id, { state: "queued", txHash: undefined, signedTransaction: undefined, submittedAt: undefined, error: args.error, updatedAt: now, nextAttemptAt: now + 1_000, leaseUntil: undefined, workerId: undefined });
@@ -98,6 +107,24 @@ export const release = internalMutation({
       state: terminal ? "failed" : "queued", error: args.error, updatedAt: now,
       nextAttemptAt: terminal ? undefined : now + delay, leaseUntil: undefined, workerId: undefined,
     });
+  },
+});
+
+// Operator recovery for a transaction that the RPC rejected before it entered
+// the mempool. It clears only relay metadata; the user's signed trade terms,
+// deadline and one-use authorization remain unchanged.
+export const resetUnbroadcast = internalMutation({
+  args: { orderId: v.id("spotTradeOrders") },
+  handler: async (ctx, { orderId }) => {
+    const order = await ctx.db.get(orderId);
+    if (!order || order.state !== "submitted") return false;
+    await ctx.db.patch(orderId, {
+      state: "queued", txHash: undefined, signedTransaction: undefined, submittedAt: undefined,
+      error: "Rebuilding transaction with current gas price.", updatedAt: Date.now(),
+      nextAttemptAt: Date.now(), leaseUntil: undefined, workerId: undefined,
+    });
+    await ctx.scheduler.runAfter(0, internal.spotTradeWorker.drain, {});
+    return true;
   },
 });
 
