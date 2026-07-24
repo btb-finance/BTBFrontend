@@ -126,7 +126,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       if (!client) throw new Error('Robinhood RPC is unavailable');
       const smart = await readUniversalWallet(client, validOwner, deployment);
       if (!smart.deployed) {
-        setState({ account: smart.account, deployed: false, legacyWallet: false, upgraded: true, paused: false, policy: null });
+        setState({ account: smart.account, deployed: false, legacyWallet: false, upgraded: deployment.factoryIsV3, paused: false, policy: null });
         return;
       }
       setState({ account: smart.account, deployed: true, legacyWallet: smart.legacyWallet, upgraded: smart.upgraded, paused: smart.paused, policy: smart.policy });
@@ -223,7 +223,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const policyActive = !!state?.policy?.enabled && Number(state.policy.expiresAt) > Date.now() / 1000;
   const deviceAuthorized = !!localKey && /^0x[0-9a-fA-F]{64}$/.test(localKey)
     && !!state?.policy && privateKeyToAccount(localKey as `0x${string}`).address.toLowerCase() === state.policy.sessionSigner.toLowerCase();
-  const instantReady = policyActive && deviceAuthorized
+  const instantReady = !!state?.upgraded && policyActive && deviceAuthorized
     && !!state?.policy && state.policy.agent.toLowerCase() === deployment?.agent.toLowerCase();
   const orders = useQuery(api.spotTradeQueue.listForAccount, state?.account ? { account: state.account } : 'skip');
   const schedules = useQuery(api.dca.listForAccount, state?.account ? { account: state.account } : 'skip');
@@ -240,7 +240,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   // 15-digit number for cheap tokens, which looks broken in a button.
   const minimumBuyDisplay = minimumBuyAmount ? minimumBuyAmount.toLocaleString('en-US', { maximumFractionDigits: minimumBuyAmount >= 1000 ? 0 : minimumBuyAmount >= 1 ? 2 : 6 }) : null;
   const belowMinimum = minimumBuyAmount != null && Number(buySize || 0) < minimumBuyAmount;
-  const sellAllAssets = smartAssets.filter(asset => !asset.native && asset.address && asset.balance > 0 && asset.address.toLowerCase() !== sellToken.toLowerCase() && asset.usdValue >= 5);
+  const sellAllAssets = smartAssets.filter(asset => !asset.native && asset.address && asset.balance > 0 && asset.address.toLowerCase() !== sellToken.toLowerCase());
 
   useEffect(() => {
     if (!minimumBuyText || Number(buySize || 0) >= Number(minimumBuyText)) return;
@@ -275,8 +275,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
 
   async function enableInstantTrading() {
     if (!validOwner || !deployment || !state) { onConnect?.(); return; }
-    if (!state.deployed && !deployment.factoryIsV2) {
-      setError('New V2 wallet creation is waiting for the V2 factory deployment. Existing accounts remain available.');
+    if (!state.deployed && !deployment.factoryIsV3) {
+      setError('New dust-enabled wallet creation is waiting for the V3 factory deployment. Existing accounts remain available.');
       return;
     }
     setBusy('setup'); setError(null); setSuccess(null);
@@ -324,17 +324,19 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         tokenOut: outputMeta.address,
         amountIn: parsedAmount.toString(),
         sessionSigner: privateKeyToAccount(localKey as `0x${string}`).address,
+        side: preset.side,
       });
       const session = privateKeyToAccount(localKey as `0x${string}`);
       const signature = await session.signTypedData({
         domain: spotTradeDomain(state.account),
         types: SPOT_TRADE_TYPES,
-        primaryType: 'SpotTrade',
+        primaryType: 'SpotTradeV3',
         message: {
           tokenIn: inputMeta.address,
           tokenOut: outputMeta.address,
           amountIn: parsedAmount,
           minimumGrossOutput: BigInt(prepared.minimumGrossOutput),
+          minimumProtocolFee: BigInt(prepared.minimumProtocolFee),
           nonce: BigInt(prepared.nonce),
           deadline: BigInt(prepared.deadline),
         },
@@ -347,6 +349,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         tokenOut: outputMeta.address,
         amountIn: parsedAmount.toString(),
         minimumGrossOutput: prepared.minimumGrossOutput,
+        minimumProtocolFee: prepared.minimumProtocolFee,
         nonce: prepared.nonce,
         deadline: prepared.deadline,
         sessionSignature: signature,
@@ -446,15 +449,6 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       setPreset(null);
       return;
     }
-    const sellAsset = preset.side === 'sell' ? smartAssets.find(asset => asset.address?.toLowerCase() === preset.address.toLowerCase()) : null;
-    const sellFraction = preset.sellFraction && preset.sellFraction > 0 && preset.sellFraction < 1 ? preset.sellFraction : 1;
-    const sellValueUsd = sellAsset ? sellAsset.usdValue * sellFraction : 0;
-    if (sellAsset?.priceUsd && sellValueUsd < 5) {
-      executedPreset.current = preset.id;
-      setError(`${sellFraction < 1 ? `Selling ${Math.round(sellFraction * 100)}% of ${sellAsset.symbol}` : `${sellAsset.symbol} balance`} is worth ${sellValueUsd.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}. Instant trades require at least $5${sellFraction < 1 ? ' — sell a larger share' : ''}.`);
-      setPreset(null);
-      return;
-    }
     if (parsedAmount > inputMeta.balance) {
       executedPreset.current = preset.id;
       setError(`Not enough ${inputMeta.symbol}. Smart account balance: ${compact(inputMeta.balance, inputMeta.decimals)} ${inputMeta.symbol}.`);
@@ -473,12 +467,13 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
     }
     executedPreset.current = preset.id;
     void trade();
-  }, [belowMinimum, busy, buySymbol, buyToken, inputMeta, instantReady, minimumBuyText, outputMeta, parsedAmount, preset, sellToken, smartAssets]);
+  }, [belowMinimum, busy, buySymbol, buyToken, inputMeta, instantReady, minimumBuyText, outputMeta, parsedAmount, preset, sellToken]);
 
   if (!deployment) return null;
   const walletUsd = walletAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
   const smartUsd = smartAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
   const insufficientBalance = Boolean(error?.startsWith('Not enough '));
+  const needsWalletUpgrade = Boolean(state?.deployed && !state.upgraded);
   const accountLabel = state ? `${state.account.slice(0, 6)}…${state.account.slice(-4)}` : '';
   const usd = (value: number) => value > 0 ? `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '$0.00';
   return (
@@ -515,14 +510,14 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
               </div>
               {!instantReady ? (
                 <div style={{ marginTop: 7, padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
-                  {policyActive && <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>This link is not authorized</div>}
-                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: policyActive ? 4 : 0 }}>{policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. Every click signs the exact tokens and protected minimum locally; the agent cannot withdraw your funds. A fixed 10% of received tokens goes to BTB.'}</div>
+                  {(needsWalletUpgrade || policyActive) && <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{needsWalletUpgrade ? 'Dust selling upgrade available' : 'This link is not authorized'}</div>}
+                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: needsWalletUpgrade || policyActive ? 4 : 0 }}>{needsWalletUpgrade ? 'Upgrade this existing smart account once to sell balances below $5. Your account address, owner, funds, and trading settings stay unchanged.' : policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. Every click signs the exact tokens, protected minimum, and fee locally; the agent cannot withdraw your funds. Normal trades pay 10% of received tokens; dust sells use an approximately $0.50 received-token fee.'}</div>
                   {policyActive && <div style={{ color: btb.amber, fontSize: 9, lineHeight: 1.4, marginTop: 5 }}>Authorizing this link replaces the instant-trade key saved by another link. It does not change account ownership or move funds.</div>}
                   <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Follow the wallet steps…' : !state?.deployed ? 'Create smart account' : !state.upgraded ? 'Upgrade & authorize' : policyActive ? 'Authorize this device' : 'Authorize instant trading'}</Button>
                 </div>
               ) : (
             <div style={{ marginTop: 7 }}>
-              <div style={{ marginBottom: 7, color: btb.textDim, fontSize: 9, fontWeight: 700 }}>KyberSwap best route · 5% price protection · 10% of received tokens to BTB · agent pays gas</div>
+              <div style={{ marginBottom: 7, color: btb.textDim, fontSize: 9, fontWeight: 700 }}>KyberSwap best route · 5% price protection · 10% fee · dust sells use an ≈$0.50 received-token fee · agent pays gas</div>
               {pendingOrderCount > 0 && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7, padding: '7px 9px', borderRadius: 9, border: '1px solid rgba(255,179,107,.28)', background: 'rgba(255,179,107,.09)' }}>
                 <span style={{ color: btb.amber, fontSize: 9.5, fontWeight: 750, lineHeight: 1.4 }}>{pendingOrderCount} trade{pendingOrderCount === 1 ? '' : 's'} waiting{queuedCount > 0 ? ' · fund the account or they auto-cancel in 5 min' : ''}</span>
                 {queuedCount > 0 && state?.account && <button onClick={async () => { try { await cancelQueued({ account: state.account }); } catch { /* reactive list will reflect the real state */ } }} style={{ flexShrink: 0, height: 26, padding: '0 10px', borderRadius: 7, border: '1px solid rgba(255,107,122,.32)', background: 'rgba(255,107,122,.1)', color: btb.loss, fontFamily: 'inherit', fontSize: 9, fontWeight: 850, cursor: 'pointer' }}>Cancel all</button>}
@@ -562,7 +557,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
                       <button key={pct} onClick={() => sellPartial(pct / 100)} disabled={spendableAssets.length === 0 || busy !== null} style={{ height: 28, borderRadius: 7, border: '1px solid rgba(255,107,122,.28)', background: spendableAssets.length ? 'rgba(255,107,122,.08)' : 'rgba(255,255,255,.02)', color: spendableAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 10, fontWeight: 850, cursor: spendableAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{pct === 100 ? 'Max' : `${pct}%`}</button>
                     ))}
                   </div>
-                  <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ width: '100%', marginTop: 6, height: 28, borderRadius: 7, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.3)' : btb.borderSoft, background: sellAllAssets.length ? 'rgba(255,107,122,.09)' : 'rgba(255,255,255,.03)', color: sellAllAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 9.5, fontWeight: 800, cursor: sellAllAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{sellAllAssets.length ? `Sell all ${sellAllAssets.length} tokens · min $5 each` : 'No assets worth $5+'}</button>
+                  <button onClick={sellAll} disabled={sellAllAssets.length === 0 || busy !== null} style={{ width: '100%', marginTop: 6, height: 28, borderRadius: 7, border: sellAllAssets.length ? '1px solid rgba(255,107,122,.3)' : btb.borderSoft, background: sellAllAssets.length ? 'rgba(255,107,122,.09)' : 'rgba(255,255,255,.03)', color: sellAllAssets.length ? btb.loss : btb.textDim, fontFamily: 'inherit', fontSize: 9.5, fontWeight: 800, cursor: sellAllAssets.length ? 'pointer' : 'default', opacity: busy ? .6 : 1 }}>{sellAllAssets.length ? `Sell all ${sellAllAssets.length} tokens · dust included` : 'No tokens to sell'}</button>
                 </div>
               </div>
 

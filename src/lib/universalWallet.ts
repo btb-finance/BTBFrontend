@@ -3,9 +3,10 @@ import type { Call } from './txRunner';
 
 export type UniversalWalletDeployment = {
   factory: `0x${string}`;
+  v2Factory: `0x${string}`;
   legacyFactory: `0x${string}`;
-  factoryIsV2: boolean;
-  implementationV2: `0x${string}`;
+  factoryIsV3: boolean;
+  implementationV3: `0x${string}` | null;
   agent: `0x${string}`;
 };
 
@@ -37,6 +38,8 @@ export const UNIVERSAL_WALLET_ABI = [
   { name: 'spotTradePolicy', type: 'function', stateMutability: 'view', inputs: [], outputs: SPOT_POLICY_COMPONENTS },
   { name: 'usedSpotTradeNonces', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
   { name: 'initializeV2', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'initializeV3', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'SPOT_TRADE_V3_TYPEHASH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { name: 'setPaused', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'paused', type: 'bool' }], outputs: [] },
   { name: 'setAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'agent', type: 'address' }, { name: 'payoutReceiver', type: 'address' }, { name: 'expiresAt', type: 'uint64' }, { name: 'enabled', type: 'bool' }], outputs: [] },
   { name: 'setSpotTradePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'policy', type: 'tuple', components: SPOT_POLICY_COMPONENTS }], outputs: [] },
@@ -53,39 +56,47 @@ export function getUniversalWalletDeployment(): UniversalWalletDeployment | null
     ?? '0xAb581367DFd31b2063c581Fbb55208Aa1750BD89';
   const configuredV2Factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V2_FACTORY_4663)
     ?? '0x016432515b2d242689C4AfCC695eb1f06DCa471d';
-  const factory = configuredV2Factory ?? legacyFactory;
-  const implementationV2 = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V2_IMPLEMENTATION_4663)
-    ?? '0x428D4e45Aba21D0261Fd8d91CAe73b1ff21abF44';
+  const configuredV3Factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V3_FACTORY_4663)
+    ?? '0xdE1B376034FDBb21cEC644a22574C4dD67bd98b1';
+  const factory = configuredV3Factory ?? configuredV2Factory ?? legacyFactory;
+  const implementationV3 = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V3_IMPLEMENTATION_4663)
+    ?? '0x7A6251CBAbF27F157B313621cFcA065022B639AF';
   const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663);
-  return factory && legacyFactory && implementationV2 && agent
-    ? { factory, legacyFactory, factoryIsV2: configuredV2Factory !== null, implementationV2, agent }
+  return factory && legacyFactory && agent
+    ? { factory, v2Factory: configuredV2Factory, legacyFactory, factoryIsV3: configuredV3Factory !== null, implementationV3, agent }
     : null;
 }
 
 export async function readUniversalWallet(client: PublicClient, owner: `0x${string}`, deployment: UniversalWalletDeployment) {
   const current = await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] });
-  const legacy = current === zeroAddress && deployment.factory.toLowerCase() !== deployment.legacyFactory.toLowerCase()
+  const v2 = current === zeroAddress && deployment.factory.toLowerCase() !== deployment.v2Factory.toLowerCase()
+    ? await client.readContract({ address: deployment.v2Factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] })
+    : zeroAddress;
+  const legacy = current === zeroAddress && v2 === zeroAddress && deployment.factory.toLowerCase() !== deployment.legacyFactory.toLowerCase()
     ? await client.readContract({ address: deployment.legacyFactory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] })
     : zeroAddress;
-  const existing = current !== zeroAddress ? current : legacy;
+  const existing = current !== zeroAddress ? current : v2 !== zeroAddress ? v2 : legacy;
   const account = existing === zeroAddress
     ? await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'predictWallet', args: [owner] })
     : existing;
   const deployed = existing !== zeroAddress;
   const legacyWallet = deployment.factory.toLowerCase() === deployment.legacyFactory.toLowerCase()
     ? existing !== zeroAddress
-    : current === zeroAddress && legacy !== zeroAddress;
+    : current === zeroAddress && (v2 !== zeroAddress || legacy !== zeroAddress);
   let policy: SpotTradePolicy | null = null;
   let paused = false;
+  let upgraded = false;
   if (deployed) {
-    const [raw, pausedValue] = await Promise.all([
+    const [raw, pausedValue, v3Typehash] = await Promise.all([
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'spotTradePolicy' }).catch(() => null),
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'paused' }).catch(() => false),
+      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'SPOT_TRADE_V3_TYPEHASH' }).catch(() => null),
     ]);
     paused = pausedValue;
+    upgraded = v3Typehash !== null;
     if (raw) policy = { agent: raw[0], sessionSigner: raw[1], maximumBalanceSpendBps: Number(raw[2]), expiresAt: raw[3], enabled: raw[4] };
   }
-  return { account, deployed, legacyWallet, upgraded: policy !== null, paused, policy };
+  return { account, deployed, legacyWallet, upgraded, paused, policy };
 }
 
 export function createUniversalWalletCall(deployment: UniversalWalletDeployment, owner: `0x${string}`): Call {
@@ -98,9 +109,9 @@ export function upgradeUniversalWalletCall(account: `0x${string}`, implementatio
     data: encodeFunctionData({
       abi: UNIVERSAL_WALLET_ABI,
       functionName: 'upgradeToAndCall',
-      args: [implementation, encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'initializeV2' })],
+      args: [implementation, encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'initializeV3' })],
     }),
-    label: 'Upgrade your legacy smart account to V2',
+    label: 'Enable protected dust trading',
   };
 }
 
@@ -112,6 +123,7 @@ export function configureUniversalTradeCalls(args: {
   needsUpgrade: boolean;
   paused: boolean;
 }): Call[] {
+  if (args.needsUpgrade && !args.deployment.implementationV3) throw new Error('The dust-trading wallet upgrade is not deployed yet');
   const policy: SpotTradePolicy = {
     agent: args.deployment.agent,
     sessionSigner: args.sessionSigner,
@@ -122,7 +134,7 @@ export function configureUniversalTradeCalls(args: {
   return [
     ...(args.needsUpgrade ? [
       ...(!args.paused ? [{ to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [true] }), label: 'Pause legacy automation for upgrade' }] : []),
-      upgradeUniversalWalletCall(args.account, args.deployment.implementationV2),
+      upgradeUniversalWalletCall(args.account, args.deployment.implementationV3!),
     ] : []),
     { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setAgent', args: [args.deployment.agent, args.deployment.agent, args.expiresAt, true] }), label: 'Authorize the BTB trading agent' },
     { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setSpotTradePolicy', args: [policy] }), label: 'Authorize instant trading on this device' },
@@ -131,11 +143,12 @@ export function configureUniversalTradeCalls(args: {
 }
 
 export const SPOT_TRADE_TYPES = {
-  SpotTrade: [
+  SpotTradeV3: [
     { name: 'tokenIn', type: 'address' },
     { name: 'tokenOut', type: 'address' },
     { name: 'amountIn', type: 'uint256' },
     { name: 'minimumGrossOutput', type: 'uint256' },
+    { name: 'minimumProtocolFee', type: 'uint256' },
     { name: 'nonce', type: 'uint256' },
     { name: 'deadline', type: 'uint64' },
   ],
@@ -143,13 +156,14 @@ export const SPOT_TRADE_TYPES = {
 
 export const spotTradeDomain = (account: `0x${string}`) => ({
   name: 'BTB Universal Managed Wallet',
-  version: '2',
+  version: '3',
   chainId: 4663,
   verifyingContract: account,
 } as const);
 
 export type PreparedSpotTrade = {
   minimumGrossOutput: string;
+  minimumProtocolFee: string;
   nonce: string;
   deadline: number;
   amountInUsd: number;
