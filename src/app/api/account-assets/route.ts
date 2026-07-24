@@ -1,3 +1,5 @@
+export const maxDuration = 25;
+
 import { isAddress } from 'viem';
 import type { AccountAsset } from '../../../lib/accountAssets';
 
@@ -39,8 +41,8 @@ export async function GET(request: Request) {
   if (!isAddress(address)) return Response.json({ error: 'invalid address', assets: [] }, { status: 400 });
   try {
     const [balancesResponse, addressResponse] = await Promise.all([
-      fetch(`${EXPLORER}/addresses/${address}/token-balances`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(12_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(12_000) }),
-      fetch(`${EXPLORER}/addresses/${address}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(12_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(12_000) }),
+      fetch(`${EXPLORER}/addresses/${address}/token-balances`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(8_000) }),
+      fetch(`${EXPLORER}/addresses/${address}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(8_000) }),
     ]);
     if (!balancesResponse.ok || !addressResponse.ok) throw new Error('explorer unavailable');
     const balances = await balancesResponse.json() as ExplorerBalance[];
@@ -50,7 +52,7 @@ export async function GET(request: Request) {
     const batches: string[][] = [];
     for (let index = 0; index < addresses.length; index += 30) batches.push(addresses.slice(index, index + 30));
     const settled = await Promise.allSettled(batches.map(async batch => {
-      const response = await fetch(`${DEX}/${batch.join(',')}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(12_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(12_000) });
+      const response = await fetch(`${DEX}/${batch.join(',')}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(8_000) });
       if (!response.ok) return [] as Pair[];
       return response.json() as Promise<Pair[]>;
     }));
