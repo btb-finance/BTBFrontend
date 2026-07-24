@@ -1,0 +1,8 @@
+[build]
+  command = "npm run build"
+
+[functions]
+  node_bundler = "esbuild"
+
+[context.production.environment]
+  NEXT_PUBLIC_CONVEX_URL = "https://grateful-oyster-780.convex.cloud"

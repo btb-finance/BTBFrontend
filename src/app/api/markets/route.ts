@@ -1,3 +1,5 @@
+export const maxDuration = 25;
+
 import { buildRobinhoodMarketFeed } from '@/lib/robinhoodMarkets';
 
 /** Compatibility endpoint. The Dashboard reads the Convex snapshot directly;

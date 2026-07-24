@@ -1,3 +1,5 @@
+export const maxDuration = 25;
+
 import { KYBER_CHAINS } from '@/lib/kyberswap';
 
 type LifiToken = {

@@ -1,3 +1,5 @@
+export const maxDuration = 25;
+
 import { isAddress } from 'viem';
 import { KYBER_CHAINS } from '@/lib/kyberswap';
 

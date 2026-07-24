@@ -1,3 +1,5 @@
+export const maxDuration = 25;
+
 /**
  * Server-side proxy for the Uniswap Trading API.
  *

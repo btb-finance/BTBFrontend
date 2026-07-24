@@ -1,3 +1,5 @@
+export const maxDuration = 25;
+
 import { NextRequest } from 'next/server';
 
 const UPSTREAM = 'https://api.krystal.app/all/v1/lp/userPositions';
