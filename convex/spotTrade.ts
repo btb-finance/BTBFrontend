@@ -24,6 +24,7 @@ const SPOT_POLICY_COMPONENTS = [
   { name: "enabled", type: "bool" },
 ] as const;
 const SPOT_TRADE_COMPONENTS = [
+  { name: "router", type: "address" },
   { name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" },
   { name: "amountIn", type: "uint256" }, { name: "minimumGrossOutput", type: "uint256" },
   { name: "minimumProtocolFee", type: "uint256" },
@@ -32,16 +33,16 @@ const SPOT_TRADE_COMPONENTS = [
 const WALLET_ABI = [
   { name: "spotTradePolicy", type: "function", stateMutability: "view", inputs: [], outputs: SPOT_POLICY_COMPONENTS },
   { name: "usedSpotTradeNonces", type: "function", stateMutability: "view", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
-  { name: "executeSpotTradeV3", type: "function", stateMutability: "nonpayable", inputs: [{ name: "trade", type: "tuple", components: SPOT_TRADE_COMPONENTS }, { name: "sessionSignature", type: "bytes" }, { name: "swapData", type: "bytes" }], outputs: [{ name: "grossOutput", type: "uint256" }, { name: "protocolFee", type: "uint256" }, { name: "netOutput", type: "uint256" }] },
-  { name: "SpotTradeV3Executed", type: "event", inputs: [
-    { name: "agent", type: "address", indexed: true }, { name: "tokenIn", type: "address", indexed: true },
-    { name: "tokenOut", type: "address", indexed: true }, { name: "amountIn", type: "uint256", indexed: false },
+  { name: "executeSpotTradeV5", type: "function", stateMutability: "nonpayable", inputs: [{ name: "trade", type: "tuple", components: SPOT_TRADE_COMPONENTS }, { name: "sessionSignature", type: "bytes" }, { name: "swapData", type: "bytes" }], outputs: [{ name: "grossOutput", type: "uint256" }, { name: "protocolFee", type: "uint256" }, { name: "netOutput", type: "uint256" }] },
+  { name: "SpotTradeV5Executed", type: "event", inputs: [
+    { name: "agent", type: "address", indexed: true }, { name: "router", type: "address", indexed: true },
+    { name: "tokenIn", type: "address", indexed: true }, { name: "tokenOut", type: "address", indexed: false }, { name: "amountIn", type: "uint256", indexed: false },
     { name: "grossOutput", type: "uint256", indexed: false }, { name: "protocolFee", type: "uint256", indexed: false },
     { name: "netOutput", type: "uint256", indexed: false }, { name: "nonce", type: "uint256", indexed: false },
   ] },
 ] as const;
 const ERC20_BALANCE_ABI = [{ name: "balanceOf", type: "function", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] }] as const;
-const SPOT_TRADE_TYPES = { SpotTradeV3: SPOT_TRADE_COMPONENTS } as const;
+const SPOT_TRADE_TYPES = { SpotTradeV5: SPOT_TRADE_COMPONENTS } as const;
 
 type Policy = { agent: Address; sessionSigner: Address; maximumBalanceSpendBps: number; expiresAt: bigint; enabled: boolean };
 type Quote = { router: Address; summary: Record<string, unknown>; expectedOut: bigint; amountInUsd: number; amountOutUsdMicros: bigint };
@@ -117,19 +118,19 @@ export const prepare = action({
       if (minimumProtocolFee >= minimumGrossOutput) throw new Error("Dust value must be above the approximately $0.50 execution fee");
     }
     const nonce = BigInt(keccak256(crypto.getRandomValues(new Uint8Array(32))));
-    return { minimumGrossOutput: minimumGrossOutput.toString(), minimumProtocolFee: minimumProtocolFee.toString(), nonce: nonce.toString(), deadline: Math.floor(Date.now() / 1000) + 10 * 60, amountInUsd: route.amountInUsd, dust: minimumProtocolFee > 0n };
+    return { router: route.router, minimumGrossOutput: minimumGrossOutput.toString(), minimumProtocolFee: minimumProtocolFee.toString(), nonce: nonce.toString(), deadline: Math.floor(Date.now() / 1000) + 10 * 60, amountInUsd: route.amountInUsd, dust: minimumProtocolFee > 0n };
   },
 });
 
 export const enqueue = action({
   args: {
-    orderKey: v.string(), chainId: v.float64(), account: v.string(), tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
+    orderKey: v.string(), chainId: v.float64(), account: v.string(), router: v.string(), tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
     minimumGrossOutput: v.string(), minimumProtocolFee: v.string(), nonce: v.string(), deadline: v.float64(), sessionSignature: v.string(),
   },
   handler: async (ctx, args): Promise<{ id: Id<"spotTradeOrders">; state: string; duplicate: boolean }> => {
     if (args.chainId !== 4663 || process.env.AGENT_CHAIN_ID !== "4663" || process.env.AGENT_EXECUTION_ENABLED !== "1") throw new Error("Instant trading is disabled");
     if (!/^[a-zA-Z0-9:_-]{8,120}$/.test(args.orderKey)) throw new Error("Invalid order key");
-    if (!isAddress(args.account) || !isAddress(args.tokenIn) || !isAddress(args.tokenOut) || same(args.tokenIn, args.tokenOut)) throw new Error("Invalid trade tokens");
+    if (!isAddress(args.account) || !isAddress(args.router) || !isAddress(args.tokenIn) || !isAddress(args.tokenOut) || same(args.tokenIn, args.tokenOut)) throw new Error("Invalid trade tokens");
     if (![args.amountIn, args.minimumGrossOutput, args.minimumProtocolFee, args.nonce].every(value => /^\d+$/.test(value)) || BigInt(args.amountIn) <= 0n || BigInt(args.minimumGrossOutput) <= 0n || BigInt(args.minimumProtocolFee) >= BigInt(args.minimumGrossOutput)) throw new Error("Invalid trade amount or fee");
     if (!/^0x[0-9a-fA-F]{130}$/.test(args.sessionSignature) || !Number.isInteger(args.deadline) || args.deadline <= Date.now() / 1000) throw new Error("Invalid or expired device authorization");
     const agent = signer();
@@ -137,13 +138,15 @@ export const enqueue = action({
     const account = args.account as Address;
     const policy = await policyFor(publicClient, account);
     assertPolicy(policy, agent.address);
-    const message = { tokenIn: args.tokenIn as Address, tokenOut: args.tokenOut as Address, amountIn: BigInt(args.amountIn), minimumGrossOutput: BigInt(args.minimumGrossOutput), minimumProtocolFee: BigInt(args.minimumProtocolFee), nonce: BigInt(args.nonce), deadline: BigInt(args.deadline) };
-    const valid = await verifyTypedData({ address: policy.sessionSigner, domain: { name: "BTB Universal Managed Wallet", version: "3", chainId: 4663, verifyingContract: account }, types: SPOT_TRADE_TYPES, primaryType: "SpotTradeV3", message, signature: args.sessionSignature as Hex });
+    const approvedRouter = configuredAddress("KYBER_ROUTER_4663", DEFAULT_KYBER_ROUTER);
+    if (!same(args.router, approvedRouter)) throw new Error("Trade router is not approved");
+    const message = { router: args.router as Address, tokenIn: args.tokenIn as Address, tokenOut: args.tokenOut as Address, amountIn: BigInt(args.amountIn), minimumGrossOutput: BigInt(args.minimumGrossOutput), minimumProtocolFee: BigInt(args.minimumProtocolFee), nonce: BigInt(args.nonce), deadline: BigInt(args.deadline) };
+    const valid = await verifyTypedData({ address: policy.sessionSigner, domain: { name: "BTB Universal Managed Wallet", version: "5", chainId: 4663, verifyingContract: account }, types: SPOT_TRADE_TYPES, primaryType: "SpotTradeV5", message, signature: args.sessionSignature as Hex });
     if (!valid) throw new Error("This device did not authorize these exact trade terms");
     const used = await publicClient.readContract({ address: account, abi: WALLET_ABI, functionName: "usedSpotTradeNonces", args: [policy.sessionSigner, BigInt(args.nonce)] });
     if (used) throw new Error("This trade authorization was already used");
     return ctx.runMutation(internal.spotTradeQueue.insert, {
-      orderKey: args.orderKey, chainId: args.chainId, account: args.account, tokenIn: args.tokenIn, tokenOut: args.tokenOut,
+      orderKey: args.orderKey, chainId: args.chainId, account: args.account, router: args.router, tokenIn: args.tokenIn, tokenOut: args.tokenOut,
       amountIn: args.amountIn, minimumGrossOutput: args.minimumGrossOutput, minimumProtocolFee: args.minimumProtocolFee, nonce: args.nonce, deadline: args.deadline, sessionSignature: args.sessionSignature,
     });
   },
@@ -151,13 +154,13 @@ export const enqueue = action({
 
 export const executeQueued = internalAction({
   args: {
-    chainId: v.float64(), account: v.string(), tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
+    chainId: v.float64(), account: v.string(), router: v.optional(v.string()), tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
     minimumGrossOutput: v.optional(v.string()), minimumProtocolFee: v.optional(v.string()), nonce: v.optional(v.string()), deadline: v.optional(v.float64()), sessionSignature: v.optional(v.string()),
     orderId: v.id("spotTradeOrders"), workerId: v.string(), txHash: v.optional(v.string()), signedTransaction: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.chainId !== 4663 || process.env.AGENT_CHAIN_ID !== "4663" || process.env.AGENT_EXECUTION_ENABLED !== "1") throw new Error("Instant trading is disabled");
-    if (!isAddress(args.account) || !isAddress(args.tokenIn) || !isAddress(args.tokenOut) || same(args.tokenIn, args.tokenOut)) throw new Error("Invalid trade tokens");
+    if (!isAddress(args.account) || !args.router || !isAddress(args.router) || !isAddress(args.tokenIn) || !isAddress(args.tokenOut) || same(args.tokenIn, args.tokenOut)) throw new Error("Invalid trade tokens");
     if (!args.minimumGrossOutput || args.minimumProtocolFee === undefined || !args.nonce || !args.deadline || !args.sessionSignature) throw new Error("Session-signed trade authorization is missing");
     if (args.deadline <= Date.now() / 1000) throw new Error("Trade authorization expired before execution");
 
@@ -183,7 +186,7 @@ export const executeQueued = internalAction({
       }
       receipt ??= await publicClient.waitForTransactionReceipt({ hash: args.txHash as Hex, confirmations: 1, timeout: 60_000 });
       if (receipt.status !== "success") throw new Error("Instant trade reverted");
-      const event = parseEventLogs({ abi: WALLET_ABI, logs: receipt.logs, eventName: "SpotTradeV3Executed", strict: false }).find(log => same(log.address, account));
+      const event = parseEventLogs({ abi: WALLET_ABI, logs: receipt.logs, eventName: "SpotTradeV5Executed", strict: false }).find(log => same(log.address, account));
       if (!event) throw new Error("Confirmed trade is missing its settlement event");
       return { hash: args.txHash, grossAmountOut: String(event.args.grossOutput ?? 0), protocolFee: String(event.args.protocolFee ?? 0), netAmountOut: String(event.args.netOutput ?? 0), amountInUsd: 0 };
     }
@@ -191,6 +194,7 @@ export const executeQueued = internalAction({
     const balance = await publicClient.readContract({ address: tokenIn, abi: ERC20_BALANCE_ABI, functionName: "balanceOf", args: [account] });
     if (balance < amountIn) throw new Error("Insufficient balance in the smart account — fund it and try again");
     const route = await quote(tokenIn, tokenOut, amountIn);
+    if (!same(route.router, args.router)) throw new Error("KyberSwap router changed after authorization");
     if (route.expectedOut < BigInt(args.minimumGrossOutput)) throw new Error("KyberSwap price moved below your signed minimum");
     const buildResponse = await fetch("https://aggregator-api.kyberswap.com/robinhood/api/v1/route/build", {
       method: "POST", headers: { "Content-Type": "application/json", "x-client-id": "btb-finance" },
@@ -203,10 +207,10 @@ export const executeQueued = internalAction({
     const selector = tx.data.slice(0, 10).toLowerCase();
     if (selector !== "0xe21fd0e9" && selector !== "0x8af033fb") throw new Error("KyberSwap returned an unapproved selector");
 
-    const trade = { tokenIn, tokenOut, amountIn, minimumGrossOutput: BigInt(args.minimumGrossOutput), minimumProtocolFee: BigInt(args.minimumProtocolFee), nonce: BigInt(args.nonce), deadline: BigInt(args.deadline) };
-    const call = { account: agent, address: account, abi: WALLET_ABI, functionName: "executeSpotTradeV3" as const, args: [trade, args.sessionSignature as Hex, tx.data as Hex] as const };
+    const trade = { router: route.router, tokenIn, tokenOut, amountIn, minimumGrossOutput: BigInt(args.minimumGrossOutput), minimumProtocolFee: BigInt(args.minimumProtocolFee), nonce: BigInt(args.nonce), deadline: BigInt(args.deadline) };
+    const call = { account: agent, address: account, abi: WALLET_ABI, functionName: "executeSpotTradeV5" as const, args: [trade, args.sessionSignature as Hex, tx.data as Hex] as const };
     await publicClient.simulateContract(call);
-    const data = encodeFunctionData({ abi: WALLET_ABI, functionName: "executeSpotTradeV3", args: call.args });
+    const data = encodeFunctionData({ abi: WALLET_ABI, functionName: "executeSpotTradeV5", args: call.args });
     const gas = await publicClient.estimateGas({ account: agent, to: account, data });
     // Robinhood's base fee can move between estimation and broadcast. A legacy
     // transaction caps its fee at gasPrice, so sign above the current quote or
@@ -223,7 +227,7 @@ export const executeQueued = internalAction({
     }
     const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 60_000 });
     if (receipt.status !== "success") throw new Error("Instant trade reverted");
-    const event = parseEventLogs({ abi: WALLET_ABI, logs: receipt.logs, eventName: "SpotTradeV3Executed", strict: false }).find(log => same(log.address, account));
+    const event = parseEventLogs({ abi: WALLET_ABI, logs: receipt.logs, eventName: "SpotTradeV5Executed", strict: false }).find(log => same(log.address, account));
     if (!event) throw new Error("Confirmed trade is missing its settlement event");
     return { hash, grossAmountOut: String(event.args.grossOutput ?? 0), protocolFee: String(event.args.protocolFee ?? 0), netAmountOut: String(event.args.netOutput ?? 0), amountInUsd: route.amountInUsd };
   },

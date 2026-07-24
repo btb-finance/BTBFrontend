@@ -10,6 +10,7 @@ const QUEUED_EXPIRY_MS = 5 * 60_000;
 export const insert = internalMutation({
   args: {
     orderKey: v.string(), chainId: v.float64(), account: v.string(),
+    router: v.optional(v.string()),
     tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
     minimumGrossOutput: v.optional(v.string()), minimumProtocolFee: v.optional(v.string()), nonce: v.optional(v.string()),
     deadline: v.optional(v.float64()), sessionSignature: v.optional(v.string()),
@@ -20,7 +21,7 @@ export const insert = internalMutation({
     const now = Date.now();
     const id = await ctx.db.insert("spotTradeOrders", {
       ...args,
-      account: args.account.toLowerCase(), tokenIn: args.tokenIn.toLowerCase(), tokenOut: args.tokenOut.toLowerCase(),
+      account: args.account.toLowerCase(), router: args.router?.toLowerCase(), tokenIn: args.tokenIn.toLowerCase(), tokenOut: args.tokenOut.toLowerCase(),
       state: "queued", requestedAt: now, updatedAt: now, attempts: 0,
     });
     await ctx.scheduler.runAfter(0, internal.spotTradeWorker.drain, {});

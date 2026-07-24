@@ -24,7 +24,6 @@ type TokenMeta = { address: `0x${string}`; symbol: string; decimals: number; bal
 type SmartState = {
   account: `0x${string}`;
   deployed: boolean;
-  legacyWallet: boolean;
   upgraded: boolean;
   paused: boolean;
   policy: SpotTradePolicy | null;
@@ -126,10 +125,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       if (!client) throw new Error('Robinhood RPC is unavailable');
       const smart = await readUniversalWallet(client, validOwner, deployment);
       if (!smart.deployed) {
-        setState({ account: smart.account, deployed: false, legacyWallet: false, upgraded: deployment.factoryIsV3, paused: false, policy: null });
+        setState({ account: smart.account, deployed: false, upgraded: true, paused: false, policy: null });
         return;
       }
-      setState({ account: smart.account, deployed: true, legacyWallet: smart.legacyWallet, upgraded: smart.upgraded, paused: smart.paused, policy: smart.policy });
+      setState({ account: smart.account, deployed: true, upgraded: smart.upgraded, paused: smart.paused, policy: smart.policy });
     } catch (reason) {
       setError((reason as Error).message || 'Could not load the smart trading account');
     } finally { setLoading(false); }
@@ -275,10 +274,6 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
 
   async function enableInstantTrading() {
     if (!validOwner || !deployment || !state) { onConnect?.(); return; }
-    if (!state.deployed && !deployment.factoryIsV3) {
-      setError('New dust-enabled wallet creation is waiting for the V3 factory deployment. Existing accounts remain available.');
-      return;
-    }
     setBusy('setup'); setError(null); setSuccess(null);
     const requestKey = generatePrivateKey();
     const sessionSigner = privateKeyToAccount(requestKey).address;
@@ -330,8 +325,9 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       const signature = await session.signTypedData({
         domain: spotTradeDomain(state.account),
         types: SPOT_TRADE_TYPES,
-        primaryType: 'SpotTradeV3',
+        primaryType: 'SpotTradeV5',
         message: {
+          router: prepared.router,
           tokenIn: inputMeta.address,
           tokenOut: outputMeta.address,
           amountIn: parsedAmount,
@@ -345,6 +341,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         orderKey: `spot:${state.account.toLowerCase()}:${preset.id}`,
         chainId: CHAIN_ID,
         account: state.account,
+        router: prepared.router,
         tokenIn: inputMeta.address,
         tokenOut: outputMeta.address,
         amountIn: parsedAmount.toString(),

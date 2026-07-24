@@ -151,6 +151,7 @@ export default defineSchema({
     orderKey: v.string(),
     chainId: v.float64(),
     account: v.string(),
+    router: v.optional(v.string()),
     tokenIn: v.string(),
     tokenOut: v.string(),
     amountIn: v.string(),

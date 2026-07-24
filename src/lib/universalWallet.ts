@@ -3,11 +3,10 @@ import type { Call } from './txRunner';
 
 export type UniversalWalletDeployment = {
   factory: `0x${string}`;
-  v2Factory: `0x${string}`;
-  legacyFactory: `0x${string}`;
-  factoryIsV3: boolean;
-  implementationV3: `0x${string}` | null;
+  implementation: `0x${string}`;
   agent: `0x${string}`;
+  router: `0x${string}`;
+  routerCodeHash: `0x${string}`;
 };
 
 export type SpotTradePolicy = {
@@ -37,12 +36,12 @@ export const UNIVERSAL_WALLET_ABI = [
   { name: 'paused', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bool' }] },
   { name: 'spotTradePolicy', type: 'function', stateMutability: 'view', inputs: [], outputs: SPOT_POLICY_COMPONENTS },
   { name: 'usedSpotTradeNonces', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'uint256' }], outputs: [{ type: 'bool' }] },
-  { name: 'initializeV2', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'initializeV3', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
-  { name: 'SPOT_TRADE_V3_TYPEHASH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
+  { name: 'initializeV5', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'SPOT_TRADE_V5_TYPEHASH', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'bytes32' }] },
   { name: 'setPaused', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'paused', type: 'bool' }], outputs: [] },
   { name: 'setAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'agent', type: 'address' }, { name: 'payoutReceiver', type: 'address' }, { name: 'expiresAt', type: 'uint64' }, { name: 'enabled', type: 'bool' }], outputs: [] },
   { name: 'setSpotTradePolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'policy', type: 'tuple', components: SPOT_POLICY_COMPONENTS }], outputs: [] },
+  { name: 'setSpotRouterPolicy', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'router', type: 'address' }, { name: 'selector', type: 'bytes4' }, { name: 'policy', type: 'tuple', components: [{ name: 'codeHash', type: 'bytes32' }, { name: 'expiresAt', type: 'uint64' }, { name: 'enabled', type: 'bool' }] }], outputs: [] },
   { name: 'upgradeToAndCall', type: 'function', stateMutability: 'payable', inputs: [{ name: 'newImplementation', type: 'address' }, { name: 'data', type: 'bytes' }], outputs: [] },
   { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'token', type: 'address' }, { name: 'amount', type: 'uint256' }], outputs: [] },
 ] as const;
@@ -52,51 +51,40 @@ function address(value?: string): `0x${string}` | null {
 }
 
 export function getUniversalWalletDeployment(): UniversalWalletDeployment | null {
-  const legacyFactory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_FACTORY_4663)
-    ?? '0xAb581367DFd31b2063c581Fbb55208Aa1750BD89';
-  const configuredV2Factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V2_FACTORY_4663)
-    ?? '0x016432515b2d242689C4AfCC695eb1f06DCa471d';
-  const configuredV3Factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V3_FACTORY_4663)
-    ?? '0xdE1B376034FDBb21cEC644a22574C4dD67bd98b1';
-  const factory = configuredV3Factory ?? configuredV2Factory ?? legacyFactory;
-  const implementationV3 = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V3_IMPLEMENTATION_4663)
-    ?? '0x7A6251CBAbF27F157B313621cFcA065022B639AF';
+  const factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_FACTORY_4663)
+    ?? '0x632f02d54F6F37eA7Ae41E02402aCAF9cd1c08b3';
+  const implementation = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_IMPLEMENTATION_4663)
+    ?? '0x6D55d208010AD3cbC61Ff8941c64A52975573E7B';
   const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663);
-  return factory && legacyFactory && agent
-    ? { factory, v2Factory: configuredV2Factory, legacyFactory, factoryIsV3: configuredV3Factory !== null, implementationV3, agent }
+  const router = address(process.env.NEXT_PUBLIC_KYBER_ROUTER_4663)
+    ?? '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5';
+  const routerCodeHash = process.env.NEXT_PUBLIC_KYBER_ROUTER_CODEHASH_4663 as `0x${string}` | undefined
+    ?? '0xdc6eb20a6d4701d8f0f04f9a3342d254eb2698bbad281d8578d6efba21865867';
+  return factory && implementation && agent && /^0x[0-9a-fA-F]{64}$/.test(routerCodeHash)
+    ? { factory, implementation, agent, router, routerCodeHash }
     : null;
 }
 
 export async function readUniversalWallet(client: PublicClient, owner: `0x${string}`, deployment: UniversalWalletDeployment) {
-  const current = await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] });
-  const v2 = current === zeroAddress && deployment.factory.toLowerCase() !== deployment.v2Factory.toLowerCase()
-    ? await client.readContract({ address: deployment.v2Factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] })
-    : zeroAddress;
-  const legacy = current === zeroAddress && v2 === zeroAddress && deployment.factory.toLowerCase() !== deployment.legacyFactory.toLowerCase()
-    ? await client.readContract({ address: deployment.legacyFactory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] })
-    : zeroAddress;
-  const existing = current !== zeroAddress ? current : v2 !== zeroAddress ? v2 : legacy;
+  const existing = await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] });
   const account = existing === zeroAddress
     ? await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'predictWallet', args: [owner] })
     : existing;
   const deployed = existing !== zeroAddress;
-  const legacyWallet = deployment.factory.toLowerCase() === deployment.legacyFactory.toLowerCase()
-    ? existing !== zeroAddress
-    : current === zeroAddress && (v2 !== zeroAddress || legacy !== zeroAddress);
   let policy: SpotTradePolicy | null = null;
   let paused = false;
   let upgraded = false;
   if (deployed) {
-    const [raw, pausedValue, v3Typehash] = await Promise.all([
+    const [raw, pausedValue, v5Typehash] = await Promise.all([
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'spotTradePolicy' }).catch(() => null),
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'paused' }).catch(() => false),
-      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'SPOT_TRADE_V3_TYPEHASH' }).catch(() => null),
+      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'SPOT_TRADE_V5_TYPEHASH' }).catch(() => null),
     ]);
     paused = pausedValue;
-    upgraded = v3Typehash !== null;
+    upgraded = v5Typehash !== null;
     if (raw) policy = { agent: raw[0], sessionSigner: raw[1], maximumBalanceSpendBps: Number(raw[2]), expiresAt: raw[3], enabled: raw[4] };
   }
-  return { account, deployed, legacyWallet, upgraded, paused, policy };
+  return { account, deployed, upgraded, paused, policy };
 }
 
 export function createUniversalWalletCall(deployment: UniversalWalletDeployment, owner: `0x${string}`): Call {
@@ -109,9 +97,9 @@ export function upgradeUniversalWalletCall(account: `0x${string}`, implementatio
     data: encodeFunctionData({
       abi: UNIVERSAL_WALLET_ABI,
       functionName: 'upgradeToAndCall',
-      args: [implementation, encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'initializeV3' })],
+      args: [implementation, encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'initializeV5' })],
     }),
-    label: 'Enable protected dust trading',
+    label: 'Upgrade to the current BTB wallet',
   };
 }
 
@@ -123,7 +111,6 @@ export function configureUniversalTradeCalls(args: {
   needsUpgrade: boolean;
   paused: boolean;
 }): Call[] {
-  if (args.needsUpgrade && !args.deployment.implementationV3) throw new Error('The dust-trading wallet upgrade is not deployed yet');
   const policy: SpotTradePolicy = {
     agent: args.deployment.agent,
     sessionSigner: args.sessionSigner,
@@ -134,16 +121,22 @@ export function configureUniversalTradeCalls(args: {
   return [
     ...(args.needsUpgrade ? [
       ...(!args.paused ? [{ to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [true] }), label: 'Pause legacy automation for upgrade' }] : []),
-      upgradeUniversalWalletCall(args.account, args.deployment.implementationV3!),
+      upgradeUniversalWalletCall(args.account, args.deployment.implementation),
     ] : []),
     { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setAgent', args: [args.deployment.agent, args.deployment.agent, args.expiresAt, true] }), label: 'Authorize the BTB trading agent' },
     { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setSpotTradePolicy', args: [policy] }), label: 'Authorize instant trading on this device' },
+    ...(['0xe21fd0e9', '0x8af033fb'] as const).map(selector => ({
+      to: args.account,
+      data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setSpotRouterPolicy', args: [args.deployment.router, selector, { codeHash: args.deployment.routerCodeHash, expiresAt: args.expiresAt, enabled: true }] }),
+      label: 'Approve the audited KyberSwap router',
+    })),
     ...((args.needsUpgrade || args.paused) ? [{ to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [false] }), label: 'Resume smart-account automation' }] : []),
   ];
 }
 
 export const SPOT_TRADE_TYPES = {
-  SpotTradeV3: [
+  SpotTradeV5: [
+    { name: 'router', type: 'address' },
     { name: 'tokenIn', type: 'address' },
     { name: 'tokenOut', type: 'address' },
     { name: 'amountIn', type: 'uint256' },
@@ -156,12 +149,13 @@ export const SPOT_TRADE_TYPES = {
 
 export const spotTradeDomain = (account: `0x${string}`) => ({
   name: 'BTB Universal Managed Wallet',
-  version: '3',
+  version: '5',
   chainId: 4663,
   verifyingContract: account,
 } as const);
 
 export type PreparedSpotTrade = {
+  router: `0x${string}`;
   minimumGrossOutput: string;
   minimumProtocolFee: string;
   nonce: string;

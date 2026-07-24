@@ -31,6 +31,7 @@ export const drain = internalAction({
       const result = await ctx.runAction(internal.spotTrade.executeQueued, {
         chainId: order.chainId,
         account: order.account,
+        router: order.router,
         tokenIn: order.tokenIn,
         tokenOut: order.tokenOut,
         amountIn: order.amountIn,
