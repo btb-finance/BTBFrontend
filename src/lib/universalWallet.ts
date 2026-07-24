@@ -66,7 +66,8 @@ export function getUniversalWalletDeployment(): UniversalWalletDeployment | null
   ] as const;
   const implementation = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_IMPLEMENTATION_4663)
     ?? '0xe914F22F270C5E402d8Ab1D2697CC0CA9225d8a7';
-  const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663);
+  const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663)
+    ?? '0xfE097b94eeDEb21DFc1b9A307d199A55dB6acb7d';
   const router = address(process.env.NEXT_PUBLIC_KYBER_ROUTER_4663)
     ?? '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5';
   const routerCodeHash = process.env.NEXT_PUBLIC_KYBER_ROUTER_CODEHASH_4663 as `0x${string}` | undefined
