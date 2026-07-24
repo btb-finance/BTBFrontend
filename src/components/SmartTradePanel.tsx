@@ -223,7 +223,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const policyActive = !!state?.policy?.enabled && Number(state.policy.expiresAt) > Date.now() / 1000;
   const deviceAuthorized = !!localKey && /^0x[0-9a-fA-F]{64}$/.test(localKey)
     && !!state?.policy && privateKeyToAccount(localKey as `0x${string}`).address.toLowerCase() === state.policy.sessionSigner.toLowerCase();
-  const instantReady = policyActive && deviceAuthorized
+  const instantReady = !!state?.upgraded && policyActive && deviceAuthorized
     && !!state?.policy && state.policy.agent.toLowerCase() === deployment?.agent.toLowerCase();
   const orders = useQuery(api.spotTradeQueue.listForAccount, state?.account ? { account: state.account } : 'skip');
   const schedules = useQuery(api.dca.listForAccount, state?.account ? { account: state.account } : 'skip');
@@ -473,6 +473,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const walletUsd = walletAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
   const smartUsd = smartAssets.reduce((sum, asset) => sum + asset.usdValue, 0);
   const insufficientBalance = Boolean(error?.startsWith('Not enough '));
+  const needsWalletUpgrade = Boolean(state?.deployed && !state.upgraded);
   const accountLabel = state ? `${state.account.slice(0, 6)}…${state.account.slice(-4)}` : '';
   const usd = (value: number) => value > 0 ? `$${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '$0.00';
   return (
@@ -509,8 +510,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
               </div>
               {!instantReady ? (
                 <div style={{ marginTop: 7, padding: 12, borderRadius: 13, background: 'rgba(255,255,255,.03)', border: btb.borderSoft }}>
-                  {policyActive && <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>This link is not authorized</div>}
-                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: policyActive ? 4 : 0 }}>{policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. Every click signs the exact tokens, protected minimum, and fee locally; the agent cannot withdraw your funds. Normal trades pay 10% of received tokens; dust sells use an approximately $0.50 received-token fee.'}</div>
+                  {(needsWalletUpgrade || policyActive) && <div style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{needsWalletUpgrade ? 'Dust selling upgrade available' : 'This link is not authorized'}</div>}
+                  <div style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.5, marginTop: needsWalletUpgrade || policyActive ? 4 : 0 }}>{needsWalletUpgrade ? 'Upgrade this existing smart account once to sell balances below $5. Your account address, owner, funds, and trading settings stay unchanged.' : policyActive ? 'Your smart account and funds are available above. Instant-trade authorization is stored separately by each website link, so this link needs its own approval.' : 'Let the BTB agent buy and sell for you in one click, with no wallet pop-up per trade. Every click signs the exact tokens, protected minimum, and fee locally; the agent cannot withdraw your funds. Normal trades pay 10% of received tokens; dust sells use an approximately $0.50 received-token fee.'}</div>
                   {policyActive && <div style={{ color: btb.amber, fontSize: 9, lineHeight: 1.4, marginTop: 5 }}>Authorizing this link replaces the instant-trade key saved by another link. It does not change account ownership or move funds.</div>}
                   <Button variant="success" onClick={enableInstantTrading} disabled={busy !== null} style={{ marginTop: 10, height: 36, boxShadow: 'none' }}>{busy === 'setup' ? 'Follow the wallet steps…' : !state?.deployed ? 'Create smart account' : !state.upgraded ? 'Upgrade & authorize' : policyActive ? 'Authorize this device' : 'Authorize instant trading'}</Button>
                 </div>
