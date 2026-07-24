@@ -3,6 +3,8 @@ import type { Call } from './txRunner';
 
 export type UniversalWalletDeployment = {
   factory: `0x${string}`;
+  legacyFactory: `0x${string}`;
+  factoryIsV2: boolean;
   implementationV2: `0x${string}`;
   agent: `0x${string}`;
 };
@@ -47,30 +49,47 @@ function address(value?: string): `0x${string}` | null {
 }
 
 export function getUniversalWalletDeployment(): UniversalWalletDeployment | null {
-  const factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_FACTORY_4663)
+  const legacyFactory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_FACTORY_4663)
     ?? '0xAb581367DFd31b2063c581Fbb55208Aa1750BD89';
+  const configuredV2Factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V2_FACTORY_4663)
+    ?? '0x016432515b2d242689C4AfCC695eb1f06DCa471d';
+  const factory = configuredV2Factory ?? legacyFactory;
   const implementationV2 = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_V2_IMPLEMENTATION_4663)
     ?? '0x428D4e45Aba21D0261Fd8d91CAe73b1ff21abF44';
   const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663);
-  return factory && implementationV2 && agent ? { factory, implementationV2, agent } : null;
+  return factory && legacyFactory && implementationV2 && agent
+    ? { factory, legacyFactory, factoryIsV2: configuredV2Factory !== null, implementationV2, agent }
+    : null;
 }
 
 export async function readUniversalWallet(client: PublicClient, owner: `0x${string}`, deployment: UniversalWalletDeployment) {
-  const existing = await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] });
+  const current = await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] });
+  const legacy = current === zeroAddress && deployment.factory.toLowerCase() !== deployment.legacyFactory.toLowerCase()
+    ? await client.readContract({ address: deployment.legacyFactory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'walletOf', args: [owner] })
+    : zeroAddress;
+  const existing = current !== zeroAddress ? current : legacy;
   const account = existing === zeroAddress
     ? await client.readContract({ address: deployment.factory, abi: UNIVERSAL_FACTORY_ABI, functionName: 'predictWallet', args: [owner] })
     : existing;
   const deployed = existing !== zeroAddress;
+  const legacyWallet = deployment.factory.toLowerCase() === deployment.legacyFactory.toLowerCase()
+    ? existing !== zeroAddress
+    : current === zeroAddress && legacy !== zeroAddress;
   let policy: SpotTradePolicy | null = null;
+  let paused = false;
   if (deployed) {
-    const raw = await client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'spotTradePolicy' }).catch(() => null);
+    const [raw, pausedValue] = await Promise.all([
+      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'spotTradePolicy' }).catch(() => null),
+      client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'paused' }).catch(() => false),
+    ]);
+    paused = pausedValue;
     if (raw) policy = { agent: raw[0], sessionSigner: raw[1], maximumBalanceSpendBps: Number(raw[2]), expiresAt: raw[3], enabled: raw[4] };
   }
-  return { account, deployed, upgraded: policy !== null, policy };
+  return { account, deployed, legacyWallet, upgraded: policy !== null, paused, policy };
 }
 
 export function createUniversalWalletCall(deployment: UniversalWalletDeployment, owner: `0x${string}`): Call {
-  return { to: deployment.factory, data: encodeFunctionData({ abi: UNIVERSAL_FACTORY_ABI, functionName: 'createWallet', args: [owner] }) };
+  return { to: deployment.factory, data: encodeFunctionData({ abi: UNIVERSAL_FACTORY_ABI, functionName: 'createWallet', args: [owner] }), label: 'Create your BTB smart account' };
 }
 
 export function upgradeUniversalWalletCall(account: `0x${string}`, implementation: `0x${string}`): Call {
@@ -81,6 +100,7 @@ export function upgradeUniversalWalletCall(account: `0x${string}`, implementatio
       functionName: 'upgradeToAndCall',
       args: [implementation, encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'initializeV2' })],
     }),
+    label: 'Upgrade your legacy smart account to V2',
   };
 }
 
@@ -90,6 +110,7 @@ export function configureUniversalTradeCalls(args: {
   sessionSigner: `0x${string}`;
   expiresAt: bigint;
   needsUpgrade: boolean;
+  paused: boolean;
 }): Call[] {
   const policy: SpotTradePolicy = {
     agent: args.deployment.agent,
@@ -100,12 +121,12 @@ export function configureUniversalTradeCalls(args: {
   };
   return [
     ...(args.needsUpgrade ? [
-      { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [true] }) },
+      ...(!args.paused ? [{ to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [true] }), label: 'Pause legacy automation for upgrade' }] : []),
       upgradeUniversalWalletCall(args.account, args.deployment.implementationV2),
     ] : []),
-    { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setAgent', args: [args.deployment.agent, args.deployment.agent, args.expiresAt, true] }) },
-    { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setSpotTradePolicy', args: [policy] }) },
-    ...(args.needsUpgrade ? [{ to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [false] }) }] : []),
+    { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setAgent', args: [args.deployment.agent, args.deployment.agent, args.expiresAt, true] }), label: 'Authorize the BTB trading agent' },
+    { to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setSpotTradePolicy', args: [policy] }), label: 'Authorize instant trading on this device' },
+    ...((args.needsUpgrade || args.paused) ? [{ to: args.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [false] }), label: 'Resume smart-account automation' }] : []),
   ];
 }
 

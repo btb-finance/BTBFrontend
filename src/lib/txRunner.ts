@@ -10,6 +10,8 @@ export type Call = {
   data?: `0x${string}`;
   value?: bigint;
   gas?: bigint;
+  /** Human-readable action shown when a wallet requires sequential confirmations. */
+  label?: string;
 };
 
 export type RunResult = { lastHash?: `0x${string}` };
@@ -124,7 +126,8 @@ export async function runCalls(
     // another tab, or a just-indexed batch may already have satisfied it.
     if (await isSatisfiedApproval(config, account, c, chainId)) continue;
     await ensureTargetChain(config, chainId);
-    const stepLabel = pendingCalls.length > 1 ? `${label} (${i + 1}/${pendingCalls.length})` : label;
+    const actionLabel = c.label ?? label;
+    const stepLabel = pendingCalls.length > 1 ? `${actionLabel} (${i + 1}/${pendingCalls.length})` : actionLabel;
     const hash = await sendTransaction(config, { account, chainId: chainId as SupportedChainId | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas });
     lastHash = hash;
     const { done } = track({ hash, label: stepLabel, chainId });
