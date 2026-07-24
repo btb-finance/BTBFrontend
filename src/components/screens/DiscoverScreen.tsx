@@ -1,15 +1,18 @@
 'use client';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { isAddress } from 'viem';
+import { useConfig } from 'wagmi';
+import { getPublicClient } from 'wagmi/actions';
 import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools } from '../../lib/discoverPools';
-import { searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chainSlug } from '../../lib/routes';
 
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 import { DataTable, Column } from '../DataTable';
 import { TokenIcon } from '../TokenIcon';
+import { DexLogo } from '../DexLogo';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
@@ -20,13 +23,36 @@ import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
 import { useSidebar } from '../../lib/SidebarContext';
-import { CHAIN_META } from '../../lib/wagmi';
+import { CHAIN_META, type SupportedChainId } from '../../lib/wagmi';
+import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 
 /** Fee-based estimate used when the indexer doesn't report real 24h fees (DeFiLlama-sourced rows). */
 function estFees24h(p: EarnPool): number {
   return p.fees24hUsd ?? (p.tvlUsd * p.apyBase) / 100 / 365;
+}
+
+function headlineApr(p: EarnPool): number {
+  return p.aprRange ?? p.apy;
+}
+
+function aprContext(p: EarnPool): { label: string; title: string } | null {
+  const reward = p.rewardTokenSymbols?.join(' + ') || 'gauge';
+  if (p.yieldMode === 'stake-or-fees') {
+    const route = p.requiresStaking ? `Stake LP · ${reward}` : 'Unstaked fee yield';
+    return {
+      label: route,
+      title: `${route}. Gauge rewards: ${fmtApr(p.apyReward)}; unstaked fee APR: ${fmtApr(p.apyBase)}. These alternatives are not added together.`,
+    };
+  }
+  if (p.yieldMode === 'staked-rewards') {
+    return {
+      label: `Stake LP · ${reward}`,
+      title: `Gauge reward APR paid to staked LP positions in ${reward}: ${fmtApr(p.apyReward)}. Fee APR is shown separately and is not added to this staked route.`,
+    };
+  }
+  return null;
 }
 
 type DiscoverChain = { name: string; chainId?: number };
@@ -39,6 +65,7 @@ function discoverChainId(name: string, explicitId?: number): number | undefined 
     polygon: 137, polygonmainnet: 137, arbitrum: 42161, arbitrumone: 42161,
     optimism: 10, opmainnet: 10, base: 8453, avalanche: 43114,
     avalanchecchain: 43114, robinhoodchain: 4663, zksync: 324, zksyncera: 324,
+    hyperevm: 999, hyperliquidl1: 999,
   };
   const direct = aliases[normalized];
   if (direct) return direct;
@@ -54,8 +81,26 @@ function canSimulatePool(pool: EarnPool): boolean {
     && isAddress(pair[0]) && isAddress(pair[1]);
 }
 
-function ChainMark({ chainId, size }: { chainId?: number; size: number }) {
+function ChainMark({ name, chainId, size }: { name: string; chainId?: number; size: number }) {
   if (chainId) return <ChainLogo chainId={chainId} size={size}/>;
+  const nonEvmAsset = {
+    solana: '/chains/solana.webp',
+    sui: '/chains/sui.webp',
+  }[name.toLowerCase()];
+  if (nonEvmAsset) {
+    return (
+      <img
+        src={nonEvmAsset}
+        alt=""
+        aria-hidden="true"
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(255,255,255,.12)' }}
+      />
+    );
+  }
   return (
     <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.1)', boxShadow: '0 0 0 1px rgba(255,255,255,.12)', flexShrink: 0 }}>
       <Icon name="globe" size={Math.max(10, size - 7)} color={btb.textMuted}/>
@@ -70,7 +115,7 @@ function ChainBadge({ name, chainId }: DiscoverChain) {
       aria-label={name}
       style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
     >
-      <ChainMark chainId={chainId} size={17}/>
+      <ChainMark name={name} chainId={chainId} size={17}/>
     </span>
   );
 }
@@ -82,9 +127,11 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
   mobile: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = chains.find(chain => chain.name === value);
   const logoChains = chains.filter((chain): chain is DiscoverChain & { chainId: number } => chain.chainId != null).slice(0, 2);
+  const filteredChains = chains.filter(chain => chain.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   useEffect(() => {
     if (!open) return;
@@ -109,7 +156,10 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         aria-label="Filter pools by chain"
         aria-haspopup="listbox"
         aria-expanded={open}
-        onClick={() => setOpen(isOpen => !isOpen)}
+        onClick={() => setOpen(isOpen => {
+          if (!isOpen) setQuery('');
+          return !isOpen;
+        })}
         style={{
           width: '100%',
           height: 42,
@@ -126,7 +176,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         }}
       >
         {selected ? (
-          <ChainMark chainId={selected.chainId} size={23}/>
+          <ChainMark name={selected.name} chainId={selected.chainId} size={23}/>
         ) : (
           <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
             {logoChains.map((chain, index) => (
@@ -140,24 +190,157 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         <Icon name="down" size={13} color={btb.textMuted}/>
       </button>
       {open && (
-        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
-          <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="search" size={13} color={btb.textMuted}/>
+            <input
+              autoFocus
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              onKeyDown={event => event.stopPropagation()}
+              placeholder="Search chains"
+              aria-label="Search chains"
+              style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
+            />
+          </div>
+          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
             <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
               {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
             </span>
             <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All chains</span>
             {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
-          </button>
-          {chains.map(chain => {
+          </button>}
+          {filteredChains.map(chain => {
             const active = value === chain.name;
             return (
               <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-                <ChainMark chainId={chain.chainId} size={23}/>
+                <ChainMark name={chain.name} chainId={chain.chainId} size={23}/>
                 <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
               </button>
             );
           })}
+          {filteredChains.length === 0 && (
+            <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No chains found</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
+  dexes: string[];
+  value: string;
+  onChange: (dex: string) => void;
+  mobile: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = value === 'all' ? null : value;
+  const logoDexes = dexes.slice(0, 3);
+  const filteredDexes = dexes.filter(dex => dex.toLowerCase().includes(query.trim().toLowerCase()));
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  const allLogos = (
+    <span style={{ width: 37, height: 23, position: 'relative', flexShrink: 0 }}>
+      {logoDexes.map((dex, index) => (
+        <span key={dex} style={{ position: 'absolute', left: index * 8, top: 1 }}>
+          <DexLogo name={dex} size={21}/>
+        </span>
+      ))}
+    </span>
+  );
+
+  return (
+    <div ref={rootRef} style={{ position: 'relative', flex: mobile ? 1 : '0 0 170px', minWidth: 0 }}>
+      <button
+        type="button"
+        aria-label="Filter pools by DEX"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(isOpen => {
+          if (!isOpen) setQuery('');
+          return !isOpen;
+        })}
+        style={{
+          width: '100%', height: 42, borderRadius: 12, border: btb.borderSoft,
+          background: btb.surfaceSoft, color: btb.text, padding: '0 10px',
+          fontFamily: 'inherit', cursor: 'pointer', display: 'flex',
+          alignItems: 'center', gap: 8,
+        }}
+      >
+        {selected ? <DexLogo name={selected} size={23}/> : allLogos}
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: 12.5, fontWeight: 750 }}>
+          {selected ?? 'All DEXs'}
+        </span>
+        <Icon name="down" size={13} color={btb.textMuted}/>
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Filter pools by DEX" style={{
+          position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0,
+          width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', maxHeight: 360,
+          overflowY: 'auto', padding: 7, borderRadius: 16,
+          background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)',
+          boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+        }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Icon name="search" size={13} color={btb.textMuted}/>
+            <input
+              autoFocus
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              onKeyDown={event => event.stopPropagation()}
+              placeholder="Search DEXs"
+              aria-label="Search DEXs"
+              style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
+            />
+          </div>
+          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
+            width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
+            background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent',
+            color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 9,
+          }}>
+            {allLogos}
+            <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All DEXs</span>
+            {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
+          </button>}
+          {filteredDexes.map(dex => {
+            const active = value === dex;
+            return (
+              <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
+                width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
+                background: active ? 'rgba(255,255,255,.1)' : 'transparent',
+                color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 9,
+              }}>
+                <DexLogo name={dex} size={23}/>
+                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{dex}</span>
+                {active && <Icon name="check" size={15} color={btb.green}/>}
+              </button>
+            );
+          })}
+          {filteredDexes.length === 0 && (
+            <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No DEXs found</div>
+          )}
         </div>
       )}
     </div>
@@ -165,6 +348,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
 }
 
 export function DiscoverScreen() {
+  const config = useConfig();
   const { isMobile } = useSidebar();
   const { pools, priceChange, loading } = useDiscoverPools();
   const [search, setSearch] = useState('');
@@ -261,15 +445,21 @@ export function DiscoverScreen() {
   const { tokens } = useTokenStore();
   useEffect(() => {
     const q = search.trim().toLowerCase();
+    const selectedChainId = selectedChain === 'all' ? undefined : discoverChainId(selectedChain);
     const tok = q
-      ? tokens.find(t => t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
+      ? tokens.find(t =>
+          (t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
+          && (selectedChainId == null || (t.chainId ?? 1) === selectedChainId)
+        )
       : undefined;
     // A pasted address the app's token list doesn't know is still searchable —
     // the market APIs only need the address itself, not list membership.
     const addr = tok
       ? (tok.address === 'ETH' ? WETH_ADDR : tok.address)
       : /^0x[0-9a-f]{40}$/.test(q) ? q : null;
-    if (!addr) {
+    const targetChainId = selectedChainId ?? tok?.chainId ?? 1;
+    const networks = CHAIN_DATA_NETWORKS[targetChainId];
+    if (!addr || !networks) {
       marketReqRef.current++;
       setMarketPools(null); setMarketSymbol(null); setMarketLoading(false);
       return;
@@ -278,13 +468,23 @@ export function DiscoverScreen() {
     setMarketSymbol(tok?.symbol ?? `${q.slice(0, 6)}…${q.slice(-4)}`);
     setMarketLoading(true);
     const timer = setTimeout(() => {
-      searchMarketPools(addr, undefined, 1000)
-        .then(ps => { if (marketReqRef.current === req) setMarketPools(ps); })
+      searchMarketPools(addr, undefined, 1000, networks)
+        .then(async market => {
+          const client = getPublicClient(config, { chainId: targetChainId as SupportedChainId });
+          return enrichMarketPools(
+            client,
+            market,
+            pools,
+            CHAIN_META[targetChainId]?.name ?? selectedChain,
+            addr,
+          );
+        })
+        .then(market => { if (marketReqRef.current === req) setMarketPools(market); })
         .catch(() => { if (marketReqRef.current === req) setMarketPools([]); })
         .finally(() => { if (marketReqRef.current === req) setMarketLoading(false); });
     }, 500);
     return () => clearTimeout(timer);
-  }, [search, tokens]);
+  }, [config, pools, search, selectedChain, tokens]);
 
   const { positions } = useTokenStore();
   const logoByAddress = useMemo(() => {
@@ -365,9 +565,12 @@ export function DiscoverScreen() {
             <div>
               <div style={{ fontWeight: 700 }}>{p.pair.replace('-', '/')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
-                  {p.dex}{p.version ? ` ${p.version}` : ''}
-                </Badge>
+                <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                  <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
+                    <DexLogo name={p.dex} size={13}/>
+                    {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
+                  </Badge>
+                </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
@@ -393,12 +596,14 @@ export function DiscoverScreen() {
       },
     },
     {
-      key: 'apr', label: 'APR', align: 'right', sortable: true, sortValue: p => p.aprRange ?? p.apy,
+      key: 'apr', label: 'APR', align: 'right', sortable: true, sortValue: headlineApr,
       render: p => p.source === 'dexscreener' && p.feeTier == null ? <span title="Fee tier data is not available from this source" style={{ color: btb.textDim }}>—</span> : (
-        <span title={p.aprRange != null ? '±5% concentrated-range APR at current volume' : 'Whole-pool fees/TVL APR — no range data available for this pool'}
-          style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
-          {fmtApr(p.aprRange ?? p.apy)}
-        </span>
+        <div title={aprContext(p)?.title ?? (p.aprRange != null ? '±5% concentrated-range APR at current volume' : 'Whole-pool fees/TVL APR — no range data available for this pool')}>
+          <div style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
+            {fmtApr(headlineApr(p))}
+          </div>
+          {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
+        </div>
       ),
     },
     {
@@ -476,10 +681,7 @@ export function DiscoverScreen() {
           const chain = chains.find(item => item.name === chainName);
           if (chain?.chainId) setThemeChainId(chain.chainId);
         }} mobile={isMobile}/>
-        <select value={selectedDex} onChange={event => setSelectedDex(event.target.value)} aria-label="Filter pools by DEX" style={{ flex: isMobile ? 1 : '0 0 170px', minWidth: 0, height: 42, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', outline: 'none', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
-          <option value="all">All DEXs</option>
-          {dexes.map(dex => <option key={dex} value={dex}>{dex}</option>)}
-        </select>
+        <DiscoverDexSelect dexes={dexes} value={selectedDex} onChange={setSelectedDex} mobile={isMobile}/>
       </div>
 
       {isMobile ? (
@@ -510,9 +712,12 @@ export function DiscoverScreen() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>
-                        {p.dex}{p.version ? ` ${p.version}` : ''}
-                      </Badge>
+                      <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
+                          <DexLogo name={p.dex} size={13}/>
+                          {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
+                        </Badge>
+                      </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
@@ -524,8 +729,8 @@ export function DiscoverScreen() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(p.aprRange ?? p.apy)}</div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>APR</div>
+                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
+                    <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
                   </div>
                 </div>
 
@@ -601,15 +806,18 @@ export function DiscoverScreen() {
                       <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>
                         {p.name || `${marketSymbol} pool`}
                       </div>
-                      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
-                        {p.dexLabel}
-                        {p.feePct != null && ` · ${(p.feePct * 100).toFixed(2)}% fee`}
-                        {` · TVL ${fmtCompactUsd(p.tvlUsd)} · ${fmtCompactUsd(p.volume24hUsd)} vol 24h`}
+                      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <DexLogo name={p.dexLabel} size={15}/>
+                        <span>
+                          {p.dexLabel}
+                          {p.feePct != null && ` · ${(p.feePct * 100).toFixed(2)}% fee`}
+                          {` · TVL ${fmtCompactUsd(p.tvlUsd)} · ${fmtCompactUsd(p.volume24hUsd)} vol 24h`}
+                        </span>
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ color: p.aprPct != null ? btb.green : btb.textDim, fontSize: 14, fontWeight: 800 }}>
-                        {p.aprPct != null ? fmtApr(p.aprPct) : '—'}
+                      <div title={p.aprLabel} style={{ color: p.aprPct != null ? btb.green : btb.textDim, fontSize: 14, fontWeight: 800 }}>
+                        {p.aprPct != null ? fmtApr(p.aprPct) : p.aprLabel ? 'RFQ' : '—'}
                       </div>
                       <div style={{ color: btb.textDim, fontSize: 10.5 }}>fee APR</div>
                     </div>

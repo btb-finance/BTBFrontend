@@ -98,6 +98,33 @@ export function prefetchDiscoverPools(client?: PublicClient) {
     .finally(() => { inflight = false; set({ loading: false }); });
 }
 
+/**
+ * Resolve the already-shared hourly pool catalog for consumers that start
+ * before Convex's first response arrives (for example a deep-linked Simulate
+ * search). This subscribes to the same module store; it does not start a
+ * second request while prefetch is already in flight.
+ */
+export function waitForDiscoverPools(timeoutMs = 3_000): Promise<EarnPool[]> {
+  if (state.pools.length > 0) return Promise.resolve(state.pools);
+  prefetchDiscoverPools();
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      listeners.delete(onChange);
+      clearTimeout(timer);
+      resolve(state.pools);
+    };
+    const onChange = () => {
+      if (state.pools.length > 0 || (!state.loading && !inflight)) finish();
+    };
+    const timer = setTimeout(finish, timeoutMs);
+    listeners.add(onChange);
+    onChange();
+  });
+}
+
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
 const getSnapshot = () => state;
 

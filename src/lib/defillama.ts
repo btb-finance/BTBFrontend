@@ -22,6 +22,8 @@ export interface LlamaPool {
   apyPct1D?: number;   // APY change over the last 24h, in percentage points
   volume24hUsd?: number;
   feeTierPct?: number; // e.g. 0.3 for "0.30%" — DeFiLlama's `poolMeta` on AMM rows
+  poolMeta?: string;
+  rewardTokens?: string[];
   stablecoin: boolean;
   ilRisk: string;      // "yes" | "no"
   underlyingTokens?: string[];
@@ -41,26 +43,52 @@ const DEX_NAMES: Record<string, string> = {
   'balancer-v2': 'Balancer', 'balancer-v3': 'Balancer',
   'camelot-v2': 'Camelot', 'camelot-v3': 'Camelot',
   'fluid-dex': 'Fluid',
+  'project-x': 'Project X',
+  'nest-amm': 'Nest', 'nest-cl': 'Nest',
+  'hybra-v4': 'Hybra',
   'hyperswap-v2': 'HyperSwap', 'hyperswap-v3': 'HyperSwap',
+  'ultrasolid-v2': 'Ultrasolid', 'ultrasolid-v3': 'Ultrasolid',
+  'hypertrade-v2': 'Hypertrade', 'hypertrade-v3': 'Hypertrade',
+  'upheaval-v2': 'Upheaval Finance', 'upheaval-v3': 'Upheaval Finance',
+  'hyperlynx-v2': 'HyperLynx', 'hyperlynx-v3': 'HyperLynx',
+  'brownfi-v2': 'BrownFi', 'brownfi-v3': 'BrownFi',
+  'gliquid': 'Gliquid',
+  'noxa-dex-v2': 'NOXA', 'noxa-dex-v3': 'NOXA',
+  'spinup-dex': 'SpinUp',
+  'hx-finance': 'HX Finance',
+  'hyperbrick': 'HyperBrick',
+  'wombat-exchange': 'Wombat Exchange',
+  'skate-amm': 'Skate AMM',
+  'woofi-swap': 'WOOFi',
   'joe-v2.2': 'Trader Joe',
   'kyberswap-fairflow': 'KyberSwap',
   'pharaoh-v3': 'Pharaoh',
   'quickswap-dex': 'QuickSwap',
   'ramses-cl-v2': 'Ramses',
   'sparkdex-v3.1': 'SparkDEX', 'sparkdex-v4': 'SparkDEX',
+  'raydium-amm': 'Raydium',
+  'orca-dex': 'Orca',
+  'bluefin-spot': 'Bluefin',
+  'cetus-clmm': 'Cetus',
+  'turbos': 'Turbos',
+  'flowx-v2': 'FlowX', 'flowx-v3': 'FlowX',
+  'full-sail': 'Full Sail',
 };
 
 interface RawPool {
   pool: string; project: string; chain: string; symbol: string;
   tvlUsd?: number; apy?: number; apyBase?: number; apyReward?: number; apyPct1D?: number;
   volumeUsd1d?: number; poolMeta?: string;
-  stablecoin?: boolean; ilRisk?: string; underlyingTokens?: string[];
+  stablecoin?: boolean; ilRisk?: string; underlyingTokens?: string[]; rewardTokens?: string[];
 }
 
 function parseFeeTierPct(poolMeta?: string): number | undefined {
   if (!poolMeta) return undefined;
-  const n = parseFloat(poolMeta.replace('%', ''));
-  return isFinite(n) ? n : undefined;
+  const matches = [...poolMeta.matchAll(/(\d+(?:\.\d+)?)\s*%/g)];
+  const n = Number(matches.at(-1)?.[1]);
+  // Some protocol APIs round tiny dynamic fees to "0.00%". Treat that as
+  // unknown instead of fabricating zero fees from non-zero trading volume.
+  return isFinite(n) && n > 0 ? n : undefined;
 }
 
 /**
@@ -77,7 +105,7 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
   const rows: RawPool[] = json?.data ?? [];
   const allowed = projects ? new Set(projects) : null;
 
-  return rows
+  const ranked = rows
     .filter((r) => DEX_NAMES[r.project] && (!allowed || allowed.has(r.project)) && (r.tvlUsd ?? 0) >= minTvlUsd)
     .map((r) => ({
       id: r.pool,
@@ -92,12 +120,76 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
       apyPct1D: r.apyPct1D ?? undefined,
       volume24hUsd: r.volumeUsd1d ?? undefined,
       feeTierPct: parseFeeTierPct(r.poolMeta),
+      poolMeta: r.poolMeta,
+      rewardTokens: r.rewardTokens,
       stablecoin: !!r.stablecoin,
       ilRisk: r.ilRisk ?? 'yes',
       underlyingTokens: r.underlyingTokens,
     }))
-    .sort((a, b) => b.tvlUsd - a.tvlUsd)
-    .slice(0, limit);
+    .sort((a, b) => b.tvlUsd - a.tvlUsd);
+
+  // Keep the global leaders, then reserve enough rows for every indexed chain.
+  // Otherwise Ethereum/Base consume the entire global slice and healthy pools
+  // on HyperEVM and other smaller chains never reach the shared snapshot.
+  const selected = ranked.slice(0, limit);
+  const selectedIds = new Set(selected.map((pool) => pool.id));
+  const chainCounts = new Map<string, number>();
+  for (const pool of selected) chainCounts.set(pool.chain, (chainCounts.get(pool.chain) ?? 0) + 1);
+  const minPoolsPerChain = 12;
+  for (const pool of ranked) {
+    if (selectedIds.has(pool.id) || (chainCounts.get(pool.chain) ?? 0) >= minPoolsPerChain) continue;
+    selected.push(pool);
+    selectedIds.add(pool.id);
+    chainCounts.set(pool.chain, (chainCounts.get(pool.chain) ?? 0) + 1);
+  }
+
+  // Non-EVM discovery is intentionally read-only for now, so DeFiLlama is
+  // its complete catalog. Retain a few qualifying pools per DEX as well as
+  // per chain; otherwise the largest Raydium/Bluefin rows can hide smaller
+  // venues such as Orca, Turbos, FlowX, and Full Sail.
+  const nonEvmChains = new Set(['Solana', 'Sui']);
+  const venueCounts = new Map<string, number>();
+  for (const pool of selected) {
+    if (!nonEvmChains.has(pool.chain)) continue;
+    const key = `${pool.chain}:${pool.project}`;
+    venueCounts.set(key, (venueCounts.get(key) ?? 0) + 1);
+  }
+  const minPoolsPerNonEvmVenue = 3;
+  for (const pool of ranked) {
+    if (!nonEvmChains.has(pool.chain) || selectedIds.has(pool.id)) continue;
+    const key = `${pool.chain}:${pool.project}`;
+    if ((venueCounts.get(key) ?? 0) >= minPoolsPerNonEvmVenue) continue;
+    selected.push(pool);
+    selectedIds.add(pool.id);
+    venueCounts.set(key, (venueCounts.get(key) ?? 0) + 1);
+  }
+
+  // Keep enough rows to make the protocol-specific gauge integration useful,
+  // even when a venue is smaller than the global leaders.
+  const gaugeProjects = new Set([
+    'aerodrome-v1',
+    'aerodrome-slipstream',
+    'velodrome-v2',
+    'velodrome-v3',
+    'ramses-cl-v2',
+    'pharaoh-v3',
+    'blackhole-clmm',
+  ]);
+  const gaugeCounts = new Map<string, number>();
+  for (const pool of selected) {
+    if (gaugeProjects.has(pool.project)) {
+      gaugeCounts.set(pool.project, (gaugeCounts.get(pool.project) ?? 0) + 1);
+    }
+  }
+  const minPoolsPerGaugeProject = 12;
+  for (const pool of ranked) {
+    if (!gaugeProjects.has(pool.project) || selectedIds.has(pool.id)) continue;
+    if ((gaugeCounts.get(pool.project) ?? 0) >= minPoolsPerGaugeProject) continue;
+    selected.push(pool);
+    selectedIds.add(pool.id);
+    gaugeCounts.set(pool.project, (gaugeCounts.get(pool.project) ?? 0) + 1);
+  }
+  return selected.sort((a, b) => b.tvlUsd - a.tvlUsd);
 }
 
 export interface PoolChartPoint { timestamp: number; tvlUsd: number; apy: number; }

@@ -9,6 +9,7 @@ import { Button } from '../Button';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { ChainLogo } from '../ChainLogo';
+import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { ChainSelect } from './SwapScreen';
@@ -29,12 +30,13 @@ import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
-import { enrichMarketPoolApr, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
 import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
+import { useDiscoverPools, waitForDiscoverPools } from '../../lib/discoverPools';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 type SimulateMode = 'single' | 'cross-chain';
@@ -115,6 +117,7 @@ const WRAPPED_NATIVE_FALLBACKS: Record<number, `0x${string}`> = {
   81457: '0x4300000000000000000000000000000000000004',
   130: '0x4200000000000000000000000000000000000006',
   324: '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91',
+  999: '0x5555555555555555555555555555555555555555',
   143: '0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A',
   4326: '0x4200000000000000000000000000000000000006',
   4663: '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73',
@@ -166,10 +169,12 @@ interface FoundPool {
    * (DeFiLlama doesn't index this pool — common for PancakeSwap on Ethereum)
    * rather than the ±5% range-adjusted figure everywhere else uses. */
   aprIsUnranged?: boolean;
+  aprKind?: MarketPool['aprKind'];
+  aprLabel?: string;
   /** Pool on a DEX the app can't mint on (Uniswap V2, SushiSwap, Balancer, …)
    * from the GeckoTerminal/DexScreener pair search — shown for completeness
    * with a link out instead of a Simulate button. */
-  external?: { dexLabel: string; url: string };
+  external?: { dexLabel: string; url: string; aprLabel?: string };
 }
 
 function foundPoolKey(pool: FoundPool): string {
@@ -213,9 +218,11 @@ function marketPoolRows(marketPools: Awaited<ReturnType<typeof searchMarketPools
     address: mp.address as `0x${string}`,
     tvlUsd: mp.tvlUsd,
     apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
-    aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 ? true : undefined,
+    aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 && mp.aprKind !== 'gauge' ? true : undefined,
+    aprKind: mp.aprKind,
+    aprLabel: mp.aprLabel,
     fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
-    external: { dexLabel: mp.dexLabel, url: mp.url },
+    external: { dexLabel: mp.dexLabel, url: mp.url, aprLabel: mp.aprLabel },
   }));
 }
 
@@ -230,12 +237,62 @@ function dexBrand(label: string): string {
     .trim();
 }
 
+function marketAprText(pool: MarketPool): string {
+  if (pool.aprPct == null) return pool.aprLabel ? 'RFQ' : '—';
+  if (pool.aprKind === 'gauge') {
+    const reward = pool.aprLabel?.split('·').at(-1)?.trim();
+    return `${fmtApr(pool.aprPct)}${reward ? ` · ${reward}` : ''}`;
+  }
+  return `${fmtApr(pool.aprPct)}†`;
+}
+
+function foundAprText(pool: FoundPool): string {
+  if (pool.apy == null) return pool.external?.aprLabel ? 'RFQ' : '—';
+  if (pool.aprKind === 'gauge') {
+    const reward = pool.aprLabel?.split('·').at(-1)?.trim();
+    return `${fmtApr(pool.apy)}${reward ? ` · ${reward}` : ''}`;
+  }
+  return `${fmtApr(pool.apy)}${pool.aprIsUnranged ? '†' : ''}`;
+}
+
 function foundPoolDexCount(pools: FoundPool[]): number {
   return new Set(pools.map(pool => dexBrand(foundPoolDexLabel(pool)))).size;
 }
 
 function marketPoolDexCount(pools: MarketPool[]): number {
   return new Set(pools.map(pool => dexBrand(pool.dexLabel))).size;
+}
+
+function MobilePoolMetrics({ pool }: { pool: MarketPool }) {
+  const metrics = [
+    ['TVL', fmtCompactUsd(pool.tvlUsd)],
+    ['24H VOLUME', fmtCompactUsd(pool.volume24hUsd)],
+    [pool.aprLabel ? `APR · ${pool.aprLabel}` : 'APR', marketAprText(pool)],
+  ];
+  return (
+    <div style={{
+      gridColumn: '1 / -1',
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+      gap: 7,
+      paddingTop: 3,
+    }}>
+      {metrics.map(([label, value]) => (
+        <div key={label} style={{ minWidth: 0 }}>
+          <div style={{ color: btb.textDim, fontSize: 8.5, fontWeight: 800, letterSpacing: .35 }}>{label}</div>
+          <div style={{
+            color: label === 'APR' && pool.aprPct != null ? btb.amber : btb.text,
+            fontSize: 11.5,
+            fontWeight: 750,
+            marginTop: 2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>{value}</div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 
@@ -262,6 +319,7 @@ function normalizedChainName(name: string): string {
     arbitrumone: 'arbitrum',
     opmainnet: 'optimism',
     polygonmainnet: 'polygon',
+    hyperliquidl1: 'hyperevm',
   }[normalized] ?? normalized;
 }
 
@@ -630,6 +688,7 @@ function CrossChainResearch({ chains, isMobile }: {
   isMobile: boolean;
 }) {
   const config = useConfig();
+  const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
@@ -748,6 +807,7 @@ function CrossChainResearch({ chains, isMobile }: {
   };
 
   async function researchAcrossChains() {
+    const earnCatalog = earnPools.length > 0 ? earnPools : await waitForDiscoverPools();
     const tasks = selectedChains.flatMap(selectedChainId => {
       const selectedChain = chains.find(chain => chain.id === selectedChainId);
       if (!selectedChain) return [];
@@ -811,22 +871,29 @@ function CrossChainResearch({ chains, isMobile }: {
 
           updateResult(task.key, { tokenA, tokenB, message: 'Searching indexed DEX liquidity…' });
           const wrappedNative = WRAPPED_NATIVE_FALLBACKS[task.chainId] ?? WETH;
-          const indexedPools = await searchMarketPools(
-            toV3Address(tokenA.address, wrappedNative),
-            toV3Address(tokenB.address, wrappedNative),
+          const marketTokenA = toV3Address(tokenA.address, wrappedNative);
+          const marketTokenB = toV3Address(tokenB.address, wrappedNative);
+          const indexedPoolsRaw = await searchMarketPools(
+            marketTokenA,
+            marketTokenB,
             100,
             CHAIN_DATA_NETWORKS[task.chainId],
           );
           updateResult(task.key, {
             tokenA,
             tokenB,
-            pools: indexedPools,
-            message: `${indexedPools.length} pools found · loading missing APRs on-chain…`,
+            pools: indexedPoolsRaw,
+            message: `${indexedPoolsRaw.length} pools found · loading missing APRs on-chain…`,
           });
           const client = getPublicClient(config, { chainId: task.chainId as SupportedChainId });
-          const pools = client
-            ? await enrichMarketPoolApr(client, indexedPools).catch(() => indexedPools)
-            : indexedPools;
+          const pools = await enrichMarketPools(
+            client,
+            indexedPoolsRaw,
+            earnCatalog,
+            task.chainName,
+            marketTokenA,
+            marketTokenB,
+          );
           updateResult(task.key, {
             status: 'complete',
             tokenA,
@@ -866,7 +933,7 @@ function CrossChainResearch({ chains, isMobile }: {
   const winnerValue = winner ? metricValue(winner.pool) : 0;
   const runnerUpValue = runnerUp ? metricValue(runnerUp.pool) : 0;
   const winnerLead = runnerUpValue > 0 ? winnerValue / runnerUpValue : null;
-  const rankLabel = rankBy === 'volume' ? '24h volume' : rankBy === 'tvl' ? 'TVL' : 'fee APR';
+  const rankLabel = rankBy === 'volume' ? '24h volume' : rankBy === 'tvl' ? 'TVL' : 'APR';
   const winnerMetric = winner
     ? rankBy === 'volume' ? fmtCompactUsd(winner.pool.volume24hUsd)
       : rankBy === 'tvl' ? fmtCompactUsd(winner.pool.tvlUsd)
@@ -962,7 +1029,11 @@ function CrossChainResearch({ chains, isMobile }: {
               <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green, fontSize: 17 }}>★</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
-                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 2 }}>{winner.result.pair.label} · {winner.pool.dexLabel}</div>
+                <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span>{winner.result.pair.label} ·</span>
+                  <DexLogo name={winner.pool.dexLabel} size={16}/>
+                  <span>{winner.pool.dexLabel}</span>
+                </div>
                 <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>
                   {winnerMetric} {rankLabel}{winnerLead != null ? ` · ${winnerLead.toLocaleString(undefined, { maximumFractionDigits: 2 })}× the runner-up` : ' · only comparable pool so far'}
                 </div>
@@ -990,15 +1061,19 @@ function CrossChainResearch({ chains, isMobile }: {
                   <ChainLogo chainId={result.chainId} size={22}/>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{result.pair.label}</div>
-                    <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 1 }}>{pool.dexLabel}</div>
+                    <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <DexLogo name={pool.dexLabel} size={14}/>
+                      <span>{pool.dexLabel}</span>
+                    </div>
                   </div>
                 </div>
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.volume24hUsd)}</span>}
-                {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
+                {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{marketAprText(pool)}</span>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
+                {isMobile && <MobilePoolMetrics pool={pool}/>}
               </div>
             );
           })}
@@ -1031,9 +1106,13 @@ function CrossChainResearch({ chains, isMobile }: {
                 </div>
                 {topPools.map((pool, index) => (
                   <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr .8fr', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
-                    <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
+                    <span style={{ color: btb.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <DexLogo name={pool.dexLabel} size={16}/>
+                      <span>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
+                    </span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
-                    {!isMobile && <span style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{pool.aprPct != null ? `${fmtApr(pool.aprPct)}†` : '—'}</span>}
+                    {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{marketAprText(pool)}</span>}
+                    {isMobile && <MobilePoolMetrics pool={pool}/>}
                   </div>
                 ))}
               </Glass>
@@ -1050,6 +1129,7 @@ export function SimulateScreen() {
   const { chainId: walletChainId } = useConnection();
   const { isMobile } = useSidebar();
   const { tokens, positions } = useTokenStore();
+  const { pools: sharedEarnPools } = useDiscoverPools();
   const [mode, setMode] = useState<SimulateMode>('single');
   const urlChain = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('chain')) : 0;
   const initialChain = Number.isFinite(urlChain) && KYBER_CHAINS[urlChain]
@@ -1218,7 +1298,14 @@ export function SimulateScreen() {
             const dexCount = marketPoolDexCount(marketPools);
             setProgress(`Found ${marketPools.length} pools across ${dexCount} DEX${dexCount === 1 ? '' : 's'} · loading TVL and APR…`);
           }
-          const enriched = await enrichMarketPoolApr(client, marketPools).catch(() => marketPools);
+          const enriched = await enrichMarketPools(
+            client,
+            marketPools,
+            sharedEarnPools.length > 0 ? sharedEarnPools : await waitForDiscoverPools(),
+            chainName,
+            toV3Address(tokenA.address, wrappedNative),
+            toV3Address(tokenB.address, wrappedNative),
+          );
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(enriched)));
           return enriched;
         })
@@ -1427,7 +1514,8 @@ export function SimulateScreen() {
                     borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
                     background: i === 0 ? 'rgba(82,227,164,0.05)' : 'rgba(255,255,255,0.03)',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <DexLogo name={label} size={19}/>
                       <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
                         {label} · {feeLabel}
                         {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>Highest TVL</span>}
@@ -1435,9 +1523,9 @@ export function SimulateScreen() {
                       </span>
                       <span
                         style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
-                        title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : undefined}
+                        title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
                       >
-                        {f.apy != null ? fmtApr(f.apy) : '—'}{f.aprIsUnranged && '†'}
+                        {foundAprText(f)}
                       </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
@@ -1471,6 +1559,7 @@ export function SimulateScreen() {
               return (
                 <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <DexLogo name={label} size={20}/>
                     {label}
                     {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10 }}>Highest TVL</span>}
                     {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ color: btb.green, fontSize: 10 }}>No protocol fee</span>}
@@ -1479,9 +1568,9 @@ export function SimulateScreen() {
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
                   <span
                     style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 13, fontWeight: 700, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
-                    title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : undefined}
+                    title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
                   >
-                    {f.apy != null ? fmtApr(f.apy) : '—'}{f.aprIsUnranged && '†'}
+                    {foundAprText(f)}
                   </span>
                   {f.external ? (
                     <a href={f.external.url} target="_blank" rel="noreferrer" style={{

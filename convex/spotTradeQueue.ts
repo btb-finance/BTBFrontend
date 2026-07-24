@@ -11,6 +11,8 @@ export const insert = internalMutation({
   args: {
     orderKey: v.string(), chainId: v.float64(), account: v.string(),
     tokenIn: v.string(), tokenOut: v.string(), amountIn: v.string(),
+    minimumGrossOutput: v.optional(v.string()), nonce: v.optional(v.string()),
+    deadline: v.optional(v.float64()), sessionSignature: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.query("spotTradeOrders").withIndex("by_order_key", q => q.eq("orderKey", args.orderKey)).unique();
@@ -67,11 +69,11 @@ export const markSubmitted = internalMutation({
 });
 
 export const complete = internalMutation({
-  args: { orderId: v.id("spotTradeOrders"), workerId: v.string(), txHash: v.string(), netAmountOut: v.string(), amountInUsd: v.float64() },
+  args: { orderId: v.id("spotTradeOrders"), workerId: v.string(), txHash: v.string(), grossAmountOut: v.string(), protocolFee: v.string(), netAmountOut: v.string(), amountInUsd: v.float64() },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order || order.workerId !== args.workerId) throw new Error("Spot order lease was lost");
-    await ctx.db.patch(order._id, { state: "confirmed", txHash: args.txHash.toLowerCase(), signedTransaction: undefined, netAmountOut: args.netAmountOut, amountInUsd: args.amountInUsd, updatedAt: Date.now(), leaseUntil: undefined, workerId: undefined, error: undefined });
+    await ctx.db.patch(order._id, { state: "confirmed", txHash: args.txHash.toLowerCase(), signedTransaction: undefined, grossAmountOut: args.grossAmountOut, protocolFee: args.protocolFee, netAmountOut: args.netAmountOut, amountInUsd: args.amountInUsd, updatedAt: Date.now(), leaseUntil: undefined, workerId: undefined, error: undefined });
   },
 });
 

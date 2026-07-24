@@ -34,6 +34,10 @@ export const drain = internalAction({
         tokenIn: order.tokenIn,
         tokenOut: order.tokenOut,
         amountIn: order.amountIn,
+        minimumGrossOutput: order.minimumGrossOutput,
+        nonce: order.nonce,
+        deadline: order.deadline,
+        sessionSignature: order.sessionSignature,
         orderId: order._id,
         workerId,
         txHash: order.txHash,
@@ -41,6 +45,8 @@ export const drain = internalAction({
       });
       await ctx.runMutation(internal.spotTradeQueue.complete, {
         orderId: order._id, workerId, txHash: result.hash,
+        grossAmountOut: result.grossAmountOut,
+        protocolFee: result.protocolFee,
         netAmountOut: result.netAmountOut,
         amountInUsd: result.amountInUsd || order.amountInUsd || 0,
       });
