@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useConfig } from 'wagmi';
 import { useAction } from 'convex/react';
-import { getPublicClient } from 'wagmi/actions';
+import { getPublicClient, signTypedData } from 'wagmi/actions';
 import { encodeFunctionData } from 'viem';
 import { Portal } from './Portal';
 import { Button } from './Button';
@@ -14,15 +14,21 @@ import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import {
-  ERC721_OWNER_ABI, UINT128_MAX, configurePolicyCall, createAccountCall,
-  getSmartAccountDeployment, isModularDeployment, readSmartAccount, type RebalancePolicy,
-} from '../lib/smartAccount';
+  createUniversalWalletCall, getUniversalWalletDeployment, readUniversalWallet, upgradeUniversalWalletCalls,
+  tradingSetupDomain,
+} from '../lib/universalWallet';
+import { GUARDED_SETUP_TYPES, prepareUniversalLpSetup, readUniversalLpPolicy, UNIVERSAL_LP_WALLET_ABI } from '../lib/universalLp';
 import {
-  rangeTicks, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, UNISWAP_V3_DEPLOYMENT,
+  rangeTicks, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
   type LiquidityPosition,
 } from '@/protocols/dexs/uniswap';
 import { FACTORY_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { api } from '../../convex/_generated/api';
+
+const ERC721_OWNER_ABI = [
+  { name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ type: 'uint256' }], outputs: [{ type: 'address' }] },
+  { name: 'safeTransferFrom', type: 'function', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }], outputs: [] },
+] as const;
 
 export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
   pos: LiquidityPosition;
@@ -34,9 +40,10 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
   const config = useConfig();
   const { track } = useTx();
   const registerManaged = useAction(api.managedPositionMonitor.register);
-  const chainId = (pos.chainId ?? 1) as 1 | 4663;
-  const deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-  const smartDeployment = getSmartAccountDeployment(chainId);
+  const configureSignedLp = useAction(api.lpSetup.configure);
+  const chainId = pos.chainId ?? 1;
+  const deployment = ROBINHOOD_UNISWAP_V3_DEPLOYMENT;
+  const smartDeployment = chainId === 4663 ? getUniversalWalletDeployment() : null;
   const [rules, setRules] = useState<AutomationRuleValues>({
     ...DEFAULT_AUTOMATION_RULES,
     twapSeconds: chainId === 4663 ? 60 : 300,
@@ -46,12 +53,12 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
   const [err, setErr] = useState<string | null>(null);
 
   async function enroll() {
-    if (!smartDeployment || pos.protocol !== 'uniswap-v3') return;
+    if (!smartDeployment || chainId !== 4663 || pos.protocol !== 'uniswap-v3') return;
     const client = getPublicClient(config, { chainId });
     if (!client) { setErr('No RPC client'); return; }
     setBusy(true); setErr(null);
     try {
-      const smart = await readSmartAccount(client, account, smartDeployment);
+      let smart = await readUniversalWallet(client, account, smartDeployment);
       const pool = await client.readContract({
         address: deployment.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [pos.token0, pos.token1, pos.fee],
       });
@@ -60,47 +67,32 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
       const allowedPct = rules.allowedRangePct !== null && rules.allowedRangePct < rules.targetRangePct ? rules.targetRangePct : rules.allowedRangePct;
       const allowed = rangeTicks(pos.currentTick, spacing, allowedPct);
       const target = rangeTicks(pos.currentTick, spacing, rules.targetRangePct);
-      const policy: RebalancePolicy = {
-        enabled: true,
-        agent: smartDeployment.agent,
-        positionManager: deployment.positionManager,
-        uniswapFactory: deployment.factory,
-        pool,
-        swapAdapter: isModularDeployment(smartDeployment) ? smartDeployment.aggregatorSwapAdapter : smartDeployment.swapAdapter,
-        priceGuard: smartDeployment.priceGuard,
-        token0: pos.token0,
-        token1: pos.token1,
-        positionId: pos.id,
-        fee: pos.fee,
-        targetTickWidth: target.tickUpper - target.tickLower,
-        performanceFeeBps: 1_000,
-        maxSlippageBps: slippageBps,
-        maxSwapBpsOfPosition: rules.maxSwapPct * 100,
-        maxSpotTwapDeviationBps: rules.maxDeviationPct * 100,
-        maxIdleBps: 1_000,
-        twapSeconds: rules.twapSeconds,
-        minRebalanceInterval: rules.intervalSeconds,
-        expiresAt: BigInt(Math.floor(Date.now() / 1000) + rules.expiryDays * 86_400),
-        minimumAllowedTick: Math.min(allowed.tickLower, pos.tickLower),
-        maximumAllowedTick: Math.max(allowed.tickUpper, pos.tickUpper),
-        maximumToken0PerExecution: UINT128_MAX,
-        maximumToken1PerExecution: UINT128_MAX,
-      };
+      const expiresAt = BigInt(Math.floor(Date.now() / 1000) + rules.expiryDays * 86_400);
+      const targetTickWidth = target.tickUpper - target.tickLower;
+      const minimumAllowedTick = Math.min(allowed.tickLower, pos.tickLower);
+      const maximumAllowedTick = Math.max(allowed.tickUpper, pos.tickUpper);
 
-      // ERC-721 ownership checks use msg.sender. Some wallet_sendCalls
-      // implementations execute a batch through a helper contract, which
-      // makes an otherwise valid owner transfer revert as "not approved".
-      // Keep first-time enrollment receipt-gated and resumable. Rebalances
-      // after enrollment still execute atomically inside BTBLPAccount.
       if (!smart.deployed) {
         await runCalls(config, {
           account, chainId, label: `Create my ${pos.chainName ?? 'LP'} account`, track,
-          calls: [createAccountCall(smartDeployment, account)],
+          calls: [createUniversalWalletCall(smartDeployment, account)],
           verify: {
-            test: async () => (await readSmartAccount(client, account, smartDeployment)).deployed,
+            test: async () => (await readUniversalWallet(client, account, smartDeployment)).deployed,
             error: 'Account creation confirmed, but the contract is not visible from this RPC yet.',
           },
         });
+        smart = await readUniversalWallet(client, account, smartDeployment);
+      }
+      if (!smart.guardedSetupReady) {
+        await runCalls(config, {
+          account, chainId, label: 'Upgrade my BTB account for guarded LP automation', track,
+          calls: upgradeUniversalWalletCalls(smart.account, smartDeployment.implementation, smart.paused),
+          verify: {
+            test: async () => (await readUniversalWallet(client, account, smartDeployment)).guardedSetupReady,
+            error: 'The wallet upgrade confirmed, but the current implementation is not visible yet.',
+          },
+        });
+        smart = await readUniversalWallet(client, account, smartDeployment);
       }
 
       const nftOwner = await client.readContract({
@@ -123,18 +115,39 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         });
       }
 
-      await runCalls(config, {
-        account, chainId, label: `Save ${pos.symbol0}/${pos.symbol1} automation rules`, track,
-        calls: [configurePolicyCall(smartDeployment, smart.account, policy)],
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
+      const guarded = await prepareUniversalLpSetup({
+        client, account: smart.account, deployment: smartDeployment,
+        positionManager: deployment.positionManager, pool, token0: pos.token0, token1: pos.token1, fee: pos.fee,
+        targetTickWidth, maximumSlippageBps: slippageBps,
+        maximumToken0PerRebalance: (pos.amount0 + pos.fees0) * BigInt(rules.maxSwapPct * 100) / 10_000n,
+        maximumToken1PerRebalance: (pos.amount1 + pos.fees1) * BigInt(rules.maxSwapPct * 100) / 10_000n,
+        minimumTick: minimumAllowedTick, maximumTick: maximumAllowedTick, expiresAt,
+        nonce: smart.guardedSetupNonce, deadline,
       });
+      const ownerSignature = await signTypedData(config, {
+        account,
+        domain: tradingSetupDomain(smart.account),
+        types: GUARDED_SETUP_TYPES,
+        primaryType: 'GuardedSetup',
+        message: guarded.setup,
+      });
+      const setupCall = encodeFunctionData({
+        abi: UNIVERSAL_LP_WALLET_ABI,
+        functionName: 'configureGuardedWorkflowBySig',
+        args: [guarded.setup, guarded.callPolicyUpdates, guarded.approvalPolicyUpdates, guarded.guardConfiguration, ownerSignature],
+      });
+      await configureSignedLp({ owner: account, account: smart.account, deployed: true, setupCall });
+      if (!(await readUniversalLpPolicy(client, smart.account, pos.token0, pos.token1, pos.fee))) {
+        throw new Error('The signed setup confirmed, but the LP policy is not visible yet.');
+      }
       await registerManaged({
         chainId, owner: account, account: smart.account, positionManager: deployment.positionManager,
         positionId: pos.id.toString(), pool, token0: pos.token0, token1: pos.token1, fee: pos.fee,
         tickLower: pos.tickLower, tickUpper: pos.tickUpper,
-        targetTickWidth: policy.targetTickWidth, minimumAllowedTick: policy.minimumAllowedTick,
-        maximumAllowedTick: policy.maximumAllowedTick, maxSlippageBps: policy.maxSlippageBps,
-        maxSwapBps: policy.maxSwapBpsOfPosition, twapSeconds: policy.twapSeconds,
-        minRebalanceInterval: policy.minRebalanceInterval, expiresAt: Number(policy.expiresAt), source: 'enrolled',
+        targetTickWidth, minimumAllowedTick, maximumAllowedTick, maxSlippageBps: slippageBps,
+        maxSwapBps: rules.maxSwapPct * 100, twapSeconds: rules.twapSeconds,
+        minRebalanceInterval: rules.intervalSeconds, expiresAt: Number(expiresAt), source: 'universal-v5',
       });
       await onDone();
       onClose();
@@ -159,22 +172,22 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
           </div>
 
           <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55, padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.035)', border: btb.borderSoft, marginBottom: 12 }}>
-            The NFT moves into your personal smart account. The agent may only remove, safely swap and re-add this LP within your limits. It cannot send tokens, NFTs or fees anywhere except your fixed wallet.
+            The NFT moves into the same universal smart account used by BTB trading. The agent can only remove, safely swap and re-add this pool inside the range limits you sign. It cannot transfer the NFT or withdraw funds.
           </div>
 
           {smartDeployment ? (
             <AutomationRules value={rules} onChange={setRules} agent={smartDeployment.agent} slippageBps={slippageBps} onSlippageChange={setSlippageBps} disabled={busy}/>
           ) : (
             <div style={{ color: btb.amber, fontSize: 12, padding: 12, borderRadius: 12, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.2)' }}>
-              Smart-account contracts are not configured for this chain yet.
+              Guarded LP automation currently supports Uniswap V3 on Robinhood Chain.
             </div>
           )}
           {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12, lineHeight: 1.45 }}>{err}</div>}
           <Button variant="success" size="md" onClick={enroll} disabled={busy || !smartDeployment} style={{ marginTop: 14, fontWeight: 800 }}>
-            {busy ? 'Checking each confirmed step…' : 'Move to my account & enable'}
+            {busy ? 'Setting up securely…' : 'Move to my account & enable'}
           </Button>
           <div style={{ color: btb.textDim, textAlign: 'center', fontSize: 10.5, lineHeight: 1.45, marginTop: 9 }}>
-            First enrollment may require account creation, one NFT transfer and rule setup. Each confirmed step is detected, so retry safely resumes instead of repeating it. Rebalances use one transaction.
+            LP rules are installed with one signature. A new account or an NFT still in your wallet may need a one-time on-chain move first. Every rebalance is one atomic agent transaction.
           </div>
         </div>
       </div>

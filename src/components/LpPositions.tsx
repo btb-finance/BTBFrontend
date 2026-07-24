@@ -29,7 +29,7 @@ import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
-import { getSmartAccountDeployment } from '../lib/smartAccount';
+import { getUniversalWalletDeployment } from '../lib/universalWallet';
 import {
   type KrystalPositionAnalytics,
   type KrystalTokenAmount,
@@ -321,7 +321,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
       ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
       : p.chainId === 4663 && p.protocol === 'uniswap-v3');
-    const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && !!getSmartAccountDeployment(p.chainId ?? 1);
+    const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
     const busy = busyId === posKey(p);
     const v = valueOf(p);
     const f = feesValueOf(p);
@@ -553,7 +553,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
               ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
               : p.chainId === 4663 && p.protocol === 'uniswap-v3');
-            const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && !!getSmartAccountDeployment(p.chainId ?? 1);
+            const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
             const busy = busyId === posKey(p);
             const value = valueOf(p);
             const analytics = analyticsOf(p);

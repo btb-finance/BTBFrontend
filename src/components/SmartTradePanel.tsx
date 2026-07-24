@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useConfig } from 'wagmi';
-import { getPublicClient } from 'wagmi/actions';
+import { getPublicClient, signTypedData } from 'wagmi/actions';
 import { erc20Abi, formatUnits, isAddress, parseUnits } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { api } from '../../convex/_generated/api';
@@ -16,18 +16,18 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useAccountAssets, useRefreshAssets } from '../lib/appData';
 import {
-  configureUniversalTradeCalls, createUniversalWalletCall, getUniversalWalletDeployment,
-  readUniversalWallet, SPOT_TRADE_TYPES, spotTradeDomain, type SpotTradePolicy,
+  getUniversalWalletDeployment, readUniversalWallet, SPOT_TRADE_TYPES, spotTradeDomain,
+  TRADING_SETUP_TYPES, tradingSetupDomain, upgradeUniversalWalletCalls, type SpotTradePolicy,
 } from '../lib/universalWallet';
 
 type TokenMeta = { address: `0x${string}`; symbol: string; decimals: number; balance: bigint };
 type SmartState = {
   account: `0x${string}`;
   deployed: boolean;
-  legacyWallet: boolean;
   upgraded: boolean;
   paused: boolean;
   policy: SpotTradePolicy | null;
+  setupNonce: bigint;
 };
 
 export type TradePreset = {
@@ -79,6 +79,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const { track } = useTx();
   const prepareTrade = useAction(api.spotTrade.prepare);
   const enqueueTrade = useAction(api.spotTrade.enqueue);
+  const configureSignedSetup = useAction(api.spotSetup.configure);
   const cancelQueued = useMutation(api.spotTradeQueue.cancelForAccount);
   const createSchedule = useAction(api.dcaActions.createSchedule);
   const setScheduleEnabled = useMutation(api.dca.setEnabled);
@@ -126,10 +127,10 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       if (!client) throw new Error('Robinhood RPC is unavailable');
       const smart = await readUniversalWallet(client, validOwner, deployment);
       if (!smart.deployed) {
-        setState({ account: smart.account, deployed: false, legacyWallet: false, upgraded: deployment.factoryIsV3, paused: false, policy: null });
+        setState({ account: smart.account, deployed: false, upgraded: true, paused: false, policy: null, setupNonce: 0n });
         return;
       }
-      setState({ account: smart.account, deployed: true, legacyWallet: smart.legacyWallet, upgraded: smart.upgraded, paused: smart.paused, policy: smart.policy });
+      setState({ account: smart.account, deployed: true, upgraded: smart.upgraded, paused: smart.paused, policy: smart.policy, setupNonce: smart.setupNonce });
     } catch (reason) {
       setError((reason as Error).message || 'Could not load the smart trading account');
     } finally { setLoading(false); }
@@ -275,31 +276,50 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
 
   async function enableInstantTrading() {
     if (!validOwner || !deployment || !state) { onConnect?.(); return; }
-    if (!state.deployed && !deployment.factoryIsV3) {
-      setError('New dust-enabled wallet creation is waiting for the V3 factory deployment. Existing accounts remain available.');
-      return;
-    }
     setBusy('setup'); setError(null); setSuccess(null);
     const requestKey = generatePrivateKey();
     const sessionSigner = privateKeyToAccount(requestKey).address;
     const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 90 * 24 * 60 * 60);
     try {
-      await runCalls(config, {
+      if (state.deployed && !state.upgraded) {
+        await runCalls(config, {
+          account: validOwner,
+          chainId: CHAIN_ID,
+          track,
+          label: 'Upgrade your BTB smart account',
+          calls: upgradeUniversalWalletCalls(state.account, deployment.implementation, state.paused),
+        });
+      }
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
+      const setup = {
+        agent: deployment.agent,
+        payoutReceiver: deployment.agent,
+        sessionSigner,
+        maximumBalanceSpendBps: 10_000,
+        expiresAt,
+        router: deployment.router,
+        routerCodeHash: deployment.routerCodeHash,
+        selector0: '0xe21fd0e9' as const,
+        selector1: '0x8af033fb' as const,
+        nonce: state.setupNonce,
+        deadline,
+      };
+      const ownerSignature = await signTypedData(config, {
         account: validOwner,
-        chainId: CHAIN_ID,
-        track,
-        label: state.deployed ? 'Authorize BTB instant trading' : 'Create and authorize your BTB smart account',
-        calls: [
-          ...(state.deployed ? [] : [createUniversalWalletCall(deployment, validOwner)]),
-          ...configureUniversalTradeCalls({
-            account: state.account,
-            deployment,
-            sessionSigner,
-            expiresAt,
-            needsUpgrade: !state.upgraded,
-            paused: state.paused,
-          }),
-        ],
+        domain: tradingSetupDomain(state.account),
+        types: TRADING_SETUP_TYPES,
+        primaryType: 'TradingSetup',
+        message: setup,
+      });
+      await configureSignedSetup({
+        owner: validOwner,
+        account: state.account,
+        deployed: state.deployed,
+        sessionSigner,
+        expiresAt: Number(expiresAt),
+        nonce: state.setupNonce.toString(),
+        deadline: Number(deadline),
+        ownerSignature,
       });
       localStorage.setItem(storageKey(state.account), requestKey);
       await load();
@@ -330,8 +350,9 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       const signature = await session.signTypedData({
         domain: spotTradeDomain(state.account),
         types: SPOT_TRADE_TYPES,
-        primaryType: 'SpotTradeV3',
+        primaryType: 'SpotTradeV5',
         message: {
+          router: prepared.router,
           tokenIn: inputMeta.address,
           tokenOut: outputMeta.address,
           amountIn: parsedAmount,
@@ -345,6 +366,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         orderKey: `spot:${state.account.toLowerCase()}:${preset.id}`,
         chainId: CHAIN_ID,
         account: state.account,
+        router: prepared.router,
         tokenIn: inputMeta.address,
         tokenOut: outputMeta.address,
         amountIn: parsedAmount.toString(),
@@ -629,7 +651,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         </div> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View ↗</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
       </div>}
       {funding && state?.deployed && validOwner && (
-        <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} deployment={{}} universal initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { bumpBalances(); await load(); }}/>
+        <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { bumpBalances(); await load(); }}/>
       )}
     </>
   );
