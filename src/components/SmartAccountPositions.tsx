@@ -22,6 +22,7 @@ import { readUniversalLpPolicy, UNIVERSAL_LP_WALLET_ABI, withdrawUniversalLpCall
 import {
   fetchV3Positions, fmtFeeTier, tickToPrice, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, type LiquidityPosition,
 } from '@/protocols/dexs/uniswap';
+import { readableError } from '../lib/errorText';
 
 type WalletState = Awaited<ReturnType<typeof readUniversalWallet>> & { deployment: UniversalWalletDeployment };
 type ManagedItem = { pos: LiquidityPosition; policy: UniversalLpPolicy | null };
@@ -115,7 +116,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
     try {
       await runCalls(config, { account: address, chainId: CHAIN_ID, label: 'Create my universal BTB account', track, calls: [createUniversalWalletCall(wallet.deployment, address)] });
       await load();
-    } catch (cause) { setError((cause as { shortMessage?: string })?.shortMessage ?? (cause as Error).message); }
+    } catch (cause) { setError(readableError(cause, 'That position action could not be completed')); }
     finally { setBusy(null); }
   }
 
@@ -125,7 +126,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
     try {
       await runCalls(config, { account: address, chainId: CHAIN_ID, label: wallet.paused ? 'Resume account automation' : 'Pause account automation', track, calls: [{ to: wallet.account, data: encodeFunctionData({ abi: UNIVERSAL_WALLET_ABI, functionName: 'setPaused', args: [!wallet.paused] }) }] });
       await load();
-    } catch (cause) { setError((cause as { shortMessage?: string })?.shortMessage ?? (cause as Error).message); }
+    } catch (cause) { setError(readableError(cause, 'That position action could not be completed')); }
     finally { setBusy(null); }
   }
 
@@ -135,7 +136,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
     try {
       await runCalls(config, { account: address, chainId: CHAIN_ID, label: `Return ${item.pos.symbol0}/${item.pos.symbol1} NFT`, track, calls: [withdrawUniversalLpCall(wallet.account, ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager, item.pos.id)] });
       await load();
-    } catch (cause) { setError((cause as { shortMessage?: string })?.shortMessage ?? (cause as Error).message); }
+    } catch (cause) { setError(readableError(cause, 'That position action could not be completed')); }
     finally { setBusy(null); }
   }
 

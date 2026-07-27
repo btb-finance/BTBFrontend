@@ -8,6 +8,7 @@ import { SectionHeader } from './SectionHeader';
 import { Icon } from './Icon';
 import { Button } from './Button';
 import { btb } from './design-tokens';
+import { readableError } from '../lib/errorText';
 
 const MS_PER_DAY = 86_400_000;
 const WEEK_MS = 604_800_000;
@@ -109,7 +110,7 @@ function QuestRow({
       setProof('');
       setOpen(false);
     } catch (e) {
-      setError((e as Error).message?.replace(/^\[.*?\]\s*/, '') ?? 'Could not submit');
+      setError(readableError(e, 'Could not submit'));
     }
   };
 
@@ -230,7 +231,7 @@ export function QuestBoard({ address, onConnect }: { address?: string; onConnect
     try {
       await requestPayout({ walletAddress: address! });
     } catch (e) {
-      setClaimError((e as Error).message?.replace(/^\[.*?\]\s*/, '') ?? 'Could not enter this week');
+      setClaimError(readableError(e, 'Could not enter this week'));
     } finally {
       setClaiming(false);
     }

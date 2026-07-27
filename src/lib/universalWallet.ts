@@ -1,4 +1,7 @@
-import { encodeFunctionData, isAddress, zeroAddress, type Hex, type PublicClient } from 'viem';
+import { encodeFunctionData, getAddress, isAddress, zeroAddress, type Hex, type PublicClient } from 'viem';
+
+/** ERC-1967 implementation slot: keccak256('eip1967.proxy.implementation') - 1. */
+const ERC1967_IMPLEMENTATION_SLOT = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' as const;
 import type { Call } from './txRunner';
 
 export type UniversalWalletDeployment = {
@@ -59,13 +62,17 @@ function address(value?: string): `0x${string}` | null {
 
 export function getUniversalWalletDeployment(): UniversalWalletDeployment | null {
   const factory = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_FACTORY_4663)
-    ?? '0x2C2360b0e662ffB535e0c501B2Fd28Cd3792815d';
+    ?? '0x16EE6A9de42ec92bE7141A6009B211D1080348E3';
+  // Every factory that has ever created a wallet. A new factory address means a
+  // new CREATE2 wallet address, so an existing owner is only found by looking
+  // them up here — dropping one hides funded accounts from their owner.
   const migrationFactories = [
+    '0x2C2360b0e662ffB535e0c501B2Fd28Cd3792815d',
     '0x4cDC938b3Ece8A82c1658827cFc30Bbc1DF65EA3',
     '0x632f02d54F6F37eA7Ae41E02402aCAF9cd1c08b3',
   ] as const;
   const implementation = address(process.env.NEXT_PUBLIC_BTB_UNIVERSAL_IMPLEMENTATION_4663)
-    ?? '0xe914F22F270C5E402d8Ab1D2697CC0CA9225d8a7';
+    ?? '0x5D510E076DD9a58D574932fA8e8c6dAd1d67ef72';
   const agent = address(process.env.NEXT_PUBLIC_BTB_AGENT_4663)
     ?? '0xfE097b94eeDEb21DFc1b9A307d199A55dB6acb7d';
   const router = address(process.env.NEXT_PUBLIC_KYBER_ROUTER_4663)
@@ -98,6 +105,7 @@ export async function readUniversalWallet(client: PublicClient, owner: `0x${stri
   let setupNonce = 0n;
   let guardedSetupNonce = 0n;
   let guardedSetupReady = false;
+  let currentImplementation: `0x${string}` | null = null;
   if (deployed) {
     const [raw, pausedValue, setupTypehash, nonce, guardedTypehash, guardedNonce] = await Promise.all([
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'spotTradePolicy' }).catch(() => null),
@@ -108,13 +116,22 @@ export async function readUniversalWallet(client: PublicClient, owner: `0x${stri
       client.readContract({ address: account, abi: UNIVERSAL_WALLET_ABI, functionName: 'guardedSetupNonce' }).catch(() => 0n),
     ]);
     paused = pausedValue;
-    upgraded = setupTypehash !== null;
+    // Every V5 exposes TRADING_SETUP_TYPEHASH, so its presence only proves the
+    // wallet is on *a* V5 — it cannot distinguish the implementation carrying
+    // the current fixes from the one before it. Read the proxy's own ERC-1967
+    // slot and compare, so a wallet left on an older implementation is still
+    // offered the upgrade.
+    const slot = await client.getStorageAt({ address: account, slot: ERC1967_IMPLEMENTATION_SLOT }).catch(() => undefined);
+    currentImplementation = slot && slot.length >= 66 ? getAddress(`0x${slot.slice(-40)}`) : null;
+    upgraded = setupTypehash !== null
+      && currentImplementation !== null
+      && currentImplementation.toLowerCase() === deployment.implementation.toLowerCase();
     setupNonce = nonce;
     guardedSetupReady = guardedTypehash !== null;
     guardedSetupNonce = guardedNonce;
     if (raw) policy = { agent: raw[0], sessionSigner: raw[1], maximumBalanceSpendBps: Number(raw[2]), expiresAt: raw[3], enabled: raw[4] };
   }
-  return { account, deployed, upgraded, guardedSetupReady, paused, policy, setupNonce, guardedSetupNonce, migrationWallet: migration !== zeroAddress };
+  return { account, deployed, upgraded, currentImplementation, guardedSetupReady, paused, policy, setupNonce, guardedSetupNonce, migrationWallet: migration !== zeroAddress };
 }
 
 export function createUniversalWalletCall(deployment: UniversalWalletDeployment, owner: `0x${string}`): Call {

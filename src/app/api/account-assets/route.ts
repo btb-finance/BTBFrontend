@@ -32,6 +32,11 @@ const WETH = '0x0bd7d308f8e1639fab988df18a8011f41eacad73';
 // query is declared here — without it every address is served the first
 // caller's balances, so a smart account shows its owner's portfolio.
 const BALANCE_VARY = { 'Netlify-Vary': 'query=address|refresh' };
+// The trade panel polls balances every 10s, so anything longer than this at the
+// edge or in the data cache would decide the real freshness instead. Prices
+// move slower than balances and share an upstream that is easy to overrun.
+const BALANCE_TTL_SECONDS = 5;
+const PRICE_TTL_SECONDS = 30;
 
 function amount(raw: string, decimals: number) {
   const value = Number(raw) / 10 ** decimals;
@@ -45,8 +50,8 @@ export async function GET(request: Request) {
   if (!isAddress(address)) return Response.json({ error: 'invalid address', assets: [] }, { status: 400, headers: BALANCE_VARY });
   try {
     const [balancesResponse, addressResponse] = await Promise.all([
-      fetch(`${EXPLORER}/addresses/${address}/token-balances`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(8_000) }),
-      fetch(`${EXPLORER}/addresses/${address}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(8_000) }),
+      fetch(`${EXPLORER}/addresses/${address}/token-balances`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: BALANCE_TTL_SECONDS }, signal: AbortSignal.timeout(8_000) }),
+      fetch(`${EXPLORER}/addresses/${address}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: BALANCE_TTL_SECONDS }, signal: AbortSignal.timeout(8_000) }),
     ]);
     if (!balancesResponse.ok || !addressResponse.ok) throw new Error('explorer unavailable');
     const balances = await balancesResponse.json() as ExplorerBalance[];
@@ -56,7 +61,7 @@ export async function GET(request: Request) {
     const batches: string[][] = [];
     for (let index = 0; index < addresses.length; index += 30) batches.push(addresses.slice(index, index + 30));
     const settled = await Promise.allSettled(batches.map(async batch => {
-      const response = await fetch(`${DEX}/${batch.join(',')}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: 20 }, signal: AbortSignal.timeout(8_000) });
+      const response = await fetch(`${DEX}/${batch.join(',')}`, refresh ? { cache: 'no-store', signal: AbortSignal.timeout(8_000) } : { next: { revalidate: PRICE_TTL_SECONDS }, signal: AbortSignal.timeout(8_000) });
       if (!response.ok) return [] as Pair[];
       return response.json() as Promise<Pair[]>;
     }));
@@ -82,7 +87,7 @@ export async function GET(request: Request) {
     const nativeBalance = amount(native.coin_balance ?? '0', 18);
     assets.push({ address: null, symbol: 'ETH', name: 'Ether', decimals: 18, rawBalance: native.coin_balance ?? '0', balance: nativeBalance, priceUsd: Number(native.exchange_rate ?? 0) || 0, usdValue: nativeBalance * (Number(native.exchange_rate ?? 0) || 0), imageUrl: '', native: true });
     assets.sort((a, b) => b.usdValue - a.usdValue || b.balance - a.balance);
-    return Response.json({ assets }, { headers: { ...BALANCE_VARY, 'cache-control': refresh ? 'no-store' : 'public, s-maxage=20, stale-while-revalidate=60' } });
+    return Response.json({ assets }, { headers: { ...BALANCE_VARY, 'cache-control': refresh ? 'no-store' : `public, s-maxage=${BALANCE_TTL_SECONDS}, stale-while-revalidate=60` } });
   } catch {
     return Response.json({ error: 'balances unavailable', assets: [] }, { status: 502, headers: { ...BALANCE_VARY, 'cache-control': 'no-store' } });
   }

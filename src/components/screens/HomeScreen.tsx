@@ -11,8 +11,9 @@ import { btb } from '../design-tokens';
 import { type Tab } from '../types';
 import { useSidebar } from '../../lib/SidebarContext';
 import type { MarketFeedData, MarketToken } from '../../lib/marketFeed';
+import { LaunchFeed } from '../LaunchFeed';
 
-type MarketView = 'trending' | 'new' | 'top' | 'all';
+type MarketView = 'trending' | 'launches' | 'new' | 'top' | 'all';
 
 function usd(value: number, compact = true) {
   if (!Number.isFinite(value) || value <= 0) return '—';
@@ -64,7 +65,7 @@ export function HomeScreen({ address, onConnectWallet, marketFeed }: {
 }) {
   const { isMobile } = useSidebar();
   const { markets, updatedAt, loading, error } = marketFeed;
-  const [view, setView] = useState<MarketView>('trending');
+  const [view, setView] = useState<MarketView>('launches');
   const [query, setQuery] = useState('');
   const [visible, setVisible] = useState(30);
   const [presets, setPresets] = useState<TradePreset[]>([]);
@@ -162,11 +163,12 @@ export function HomeScreen({ address, onConnectWallet, marketFeed }: {
 
       <div style={{ display: 'flex', gap: 7, alignItems: 'center', marginTop: 13, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <div style={{ display: 'flex', gap: 5, overflowX: 'auto', maxWidth: '100%' }}>
-          {(['trending', 'new', 'top', 'all'] as const).map(option => <button key={option} onClick={() => setView(option)} style={{ height: 34, padding: '0 12px', whiteSpace: 'nowrap', borderRadius: 10, border: view === option ? '1px solid rgba(82,227,164,.36)' : btb.borderSoft, background: view === option ? 'rgba(82,227,164,.1)' : 'rgba(255,255,255,.025)', color: view === option ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, textTransform: 'capitalize', cursor: 'pointer' }}>{option === 'top' ? 'Top volume' : option}</button>)}
+          {(['launches', 'trending', 'new', 'top', 'all'] as const).map(option => <button key={option} onClick={() => setView(option)} style={{ height: 34, padding: '0 12px', whiteSpace: 'nowrap', borderRadius: 10, border: view === option ? '1px solid rgba(82,227,164,.36)' : btb.borderSoft, background: view === option ? 'rgba(82,227,164,.1)' : 'rgba(255,255,255,.025)', color: view === option ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, textTransform: 'capitalize', cursor: 'pointer' }}>{option === 'top' ? 'Top volume' : option === 'launches' ? 'Launches · live' : option}</button>)}
         </div>
-        <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search name, symbol or contract" spellCheck={false} style={{ marginLeft: isMobile ? 0 : 'auto', flex: isMobile ? '1 0 100%' : '0 1 310px', width: isMobile ? '100%' : 310, height: 34, boxSizing: 'border-box', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, padding: '0 11px', outline: 'none', fontSize: 11 }}/>
+        {view !== 'launches' && <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search name, symbol or contract" spellCheck={false} style={{ marginLeft: isMobile ? 0 : 'auto', flex: isMobile ? '1 0 100%' : '0 1 310px', width: isMobile ? '100%' : 310, height: 34, boxSizing: 'border-box', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, padding: '0 11px', outline: 'none', fontSize: 11 }}/>}
       </div>
 
+      {view === 'launches' ? <LaunchFeed active onTrade={selectTrade}/> : <>
       <div style={{ marginTop: 11, border: btb.borderSoft, borderRadius: 14, overflow: 'hidden', background: 'rgba(0,0,0,.08)' }}>
         {!isMobile && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px,1.65fr) .75fr .58fr .72fr .72fr .58fr 126px', gap: 10, alignItems: 'center', minHeight: 34, padding: '0 12px', color: btb.textDim, fontSize: 8.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5, borderBottom: btb.borderSoft }}>
           <span>Token / market</span><span style={{ textAlign: 'right' }}>Price</span><span style={{ textAlign: 'right' }}>24h</span><span style={{ textAlign: 'right' }}>Volume</span><span style={{ textAlign: 'right' }}>Liquidity</span><span style={{ textAlign: 'right' }}>Age</span><span/>
@@ -213,6 +215,7 @@ export function HomeScreen({ address, onConnectWallet, marketFeed }: {
         <span>Trending uses live volume, liquidity and trade activity. New markets and high returns can be extremely risky.</span>
         <a href="https://dexscreener.com/robinhood" target="_blank" rel="noopener noreferrer" style={{ color: btb.textMuted, textDecoration: 'none' }}>Market data by Dexscreener ↗</a>
       </div>
+      </>}
     </Glass>
   </div>;
 }

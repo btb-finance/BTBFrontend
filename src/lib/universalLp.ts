@@ -15,6 +15,8 @@ const POOL_POLICY_COMPONENTS = [
   { name: 'token1', type: 'address' },
   { name: 'maximumToken0PerRebalance', type: 'uint128' },
   { name: 'maximumToken1PerRebalance', type: 'uint128' },
+  { name: 'minimumExitToken0', type: 'uint128' },
+  { name: 'minimumExitToken1', type: 'uint128' },
   { name: 'fee', type: 'uint24' },
   { name: 'targetTickWidth', type: 'uint24' },
   { name: 'maximumSlippageBps', type: 'uint16' },
@@ -112,6 +114,8 @@ export type UniversalLpPolicy = {
   token1: `0x${string}`;
   maximumToken0PerRebalance: bigint;
   maximumToken1PerRebalance: bigint;
+  minimumExitToken0: bigint;
+  minimumExitToken1: bigint;
   fee: number;
   targetTickWidth: number;
   maximumSlippageBps: number;
@@ -147,7 +151,7 @@ export type GuardedLpSetup = {
   guardConfiguration: Hex;
 };
 
-const guardAddress = (process.env.NEXT_PUBLIC_BTB_UNISWAP_V3_GUARD_4663 ?? '0xfD6cf126B7f748717F97AF1F6eaA649446E570c8') as `0x${string}`;
+const guardAddress = (process.env.NEXT_PUBLIC_BTB_UNISWAP_V3_GUARD_4663 ?? '0x969fb1A289621FDCD9cBf2D73733827A351B9bC2') as `0x${string}`;
 
 export function getUniversalLpGuard(): `0x${string}` | null {
   return isAddress(guardAddress) && guardAddress.toLowerCase() !== zeroAddress ? guardAddress : null;
@@ -170,12 +174,13 @@ export async function readUniversalLpPolicy(
   if (!guard) return null;
   const key = await client.readContract({ address: guard, abi: UNIVERSAL_LP_GUARD_ABI, functionName: 'poolKey', args: [token0, token1, fee] });
   const raw = await client.readContract({ address: guard, abi: UNIVERSAL_LP_GUARD_ABI, functionName: 'poolPolicies', args: [account, key] });
-  if (!raw[14]) return null;
+  if (!raw[18]) return null;
   return {
     positionManager: raw[0], pool: raw[1], router: raw[2], routerCodeHash: raw[3], routerSelector0: raw[4], routerSelector1: raw[5],
     token0: raw[6], token1: raw[7], maximumToken0PerRebalance: raw[8], maximumToken1PerRebalance: raw[9],
-    fee: Number(raw[10]), targetTickWidth: Number(raw[11]), maximumSlippageBps: Number(raw[12]), minimumTick: Number(raw[13]), maximumTick: Number(raw[14]),
-    expiresAt: raw[15], enabled: raw[16],
+    minimumExitToken0: raw[10], minimumExitToken1: raw[11],
+    fee: Number(raw[12]), targetTickWidth: Number(raw[13]), maximumSlippageBps: Number(raw[14]), minimumTick: Number(raw[15]), maximumTick: Number(raw[16]),
+    expiresAt: raw[17], enabled: raw[18],
   };
 }
 
@@ -192,6 +197,8 @@ export async function configureUniversalLpCalls(args: {
   maximumSlippageBps: number;
   maximumToken0PerRebalance: bigint;
   maximumToken1PerRebalance: bigint;
+  minimumExitToken0: bigint;
+  minimumExitToken1: bigint;
   minimumTick: number;
   maximumTick: number;
   expiresAt: bigint;
@@ -212,6 +219,8 @@ export async function configureUniversalLpCalls(args: {
     token1: args.token1,
     maximumToken0PerRebalance: args.maximumToken0PerRebalance,
     maximumToken1PerRebalance: args.maximumToken1PerRebalance,
+    minimumExitToken0: args.minimumExitToken0,
+    minimumExitToken1: args.minimumExitToken1,
     fee: args.fee,
     targetTickWidth: args.targetTickWidth,
     maximumSlippageBps: args.maximumSlippageBps,
@@ -263,6 +272,8 @@ export async function prepareUniversalLpSetup(args: Parameters<typeof configureU
     token1: args.token1,
     maximumToken0PerRebalance: args.maximumToken0PerRebalance,
     maximumToken1PerRebalance: args.maximumToken1PerRebalance,
+    minimumExitToken0: args.minimumExitToken0,
+    minimumExitToken1: args.minimumExitToken1,
     fee: args.fee,
     targetTickWidth: args.targetTickWidth,
     maximumSlippageBps: args.maximumSlippageBps,

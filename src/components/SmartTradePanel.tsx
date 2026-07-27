@@ -15,6 +15,7 @@ import { btb } from './design-tokens';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useAccountAssets, useRefreshAssets } from '../lib/appData';
+import { readableError } from '../lib/errorText';
 import {
   getUniversalWalletDeployment, readUniversalWallet, SPOT_TRADE_TYPES, spotTradeDomain,
   TRADING_SETUP_TYPES, tradingSetupDomain, upgradeUniversalWalletCalls, type SpotTradePolicy,
@@ -104,6 +105,8 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
   const [funding, setFunding] = useState<'deposit' | 'withdraw' | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
   const [balanceRefresh, setBalanceRefresh] = useState(0);
+  const inputMetaHeld = useRef<TokenMeta | null>(null);
+  const outputMetaHeld = useRef<TokenMeta | null>(null);
   const executedPreset = useRef<string | null>(null);
   const handledPresets = useRef(new Set<string>());
   const lastConfirmedOrder = useRef<string | null>(null);
@@ -132,19 +135,40 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       }
       setState({ account: smart.account, deployed: true, upgraded: smart.upgraded, paused: smart.paused, policy: smart.policy, setupNonce: smart.setupNonce });
     } catch (reason) {
-      setError((reason as Error).message || 'Could not load the smart trading account');
+      setError(readableError(reason, 'Could not load the smart trading account'));
     } finally { setLoading(false); }
   }, [config, deployment, validOwner]);
 
   useEffect(() => { void load(); }, [load]);
 
+  /**
+   * Keep the traded balances current while the panel is open. A trade sized
+   * against a balance that went stale minutes ago is the failure this prevents
+   * — it reverts on chain, after the user has committed. Nothing about the
+   * refresh is visible: values are replaced in place, never blanked, and a tab
+   * in the background does not poll at all.
+   */
+  useEffect(() => {
+    if (!state?.deployed) return;
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      setBalanceRefresh(value => value + 1);
+    };
+    const timer = setInterval(tick, 10_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [state?.deployed]);
+
   // Shared balances: the same cache Home, sheets, and portfolio read.
   const refreshAssets = useRefreshAssets();
-  const { data: walletAssetsData, isFetching: walletAssetsFetching } = useAccountAssets(validOwner);
-  const { data: smartAssetsData, isFetching: smartAssetsFetching } = useAccountAssets(state?.deployed ? state.account : undefined);
+  const { data: walletAssetsData, isLoading: walletAssetsLoading } = useAccountAssets(validOwner, { live: true });
+  const { data: smartAssetsData, isLoading: smartAssetsLoading } = useAccountAssets(state?.deployed ? state.account : undefined, { live: true });
   const walletAssets = walletAssetsData ?? [];
   const smartAssets = smartAssetsData ?? [];
-  const assetsLoading = walletAssetsFetching || smartAssetsFetching;
+  // Only the very first load is a loading state. Every refresh after that swaps
+  // the numbers underneath the user without announcing itself.
+  const assetsLoading = walletAssetsLoading || smartAssetsLoading;
   const bumpBalances = useCallback(() => {
     setBalanceRefresh(value => value + 1);
     refreshAssets(validOwner, state?.account);
@@ -187,23 +211,35 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
 
   useEffect(() => {
     let cancelled = false;
-    const readMeta = async (value: string, set: (meta: TokenMeta | null) => void) => {
-      set(null);
-      if (!state?.deployed || !isAddress(value)) return;
+    const readMeta = async (value: string, set: (meta: TokenMeta | null) => void, held: React.RefObject<TokenMeta | null>) => {
+      const trimmed = value.trim();
+      const sameToken = Boolean(held.current && isAddress(trimmed) && held.current.address.toLowerCase() === trimmed.toLowerCase());
+      // Switching tokens should blank the panel; re-reading the same token in
+      // the background must not, or the balance and the Max buttons flicker
+      // every ten seconds and a preset waiting on the balance sees a null.
+      if (!sameToken) { held.current = null; set(null); }
+      if (!state?.deployed || !isAddress(trimmed)) return;
       const client = getPublicClient(config, { chainId: CHAIN_ID });
       if (!client) return;
       try {
-        const address = value as `0x${string}`;
+        const address = trimmed as `0x${string}`;
         const [symbol, decimals, balance] = await Promise.all([
           client.readContract({ address, abi: erc20Abi, functionName: 'symbol' }),
           client.readContract({ address, abi: erc20Abi, functionName: 'decimals' }),
           client.readContract({ address, abi: erc20Abi, functionName: 'balanceOf', args: [state.account] }),
         ]);
-        if (!cancelled) set({ address, symbol, decimals, balance });
-      } catch { if (!cancelled) set(null); }
+        if (cancelled) return;
+        const meta = { address, symbol, decimals, balance };
+        held.current = meta;
+        set(meta);
+      } catch {
+        // A refresh that fails keeps the last good balance — the RPC blipping
+        // is not evidence the account emptied.
+        if (!cancelled && !sameToken) { held.current = null; set(null); }
+      }
     };
-    void readMeta(tokenIn.trim(), setInputMeta);
-    void readMeta(tokenOut.trim(), setOutputMeta);
+    void readMeta(tokenIn, setInputMeta, inputMetaHeld);
+    void readMeta(tokenOut, setOutputMeta, outputMetaHeld);
     return () => { cancelled = true; };
   }, [balanceRefresh, config, state?.account, state?.deployed, tokenIn, tokenOut]);
 
@@ -324,7 +360,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       localStorage.setItem(storageKey(state.account), requestKey);
       await load();
     } catch (reason) {
-      setError((reason as { shortMessage?: string }).shortMessage || (reason as Error).message || 'Instant trading setup failed');
+      setError(readableError(reason, 'Instant trading setup failed'));
       await load();
     } finally { setBusy(null); }
   }
@@ -378,7 +414,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
       });
       setSuccess({ orderId: String(result.id) });
       setAmount('');
-    } catch (reason) { setError((reason as Error).message || 'The BTB agent could not queue this trade'); }
+    } catch (reason) { setError(readableError(reason, 'The BTB agent could not queue this trade')); }
     finally { setBusy(null); setPreset(null); }
   }
 
@@ -431,7 +467,7 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
         amountUsd: usd, intervalMs: dcaIntervalMs, requestKey: localKey,
       });
       setDcaTarget('');
-    } catch (reason) { setDcaError((reason as Error).message || 'Could not start the recurring buy'); }
+    } catch (reason) { setDcaError(readableError(reason, 'Could not start the recurring buy')); }
     finally { setDcaBusy(false); }
   }
 
@@ -522,7 +558,6 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
                           <div style={{ color: btb.textDim, fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Wallet</div>
                           <div style={{ color: btb.text, fontSize: 13, fontWeight: 850, marginTop: 1 }}>{usd(walletUsd)}</div>
                         </div>
-                        {assetsLoading && <span style={{ alignSelf: 'flex-end', color: btb.textDim, fontSize: 8.5 }}>refreshing…</span>}
                       </div>}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>

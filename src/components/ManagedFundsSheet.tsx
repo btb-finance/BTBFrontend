@@ -39,8 +39,10 @@ export function ManagedFundsSheet({ chainId, chainName, owner, account, onClose,
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Shared balance cache — the same entries SmartTradePanel and Home read.
-  const { data: walletAssetsData, isFetching: walletFetching } = useAccountAssets(owner);
-  const { data: accountAssetsData, isFetching: accountFetching } = useAccountAssets(account);
+  // Live for the same reason the trade panel is: a deposit or withdrawal is
+  // sized off these numbers, and Max against a stale balance reverts.
+  const { data: walletAssetsData, isFetching: walletFetching } = useAccountAssets(owner, { live: true });
+  const { data: accountAssetsData, isFetching: accountFetching } = useAccountAssets(account, { live: true });
   const walletAssets = walletAssetsData ?? initialWalletAssets;
   const accountAssets = accountAssetsData ?? initialAccountAssets;
   const assetsLoading = (walletFetching || accountFetching) && walletAssets.length === 0 && accountAssets.length === 0;

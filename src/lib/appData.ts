@@ -16,16 +16,30 @@ import type { LiquidityPosition } from '@/protocols/types';
 // after a trade or deposit so the refetch returns fresh balances.
 const assetNonce = new Map<string, number>();
 
-/** Wallet or smart account token balances, shared across all consumers. */
-export function useAccountAssets(address?: string | null) {
+/**
+ * Wallet or smart account token balances, shared across all consumers.
+ *
+ * Pass `live` from a screen where the balance is being acted on — it polls
+ * every 10 seconds so a trade is never sized against a stale number. The poll
+ * is invisible by construction: `placeholderData` keeps the previous values on
+ * screen while the next request is in flight, so figures are replaced in place
+ * rather than collapsing to a loader. Screens that only display balances leave
+ * it off and keep the cheap 30 second cache.
+ */
+export function useAccountAssets(address?: string | null, options?: { live?: boolean }) {
   const key = address?.toLowerCase() ?? '';
+  const live = options?.live ?? false;
   return useQuery<AccountAsset[]>({
     queryKey: ['account-assets', key],
     queryFn: ({ signal }) => fetchAccountAssets(address as string, signal, assetNonce.get(key) ?? 0),
     enabled: !!address,
-    staleTime: 30_000,
+    staleTime: live ? 5_000 : 30_000,
     gcTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
+    // A hidden tab has no user to keep current, and this hits an RPC-backed
+    // route on a rate limited key.
+    refetchInterval: live ? 10_000 : false,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: live,
     placeholderData: previous => previous,
   });
 }

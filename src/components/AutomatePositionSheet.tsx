@@ -122,6 +122,12 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
         targetTickWidth, maximumSlippageBps: slippageBps,
         maximumToken0PerRebalance: (pos.amount0 + pos.fees0) * BigInt(rules.maxSwapPct * 100) / 10_000n,
         maximumToken1PerRebalance: (pos.amount1 + pos.fees1) * BigInt(rules.maxSwapPct * 100) / 10_000n,
+        // Floors the unwind has to clear, set from what the position holds now,
+        // less the slippage the owner already accepted. The guard applies each
+        // one only while the position still holds that side, so a range the
+        // price has left can still be exited.
+        minimumExitToken0: (pos.amount0 + pos.fees0) * BigInt(10_000 - slippageBps) / 10_000n,
+        minimumExitToken1: (pos.amount1 + pos.fees1) * BigInt(10_000 - slippageBps) / 10_000n,
         minimumTick: minimumAllowedTick, maximumTick: maximumAllowedTick, expiresAt,
         nonce: smart.guardedSetupNonce, deadline,
       });

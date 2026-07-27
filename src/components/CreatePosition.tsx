@@ -625,13 +625,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       const expiresAt = BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400);
       const maximumToken0PerRebalance = (add0 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
       const maximumToken1PerRebalance = (add1 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
+      // Floors the unwind has to clear, set from what is being deposited less
+      // the slippage the owner already accepted. The guard applies each one only
+      // while the position still holds that side.
+      const minimumExitToken0 = (add0 * BigInt(10_000 - slippageBps)) / 10_000n;
+      const minimumExitToken1 = (add1 * BigInt(10_000 - slippageBps)) / 10_000n;
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
       setStepMsg('Sign once to protect this LP…');
       const guarded = await prepareUniversalLpSetup({
         client, account: smart.account, deployment: universalDeployment, positionManager: deployment.positionManager,
         pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
         targetTickWidth: target.tickUpper - target.tickLower, maximumSlippageBps: slippageBps,
-        maximumToken0PerRebalance, maximumToken1PerRebalance,
+        maximumToken0PerRebalance, maximumToken1PerRebalance, minimumExitToken0, minimumExitToken1,
         minimumTick: Math.min(allowed.tickLower, ticks.tickLower), maximumTick: Math.max(allowed.tickUpper, ticks.tickUpper), expiresAt,
         nonce: smart.guardedSetupNonce, deadline,
       });
