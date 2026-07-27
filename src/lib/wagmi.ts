@@ -19,9 +19,6 @@ export const robinhoodChain = defineChain({
 });
 
 export const ROBINHOOD_RPC_URLS = Array.from(new Set([
-  // Same-origin reads are the most reliable path on Netlify. Direct RPCs stay
-  // available as fallbacks and are also used outside a browser origin.
-  typeof window !== 'undefined' ? '/api/robinhood-rpc' : undefined,
   ALCHEMY_ROBINHOOD_RPC,
   process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL,
   'https://robinhood-mainnet-rpc.blockreq.com/v1/rpc/public',
@@ -30,10 +27,7 @@ export const ROBINHOOD_RPC_URLS = Array.from(new Set([
 ].filter((url): url is string => Boolean(url))));
 
 export function robinhoodTransport() {
-  return fallback(ROBINHOOD_RPC_URLS.map(url => http(url, {
-    retryCount: url.startsWith('/') ? 1 : 0,
-    timeout: 20_000,
-  })));
+  return fallback(ROBINHOOD_RPC_URLS.map(url => http(url, { retryCount: 0 })));
 }
 export const SUPPORTED_CHAINS = [
   mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain, sonic,

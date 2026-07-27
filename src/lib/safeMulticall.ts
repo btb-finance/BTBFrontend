@@ -4,9 +4,9 @@ const robinhoodClients = new WeakMap<object, PublicClient>();
 const ROBINHOOD_READ_CONCURRENCY = 2;
 const RETRY_DELAYS_MS = [300, 900, 1_800] as const;
 
-function isTransientRpcError(error: unknown): boolean {
+function isRateLimited(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /429|too many requests|408|timeout|timed out|failed to fetch|network|502|503|504/i.test(message);
+  return message.includes('429') || message.includes('Too Many Requests');
 }
 
 async function readWithRetry(
@@ -17,7 +17,7 @@ async function readWithRetry(
     try {
       return await client.readContract(contract);
     } catch (error) {
-      if (!isTransientRpcError(error) || attempt >= RETRY_DELAYS_MS.length) throw error;
+      if (!isRateLimited(error) || attempt >= RETRY_DELAYS_MS.length) throw error;
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
     }
   }
