@@ -34,7 +34,9 @@ export function Icon({ name, size = 22, color = '#fff' }: IconProps) {
     case 'image':   return <svg viewBox="0 0 24 24" {...s}><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>;
     case 'doc':     return <svg viewBox="0 0 24 24" {...s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>;
     case 'discord': return <svg viewBox="0 0 24 24" {...s}><path d="M20.3 4.4A18 18 0 0 0 16 3a12 12 0 0 0-.5 1.1 16.6 16.6 0 0 0-7 0A12 12 0 0 0 8 3 18 18 0 0 0 3.7 4.4 19 19 0 0 0 1 18.1a18.2 18.2 0 0 0 5.5 2.8 13.7 13.7 0 0 0 1.2-1.9 11.8 11.8 0 0 1-1.9-1l.5-.4a13 13 0 0 0 11.4 0l.5.4a11.8 11.8 0 0 1-1.9 1 13.7 13.7 0 0 0 1.2 1.9 18.2 18.2 0 0 0 5.5-2.8A19 19 0 0 0 20.3 4.4zM8.5 15.4c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3zm7 0c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3z"/></svg>;
-    case 'twitter': return <svg viewBox="0 0 24 24" {...s}><path d="M4 4l16 16M4 20L20 4" strokeWidth="2.2"/></svg>;
+    // The X wordmark, not a cross — the two strokes of an ✕ are a different
+    // shape (equal arms, no tapered join) and read as a close button.
+    case 'twitter': return <svg viewBox="0 0 24 24" {...s}><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" fill={color} stroke="none"/></svg>;
     case 'github':  return <svg viewBox="0 0 24 24" {...s}><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-4a3.1 3.1 0 0 0-.9-2.2c3-.3 6.2-1.5 6.2-6.6a5.1 5.1 0 0 0-1.4-3.6 4.9 4.9 0 0 0-.1-3.6s-1.1-.3-3.7 1.4a12.7 12.7 0 0 0-6.8 0C6.3 2.5 5.2 2.8 5.2 2.8a4.9 4.9 0 0 0-.1 3.6A5.1 5.1 0 0 0 3.7 10c0 5.1 3.1 6.3 6.1 6.6A3.1 3.1 0 0 0 9 18.9V22"/></svg>;
     case 'mail':    return <svg viewBox="0 0 24 24" {...s}><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>;
     case 'bank':    return <svg viewBox="0 0 24 24" {...s}><path d="M3 10h18M3 14h18M5 6l7-3 7 3M5 18v-8M9 18v-8M15 18v-8M19 18v-8M3 18h18"/></svg>;

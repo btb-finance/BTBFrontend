@@ -59,6 +59,86 @@ export default defineSchema({
     portfolioUpdatedAt: v.optional(v.float64()),
   }).index("by_wallet", ["walletAddress"]),
 
+  // Quest proof submissions (tweets, articles, installs…). XP is only credited
+  // on approval — nothing here awards points at submission time, because none
+  // of these proofs can be verified by the server.
+  questSubmissions: defineTable({
+    walletAddress: v.string(),         // lowercase
+    questId: v.string(),               // key into convex/questCatalog.ts
+    proof: v.string(),                 // link, handle, or free text per quest.proof
+    xp: v.float64(),                   // snapshotted from the catalog at submit time
+    status: v.string(),                // "pending" | "approved" | "rejected"
+    submittedAt: v.float64(),
+    reviewedAt: v.optional(v.float64()),
+    reviewNote: v.optional(v.string()),
+    awardedEpochId: v.optional(v.float64()),
+  }).index("by_wallet", ["walletAddress"])
+    .index("by_wallet_quest", ["walletAddress", "questId"])
+    .index("by_status", ["status", "submittedAt"]),
+
+  // Per-epoch XP ledger. `users.points` stays a lifetime vanity counter; the
+  // weekly BTB split is decided purely by what a wallet earned inside one
+  // Friday→Friday window, so every award site writes here too.
+  epochPoints: defineTable({
+    epochId: v.float64(),
+    walletAddress: v.string(),         // lowercase
+    points: v.float64(),
+    updatedAt: v.float64(),
+  }).index("by_epoch_wallet", ["epochId", "walletAddress"])
+    .index("by_epoch", ["epochId"]),
+
+  // One row per weekly reward epoch. Created lazily when the first user
+  // requests a payout, closed by the Friday cron.
+  rewardEpochs: defineTable({
+    epochId: v.float64(),
+    state: v.string(),                 // "open" | "burning" | "paying" | "paid" | "failed"
+    startsAt: v.float64(),
+    endsAt: v.float64(),
+    carryInRaw: v.string(),            // BTB wei rolled over from the previous epoch
+    oposBurnedRaw: v.optional(v.string()),
+    btbPotRaw: v.optional(v.string()), // burn proceeds + carry-in — the whole pot
+    carryOutRaw: v.optional(v.string()), // pro-rata remainder, rolls into next epoch
+    totalPoints: v.optional(v.float64()),
+    requesterCount: v.optional(v.float64()),
+    burnTxHash: v.optional(v.string()),
+    settledAt: v.optional(v.float64()),
+    error: v.optional(v.string()),
+  }).index("by_epoch", ["epochId"])
+    .index("by_state", ["state"]),
+
+  // A wallet's opt-in to one epoch's split. The by_epoch_wallet index is what
+  // enforces "one request per user per week" — insertion checks it first.
+  rewardRequests: defineTable({
+    epochId: v.float64(),
+    walletAddress: v.string(),         // lowercase
+    pointsAtRequest: v.float64(),      // informational; settlement re-reads epochPoints
+    requestedAt: v.float64(),
+    pointsAtSettle: v.optional(v.float64()),
+    awardedRaw: v.optional(v.string()),
+  }).index("by_epoch_wallet", ["epochId", "walletAddress"])
+    .index("by_epoch", ["epochId"])
+    .index("by_wallet", ["walletAddress"]),
+
+  // Durable BTB payout queue. Rows are only ever created by settlement, never
+  // by a client, and the worker sends at most one transfer at a time so the
+  // treasury EOA never races its own nonce.
+  rewardPayouts: defineTable({
+    epochId: v.float64(),
+    walletAddress: v.string(),         // lowercase
+    amountRaw: v.string(),             // BTB wei
+    state: v.string(),                 // "queued" | "sending" | "submitted" | "confirmed" | "failed"
+    attempts: v.float64(),
+    createdAt: v.float64(),
+    updatedAt: v.float64(),
+    nextAttemptAt: v.optional(v.float64()),
+    leaseUntil: v.optional(v.float64()),
+    workerId: v.optional(v.string()),
+    txHash: v.optional(v.string()),
+    error: v.optional(v.string()),
+  }).index("by_state_created", ["state", "createdAt"])
+    .index("by_epoch", ["epochId"])
+    .index("by_wallet", ["walletAddress"]),
+
   // DeFi activity feed — append only, one row per on-chain event
   userActivity: defineTable({
     walletAddress: v.string(),

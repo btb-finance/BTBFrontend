@@ -30,6 +30,16 @@ if (process.env.DISABLE_CRONS !== "1") {
 
   // Fire due recurring ("DCA") buys — enqueues a normal spot order per schedule.
   crons.interval("run recurring buys", { minutes: 1 }, internal.dca.tick);
+
+  // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
+  // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
+  // UTC; this ticks hourly rather than weekly so a failed settlement retries an
+  // hour later instead of waiting a full week.
+  crons.interval("close due rewards epoch", { hours: 1 }, internal.rewards.closeEpoch);
+
+  // Safety net for the payout queue — the worker chains itself, but a Convex
+  // restart mid-drain would otherwise leave leased rows waiting for next Friday.
+  crons.interval("drain reward payouts", { minutes: 5 }, internal.rewardsActions.drain);
 }
 
 export default crons;

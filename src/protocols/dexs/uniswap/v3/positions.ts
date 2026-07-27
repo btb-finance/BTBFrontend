@@ -39,6 +39,7 @@ export async function fetchV3Positions(
     tokenIds = (await withSafeMulticall(client).multicall({ contracts: idxCalls, allowFailure: true }))
       .map((r) => (r.status === 'success' ? (r.result as bigint) : undefined))
       .filter((x): x is bigint => x !== undefined);
+    if (n > 0 && tokenIds.length === 0) throw new Error('Could not read owned LP NFT ids');
   }
 
   // 2) position struct for each tokenId
@@ -46,6 +47,9 @@ export async function fetchV3Positions(
     address: npm, abi: NPM_ABI, functionName: 'positions' as const, args: [id] as const,
   }));
   const posRes = await withSafeMulticall(client).multicall({ contracts: posCalls, allowFailure: true });
+  if (posCalls.length > 0 && !posRes.some((result) => result.status === 'success')) {
+    throw new Error('Could not read LP NFT balances');
+  }
 
   type Raw = {
     id: bigint; token0: `0x${string}`; token1: `0x${string}`; fee: number;
@@ -83,6 +87,9 @@ export async function fetchV3Positions(
     })),
     allowFailure: true,
   })).map((r) => (r.status === 'success' ? (r.result as `0x${string}`) : undefined));
+  if (uniquePools.length > 0 && poolAddrs.every((address) => !address)) {
+    throw new Error('Could not resolve LP pools');
+  }
 
   const slot0Res = await withSafeMulticall(client).multicall({
     contracts: poolAddrs.map((addr) => ({
@@ -91,6 +98,9 @@ export async function fetchV3Positions(
     })),
     allowFailure: true,
   });
+  if (slot0Res.length > 0 && !slot0Res.some((result) => result.status === 'success')) {
+    throw new Error('Could not read live LP balances');
+  }
   const poolState = new Map<string, { sqrtPriceX96: bigint; tick: number }>();
   uniquePools.forEach((r, i) => {
     const s = slot0Res[i];

@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { addEpochPoints } from "./rewards";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -89,6 +90,7 @@ export const checkIn = mutation({
       totalCheckIns: user.totalCheckIns + 1,
       points: newPoints,
     });
+    await addEpochPoints(ctx, addr, dailyXp + weekMilestone);
 
     return { alreadyCheckedIn: false, dailyXp, weekMilestone, newStreak, newPoints };
   },
@@ -113,6 +115,7 @@ export const awardXp = mutation({
     const safe = Math.max(0, Math.min(amount, 200_000));
     if (!user) return { ok: false };
     await ctx.db.patch(user._id, { points: user.points + safe });
+    await addEpochPoints(ctx, addr, safe);
     return { ok: true, awarded: safe, newPoints: user.points + safe };
   },
 });
@@ -158,7 +161,10 @@ export const recordActivity = mutation({
       .query("users")
       .withIndex("by_wallet", (q) => q.eq("walletAddress", addr))
       .unique();
-    if (user) await ctx.db.patch(user._id, { points: user.points + earned });
+    if (user) {
+      await ctx.db.patch(user._id, { points: user.points + earned });
+      await addEpochPoints(ctx, addr, earned);
+    }
   },
 });
 

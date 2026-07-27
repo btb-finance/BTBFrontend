@@ -29,6 +29,15 @@ type ManagedItem = { pos: LiquidityPosition; policy: UniversalLpPolicy | null };
 const CHAIN_ID = 4663 as const;
 const EXPLORER = 'https://robinhoodchain.blockscout.com/address/';
 
+async function retryLpRead<T>(read: () => Promise<T>): Promise<T> {
+  try {
+    return await read();
+  } catch {
+    await new Promise(resolve => setTimeout(resolve, 700));
+    return read();
+  }
+}
+
 function shortAddress(value: string) { return `${value.slice(0, 6)}…${value.slice(-4)}`; }
 function fmtAmt(raw: bigint, decimals: number) {
   const n = Number(raw) / 10 ** decimals;
@@ -88,7 +97,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
       const state = await readUniversalWallet(client, address, deployment);
       setWallet({ ...state, deployment });
       if (!state.deployed) { setPositions([]); return; }
-      const owned = await fetchV3Positions(client, state.account, ROBINHOOD_UNISWAP_V3_DEPLOYMENT).catch(() => []);
+      const owned = await retryLpRead(() => fetchV3Positions(client, state.account, ROBINHOOD_UNISWAP_V3_DEPLOYMENT));
       const next = await Promise.all(owned.map(async pos => ({
         pos: { ...pos, chainId: CHAIN_ID, chainName: 'Robinhood Chain' },
         policy: await readUniversalLpPolicy(client, state.account, pos.token0, pos.token1, pos.fee).catch(() => null),
@@ -175,7 +184,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         </div>
       </Glass>;
     })}
-    {wallet?.deployed && positions.length === 0 && !loading && <Glass padding={14} radius={16} soft><div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>No LP NFTs in this account</div><div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 3 }}>Enable automation from any Robinhood Uniswap V3 position in your portfolio. It will move into {shortAddress(wallet.account)}.</div></Glass>}
+    {wallet?.deployed && positions.length === 0 && !loading && !error && <Glass padding={14} radius={16} soft><div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>No LP NFTs in this account</div><div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 3 }}>Enable automation from any Robinhood Uniswap V3 position in your portfolio. It will move into {shortAddress(wallet.account)}.</div></Glass>}
     {editing && <AutomatePositionSheet
       pos={editing}
       account={address}

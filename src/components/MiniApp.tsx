@@ -115,7 +115,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
                           onDocs={() => openOverlay('docs')} onEarn={() => openOverlay('earn')}
                           onConnectWallet={() => setShowConnect(true)}/>;
       case 'discover':  return <DiscoverScreen/>;
-      case 'token':     return <TokenScreen onSwap={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
+      case 'token':     return <TokenScreen onSwap={() => openSwap({ toAddress: CONTRACTS.BTB })}
+                                            address={effectiveAddress} onConnect={() => setShowConnect(true)}/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
       case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })} onOpenEarn={() => openOverlay('earn')}/>;

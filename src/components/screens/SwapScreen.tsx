@@ -661,7 +661,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
 
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
-    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Screen gap={16}>
       <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
         <ChainSelect chains={SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id])} value={chainId} onChange={selectChain} ariaLabel="Swap network"/>
@@ -758,7 +758,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
 
   // ── Confirm / sending step ─────────────────────────────────────────────────
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
-    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 4px' }}>
         <div onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="back" size={18} color={btb.textMuted}/>
@@ -834,7 +834,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
 
   // ── Success step ───────────────────────────────────────────────────────────
   if (step === 'success') return (
-    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(82,227,164,0.15)', border: '2px solid rgba(82,227,164,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="check" size={36} color={btb.green}/>
       </div>
@@ -859,7 +859,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
 
   // ── Error step ─────────────────────────────────────────────────────────────
   return (
-    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto' }}>
+    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
       <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name="close" size={32} color={btb.red}/>
       </div>
@@ -1073,7 +1073,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   const explorer = SUPPORTED_CHAINS.find(chain => chain.id === fromChainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
 
   if (step === 'form') return (
-    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Screen gap={16}>
       <SwapModeTabs mode="bridge" onSwap={onStandardSwap} onBridge={() => {}}/>
       <div style={{ color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45, padding: '0 4px' }}>Buy on another network from the balance you already have. Destination gas is not required.</div>
       <Glass padding={18} radius={24} strong>
@@ -1115,7 +1115,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   );
 
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
-    <Screen gap={16} style={{ maxWidth: 480, margin: '0 auto' }}>
+    <Screen gap={16}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={fromChainId} size={16}/>{CHAIN_META[fromChainId]?.name}<span>→</span><ChainLogo chainId={toChainId} size={16}/>{CHAIN_META[toChainId]?.name}</div></div></div>
       <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
       <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/><InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · from amount` : 'None'}/>{lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}%`}/>}<InfoRow label="BTB fee" value={btbFeePercent > 0 ? `${btbFeePercent}%` : 'Free'}/><InfoRow label="Route" last value={route}/></Glass>
@@ -1124,10 +1124,10 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   );
 
   if (step === 'success') return (
-    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}><div style={{ width: 76, height: 76, borderRadius: '50%', background: 'rgba(82,227,164,.15)', border: '2px solid rgba(82,227,164,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={34} color={btb.green}/></div><div><div style={{ color: btb.text, fontSize: 24, fontWeight: 850 }}>Transfer started</div><div style={{ color: btb.textMuted, fontSize: 13, marginTop: 7, lineHeight: 1.5 }}>{outFormatted} {toToken.symbol} will arrive on {CHAIN_META[toChainId]?.name}. You do not need destination gas.</div></div>{txHash && <a href={`${explorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12 }}>Source transaction ↗</a>}<Button onClick={() => { setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); }} style={{ width: '100%', maxWidth: 360 }}>Done</Button></Screen>
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}><div style={{ width: 76, height: 76, borderRadius: '50%', background: 'rgba(82,227,164,.15)', border: '2px solid rgba(82,227,164,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={34} color={btb.green}/></div><div><div style={{ color: btb.text, fontSize: 24, fontWeight: 850 }}>Transfer started</div><div style={{ color: btb.textMuted, fontSize: 13, marginTop: 7, lineHeight: 1.5 }}>{outFormatted} {toToken.symbol} will arrive on {CHAIN_META[toChainId]?.name}. You do not need destination gas.</div></div>{txHash && <a href={`${explorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12 }}>Source transaction ↗</a>}<Button onClick={() => { setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); }} style={{ width: '100%', maxWidth: 360 }}>Done</Button></Screen>
   );
 
   return (
-    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', maxWidth: 480, margin: '0 auto', textAlign: 'center' }}><div style={{ color: btb.red, fontSize: 22, fontWeight: 850 }}>Transfer failed</div><div style={{ color: btb.textMuted, fontSize: 13 }}>{errMsg}</div><Button onClick={() => setStep('form')} style={{ width: '100%', maxWidth: 360 }}>Try again</Button></Screen>
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}><div style={{ color: btb.red, fontSize: 22, fontWeight: 850 }}>Transfer failed</div><div style={{ color: btb.textMuted, fontSize: 13 }}>{errMsg}</div><Button onClick={() => setStep('form')} style={{ width: '100%', maxWidth: 360 }}>Try again</Button></Screen>
   );
 }

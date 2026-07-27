@@ -126,7 +126,7 @@ function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: strin
           }}>
             {r.status === 'pending'
               ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite', flexShrink: 0 }}/>
-              : <div style={{ flexShrink: 0, display: 'flex' }}><Icon name={r.status === 'confirmed' ? 'check' : 'twitter'} size={16} color={color}/></div>}
+              : <div style={{ flexShrink: 0, display: 'flex' }}><Icon name={r.status === 'confirmed' ? 'check' : 'close'} size={16} color={color}/></div>}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</div>
               <div style={{ color, fontSize: 11, fontWeight: 600 }}>
