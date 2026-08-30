@@ -31,7 +31,6 @@ const POOL_CREATED = '0x783cca1c0412dd0d695e784568c96da2e9c22ff989357a2e8b1d9b2b
 const LAUNCHPAD = '0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB';
 const LAUNCH_LOCKER = '0x736D76699C26D0d966744cAe304C000d471f7F35';
 const TOKEN_LAUNCHED = '0xdb51ea9ad51ab453a65a4cb7e60c3cb378c9501bb002609f8f97778fb6c4235a';
-const RPC_URL = `https://robinhood-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? 'INhvk7-hUrgf5niZBGbae'}`;
 // The feed is per-request fresh; Netlify's edge keys route handlers on the path
 // alone unless the query is declared here.
 const FEED_VARY = { 'Netlify-Vary': 'query=limit|before' };

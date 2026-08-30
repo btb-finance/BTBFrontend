@@ -7,26 +7,24 @@ import {
 import { defineChain, fallback, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask } from '@wagmi/connectors';
 import { MAINNET_TRANSPORT } from './rpc';
-import { ALCHEMY_KEY } from './alchemy';
-
-const ALCHEMY_ROBINHOOD_RPC = `https://robinhood-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`;
+import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
 export const robinhoodChain = defineChain({
   id: 4663, name: 'Robinhood Chain',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: [ALCHEMY_ROBINHOOD_RPC] } },
+  rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com/'] } },
   blockExplorers: { default: { name: 'Robinhood Explorer', url: 'https://robinhoodchain.blockscout.com' } },
 });
 
 export const ROBINHOOD_RPC_URLS = Array.from(new Set([
-  // Same-origin reads are the most reliable path on Netlify. Direct RPCs stay
-  // available as fallbacks and are also used outside a browser origin.
+  // Same-origin reads are the most reliable path on Netlify — the proxy
+  // round-robins the verified public pool server-side. Direct RPCs stay
+  // available as fallbacks and are also used outside a browser origin;
+  // only CORS-enabled endpoints work from a page, the rest cost one
+  // failed hop when the proxy is down.
   typeof window !== 'undefined' ? '/api/robinhood-rpc' : undefined,
-  ALCHEMY_ROBINHOOD_RPC,
+  ...ROBINHOOD_RPC_UPSTREAMS,
   process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL,
-  'https://robinhood-mainnet-rpc.blockreq.com/v1/rpc/public',
-  'https://rpc.nodeflare.app/robinhood/public',
-  'https://rpc.mainnet.chain.robinhood.com/',
 ].filter((url): url is string => Boolean(url))));
 
 export function robinhoodTransport() {

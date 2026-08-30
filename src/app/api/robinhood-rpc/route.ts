@@ -1,11 +1,7 @@
 export const maxDuration = 25;
 export const dynamic = 'force-dynamic';
 
-const RPC_URL = `https://robinhood-mainnet.g.alchemy.com/v2/${
-  process.env.ALCHEMY_KEY
-  ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY
-  ?? 'INhvk7-hUrgf5niZBGbae'
-}`;
+import { robinhoodRpcFetch } from '@/lib/robinhoodRpc';
 
 // Keep this a read-only, chain-pinned proxy. Wallet writes still go through the
 // connected wallet provider; this endpoint only makes portfolio reads reliable
@@ -53,13 +49,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const upstream = await fetch(RPC_URL, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(20_000),
-    });
+    const upstream = await robinhoodRpcFetch(JSON.stringify(body));
     const responseBody = await upstream.text();
     return new Response(responseBody, {
       status: upstream.status,
