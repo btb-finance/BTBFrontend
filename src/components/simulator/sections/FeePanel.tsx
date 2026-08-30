@@ -107,6 +107,15 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
         </div>
       )}
 
+      {/* Very high turnover pools attract just-in-time LP bots that mint/burn
+          around the largest swaps — research puts their take at up to ~40% of
+          fee income in affected pools. Passive LPs eat that dilution. */}
+      {sim.volumeToTvl7d != null && sim.volumeToTvl7d / 7 > 1 && (
+        <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 12, padding: '10px 12px', marginTop: 10 }}>
+          This pool turns over roughly {(sim.volumeToTvl7d / 7).toFixed(0)}× its TVL per day. Heavy-turnover pools attract just-in-time LP bots that compete for the biggest swaps&apos; fees — treat these estimates as optimistic.
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)', gap: 8, marginTop: 12 }}>
         <Stat label="Average Daily Fee" value={stats ? fmtUsd(stats.avg) : fmtUsd(sim.dailyFeeUsd)} color={chart.fees} />
         <Stat label="Median Fee" value={stats ? fmtUsd(stats.median) : '—'} />

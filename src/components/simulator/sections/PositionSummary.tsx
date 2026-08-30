@@ -13,7 +13,7 @@ import type { Sim } from '../simState';
 
 type DragKind = 'lo' | 'hi' | 'band';
 
-export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositStr, setDepositStr, feeOptions, feeTier, setFeeTier, feeLocked }: {
+export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositStr, setDepositStr, feeOptions, feeTier, setFeeTier, feeLocked, compound, setCompound }: {
   sim: Sim;
   onToggleFlip: () => void;
   /** Commit a new range in DISPLAY price space. Drives the whole page. */
@@ -25,6 +25,8 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
   feeTier: number;
   setFeeTier: (fee: number) => void;
   feeLocked: boolean;
+  compound?: boolean;
+  setCompound?: (v: boolean) => void;
 }) {
   const [showFactors, setShowFactors] = useState(false);
   const [drag, setDrag] = useState<DragKind | null>(null);
@@ -147,7 +149,12 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
             { label: 'Vol / TVL', value: sim.volumeToTvl7d != null ? `${(sim.volumeToTvl7d * 100).toFixed(0)}%` : '—', note: '7 day turnover' },
             { label: 'Pool fees / day', value: sim.poolDailyFeesUsd > 0 ? fmtUsd(sim.poolDailyFeesUsd) : '—', note: sim.hasFeeData ? '7 day average' : 'no data' },
             { label: 'Your liquidity share', value: sim.liquidityShare > 0 ? `${(sim.liquidityShare * 100).toPrecision(2)}%` : '0%', note: 'of in range liquidity' },
-            { label: 'Pair volatility', value: `${(sim.sigmaDaily * 100).toFixed(1)}% / day`, note: sim.usingFallbackHistory ? 'approx history' : 'from 30 day history' },
+            { label: 'Pair volatility', value: `${(sim.sigmaDaily * 100).toFixed(1)}% / day`, note: sim.sigmaAssumed ? 'assumed floor — thin history' : sim.usingFallbackHistory ? 'approx history' : 'from 30 day history' },
+            {
+              label: 'Pool age',
+              value: sim.poolAgeDays != null ? (sim.poolAgeDays < 1 ? 'new' : sim.poolAgeDays < 90 ? `${sim.poolAgeDays}d` : `${Math.round(sim.poolAgeDays / 30)}mo`) : '—',
+              note: sim.poolAgeDays != null && sim.poolAgeDays < 14 ? 'new pool — early APR is often inflated' : 'since creation',
+            },
           ].map((s) => (
             <div key={s.label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '8px 11px', minWidth: 0 }}>
               <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
@@ -251,14 +258,21 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               {[
                 ['Capital', fmtUsd(sim.depositUsd)],
                 ['Fee rate while in range', sim.feeAprPct != null ? `${fmtPct(sim.feeAprPct)} / year` : 'no fee data yet'],
+                ...(sim.rewardAprPct != null ? [[`Gauge rewards (staking)`, `+${fmtPct(sim.rewardAprPct)} APR${sim.rewardLabel ? ` · ${sim.rewardLabel}` : ''}`]] : []),
                 [`Estimated fees (${sim.horizonDays}d)`, sim.hasFeeData ? `+${fmtUsd(sim.expectedFeesUsd)}` : 'no fee data yet'],
                 ['Nearest range edge', sim.nearestEdgePct != null ? `${sim.nearestEdgePct < 0.1 ? '<0.1' : sim.nearestEdgePct.toFixed(1)}% away` : 'out of range'],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: btb.textMuted }}>{label}</span>
-                  <span style={{ color: (label === 'Fee rate while in range' && sim.feeAprPct != null) || label.startsWith('Estimated fees') ? btb.green : btb.text, fontWeight: 800 }}>{value}</span>
+                  <span style={{ color: (label === 'Fee rate while in range' && sim.feeAprPct != null) || label === 'Gauge rewards (staking)' || label.startsWith('Estimated fees') ? btb.green : btb.text, fontWeight: 800 }}>{value}</span>
                 </div>
               ))}
+              {setCompound && sim.hasFeeData && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 4, cursor: 'pointer', fontSize: 11.5, color: btb.textMuted, userSelect: 'none' }}>
+                  <input type="checkbox" checked={!!compound} onChange={(e) => setCompound(e.target.checked)} style={{ accentColor: '#52E3A4', width: 13, height: 13 }} />
+                  Reinvest fees into the position (compound)
+                </label>
+              )}
             </div>
             <div style={{ color: btb.textDim, fontSize: 10, lineHeight: 1.35, marginTop: 9 }}>
               Fee estimates use recent pool activity and modelled time in range. Review the position before the nearest edge is reached.

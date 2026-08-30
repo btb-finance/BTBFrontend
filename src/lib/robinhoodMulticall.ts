@@ -1,16 +1,15 @@
 import { decodeFunctionResult, encodeFunctionData, parseAbi } from 'viem';
+import { robinhoodRpcFetch } from './robinhoodRpc';
 
 /**
  * Server-side batched reads for Robinhood Chain.
  *
- * JSON-RPC batching is not an option here: the shared Alchemy key returns 429
- * for a batch of 25 plain `eth_call`s, and it fails the batch whole, so a feed
- * of 40 rows silently came back with every price and balance zeroed. Multicall3
- * is deployed at the canonical address on this chain, so the same 200 reads go
- * out as a handful of single calls instead and stay well inside the rate limit.
+ * Plain single `eth_call`s against a rate-limited endpoint fail whole, so a
+ * feed of 40 rows silently came back with every price and balance zeroed.
+ * Multicall3 is deployed at the canonical address on this chain, so the same
+ * 200 reads go out as a handful of single calls against the pooled RPCs.
  */
 
-const RPC_URL = `https://robinhood-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_KEY ?? process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? 'INhvk7-hUrgf5niZBGbae'}`;
 export const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
 
 const AGGREGATE3_ABI = parseAbi([
@@ -32,13 +31,10 @@ async function callOnce(calls: Call3[]): Promise<Call3Result[]> {
     functionName: 'aggregate3',
     args: [calls.map(item => ({ target: item.target as `0x${string}`, allowFailure: true, callData: item.callData as `0x${string}` }))],
   });
-  const response = await fetch(RPC_URL, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: MULTICALL3, data, gas: CALL_GAS }, 'latest'] }),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(15_000),
-  });
+  const response = await robinhoodRpcFetch(
+    JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: MULTICALL3, data, gas: CALL_GAS }, 'latest'] }),
+    15_000,
+  );
   if (!response.ok) throw new Error(`rpc ${response.status}`);
   const body = await response.json() as { result?: string; error?: { message?: string } };
   if (!body.result) throw new Error(body.error?.message ?? 'multicall failed');

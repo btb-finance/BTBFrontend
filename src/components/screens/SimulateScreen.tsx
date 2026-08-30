@@ -161,6 +161,9 @@ interface FoundPool {
   v4PoolId?: `0x${string}`;
   /** Resolved on-chain pool contract address (V3/PancakeSwap V3 only) — used to fetch a TVL fallback. */
   address?: `0x${string}`;
+  /** Provider's DEX label — set for market-sourced pools whose DEX has no
+   * internal protocol entry, including V3-fork pools that ARE simulatable. */
+  dexLabel?: string;
   tvlUsd?: number;
   apy?: number;
   /** Real (or fee-derived) 24h pool fees — feeds the earnings simulation in
@@ -199,6 +202,9 @@ function mergeFoundPools(current: FoundPool[], incoming: FoundPool[]): FoundPool
       merged.set(key, {
         ...pool,
         ...previous,
+        // An actionable row never falls back to a read-only linked row that
+        // happened to finish later for the same pool address.
+        external: undefined,
         tvlUsd: previous.tvlUsd ?? pool.tvlUsd,
         apy: previous.apy ?? pool.apy,
         fees24hUsd: previous.fees24hUsd ?? pool.fees24hUsd,
@@ -213,22 +219,34 @@ function mergeFoundPools(current: FoundPool[], incoming: FoundPool[]): FoundPool
 }
 
 function marketPoolRows(marketPools: Awaited<ReturnType<typeof searchMarketPools>>): FoundPool[] {
-  return marketPools.map(mp => ({
-    protocol: 'uniswap-v3' as const, // unused for external rows
-    feeTier: mp.feePct != null ? Math.round(mp.feePct * 1_000_000) : 0,
-    address: mp.address as `0x${string}`,
-    tvlUsd: mp.tvlUsd,
-    apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
-    aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 && mp.aprKind !== 'gauge' ? true : undefined,
-    aprKind: mp.aprKind,
-    aprLabel: mp.aprLabel,
-    fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
-    external: { dexLabel: mp.dexLabel, url: mp.url, aprLabel: mp.aprLabel },
-  }));
+  return marketPools.map(mp => {
+    const row: FoundPool = {
+      protocol: 'uniswap-v3' as const, // simulator entry point for V3-class pools
+      feeTier: mp.feePct != null ? Math.round(mp.feePct * 1_000_000) : 0,
+      address: mp.address as `0x${string}`,
+      tvlUsd: mp.tvlUsd,
+      apy: mp.aprPct != null && mp.aprPct > 0 ? mp.aprPct : undefined,
+      aprIsUnranged: mp.aprPct != null && mp.aprPct > 0 && mp.aprKind !== 'gauge' && !mp.aprIsRange ? true : undefined,
+      aprKind: mp.aprKind,
+      aprLabel: mp.aprLabel,
+      fees24hUsd: mp.feePct != null ? mp.volume24hUsd * mp.feePct : undefined,
+      dexLabel: mp.dexLabel,
+      external: { dexLabel: mp.dexLabel, url: mp.url, aprLabel: mp.aprLabel },
+    };
+    // Any market pool the enrichment probe confirmed speaks the standard V3
+    // ABI (slot0/fee) is simulatable with the shared V3 math — DEX brand and
+    // chain don't matter. Everything else (V2 pairs, Algebra CLAMMs, vaults)
+    // stays a read-only linked row.
+    const simulatable = mp.ammClass === 'v3'
+      && /^0x[0-9a-f]{40}$/i.test(mp.address)
+      && (mp.feePct ?? 0) > 0;
+    if (simulatable) delete row.external;
+    return row;
+  });
 }
 
 function foundPoolDexLabel(pool: FoundPool): string {
-  return pool.external?.dexLabel ?? PROTOCOLS.find(protocol => protocol.id === pool.protocol)?.label ?? 'DEX';
+  return pool.dexLabel ?? pool.external?.dexLabel ?? PROTOCOLS.find(protocol => protocol.id === pool.protocol)?.label ?? 'DEX';
 }
 
 function dexBrand(label: string): string {
@@ -894,6 +912,7 @@ function CrossChainResearch({ chains, isMobile }: {
             task.chainName,
             marketTokenA,
             marketTokenB,
+            CHAIN_DATA_NETWORKS[task.chainId]?.llama,
           );
           updateResult(task.key, {
             status: 'complete',
@@ -1306,6 +1325,7 @@ export function SimulateScreen() {
             chainName,
             toV3Address(tokenA.address, wrappedNative),
             toV3Address(tokenB.address, wrappedNative),
+            networks.llama,
           );
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(enriched)));
           return enriched;
@@ -1511,7 +1531,7 @@ export function SimulateScreen() {
                 const label = foundPoolDexLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
-                  <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{
+                  <div key={foundPoolKey(f)} style={{
                     borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
                     background: i === 0 ? 'rgba(82,227,164,0.05)' : 'rgba(255,255,255,0.03)',
                   }}>
@@ -1520,7 +1540,6 @@ export function SimulateScreen() {
                       <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
                         {label} · {feeLabel}
                         {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>Highest TVL</span>}
-                        {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>No protocol fee</span>}
                       </span>
                       <span
                         style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
@@ -1558,12 +1577,11 @@ export function SimulateScreen() {
             {found.map((f, i) => {
               const label = foundPoolDexLabel(f);
               return (
-                <div key={f.external ? f.address : `${f.protocol}-${f.feeTier}`} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
+                <div key={foundPoolKey(f)} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <DexLogo name={label} size={20}/>
                     {label}
                     {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10 }}>Highest TVL</span>}
-                    {!f.external && f.protocol === 'uniswap-v4' && <span title="No protocol fee" style={{ color: btb.green, fontSize: 10 }}>No protocol fee</span>}
                   </span>
                   <span style={{ color: btb.text, fontSize: 13 }}>{f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—'}</span>
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
@@ -1601,7 +1619,15 @@ export function SimulateScreen() {
             ...sheetFee,
             fees24hUsd: sheetFee.fees24hUsd ?? (sheetFee.tvlUsd != null && sheetFee.apy != null ? (sheetFee.tvlUsd * sheetFee.apy) / 100 / 365 : undefined),
           }}
-          siblings={(found ?? []).filter((f) => !f.external && f.protocol === sheetFee.protocol)}
+          siblings={(found ?? [])
+            // Same DEX, not just same fee tier — every DEX on the chain has its
+            // own 0.05% pool, and pricing this pool's fee cards off another
+            // DEX's TVL/fees produced absurd projections (e.g. Giga V3's
+            // $13k pool fed with Uniswap's $2.7M pool fee run-rate).
+            .filter((f) =>
+              !f.external
+              && f.protocol === sheetFee.protocol
+              && (f.dexLabel ?? undefined) === (sheetFee.dexLabel ?? undefined))}
           chainId={chainId}
           chainName={chainName}
           wrappedNative={wrappedNative}

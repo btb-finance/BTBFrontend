@@ -46,10 +46,12 @@ async function mapWithConcurrency<T, R>(
 }
 
 /**
- * Robinhood Chain does not deploy Multicall3 at the canonical 0xcA11…CA11
- * address. This preserves viem's fully inferred multicall types while making
- * the implementation issue direct eth_call reads on Robinhood. Other chains
- * keep their normal on-chain Multicall3 batching.
+ * Multicall3 IS live on Robinhood Chain at the canonical 0xcA11…CA11 address
+ * (verified on-chain: real fee()/slot0() reads return through aggregate3), so
+ * viem's native batching works once the chain declares it — one POST per
+ * batch instead of one request per read. This wrapper keeps a safety net:
+ * if a client's chain can't batch, it fans the reads out with bounded
+ * concurrency and transient-error retries rather than failing the whole batch.
  */
 export function withSafeMulticall(client: PublicClient): PublicClient {
   if (client.chain?.id !== 4663) return client;
@@ -64,22 +66,31 @@ export function withSafeMulticall(client: PublicClient): PublicClient {
       return async (parameters: Parameters<PublicClient['multicall']>[0]) => {
         const contracts = parameters.contracts as readonly Parameters<PublicClient['readContract']>[0][];
         const allowFailure = parameters.allowFailure ?? true;
-
-        if (!allowFailure) {
-          return mapWithConcurrency(
-            contracts,
-            ROBINHOOD_READ_CONCURRENCY,
-            contract => readWithRetry(target, contract),
-          );
-        }
-
-        return mapWithConcurrency(contracts, ROBINHOOD_READ_CONCURRENCY, async (contract) => {
+        const fanOut = () => mapWithConcurrency(contracts, ROBINHOOD_READ_CONCURRENCY, async (contract) => {
+          if (!allowFailure) return readWithRetry(target, contract);
           try {
             return { status: 'success' as const, result: await readWithRetry(target, contract) };
           } catch (error) {
             return { status: 'failure' as const, error };
           }
         });
+
+        try {
+          // Native Multicall3 batching through the chain contract, with
+          // transient-error retries on the whole batch.
+          for (let attempt = 0; ; attempt++) {
+            try {
+              return await target.multicall(parameters);
+            } catch (error) {
+              if (!isTransientRpcError(error) || attempt >= RETRY_DELAYS_MS.length) throw error;
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+            }
+          }
+        } catch (error) {
+          if (isTransientRpcError(error)) throw error;
+          // Chain/client genuinely without batching support — fall back.
+          return fanOut();
+        }
       };
     },
   }) as PublicClient;

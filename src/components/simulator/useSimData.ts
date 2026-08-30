@@ -20,7 +20,8 @@ import {
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 import { getTokenPricesUsd } from '../../lib/defillama';
-import { fetchPoolDailyHistory } from '../../lib/geckoterminal';
+import { fetchPoolDailyHistory, fetchPoolStats } from '../../lib/geckoterminal';
+import { fetchTokenSafety, type TokenSafety } from '../../lib/tokenSafety';
 import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import type { SupportedChainId } from '../../lib/wagmi';
@@ -95,10 +96,15 @@ export function useSimPools(
 export interface PoolExtras {
   /** Subgraph day history (real fees) — null when unavailable. */
   history: PoolDay[] | null;
+  /** Daily days synthesized from OHLCV volume × fee tier when the indexed
+   * history above is missing (new chains) — flagged, not presented as real. */
+  estimatedHistory: PoolDay[] | null;
   /** GeckoTerminal closes rescaled into pool price space — trend only, no fees. */
   fallbackCloses: number[] | null;
   tokenUsd: { p0: number; p1: number } | null;
   tickLiq: TickLiquidityPoint[] | null;
+  /** Pool creation timestamp (ms), from the explorer — null when unknown. */
+  poolCreatedAt: number | null;
 }
 
 /** History + USD prices + tick liquidity for one resolved pool. */
@@ -111,16 +117,19 @@ export function usePoolExtras(
   chainId: number,
   wrappedNative: `0x${string}`,
   networks: ChainDataNetwork,
+  feeTier: number,
 ): PoolExtras {
   const config = useConfig();
   const [history, setHistory] = useState<PoolDay[] | null>(null);
+  const [estimatedHistory, setEstimatedHistory] = useState<PoolDay[] | null>(null);
   const [fallbackCloses, setFallbackCloses] = useState<number[] | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
   const [tickLiq, setTickLiq] = useState<TickLiquidityPoint[] | null>(null);
+  const [poolCreatedAt, setPoolCreatedAt] = useState<number | null>(null);
 
   useEffect(() => {
     let live = true;
-    setHistory(null); setFallbackCloses(null); setUsd({});
+    setHistory(null); setEstimatedHistory(null); setFallbackCloses(null); setUsd({}); setPoolCreatedAt(null);
     if (!pool || !pool.exists) return;
     const price = ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1);
 
@@ -137,10 +146,34 @@ export function usePoolExtras(
             const last = bars[bars.length - 1].close;
             const ratio = last > 0 && price > 0 ? price / last : 1;
             setFallbackCloses(bars.map((b) => b.close * ratio));
+            // Synthesize a daily fee history from traded volume × fee tier so
+            // the replay and fee-steadiness stats work on chains with no
+            // subgraph. Clearly labelled as estimated downstream.
+            const feeFraction = feeTier > 0 ? feeTier / 1_000_000 : 0;
+            if (feeFraction > 0) {
+              const todayBucket = Math.floor(Date.now() / 1000 / 86400) * 86400;
+              const days: PoolDay[] = bars
+                .map((b) => ({
+                  // ohlcv_list timestamps are unix seconds — bucket to UTC days
+                  date: Math.floor(b.timestamp / 86400) * 86400,
+                  price0: b.close * ratio,
+                  volumeUsd: b.volumeUsd,
+                  feesUsd: b.volumeUsd * feeFraction,
+                  tvlUsd: 0,
+                  liquidity: Number(pool.liquidity),
+                }))
+                .filter((d) => d.date > 0 && d.date < todayBucket);
+              if (days.length >= 5) setEstimatedHistory(days);
+            }
           })
           .catch(() => {});
       }
     }
+
+    // Pool age — one batched stats call; explorer reports creation time.
+    fetchPoolStats([pool.address], networks.gecko)
+      .then((stats) => { if (live) setPoolCreatedAt(stats[pool.address.toLowerCase()]?.createdAt ?? null); })
+      .catch(() => {});
 
     const priceToken0 = isNativeCurrency(pool.token0) ? wrappedNative : pool.token0;
     getTokenPricesUsd([priceToken0, pool.token1], networks.llama)
@@ -152,7 +185,7 @@ export function usePoolExtras(
       .catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, isV4, dex, chainId, wrappedNative, networks.gecko, networks.llama, v4PoolId]);
+  }, [pool, isV4, dex, chainId, wrappedNative, networks.gecko, networks.llama, v4PoolId, feeTier]);
 
   useEffect(() => {
     let live = true;
@@ -184,5 +217,30 @@ export function usePoolExtras(
   if (!p1 && p0 && price > 0) p1 = p0 / price;
   const tokenUsd = p0 && p1 ? { p0, p1 } : null;
 
-  return { history, fallbackCloses, tokenUsd, tickLiq };
+  return { history, estimatedHistory, fallbackCloses, tokenUsd, tickLiq, poolCreatedAt };
+}
+
+/**
+ * Token safety for both sides of the pool — holder concentration, holder
+ * count, spam/honeypot flags. Degrades to missing entries when a chain has
+ * no explorer coverage; callers show nothing rather than a fake verdict.
+ */
+export function useTokenSafety(
+  token0?: `0x${string}`,
+  token1?: `0x${string}`,
+  blockscoutBase?: string,
+  chainId?: number,
+): Record<string, TokenSafety> {
+  const [map, setMap] = useState<Record<string, TokenSafety>>({});
+  useEffect(() => {
+    let live = true;
+    setMap({});
+    const addrs = [token0, token1].filter((x): x is `0x${string}` => !!x);
+    if (addrs.length === 0 || !chainId) return;
+    Promise.all(addrs.map(async (a) => [a.toLowerCase(), await fetchTokenSafety(a, chainId, blockscoutBase)] as const))
+      .then((pairs) => { if (live) setMap(Object.fromEntries(pairs)); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [token0, token1, blockscoutBase, chainId]);
+  return map;
 }

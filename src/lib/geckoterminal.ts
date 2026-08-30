@@ -10,9 +10,10 @@ interface PoolAttrs {
   reserve_in_usd?: string;
   volume_usd?: { h24?: string };
   pool_fee_percentage?: string;
+  pool_created_at?: string;
 }
 
-export interface PoolStats { tvlUsd: number; volume24hUsd: number; aprPct: number | null; }
+export interface PoolStats { tvlUsd: number; volume24hUsd: number; aprPct: number | null; createdAt?: number; }
 
 /**
  * Batched TVL/volume/fee-derived APR for many pools in as few requests as
@@ -41,7 +42,8 @@ export async function fetchPoolStats(poolAddresses: string[], network = 'eth'): 
         const volume24hUsd = parseFloat(row.attributes.volume_usd?.h24 ?? '0') || 0;
         const feePct = parseFloat(row.attributes.pool_fee_percentage ?? '');
         const aprPct = tvlUsd > 0 && isFinite(feePct) ? (volume24hUsd * (feePct / 100) * 365 / tvlUsd) * 100 : null;
-        result[addr] = { tvlUsd, volume24hUsd, aprPct };
+        const createdMs = Date.parse(row.attributes.pool_created_at ?? '');
+        result[addr] = { tvlUsd, volume24hUsd, aprPct, ...(Number.isFinite(createdMs) ? { createdAt: createdMs } : {}) };
       }
     } catch { /* skip failed chunk — caller falls back to whatever it already has */ }
   }
