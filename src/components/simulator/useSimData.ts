@@ -154,7 +154,8 @@ export function usePoolExtras(
               const todayBucket = Math.floor(Date.now() / 1000 / 86400) * 86400;
               const days: PoolDay[] = bars
                 .map((b) => ({
-                  date: Math.floor(b.timestamp / 1000 / 86400) * 86400,
+                  // ohlcv_list timestamps are unix seconds — bucket to UTC days
+                  date: Math.floor(b.timestamp / 86400) * 86400,
                   price0: b.close * ratio,
                   volumeUsd: b.volumeUsd,
                   feesUsd: b.volumeUsd * feeFraction,

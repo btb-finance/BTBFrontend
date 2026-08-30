@@ -47,6 +47,9 @@ export interface MarketPoolNetworks {
 
 const MARKET_CACHE_TTL_MS = 5 * 60_000;
 const marketPoolCache = new Map<string, { expiresAt: number; request: Promise<MarketPool[]> }>();
+const RANGE_TTL = 5 * 60_000;
+/** apr null = recently probed but unpriceable (negative cache). */
+const rangeCache = new Map<string, { at: number; apr: number | null }>();
 
 /** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
  * real APR for pools whose fee the APIs don't state. */
@@ -358,17 +361,45 @@ export function searchMarketPools(
  * expose their active fee through globalState(). This also makes transient
  * Gecko rate limits harmless: DexScreener can provide TVL/volume while the
  * chain supplies the fee.
+ *
+ * Probe results are cached per pool address — fee tier and ABI class barely
+ * change over minutes, and without the cache every re-compare of the same
+ * pair re-fires the whole probe burst at the RPC.
  */
+const PROBE_TTL = 10 * 60_000;
+const probeCache = new Map<string, { at: number; feePct: number | null; ammClass: MarketPool['ammClass'] }>();
+
 export async function enrichMarketPoolApr(
   client: PublicClient,
   pools: MarketPool[],
 ): Promise<MarketPool[]> {
-  const missing = pools.filter(pool =>
+  const now = Date.now();
+  const freshHits = new Set<string>();
+  const seeded = pools.map(pool => {
+    const hit = probeCache.get(`${client.chain?.id ?? 0}:${pool.address}`);
+    if (!hit || hit.at + PROBE_TTL < now) return pool;
+    freshHits.add(pool.address);
+    const patched = { ...pool };
+    if (patched.feePct == null && hit.feePct != null) patched.feePct = hit.feePct;
+    if (patched.ammClass === 'unknown' && hit.ammClass !== 'unknown') patched.ammClass = hit.ammClass;
+    return patched;
+  });
+  // Pools probed recently that yielded nothing (no valid fee, class unknown)
+  // are negative-cache entries: re-asking the chain every compare just burns
+  // RPC for the same "unknown".
+  const failedFresh = new Set<string>();
+  for (const address of freshHits) {
+    const hit = probeCache.get(`${client.chain?.id ?? 0}:${address}`);
+    if (hit && hit.feePct == null && hit.ammClass === 'unknown') failedFresh.add(address);
+  }
+
+  const missing = seeded.filter(pool =>
     pool.feePct == null &&
+    !failedFresh.has(pool.address) &&
     /^0x[0-9a-f]{40}$/i.test(pool.address) &&
     pool.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID,
   );
-  if (missing.length === 0 && !pools.some(pool => pool.ammClass === 'unknown' && /^0x[0-9a-f]{40}$/i.test(pool.address))) return pools;
+  if (missing.length === 0 && !seeded.some(pool => pool.ammClass === 'unknown' && !failedFresh.has(pool.address) && /^0x[0-9a-f]{40}$/i.test(pool.address))) return seeded;
 
   const feeByAddress = new Map<string, number>();
   const classByAddress = new Map<string, MarketPool['ammClass']>();
@@ -536,6 +567,7 @@ export async function enrichMarketPoolApr(
   // of the pool's ABI.
   const needsClass = pools.filter(pool =>
     pool.ammClass === 'unknown'
+    && !failedFresh.has(pool.address)
     && !feeByAddress.has(pool.address)
     && !classByAddress.has(pool.address)
     && /^0x[0-9a-f]{40}$/i.test(pool.address)
@@ -554,11 +586,14 @@ export async function enrichMarketPoolApr(
       if (reads[index]?.status === 'success') classByAddress.set(pool.address, 'v3');
     });
   }
-  if (feeByAddress.size === 0 && classByAddress.size === 0) return pools;
+  if (feeByAddress.size === 0 && classByAddress.size === 0) return seeded;
 
-  return pools.map(pool => {
+  return seeded.map(pool => {
     const feePct = feeByAddress.get(pool.address);
     const ammClass = classByAddress.get(pool.address) ?? pool.ammClass;
+    if (feePct != null || ammClass !== pool.ammClass) {
+      probeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, feePct: feePct ?? pool.feePct, ammClass });
+    }
     if (feePct == null && ammClass === pool.ammClass) return pool;
     const aprPct = feePct != null && pool.tvlUsd > 0
       ? (pool.volume24hUsd * feePct * 365 / pool.tvlUsd) * 100
@@ -583,15 +618,30 @@ export async function addMarketRangeAprs(
   pools: MarketPool[],
   llamaNetwork: string,
 ): Promise<MarketPool[]> {
-  const targets = pools.filter(pool =>
+  const now = Date.now();
+  // Fresh range figures skip the chain entirely — the ±5% band read is the
+  // heaviest part of enrichment (5 reads per pool) and barely moves in minutes.
+  // null = probed recently and unpriceable (no USD quote for token1): negative
+  // cache, so a pool that can't be ranged doesn't get re-read on every compare.
+  const served = pools.map(pool => {
+    const hit = rangeCache.get(`${client.chain?.id ?? 0}:${pool.address}`);
+    if (hit && hit.at + RANGE_TTL > now) {
+      if (hit.apr == null) return { ...pool, rangeFailed: true } as MarketPool & { rangeFailed?: boolean };
+      return { ...pool, aprPct: hit.apr, aprIsRange: true };
+    }
+    return pool;
+  });
+  const targets = served.filter(pool =>
     pool.ammClass === 'v3'
+    && !(pool as MarketPool & { rangeFailed?: boolean }).rangeFailed
+    && !pool.aprIsRange
     && pool.feePct != null
     && pool.feePct > 0
     && pool.tvlUsd > 0
     && pool.volume24hUsd > 0
     && /^0x[0-9a-f]{40}$/i.test(pool.address),
   );
-  if (targets.length === 0) return pools;
+  if (targets.length === 0) return served;
 
   // Round 1 resolves the pool's tokens; round 2 reads state + token1 decimals.
   const tokens = await withSafeMulticall(client).multicall({
@@ -638,11 +688,19 @@ export async function addMarketRangeAprs(
     if (fees24h <= 0) return;
     rangeByAddress.set(pool.address, Math.min((fees24h * 365 * 100) / bandUsd, 99_999));
   });
-  if (rangeByAddress.size === 0) return pools;
+  if (rangeByAddress.size === 0) {
+    // Nothing priced — remember the misses so the next compare doesn't re-read.
+    for (const pool of targets) {
+      rangeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, apr: null });
+    }
+    return served;
+  }
 
-  return pools.map(pool => {
+  return served.map(pool => {
     const range = rangeByAddress.get(pool.address);
-    return range != null ? { ...pool, aprPct: range, aprIsRange: true } : pool;
+    if (range == null) return pool;
+    rangeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, apr: range });
+    return { ...pool, aprPct: range, aprIsRange: true };
   });
 }
 

@@ -14,6 +14,14 @@ export const robinhoodChain = defineChain({
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com/'] } },
   blockExplorers: { default: { name: 'Robinhood Explorer', url: 'https://robinhoodchain.blockscout.com' } },
+  // Multicall3 is live at the canonical address on this chain — verified by
+  // reading real fee/slot0 results through aggregate3. Without this, viem
+  // multicalls can't batch and every read becomes its own RPC request.
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+    },
+  },
 });
 
 export const ROBINHOOD_RPC_URLS = Array.from(new Set([
