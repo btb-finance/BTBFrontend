@@ -12,6 +12,7 @@ import { Portal } from '../Portal';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
+import { LiquidityDepthChart } from '../LiquidityDepthChart';
 import { useSidebar } from '../../lib/SidebarContext';
 import { STABLES } from '../../lib/pools';
 import {
@@ -19,9 +20,10 @@ import {
   type V4MintPool,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { useSimPools, usePoolExtras } from './useSimData';
+import { useSimPools, usePoolExtras, useTokenSafety } from './useSimData';
 import { deriveSim, STRATEGY_SIGMA, type Strategy } from './simState';
 import { estimateSigmaDaily } from './math/probability';
+import { Section } from './ui';
 import { PositionSummary } from './sections/PositionSummary';
 import { RealBacktest } from './sections/RealBacktest';
 import { PriceDistribution } from './sections/PriceDistribution';
@@ -48,9 +50,16 @@ export interface SimPoolChoice {
   feeTier: number;
   address?: `0x${string}`;
   v4PoolId?: `0x${string}`;
+  /** Set when the pool belongs to a DEX other than the built-in protocols —
+   * a V3 fork we can simulate but not mint through. */
+  dexLabel?: string;
   tvlUsd?: number;
   apy?: number;
   fees24hUsd?: number;
+  /** Gauge/emission route (from the earn catalog) — shown separately from
+   * swap fees since it requires staking and is paid in reward tokens. */
+  aprKind?: 'fee' | 'gauge';
+  aprLabel?: string;
 }
 
 export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, chainName, wrappedNative, networks, onClose }: {
@@ -79,12 +88,23 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
 
   const [feeTier, setFeeTier] = useState(selected.feeTier);
   const [depositStr, setDepositStr] = useState('10000');
+  // While the field is mid-edit (cleared, "0", trailing dot) the model keeps
+  // running on the last valid number — otherwise the zero deposit nulls the
+  // whole simulation and unmounts the input out from under the user's hands.
+  const [lastValidDeposit, setLastValidDeposit] = useState(10_000);
+  const parsedDeposit = parseFloat(depositStr);
+  const depositValid = Number.isFinite(parsedDeposit) && parsedDeposit > 0;
+  const depositUsd = depositValid ? parsedDeposit : lastValidDeposit;
+  useEffect(() => {
+    if (depositValid) setLastValidDeposit(parsedDeposit);
+  }, [depositValid, parsedDeposit]);
   const [strategy, setStrategy] = useState<Strategy>('balanced');
   const [customTicks, setCustomTicks] = useState<{ tickLower: number; tickUpper: number } | null>(null);
   const [horizonDays, setHorizonDays] = useState(30);
   const [movePct, setMovePct] = useState(0);
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
   const [deploying, setDeploying] = useState(false);
+  const [compound, setCompound] = useState(false);
 
   const { pools, loading, error, retry } = useSimPools(
     tokenA,
@@ -113,11 +133,32 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const v4Pool = isV4 && pool ? (pool as V4MintPool) : null;
   const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[feeTier] ?? 60;
 
-  const { history, fallbackCloses, tokenUsd } = usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks);
+  const { history, estimatedHistory, fallbackCloses, tokenUsd, tickLiq, poolCreatedAt } =
+    usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks, feeTier);
+  // Indexed history wins; on chains without a subgraph the volume-derived
+  // estimate stands in, and every section it feeds is labelled estimated.
+  const effectiveHistory = history ?? estimatedHistory ?? null;
+  const historyEstimated = history == null && estimatedHistory != null;
+
+  // Token safety (holder concentration, spam/honeypot) — best-effort lookups.
+  const blockscoutBase = chainId === 4663 ? 'https://robinhoodchain.blockscout.com/api/v2' : undefined;
+  const safetyByAddress = useTokenSafety(pool?.token0, pool?.token1, blockscoutBase, chainId);
 
   // Per-tier market data (TVL/APR/fees) from the Simulate screen's findings.
   const tierData = (fee: number) => siblings.find((s) => s.feeTier === fee) ?? (fee === selected.feeTier ? selected : undefined);
   const current = tierData(feeTier);
+
+  // Third-party fork pools can run non-standard fee tiers — keep the current
+  // tier selectable even when it is not one of the protocol's standard ones.
+  const feeOptions = deployment.feeTiers.map((f) => ({
+    fee: f,
+    exists: !!pools?.[f]?.exists,
+    tvlUsd: tierData(f)?.tvlUsd,
+    aprPct: tierData(f)?.apy,
+  }));
+  if (!feeOptions.some((option) => option.fee === feeTier)) {
+    feeOptions.push({ fee: feeTier, exists: true, tvlUsd: tierData(feeTier)?.tvlUsd, aprPct: tierData(feeTier)?.apy });
+  }
 
   // ── Orientation: quote the volatile token in the stablecoin, like the sheet ──
   const autoFlip = useMemo(() => {
@@ -149,18 +190,29 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     return { tickLower, tickUpper };
   }, [pool, customTicks, strategy, sigmaDaily, horizonDays, spacing]);
 
-  const depositUsd = parseFloat(depositStr) || 0;
-
   const sim = useMemo(() => {
     if (!pool || !ticks) return null;
     return deriveSim({
-      pool, feeTier, history, fallbackCloses,
+      pool, feeTier, history: effectiveHistory, historyEstimated, poolCreatedAt,
+      fallbackCloses,
       fees24hUsd: current?.fees24hUsd ?? (current?.tvlUsd != null && current?.apy != null ? (current.tvlUsd * current.apy) / 100 / 365 : undefined),
       tokenUsd, tvlUsd: current?.tvlUsd ?? null,
       depositUsd, tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
       horizonDays, movePct, flip, gasUsd: GAS_EST_USD,
+      rewardAprPct: selected.aprKind === 'gauge' ? selected.apy : undefined,
+      rewardLabel: selected.aprLabel,
+      compound,
     });
-  }, [pool, feeTier, history, fallbackCloses, current, tokenUsd, depositUsd, ticks, horizonDays, movePct, flip]);
+  }, [pool, feeTier, effectiveHistory, historyEstimated, poolCreatedAt, fallbackCloses, current, tokenUsd, depositUsd, ticks, horizonDays, movePct, flip, selected, compound]);
+
+  // Tick liquidity converted to display space (quote-asset orientation) for
+  // the depth histogram.
+  const dispTickLiq = useMemo(() => {
+    if (!tickLiq) return null;
+    return flip
+      ? tickLiq.map((p) => ({ ...p, price: p.price > 0 ? 1 / p.price : 0 })).filter((p) => p.price > 0)
+      : tickLiq;
+  }, [tickLiq, flip]);
 
   // Any range drag from the summary bar lands here: display
   // prices → snapped usable ticks → new SimState → every section re-derives.
@@ -178,8 +230,12 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
 
   const deploySupported = chainId === 1 || (chainId === 4663 && dex === 'uniswap');
   const deployChainId: 1 | 4663 = chainId === 4663 ? 4663 : 1;
-  const canDeploy = deploySupported && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
-  const dexLabel = dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
+  // A third-party V3 fork pool is simulate-only: the deploy flow mints through
+  // the Uniswap/PancakeSwap router, which would resolve a different (or no)
+  // pool for the same pair+fee. The simulation itself is still exact — it reads
+  // the fork pool's own state.
+  const canDeploy = deploySupported && !selected.dexLabel && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
+  const dexLabel = selected.dexLabel ?? (dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`);
 
   const sectionProps = { isMobile };
 
@@ -227,6 +283,40 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Token safety — what an LP should check before depositing. */}
+              {Object.keys(safetyByAddress).length > 0 && (
+                <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 0.45 }}>Token safety</span>
+                  {[pool.token0, pool.token1].map((addr) => {
+                    const s = safetyByAddress[addr?.toLowerCase() ?? ''];
+                    if (!s) return null;
+                    const sym = addr === pool.token0 ? pool.symbol0 : pool.symbol1;
+                    const flags: string[] = [];
+                    if (s.spam) flags.push('SPAM-flagged');
+                    if (s.honeypot) flags.push('HONEYPOT');
+                    if (s.buyTaxPct != null || s.sellTaxPct != null) {
+                      flags.push(`tax ${s.buyTaxPct?.toFixed(1) ?? '0'}%/${s.sellTaxPct?.toFixed(1) ?? '0'}%`);
+                    }
+                    const risky = s.spam || s.honeypot;
+                    const warm = (s.top10Share ?? 0) > 0.5;
+                    return (
+                      <span
+                        key={addr}
+                        title={`Top 10 holders${s.top10Share != null ? ` hold ${(s.top10Share * 100).toFixed(0)}% of supply` : ''}${s.holders != null ? `, ${s.holders.toLocaleString('en-US')} holders total` : ''}${flags.length ? ` — ${flags.join(', ')}` : ''}. Source: explorer + GoPlus.`}
+                        style={{
+                          color: risky ? btb.loss : warm ? btb.amber : btb.textMuted,
+                          fontSize: 10.5, fontWeight: 700,
+                          background: risky ? 'rgba(255,107,122,.1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(255,255,255,.04)',
+                          border: risky ? '1px solid rgba(255,107,122,.3)' : warm ? '1px solid rgba(255,202,107,.25)' : btb.borderSoft,
+                          borderRadius: 8, padding: '3px 8px',
+                        }}
+                      >
+                        {sym}{s.top10Share != null ? ` · top10 ${(s.top10Share * 100).toFixed(0)}%` : ''}{s.holders != null ? ` · ${s.holders.toLocaleString('en-US')} holders` : ''}{flags.length > 0 ? ` · ${flags.join(' · ')}` : ''}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               {sim && (
                 <PositionSummary
                   sim={sim}
@@ -234,12 +324,9 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                   onRange={onDispRange}
                   depositStr={depositStr}
                   setDepositStr={setDepositStr}
-                  feeOptions={deployment.feeTiers.map((f) => ({
-                    fee: f,
-                    exists: !!pools?.[f]?.exists,
-                    tvlUsd: tierData(f)?.tvlUsd,
-                    aprPct: tierData(f)?.apy,
-                  }))}
+                  compound={compound}
+                  setCompound={setCompound}
+                  feeOptions={feeOptions}
                   feeTier={feeTier}
                   setFeeTier={(f) => { setFeeTier(f); setCustomTicks(null); }}
                   feeLocked={isV4}
@@ -257,8 +344,23 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
               {sim && (
                 <>
                   <PriceDistribution sim={sim} />
+                  {dispTickLiq && dispTickLiq.length > 0 && (
+                    <Section
+                      kicker="Liquidity depth"
+                      title="Where the pool's liquidity sits"
+                      subtitle="Existing LPs concentrated by price. Tall bars are where your fees get shared with others; a lonely band earns alone but takes the full IL when price crosses it. Drag the range lines directly on the chart."
+                    >
+                      <LiquidityDepthChart
+                        points={dispTickLiq}
+                        min={sim.dispLower}
+                        max={sim.dispUpper}
+                        current={sim.dispPrice}
+                        onChange={onDispRange}
+                      />
+                    </Section>
+                  )}
                   <FeePanel sim={sim} {...sectionProps} />
-                  <ILPanel sim={sim} />
+                  <ILPanel sim={sim} isMobile={isMobile} />
                   <PnlWaterfall sim={sim} />
                   <ComparisonPanel sim={sim} />
                   <RiskRadar sim={sim} {...sectionProps} />

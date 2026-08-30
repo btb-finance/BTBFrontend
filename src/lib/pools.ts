@@ -507,7 +507,9 @@ export const RANGE_APR_PCT = 5;
 
 // Token1-units of value per unit of liquidity concentrated in a ±5% band:
 // amount0·price + amount1 = L·√P·[(1 − 1/√1.05) + (1 − √0.95)].
-const BAND_FACTOR = (1 - 1 / Math.sqrt(1 + RANGE_APR_PCT / 100)) + (1 - Math.sqrt(1 - RANGE_APR_PCT / 100));
+// Shared with dexSearch's addMarketRangeAprs so market-priced pools and
+// indexer pools quote the identical range figure.
+export const BAND_FACTOR = (1 - 1 / Math.sqrt(1 + RANGE_APR_PCT / 100)) + (1 - Math.sqrt(1 - RANGE_APR_PCT / 100));
 
 /**
  * Headline APR like the LP simulators quote it: what a ±5% concentrated

@@ -39,11 +39,16 @@ export function RealBacktest({ sim, isMobile }: { sim: Sim; isMobile: boolean })
   const liquidityNote = b.historicalLiquidityDays > 0
     ? `${b.historicalLiquidityDays} of ${b.daysInRange} in-range close days use indexed end-of-day liquidity${b.fallbackLiquidityDays ? `; ${b.fallbackLiquidityDays} use live liquidity because the historical snapshot was missing` : ''}.`
     : 'This index did not return historical liquidity snapshots, so fee share uses the live in-range liquidity.';
+  const estimatedNote = sim.historyEstimated
+    ? 'No indexed fee history exists for this pool — daily fees are estimated as traded volume × fee tier, and liquidity uses the live snapshot. Treat the replay as a volume-based approximation, not recorded fees.'
+    : undefined;
 
   return (
     <Section
       kicker="Historical replay"
-      title={`Historical range replay · last ${b.days} daily snapshots`}
+      title={sim.historyEstimated
+        ? `Replay from volume data (estimated) · last ${b.days} daily snapshots`
+        : `Historical range replay · last ${b.days} daily snapshots`}
       subtitle="Pool price, fee totals, and liquidity are historical. Your fee share is estimated from each day’s recorded liquidity; daily snapshots cannot measure intraday time in range or exact tick-level fee growth."
     >
       <div style={{ background: 'rgba(255,255,255,0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px' }}>
@@ -74,6 +79,11 @@ export function RealBacktest({ sim, isMobile }: { sim: Sim; isMobile: boolean })
       </div>
 
       <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>
+        {sim.historyEstimated && (
+          <div style={{ color: btb.amber, fontSize: 11.5, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 10, padding: '8px 11px', marginBottom: 8 }}>
+            {estimatedNote}
+          </div>
+        )}
         {liquidityNote} “LP vs holding” is the exact price-only difference for a fixed range entered on the first snapshot and compared with holding the same entry tokens to the last. It is not a realised wallet loss. Fees are estimated, and are deliberately shown as a period return rather than APR. Past performance is not a forecast.
       </div>
     </Section>

@@ -13,6 +13,7 @@
  *  - all float math is display-grade, never used to size a transaction.
  */
 import { formatUnits } from 'viem';
+import { STABLES } from '../../lib/pools';
 import {
   impermanentLossFraction, unitAmounts, tickToPrice, getAmountsForLiquidity, backtestRange,
   type MintPool, type PoolDay, type BacktestResult,
@@ -42,6 +43,10 @@ export interface SimInputs {
   pool: MintPool;
   feeTier: number;
   history: PoolDay[] | null;         // indexed per-day price, fees, and liquidity snapshots
+  /** True when `history` was synthesized from volume×fee (no indexed data). */
+  historyEstimated?: boolean;
+  /** Pool creation timestamp (ms) — feeds the pool-age signal. */
+  poolCreatedAt?: number | null;
   fallbackCloses: number[] | null;   // pool-space closes (GeckoTerminal, rescaled)
   fees24hUsd?: number;               // whole-pool daily fees fallback
   tokenUsd: { p0: number; p1: number } | null;
@@ -54,6 +59,11 @@ export interface SimInputs {
   movePct: number;
   flip: boolean;
   gasUsd: number;
+  /** Gauge/emission APR (staking route) shown separately from swap fees. */
+  rewardAprPct?: number;
+  rewardLabel?: string;
+  /** Reinvest fees into the position — geometric fee accumulation. */
+  compound?: boolean;
 }
 
 export interface WaterfallLeg {
@@ -102,11 +112,25 @@ export interface Sim {
   hasFeeData: boolean;
   // model
   sigmaDaily: number; driftDaily: number;
+  /** True when sigmaDaily was clamped up to the pair-type floor (junk/short
+   * candle history) — the figure is an assumption, not a measurement. */
+  sigmaAssumed: boolean;
   coverage: number;
   timeInRange: number;
   expectedFeesUsd: number;
   nearestEdgePct: number | null;
   usingFallbackHistory: boolean;
+  /** Range-edge/management estimates — what active LPs actually plan around. */
+  historyEstimated: boolean;
+  poolAgeDays: number | null;
+  timeToEdgeDays: number | null;
+  rebalancesPerMonth: number | null;
+  ilAtEdge: number | null;
+  /** Daily fee income and adverse-selection (LVR) rate, % of deposit. */
+  feeDailyPct: number | null;
+  lvrDailyPct: number | null;
+  rewardAprPct?: number;
+  rewardLabel?: string;
   // functions of an end price (POOL space)
   hodlUsd(p1: number): number;
   lpUsd(p1: number): number;
@@ -209,7 +233,22 @@ export function deriveSim(i: SimInputs): Sim | null {
     ? i.history.map((d) => d.price0)
     : i.fallbackCloses ?? [];
   const usingFallbackHistory = !(i.history && i.history.length > 1);
-  const sigmaDaily = estimateSigmaDaily(histCloses);
+  // Candle feeds can lie — GeckoTerminal has emitted flat placeholder candles
+  // (every close = 1.0) for new or mis-indexed pools — and short series say
+  // little. A volatility below what the pair's own composition makes possible
+  // defaults to a razor-thin range and promises fee income the first real
+  // price move destroys (a $10k position showed +$6k/month off 0.1%/day on a
+  // WETH pair), so clamp from below by pair type.
+  const sigmaFloor = (() => {
+    const s0 = STABLES.has((pool.symbol0 ?? '').toUpperCase());
+    const s1 = STABLES.has((pool.symbol1 ?? '').toUpperCase());
+    if (s0 && s1) return 0.0005; // stable/stable — genuinely calm
+    if (s0 || s1) return 0.015;  // one side is a real asset; even calm weeks of ETH run ~1-2%/day
+    return 0.03;                 // volatile/volatile
+  })();
+  const rawSigma = estimateSigmaDaily(histCloses);
+  const sigmaAssumed = rawSigma < sigmaFloor || histCloses.length < 6;
+  const sigmaDaily = Math.max(rawSigma, sigmaFloor);
   // Drift in DISPLAY orientation so "the trend" points the way users read it.
   const dispCloses = flip ? histCloses.map((c) => (c > 0 ? 1 / c : 0)) : histCloses;
   const driftDaily = estimateDriftDaily(dispCloses);
@@ -218,7 +257,13 @@ export function deriveSim(i: SimInputs): Sim | null {
   const coverage = rangeCoverage(price, priceLower, priceUpper, sigmaDaily, H);
   const timeInRange = expectedTimeInRange(price, priceLower, priceUpper, sigmaDaily, H);
   const perDayShare = poolDailyFeesUsd * liquidityShare; // fee/day while in range
-  const expectedFeesUsd = perDayShare * H * timeInRange;
+  // Compounding: fees reinvested at a constant daily rate r grow the stream
+  // geometrically — ((1+r)^H − 1)/r in place of a flat H.
+  const rDaily = depositUsd > 0 ? perDayShare / depositUsd : 0;
+  const horizonFactor = i.compound && rDaily > 0
+    ? (Math.pow(1 + rDaily, H) - 1) / rDaily
+    : H;
+  const expectedFeesUsd = perDayShare * timeInRange * horizonFactor;
   const nearestEdgePct = inRange
     ? Math.min(price / priceLower - 1, priceUpper / price - 1) * 100
     : null;
@@ -368,6 +413,17 @@ export function deriveSim(i: SimInputs): Sim | null {
 
   const netAprPct = ((expectedFeesUsd + depositUsd * expectedIlFraction - i.gasUsd) / depositUsd) * (365 / H) * 100;
 
+  // ── Adverse selection (LVR) — the rebalancing benchmark LPs quote ──────────
+  // Instantaneous relative LVR of a CL position while in range: −½σ²p²V''/V
+  // with V = L(2√p − √a − p/√b) reduces to σ²√p / (4(2√p − √a − p/√b)) per
+  // day. Full-range limit is the textbook σ²/8.
+  const sqrtP = Math.sqrt(price);
+  const posUnits = 2 * sqrtP - Math.sqrt(priceLower) - price / Math.sqrt(priceUpper);
+  const lvrDailyPct = inRange && posUnits > 0 && sigmaDaily > 0
+    ? (sigmaDaily * sigmaDaily * sqrtP) / (4 * posUnits) * 100
+    : null;
+  const feeDailyPct = depositUsd > 0 && perDayShare > 0 ? (perDayShare / depositUsd) * 100 : null;
+
   // ── Historical replay: real indexed pool prices/fees, with each day's
   // recorded liquidity used to estimate this new position's fee share.
   const backtest = i.history && i.history.length >= 2
@@ -392,7 +448,20 @@ export function deriveSim(i: SimInputs): Sim | null {
     inRange, nearEdge,
     depositUsd, amount0, amount1, value0Usd, value1Usd, liquidityShare,
     poolDailyFeesUsd, poolVolume7dUsd, volumeToTvl7d, dailyFeeUsd, feeAprPct, dailyFeeSeries, hasFeeData,
-    sigmaDaily, driftDaily, coverage, timeInRange, expectedFeesUsd, nearestEdgePct, usingFallbackHistory,
+    sigmaDaily, sigmaAssumed, driftDaily, coverage, timeInRange, expectedFeesUsd, nearestEdgePct, usingFallbackHistory,
+    historyEstimated: i.historyEstimated ?? false,
+    poolAgeDays: i.poolCreatedAt != null ? Math.max(0, Math.round((Date.now() - i.poolCreatedAt) / 86_400_000)) : null,
+    // Median first-passage of a zero-drift random walk to the nearer range
+    // edge: (distance/σ)² in days. Then what active management implies.
+    timeToEdgeDays: nearestEdgePct != null && nearestEdgePct > 0 && sigmaDaily > 0
+      ? (nearestEdgePct / 100 / sigmaDaily) ** 2
+      : null,
+    rebalancesPerMonth: nearestEdgePct != null && nearestEdgePct > 0 && sigmaDaily > 0
+      ? Math.min(30 / ((nearestEdgePct / 100 / sigmaDaily) ** 2), 99)
+      : null,
+    ilAtEdge: inRange ? Math.min(ilFraction(priceLower), ilFraction(priceUpper)) : null,
+    feeDailyPct, lvrDailyPct,
+    rewardAprPct: i.rewardAprPct, rewardLabel: i.rewardLabel,
     hodlUsd, lpUsd, ilFraction, feesTo, netUsd, dispToPool, poolToDisp,
     movePct: i.movePct, endPrice, dispEndPrice,
     waterfall, comparison, scenarios, worstUsd, bestUsd, probPositive, expectedIlFraction,

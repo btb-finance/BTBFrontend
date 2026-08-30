@@ -7,8 +7,10 @@
  */
 import { searchPairPools } from './geckoterminal';
 import { fetchDexScreenerPairPools } from './dexscreener';
-import type { PublicClient } from 'viem';
+import { erc20Abi, type PublicClient } from 'viem';
+import { getTokenPricesUsd } from './defillama';
 import type { EarnPool } from './pools';
+import { BAND_FACTOR } from './pools';
 import { withSafeMulticall } from './safeMulticall';
 
 export interface MarketPool {
@@ -22,9 +24,19 @@ export interface MarketPool {
   volume24hUsd: number;
   /** Whole-pool fee APR % (volume × fee / TVL, annualized) when the fee is known. */
   aprPct: number | null;
+  /** True when aprPct is the ±5%-range-adjusted figure rather than whole-pool. */
+  aprIsRange?: boolean;
   /** Gauge-backed APR replaces generic fee math for ve(3,3) pools. */
   aprKind?: 'fee' | 'gauge';
   aprLabel?: string;
+  /**
+   * AMM architecture, decided by what the pool contract answers to — not by
+   * brand name, so it works for every DEX on every chain. 'v3' means the pool
+   * responds to the standard Uniswap V3 slot0/fee reads and can be simulated
+   * and range-priced with the shared V3 math; 'v2' means constant-product;
+   * 'algebra' means an Algebra-style CLAMM; 'unknown' = unprobed.
+   */
+  ammClass: 'v3' | 'v2' | 'algebra' | 'unknown';
   url: string;              // pool page on DexScreener
 }
 
@@ -51,6 +63,36 @@ const POOL_FEE_ABI = [{
   inputs: [],
   outputs: [{ type: 'uint24' }],
 }] as const;
+/** Standard Uniswap V3 pool state — any pool answering these is simulatable
+ * with the shared V3 math, regardless of which DEX deployed it. */
+const V3_STATE_ABI = [
+  {
+    type: 'function',
+    name: 'slot0',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [
+      { name: 'sqrtPriceX96', type: 'uint160' },
+      { name: 'tick', type: 'int24' },
+      { name: 'observationIndex', type: 'uint16' },
+      { name: 'observationCardinality', type: 'uint16' },
+      { name: 'observationCardinalityNext', type: 'uint16' },
+      { name: 'feeProtocol', type: 'uint8' },
+      { name: 'unlocked', type: 'bool' },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'liquidity',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: 'liquidity', type: 'uint128' }],
+  },
+] as const;
+const POOL_TOKENS_ABI = [
+  { type: 'function', name: 'token0', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+  { type: 'function', name: 'token1', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+] as const;
 const ALGEBRA_GLOBAL_STATE_ABI = [{
   type: 'function',
   name: 'globalState',
@@ -275,6 +317,9 @@ async function loadMarketPools(
       aprLabel: r.dexId.trim().toLowerCase() === SWAAP_VAULT_ID
         ? 'Swaap V2 has no on-chain swap fee. LP economics are included in signed RFQ quotes, so volume cannot be converted into a fee APR.'
         : undefined,
+      // Name-based guess only — enrichMarketPoolApr upgrades this to whatever
+      // the pool contract actually answers, which is the authoritative class.
+      ammClass: ALGEBRA_STYLE_POOL.test(r.dexId) ? 'algebra' : V2_STYLE_DEX.test(r.dexId) ? 'v2' : 'unknown',
       url: `https://dexscreener.com/${networks.dexScreener}/${r.address}`,
     });
   }
@@ -323,9 +368,10 @@ export async function enrichMarketPoolApr(
     /^0x[0-9a-f]{40}$/i.test(pool.address) &&
     pool.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID,
   );
-  if (missing.length === 0) return pools;
+  if (missing.length === 0 && !pools.some(pool => pool.ammClass === 'unknown' && /^0x[0-9a-f]{40}$/i.test(pool.address))) return pools;
 
   const feeByAddress = new Map<string, number>();
+  const classByAddress = new Map<string, MarketPool['ammClass']>();
   let pendingAlgebra = missing.filter(pool => ALGEBRA_STYLE_POOL.test(pool.dexId));
   for (let attempt = 0; attempt < 2 && pendingAlgebra.length > 0; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
@@ -348,6 +394,7 @@ export async function enrichMarketPoolApr(
       const fee = Number(read.result[2]);
       if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
         feeByAddress.set(pool.address, fee / 1_000_000);
+        classByAddress.set(pool.address, 'algebra');
       }
     });
     pendingAlgebra = reads.length === 0 && attempt === 0 ? batch : failed;
@@ -441,27 +488,39 @@ export async function enrichMarketPoolApr(
   for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
     const batch = pending;
+    // Two reads per pool: fee decides the APR, and a successful slot0 proves
+    // the pool speaks the standard V3 ABI — that, not the DEX's name, is what
+    // makes it simulatable with the shared V3 math.
     const reads = await withSafeMulticall(client).multicall({
-      contracts: batch.map(pool => ({
-        address: pool.address as `0x${string}`,
-        abi: POOL_FEE_ABI,
-        functionName: 'fee' as const,
-      })),
+      contracts: batch.flatMap(pool => [
+        {
+          address: pool.address as `0x${string}`,
+          abi: POOL_FEE_ABI,
+          functionName: 'fee' as const,
+        },
+        {
+          address: pool.address as `0x${string}`,
+          abi: V3_STATE_ABI,
+          functionName: 'slot0' as const,
+        },
+      ]),
       allowFailure: true,
     }).catch(() => []);
     const failed: MarketPool[] = [];
     batch.forEach((pool, index) => {
-      const read = reads[index];
-      if (!read || read.status !== 'success') {
-        failed.push(pool);
+      const feeRead = reads[index * 2];
+      const slot0Read = reads[index * 2 + 1];
+      if (!feeRead || feeRead.status !== 'success') {
+        if (slot0Read?.status !== 'success') failed.push(pool);
         return;
       }
-      const fee = Number(read.result);
+      const fee = Number(feeRead.result);
       // V3-style fees use millionths. Reject zero and the V4 dynamic-fee flag
       // rather than turning either into a fabricated APR. A successful but
       // incompatible fee result is not transient, so it is not retried.
       if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
         feeByAddress.set(pool.address, fee / 1_000_000);
+        if (slot0Read?.status === 'success') classByAddress.set(pool.address, 'v3');
       }
     });
     pending = failed;
@@ -471,27 +530,128 @@ export async function enrichMarketPoolApr(
       pending = batch;
     }
   }
-  if (feeByAddress.size === 0) return pools;
+
+  // Pools whose fee the provider already stated still need their class
+  // probed before they can be simulated — the provider's name is not proof
+  // of the pool's ABI.
+  const needsClass = pools.filter(pool =>
+    pool.ammClass === 'unknown'
+    && !feeByAddress.has(pool.address)
+    && !classByAddress.has(pool.address)
+    && /^0x[0-9a-f]{40}$/i.test(pool.address)
+    && pool.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID,
+  );
+  if (needsClass.length > 0) {
+    const reads = await withSafeMulticall(client).multicall({
+      contracts: needsClass.map(pool => ({
+        address: pool.address as `0x${string}`,
+        abi: V3_STATE_ABI,
+        functionName: 'slot0' as const,
+      })),
+      allowFailure: true,
+    }).catch(() => []);
+    needsClass.forEach((pool, index) => {
+      if (reads[index]?.status === 'success') classByAddress.set(pool.address, 'v3');
+    });
+  }
+  if (feeByAddress.size === 0 && classByAddress.size === 0) return pools;
 
   return pools.map(pool => {
     const feePct = feeByAddress.get(pool.address);
-    if (feePct == null) return pool;
-    const aprPct = pool.tvlUsd > 0
+    const ammClass = classByAddress.get(pool.address) ?? pool.ammClass;
+    if (feePct == null && ammClass === pool.ammClass) return pool;
+    const aprPct = feePct != null && pool.tvlUsd > 0
       ? (pool.volume24hUsd * feePct * 365 / pool.tvlUsd) * 100
       : null;
     return {
       ...pool,
-      feePct,
-      aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null,
+      ...(feePct != null ? { feePct, aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null } : {}),
+      ammClass,
     };
+  });
+}
+
+/**
+ * Upgrade V3-class market pools from whole-pool fee APR to the ±5%-range
+ * figure, using the exact same band math as `addRangeAprs` for indexer pools.
+ * Architecture-agnostic: any pool classified 'v3' by the probe above gets it,
+ * whatever DEX or chain it is on. Pools missing a USD price for token1 keep
+ * the whole-pool APR rather than a wrong number.
+ */
+export async function addMarketRangeAprs(
+  client: PublicClient,
+  pools: MarketPool[],
+  llamaNetwork: string,
+): Promise<MarketPool[]> {
+  const targets = pools.filter(pool =>
+    pool.ammClass === 'v3'
+    && pool.feePct != null
+    && pool.feePct > 0
+    && pool.tvlUsd > 0
+    && pool.volume24hUsd > 0
+    && /^0x[0-9a-f]{40}$/i.test(pool.address),
+  );
+  if (targets.length === 0) return pools;
+
+  // Round 1 resolves the pool's tokens; round 2 reads state + token1 decimals.
+  const tokens = await withSafeMulticall(client).multicall({
+    contracts: targets.flatMap(pool => ([
+      { address: pool.address as `0x${string}`, abi: POOL_TOKENS_ABI, functionName: 'token0' as const },
+      { address: pool.address as `0x${string}`, abi: POOL_TOKENS_ABI, functionName: 'token1' as const },
+    ])),
+    allowFailure: true,
+  }).catch(() => []);
+  const resolved = targets.flatMap((pool, index) => {
+    const t0 = tokens[index * 2], t1 = tokens[index * 2 + 1];
+    if (t0?.status !== 'success' || t1?.status !== 'success') return [];
+    return [{ pool, token1: (t1.result as string).toLowerCase() as `0x${string}` }];
+  });
+  if (resolved.length === 0) return pools;
+
+  const state = await withSafeMulticall(client).multicall({
+    contracts: resolved.flatMap(({ pool, token1 }) => ([
+      { address: pool.address as `0x${string}`, abi: V3_STATE_ABI, functionName: 'slot0' as const },
+      { address: pool.address as `0x${string}`, abi: V3_STATE_ABI, functionName: 'liquidity' as const },
+      { address: token1, abi: erc20Abi, functionName: 'decimals' as const },
+    ])),
+    allowFailure: true,
+  }).catch(() => []);
+
+  const prices = await getTokenPricesUsd(
+    [...new Set(resolved.map(({ token1 }) => token1))],
+    llamaNetwork,
+  ).catch(() => ({} as Record<string, number>));
+
+  const rangeByAddress = new Map<string, number>();
+  resolved.forEach(({ pool, token1 }, index) => {
+    const s = state[index * 3], l = state[index * 3 + 1], d = state[index * 3 + 2];
+    if (s?.status !== 'success' || l?.status !== 'success' || d?.status !== 'success') return;
+    const sqrtPriceX96 = (s.result as readonly unknown[])[0] as bigint;
+    const liquidity = l.result as bigint;
+    const decimals1 = Number(d.result as number);
+    const price1 = prices[token1];
+    if (!price1 || liquidity === 0n || sqrtPriceX96 === 0n || !Number.isFinite(decimals1)) return;
+    const sqrtP = Number(sqrtPriceX96) / 2 ** 96;
+    const bandUsd = (Number(liquidity) * sqrtP * BAND_FACTOR * price1) / 10 ** decimals1;
+    if (!(bandUsd > 0)) return;
+    const fees24h = pool.volume24hUsd * (pool.feePct ?? 0);
+    if (fees24h <= 0) return;
+    rangeByAddress.set(pool.address, Math.min((fees24h * 365 * 100) / bandUsd, 99_999));
+  });
+  if (rangeByAddress.size === 0) return pools;
+
+  return pools.map(pool => {
+    const range = rangeByAddress.get(pool.address);
+    return range != null ? { ...pool, aprPct: range, aprIsRange: true } : pool;
   });
 }
 
 /**
  * One enrichment pipeline for single-chain search and cross-chain research.
  * The hourly catalog supplies gauge/reward APRs, while the chain supplies
- * missing pool fee tiers. Reapplying the catalog last ensures an actionable
- * gauge route is not overwritten by the generic whole-pool fee estimate.
+ * missing pool fee tiers and the AMM class (by probing the pool contract).
+ * Reapplying the catalog last ensures an actionable gauge route is not
+ * overwritten by the generic whole-pool fee estimate.
  */
 export async function enrichMarketPools(
   client: PublicClient | undefined,
@@ -500,6 +660,7 @@ export async function enrichMarketPools(
   chainName: string,
   tokenAAddress: string,
   tokenBAddress?: string,
+  llamaNetwork?: string,
 ): Promise<MarketPool[]> {
   const catalogEnriched = applyGaugeAprCatalog(
     pools,
@@ -511,8 +672,11 @@ export async function enrichMarketPools(
   const feeEnriched = client
     ? await enrichMarketPoolApr(client, catalogEnriched).catch(() => catalogEnriched)
     : catalogEnriched;
+  const ranged = client && llamaNetwork
+    ? await addMarketRangeAprs(client, feeEnriched, llamaNetwork).catch(() => feeEnriched)
+    : feeEnriched;
   return applyGaugeAprCatalog(
-    feeEnriched,
+    ranged,
     earnPools,
     chainName,
     tokenAAddress,

@@ -4,13 +4,13 @@
  * holding) is the visible story. Hover anywhere for the full breakdown. */
 import { useState } from 'react';
 import { btb } from '../../design-tokens';
-import { Section, fmtSignedPct, chart } from '../ui';
+import { Section, Stat, fmtSignedPct, chart } from '../ui';
 import type { Sim } from '../simState';
 
 const W = 640, H = 230, PADX = 34, PADY = 14, AXIS = 20;
 const MOVES = { min: -60, max: 60 };
 
-export function ILPanel({ sim }: { sim: Sim }) {
+export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
   const [hoverMove, setHoverMove] = useState<number | null>(null);
 
   // All three series as % of the deposit, per display-space move.
@@ -110,6 +110,34 @@ export function ILPanel({ sim }: { sim: Sim }) {
           </div>
         )}
       </div>
+      {/* Active management: what happens after the first exit — the part of
+          LPing passive simulations skip. Median first-passage to the nearer
+          edge under the fitted volatility, and the IL waiting there. */}
+      {sim.timeToEdgeDays != null && sim.ilAtEdge != null && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
+          <Stat
+            label="Typical time to edge"
+            value={sim.timeToEdgeDays < 1 ? `${Math.max(1, Math.round(sim.timeToEdgeDays * 24))}h` : sim.timeToEdgeDays < 45 ? `${sim.timeToEdgeDays.toFixed(1)}d` : `${(sim.timeToEdgeDays / 30).toFixed(1)}mo`}
+            sub="median, at current volatility"
+          />
+          <Stat
+            label="Rebalances / month"
+            value={sim.rebalancesPerMonth != null ? (sim.rebalancesPerMonth >= 99 ? '99+' : sim.rebalancesPerMonth.toFixed(1)) : '—'}
+            sub="if you re-center after each exit"
+          />
+          <Stat label="IL at range edge" value={fmtSignedPct(sim.ilAtEdge * 100)} sub="loss vs holding at a boundary" />
+        </div>
+      )}
+      {/* Adverse selection benchmark: the modern academic yardstick for LP
+          performance — can fees beat simply rebalancing the same capital? */}
+      {sim.lvrDailyPct != null && sim.feeDailyPct != null && (
+        <div style={{ marginTop: 10, color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
+          Adverse-selection benchmark (LVR): while in range, arbitrage against this position costs about{' '}
+          <b style={{ color: btb.loss }}>−{sim.lvrDailyPct.toFixed(2)}%/day</b> against fee income of{' '}
+          <b style={{ color: sim.feeDailyPct > sim.lvrDailyPct ? btb.green : btb.loss }}>+{sim.feeDailyPct.toFixed(2)}%/day</b> —{' '}
+          {sim.feeDailyPct > sim.lvrDailyPct ? 'fees currently beat the benchmark.' : 'the benchmark currently beats these fees.'}
+        </div>
+      )}
       {/* legend (three series, also direct-labeled on chart) */}
       <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
         {[[chart.fees, 'Fees earned'], [chart.il, 'Impermanent loss'], [chart.net, 'Net vs just holding']].map(([c, l]) => (
