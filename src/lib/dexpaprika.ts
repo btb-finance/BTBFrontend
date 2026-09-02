@@ -37,40 +37,125 @@ export interface DexPaprikaToken {
   decimals: number;
 }
 
-export interface DexPaprikaPoolRaw {
-  /** Pool contract address (V3/PancakeSwap V3) or poolId hash (V4). */
+/**
+ * One pool from the network wide listing.
+ *
+ * Note what is NOT here: `fee` comes back null even for well known Uniswap
+ * pools, and token symbols are absent entirely (the response carries token
+ * addresses only). Callers pair this with an on chain fee read and their own
+ * symbol resolution, so a fee tier is never invented from this data.
+ */
+export interface DexPaprikaPoolRow {
+  /** Pool contract address (V2/V3 style) or poolId hash (V4). */
   id: string;
+  dexId: string;          // 'uniswap_v3'
+  dexName: string;        // 'Uniswap V3'
   volume24hUsd: number;
+  tvlUsd: number;
+  transactions24h: number;
+  priceChange24h?: number;
   priceUsd: number;
-  token0: DexPaprikaToken;
-  token1: DexPaprikaToken;
+  tokenAddresses: string[];
+  /** Swap fee as a percent (0.01 = 0.01%). Often null; present on some venues. */
+  feePct?: number;
+}
+
+const MAX_PAGE = 100;   // the API rejects limit > 100 with a 400
+
+interface SearchRow {
+  id?: string;
+  dex_id?: string;
+  dex_name?: string;
+  volume_usd_24h?: number;
+  liquidity_usd?: number;
+  transactions_24h?: number;
+  price_change_percentage_24h?: number;
+  price_usd?: number;
+  fee?: number | null;
+  tokens?: { id?: string }[];
 }
 
 /**
- * Top pools for one DEX on one network, ranked by 24h volume — the
- * "discovery" half of the pipeline (which pools exist and how big are they).
- * No TVL or fee tier here (DexPaprika's pool-list endpoint doesn't carry
- * either reliably); pair with an on-chain fee read and `fetchDexPaprikaPool`
- * (or DexScreener) for TVL.
+ * Every DEX's top pools on one network, ranked by 24h volume.
+ *
+ * This is the discovery half of the Discover pipeline: which pools exist and
+ * how much they actually trade. Volume ranking is the point. DeFiLlama ranks
+ * by TVL, which floats dead pools (large balance, no trades) to the top of
+ * the table; ordering by traded volume puts the pools people actually use
+ * first, matching how DexScreener presents a chain.
+ *
+ * The previous per DEX endpoint (`/dexes/{dexId}/pools`) was removed upstream
+ * and had been failing silently behind a catch. This replacement is strictly
+ * better: one call covers every DEX on the network, and TVL and trade counts
+ * come inline, so no per pool detail call is needed.
  */
-export async function fetchDexPaprikaTopPools(
-  dexId: 'uniswap_v3' | 'uniswap_v4' | 'pancakeswap_v3',
-  limit = 50,
-  network = 'ethereum',
-): Promise<DexPaprikaPoolRaw[]> {
+export async function fetchNetworkTopPools(network: string, limit = 100): Promise<DexPaprikaPoolRow[]> {
+  const out: DexPaprikaPoolRow[] = [];
+  let cursor: string | undefined;
+
+  while (out.length < limit) {
+    const page = Math.min(MAX_PAGE, limit - out.length);
+    const params: Record<string, string | number> = { limit: page };
+    if (cursor) params.cursor = cursor;
+    let body: { results?: SearchRow[]; has_next_page?: boolean; next_cursor?: string };
+    try {
+      const res = await fetch(proxied(`networks/${network}/pools/search`, params));
+      if (!res.ok) break;
+      body = await res.json();
+    } catch { break; }
+
+    const rows = Array.isArray(body?.results) ? body.results : [];
+    if (rows.length === 0) break;
+
+    for (const row of rows) {
+      const tokens = (row.tokens ?? []).map(t => t.id).filter((a): a is string => !!a);
+      if (!row.id || tokens.length < 2) continue;
+      out.push({
+        id: row.id,
+        dexId: row.dex_id ?? 'unknown',
+        dexName: row.dex_name ?? row.dex_id ?? 'DEX',
+        volume24hUsd: row.volume_usd_24h ?? 0,
+        tvlUsd: row.liquidity_usd ?? 0,
+        transactions24h: row.transactions_24h ?? 0,
+        priceChange24h: row.price_change_percentage_24h,
+        priceUsd: row.price_usd ?? 0,
+        tokenAddresses: tokens,
+        feePct: typeof row.fee === 'number' && row.fee > 0 ? row.fee : undefined,
+      });
+    }
+
+    if (!body.has_next_page || !body.next_cursor) break;
+    cursor = body.next_cursor;
+  }
+  return out;
+}
+
+/**
+ * The DEX registry for one network, straight from the provider.
+ *
+ * `protocol` is the part that matters: it groups every product a venue runs
+ * ("aerodrome_slipstream_3", "aerodrome_v3", "aerodrome" all report protocol
+ * "aerodrome"). That is the brand grouping the Discover filter chips need, and
+ * taking it from here means no hand maintained name map to fall behind.
+ */
+export interface DexPaprikaDex {
+  dexId: string;
+  dexName: string;
+  protocol: string;
+}
+
+export async function fetchNetworkDexes(network: string): Promise<DexPaprikaDex[]> {
   try {
-    const res = await fetch(proxied(`networks/${network}/dexes/${dexId}/pools`, { limit, order_by: 'volume_usd', sort: 'desc' }));
+    const res = await fetch(proxied(`networks/${network}/dexes`, {}));
     if (!res.ok) return [];
-    const d = await res.json();
-    const pools = Array.isArray(d?.pools) ? d.pools : [];
-    return pools
-      .filter((p: { tokens?: unknown[] }) => Array.isArray(p.tokens) && p.tokens.length >= 2)
-      .map((p: { id: string; volume_usd: number; price_usd: number; tokens: { id: string; symbol: string; decimals: number }[] }) => ({
-        id: p.id,
-        volume24hUsd: p.volume_usd ?? 0,
-        priceUsd: p.price_usd ?? 0,
-        token0: { address: p.tokens[0].id, symbol: p.tokens[0].symbol, decimals: p.tokens[0].decimals },
-        token1: { address: p.tokens[1].id, symbol: p.tokens[1].symbol, decimals: p.tokens[1].decimals },
+    const body = await res.json();
+    const rows = body?.dexes ?? body?.results ?? (Array.isArray(body) ? body : []);
+    return (rows as { dex_id?: string; dex_name?: string; protocol?: string }[])
+      .filter(d => !!d.dex_id)
+      .map(d => ({
+        dexId: d.dex_id as string,
+        dexName: d.dex_name ?? (d.dex_id as string),
+        protocol: d.protocol ?? (d.dex_id as string),
       }));
   } catch { return []; }
 }

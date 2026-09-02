@@ -11,6 +11,12 @@ import { fallback, http, type Transport } from 'viem';
  * Add/remove endpoints here — nowhere else.
  */
 export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
+  // Ethereum was missing here, so any consumer going through getChainClient
+  // (the pool enrichment route, the Discover discovery pass) fell through to
+  // viem's built in default endpoint and hung. The dedicated failover list in
+  // ./rpc.ts is still what the wallet config uses; this is the keyless subset
+  // for server side reads.
+  1: ['https://eth.drpc.org', 'https://ethereum.publicnode.com', 'https://eth.llamarpc.com'],
   56: ['https://bsc-rpc.publicnode.com', 'https://bsc-dataseed.bnbchain.org'],
   137: ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org'],
   42161: ['https://arbitrum-one-rpc.publicnode.com', 'https://arbitrum.drpc.org'],
@@ -32,6 +38,9 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   4326: ['https://mainnet.megaeth.com/rpc'],
   999: ['https://rpc.hyperliquid.xyz/evm'],
   42793: ['https://etherlink.drpc.org'],
+  // Robinhood Chain intentionally omitted: it routes through its own pooled
+  // proxy (see ./robinhoodRpc.ts), and getChainClient falls back to the chain
+  // object's default endpoint, which is that same RPC.
 };
 
 /** Failover transport for a chain: every listed endpoint, preferred first. */
