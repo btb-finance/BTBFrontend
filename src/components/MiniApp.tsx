@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation';
 import { useConnection, useDisconnect, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { prefetchDiscoverPools } from '../lib/discoverPools';
-import { prefetchYearnVaults } from '../lib/yearn';
 import { pathFor, parsePath, type Overlay } from '../lib/routes';
 import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
@@ -56,13 +55,13 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   const config = useConfig();
   const marketFeed = useMarketFeed();
 
-  // Warm the heavy tab data (Discover pools, Yearn vaults) in the background
-  // right after the shell mounts, so those tabs open instantly instead of
-  // starting their fetches on first visit. Both prefetchers no-op when the
-  // data is already fresh or in flight.
+  // Warm the Discover pool list in the background right after the shell
+  // mounts, so the tab opens instantly instead of starting its fetch on first
+  // visit. The prefetcher no-ops when the snapshot is already fresh or in
+  // flight. Yearn no longer needs warming — its catalog is a Convex snapshot
+  // the Earn/Portfolio screens subscribe to directly.
   useEffect(() => {
     prefetchDiscoverPools(getPublicClient(config));
-    prefetchYearnVaults();
   }, [config]);
 
   // Push a history entry whenever navigation changes the visible view, and
@@ -116,7 +115,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
                           onConnectWallet={() => setShowConnect(true)}/>;
       case 'discover':  return <DiscoverScreen/>;
       case 'token':     return <TokenScreen onSwap={() => openSwap({ toAddress: CONTRACTS.BTB })}
-                                            address={effectiveAddress} onConnect={() => setShowConnect(true)}/>;
+                                            address={effectiveAddress} onConnect={() => setShowConnect(true)}
+                                            goto={goto} onEarn={() => openOverlay('earn')}/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
       case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })} onOpenEarn={() => openOverlay('earn')}/>;

@@ -913,6 +913,7 @@ function CrossChainResearch({ chains, isMobile }: {
             marketTokenA,
             marketTokenB,
             CHAIN_DATA_NETWORKS[task.chainId]?.llama,
+            task.chainId,
           );
           updateResult(task.key, {
             status: 'complete',
@@ -1326,6 +1327,7 @@ export function SimulateScreen() {
             toV3Address(tokenA.address, wrappedNative),
             toV3Address(tokenB.address, wrappedNative),
             networks.llama,
+            chainId,
           );
           setFound(current => mergeFoundPools(current ?? [], marketPoolRows(enriched)));
           return enriched;

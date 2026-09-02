@@ -8,20 +8,25 @@
  * Everything degrades progressively: the pool read is the only hard
  * requirement; history, USD prices, and tick depth each fail independently
  * without blocking the page.
+ *
+ * The third-party lookups (subgraph history, GeckoTerminal OHLCV and stats,
+ * DeFiLlama prices, token safety) run on Convex and are cached there per key
+ * — see src/lib/cacheKeys.ts for the TTLs. Only the on-chain reads (pool
+ * state, tick depth) still leave the browser.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import {
-  fetchKnownV3Pool, fetchPoolsForMint, fetchV4PoolForMint, getPoolHistory, hasGraphKey, V3_SUBGRAPH_ID,
+  fetchKnownV3Pool, fetchPoolsForMint, fetchV4PoolForMint, hasGraphKey, V3_SUBGRAPH_ID,
   uniswapV3DeploymentForChain,
   UNISWAP_V4, ROBINHOOD_UNISWAP_V4, isNativeCurrency,
   type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
-import { getTokenPricesUsd } from '../../lib/defillama';
-import { fetchPoolDailyHistory, fetchPoolStats } from '../../lib/geckoterminal';
-import { fetchTokenSafety, type TokenSafety } from '../../lib/tokenSafety';
+import type { DailyBar } from '../../lib/geckoterminal';
+import type { TokenSafety } from '../../lib/tokenSafety';
+import { useCachedJson } from '../../lib/convexCache';
 import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import type { SupportedChainId } from '../../lib/wagmi';
@@ -107,7 +112,19 @@ export interface PoolExtras {
   poolCreatedAt: number | null;
 }
 
-/** History + USD prices + tick liquidity for one resolved pool. */
+/**
+ * History + USD prices + tick liquidity for one resolved pool.
+ *
+ * Everything except tick depth now reads through the Convex memo cache: the
+ * subgraph/GeckoTerminal/DeFiLlama answers for a given pool are identical for
+ * every visitor, so the first person to open a pool pays the round trip
+ * server-side and everyone after reads the stored row (see
+ * `convex/cacheFill.ts`). Tick liquidity stays a direct RPC read — it is
+ * pool state that moves with every swap.
+ *
+ * Degradation is unchanged: the pool read is the only hard requirement, and
+ * history, USD prices, and tick depth each fail independently.
+ */
 export function usePoolExtras(
   pool: MintPool | null,
   isV4: boolean,
@@ -120,72 +137,76 @@ export function usePoolExtras(
   feeTier: number,
 ): PoolExtras {
   const config = useConfig();
-  const [history, setHistory] = useState<PoolDay[] | null>(null);
-  const [estimatedHistory, setEstimatedHistory] = useState<PoolDay[] | null>(null);
-  const [fallbackCloses, setFallbackCloses] = useState<number[] | null>(null);
-  const [usd, setUsd] = useState<Record<string, number>>({});
   const [tickLiq, setTickLiq] = useState<TickLiquidityPoint[] | null>(null);
-  const [poolCreatedAt, setPoolCreatedAt] = useState<number | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    setHistory(null); setEstimatedHistory(null); setFallbackCloses(null); setUsd({}); setPoolCreatedAt(null);
-    if (!pool || !pool.exists) return;
-    const price = ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1);
+  const resolved = !!pool && pool.exists;
+  const price = resolved && pool
+    ? ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1)
+    : 0;
 
-    if (chainId === 1 && hasGraphKey && !isV4) {
-      getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
-        .then((h) => { if (live && h.length > 1) setHistory(h); })
-        .catch(() => {});
-    } else {
-      const chartId = isV4 ? v4PoolId : pool.address;
-      if (chartId) {
-        fetchPoolDailyHistory(chartId, 30, networks.gecko)
-          .then((bars) => {
-            if (!live || bars.length < 2) return;
-            const last = bars[bars.length - 1].close;
-            const ratio = last > 0 && price > 0 ? price / last : 1;
-            setFallbackCloses(bars.map((b) => b.close * ratio));
-            // Synthesize a daily fee history from traded volume × fee tier so
-            // the replay and fee-steadiness stats work on chains with no
-            // subgraph. Clearly labelled as estimated downstream.
-            const feeFraction = feeTier > 0 ? feeTier / 1_000_000 : 0;
-            if (feeFraction > 0) {
-              const todayBucket = Math.floor(Date.now() / 1000 / 86400) * 86400;
-              const days: PoolDay[] = bars
-                .map((b) => ({
-                  // ohlcv_list timestamps are unix seconds — bucket to UTC days
-                  date: Math.floor(b.timestamp / 86400) * 86400,
-                  price0: b.close * ratio,
-                  volumeUsd: b.volumeUsd,
-                  feesUsd: b.volumeUsd * feeFraction,
-                  tvlUsd: 0,
-                  liquidity: Number(pool.liquidity),
-                }))
-                .filter((d) => d.date > 0 && d.date < todayBucket);
-              if (days.length >= 5) setEstimatedHistory(days);
-            }
-          })
-          .catch(() => {});
-      }
-    }
+  // Real indexed fee history — mainnet V3 with a Graph key. Everywhere else
+  // falls through to the OHLCV path below.
+  const useGraph = resolved && chainId === 1 && hasGraphKey && !isV4;
+  const historyQ = useCachedJson<PoolDay[]>(useGraph && pool ? {
+    kind: 'pool-history',
+    id: pool.address,
+    days: 30,
+    subgraphId: dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID,
+  } : null);
 
-    // Pool age — one batched stats call; explorer reports creation time.
-    fetchPoolStats([pool.address], networks.gecko)
-      .then((stats) => { if (live) setPoolCreatedAt(stats[pool.address.toLowerCase()]?.createdAt ?? null); })
-      .catch(() => {});
+  const history = historyQ.data && historyQ.data.length > 1 ? historyQ.data : null;
 
-    const priceToken0 = isNativeCurrency(pool.token0) ? wrappedNative : pool.token0;
-    getTokenPricesUsd([priceToken0, pool.token1], networks.llama)
-      .then((p) => {
-        if (!live) return;
-        if (priceToken0 !== pool.token0 && p[wrappedNative.toLowerCase()]) p[pool.token0.toLowerCase()] = p[wrappedNative.toLowerCase()];
-        setUsd(p);
-      })
-      .catch(() => {});
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pool, isV4, dex, chainId, wrappedNative, networks.gecko, networks.llama, v4PoolId, feeTier]);
+  // The subgraph runs on Convex now, so its Graph key has to exist there too.
+  // If it doesn't — or the pool simply isn't indexed — fall through to the
+  // OHLCV path rather than showing no history at all. `hasGraphKey` only tells
+  // us about the browser's env, which is why this checks the actual result.
+  const graphEmpty = useGraph && !historyQ.loading && !history;
+  const chartId = isV4 ? v4PoolId : pool?.address;
+  const dailyQ = useCachedJson<DailyBar[]>(resolved && chartId && (!useGraph || graphEmpty) ? {
+    kind: 'pool-daily', id: chartId, days: 30, network: networks.gecko,
+  } : null);
+
+  // Pool age — the explorer reports creation time; immutable once known.
+  const statsQ = useCachedJson<Record<string, { createdAt?: number }>>(resolved && pool ? {
+    kind: 'pool-stats', id: pool.address, network: networks.gecko,
+  } : null);
+
+  const priceToken0 = pool ? (isNativeCurrency(pool.token0) ? wrappedNative : pool.token0) : undefined;
+  const pricesQ = useCachedJson<Record<string, number>>(resolved && pool && priceToken0 ? {
+    kind: 'token-prices', id: `${priceToken0},${pool.token1}`, network: networks.llama,
+  } : null);
+
+  // GeckoTerminal closes rescaled into pool price space, plus a daily fee
+  // series synthesized from traded volume × fee tier so the replay and
+  // fee-steadiness stats work on chains with no subgraph. Clearly labelled as
+  // estimated downstream — never presented as real fees.
+  const { fallbackCloses, estimatedHistory } = useMemo(() => {
+    const bars = dailyQ.data;
+    if (!pool || !bars || bars.length < 2) return { fallbackCloses: null, estimatedHistory: null };
+    const last = bars[bars.length - 1].close;
+    const ratio = last > 0 && price > 0 ? price / last : 1;
+    const closes = bars.map((b) => b.close * ratio);
+
+    const feeFraction = feeTier > 0 ? feeTier / 1_000_000 : 0;
+    if (feeFraction <= 0) return { fallbackCloses: closes, estimatedHistory: null };
+
+    const todayBucket = Math.floor(Date.now() / 1000 / 86400) * 86400;
+    const days: PoolDay[] = bars
+      .map((b) => ({
+        // ohlcv_list timestamps are unix seconds — bucket to UTC days
+        date: Math.floor(b.timestamp / 86400) * 86400,
+        price0: b.close * ratio,
+        volumeUsd: b.volumeUsd,
+        feesUsd: b.volumeUsd * feeFraction,
+        tvlUsd: 0,
+        liquidity: Number(pool.liquidity),
+      }))
+      .filter((d) => d.date > 0 && d.date < todayBucket);
+
+    return { fallbackCloses: closes, estimatedHistory: days.length >= 5 ? days : null };
+  }, [dailyQ.data, pool, price, feeTier]);
+
+  const poolCreatedAt = pool ? statsQ.data?.[pool.address.toLowerCase()]?.createdAt ?? null : null;
 
   useEffect(() => {
     let live = true;
@@ -210,20 +231,29 @@ export function usePoolExtras(
   }, [config, pool, isV4, spacing, chainId]);
 
   // Derived USD pair with pool-price backfill for a missing side.
-  const price = pool && pool.exists ? ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1) : 0;
-  let p0 = pool ? usd[pool.token0.toLowerCase()] : undefined;
-  let p1 = pool ? usd[pool.token1.toLowerCase()] : undefined;
-  if (!p0 && p1 && price > 0) p0 = price * p1;
-  if (!p1 && p0 && price > 0) p1 = p0 / price;
-  const tokenUsd = p0 && p1 ? { p0, p1 } : null;
+  const tokenUsd = useMemo(() => {
+    if (!pool || !pricesQ.data) return null;
+    const usd = { ...pricesQ.data };
+    // The native side is priced as its wrapped token; mirror it back.
+    if (priceToken0 && priceToken0 !== pool.token0 && usd[wrappedNative.toLowerCase()]) {
+      usd[pool.token0.toLowerCase()] = usd[wrappedNative.toLowerCase()];
+    }
+    let p0 = usd[pool.token0.toLowerCase()];
+    let p1 = usd[pool.token1.toLowerCase()];
+    if (!p0 && p1 && price > 0) p0 = price * p1;
+    if (!p1 && p0 && price > 0) p1 = p0 / price;
+    return p0 && p1 ? { p0, p1 } : null;
+  }, [pricesQ.data, pool, priceToken0, wrappedNative, price]);
 
   return { history, estimatedHistory, fallbackCloses, tokenUsd, tickLiq, poolCreatedAt };
 }
 
 /**
  * Token safety for both sides of the pool — holder concentration, holder
- * count, spam/honeypot flags. Degrades to missing entries when a chain has
- * no explorer coverage; callers show nothing rather than a fake verdict.
+ * count, spam/honeypot flags. Served from the shared Convex cache, so one
+ * explorer lookup per token covers every visitor for the TTL. Degrades to
+ * missing entries when a chain has no explorer coverage; callers show nothing
+ * rather than a fake verdict.
  */
 export function useTokenSafety(
   token0?: `0x${string}`,
@@ -231,16 +261,15 @@ export function useTokenSafety(
   blockscoutBase?: string,
   chainId?: number,
 ): Record<string, TokenSafety> {
-  const [map, setMap] = useState<Record<string, TokenSafety>>({});
-  useEffect(() => {
-    let live = true;
-    setMap({});
-    const addrs = [token0, token1].filter((x): x is `0x${string}` => !!x);
-    if (addrs.length === 0 || !chainId) return;
-    Promise.all(addrs.map(async (a) => [a.toLowerCase(), await fetchTokenSafety(a, chainId, blockscoutBase)] as const))
-      .then((pairs) => { if (live) setMap(Object.fromEntries(pairs)); })
-      .catch(() => {});
-    return () => { live = false; };
-  }, [token0, token1, blockscoutBase, chainId]);
-  return map;
+  const q0 = useCachedJson<TokenSafety>(token0 && chainId
+    ? { kind: 'token-safety', id: token0, chainId, explorerBase: blockscoutBase } : null);
+  const q1 = useCachedJson<TokenSafety>(token1 && chainId
+    ? { kind: 'token-safety', id: token1, chainId, explorerBase: blockscoutBase } : null);
+
+  return useMemo(() => {
+    const map: Record<string, TokenSafety> = {};
+    if (token0 && q0.data) map[token0.toLowerCase()] = q0.data;
+    if (token1 && q1.data) map[token1.toLowerCase()] = q1.data;
+    return map;
+  }, [token0, token1, q0.data, q1.data]);
 }

@@ -13,13 +13,33 @@ if (process.env.DISABLE_CRONS !== "1") {
   // Refresh USD prices every 5 minutes via DexScreener
   crons.interval("refresh token prices", { minutes: 5 }, internal.prices.fetchPrices);
 
-  // Precompute the Discover pool list hourly — the frontend reads the snapshot
-  // instead of running the slow multi-API pipeline per visitor
-  crons.interval("refresh discover pools", { hours: 1 }, internal.discoverRefresh.refresh);
+  // ── Shared 30-minute snapshots ──────────────────────────────────────────
+  // Everything below is identical for every visitor, so it is computed once
+  // per tick server-side and read from a single row in the browser. 30 minutes
+  // is the standard staleness budget for shared data (see src/lib/cacheKeys.ts
+  // for the matching client-side TTLs); anything that must be fresher —
+  // prices, quotes, receipts, per-wallet balances — is deliberately not here.
 
-  // One shared hourly snapshot replaces every visitor polling the explorer
+  // Precompute the Discover pool list — the frontend reads the snapshot
+  // instead of running the slow multi-API pipeline per visitor
+  crons.interval("refresh discover pools", { minutes: 30 }, internal.discoverRefresh.refresh);
+
+  // One shared snapshot replaces every visitor polling the explorer
   // and DexScreener independently, keeping Convex/upstream usage bounded.
-  crons.interval("refresh dashboard markets", { hours: 1 }, internal.marketsRefresh.refresh);
+  crons.interval("refresh dashboard markets", { minutes: 30 }, internal.marketsRefresh.refresh);
+
+  // The Yearn vault catalog — one ydaemon call for the whole app instead of
+  // one per visitor who opens Earn, Portfolio, or Stake.
+  crons.interval("refresh yearn vaults", { minutes: 30 }, internal.globalRefresh.refreshYearnVaults);
+
+  // Global BearNFT/BearStaking numbers. These were polled every 15-20s by the
+  // app shell of every visitor, connected or not; per-wallet reads stay live
+  // on the client.
+  crons.interval("refresh bear stats", { minutes: 30 }, internal.globalRefresh.refreshBearStats);
+
+  // Drop expired memo-cache rows (simulator pool/token lookups) so the table
+  // stays bounded — the sweep is batched, so it runs often.
+  crons.interval("purge expired cache", { minutes: 30 }, internal.cacheFill.purge);
 
   // Verify managed LP custody, policy and live range on-chain. This queues
   // work only; the restricted smart account remains the security boundary.

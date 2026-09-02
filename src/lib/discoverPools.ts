@@ -8,10 +8,6 @@ import { fetchPoolPriceChanges } from './geckoterminal';
 
 // Same fallback as Providers.tsx — keep in sync.
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud';
-// The Convex cron refreshes hourly; accept up to 2h staleness before falling
-// back to computing client-side.
-const SNAPSHOT_FRESH_MS = 2 * 60 * 60_000;
-const SNAPSHOT_VERSION = 2;
 
 // ─── Discover pool data store ────────────────────────────────────────────────
 // Lives at module level so the data survives the screen unmounting, and so the
@@ -22,7 +18,9 @@ const SNAPSHOT_VERSION = 2;
 // per pool (no batch endpoint exists), rarely loaded fully, and ate a table
 // column. The 24h % change (one batched call) covers the trend signal.
 
-const TTL = 5 * 60_000;
+// Matches the Convex cron cadence — re-reading the snapshot faster than it is
+// written buys nothing. See convex/crons.ts.
+const TTL = 30 * 60_000;
 
 export type DiscoverData = {
   pools: EarnPool[];
@@ -56,35 +54,26 @@ export function prefetchDiscoverPools(client?: PublicClient) {
   // Spinner only for a truly cold load; a stale refresh keeps old rows visible.
   if (state.pools.length === 0) set({ loading: true });
   (async () => {
-    // 1) Convex snapshot — precomputed hourly server-side (convex/discover.ts).
-    //    One query instead of the whole multi-API pipeline: instant page load.
+    // The Convex snapshot is the source of truth: one query instead of the
+    // whole multi-API pipeline (DeFiLlama + DexPaprika + DexScreener + on-chain
+    // fee/range-APR multicalls). A cron refreshes it every 30 minutes, so age
+    // is the cron's problem — the browser never recomputes just because the row
+    // got old, it only falls back when there is no row at all.
     try {
       const convex = new ConvexHttpClient(CONVEX_URL);
       const row = await convex.query(api.discover.get, {});
-      if (row && Date.now() - row.updatedAt < SNAPSHOT_FRESH_MS) {
+      if (row) {
         const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
-        // During a snapshot schema upgrade, keep the previous rows visible
-        // while the one-time background refresh builds the wider catalog.
-        // Navigation never falls back to an empty loading table.
         if (snap.pools?.length > 0) {
-          set({ pools: snap.pools, priceChange: snap.priceChange ?? {}, loading: false });
-        }
-        // Older snapshots were Ethereum-only. Recompute once rather than
-        // letting that legacy cache hide the newly enabled multichain rows.
-        if (snap.version === SNAPSHOT_VERSION && snap.pools?.length > 0 && snap.pools.some(pool =>
-          pool.chain === 'Robinhood Chain' &&
-          pool.feeTier != null &&
-          pool.tokenPricesUsd &&
-          Object.values(pool.tokenPricesUsd).some(price => price > 0)
-        )) {
           ts = Date.now();
-          set({ pools: snap.pools, priceChange: snap.priceChange ?? {} });
+          set({ pools: snap.pools, priceChange: snap.priceChange ?? {}, loading: false });
           return;
         }
       }
-    } catch { /* snapshot unavailable — compute client-side below */ }
+    } catch { /* snapshot unavailable — cold-start path below */ }
 
-    // 2) Fallback: the original client-side pipeline.
+    // Cold start only: a deployment whose cron has never run has no row yet,
+    // and an empty Discover tab is worse than one slow first load.
     const p = await getEarnPools(undefined, client);
     ts = Date.now();
     set({ pools: p });
