@@ -15,11 +15,21 @@ export function Providers({ children }: { children: ReactNode }) {
 
   const [convex]      = useState(() => new ConvexReactClient(CONVEX_URL));
   const [config]      = useState(() => makeConfig());
+  // Caching is tiered on purpose. The default below is the shared/slow tier:
+  // data that is the same for every visitor and safe to reuse for half an hour
+  // — most of which now comes from a Convex snapshot rather than this cache at
+  // all (convex/crons.ts, src/lib/cacheKeys.ts).
+  //
+  // Anything that must be fresher overrides it at the call site and is meant
+  // to: per-wallet balances (src/lib/appData.ts, TokenStore) run short and are
+  // invalidated after a trade, and swap quotes, tx receipts, pool-safety probes
+  // and the launch feed keep their own second-scale intervals. Raising this
+  // default must never be read as permission to let those go stale.
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60 * 1000,
-        gcTime: 10 * 60 * 1000,
+        staleTime: 30 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
         refetchOnWindowFocus: false,
         retry: 1,
       },

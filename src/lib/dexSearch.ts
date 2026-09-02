@@ -59,6 +59,7 @@ const SOLIDLY_CLASSIC_POOL = /^(?:aerodrome|velodrome)(?!.*slipstream).*$/i;
 const INFUSION_POOL = /^infusion(?:[\s_-]+v[12])?$/i;
 const SWAAP_VAULT_ID = '0x03c01acae3d0173a93d819efdc832c7c4f153b06';
 const INFUSION_BASE_FACTORY = '0x2D9A3a2bd6400eE28d770c7254cA840c82faf23f' as const;
+
 const POOL_FEE_ABI = [{
   type: 'function',
   name: 'fee',
@@ -141,17 +142,18 @@ const INFUSION_FACTORY_FEE_ABI = [{
   outputs: [{ type: 'uint256' }],
 }] as const;
 
-async function retryRpcOnce<T>(read: () => Promise<T>): Promise<T | null> {
-  try {
-    return await read();
-  } catch {
-    await new Promise(resolve => setTimeout(resolve, 250));
-    try {
-      return await read();
-    } catch {
-      return null;
-    }
-  }
+/** One retry after a short pause if the entire transport batch came back
+ * empty. Per-read failures are already tolerated by allowFailure, and the
+ * failover transport handles flaky endpoints — no fixed sleeps on the happy
+ * path. */
+type BatchRead = { status: 'success' | 'failure'; result?: unknown; error?: unknown };
+
+async function multicallBatch(client: PublicClient, contracts: readonly unknown[]): Promise<BatchRead[]> {
+  const run = () => withSafeMulticall(client).multicall({ contracts: contracts as never, allowFailure: true }).catch(() => [] as BatchRead[]);
+  const first = await run();
+  if (Array.isArray(first) && first.length > 0) return first as BatchRead[];
+  await new Promise(resolve => setTimeout(resolve, 200));
+  return (await run()) as BatchRead[];
 }
 
 /** "uniswap_v3" / "balancer_ethereum" → a human label. DexScreener sometimes
@@ -320,7 +322,7 @@ async function loadMarketPools(
       aprLabel: r.dexId.trim().toLowerCase() === SWAAP_VAULT_ID
         ? 'Swaap V2 has no on-chain swap fee. LP economics are included in signed RFQ quotes, so volume cannot be converted into a fee APR.'
         : undefined,
-      // Name-based guess only — enrichMarketPoolApr upgrades this to whatever
+      // Name-based guess only — probePoolsOnChain upgrades this to whatever
       // the pool contract actually answers, which is the authoritative class.
       ammClass: ALGEBRA_STYLE_POOL.test(r.dexId) ? 'algebra' : V2_STYLE_DEX.test(r.dexId) ? 'v2' : 'unknown',
       url: `https://dexscreener.com/${networks.dexScreener}/${r.address}`,
@@ -355,23 +357,31 @@ export function searchMarketPools(
   return request;
 }
 
-/**
- * Fill fee APRs that the market APIs could not calculate by reading pool fees
- * from the chain. Standard V3 pools expose fee(), while Algebra-style CLAMMs
- * expose their active fee through globalState(). This also makes transient
- * Gecko rate limits harmless: DexScreener can provide TVL/volume while the
- * chain supplies the fee.
- *
- * Probe results are cached per pool address — fee tier and ABI class barely
- * change over minutes, and without the cache every re-compare of the same
- * pair re-fires the whole probe burst at the RPC.
- */
+// ── On-chain enrichment ─────────────────────────────────────────────────────
+// Two speculative rounds for ANY number of pools, whatever the probe needs:
+//   round 1: fee/globalState + slot0 + token0 + token1  (classify + fee + tokens)
+//   round 2: liquidity + decimals(token1)               (range math inputs)
+// With Multicall3 batching each round is one RPC request, so a 40-pool search
+// costs ~2 requests instead of the ~5–6 sequential rounds it used to.
+
 const PROBE_TTL = 10 * 60_000;
 const probeCache = new Map<string, { at: number; feePct: number | null; ammClass: MarketPool['ammClass'] }>();
 
-export async function enrichMarketPoolApr(
+const validAddr = (address: string) => /^0x[0-9a-f]{40}$/i.test(address);
+const validFeeMilli = (fee: number) => Number.isInteger(fee) && fee > 0 && fee < 1_000_000;
+
+/**
+ * Fill fee APRs the market APIs could not calculate, classify each pool's AMM
+ * by what its contract answers (fee+slot0 → simulatable V3; globalState →
+ * Algebra), and — when `llamaNetwork` is given — upgrade V3-class pools to the
+ * ±5%-range APR using the same band math as addRangeAprs for indexer pools.
+ * Probe results are cached per address (including negatives: a pool that
+ * yielded nothing is not re-asked on every compare).
+ */
+export async function probePoolsOnChain(
   client: PublicClient,
   pools: MarketPool[],
+  llamaNetwork?: string,
 ): Promise<MarketPool[]> {
   const now = Date.now();
   const freshHits = new Set<string>();
@@ -384,90 +394,119 @@ export async function enrichMarketPoolApr(
     if (patched.ammClass === 'unknown' && hit.ammClass !== 'unknown') patched.ammClass = hit.ammClass;
     return patched;
   });
-  // Pools probed recently that yielded nothing (no valid fee, class unknown)
-  // are negative-cache entries: re-asking the chain every compare just burns
-  // RPC for the same "unknown".
+  // Negative entries: probed recently, learned nothing. Re-asking the chain
+  // every compare just burns RPC for the same "unknown".
   const failedFresh = new Set<string>();
   for (const address of freshHits) {
     const hit = probeCache.get(`${client.chain?.id ?? 0}:${address}`);
     if (hit && hit.feePct == null && hit.ammClass === 'unknown') failedFresh.add(address);
   }
+  const rangeFailed = new Set<string>();
+  const served = seeded.map(pool => {
+    const hit = rangeCache.get(`${client.chain?.id ?? 0}:${pool.address}`);
+    if (hit && hit.at + RANGE_TTL > now) {
+      if (hit.apr == null) { rangeFailed.add(pool.address); return pool; }
+      return { ...pool, aprPct: hit.apr, aprIsRange: true };
+    }
+    return pool;
+  });
 
-  const missing = seeded.filter(pool =>
-    pool.feePct == null &&
-    !failedFresh.has(pool.address) &&
-    /^0x[0-9a-f]{40}$/i.test(pool.address) &&
-    pool.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID,
-  );
-  if (missing.length === 0 && !seeded.some(pool => pool.ammClass === 'unknown' && !failedFresh.has(pool.address) && /^0x[0-9a-f]{40}$/i.test(pool.address))) return seeded;
+  // Pools that need chain reads at all: fee unknown, class unknown, or range
+  // upgrade wanted (and not already served/negatively-cached).
+  const needsFeeOrClass = (p: MarketPool) =>
+    (p.feePct == null || p.ammClass === 'unknown')
+    && !failedFresh.has(p.address)
+    && validAddr(p.address)
+    && p.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID;
+  const needsRange = (p: MarketPool) =>
+    llamaNetwork != null
+    && p.ammClass === 'v3'
+    && !p.aprIsRange
+    && !rangeFailed.has(p.address)
+    && validAddr(p.address);
+  const probed = served.filter(pool => needsFeeOrClass(pool) || needsRange(pool));
+  if (probed.length === 0) return served;
 
   const feeByAddress = new Map<string, number>();
   const classByAddress = new Map<string, MarketPool['ammClass']>();
-  let pendingAlgebra = missing.filter(pool => ALGEBRA_STYLE_POOL.test(pool.dexId));
-  for (let attempt = 0; attempt < 2 && pendingAlgebra.length > 0; attempt++) {
-    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
-    const batch = pendingAlgebra;
-    const reads = await withSafeMulticall(client).multicall({
-      contracts: batch.map(pool => ({
-        address: pool.address as `0x${string}`,
-        abi: ALGEBRA_GLOBAL_STATE_ABI,
-        functionName: 'globalState' as const,
-      })),
-      allowFailure: true,
-    }).catch(() => []);
-    const failed: MarketPool[] = [];
-    batch.forEach((pool, index) => {
-      const read = reads[index];
-      if (!read || read.status !== 'success') {
-        failed.push(pool);
+  const token1ByAddress = new Map<string, `0x${string}`>();
+  const sqrtByAddress = new Map<string, bigint>();
+
+  // ── Round 1: identity + fee + class + tokens, one batch ──
+  // (per-pool read counts differ — algebra pools skip fee/slot0 — so each
+  // pool records its own offset into the flat contract list)
+  let r1Cursor = 0;
+  const layout = probed.map(pool => {
+    const algebra = ALGEBRA_STYLE_POOL.test(pool.dexId);
+    const base = algebra
+      ? [{ address: pool.address as `0x${string}`, abi: ALGEBRA_GLOBAL_STATE_ABI, functionName: 'globalState' as const }]
+      : [
+          { address: pool.address as `0x${string}`, abi: POOL_FEE_ABI, functionName: 'fee' as const },
+          { address: pool.address as `0x${string}`, abi: V3_STATE_ABI, functionName: 'slot0' as const },
+        ];
+    const contracts = [
+      ...base,
+      { address: pool.address as `0x${string}`, abi: POOL_TOKENS_ABI, functionName: 'token0' as const },
+      { address: pool.address as `0x${string}`, abi: POOL_TOKENS_ABI, functionName: 'token1' as const },
+    ];
+    const start = r1Cursor;
+    r1Cursor += contracts.length;
+    return { pool, algebra, start, contracts };
+  });
+  const r1 = await multicallBatch(client, layout.flatMap(({ contracts }) => contracts));
+  if (r1.length > 0) {
+    layout.forEach(({ pool, algebra, start }) => {
+      const gs = r1[start];
+      const feeRead = algebra ? null : r1[start];
+      const slot0Read = algebra ? null : r1[start + 1];
+      const t1Read = r1[start + (algebra ? 1 : 2)];
+      if (t1Read?.status === 'success') {
+        token1ByAddress.set(pool.address, (t1Read.result as string).toLowerCase() as `0x${string}`);
+      }
+      if (algebra) {
+        if (gs?.status === 'success') {
+          const fee = Number((gs.result as readonly unknown[])[2]);
+          if (validFeeMilli(fee)) {
+            feeByAddress.set(pool.address, fee / 1_000_000);
+            classByAddress.set(pool.address, 'algebra');
+          }
+        }
         return;
       }
-      const fee = Number(read.result[2]);
-      if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
+      const slot0Ok = slot0Read?.status === 'success';
+      if (slot0Ok) sqrtByAddress.set(pool.address, (slot0Read.result as readonly unknown[])[0] as bigint);
+      if (!feeRead || feeRead.status !== 'success') return;
+      const fee = Number(feeRead.result);
+      // V3-style fees use millionths. Reject zero and the V4 dynamic-fee flag
+      // rather than turning either into a fabricated APR.
+      if (validFeeMilli(fee)) {
         feeByAddress.set(pool.address, fee / 1_000_000);
-        classByAddress.set(pool.address, 'algebra');
+        if (slot0Ok) classByAddress.set(pool.address, 'v3');
       }
     });
-    pendingAlgebra = reads.length === 0 && attempt === 0 ? batch : failed;
   }
 
-  const solidlyPools = missing.filter(pool => SOLIDLY_CLASSIC_POOL.test(pool.dexId));
+  // ── Solidly / Infusion fee resolution (factory-mediated, name-gated) ──
+  const stillFeeless = probed.filter(pool => !feeByAddress.has(pool.address) && pool.feePct == null);
+  const solidlyPools = stillFeeless.filter(pool => SOLIDLY_CLASSIC_POOL.test(pool.dexId));
   if (solidlyPools.length > 0) {
-    const metadata = await retryRpcOnce(() => withSafeMulticall(client).multicall({
-      contracts: solidlyPools.flatMap(pool => [
-        {
-          address: pool.address as `0x${string}`,
-          abi: SOLIDLY_POOL_ABI,
-          functionName: 'stable' as const,
-        },
-        {
-          address: pool.address as `0x${string}`,
-          abi: SOLIDLY_POOL_ABI,
-          functionName: 'factory' as const,
-        },
-      ]),
-      allowFailure: true,
-    })) ?? [];
+    const metadata = await multicallBatch(client, solidlyPools.flatMap(pool => [
+      { address: pool.address as `0x${string}`, abi: SOLIDLY_POOL_ABI, functionName: 'stable' as const },
+      { address: pool.address as `0x${string}`, abi: SOLIDLY_POOL_ABI, functionName: 'factory' as const },
+    ]));
     const resolved = solidlyPools.flatMap((pool, index) => {
       const stableRead = metadata[index * 2];
       const factoryRead = metadata[index * 2 + 1];
       if (stableRead?.status !== 'success' || factoryRead?.status !== 'success') return [];
-      return [{
-        pool,
-        stable: stableRead.result as boolean,
-        factory: factoryRead.result as `0x${string}`,
-      }];
+      return [{ pool, stable: stableRead.result as boolean, factory: factoryRead.result as `0x${string}` }];
     });
     const fees = resolved.length > 0
-      ? await retryRpcOnce(() => withSafeMulticall(client).multicall({
-          contracts: resolved.map(({ pool, stable, factory }) => ({
-            address: factory,
-            abi: SOLIDLY_FACTORY_FEE_ABI,
-            functionName: 'getFee' as const,
-            args: [pool.address as `0x${string}`, stable] as const,
-          })),
-          allowFailure: true,
-        })) ?? []
+      ? await multicallBatch(client, resolved.map(({ pool, stable, factory }) => ({
+          address: factory,
+          abi: SOLIDLY_FACTORY_FEE_ABI,
+          functionName: 'getFee' as const,
+          args: [pool.address as `0x${string}`, stable] as const,
+        })))
       : [];
     resolved.forEach(({ pool }, index) => {
       const read = fees[index];
@@ -477,31 +516,24 @@ export async function enrichMarketPoolApr(
       }
     });
   }
-
-  const infusionPools = missing.filter(pool => INFUSION_POOL.test(pool.dexId));
+  const infusionPools = stillFeeless.filter(pool => INFUSION_POOL.test(pool.dexId));
   if (infusionPools.length > 0) {
-    const stableReads = await retryRpcOnce(() => withSafeMulticall(client).multicall({
-      contracts: infusionPools.map(pool => ({
-        address: pool.address as `0x${string}`,
-        abi: SOLIDLY_POOL_ABI,
-        functionName: 'stable' as const,
-      })),
-      allowFailure: true,
-    })) ?? [];
+    const stableReads = await multicallBatch(client, infusionPools.map(pool => ({
+      address: pool.address as `0x${string}`,
+      abi: SOLIDLY_POOL_ABI,
+      functionName: 'stable' as const,
+    })));
     const resolved = infusionPools.flatMap((pool, index) => {
       const read = stableReads[index];
       return read?.status === 'success' ? [{ pool, stable: read.result as boolean }] : [];
     });
     const fees = resolved.length > 0
-      ? await retryRpcOnce(() => withSafeMulticall(client).multicall({
-          contracts: resolved.map(({ stable }) => ({
-            address: INFUSION_BASE_FACTORY,
-            abi: INFUSION_FACTORY_FEE_ABI,
-            functionName: 'getFee' as const,
-            args: [stable] as const,
-          })),
-          allowFailure: true,
-        })) ?? []
+      ? await multicallBatch(client, resolved.map(({ stable }) => ({
+          address: INFUSION_BASE_FACTORY,
+          abi: INFUSION_FACTORY_FEE_ABI,
+          functionName: 'getFee' as const,
+          args: [stable] as const,
+        })))
       : [];
     resolved.forEach(({ pool }, index) => {
       const read = fees[index];
@@ -512,204 +544,122 @@ export async function enrichMarketPoolApr(
     });
   }
 
-  let pending = missing.filter(pool =>
-    !ALGEBRA_STYLE_POOL.test(pool.dexId)
-    && !feeByAddress.has(pool.address),
-  );
-  for (let attempt = 0; attempt < 2 && pending.length > 0; attempt++) {
-    if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 250));
-    const batch = pending;
-    // Two reads per pool: fee decides the APR, and a successful slot0 proves
-    // the pool speaks the standard V3 ABI — that, not the DEX's name, is what
-    // makes it simulatable with the shared V3 math.
-    const reads = await withSafeMulticall(client).multicall({
-      contracts: batch.flatMap(pool => [
-        {
-          address: pool.address as `0x${string}`,
-          abi: POOL_FEE_ABI,
-          functionName: 'fee' as const,
-        },
-        {
-          address: pool.address as `0x${string}`,
-          abi: V3_STATE_ABI,
-          functionName: 'slot0' as const,
-        },
-      ]),
-      allowFailure: true,
-    }).catch(() => []);
-    const failed: MarketPool[] = [];
-    batch.forEach((pool, index) => {
-      const feeRead = reads[index * 2];
-      const slot0Read = reads[index * 2 + 1];
-      if (!feeRead || feeRead.status !== 'success') {
-        if (slot0Read?.status !== 'success') failed.push(pool);
-        return;
-      }
-      const fee = Number(feeRead.result);
-      // V3-style fees use millionths. Reject zero and the V4 dynamic-fee flag
-      // rather than turning either into a fabricated APR. A successful but
-      // incompatible fee result is not transient, so it is not retried.
-      if (Number.isInteger(fee) && fee > 0 && fee < 1_000_000) {
-        feeByAddress.set(pool.address, fee / 1_000_000);
-        if (slot0Read?.status === 'success') classByAddress.set(pool.address, 'v3');
-      }
-    });
-    pending = failed;
-    if (reads.length === 0 && attempt === 0) {
-      // The whole RPC batch failed. The next iteration retries the same
-      // unresolved subset through the client's fallback transport.
-      pending = batch;
-    }
-  }
-
-  // Pools whose fee the provider already stated still need their class
-  // probed before they can be simulated — the provider's name is not proof
-  // of the pool's ABI.
-  const needsClass = pools.filter(pool =>
-    pool.ammClass === 'unknown'
-    && !failedFresh.has(pool.address)
-    && !feeByAddress.has(pool.address)
-    && !classByAddress.has(pool.address)
-    && /^0x[0-9a-f]{40}$/i.test(pool.address)
-    && pool.dexId.trim().toLowerCase() !== SWAAP_VAULT_ID,
-  );
-  if (needsClass.length > 0) {
-    const reads = await withSafeMulticall(client).multicall({
-      contracts: needsClass.map(pool => ({
-        address: pool.address as `0x${string}`,
-        abi: V3_STATE_ABI,
-        functionName: 'slot0' as const,
-      })),
-      allowFailure: true,
-    }).catch(() => []);
-    needsClass.forEach((pool, index) => {
-      if (reads[index]?.status === 'success') classByAddress.set(pool.address, 'v3');
+  // ── Round 2: liquidity + token1 decimals for V3-class pools (range inputs) ──
+  const r2Targets = llamaNetwork != null
+    ? probed.filter(pool =>
+        (classByAddress.get(pool.address) ?? pool.ammClass) === 'v3'
+        && token1ByAddress.has(pool.address))
+    : [];
+  const liqByAddress = new Map<string, bigint>();
+  const decByAddress = new Map<string, number>();
+  let prices: Record<string, number> = {};
+  if (r2Targets.length > 0) {
+    const token1Of = new Map(r2Targets.map(p => [p.address, token1ByAddress.get(p.address)!]));
+    const [state, priceResult] = await Promise.all([
+      multicallBatch(client, r2Targets.flatMap(pool => [
+        { address: pool.address as `0x${string}`, abi: V3_STATE_ABI, functionName: 'liquidity' as const },
+        { address: token1Of.get(pool.address)!, abi: erc20Abi, functionName: 'decimals' as const },
+      ])),
+      getTokenPricesUsd([...new Set(token1Of.values())], llamaNetwork).catch(() => ({} as Record<string, number>)),
+    ]);
+    prices = priceResult;
+    r2Targets.forEach((pool, index) => {
+      const l = state[index * 2], d = state[index * 2 + 1];
+      if (l?.status === 'success') liqByAddress.set(pool.address, l.result as bigint);
+      if (d?.status === 'success') decByAddress.set(pool.address, Number(d.result as number));
     });
   }
-  if (feeByAddress.size === 0 && classByAddress.size === 0) return seeded;
 
-  return seeded.map(pool => {
-    const feePct = feeByAddress.get(pool.address);
+  // ── Merge: fee APR, class, ±5% range APR, caches ──
+  return served.map(pool => {
+    const feePct = feeByAddress.get(pool.address) ?? pool.feePct;
     const ammClass = classByAddress.get(pool.address) ?? pool.ammClass;
-    if (feePct != null || ammClass !== pool.ammClass) {
-      probeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, feePct: feePct ?? pool.feePct, ammClass });
+    const wasProbed = probed.some(p => p.address === pool.address);
+
+    // Cache every probed pool — including negatives (fee unresolved, class
+    // unknown), so the next compare doesn't re-ask for the same "unknown".
+    if (wasProbed) {
+      probeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, feePct, ammClass });
     }
-    if (feePct == null && ammClass === pool.ammClass) return pool;
+
     const aprPct = feePct != null && pool.tvlUsd > 0
       ? (pool.volume24hUsd * feePct * 365 / pool.tvlUsd) * 100
       : null;
-    return {
+
+    // ±5% range upgrade — same band math as addRangeAprs for indexer pools.
+    let rangeApr: number | null = null;
+    const wentThroughRound2 = llamaNetwork != null
+      && token1ByAddress.has(pool.address)
+      && classByAddress.get(pool.address) === 'v3';
+    if (llamaNetwork != null && ammClass === 'v3') {
+      const token1 = token1ByAddress.get(pool.address);
+      const sqrtPriceX96 = sqrtByAddress.get(pool.address);
+      const liquidity = liqByAddress.get(pool.address);
+      const decimals1 = token1 != null ? decByAddress.get(token1) : undefined;
+      const price1 = token1 != null ? prices[token1] : undefined;
+      const priced = sqrtPriceX96 != null && liquidity != null && decimals1 != null && price1;
+      if (priced && liquidity > 0n && sqrtPriceX96 > 0n && feePct != null && feePct > 0 && pool.volume24hUsd > 0) {
+        const sqrtP = Number(sqrtPriceX96) / 2 ** 96;
+        const bandUsd = (Number(liquidity) * sqrtP * BAND_FACTOR * price1!) / 10 ** decimals1!;
+        const fees24h = pool.volume24hUsd * feePct;
+        if (bandUsd > 0 && fees24h > 0) {
+          rangeApr = Math.min((fees24h * 365 * 100) / bandUsd, 99_999);
+          rangeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, apr: rangeApr });
+        }
+      } else if (wentThroughRound2 && !rangeApr) {
+        // Round 2 ran but the pool couldn't be priced (no USD quote, zero
+        // liquidity…) — negative-cache so the next compare doesn't re-read.
+        rangeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, apr: null });
+      }
+    }
+
+    const merged: MarketPool = {
       ...pool,
-      ...(feePct != null ? { feePct, aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null } : {}),
+      ...(feePct != null && feePct !== pool.feePct
+        ? { feePct, aprPct: aprPct != null && isFinite(aprPct) ? aprPct : null }
+        : feePct != null ? { feePct } : {}),
       ammClass,
     };
+    if (rangeApr != null) {
+      merged.aprPct = rangeApr;
+      merged.aprIsRange = true;
+    }
+    return merged;
   });
 }
 
 /**
- * Upgrade V3-class market pools from whole-pool fee APR to the ±5%-range
- * figure, using the exact same band math as `addRangeAprs` for indexer pools.
- * Architecture-agnostic: any pool classified 'v3' by the probe above gets it,
- * whatever DEX or chain it is on. Pools missing a USD price for token1 keep
- * the whole-pool APR rather than a wrong number.
+ * Backwards-compatible wrapper — fee + class only, no range upgrade.
+ */
+export async function enrichMarketPoolApr(
+  client: PublicClient,
+  pools: MarketPool[],
+): Promise<MarketPool[]> {
+  return probePoolsOnChain(client, pools);
+}
+
+/**
+ * Backwards-compatible wrapper — range upgrade for already-classified pools.
  */
 export async function addMarketRangeAprs(
   client: PublicClient,
   pools: MarketPool[],
   llamaNetwork: string,
 ): Promise<MarketPool[]> {
-  const now = Date.now();
-  // Fresh range figures skip the chain entirely — the ±5% band read is the
-  // heaviest part of enrichment (5 reads per pool) and barely moves in minutes.
-  // null = probed recently and unpriceable (no USD quote for token1): negative
-  // cache, so a pool that can't be ranged doesn't get re-read on every compare.
-  const served = pools.map(pool => {
-    const hit = rangeCache.get(`${client.chain?.id ?? 0}:${pool.address}`);
-    if (hit && hit.at + RANGE_TTL > now) {
-      if (hit.apr == null) return { ...pool, rangeFailed: true } as MarketPool & { rangeFailed?: boolean };
-      return { ...pool, aprPct: hit.apr, aprIsRange: true };
-    }
-    return pool;
-  });
-  const targets = served.filter(pool =>
-    pool.ammClass === 'v3'
-    && !(pool as MarketPool & { rangeFailed?: boolean }).rangeFailed
-    && !pool.aprIsRange
-    && pool.feePct != null
-    && pool.feePct > 0
-    && pool.tvlUsd > 0
-    && pool.volume24hUsd > 0
-    && /^0x[0-9a-f]{40}$/i.test(pool.address),
-  );
-  if (targets.length === 0) return served;
-
-  // Round 1 resolves the pool's tokens; round 2 reads state + token1 decimals.
-  const tokens = await withSafeMulticall(client).multicall({
-    contracts: targets.flatMap(pool => ([
-      { address: pool.address as `0x${string}`, abi: POOL_TOKENS_ABI, functionName: 'token0' as const },
-      { address: pool.address as `0x${string}`, abi: POOL_TOKENS_ABI, functionName: 'token1' as const },
-    ])),
-    allowFailure: true,
-  }).catch(() => []);
-  const resolved = targets.flatMap((pool, index) => {
-    const t0 = tokens[index * 2], t1 = tokens[index * 2 + 1];
-    if (t0?.status !== 'success' || t1?.status !== 'success') return [];
-    return [{ pool, token1: (t1.result as string).toLowerCase() as `0x${string}` }];
-  });
-  if (resolved.length === 0) return pools;
-
-  const state = await withSafeMulticall(client).multicall({
-    contracts: resolved.flatMap(({ pool, token1 }) => ([
-      { address: pool.address as `0x${string}`, abi: V3_STATE_ABI, functionName: 'slot0' as const },
-      { address: pool.address as `0x${string}`, abi: V3_STATE_ABI, functionName: 'liquidity' as const },
-      { address: token1, abi: erc20Abi, functionName: 'decimals' as const },
-    ])),
-    allowFailure: true,
-  }).catch(() => []);
-
-  const prices = await getTokenPricesUsd(
-    [...new Set(resolved.map(({ token1 }) => token1))],
-    llamaNetwork,
-  ).catch(() => ({} as Record<string, number>));
-
-  const rangeByAddress = new Map<string, number>();
-  resolved.forEach(({ pool, token1 }, index) => {
-    const s = state[index * 3], l = state[index * 3 + 1], d = state[index * 3 + 2];
-    if (s?.status !== 'success' || l?.status !== 'success' || d?.status !== 'success') return;
-    const sqrtPriceX96 = (s.result as readonly unknown[])[0] as bigint;
-    const liquidity = l.result as bigint;
-    const decimals1 = Number(d.result as number);
-    const price1 = prices[token1];
-    if (!price1 || liquidity === 0n || sqrtPriceX96 === 0n || !Number.isFinite(decimals1)) return;
-    const sqrtP = Number(sqrtPriceX96) / 2 ** 96;
-    const bandUsd = (Number(liquidity) * sqrtP * BAND_FACTOR * price1) / 10 ** decimals1;
-    if (!(bandUsd > 0)) return;
-    const fees24h = pool.volume24hUsd * (pool.feePct ?? 0);
-    if (fees24h <= 0) return;
-    rangeByAddress.set(pool.address, Math.min((fees24h * 365 * 100) / bandUsd, 99_999));
-  });
-  if (rangeByAddress.size === 0) {
-    // Nothing priced — remember the misses so the next compare doesn't re-read.
-    for (const pool of targets) {
-      rangeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, apr: null });
-    }
-    return served;
-  }
-
-  return served.map(pool => {
-    const range = rangeByAddress.get(pool.address);
-    if (range == null) return pool;
-    rangeCache.set(`${client.chain?.id ?? 0}:${pool.address}`, { at: now, apr: range });
-    return { ...pool, aprPct: range, aprIsRange: true };
-  });
+  return probePoolsOnChain(client, pools, llamaNetwork);
 }
 
 /**
  * One enrichment pipeline for single-chain search and cross-chain research.
  * The hourly catalog supplies gauge/reward APRs, while the chain supplies
- * missing pool fee tiers and the AMM class (by probing the pool contract).
- * Reapplying the catalog last ensures an actionable gauge route is not
- * overwritten by the generic whole-pool fee estimate.
+ * missing pool fee tiers and the AMM class (by probing the pool contract) in
+ * two speculative rounds. Reapplying the catalog last ensures an actionable
+ * gauge route is not overwritten by the generic whole-pool fee estimate.
+ *
+ * When `chainId` is given, enrichment runs through the shared server route
+ * (/api/pools/enrich) so results are cached across users in Convex — the
+ * browser never re-probes what someone else already asked. If the route
+ * fails, the same probing runs client-side through the wallet's transport.
  */
 export async function enrichMarketPools(
   client: PublicClient | undefined,
@@ -719,6 +669,7 @@ export async function enrichMarketPools(
   tokenAAddress: string,
   tokenBAddress?: string,
   llamaNetwork?: string,
+  chainId?: number,
 ): Promise<MarketPool[]> {
   const catalogEnriched = applyGaugeAprCatalog(
     pools,
@@ -727,14 +678,38 @@ export async function enrichMarketPools(
     tokenAAddress,
     tokenBAddress,
   );
-  const feeEnriched = client
-    ? await enrichMarketPoolApr(client, catalogEnriched).catch(() => catalogEnriched)
-    : catalogEnriched;
-  const ranged = client && llamaNetwork
-    ? await addMarketRangeAprs(client, feeEnriched, llamaNetwork).catch(() => feeEnriched)
-    : feeEnriched;
+  let probed = catalogEnriched;
+  if (chainId != null) {
+    try {
+      const res = await fetch('/api/pools/enrich', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          chainId,
+          llamaNetwork,
+          pools: catalogEnriched.map(({ address, dexId, tvlUsd, volume24hUsd, feePct, ammClass, aprIsRange, aprPct }) =>
+            ({ address, dexId, tvlUsd, volume24hUsd, feePct, ammClass, aprIsRange, aprPct })),
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (res.ok) {
+        const data = await res.json() as { pools?: MarketPool[] };
+        if (Array.isArray(data.pools) && data.pools.length > 0) {
+          probed = data.pools.map(p => ({
+            ...p,
+            dexLabel: catalogEnriched.find(c => c.address === p.address)?.dexLabel ?? prettyDexLabel(p.dexId),
+          }));
+        }
+      }
+    } catch {
+      // Route unavailable (cold function, network) — probe client-side below.
+    }
+  }
+  if (probed === catalogEnriched && client) {
+    probed = await probePoolsOnChain(client, catalogEnriched, llamaNetwork).catch(() => catalogEnriched);
+  }
   return applyGaugeAprCatalog(
-    ranged,
+    probed,
     earnPools,
     chainName,
     tokenAAddress,

@@ -36,6 +36,31 @@ export default defineSchema({
     updatedAt: v.float64(),
   }),
 
+  // ── Shared server-computed caches ─────────────────────────────────────────
+  // Two generic stores replace the "one bespoke table per dataset" pattern
+  // (discoverPools/marketSnapshots above predate them and are left in place).
+
+  // Cron-driven global snapshots — data identical for every visitor, recomputed
+  // on a schedule and read with one query instead of per-visitor API work.
+  // `key` is the dataset name (e.g. "yearn-vaults", "bear-stats").
+  snapshots: defineTable({
+    key: v.string(),
+    json: v.string(),
+    updatedAt: v.float64(),
+  }).index("by_key", ["key"]),
+
+  // On-demand memo cache for data keyed by user input (a pool address, a token
+  // pair) — too many combinations to precompute, but identical across everyone
+  // who asks for the same key. Filled lazily by convex/cacheFill.ts and read
+  // straight from the table on every later hit until `expiresAt`.
+  cacheEntries: defineTable({
+    key: v.string(),
+    json: v.string(),
+    updatedAt: v.float64(),
+    expiresAt: v.float64(),
+  }).index("by_key", ["key"])
+    .index("by_expires", ["expiresAt"]),
+
   // Prices refreshed every 5 min via cron
   tokenPrices: defineTable({
     address: v.string(),
@@ -285,4 +310,19 @@ export default defineSchema({
     lastError: v.optional(v.string()),
   }).index("by_account", ["account"])
     .index("by_enabled_next", ["enabled", "nextRunAt"]),
+
+  // ── Shared pool-fact cache (server-written only) ───────────────────────────
+  // Enrichment results (fee tier, AMM class, ±5% range APR) probed by the
+  // server route. Clients READ these but can never write them — writes carry a
+  // secret checked against the POOL_FACTS_SECRET Convex env var, so one user
+  // cannot poison another user's view.
+  poolFacts: defineTable({
+    chainId: v.float64(),
+    address: v.string(),       // lowercase pool address
+    feePct: v.optional(v.float64()),   // fraction (0.0005 = 0.05%)
+    ammClass: v.string(),      // 'v3' | 'v2' | 'algebra' | 'unknown'
+    rangeApr: v.optional(v.float64()), // ±5% range APR % when priceable
+    updatedAt: v.float64(),
+    expiresAt: v.float64(),
+  }).index("by_chain_address", ["chainId", "address"]),
 });

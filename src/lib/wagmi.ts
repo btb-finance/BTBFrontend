@@ -7,6 +7,7 @@ import {
 import { defineChain, fallback, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask } from '@wagmi/connectors';
 import { MAINNET_TRANSPORT } from './rpc';
+import { chainTransport } from './chainRpc';
 import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
 export const robinhoodChain = defineChain({
@@ -71,25 +72,30 @@ export function makeConfig() {
     chains: SUPPORTED_CHAINS,
     transports: {
       [mainnet.id]: MAINNET_TRANSPORT,
-      [bsc.id]: http(), [polygon.id]: http(), [arbitrum.id]: http(), [optimism.id]: http(),
-      [base.id]: http(), [avalanche.id]: http(), [berachain.id]: http(), [sonic.id]: http(),
-      [ronin.id]: http(), [unichain.id]: http(), [linea.id]: http(), [hyperEvm.id]: http(),
-  [plasma.id]: http(), [etherlink.id]: http(), [mantle.id]: http(), [monad.id]: http(), [scroll.id]: http(),
-      [fantom.id]: http(), [blast.id]: http(), [zkSync.id]: http(), [megaeth.id]: http(),
+      // Every non-mainnet chain previously rode viem's single default public
+      // RPC — one rate-limited endpoint with no fallback. chainTransport gives
+      // each a verified multi-endpoint failover list (see ./chainRpc.ts).
+      [bsc.id]: chainTransport(bsc.id), [polygon.id]: chainTransport(polygon.id),
+      [arbitrum.id]: chainTransport(arbitrum.id), [optimism.id]: chainTransport(optimism.id),
+      [base.id]: chainTransport(base.id), [avalanche.id]: chainTransport(avalanche.id),
+      [berachain.id]: chainTransport(berachain.id), [sonic.id]: chainTransport(sonic.id),
+      [ronin.id]: chainTransport(ronin.id), [unichain.id]: chainTransport(unichain.id),
+      [linea.id]: chainTransport(linea.id), [hyperEvm.id]: chainTransport(hyperEvm.id),
+      [plasma.id]: chainTransport(plasma.id), [etherlink.id]: chainTransport(etherlink.id),
+      [mantle.id]: chainTransport(mantle.id), [monad.id]: chainTransport(monad.id),
+      [scroll.id]: chainTransport(scroll.id), [fantom.id]: chainTransport(fantom.id),
+      [blast.id]: chainTransport(blast.id), [zkSync.id]: chainTransport(zkSync.id),
+      [megaeth.id]: chainTransport(megaeth.id),
       [robinhoodChain.id]: robinhoodTransport(),
     },
     connectors,
   });
 }
 
-export const CONTRACTS = {
-  BTB:          '0x88888888c90CD71B35830daBFD24743DbC135B51' as `0x${string}`,
-  BTBB:         '0x88888880d5Ca13018D2dC11e2e4744BD91a5656f' as `0x${string}`,
-  BEAR_NFT:     '0x88888888aBa934ceA0b4f0000FeA62F1397D02A0' as `0x${string}`,
-  BEAR_STAKING: '0x8888888Faf81E6a98deb2B90A05B46b6E903e927' as `0x${string}`,
-  OPOS:         '0x88888805E7e3d5c7FB002AD98f08250E79c298dC' as `0x${string}`,
-  FLIP:         '0x8888889C878a0aE26033799517461af33a8E50a0' as `0x${string}`,
-};
+// Addresses live in ./contractAddresses (no wallet-stack imports) so Convex
+// actions can read them; re-exported here to keep every existing import site
+// pointing at `@/lib/wagmi`.
+export { CONTRACTS } from './contractAddresses';
 
 // Chain metadata for UI display
 export const CHAIN_META: Record<number, { name: string; symbol: string; color: string }> = {

@@ -479,6 +479,7 @@ export function DiscoverScreen() {
             addr,
             undefined,
             networks.llama,
+            targetChainId,
           );
         })
         .then(market => { if (marketReqRef.current === req) setMarketPools(market); })
