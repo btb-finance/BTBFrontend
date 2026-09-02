@@ -15,7 +15,7 @@ import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI, POSITION_MANAGER_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
 import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
-import { fetchDexPaprikaTopPools, type DexPaprikaPoolRaw } from './dexpaprika';
+import { fetchNetworkTopPools, fetchNetworkDexes, type DexPaprikaPoolRow, type DexPaprikaDex } from './dexpaprika';
 import { fetchDexScreenerPool } from './dexscreener';
 import { withSafeMulticall } from './safeMulticall';
 
@@ -47,6 +47,11 @@ export interface EarnPool {
   yieldMode?: 'combined' | 'stake-or-fees' | 'staked-rewards';
   liquidityModel?: 'AMM' | 'CLMM' | 'DLMM';
   poolMeta?: string;
+  /** Provider supplied logo URLs, resolved once server side so the client
+   *  never has to keep a name-to-asset map in sync. Both may be absent; the
+   *  UI falls back to a bundled asset and then to a letter mark. */
+  dexLogo?: string;
+  chainLogo?: string;
   volume24hUsd?: number;  // last complete day — indexer pools only
   fees24hUsd?: number;
   stablecoin: boolean;
@@ -259,9 +264,16 @@ function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'vers
   // and Velodrome LPs choose unstaked fee yield or staked emissions; Ramses,
   // Pharaoh, and Blackhole gauged rows report the staked emission route. Keep
   // the components, but rank one achievable strategy rather than their sum.
+  // When real volume and a real fee tier are both known, the fee APR is
+  // arithmetic we can check, so use it instead of the provider's apyBase.
+  // DeFiLlama reports 0.00% for pools doing tens of millions a day.
+  const computedFeeApr = fees24hUsd != null && p.tvlUsd > 0
+    ? (fees24hUsd * 365 / p.tvlUsd) * 100
+    : null;
+  const apyBase = computedFeeApr ?? p.apyBase;
   const actionableApy = isStakeOrFees
-    ? Math.max(p.apyBase, p.apyReward)
-    : isGaugeRewardOnly ? p.apyReward : p.apy;
+    ? Math.max(apyBase, p.apyReward)
+    : isGaugeRewardOnly ? p.apyReward : (computedFeeApr != null ? computedFeeApr + p.apyReward : p.apy);
   const rewardTokenSymbols = p.rewardTokens?.map(address => {
     const normalized = address.toLowerCase();
     if (normalized === '0x940181a94a35a4569e4529a3cdfb74e38fd98631') return 'AERO';
@@ -282,13 +294,13 @@ function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'vers
     project: p.project,
     dex: overrides.dex ?? p.dex,
     version: overrides.version,
-    chain: isHyperEvm ? 'HyperEVM' : p.chain,
+    chain: isHyperEvm ? 'HyperEVM' : normalizeChainName(p.chain),
     chainId: isHyperEvm ? 999 : undefined,
     pair: p.pair,
     feeTier,
     tvlUsd: p.tvlUsd,
     apy: actionableApy,
-    apyBase: p.apyBase,
+    apyBase,
     apyReward: p.apyReward,
     rewardTokens: p.rewardTokens,
     rewardTokenSymbols,
@@ -309,88 +321,297 @@ function fromLlama(p: LlamaPool, overrides: Partial<Pick<EarnPool, 'dex' | 'vers
   };
 }
 
-const DEXPAPRIKA_MAP: { dexId: 'uniswap_v3' | 'uniswap_v4' | 'pancakeswap_v3'; project: string; dex: string; version: 'V3' | 'V4' }[] = [
-  { dexId: 'uniswap_v3', project: 'uniswap-v3', dex: 'Uniswap', version: 'V3' },
-  { dexId: 'uniswap_v4', project: 'uniswap-v4', dex: 'Uniswap', version: 'V4' },
-  { dexId: 'pancakeswap_v3', project: 'pancakeswap-v3', dex: 'PancakeSwap', version: 'V3' },
-];
+/**
+ * Chains given the volume ranked discovery pass, with their DexPaprika network
+ * slug. Kept to where the volume actually is: each chain costs one listing call
+ * plus two multicall rounds per cron tick, and the API rate limits at roughly
+ * eight rapid requests.
+ */
+/**
+ * Providers spell the same chain differently ("BSC" vs "BNB Chain", "OP
+ * Mainnet" vs "Optimism"), which showed up as two filter chips for one chain.
+ * Normalising on the way in keeps one chip per chain.
+ */
+const CHAIN_ALIASES: Record<string, string> = {
+  bsc: 'BNB Chain', 'binance smart chain': 'BNB Chain', 'bnb smart chain': 'BNB Chain',
+  'op mainnet': 'Optimism', 'arbitrum one': 'Arbitrum', 'avalanche c-chain': 'Avalanche',
+  'ethereum mainnet': 'Ethereum', 'hyperliquid l1': 'HyperEVM',
+};
+
+export function normalizeChainName(name: string): string {
+  return CHAIN_ALIASES[name.trim().toLowerCase()] ?? name;
+}
 
 /**
- * DexPaprika — free, keyless pool *discovery* (ranked by volume, covers pools
- * DeFiLlama doesn't index). It has no reliable fee tier or TVL of its own, so
- * every pool here gets its fee read straight from the chain (V3: `fee()` on
- * the pool contract; V4: the PositionManager's `poolKeys` mapping — pools
- * nobody has ever minted through there are skipped rather than guessed) and
- * its TVL from a DexPaprika detail call. Only pools that clear both checks
- * (and the same TVL floor as everything else) become real `EarnPool` rows —
- * this never fabricates a fee or an APR.
+ * Identity of a pool independent of which provider described it: same chain,
+ * same two tokens, same venue, same fee tier is the same pool.
  */
-async function ingestDexPaprika(client: PublicClient, existingIds: Set<string>, minTvlUsd: number): Promise<EarnPool[]> {
-  const perDex = await Promise.all(DEXPAPRIKA_MAP.map((m) => fetchDexPaprikaTopPools(m.dexId, 50).then((rows) => ({ m, rows }))));
-  const out: EarnPool[] = [];
+function poolShapeKey(p: EarnPool): string {
+  const pair = p.pair.split('-').map(s => s.trim().toUpperCase()).sort().join('-');
+  return [normalizeChainName(p.chain).toLowerCase(), pair, p.dex.toLowerCase(), p.feeTier ?? '?'].join('|');
+}
 
-  for (const { m, rows } of perDex) {
-    // Cap how many "new" pools per DEX we bother resolving — this is a
-    // supplemental discovery pass, not the primary source, so keep it fast.
-    const fresh = rows.filter((r) => !existingIds.has(r.id.toLowerCase())).slice(0, 20) as DexPaprikaPoolRaw[];
-    if (fresh.length === 0) continue;
+/**
+ * DEX and chain logos, taken from DeFiLlama's icon CDN rather than a folder of
+ * webp files we have to remember to update. Their protocol names are versioned
+ * ("Uniswap V3", "PancakeSwap AMM"), so a brand matches on prefix and the
+ * shortest candidate wins, which is the plain brand entry when one exists.
+ *
+ * Resolved once per refresh, server side, and written into the snapshot: the
+ * browser then just renders a URL.
+ */
+const CHAIN_ICON = (chain: string) =>
+  `https://icons.llamao.fi/icons/chains/rsz_${chain.toLowerCase().replace(/[^a-z0-9]/g, '')}?w=48&h=48`;
 
-    const feeCalls = m.version === 'V4'
-      ? await withSafeMulticall(client).multicall({
-          contracts: fresh.map((r) => ({
-            address: UNISWAP_V4.positionManager, abi: POSITION_MANAGER_ABI as Abi, functionName: 'poolKeys',
-            args: [r.id.toLowerCase().slice(0, 52) as `0x${string}`],
-          })),
-          allowFailure: true,
-        })
-      : await withSafeMulticall(client).multicall({
-          contracts: fresh.map((r) => ({ address: r.id as `0x${string}`, abi: POOL_ABI as Abi, functionName: 'fee' })),
-          allowFailure: true,
-        });
-    const feeOf = (i: number): number | null => {
-      const r = feeCalls[i];
-      if (r.status !== 'success') return null;
-      return m.version === 'V4' ? Number((r.result as readonly unknown[])[2]) : Number(r.result as number);
-    };
-
-    // Only bother fetching TVL for pools with a real, known fee — skips
-    // wasted detail calls for pools we'd drop anyway. TVL comes from
-    // DexScreener (a separate rate-limit bucket from the discovery call
-    // above, and real CORS support) rather than a second DexPaprika call, so
-    // this discovery pass never puts more than one burst of load on either
-    // provider. Still bounded (6 at a time) to be a good citizen.
-    const withFee = fresh.map((r, i) => ({ r, fee: feeOf(i) })).filter((x) => x.fee != null && x.fee > 0);
-    const tvlByIndex = new Map<number, number>();
-    const CONCURRENCY = 6;
-    for (let i = 0; i < withFee.length; i += CONCURRENCY) {
-      const batch = withFee.slice(i, i + CONCURRENCY);
-      const stats = await Promise.all(batch.map((x) => fetchDexScreenerPool(x.r.id)));
-      stats.forEach((s, j) => tvlByIndex.set(i + j, s?.tvlUsd ?? 0));
+async function fetchDexLogos(): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  try {
+    const res = await fetch('https://api.llama.fi/protocols');
+    if (!res.ok) return out;
+    const list = await res.json() as { name?: string; logo?: string; category?: string }[];
+    const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const dexes = list.filter(p => p.name && p.logo && /dex/i.test(p.category ?? ''));
+    // Shortest name per normalized prefix, so "Uniswap" resolves through
+    // "Uniswap V2" rather than "Uniswap X" or a longer unrelated entry.
+    for (const p of dexes.sort((a, b) => (a.name as string).length - (b.name as string).length)) {
+      const key = norm(p.name as string);
+      if (!out.has(key)) out.set(key, p.logo as string);
     }
+  } catch { /* logos are decoration; never fail a refresh over them */ }
+  return out;
+}
 
-    withFee.forEach(({ r, fee }, i) => {
-      const tvlUsd = tvlByIndex.get(i) ?? 0;
-      if (fee == null || tvlUsd < minTvlUsd) return;
-      const [t0, t1] = [r.token0, r.token1].sort((a, b) => a.address.toLowerCase().localeCompare(b.address.toLowerCase()));
-      const stable = STABLES.has(t0.symbol.toUpperCase()) && STABLES.has(t1.symbol.toUpperCase());
-      // Dynamic-fee V4 pools report the flag bit, not a fee — multiplying
-      // volume by it fabricates absurd fees/APRs (838% "fee"), so their
-      // fee-derived numbers stay unknown instead.
-      const isDynamic = (fee & DYNAMIC_FEE_FLAG) !== 0;
-      const fees24hUsd = isDynamic ? undefined : r.volume24hUsd * (fee / 1_000_000);
-      const apy = !isDynamic && fees24hUsd != null && tvlUsd > 0 ? (fees24hUsd * 365 / tvlUsd) * 100 : 0;
-      out.push({
-        id: r.id, project: m.project, dex: m.dex, version: m.version, chain: 'Ethereum',
-        pair: `${t0.symbol}-${t1.symbol}`, feeTier: fee, tvlUsd,
-        apy, apyBase: apy, apyReward: 0,
-        volume24hUsd: r.volume24hUsd, fees24hUsd,
-        stablecoin: stable, ilRisk: stable ? 'no' : 'yes',
-        underlyingTokens: [t0.address, t1.address], token1Decimals: t1.decimals,
-        source: 'uniswap',
-      });
-    });
+function applyLogos(pools: EarnPool[], dexLogos: Map<string, string>): void {
+  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cache = new Map<string, string | undefined>();
+  for (const pool of pools) {
+    const brand = norm(pool.dex);
+    if (!cache.has(brand)) {
+      let hit = dexLogos.get(brand);
+      if (!hit) for (const [name, logo] of dexLogos) { if (name.startsWith(brand)) { hit = logo; break; } }
+      cache.set(brand, hit);
+    }
+    pool.dexLogo = cache.get(brand);
+    pool.chainLogo = CHAIN_ICON(pool.chain);
+  }
+}
+
+export const DISCOVERY_CHAINS: { chainId?: number; network: string; chain: string }[] = [
+  { chainId: 1,    network: 'ethereum',  chain: 'Ethereum' },
+  { chainId: 8453, network: 'base',      chain: 'Base' },
+  { chainId: 56,   network: 'bsc',       chain: 'BNB Chain' },
+  { chainId: 4663, network: 'robinhood', chain: 'Robinhood Chain' },
+];
+
+/** Algebra style CLAMMs expose their live fee through globalState(), not fee(). */
+const ALGEBRA_GLOBAL_STATE_ABI = [{
+  name: 'globalState', type: 'function', stateMutability: 'view', inputs: [],
+  outputs: [
+    { name: 'price', type: 'uint160' }, { name: 'tick', type: 'int24' },
+    { name: 'fee', type: 'uint16' }, { name: 'timepointIndex', type: 'uint16' },
+    { name: 'communityFeeToken0', type: 'uint16' }, { name: 'communityFeeToken1', type: 'uint16' },
+    { name: 'unlocked', type: 'bool' },
+  ],
+}] as const;
+
+const ERC20_SYMBOL_ABI = [{
+  name: 'symbol', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }],
+}] as const;
+
+/**
+ * A pool is "live" when people are actually trading it. DeFiLlama ranks by
+ * TVL, which is why Discover filled up with pools holding nine figures and
+ * doing no trades at all. Requiring real turnover is what keeps them out.
+ */
+const MIN_TXNS_24H = 10;
+const MIN_TURNOVER = 0.005;   // 24h volume worth at least 0.5% of TVL
+
+/** Uniswap V2 forks charge a fixed 0.30%, so their fee needs no chain read. */
+const FIXED_FEE_DEX = /(?:^|[_-])v2$|sushiswap|solidly/i;
+
+/**
+ * Venues whose `fee()` / `globalState()` really is in hundredths of a bip, the
+ * Uniswap V3 convention.
+ *
+ * This allowlist is not optional. Curve's fee() is scaled by 1e10, so reading
+ * it as Uniswap units turns a 0.03% pool into a 30% one and published a
+ * 172,914% APR. Balancer, Maverick, Fluid and Ekubo each differ again. A pool
+ * on a venue we cannot read confidently is dropped, never approximated.
+ */
+const UNISWAP_FEE_CONVENTION = /uniswap|pancakeswap|slipstream|velodrome|aerodrome|sushiswap_v3|quickswap|thena|ramses|pharaoh|blackhole|algebra|camelot/i;
+
+/** Above this, a "fee tier" is a misread rather than a real pool. */
+const MAX_PLAUSIBLE_FEE = 100_000;   // 10%
+
+/**
+ * Brand label for a venue, derived entirely from provider data.
+ *
+ * The provider groups products under `protocol` ("aerodrome_slipstream_3" and
+ * "aerodrome" both report "aerodrome"), so the chips group on that. The label
+ * shown is the shortest of that protocol's own names once a trailing version
+ * token is dropped, which keeps the provider's own spelling ("PancakeSwap",
+ * "LFJ") without us maintaining a name map that would fall behind every time a
+ * venue ships a new version.
+ */
+const stripVersion = (name: string) => name.replace(/\s+v?\d+(\.\d+)?$/i, '').trim();
+/** "uniswapv3" -> "uniswap", "aerodromev3" -> "aerodrome". The provider keeps
+ *  versions apart in `protocol`; the brand is what the chips group on. */
+const brandKey = (protocol: string) => protocol.replace(/v\d+(\.\d+)?$/i, '');
+
+function brandLabels(dexes: DexPaprikaDex[]): Map<string, { label: string; protocol: string }> {
+  const byBrand = new Map<string, string>();
+  for (const d of dexes) {
+    const key = brandKey(d.protocol);
+    const candidate = stripVersion(d.dexName) || d.dexName;
+    const current = byBrand.get(key);
+    if (!current || candidate.length < current.length) byBrand.set(key, candidate);
+  }
+  const out = new Map<string, { label: string; protocol: string }>();
+  for (const d of dexes) {
+    const key = brandKey(d.protocol);
+    out.set(d.dexId, { label: byBrand.get(key) ?? stripVersion(d.dexName), protocol: key });
   }
   return out;
+}
+
+/**
+ * Slipstream/CLMM style venues are concentrated liquidity without carrying a
+ * "v3" in their id, so matching on the digit alone mislabels them. This one
+ * stays ours because `version` drives what the app can mint into, not display.
+ */
+function dexVersion(dexId: string): EarnPool['version'] | undefined {
+  const explicit = dexId.match(/_v(\d)/i);
+  if (explicit) {
+    const n = explicit[1];
+    return n === '4' ? 'V4' : n === '3' ? 'V3' : n === '2' ? 'V2' : undefined;
+  }
+  return /slipstream|clmm|_cl$/i.test(dexId) ? 'V3' : undefined;
+}
+
+function isPoolAddress(id: string): boolean {
+  return /^0x[0-9a-f]{40}$/i.test(id);
+}
+
+/**
+ * Volume ranked pool discovery for one chain, with every APR computed from
+ * numbers we can defend: real 24h volume from the listing, the fee tier read
+ * straight from the pool contract, and TVL from the listing.
+ *
+ *     fee APR = volume24h x feeRate x 365 / TVL
+ *
+ * Nothing here trusts a provider's own APY field. A pool whose fee cannot be
+ * read is dropped rather than guessed at, because multiplying volume by an
+ * invented fee is how you end up publishing an APR nobody can earn.
+ */
+export async function ingestChainPools(
+  client: PublicClient | null,
+  chainId: number | undefined,
+  network: string,
+  chainName: string,
+  minTvlUsd: number,
+  limit = 100,
+): Promise<EarnPool[]> {
+  const [rows, dexes] = await Promise.all([
+    fetchNetworkTopPools(network, limit).catch(() => [] as DexPaprikaPoolRow[]),
+    fetchNetworkDexes(network).catch(() => [] as DexPaprikaDex[]),
+  ]);
+  const brands = brandLabels(dexes);
+  const live = rows.filter(r =>
+    r.tvlUsd >= minTvlUsd
+    && r.transactions24h >= MIN_TXNS_24H
+    && r.volume24hUsd / Math.max(r.tvlUsd, 1) >= MIN_TURNOVER);
+  if (live.length === 0) return [];
+
+  // Round 1: fee tier. V2 style forks are a known constant; everything else is
+  // asked directly, trying the standard fee() and the Algebra variant at once.
+  const probes = client === null ? [] : live.filter(r =>
+    isPoolAddress(r.id) && !FIXED_FEE_DEX.test(r.dexId) && UNISWAP_FEE_CONVENTION.test(r.dexId)
+    // A fee the provider already told us needs no round trip to the chain.
+    && r.feePct == null);
+  const feeReads = probes.length === 0 || client === null ? [] : await withSafeMulticall(client).multicall({
+    contracts: probes.flatMap(r => [
+      { address: r.id as `0x${string}`, abi: POOL_ABI as Abi, functionName: 'fee' },
+      { address: r.id as `0x${string}`, abi: ALGEBRA_GLOBAL_STATE_ABI as Abi, functionName: 'globalState' },
+    ]),
+    allowFailure: true,
+  }).catch(() => []);
+
+  const feeByPool = new Map<string, number>();
+  probes.forEach((r, i) => {
+    const plain = feeReads[i * 2];
+    const algebra = feeReads[i * 2 + 1];
+    let fee: number | null = null;
+    if (plain?.status === 'success') fee = Number(plain.result as bigint);
+    else if (algebra?.status === 'success') fee = Number((algebra.result as readonly unknown[])[2]);
+    // Dynamic fee V4 pools report a flag bit rather than a rate; multiplying
+    // volume by it fabricates absurd APRs, so they stay unpriced.
+    if (fee != null && fee > 0 && fee <= MAX_PLAUSIBLE_FEE && (fee & DYNAMIC_FEE_FLAG) === 0) {
+      feeByPool.set(r.id.toLowerCase(), fee);
+    }
+  });
+  for (const r of live) {
+    const key = r.id.toLowerCase();
+    if (feeByPool.has(key)) continue;
+    // The provider quotes a percent; EarnPool.feeTier is hundredths of a bip.
+    if (r.feePct != null) {
+      const tier = Math.round(r.feePct * 10_000);
+      if (tier > 0 && tier <= MAX_PLAUSIBLE_FEE) feeByPool.set(key, tier);
+    } else if (FIXED_FEE_DEX.test(r.dexId)) {
+      feeByPool.set(key, 3_000);
+    }
+  }
+
+  const priced = live.filter(r => feeByPool.has(r.id.toLowerCase()));
+  if (priced.length === 0) return [];
+
+  // Round 2: symbols. The listing carries token addresses only.
+  const addresses = [...new Set(priced.flatMap(r => r.tokenAddresses.slice(0, 2)).map(a => a.toLowerCase()))]
+    .filter(isPoolAddress);
+  const symbolReads = addresses.length === 0 || client === null ? [] : await withSafeMulticall(client).multicall({
+    contracts: addresses.map(address => ({ address: address as `0x${string}`, abi: ERC20_SYMBOL_ABI as Abi, functionName: 'symbol' })),
+    allowFailure: true,
+  }).catch(() => []);
+  const symbolOf = new Map<string, string>();
+  addresses.forEach((address, i) => {
+    const read = symbolReads[i];
+    if (read?.status === 'success' && typeof read.result === 'string' && read.result.length > 0) {
+      symbolOf.set(address, read.result);
+    }
+  });
+
+  return priced.flatMap((r): EarnPool[] => {
+    const fee = feeByPool.get(r.id.toLowerCase())!;
+    const [a, b] = r.tokenAddresses;
+    const s0 = symbolOf.get(a.toLowerCase());
+    const s1 = symbolOf.get(b.toLowerCase());
+    // A row whose tokens cannot be named is not showable, and guessing a name
+    // from an address helps nobody.
+    if (!s0 || !s1) return [];
+    const fees24hUsd = r.volume24hUsd * (fee / 1_000_000);
+    const apy = r.tvlUsd > 0 ? (fees24hUsd * 365 / r.tvlUsd) * 100 : 0;
+    const stable = STABLES.has(s0.toUpperCase()) && STABLES.has(s1.toUpperCase());
+    const version = dexVersion(r.dexId);
+    return [{
+      id: r.id,
+      project: brands.get(r.dexId)?.protocol ?? r.dexId,
+      dex: brands.get(r.dexId)?.label ?? stripVersion(r.dexName),
+      version,
+      chain: normalizeChainName(chainName),
+      chainId,
+      pair: `${s0}-${s1}`,
+      feeTier: fee,
+      tvlUsd: r.tvlUsd,
+      apy, apyBase: apy, apyReward: 0,
+      volume24hUsd: r.volume24hUsd,
+      fees24hUsd,
+      apyChange1d: r.priceChange24h,
+      liquidityModel: version === 'V2' ? 'AMM' : 'CLMM',
+      stablecoin: stable,
+      ilRisk: stable ? 'no' : 'yes',
+      underlyingTokens: [a, b],
+      source: 'dexscreener',
+    }];
+  });
 }
 
 /**
@@ -402,7 +623,17 @@ async function ingestDexPaprika(client: PublicClient, existingIds: Set<string>, 
  * @param client When provided, also runs a DexPaprika discovery pass (see
  * `ingestDexPaprika`) to surface pools DeFiLlama/the subgraphs miss entirely.
  */
-export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): Promise<EarnPool[]> {
+export async function getEarnPools(
+  minTvlUsd = 50_000,
+  client?: PublicClient | ((chainId?: number) => PublicClient | null),
+): Promise<EarnPool[]> {
+  // Callers that only have mainnet keep passing a single client; the cron
+  // passes a factory so every discovery chain gets its own transport.
+  const clientFor = typeof client === 'function'
+    ? client
+    : client
+      ? (chainId?: number) => (chainId === 1 ? client : null)
+      : null;
   const [v3, v4, cake, llama, robinhood] = await Promise.allSettled([
     hasGraphKey ? getV3TopPools() : Promise.reject(new Error('no key')),
     hasGraphKey ? getV4TopPools() : Promise.reject(new Error('no key')),
@@ -427,6 +658,16 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
       if (p.chain === 'Ethereum' && p.project === 'uniswap-v3' && v3.status === 'fulfilled') continue;
       if (p.chain === 'Ethereum' && p.project === 'uniswap-v4' && v4.status === 'fulfilled') continue;
       if (p.chain === 'Ethereum' && p.project === 'pancakeswap-amm-v3' && cake.status === 'fulfilled') continue;
+      // Drop pools nobody trades. DeFiLlama ranks by TVL and happily lists
+      // pools holding nine figures that have not seen a swap in days; over
+      // half its DEX rows turn over less than 1% of TVL per day. A row with
+      // no volume figure at all is kept only when it pays gauge rewards,
+      // which is yield that does not depend on trading.
+      if (p.volume24hUsd != null) {
+        if (p.volume24hUsd / Math.max(p.tvlUsd, 1) < MIN_TURNOVER) continue;
+      } else if (p.apyReward <= 0) {
+        continue;
+      }
       const version = /(?:^|-)v4(?:$|\.)/i.test(p.project) ? 'V4'
         : /(?:^|-)v3(?:$|\.)/i.test(p.project) ? 'V3'
           : /(?:^|-)v2(?:$|\.)/i.test(p.project) ? 'V2'
@@ -435,21 +676,45 @@ export async function getEarnPools(minTvlUsd = 50_000, client?: PublicClient): P
     }
   }
 
-  if (pools.length === 0 && !client) {
+  if (pools.length === 0 && !clientFor) {
     const err =
       (llama.status === 'rejected' && llama.reason instanceof Error && llama.reason.message) || 'no pool source available';
     throw new Error(err);
   }
 
-  if (client) {
-    const existingIds = new Set(pools.map((p) => p.id.toLowerCase()));
-    const extra = await ingestDexPaprika(client, existingIds, minTvlUsd).catch(() => [] as EarnPool[]);
-    pools.push(...extra);
+  // Volume ranked discovery, one chain at a time, with every APR computed from
+  // real volume and an on chain fee. These rows are authoritative: where they
+  // overlap a DeFiLlama row for the same pool, the computed numbers win.
+  if (clientFor) {
+    for (const { chainId, network, chain } of DISCOVERY_CHAINS) {
+      const chainClient = clientFor(chainId);
+      if (chainId != null && !chainClient) continue;
+      const discovered = await ingestChainPools(chainClient, chainId, network, chain, minTvlUsd)
+        .catch(() => [] as EarnPool[]);
+      if (discovered.length === 0) continue;
+      // Matching on id alone is not enough: DeFiLlama keys pools by its own
+      // uuid while the listing keys them by pool address, so the same pool
+      // arrived twice and rendered as two rows with slightly different TVL.
+      // Identity is really chain + token pair + venue + fee tier.
+      const replaced = new Set(discovered.map(p => p.id.toLowerCase()));
+      const shape = new Set(discovered.map(poolShapeKey));
+      for (let i = pools.length - 1; i >= 0; i--) {
+        const existing = pools[i];
+        if (replaced.has(existing.id.toLowerCase()) || shape.has(poolShapeKey(existing))) pools.splice(i, 1);
+      }
+      pools.push(...discovered);
+      // The listing endpoint rate limits at roughly eight rapid requests.
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
   }
 
   if (pools.length === 0) throw new Error('no pool source available');
 
-  return pools.sort((a, b) => b.tvlUsd - a.tvlUsd);
+  applyLogos(pools, await fetchDexLogos());
+
+  // Rank by what people actually trade. Sorting by TVL is what put pools with
+  // nine figures of idle liquidity and zero trades at the top of Discover.
+  return pools.sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0) || b.tvlUsd - a.tvlUsd);
 }
 
 /** External link for a pool — Uniswap explore page for indexer pools, DeFiLlama otherwise. */

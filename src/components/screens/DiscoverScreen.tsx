@@ -56,7 +56,7 @@ function aprContext(p: EarnPool): { label: string; title: string } | null {
   return null;
 }
 
-type DiscoverChain = { name: string; chainId?: number };
+type DiscoverChain = { name: string; chainId?: number; logo?: string };
 
 function discoverChainId(name: string, explicitId?: number): number | undefined {
   if (explicitId && CHAIN_META[explicitId]) return explicitId;
@@ -82,8 +82,8 @@ function canSimulatePool(pool: EarnPool): boolean {
     && isAddress(pair[0]) && isAddress(pair[1]);
 }
 
-function ChainMark({ name, chainId, size }: { name: string; chainId?: number; size: number }) {
-  if (chainId) return <ChainLogo chainId={chainId} size={size}/>;
+function ChainMark({ name, chainId, size, src }: { name: string; chainId?: number; size: number; src?: string }) {
+  if (chainId) return <ChainLogo chainId={chainId} size={size} src={src}/>;
   const nonEvmAsset = {
     solana: '/chains/solana.webp',
     sui: '/chains/sui.webp',
@@ -109,14 +109,14 @@ function ChainMark({ name, chainId, size }: { name: string; chainId?: number; si
   );
 }
 
-function ChainBadge({ name, chainId }: DiscoverChain) {
+function ChainBadge({ name, chainId, logo }: DiscoverChain) {
   return (
     <span
       title={name}
       aria-label={name}
       style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
     >
-      <ChainMark name={name} chainId={chainId} size={17}/>
+      <ChainMark name={name} chainId={chainId} size={17} src={logo}/>
     </span>
   );
 }
@@ -177,7 +177,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         }}
       >
         {selected ? (
-          <ChainMark name={selected.name} chainId={selected.chainId} size={23}/>
+          <ChainMark name={selected.name} chainId={selected.chainId} size={23} src={selected.logo}/>
         ) : (
           <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
             {logoChains.map((chain, index) => (
@@ -215,7 +215,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
             const active = value === chain.name;
             return (
               <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-                <ChainMark name={chain.name} chainId={chain.chainId} size={23}/>
+                <ChainMark name={chain.name} chainId={chain.chainId} size={23} src={chain.logo}/>
                 <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
               </button>
@@ -230,11 +230,13 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
   );
 }
 
-function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
+function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
   dexes: string[];
   value: string;
   onChange: (dex: string) => void;
   mobile: boolean;
+  /** Provider supplied logo per DEX brand, carried on the pool rows. */
+  logos: Map<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -263,7 +265,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
     <span style={{ width: 37, height: 23, position: 'relative', flexShrink: 0 }}>
       {logoDexes.map((dex, index) => (
         <span key={dex} style={{ position: 'absolute', left: index * 8, top: 1 }}>
-          <DexLogo name={dex} size={21}/>
+          <DexLogo name={dex} size={21} src={logos.get(dex)}/>
         </span>
       ))}
     </span>
@@ -287,7 +289,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
           alignItems: 'center', gap: 8,
         }}
       >
-        {selected ? <DexLogo name={selected} size={23}/> : allLogos}
+        {selected ? <DexLogo name={selected} size={23} src={logos.get(selected)}/> : allLogos}
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: 12.5, fontWeight: 750 }}>
           {selected ?? 'All DEXs'}
         </span>
@@ -333,7 +335,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile }: {
                 color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 9,
               }}>
-                <DexLogo name={dex} size={23}/>
+                <DexLogo name={dex} size={23} src={logos.get(dex)}/>
                 <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{dex}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
               </button>
@@ -518,8 +520,18 @@ export function DiscoverScreen() {
 
   const chains = useMemo(() => {
     const byName = new Map<string, DiscoverChain>();
-    for (const pool of pools) byName.set(pool.chain, { name: pool.chain, chainId: discoverChainId(pool.chain, pool.chainId) });
+    for (const pool of pools) byName.set(pool.chain, { name: pool.chain, chainId: discoverChainId(pool.chain, pool.chainId), logo: pool.chainLogo });
     return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [pools]);
+  const dexLogos = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const pool of pools) if (pool.dexLogo && !m.has(pool.dex)) m.set(pool.dex, pool.dexLogo);
+    return m;
+  }, [pools]);
+  const chainLogos = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const pool of pools) if (pool.chainLogo && !m.has(pool.chain)) m.set(pool.chain, pool.chainLogo);
+    return m;
   }, [pools]);
   const dexes = useMemo(() => [...new Set(
     pools
@@ -569,7 +581,7 @@ export function DiscoverScreen() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                 <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
                   <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
-                    <DexLogo name={p.dex} size={13}/>
+                    <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
                     {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
                   </Badge>
                 </span>
@@ -683,7 +695,7 @@ export function DiscoverScreen() {
           const chain = chains.find(item => item.name === chainName);
           if (chain?.chainId) setThemeChainId(chain.chainId);
         }} mobile={isMobile}/>
-        <DiscoverDexSelect dexes={dexes} value={selectedDex} onChange={setSelectedDex} mobile={isMobile}/>
+        <DiscoverDexSelect dexes={dexes} value={selectedDex} onChange={setSelectedDex} mobile={isMobile} logos={dexLogos}/>
       </div>
 
       {isMobile ? (
@@ -716,7 +728,7 @@ export function DiscoverScreen() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                       <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
                         <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
-                          <DexLogo name={p.dex} size={13}/>
+                          <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
                           {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
                         </Badge>
                       </span>
@@ -777,7 +789,9 @@ export function DiscoverScreen() {
             rowKey={p => `${p.chain}-${p.id}`}
             loading={loading}
             emptyMessage="No pools found"
-            defaultSortKey="tvl"
+            // Volume, not TVL. Sorting by TVL is what put pools holding nine
+            // figures with no trades at the top of the table.
+            defaultSortKey="volume"
             onRowClick={p => canSimulatePool(p)
               ? openSimulator(p)
               : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}

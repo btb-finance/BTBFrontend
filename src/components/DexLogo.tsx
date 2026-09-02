@@ -1,10 +1,11 @@
 'use client';
+import { useState } from 'react';
 
 const DEX_ASSETS: [RegExp, string][] = [
   [/aerodrome/i, 'aerodrome'],
   [/balancer/i, 'balancer'],
   [/baseswap/i, 'baseswap'],
-  [/beets/i, 'beets'],
+  [/beets|beethoven/i, 'beets'],
   [/bluefin/i, 'bluefin'],
   [/brownfi/i, 'brownfi'],
   [/camelot/i, 'camelot'],
@@ -51,8 +52,16 @@ function dexAsset(name: string): string | null {
   return match ? `/dexes/${match[1]}.webp` : null;
 }
 
-export function DexLogo({ name, size = 18 }: { name: string; size?: number }) {
-  const src = dexAsset(name);
+/**
+ * `src` is the provider supplied logo carried on the pool row. It wins when
+ * present; the bundled asset is the fallback, and a letter mark the last
+ * resort. That ordering means a venue we have never heard of still gets a real
+ * logo without anyone adding a file.
+ */
+export function DexLogo({ name, size = 18, src: remote }: { name: string; size?: number; src?: string }) {
+  const local = dexAsset(name);
+  const [failed, setFailed] = useState(false);
+  const src = !failed && remote ? remote : local;
   const shared = {
     width: size,
     height: size,
@@ -83,6 +92,7 @@ export function DexLogo({ name, size = 18 }: { name: string; size?: number }) {
       height={size}
       loading="lazy"
       decoding="async"
+      onError={() => setFailed(true)}
       style={{ ...shared, display: 'block', objectFit: 'contain' }}
     />
   );
