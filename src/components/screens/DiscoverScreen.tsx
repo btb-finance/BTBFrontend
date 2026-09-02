@@ -7,6 +7,7 @@ import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFe
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools } from '../../lib/discoverPools';
 import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
+import { resolvePoolQuery } from '../../lib/tokenQuery';
 import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chainSlug } from '../../lib/routes';
 
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
@@ -435,40 +436,38 @@ export function DiscoverScreen() {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Single-token market search: when the query names a token (symbol or
-  // address), pull EVERY pool for it across all DEXes via the same
-  // GeckoTerminal + DexScreener search Simulate uses for pairs.
+  // Market search: the query can name one token or a pair — "usdc",
+  // "eth/usdc", "eth usdc" or "ethusdc" all resolve (see lib/tokenQuery).
+  // Either way this pulls EVERY matching pool across all DEXes via the same
+  // GeckoTerminal + DexScreener search Simulate uses.
   const [marketPools, setMarketPools] = useState<MarketPool[] | null>(null);
   const [marketSymbol, setMarketSymbol] = useState<string | null>(null);
   const [marketLoading, setMarketLoading] = useState(false);
   const marketReqRef = useRef(0);
   const { tokens } = useTokenStore();
   useEffect(() => {
-    const q = search.trim().toLowerCase();
     const selectedChainId = selectedChain === 'all' ? undefined : discoverChainId(selectedChain);
-    const tok = q
-      ? tokens.find(t =>
-          (t.symbol.toLowerCase() === q || t.address.toLowerCase() === q)
-          && (selectedChainId == null || (t.chainId ?? 1) === selectedChainId)
-        )
-      : undefined;
-    // A pasted address the app's token list doesn't know is still searchable —
-    // the market APIs only need the address itself, not list membership.
-    const addr = tok
-      ? (tok.address === 'ETH' ? WETH_ADDR : tok.address)
-      : /^0x[0-9a-f]{40}$/.test(q) ? q : null;
-    const targetChainId = selectedChainId ?? tok?.chainId ?? 1;
+    const resolved = resolvePoolQuery(search, tokens, selectedChainId);
+    const targetChainId = selectedChainId ?? resolved?.a.token?.chainId ?? 1;
     const networks = CHAIN_DATA_NETWORKS[targetChainId];
+    // The native gas token has no pool of its own — search its wrapped form.
+    const toSearchAddress = (side: { address: string }) =>
+      side.address.toUpperCase() === 'ETH' ? WETH_ADDR : side.address;
+    const addr = resolved ? toSearchAddress(resolved.a) : null;
+    const addrB = resolved?.b ? toSearchAddress(resolved.b) : undefined;
     if (!addr || !networks) {
       marketReqRef.current++;
       setMarketPools(null); setMarketSymbol(null); setMarketLoading(false);
       return;
     }
     const req = ++marketReqRef.current;
-    setMarketSymbol(tok?.symbol ?? `${q.slice(0, 6)}…${q.slice(-4)}`);
+    setMarketSymbol(resolved!.b ? `${resolved!.a.label} / ${resolved!.b.label}` : resolved!.a.label);
     setMarketLoading(true);
     const timer = setTimeout(() => {
-      searchMarketPools(addr, undefined, 1000, networks)
+      // A pair is already a narrow search, so it keeps the low floor Simulate
+      // uses; a single token matches far more and needs the higher one to stay
+      // readable.
+      searchMarketPools(addr, addrB, addrB ? 100 : 1000, networks)
         .then(async market => {
           const client = getPublicClient(config, { chainId: targetChainId as SupportedChainId });
           return enrichMarketPools(
@@ -477,7 +476,7 @@ export function DiscoverScreen() {
             pools,
             CHAIN_META[targetChainId]?.name ?? selectedChain,
             addr,
-            undefined,
+            addrB,
             networks.llama,
             targetChainId,
           );
@@ -672,7 +671,7 @@ export function DiscoverScreen() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search assets..."
+            placeholder="Search a token or pair — eth, eth/usdc, ethusdc"
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
           />
         </div>
