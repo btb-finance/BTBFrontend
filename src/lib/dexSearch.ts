@@ -51,6 +51,8 @@ const RANGE_TTL = 5 * 60_000;
 /** apr null = recently probed but unpriceable (negative cache). */
 const rangeCache = new Map<string, { at: number; apr: number | null }>();
 
+/** DEXes with a fixed 0.30% swap fee (Uniswap V2 forks) — lets us compute a
+ * real APR for pools whose fee the APIs don't state. */
 const V2_STYLE_DEX = /uniswap.?v2|sushiswap|shibaswap|sakeswap|defi.?swap/i;
 const ALGEBRA_STYLE_POOL = /hydrex|integral|clamm/i;
 const SOLIDLY_CLASSIC_POOL = /^(?:aerodrome|velodrome)(?!.*slipstream).*$/i;
