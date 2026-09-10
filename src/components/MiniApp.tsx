@@ -12,8 +12,9 @@ import { MobileNav } from './MobileNav';
 import { Tab } from './types';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import { TradeScreen } from './screens/TradeScreen';
+import { SmartTradeProvider } from '../lib/SmartTradeContext';
 import { DiscoverScreen } from './screens/DiscoverScreen';
-import { TokenScreen } from './screens/TokenScreen';
 import { SimulateScreen } from './screens/SimulateScreen';
 import { SwapScreen } from './screens/SwapScreen';
 import { PortfolioScreen } from './screens/PortfolioScreen';
@@ -108,15 +109,13 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
   const content = (() => {
     switch (screen) {
-      case 'home':      return <HomeScreen goto={goto} marketFeed={marketFeed} address={effectiveAddress}
-                          onDisconnect={handleLeave}
-                          onReceive={requireWallet(() => setShowReceive(true))} onSend={requireWallet(() => setShowSend(true))}
-                          onDocs={() => openOverlay('docs')} onEarn={() => openOverlay('earn')}
-                          onConnectWallet={() => setShowConnect(true)}/>;
+      case 'home':      return <HomeScreen goto={goto} address={effectiveAddress}
+                          onEarn={() => openOverlay('earn')}
+                          onConnectWallet={() => setShowConnect(true)}
+                          onBuyBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
+      case 'trade':     return <TradeScreen address={effectiveAddress} marketFeed={marketFeed}
+                                            onConnectWallet={() => setShowConnect(true)}/>;
       case 'discover':  return <DiscoverScreen/>;
-      case 'token':     return <TokenScreen onSwap={() => openSwap({ toAddress: CONTRACTS.BTB })}
-                                            address={effectiveAddress} onConnect={() => setShowConnect(true)}
-                                            goto={goto} onEarn={() => openOverlay('earn')}/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
       case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })} onOpenEarn={() => openOverlay('earn')}/>;
@@ -203,12 +202,14 @@ export function MiniApp() {
   return (
     <TokenStoreProvider walletAddress={effectiveAddress}>
       <SidebarProvider>
-        <AppShell
-          effectiveAddress={effectiveAddress}
-          isReadOnly={isReadOnly}
-          onImportAddress={setReadOnlyAddress}
-          onLeave={handleLeave}
-        />
+        <SmartTradeProvider>
+          <AppShell
+            effectiveAddress={effectiveAddress}
+            isReadOnly={isReadOnly}
+            onImportAddress={setReadOnlyAddress}
+            onLeave={handleLeave}
+          />
+        </SmartTradeProvider>
       </SidebarProvider>
     </TokenStoreProvider>
   );

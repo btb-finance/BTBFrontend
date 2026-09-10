@@ -2,11 +2,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import { Glass } from '../Glass';
 import { SectionHeader } from '../SectionHeader';
 import { Icon } from '../Icon';
 import { Button } from '../Button';
-import { Screen } from '../Screen';
 import { Badge } from '../Badge';
 import { type Tab } from '../types';
 import { btb } from '../design-tokens';
@@ -84,7 +84,11 @@ function StatTile({ label, value, sub, color }: { label: string; value: string; 
   );
 }
 
-export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
+/**
+ * The Earn/rewards block. Lives at the top of Home rather than on its own tab —
+ * it is a panel, not a screen, so it brings no page chrome of its own.
+ */
+export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
   onSwap: () => void;
   address?: string;
   onConnect: () => void;
@@ -92,9 +96,8 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
   onEarn: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [busy, setBusy] = useState<'convert' | 'checkin' | null>(null);
+  const [busy, setBusy] = useState<'convert' | 'claim' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [checkedInToday, setCheckedInToday] = useState(false);
   const { isMobile } = useSidebar();
 
   // Live per-wallet state: this week's points, opt-in flag, live denominator.
@@ -105,7 +108,7 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
   const user = useQuery(api.users.getUser, address ? { walletAddress: address } : 'skip');
 
   const convert = useMutation(api.rewards.requestPayout);
-  const checkIn = useMutation(api.users.checkIn);
+  const claim = useMutation(api.rewards.claimReward);
 
   const copyAddress = () => {
     navigator.clipboard?.writeText(BTB_ADDRESS).then(() => {
@@ -120,20 +123,19 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
     try {
       await convert({ walletAddress: address });
     } catch (e) {
-      setError(readableError(e, 'Could not convert — try again'));
+      setError(readableError(e, 'Could not enter this week — try again'));
     } finally {
       setBusy(null);
     }
   };
 
-  const doCheckIn = async () => {
+  const doClaim = async (payoutId: string) => {
     if (!address || busy) return;
-    setBusy('checkin'); setError(null);
+    setBusy('claim'); setError(null);
     try {
-      await checkIn({ walletAddress: address });
-      setCheckedInToday(true);
+      await claim({ payoutId: payoutId as Id<'rewardPayouts'> });
     } catch (e) {
-      setError(readableError(e, 'Could not check in — try again'));
+      setError(readableError(e, 'Could not claim — try again'));
     } finally {
       setBusy(null);
     }
@@ -155,7 +157,9 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
     ? (status.myPoints / status.requestedPointsTotal) * 100
     : null;
   const todayStart = now - (now % MS_PER_DAY);
-  const checkedIn = checkedInToday || (user?.lastCheckIn != null && user.lastCheckIn >= todayStart);
+  // No local optimistic flag: the check-in fires on connect in TokenStore and
+  // this query is reactive, so the row updates itself the moment it lands.
+  const checkedIn = user?.lastCheckIn != null && user.lastCheckIn >= todayStart;
 
   // What the next check-in is actually worth, using the server's own rules
   // (convex/users.ts): the streak continues only if yesterday was claimed, and
@@ -185,7 +189,6 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
     if (action === 'simulate') { goto('simulate'); return; }
     if (action === 'earn') { onEarn(); return; }
     if (!address) { onConnect(); return; }
-    if (!checkedIn) void doCheckIn();
   };
 
   const heroStyle = {
@@ -198,22 +201,12 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
   };
 
   return (
-    <Screen gap={20}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* ── hero ── */}
       <div style={heroStyle}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: btb.green, fontSize: 10, fontWeight: 850, textTransform: 'uppercase', letterSpacing: 1.2 }}>Weekly rewards</div>
-            <div style={{ color: btb.text, fontSize: isMobile ? 21 : 26, fontWeight: 800, letterSpacing: -0.6, marginTop: 4, lineHeight: 1.15 }}>
-              Use the app.<br/>Get paid in BTB.
-            </div>
-          </div>
-          <Badge color="#0A0A0F" bg={btb.gradGreen} border="none" style={{ flexShrink: 0, fontWeight: 900 }}>PAID FRIDAYS</Badge>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(3,minmax(0,1fr))', gap: 9, marginTop: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(3,1fr)' : 'repeat(3,minmax(0,1fr))', gap: 9 }}>
           <StatTile label="Your points this week" value={address && status ? status.myPoints.toLocaleString('en-US') : '—'} color={address && status && status.myPoints > 0 ? btb.green : undefined} sub={user ? `${user.currentStreak}d streak` : 'connect to earn'}/>
-          <StatTile label="Entered this week" value={status ? String(status.requesterCount) : '—'} sub="wallets converting"/>
+          <StatTile label="Entered this week" value={status ? String(status.requesterCount) : '—'} sub="wallets entered"/>
           <StatTile label="Settles in" value={status ? countdown(endsIn) : '—'} sub="Friday 00:00 UTC"/>
         </div>
 
@@ -222,7 +215,7 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
               {status.hasRequested ? (
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 12, padding: '9px 14px', color: btb.green, fontSize: 13, fontWeight: 800 }}>
-                  <Icon name="check" size={15} color={btb.green} /> Locked in for Friday
+                  <Icon name="check" size={15} color={btb.green} /> Entered — paid Friday
                 </div>
               ) : (
                 <Button
@@ -231,7 +224,7 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
                   loading={busy === 'convert'}
                   onClick={doConvert}
                 >
-                  {status.myPoints > 0 ? 'Convert my points' : 'Earn points first'}
+                  {status.myPoints > 0 ? "Enter this week's split" : 'Earn points first'}
                 </Button>
               )}
               {sharePct != null && (
@@ -240,6 +233,29 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
                 </span>
               )}
             </div>
+            {(status.claimable ?? []).length > 0 && (
+              <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
+                {(status.claimable ?? []).map((row) => (
+                  <div key={row.payoutId} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'rgba(82,227,164,0.10)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 12, padding: '11px 14px' }}>
+                    <Icon name="receive" size={15} color={btb.green} />
+                    <span style={{ color: btb.text, fontSize: 13, fontWeight: 700 }}>
+                      <b style={{ color: btb.green }}>{formatBtb(row.amountRaw)} BTB</b> ready to claim
+                    </span>
+                    <Button
+                      size="sm" variant="success"
+                      disabled={busy === 'claim'}
+                      loading={busy === 'claim'}
+                      onClick={() => doClaim(row.payoutId)}
+                    >
+                      Claim
+                    </Button>
+                    <span style={{ color: btb.textMuted, fontSize: 11.5 }}>
+                      Sent straight to your wallet — no gas, no signature. Expires when next Friday settles.
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {showLastAward && (
               <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(82,227,164,0.10)', border: '1px solid rgba(82,227,164,0.28)', borderRadius: 12, padding: '8px 12px' }}>
                 <Icon name="receive" size={14} color={btb.green}/>
@@ -254,18 +270,10 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
                   ? `done today ✓ · ${streak}d streak`
                   : `worth +${todayXp} XP right now${nextStreak % 7 === 0 ? ' — weekly bonus day' : ''}`}
               </span>
-              <Button
-                size="sm" variant="ghost" fullWidth={false}
-                disabled={checkedIn || busy === 'checkin'}
-                loading={busy === 'checkin'}
-                onClick={doCheckIn}
-              >
-                {checkedIn ? 'Checked in' : 'Check in'}
-              </Button>
             </div>
             <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>
-              The Friday pot is the week's OPOS burn proceeds — never a fixed rate. Your payout is your
-              locked points ÷ all locked points. The estimate moves as more people enter.
+              BTB shares its revenue with the people who use it. Your share is your points
+              against everyone else's, so the estimate moves as more people enter.
             </div>
             {error && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 8 }}>{error}</div>}
           </>
@@ -376,10 +384,11 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
         <Glass padding={16} radius={20}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {[
-              'Points accrue automatically from swaps, LP positions, staking and daily check-ins — awarded on on-chain confirmation, no screenshots.',
-              'Tap Convert to lock your points into this week\'s split — one entry per wallet per week.',
-              'Friday 00:00 UTC the week\'s OPOS burn pot is split pro-rata between everyone who entered. No fixed rate, ever.',
-              'BTB arrives in your wallet automatically. No claim, no gas.',
+              'BTB shares its revenue with its users. Every week, in BTB.',
+              'Use the app and points land on their own — swaps, liquidity, staking, and a daily check-in for showing up.',
+              'Enter the week before Friday to be included. One entry per wallet.',
+              'Friday, the week\'s revenue is shared out by points. The more you used the app, the bigger your share.',
+              'Hit Claim and the BTB lands in your wallet. No gas, no signature. Claim before the next Friday.',
             ].map(fact => (
               <div key={fact} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                 <Icon name="check" size={15} color={btb.green}/>
@@ -415,6 +424,6 @@ export function TokenScreen({ onSwap, address, onConnect, goto, onEarn }: {
         </Button>
       </div>
 
-    </Screen>
+    </div>
   );
 }

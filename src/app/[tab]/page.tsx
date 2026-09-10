@@ -8,8 +8,8 @@ import { buildMetadata } from '@/lib/seo/metadata';
 // updates the URL via pushState without re-rendering this route.
 const TAB_META: Record<string, { title: string; description: string }> = {
   dashboard: { title: 'Dashboard', description: 'Your balances, positions, and daily check-in at a glance.' },
+  trade:     { title: 'Trade', description: 'Buy and sell from a guarded smart account — the agent trades for you and can never withdraw your funds.' },
   discover:  { title: 'Discover Pools', description: 'Find the best performing liquidity pools with live APR, TVL, and fee data.' },
-  token:     { title: 'Earn BTB', description: 'BTB pays the people who make it worth using. Earn XP for posts, articles, videos, bug reports and app usage — the week’s revenue is split between contributors every Friday.' },
   simulate:  { title: 'Simulate LP Earnings', description: 'Compare fee tiers across Uniswap V3, V4, and PancakeSwap and estimate LP earnings.' },
   swap:      { title: 'Swap', description: 'Trade tokens instantly at the best available price.' },
   portfolio: { title: 'Portfolio', description: 'Track your tokens, LP positions, and Earn balances in one place.' },

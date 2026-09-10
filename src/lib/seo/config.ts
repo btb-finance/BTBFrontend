@@ -55,7 +55,6 @@ export const SITE = {
 export const SECTIONS = [
   { path: '/',          title: SITE.title,                                       priority: 1.0, changeFrequency: 'daily'   as const },
   { path: '/nft',       title: 'BTB Bears — NFTs That Pay You Forever',          priority: 0.9, changeFrequency: 'daily'   as const },
-  { path: '/token',     title: 'BTB Token — Stake and Earn Real Revenue',        priority: 0.9, changeFrequency: 'daily'   as const },
   { path: '/swap',      title: 'Swap — Best-Price Token Swaps',                  priority: 0.8, changeFrequency: 'daily'   as const },
   { path: '/discover',  title: 'Discover — Best Performing Pools',               priority: 0.8, changeFrequency: 'daily'   as const },
   { path: '/earn',      title: 'Earn — Yearn Vaults and Staking',                priority: 0.8, changeFrequency: 'daily'   as const },
