@@ -69,6 +69,7 @@ const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
 export function TokenStoreProvider({ children, walletAddress }: { children: ReactNode; walletAddress?: string }) {
   const registerOrGet     = useMutation(api.users.registerOrGet);
+  const checkIn           = useMutation(api.users.checkIn);
   const seedIfEmpty       = useAction(api.tokens.seedIfEmpty);
   const seedPricesIfEmpty = useAction(api.prices.seedPricesIfEmpty);
   // Server-side multicall + snapshot save. Manual trigger only.
@@ -214,7 +215,12 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     triggeredForRef.current = walletAddress;
 
     Promise.all([
-      registerOrGet({ walletAddress }).catch(() => {}),
+      // Check-in is automatic on connect — the server is the judge of whether
+      // today already counted, so a second visit the same day is a no-op and
+      // the streak still needs one visit per day to survive.
+      registerOrGet({ walletAddress })
+        .then(() => checkIn({ walletAddress }))
+        .catch(() => {}),
       seedIfEmpty().catch(() => {}),
       seedPricesIfEmpty().catch(() => {}),
     ]);

@@ -111,6 +111,10 @@ export const getStatus = query({
         .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId - 1).eq("walletAddress", addr)).unique(),
     ]);
 
+    const claimable = (await ctx.db
+      .query("rewardPayouts").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect())
+      .filter((row) => row.state === "claimable");
+
     const openRequests = await ctx.db
       .query("rewardRequests").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
     let totalPoints = 0;
@@ -129,6 +133,11 @@ export const getStatus = query({
       requestedPointsTotal: totalPoints,
       requesterCount: openRequests.length,
       epochState: epoch?.state ?? "open",
+      // Settled shares waiting on a Claim press. Usually one row (last week's),
+      // but a user returning after a gap sees every share still inside its window.
+      claimable: claimable.map((row) => ({
+        payoutId: row._id, epochId: row.epochId, amountRaw: row.amountRaw,
+      })),
       lastEpoch: lastSettled ? { epochId: epochId - 1, awardedRaw: lastSettled.awardedRaw ?? null } : null,
     };
   },
@@ -148,6 +157,30 @@ export const listPayouts = query({
     ctx.db.query("rewardPayouts")
       .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress.toLowerCase()))
       .order("desc").take(limit ?? 25),
+});
+
+/**
+ * Claim a settled share. Flips the row from "claimable" to the send queue and
+ * kicks the drain — the BTB then arrives without the user signing anything.
+ *
+ * The destination is the address stored on the payout row, never a caller
+ * argument, so the worst a forged call can do is deliver someone their own
+ * money sooner than they asked for it.
+ */
+export const claimReward = mutation({
+  args: { payoutId: v.id("rewardPayouts") },
+  handler: async (ctx, { payoutId }) => {
+    const payout = await ctx.db.get(payoutId);
+    if (!payout) throw new Error("Payout not found");
+    // Already claimed or already expired — a double-clicked button is a no-op,
+    // not an error, and must never queue a second transfer.
+    if (payout.state !== "claimable") return { claimed: false, state: payout.state };
+
+    const now = Date.now();
+    await ctx.db.patch(payoutId, { state: "queued", updatedAt: now, nextAttemptAt: undefined });
+    await ctx.scheduler.runAfter(0, internal.rewardsActions.drain, {});
+    return { claimed: true, state: "queued", amountRaw: payout.amountRaw };
+  },
 });
 
 // ── Settlement ──────────────────────────────────────────────────────────────
@@ -216,6 +249,18 @@ export const settleEpoch = internalMutation({
     if (!epoch) throw new Error(`Epoch ${epochId} not found`);
     if (epoch.state !== "burning") return { skipped: true, state: epoch.state };
 
+    // Unclaimed shares expire when the next epoch settles. Their BTB never left
+    // the treasury, so it is already part of the pot being priced right now —
+    // leaving the row claimable would promise the same BTB to two people.
+    const stale = await ctx.db
+      .query("rewardPayouts").withIndex("by_state_created", (q) => q.eq("state", "claimable")).collect();
+    const touched = new Set<number>();
+    for (const row of stale) {
+      await ctx.db.patch(row._id, { state: "expired", updatedAt: Date.now() });
+      touched.add(row.epochId);
+    }
+    for (const id of touched) await closeEpochIfDrained(ctx, id);
+
     const pot = BigInt(potRaw);
     const requests = await ctx.db
       .query("rewardRequests").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
@@ -253,7 +298,7 @@ export const settleEpoch = internalMutation({
       queued += 1;
       await ctx.db.insert("rewardPayouts", {
         epochId, walletAddress: entry.wallet, amountRaw: amount.toString(),
-        state: "queued", attempts: 0, createdAt: now, updatedAt: now,
+        state: "claimable", attempts: 0, createdAt: now, updatedAt: now,
       });
     }
 
@@ -263,7 +308,6 @@ export const settleEpoch = internalMutation({
       totalPoints: Number(totalPoints), requesterCount: weighted.length,
       burnTxHash, settledAt: now, error: undefined,
     });
-    if (queued > 0) await ctx.scheduler.runAfter(0, internal.rewardsActions.drain, {});
     return { skipped: false, queued, potRaw: pot.toString() };
   },
 });
@@ -359,7 +403,8 @@ export const releasePayout = internalMutation({
 async function closeEpochIfDrained(ctx: MutationCtx, epochId: number) {
   const remaining = await ctx.db
     .query("rewardPayouts").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
-  if (remaining.some((row) => row.state !== "confirmed" && row.state !== "failed")) return;
+  const done = new Set(["confirmed", "failed", "expired"]);
+  if (remaining.some((row) => !done.has(row.state))) return;
   const epoch = await ctx.db
     .query("rewardEpochs").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).unique();
   if (epoch && epoch.state === "paying") await ctx.db.patch(epoch._id, { state: "paid" });

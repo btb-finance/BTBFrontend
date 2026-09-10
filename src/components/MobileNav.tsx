@@ -10,13 +10,13 @@ import { Tab } from './types';
 // wallet) lives in the "More" sheet.
 const PRIMARY: { id: Tab; label: string; icon: string }[] = [
   { id: 'home',      label: 'Home',      icon: 'home' },
+  { id: 'trade',    label: 'Trade', icon: 'bank' },
   { id: 'discover',  label: 'Discover',  icon: 'chart' },
   { id: 'swap',      label: 'Swap',      icon: 'swap' },
   { id: 'portfolio', label: 'Portfolio', icon: 'pie' },
 ];
 
 const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'token',    label: 'BTB Token', icon: 'bank' },
   { id: 'simulate', label: 'Simulate',  icon: 'layers' },
   { id: 'nft',      label: 'NFT',       icon: 'nft' },
   { id: 'stake',    label: 'Agent',     icon: 'bolt' },

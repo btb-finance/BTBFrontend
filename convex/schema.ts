@@ -151,7 +151,9 @@ export default defineSchema({
     epochId: v.float64(),
     walletAddress: v.string(),         // lowercase
     amountRaw: v.string(),             // BTB wei
-    state: v.string(),                 // "queued" | "sending" | "submitted" | "confirmed" | "failed"
+    // "claimable" — settled and waiting for the user to press Claim. Expires
+    // into "expired" when the next epoch settles; its BTB rejoins the pot.
+    state: v.string(),                 // "claimable" | "queued" | "sending" | "submitted" | "confirmed" | "failed" | "expired"
     attempts: v.float64(),
     createdAt: v.float64(),
     updatedAt: v.float64(),
