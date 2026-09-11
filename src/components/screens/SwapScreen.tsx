@@ -285,6 +285,22 @@ function TokenPill({ token, onClick }: { token: Token; onClick: () => void }) {
   );
 }
 
+/** Quote details folded behind one summary line so the action button stays
+ * within reach on a phone: tap the line to see fees, impact and the route. */
+function QuoteDetails({ summary, children }: { summary: React.ReactNode; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Glass padding={0} radius={18} soft>
+      <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 14px', cursor: 'pointer', minHeight: 44 }}>
+        <div style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary}</div>
+        <span style={{ color: btb.textMuted, fontSize: 12, flexShrink: 0 }}>{open ? 'Hide' : 'Details'}</span>
+        <Icon name={open ? 'up' : 'down'} size={14} color={btb.textMuted}/>
+      </div>
+      {open && <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{children}</div>}
+    </Glass>
+  );
+}
+
 function InfoRow({ label, value, last }: { label: string; value: React.ReactNode; last?: boolean }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 4px', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
@@ -740,7 +756,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       </div>
 
       {quote && !quoting && (
-        <Glass padding={14} radius={18} soft>
+        <QuoteDetails summary={<>1 {fromToken.symbol} = {dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} {toToken.symbol}<span style={{ color: btb.textMuted, fontWeight: 500 }}>{dispGasUsd != null && dispGasUsd > 0 ? ` · fee ~$${dispGasUsd.toFixed(2)}` : ''}{quote.priceImpact > 2 ? ` · impact ${quote.priceImpact.toFixed(2)}%` : ''}</span></>}>
           <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`}/>
           <InfoRow label="Network fee"  value={dispGasUsd != null && dispGasUsd > 0 ? `~ $${dispGasUsd.toFixed(2)}` : '—'}/>
           <InfoRow label="BTB fee" value={`${BTB_SWAP_FEE_PERCENT}% · received token`}/>
@@ -751,7 +767,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
               {quote.route}
             </span>
           }/>
-        </Glass>
+        </QuoteDetails>
       )}
 
       {quoteErr && (
@@ -1139,7 +1155,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><div style={{ flex: 1, minWidth: 0, color: quoting ? btb.textMuted : btb.text, fontSize: 34, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis' }}>{quoting ? '…' : outFormatted}</div><TokenPill token={toToken} onClick={() => setPicker('to')}/></div>
         {quote?.estimate.toAmountUSD && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 5 }}>≈ ${Number(quote.estimate.toAmountUSD).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
       </Glass>
-      {quote && !quoting && <Glass padding={14} radius={18} soft>
+      {quote && !quoting && <QuoteDetails summary={<>{duration <= 5 ? 'Arrives in seconds' : `Arrives in about ${Math.ceil(duration / 60)} min`}<span style={{ color: btb.textMuted, fontWeight: 500 }}>{gasUsd > 0 ? ` · gas ~$${gasUsd.toFixed(2)}` : ''}{routeFeeUsd > 0 ? ` · fees ~$${routeFeeUsd.toFixed(2)}` : ''}</span></>}>
         <InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/>
         <InfoRow label="Network gas" value={gasUsd > 0 ? `~ $${gasUsd.toFixed(2)} · paid by wallet` : 'Paid by wallet'}/>
         <InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · deducted` : 'None'}/>
@@ -1149,7 +1165,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         )}
         {btbFeePercent === 0 && <InfoRow label="BTB fee" value="Free"/>}
         <InfoRow label="Route" last value={route}/>
-      </Glass>}
+      </QuoteDetails>}
       {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
       <Button onClick={() => !address ? onConnectWallet?.() : canReview && setStep('confirm')} disabled={!!address && !canReview} style={{ fontSize: 18 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest bridge…' : quote ? 'Review bridge' : quoteErr ? 'No route found' : 'Enter amount'}</Button>
       {picker && (
