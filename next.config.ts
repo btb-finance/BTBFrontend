@@ -10,6 +10,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        // Safe{Wallet} loads this from app.safe.global to register BTB as a
+        // Safe App, and reads it cross-origin, so it needs CORS.
+        source: "/manifest.json",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET" },
+          { key: "Access-Control-Allow-Headers", value: "X-Requested-With, content-type, Authorization" },
+        ],
+      },
+      {
         source: "/chains/:path*",
         headers: [
           {

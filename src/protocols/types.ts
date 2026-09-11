@@ -13,7 +13,7 @@ export const MAINNET = 1;
 
 /** A liquidity position a user holds in a protocol. */
 export interface LiquidityPosition {
-  protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
+  protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3' | 'aerodrome-cl';
   /** Position id (V3 = NFT tokenId; V4 = position tokenId). */
   id: bigint;
   chainId?: number;
@@ -43,6 +43,14 @@ export interface LiquidityPosition {
    * position in the same pool. `hooks` = address(0) means an unhooked pool. */
   tickSpacing?: number;
   hooks?: `0x${string}`;
+  /** Fork deployments with several managers (Aerodrome Slipstream): the NPM
+   * this position lives in, so actions target the right contract. */
+  positionManager?: `0x${string}`;
+  /** Aerodrome: the NFT is deposited in a gauge and earns AERO instead of
+   * swap fees. Unstake (gauge.withdraw) before any NPM action. */
+  staked?: { gauge: `0x${string}`; earned: bigint; rewardToken: `0x${string}`; rewardSymbol: string };
+  /** Aerodrome: wallet-held position whose pool has a gauge it could be staked in. */
+  stakeable?: { gauge: `0x${string}` };
 }
 
 /** Minimal token metadata used when rendering a position. */

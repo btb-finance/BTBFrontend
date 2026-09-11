@@ -7,6 +7,7 @@ import { TxProvider } from '@/lib/TxTracker';
 import { ReactNode, useState, useEffect } from 'react';
 import { ChainThemeProvider } from '@/lib/ChainThemeContext';
 import { XpToastProvider } from '@/lib/XpToast';
+import { SafeAutoConnect } from '@/lib/SafeAutoConnect';
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud';
 
@@ -50,6 +51,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <ChainThemeProvider>
             <TxProvider>
+              <SafeAutoConnect/>
               <XpToastProvider>{children}</XpToastProvider>
             </TxProvider>
           </ChainThemeProvider>

@@ -5,7 +5,7 @@ import {
   sonic, unichain, zkSync,
 } from 'wagmi/chains';
 import { defineChain, fallback, http } from 'viem';
-import { injected, coinbaseWallet, walletConnect, metaMask } from '@wagmi/connectors';
+import { injected, coinbaseWallet, walletConnect, metaMask, safe } from '@wagmi/connectors';
 import { MAINNET_TRANSPORT } from './rpc';
 import { chainTransport } from './chainRpc';
 import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
@@ -67,6 +67,11 @@ export function makeConfig() {
       walletConnect({ projectId, showQrModal: true, metadata: DAPP_METADATA }),
       coinbaseWallet({ appName: DAPP_METADATA.name }),
       injected({ shimDisconnect: true }),
+      // Safe{Wallet}: when BTB is opened as a Safe App (inside the Safe
+      // iframe) this connector talks to the Safe through the Apps SDK and
+      // every transaction becomes a Safe proposal. See public/manifest.json.
+      // Last on purpose: the connect sheet falls back to connectors[0].
+      safe({ allowedDomains: [/app\.safe\.global$/, /safe\.global$/, /gnosis-safe\.io$/], shimDisconnect: false }),
     ];
   return createConfig({
     chains: SUPPORTED_CHAINS,

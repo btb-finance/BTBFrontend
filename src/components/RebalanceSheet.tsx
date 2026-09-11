@@ -20,6 +20,7 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeStake, gaugeForPool, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
@@ -27,7 +28,14 @@ const WIDTH_PRESETS = [5, 10, 25] as const;
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
+  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
   return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+}
+
+/** Chains where the withdraw → swap → mint flow is wired up. */
+function rebalanceSupported(p: LiquidityPosition): boolean {
+  const chainId = p.chainId ?? 1;
+  return chainId === 1 || (chainId === 4663 && p.protocol === 'uniswap-v3') || (chainId === BASE_CHAIN_ID && p.protocol === 'aerodrome-cl');
 }
 
 const QUOTER_ABI = [{ type: 'function', name: 'quoteExactInputSingle', stateMutability: 'nonpayable', inputs: [{ name: 'params', type: 'tuple', components: [{ name: 'tokenIn', type: 'address' }, { name: 'tokenOut', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'fee', type: 'uint24' }, { name: 'sqrtPriceLimitX96', type: 'uint160' }] }], outputs: [{ name: 'amountOut', type: 'uint256' }, { name: 'sqrtPriceX96After', type: 'uint160' }, { name: 'initializedTicksCrossed', type: 'uint32' }, { name: 'gasEstimate', type: 'uint256' }] }] as const;
@@ -103,13 +111,16 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   // V4's native ETH is always currency0; V3 pairs are ERC-20 (WETH, not native).
   const native0 = isV4 && isNativeCurrency(pos.token0);
   const deployment = v3DeploymentOf(pos);
-  const spacing = (isV4 ? pos.tickSpacing : deployment.tickSpacings[pos.fee]) ?? 60;
+  // Slipstream positions carry their own tickSpacing (it is the pool key there).
+  const spacing = (isV4 || deployment.slipstream ? pos.tickSpacing : deployment.tickSpacings[pos.fee]) ?? 60;
   const poolKey: PoolKey | null = isV4
     ? { currency0: pos.token0, currency1: pos.token1, fee: pos.fee, tickSpacing: spacing, hooks: pos.hooks ?? '0x0000000000000000000000000000000000000000' }
     : null;
 
   const [widthPct, setWidthPct] = useState<number>(10);
   const [strategy, setStrategy] = useState<'keep' | 'balanced'>('keep');
+  // Aerodrome: put the new position back in the gauge so AERO keeps flowing.
+  const [restake, setRestake] = useState<boolean>(!!pos.staked);
   const [phase, setPhase] = useState<Phase>('config');
   const [stepMsg, setStepMsg] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -176,14 +187,14 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   }
 
   async function run() {
-    if ((pos.chainId ?? 1) !== 1 && !(pos.chainId === 4663 && pos.protocol === 'uniswap-v3')) {
+    if (!rebalanceSupported(pos)) {
       setErr('Smart rebalance is not available on this chain yet. No transaction was sent.');
       setPhase('error');
       return;
     }
     setPhase('running'); setErr(null);
     try {
-      const chainId = (pos.chainId ?? 1) as 1 | 4663;
+      const chainId = pos.chainId ?? 1;
       const actionSlippage = chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS;
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
@@ -198,6 +209,20 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
         ? liveCentered
         : heldHeavyRange(livePos.currentTick, spacing, liveWidth, heavySide);
       const tl = liveRange.tickLower, tu = liveRange.tickUpper;
+
+      // 0 · A gauge-staked Aerodrome NFT has to come back to the wallet first
+      // (this also pays out the earned AERO). Done before the snapshot so the
+      // rewards never count as position budget.
+      if (pos.staked) {
+        setStepMsg('Unstaking from the Aerodrome gauge…');
+        await runCalls(config, {
+          account, calls: buildGaugeUnstake(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          verify: {
+            test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'ownerOf', args: [pos.id] })).toLowerCase() === account.toLowerCase(),
+            error: 'Unstake confirmed, but the RPC still shows the NFT in the gauge. Retry safely in a moment.',
+          },
+        });
+      }
 
       // Snapshot wallet so we only ever redeploy what THIS position returns,
       // never the user's unrelated balances of the same tokens.
@@ -230,7 +255,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
           sellSide: pl.sellSide, swapFraction: pl.swapFraction,
           budget0, budget1, token0: pos.token0, token1: pos.token1,
           decimals0: pos.decimals0, decimals1: pos.decimals1,
-          native0, account, slippageBps: actionSlippage,
+          native0, account, slippageBps: actionSlippage, chainId,
         });
         if (swap) {
           const beforeSwap = await readBals(client);
@@ -281,6 +306,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               tickLower: tl, tickUpper: tu,
               amount0Desired: a0, amount1Desired: a1,
               slippageBps: actionSlippage, recipient: account, deployment,
+              tickSpacing: deployment.slipstream ? spacing : undefined,
             }),
         label: `Rebalance · add ${pos.symbol0}/${pos.symbol1}`,
         track, chainId,
@@ -292,6 +318,20 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
           error: 'Add-liquidity confirmed, but the new position NFT is not visible through the RPC yet. It will not be minted twice.',
         } : undefined,
       });
+
+      // 4 · Aerodrome: stake the new NFT in the pool's gauge (same pool, same
+      // gauge as before). The freshly minted id is the wallet's newest.
+      if (restake && deployment.slipstream) {
+        setStepMsg('Staking the new position for AERO…');
+        const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [account] });
+        const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [account, count - 1n] });
+        const gauge = pos.staked?.gauge ?? await gaugeForPool(client, deployment, pos.token0, pos.token1, spacing);
+        if (gauge) {
+          await runCalls(config, {
+            account, calls: buildGaugeStake(deployment.positionManager, gauge, newId), label: `Rebalance · stake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          });
+        }
+      }
 
       setPhase('done');
     } catch (e) {
@@ -353,6 +393,14 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               />
             </div>
 
+            {deployment.slipstream && (pos.staked || pos.stakeable) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 2px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={restake} onChange={(e) => setRestake(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#52E3A4' }}/>
+                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Stake the new position in the Aerodrome gauge</span>
+                <span style={{ color: btb.textDim, fontSize: 11 }}>earns AERO instead of swap fees</span>
+              </label>
+            )}
+
             {/* Range width */}
             <div style={{ color: btb.textMuted, fontSize: 12, margin: '14px 0 6px' }}>Range width</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -412,7 +460,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               {phase === 'running' ? 'Rebalancing…' : phase === 'error' ? 'Retry rebalance' : 'Rebalance position'}
             </Button>
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Withdraw → swap only the gap → re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to three transactions in your wallet.
+              Withdraw → swap only the gap → re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to {3 + (pos.staked ? 1 : 0) + (restake ? 1 : 0)} transactions in your wallet.
             </div>
           </>
         )}

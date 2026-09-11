@@ -23,10 +23,12 @@ import {
   ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
-import { fetchOwnedNftTokenIds, fetchRobinhoodOwnedNftTokenIds } from '../lib/alchemy';
+import { fetchOwnedNftTokenIds } from '../lib/blockscout';
 import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
+import { RebalanceFlow } from './RebalanceFlow';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
 import { getUniversalWalletDeployment } from '../lib/universalWallet';
@@ -74,7 +76,18 @@ function RangeDetails({ p, compact }: { p: LiquidityPosition; compact?: boolean 
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
+  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
   return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+}
+
+/** Chains whose V3-style positions the app can act on directly (withdraw,
+ * add, rebalance) rather than only read through Krystal analytics. */
+function canActOn(p: LiquidityPosition): boolean {
+  const chainId = p.chainId ?? 1;
+  if (chainId === 1) return p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY);
+  if (chainId === 4663) return p.protocol === 'uniswap-v3';
+  if (chainId === BASE_CHAIN_ID) return p.protocol === 'aerodrome-cl';
+  return false;
 }
 const v4DeploymentOf = (p: LiquidityPosition) => p.chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
 
@@ -82,6 +95,7 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'uniswap-v3': { label: 'V3', color: '#FF007A' },
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
+  'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
 };
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -96,11 +110,31 @@ function fmtAmt(raw: bigint, decimals: number): string {
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
 
+/** Krystal's Aerodrome rows on Base → candidate tokenIds per position manager
+ * (Krystal does not say which manager, so every id is tried on all three). */
+function krystalAeroIds(items: { chainId: number; tokenId: string; pool?: { projectKey?: string } }[]): Map<string, bigint[]> {
+  const ids: bigint[] = [];
+  for (const item of items) {
+    if (item.chainId !== BASE_CHAIN_ID || !item.pool?.projectKey?.toLowerCase().includes('aerodrome')) continue;
+    try { ids.push(BigInt(item.tokenId)); } catch { /* not numeric */ }
+  }
+  return new Map(AERODROME_CL_DEPLOYMENTS.map((d) => [d.positionManager.toLowerCase(), ids]));
+}
+
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
+  'aerodrome-cl': 'aerodrome',
 };
+
+/** Krystal row ↔ on-chain position. Aerodrome's projectKey varies by
+ * deployment ("aerodromecl", "aerodrome-slipstream"…), so match by prefix. */
+function krystalMatches(p: LiquidityPosition, item: { chainId: number; tokenId: string; pool?: { projectKey?: string } }): boolean {
+  if (item.chainId !== (p.chainId ?? 1) || item.tokenId !== p.id.toString()) return false;
+  const key = item.pool?.projectKey?.toLowerCase() ?? '';
+  return p.protocol === 'aerodrome-cl' ? key.includes('aerodrome') : key === KRYSTAL_PROTOCOL[p.protocol];
+}
 
 function LpChainLogo({ chainId, chainName }: { chainId: number; chainName: string }) {
   return (
@@ -175,6 +209,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
   const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
   const krystal = krystalData ?? null;
+  const krystalRef = useRef(krystal);
+  krystalRef.current = krystal;
   const canTransact = !!connectedAddress && !!address && connectedAddress.toLowerCase() === address.toLowerCase();
   const storeTokensRef = useRef(storeTokens);
   storeTokensRef.current = storeTokens;
@@ -190,13 +226,14 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     try {
       const client = getPublicClient(config, { chainId: 1 });
       const robinhoodClient = getPublicClient(config, { chainId: 4663 });
+      const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
       if (!client) return;
       // Fast path: every position (V3, V4, Pancake V3) is an NFT — one
-      // indexed Alchemy call enumerates all tokenIds at once, replacing the
+      // Blockscout call enumerates all tokenIds at once, replacing the
       // balanceOf/tokenOfOwnerByIndex loops and the V4 Transfer-log scan.
       // On failure `ids` is null and each fetcher falls back to its own
       // on-chain enumeration.
-      const ids = await fetchOwnedNftTokenIds(address, [
+      const ids = await fetchOwnedNftTokenIds(1, address, [
         UNISWAP_V3_DEPLOYMENT.positionManager,
         UNISWAP_V4.positionManager,
         PANCAKE_V3_DEPLOYMENT.positionManager,
@@ -204,16 +241,16 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       const idsFor = (contract: string) => ids?.get(contract.toLowerCase());
       const robinhoodContracts = [ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager, ROBINHOOD_UNISWAP_V4.positionManager];
       const robinhoodIds = robinhoodClient
-        ? await fetchRobinhoodOwnedNftTokenIds(address, robinhoodContracts).catch(() => null)
+        ? await fetchOwnedNftTokenIds(4663, address, robinhoodContracts).catch(() => null)
         : null;
       const robinhoodIdsFor = (contract: string) => robinhoodIds?.get(contract.toLowerCase());
 
       // Each protocol renders as soon as it resolves and degrades
       // independently — a slow/failing V4 log scan can't hold up the V3 list.
-      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum') => (items: LiquidityPosition[]) =>
+      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum', staked = false) => (items: LiquidityPosition[]) =>
         setPositions((prev) => {
           const next = [
-            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId),
+            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId || !!p.staked !== staked),
             ...items.map((p) => ({ ...p, chainId, chainName })),
           ];
           positionsRef.current = next;
@@ -227,6 +264,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           fetchV3Positions(robinhoodClient, address as `0x${string}`, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, robinhoodIdsFor(ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3', 4663, 'Robinhood Chain')),
           fetchV4Positions(robinhoodClient, address as `0x${string}`, robinhoodIdsFor(ROBINHOOD_UNISWAP_V4.positionManager), ROBINHOOD_UNISWAP_V4, 0n).then(merge('uniswap-v4', 4663, 'Robinhood Chain')),
         ] : []),
+        // Aerodrome Slipstream on Base — enumerated on-chain (no NFT index there).
+        ...(baseClient ? [
+          fetchOwnedNftTokenIds(BASE_CHAIN_ID, address, AERODROME_CL_DEPLOYMENTS.map((d) => d.positionManager)).catch(() => undefined)
+            .then((baseIds) => fetchAerodromePositions(baseClient, address as `0x${string}`, baseIds)).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base')),
+          // Gauge-staked NFTs live in the gauge, not the wallet. Krystal's rows
+          // seed the candidate ids alongside the wallet's own transfer history.
+          fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
+            .then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base', true)),
+        ] : []),
       ]);
       setCachedLpPositions(address, positionsRef.current);
     } catch { /* read failure — leave list empty */ }
@@ -234,6 +280,31 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   }, [address, config]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Krystal usually resolves after the first on-chain pass, and its rows are
+  // the surest source of staked Aerodrome tokenIds (the gauge, not the wallet,
+  // owns those NFTs). Re-run the gauge scan once those ids are known.
+  const krystalAeroKey = (krystal?.positions ?? []).filter((i) => i.chainId === BASE_CHAIN_ID && i.pool?.projectKey?.toLowerCase().includes('aerodrome')).map((i) => i.tokenId).sort().join(',');
+  useEffect(() => {
+    if (!address || !krystalAeroKey) return;
+    const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
+    if (!baseClient) return;
+    let live = true;
+    fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
+      .then((items) => {
+        if (!live) return;
+        setPositions((prev) => {
+          const keep = prev.filter((p) => !(p.protocol === 'aerodrome-cl' && p.staked));
+          const next = [...keep, ...items.map((p) => ({ ...p, chainId: BASE_CHAIN_ID, chainName: 'Base' }))];
+          positionsRef.current = next;
+          setCachedLpPositions(address, next);
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, krystalAeroKey, config]);
   useEffect(() => { positionsRef.current = positions; }, [positions]);
 
   // Live USD prices for every token held across positions — used only for the
@@ -254,10 +325,35 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       if (t?.usdPrice) fromStore[key] = t.usdPrice;
     }
     if (Object.keys(fromStore).length > 0) setUsd((u) => ({ ...fromStore, ...u }));
-    getTokenPricesUsd(addrs)
-      .then((llama) => setUsd({ ...fromStore, ...llama }))
+    // DeFiLlama keys prices by chain: price each token on the chain it lives on.
+    const byChain = new Map<string, string[]>();
+    for (const p of positions) {
+      const chain = p.chainId === BASE_CHAIN_ID ? 'base' : p.chainId === 4663 ? null : 'ethereum';
+      if (!chain) continue;
+      byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1]);
+    }
+    Promise.all([...byChain].map(([chain, list]) => getTokenPricesUsd([...new Set(list)], chain).catch(() => ({}))))
+      .then((parts) => setUsd({ ...fromStore, ...Object.assign({}, ...parts) }))
       .catch(() => {});
   }, [positions]);
+
+  /** Gauge actions for a staked Aerodrome position: claim AERO, or unstake
+   * (which also claims) so the NFT is back in the wallet for NPM actions. */
+  async function gaugeAction(pos: LiquidityPosition, action: 'claim' | 'unstake' | 'stake') {
+    if (!connectedAddress || !canTransact) return;
+    if (action === 'stake' ? !pos.stakeable || !pos.positionManager : !pos.staked) return;
+    setBusyId(posKey(pos));
+    try {
+      await runCalls(config, {
+        account: connectedAddress as `0x${string}`,
+        calls: action === 'claim' ? buildGaugeClaim(pos) : action === 'unstake' ? buildGaugeUnstake(pos) : buildGaugeStake(pos.positionManager!, pos.stakeable!.gauge, pos.id),
+        label: `${action === 'claim' ? 'Claim AERO' : action === 'unstake' ? 'Unstake' : 'Stake'} ${pos.symbol0}/${pos.symbol1}`,
+        track, chainId: pos.chainId ?? 1,
+      });
+      await load();
+    } catch { /* surfaced via the global tx pill */ }
+    finally { setBusyId(null); }
+  }
 
   async function collect(pos: LiquidityPosition) {
     if (!connectedAddress || !canTransact) return;
@@ -269,7 +365,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           ? buildV4Collect(pos, connectedAddress as `0x${string}`, v4DeploymentOf(pos))
           : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos)),
         label: `Collect ${pos.symbol0}/${pos.symbol1} fees`,
-        track, chainId: (pos.chainId ?? 1) as 1 | 4663,
+        track, chainId: (pos.chainId ?? 1) as number,
       });
       await load();
     } catch { /* surfaced via the global tx pill */ }
@@ -303,13 +399,11 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
   const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
-  const analyticsOf = (p: LiquidityPosition) => krystal?.positions?.find((item) =>
-    item.chainId === (p.chainId ?? 1) && item.tokenId === p.id.toString() && item.pool?.projectKey?.toLowerCase() === KRYSTAL_PROTOCOL[p.protocol],
-  );
+  const analyticsOf = (p: LiquidityPosition) => krystal?.positions?.find((item) => krystalMatches(p, item));
   const krystalStats = krystal?.statsByChain?.all ?? krystal?.statsByChain?.['1'];
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
     item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
-    !positions.some((p) => (p.chainId ?? 1) === item.chainId && p.id.toString() === item.tokenId && KRYSTAL_PROTOCOL[p.protocol] === item.pool?.projectKey?.toLowerCase()),
+    !positions.some((p) => krystalMatches(p, item)),
   );
   const closedHistory = (krystal?.positions ?? []).filter((item) =>
     item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0,
@@ -319,9 +413,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   const renderPositionCard = (p: LiquidityPosition) => {
     const hasFees = p.fees0 > 0n || p.fees1 > 0n;
     const hasLiquidity = p.liquidity > 0n;
-    const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
-      ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
-      : p.chainId === 4663 && p.protocol === 'uniswap-v3');
+    const canRebalance = hasLiquidity && canActOn(p);
     const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
     const busy = busyId === posKey(p);
     const v = valueOf(p);
@@ -350,6 +442,13 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ marginTop: v > 0 ? 3 : 0, whiteSpace: 'nowrap' }}>
               {p.inRange ? 'In range, earning' : 'Out of range, not earning'}
             </Badge>
+            {p.staked && (
+              <div style={{ marginTop: 4 }}>
+                <Badge size="sm" border="none" bg="rgba(42,107,255,0.16)" color="#7FA6FF" style={{ whiteSpace: 'nowrap' }}>
+                  Staked · {fmtAmt(p.staked.earned, 18)} {p.staked.rewardSymbol} claimable
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
 
@@ -386,9 +485,19 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap' }}>
-          <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-          {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
-          <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
+          {p.staked ? (
+            <>
+              <CardActBtn icon="gift" label={busy ? 'Working…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={p.staked.earned === 0n || busy || !canTransact} green={p.staked.earned > 0n}/>
+              <CardActBtn icon="down" label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
+            </>
+          ) : (
+            <>
+              <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
+              {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+              <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
+              {p.stakeable && hasLiquidity && <CardActBtn icon="bolt" label="Stake for AERO" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
+            </>
+          )}
           {canAutomate && <CardActBtn icon="bolt" label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
           {canRebalance && <CardActBtn icon="refresh" label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact} amber={!p.inRange}/>}
         </div>
@@ -551,9 +660,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           {positions.map(p => {
             const hasFees = p.fees0 > 0n || p.fees1 > 0n;
             const hasLiquidity = p.liquidity > 0n;
-            const canRebalance = hasLiquidity && ((p.chainId ?? 1) === 1
-              ? (p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY))
-              : p.chainId === 4663 && p.protocol === 'uniswap-v3');
+            const canRebalance = hasLiquidity && canActOn(p);
             const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
             const busy = busyId === posKey(p);
             const value = valueOf(p);
@@ -610,10 +717,20 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                 )}
 
                 <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
-                  <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-                  {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
-                  {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
-                  {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>} 
+                  {p.staked ? (
+                    <>
+                      {p.staked.earned > 0n && <MobileActBtn label={busy ? '…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={busy || !canTransact} green/>}
+                      <MobileActBtn label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
+                    </>
+                  ) : (
+                    <>
+                      <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
+                      {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+                      {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
+                      {p.stakeable && hasLiquidity && <MobileActBtn label="Stake" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
+                    </>
+                  )}
+                  {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
                   {canRebalance && (
                     <MobileActBtn
                       label="⚖ Rebalance"
@@ -710,7 +827,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         />
       )}
 
-      {rebalance && connectedAddress && ((rebalance.chainId ?? 1) === 1 || (rebalance.chainId === 4663 && rebalance.protocol === 'uniswap-v3')) && (
+      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol !== 'uniswap-v4' && (
+        <RebalanceFlow
+          pos={rebalance}
+          account={connectedAddress as `0x${string}`}
+          onClose={() => setRebalance(null)}
+          onDone={async () => { await load(); }}
+        />
+      )}
+      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol === 'uniswap-v4' && (
         <RebalanceSheet
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
@@ -813,7 +938,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const actionSlippageBps = pos.chainId === 4663 ? 500 : SLIPPAGE_BPS;
   // Native-ETH deposit side. V3: the WETH token (user can toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always ETH, nothing to toggle.
-  const chainWeth = pos.chainId === 4663 ? ROBINHOOD_WETH.toLowerCase() : null;
+  const chainWeth = pos.chainId === 4663 ? ROBINHOOD_WETH.toLowerCase() : pos.chainId === BASE_CHAIN_ID ? BASE_WETH.toLowerCase() : null;
   const wethSide: 0 | 1 | null = isV4 ? null : (chainWeth ? pos.token0.toLowerCase() === chainWeth : isWeth(pos.token0)) ? 0 : (chainWeth ? pos.token1.toLowerCase() === chainWeth : isWeth(pos.token1)) ? 1 : null;
   const nativeSide: 0 | 1 | null = isV4 ? (isNativeCurrency(pos.token0) ? 0 : null) : wethSide;
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
@@ -839,7 +964,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   useEffect(() => {
     if (mode !== 'add') return;
     let live = true;
-    const client = getPublicClient(config, { chainId: (pos.chainId ?? 1) as 1 | 4663 });
+    const client = getPublicClient(config, { chainId: (pos.chainId ?? 1) as number });
     if (!client) return;
     (async () => {
       try {
@@ -889,7 +1014,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         account,
         calls,
         label: `${mode === 'withdraw' ? 'Withdraw' : 'Add'} ${pos.symbol0}/${pos.symbol1}`,
-        track, chainId: (pos.chainId ?? 1) as 1 | 4663,
+        track, chainId: (pos.chainId ?? 1) as number,
       });
       await onDone();
     } catch (e) {
@@ -906,7 +1031,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {isV4 ? 'V4' : 'V3'}</div>
+        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {PROTOCOL_BADGE[pos.protocol].label}</div>
 
         {mode === 'withdraw' ? (
           <>
