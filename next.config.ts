@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
   async redirects() {
     // Earn moved onto Home. Kept as a redirect rather than a 404 — the path was
     // public and is linked from outside the app.
-    return [{ source: "/token", destination: "/", permanent: false }];
+    return [
+      { source: "/token", destination: "/", permanent: false },
+      // Trading was retired; the app is about LPs. Old links land on Home.
+      { source: "/trade", destination: "/", permanent: false },
+    ];
   },
   async headers() {
     return [

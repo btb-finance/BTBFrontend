@@ -146,7 +146,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div>
           <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850 }}>Universal LP account</div>
-          <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 3 }}>The same owner-only smart account used for trading now holds and automates your LP NFTs.</div>
+          <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 3 }}>An owner-only smart account that holds and automates your LP NFTs.</div>
         </div>
         {wallet && <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChainLogo chainId={CHAIN_ID} size={18}/>

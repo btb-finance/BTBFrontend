@@ -12,8 +12,6 @@ import { MobileNav } from './MobileNav';
 import { Tab } from './types';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
-import { TradeScreen } from './screens/TradeScreen';
-import { SmartTradeProvider } from '../lib/SmartTradeContext';
 import { DiscoverScreen } from './screens/DiscoverScreen';
 import { SimulateScreen } from './screens/SimulateScreen';
 import { SwapScreen } from './screens/SwapScreen';
@@ -28,7 +26,6 @@ import { btb } from './design-tokens';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
-import { useMarketFeed } from '../lib/marketFeed';
 
 function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   effectiveAddress?: string;
@@ -53,7 +50,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
   const { isMobile } = useSidebar();
   const config = useConfig();
-  const marketFeed = useMarketFeed();
 
   // Warm the Discover pool list in the background right after the shell
   // mounts, so the tab opens instantly instead of starting its fetch on first
@@ -120,8 +116,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       case 'home':      return <HomeScreen goto={goto} address={effectiveAddress}
                           onConnectWallet={() => setShowConnect(true)}
                           onBuyBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
-      case 'trade':     return <TradeScreen address={effectiveAddress} marketFeed={marketFeed}
-                                            onConnectWallet={() => setShowConnect(true)}/>;
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
@@ -205,14 +199,12 @@ export function MiniApp() {
   return (
     <TokenStoreProvider walletAddress={effectiveAddress}>
       <SidebarProvider>
-        <SmartTradeProvider>
-          <AppShell
-            effectiveAddress={effectiveAddress}
-            isReadOnly={isReadOnly}
-            onImportAddress={setReadOnlyAddress}
-            onLeave={handleLeave}
-          />
-        </SmartTradeProvider>
+        <AppShell
+          effectiveAddress={effectiveAddress}
+          isReadOnly={isReadOnly}
+          onImportAddress={setReadOnlyAddress}
+          onLeave={handleLeave}
+        />
       </SidebarProvider>
     </TokenStoreProvider>
   );

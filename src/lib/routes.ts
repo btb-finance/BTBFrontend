@@ -9,7 +9,6 @@ export type Overlay = 'docs' | null;
 
 export const TAB_PATHS: Record<Tab, string> = {
   home: '/',
-  trade: '/trade',
   discover: '/discover',
   simulate: '/simulate',
   swap: '/swap',

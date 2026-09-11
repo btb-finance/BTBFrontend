@@ -24,10 +24,6 @@ if (process.env.DISABLE_CRONS !== "1") {
   // instead of running the slow multi-API pipeline per visitor
   crons.interval("refresh discover pools", { minutes: 30 }, internal.discoverRefresh.refresh);
 
-  // One shared snapshot replaces every visitor polling the explorer
-  // and DexScreener independently, keeping Convex/upstream usage bounded.
-  crons.interval("refresh dashboard markets", { minutes: 30 }, internal.marketsRefresh.refresh);
-
   // Global BearNFT/BearStaking numbers. These were polled every 15-20s by the
   // app shell of every visitor, connected or not; per-wallet reads stay live
   // on the client.
@@ -43,9 +39,6 @@ if (process.env.DISABLE_CRONS !== "1") {
   // Process at most one durable job per minute. A broadcast job is always
   // reconciled before another EOA nonce is used.
   crons.interval("execute managed LP rebalances", { minutes: 1 }, internal.rebalanceWorker.run);
-
-  // Fire due recurring ("DCA") buys — enqueues a normal spot order per schedule.
-  crons.interval("run recurring buys", { minutes: 1 }, internal.dca.tick);
 
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
