@@ -91,6 +91,15 @@ function canActOn(p: LiquidityPosition): boolean {
 }
 const v4DeploymentOf = (p: LiquidityPosition) => p.chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
 
+/** Badge text; Aerodrome positions on an older Slipstream deployment say so. */
+function protocolBadgeLabel(p: LiquidityPosition): string {
+  if (p.protocol === 'aerodrome-cl') {
+    const label = aerodromeDeploymentOf(p).label ?? '';
+    return /old/i.test(label) ? 'AERO V3 (old)' : 'AERO V3';
+  }
+  return PROTOCOL_BADGE[p.protocol].label;
+}
+
 const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; color: string }> = {
   'uniswap-v3': { label: 'V3', color: '#FF007A' },
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
@@ -432,7 +441,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
               <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
-              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
               <Badge size="sm" color={btb.textDim} bg="transparent" border="none" style={{ fontSize: 10, padding: '1px 2px' }}>#{p.id.toString()}</Badge>
             </div>
           </div>
@@ -677,7 +686,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                       <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
                       <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
-                      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+                      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1031,7 +1040,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {PROTOCOL_BADGE[pos.protocol].label}</div>
+        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {protocolBadgeLabel(pos)}</div>
 
         {mode === 'withdraw' ? (
           <>

@@ -33,6 +33,8 @@ export interface V3Deployment {
   /** Aerodrome Slipstream: pools keyed by tickSpacing, not fee (see protocols/dexs/aerodrome). */
   slipstream?: boolean;
   chainId?: number;
+  /** Display name when a protocol has several live deployments (Aerodrome). */
+  label?: string;
   positionManager: `0x${string}`;
   factory: `0x${string}`;
   feeTiers: readonly number[];

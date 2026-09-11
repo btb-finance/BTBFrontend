@@ -15,6 +15,7 @@ import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
+import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
 import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -1213,6 +1214,37 @@ export function SimulateScreen() {
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
   // Add LP straight from a finder row, skipping the simulator.
   const [mintFee, setMintFee] = useState<FoundPool | null>(null);
+  // Aerodrome runs several Slipstream deployments; a pool's factory tells
+  // which one, so old-deployment pools can be labelled as such.
+  const [aeroLabelByPool, setAeroLabelByPool] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (chainId !== 8453 || !found) return;
+    const targets = found.filter(f => f.address && /aerodrome/i.test(f.dexLabel ?? '') && !aeroLabelByPool[f.address.toLowerCase()]);
+    if (targets.length === 0) return;
+    const client = getPublicClient(config, { chainId: 8453 });
+    if (!client) return;
+    let live = true;
+    const FACTORY_ABI = [{ name: 'factory', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const;
+    withSafeMulticall(client).multicall({ contracts: targets.map(f => ({ address: f.address!, abi: FACTORY_ABI, functionName: 'factory' as const })), allowFailure: true })
+      .then(res => {
+        if (!live) return;
+        const next: Record<string, string> = {};
+        targets.forEach((f, i) => {
+          const r = res[i];
+          if (r.status !== 'success') return;
+          const d = AERODROME_CL_DEPLOYMENTS.find(x => x.factory.toLowerCase() === (r.result as string).toLowerCase());
+          if (d?.label) next[f.address!.toLowerCase()] = d.label;
+        });
+        setAeroLabelByPool(prev => ({ ...prev, ...next }));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, chainId, config]);
+  const rowLabel = (f: FoundPool) => {
+    const aero = f.address ? aeroLabelByPool[f.address.toLowerCase()] : undefined;
+    return aero && /old/i.test(aero) ? `${foundPoolDexLabel(f)} (old)` : foundPoolDexLabel(f);
+  };
   /** Pools the app can mint on from this finder: Uniswap V3 and PancakeSwap
    * V3 on Ethereum, Uniswap V3 on Robinhood, Aerodrome Slipstream on Base. */
   const mintDexFor = (f: FoundPool): { dex: 'uniswap' | 'pancakeswap' | 'aerodrome'; chainId: 1 | 4663 | 8453 } | null => {
@@ -1573,7 +1605,7 @@ export function SimulateScreen() {
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
               {found.map((f, i) => {
-                const label = foundPoolDexLabel(f);
+                const label = rowLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
                   <div key={foundPoolKey(f)} style={{
@@ -1627,7 +1659,7 @@ export function SimulateScreen() {
               ))}
             </div>
             {found.map((f, i) => {
-              const label = foundPoolDexLabel(f);
+              const label = rowLabel(f);
               return (
                 <div key={foundPoolKey(f)} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
