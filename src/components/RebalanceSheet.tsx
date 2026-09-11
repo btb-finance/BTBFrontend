@@ -20,6 +20,7 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { aerodromeDeploymentOf, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
@@ -27,7 +28,14 @@ const WIDTH_PRESETS = [5, 10, 25] as const;
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
+  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
   return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+}
+
+/** Chains where the withdraw → swap → mint flow is wired up. */
+function rebalanceSupported(p: LiquidityPosition): boolean {
+  const chainId = p.chainId ?? 1;
+  return chainId === 1 || (chainId === 4663 && p.protocol === 'uniswap-v3') || (chainId === BASE_CHAIN_ID && p.protocol === 'aerodrome-cl');
 }
 
 const QUOTER_ABI = [{ type: 'function', name: 'quoteExactInputSingle', stateMutability: 'nonpayable', inputs: [{ name: 'params', type: 'tuple', components: [{ name: 'tokenIn', type: 'address' }, { name: 'tokenOut', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'fee', type: 'uint24' }, { name: 'sqrtPriceLimitX96', type: 'uint160' }] }], outputs: [{ name: 'amountOut', type: 'uint256' }, { name: 'sqrtPriceX96After', type: 'uint160' }, { name: 'initializedTicksCrossed', type: 'uint32' }, { name: 'gasEstimate', type: 'uint256' }] }] as const;
@@ -103,7 +111,8 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   // V4's native ETH is always currency0; V3 pairs are ERC-20 (WETH, not native).
   const native0 = isV4 && isNativeCurrency(pos.token0);
   const deployment = v3DeploymentOf(pos);
-  const spacing = (isV4 ? pos.tickSpacing : deployment.tickSpacings[pos.fee]) ?? 60;
+  // Slipstream positions carry their own tickSpacing (it is the pool key there).
+  const spacing = (isV4 || deployment.slipstream ? pos.tickSpacing : deployment.tickSpacings[pos.fee]) ?? 60;
   const poolKey: PoolKey | null = isV4
     ? { currency0: pos.token0, currency1: pos.token1, fee: pos.fee, tickSpacing: spacing, hooks: pos.hooks ?? '0x0000000000000000000000000000000000000000' }
     : null;
@@ -176,14 +185,14 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
   }
 
   async function run() {
-    if ((pos.chainId ?? 1) !== 1 && !(pos.chainId === 4663 && pos.protocol === 'uniswap-v3')) {
+    if (!rebalanceSupported(pos)) {
       setErr('Smart rebalance is not available on this chain yet. No transaction was sent.');
       setPhase('error');
       return;
     }
     setPhase('running'); setErr(null);
     try {
-      const chainId = (pos.chainId ?? 1) as 1 | 4663;
+      const chainId = pos.chainId ?? 1;
       const actionSlippage = chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS;
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
@@ -230,7 +239,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
           sellSide: pl.sellSide, swapFraction: pl.swapFraction,
           budget0, budget1, token0: pos.token0, token1: pos.token1,
           decimals0: pos.decimals0, decimals1: pos.decimals1,
-          native0, account, slippageBps: actionSlippage,
+          native0, account, slippageBps: actionSlippage, chainId,
         });
         if (swap) {
           const beforeSwap = await readBals(client);
@@ -281,6 +290,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               tickLower: tl, tickUpper: tu,
               amount0Desired: a0, amount1Desired: a1,
               slippageBps: actionSlippage, recipient: account, deployment,
+              tickSpacing: deployment.slipstream ? spacing : undefined,
             }),
         label: `Rebalance · add ${pos.symbol0}/${pos.symbol1}`,
         track, chainId,

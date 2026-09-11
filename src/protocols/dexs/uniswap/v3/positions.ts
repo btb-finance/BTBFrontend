@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
+import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -20,6 +20,9 @@ export async function fetchV3Positions(
   knownIds?: bigint[],
 ): Promise<LiquidityPosition[]> {
   const npm = d.positionManager;
+  // Slipstream keys pools by tickSpacing where V3 uses fee — same slot in the
+  // positions() struct, same getPool arity, different meaning.
+  const slip = !!d.slipstream;
 
   let tokenIds: bigint[];
   if (knownIds) {
@@ -44,7 +47,7 @@ export async function fetchV3Positions(
 
   // 2) position struct for each tokenId
   const posCalls = tokenIds.map((id) => ({
-    address: npm, abi: NPM_ABI, functionName: 'positions' as const, args: [id] as const,
+    address: npm, abi: slip ? SLIPSTREAM_NPM_ABI : NPM_ABI, functionName: 'positions' as const, args: [id] as const,
   }));
   const posRes = await withSafeMulticall(client).multicall({ contracts: posCalls, allowFailure: true });
   if (posCalls.length > 0 && !posRes.some((result) => result.status === 'success')) {
@@ -82,7 +85,7 @@ export async function fetchV3Positions(
   const uniquePools = [...new Map(raws.map((r) => [poolKey(r), r])).values()];
   const poolAddrs = (await withSafeMulticall(client).multicall({
     contracts: uniquePools.map((r) => ({
-      address: d.factory, abi: FACTORY_ABI, functionName: 'getPool' as const,
+      address: d.factory, abi: slip ? SLIPSTREAM_FACTORY_ABI : FACTORY_ABI, functionName: 'getPool' as const,
       args: [r.token0, r.token1, r.fee] as const,
     })),
     allowFailure: true,
@@ -101,12 +104,23 @@ export async function fetchV3Positions(
   if (slot0Res.length > 0 && !slot0Res.some((result) => result.status === 'success')) {
     throw new Error('Could not read live LP balances');
   }
-  const poolState = new Map<string, { sqrtPriceX96: bigint; tick: number }>();
+  // Slipstream fees are per pool, not per position — read them for display.
+  const feeRes = slip
+    ? await withSafeMulticall(client).multicall({
+        contracts: poolAddrs.map((addr) => ({
+          address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+          abi: POOL_ABI, functionName: 'fee' as const,
+        })),
+        allowFailure: true,
+      })
+    : null;
+  const poolState = new Map<string, { sqrtPriceX96: bigint; tick: number; fee?: number }>();
   uniquePools.forEach((r, i) => {
     const s = slot0Res[i];
     if (s.status !== 'success') return;
     const arr = s.result as readonly unknown[];
-    poolState.set(poolKey(r), { sqrtPriceX96: arr[0] as bigint, tick: Number(arr[1]) });
+    const f = feeRes?.[i];
+    poolState.set(poolKey(r), { sqrtPriceX96: arr[0] as bigint, tick: Number(arr[1]), fee: f?.status === 'success' ? Number(f.result) : undefined });
   });
 
   // 4) token metadata (symbol/decimals) for every token involved
@@ -144,7 +158,8 @@ export async function fetchV3Positions(
       token0: r.token0, token1: r.token1,
       symbol0: m0.symbol, symbol1: m1.symbol,
       decimals0: m0.decimals, decimals1: m1.decimals,
-      fee: r.fee, tickLower: r.tickLower, tickUpper: r.tickUpper,
+      fee: slip ? (st?.fee ?? 0) : r.fee, tickLower: r.tickLower, tickUpper: r.tickUpper,
+      ...(slip ? { tickSpacing: r.fee, positionManager: npm } : {}),
       liquidity: r.liquidity,
       sqrtPriceX96: st?.sqrtPriceX96 ?? 0n,
       currentTick: st?.tick ?? 0,

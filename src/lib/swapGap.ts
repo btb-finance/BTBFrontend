@@ -29,6 +29,8 @@ export interface SwapGapArgs {
   native0: boolean;
   account: `0x${string}`;
   slippageBps: number;
+  /** Chain the swap executes on (KyberSwap-supported). Defaults to mainnet. */
+  chainId?: number;
 }
 
 export interface SwapGapResult {
@@ -38,7 +40,7 @@ export interface SwapGapResult {
 }
 
 export async function buildSwapGap(args: SwapGapArgs): Promise<SwapGapResult | null> {
-  const { sellSide, swapFraction, token0, token1, decimals0, decimals1, native0, account, slippageBps } = args;
+  const { sellSide, swapFraction, token0, token1, decimals0, decimals1, native0, account, slippageBps, chainId = 1 } = args;
   let { budget0, budget1 } = args;
   if (swapFraction <= 0.0005) return null;
 
@@ -56,8 +58,8 @@ export async function buildSwapGap(args: SwapGapArgs): Promise<SwapGapResult | n
 
   const kyberAddr = (side: 0 | 1) => (side === 0 && native0 ? 'ETH' : side === 0 ? token0 : token1);
   const outDec = sellSide === 0 ? decimals1 : decimals0;
-  const quote = await getKyberQuote(kyberAddr(sellSide), kyberAddr(sellSide === 0 ? 1 : 0), sellRaw.toString(), outDec, 1);
-  const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, account, account, slippageBps, 1);
+  const quote = await getKyberQuote(kyberAddr(sellSide), kyberAddr(sellSide === 0 ? 1 : 0), sellRaw.toString(), outDec, chainId);
+  const tx = await buildKyberTx(quote.routeSummary, quote.routerAddress, account, account, slippageBps, chainId);
 
   const calls: Call[] = [];
   // Native ETH needs no approval; ERC-20 must allow the Kyber router.

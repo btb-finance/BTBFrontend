@@ -1,5 +1,5 @@
 import { encodeFunctionData, erc20Abi } from 'viem';
-import { NPM_ABI } from './abis';
+import { NPM_ABI, SLIPSTREAM_NPM_ABI } from './abis';
 import { MAX_UINT128, UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
@@ -129,6 +129,8 @@ export function buildMint(args: {
   slippageBps: number; recipient: `0x${string}`;
   nativeEthSide?: 0 | 1 | null;
   deployment?: V3Deployment;
+  /** Slipstream: the pool's tickSpacing (its mint key; `fee` is ignored). */
+  tickSpacing?: number;
 }): Call[] {
   const { token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, slippageBps, recipient } = args;
   const nativeEthSide = args.nativeEthSide ?? null;
@@ -140,18 +142,33 @@ export function buildMint(args: {
   if (amount1Desired > 0n && nativeEthSide !== 1) {
     calls.push({ to: token1, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [d.positionManager, amount1Desired] }) });
   }
-  const mintData = encodeFunctionData({
-    abi: NPM_ABI,
-    functionName: 'mint',
-    args: [{
-      token0, token1, fee, tickLower, tickUpper,
-      amount0Desired, amount1Desired,
-      amount0Min: minOut(amount0Desired, slippageBps),
-      amount1Min: minOut(amount1Desired, slippageBps),
-      recipient,
-      deadline: deadline(),
-    }],
-  });
+  const mintData = d.slipstream
+    ? encodeFunctionData({
+        abi: SLIPSTREAM_NPM_ABI,
+        functionName: 'mint',
+        args: [{
+          token0, token1, tickSpacing: args.tickSpacing ?? d.tickSpacings[fee] ?? fee, tickLower, tickUpper,
+          amount0Desired, amount1Desired,
+          amount0Min: minOut(amount0Desired, slippageBps),
+          amount1Min: minOut(amount1Desired, slippageBps),
+          recipient,
+          deadline: deadline(),
+          // Only consulted when the pool does not exist yet; ours always does.
+          sqrtPriceX96: 0n,
+        }],
+      })
+    : encodeFunctionData({
+        abi: NPM_ABI,
+        functionName: 'mint',
+        args: [{
+          token0, token1, fee, tickLower, tickUpper,
+          amount0Desired, amount1Desired,
+          amount0Min: minOut(amount0Desired, slippageBps),
+          amount1Min: minOut(amount1Desired, slippageBps),
+          recipient,
+          deadline: deadline(),
+        }],
+      });
   const { data, value } = withEth(mintData, nativeEthSide, amount0Desired, amount1Desired);
   calls.push({ to: d.positionManager, data, value });
   return calls;
