@@ -13,7 +13,7 @@ import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { useTokenStore } from '../../lib/TokenStore';
 import { CONTRACTS } from '../../lib/wagmi';
-import { fetchOwnedNftTokenIds } from '../../lib/alchemy';
+import { fetchOwnedNftTokenIds } from '../../lib/blockscout';
 import { api } from '../../../convex/_generated/api';
 import {
   fetchV3Positions, fetchV4Positions, UNISWAP_V3_DEPLOYMENT,
@@ -258,7 +258,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
         const client = getPublicClient(config);
         const addr = walletAddress as `0x${string}`;
         if (!client) { setLps([]); return; }
-        const ids = await fetchOwnedNftTokenIds(addr, [
+        const ids = await fetchOwnedNftTokenIds(1, addr, [
           UNISWAP_V3_DEPLOYMENT.positionManager, UNISWAP_V4.positionManager, PANCAKE_V3_DEPLOYMENT.positionManager,
         ]).catch(() => null);
         const idsFor = (c: string) => ids?.get(c.toLowerCase());

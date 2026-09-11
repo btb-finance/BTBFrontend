@@ -25,7 +25,7 @@ import {
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
-import { fetchOwnedNftTokenIds, fetchRobinhoodOwnedNftTokenIds } from '../lib/alchemy';
+import { fetchOwnedNftTokenIds } from '../lib/blockscout';
 import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
@@ -228,11 +228,11 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
       if (!client) return;
       // Fast path: every position (V3, V4, Pancake V3) is an NFT — one
-      // indexed Alchemy call enumerates all tokenIds at once, replacing the
+      // Blockscout call enumerates all tokenIds at once, replacing the
       // balanceOf/tokenOfOwnerByIndex loops and the V4 Transfer-log scan.
       // On failure `ids` is null and each fetcher falls back to its own
       // on-chain enumeration.
-      const ids = await fetchOwnedNftTokenIds(address, [
+      const ids = await fetchOwnedNftTokenIds(1, address, [
         UNISWAP_V3_DEPLOYMENT.positionManager,
         UNISWAP_V4.positionManager,
         PANCAKE_V3_DEPLOYMENT.positionManager,
@@ -240,7 +240,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       const idsFor = (contract: string) => ids?.get(contract.toLowerCase());
       const robinhoodContracts = [ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager, ROBINHOOD_UNISWAP_V4.positionManager];
       const robinhoodIds = robinhoodClient
-        ? await fetchRobinhoodOwnedNftTokenIds(address, robinhoodContracts).catch(() => null)
+        ? await fetchOwnedNftTokenIds(4663, address, robinhoodContracts).catch(() => null)
         : null;
       const robinhoodIdsFor = (contract: string) => robinhoodIds?.get(contract.toLowerCase());
 
@@ -265,7 +265,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         ] : []),
         // Aerodrome Slipstream on Base — enumerated on-chain (no NFT index there).
         ...(baseClient ? [
-          fetchAerodromePositions(baseClient, address as `0x${string}`).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base')),
+          fetchOwnedNftTokenIds(BASE_CHAIN_ID, address, AERODROME_CL_DEPLOYMENTS.map((d) => d.positionManager)).catch(() => undefined)
+            .then((baseIds) => fetchAerodromePositions(baseClient, address as `0x${string}`, baseIds)).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base')),
           // Gauge-staked NFTs live in the gauge, not the wallet. Krystal's rows
           // seed the candidate ids alongside the wallet's own transfer history.
           fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
