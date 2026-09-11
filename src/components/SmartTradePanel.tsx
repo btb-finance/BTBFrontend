@@ -681,9 +681,9 @@ export function SmartTradePanel({ owner, onConnect, presets = [], onStatus, mark
             </div>
           </div>}
         </div> : latestOrder?.state === 'confirmed' ? <div>
-          <div>Trade confirmed · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.green }}>View transaction ↗</a></div>
+          <div>Trade confirmed · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.green }}>View transaction</a></div>
           <button onClick={repeatTrade} disabled={busy !== null} style={{ marginTop: 9, height: 32, padding: '0 14px', borderRadius: 9, border: '1px solid rgba(82,227,164,.32)', background: 'rgba(82,227,164,.12)', color: btb.green, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 850, cursor: busy ? 'default' : 'pointer' }}>{noticePreset.side === 'buy' ? `Buy ${noticePreset.symbol} again` : `Sell more ${noticePreset.symbol}`}</button>
-        </div> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View ↗</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
+        </div> : latestOrder?.state === 'failed' ? latestOrder.error || 'Trade failed' : latestOrder?.state === 'submitted' ? <>Submitted on-chain · <a href={`https://robinhoodchain.blockscout.com/tx/${latestOrder.txHash}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.amber }}>View</a></> : latestOrder?.state === 'preparing' ? 'Building a fresh protected route…' : `Queued · ${pendingOrderCount} pending`}
       </div>}
       {funding && state?.deployed && validOwner && (
         <ManagedFundsSheet chainId={CHAIN_ID} chainName="Robinhood Chain" owner={validOwner} account={state.account} initialMode={funding} initialWalletAssets={walletAssets} initialAccountAssets={smartAssets} onClose={() => setFunding(null)} onDone={async () => { bumpBalances(); await load(); }}/>

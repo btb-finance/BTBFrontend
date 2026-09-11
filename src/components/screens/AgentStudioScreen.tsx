@@ -677,7 +677,7 @@ export function AgentStudioScreen() {
                 </Badge>
               </div>
               <span style={{ color: btb.textDim, fontSize: 9.5, lineHeight: 1.35 }}>{module.note}</span>
-              <span style={{ color: btb.textMuted, fontSize: 9.5, fontFamily: 'monospace' }}>{short(module.address)} ↗</span>
+              <span style={{ color: btb.textMuted, fontSize: 9.5, fontFamily: 'monospace' }}>{short(module.address)}</span>
             </a>
           ))}
         </div>

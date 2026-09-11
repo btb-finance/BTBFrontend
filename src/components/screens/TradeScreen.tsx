@@ -149,7 +149,7 @@ export function TradeScreen({ address, onConnectWallet, marketFeed }: {
                 <TokenIcon symbol={market.symbol} logoUrl={market.imageUrl} size={31}/>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ color: btb.text, fontSize: 12, fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis' }}>{market.symbol}</span><span style={{ color: btb.textDim, fontSize: 9 }}>{market.dex}{market.version ? ` ${market.version}` : ''}</span></div>
-                  <a href={`https://robinhoodchain.blockscout.com/token/${market.address}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 8.5, textDecoration: 'none' }}>{market.address.slice(0, 6)}…{market.address.slice(-4)} ↗</a>
+                  <a href={`https://robinhoodchain.blockscout.com/token/${market.address}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 8.5, textDecoration: 'none' }}>{market.address.slice(0, 6)}…{market.address.slice(-4)}</a>
                 </div>
                 <div style={{ marginLeft: 'auto', textAlign: 'right' }}><div style={{ color: btb.text, fontSize: 11.5, fontWeight: 800 }}>{usd(market.priceUsd, false)}</div><div style={{ fontSize: 9.5, marginTop: 2 }}>{change(market.change24h)}</div></div>
               </div>
@@ -164,7 +164,7 @@ export function TradeScreen({ address, onConnectWallet, marketFeed }: {
             <div key={market.address} style={{ display: 'grid', gridTemplateColumns: 'minmax(190px,1.65fr) .75fr .58fr .72fr .72fr .58fr 126px', gap: 10, alignItems: 'center', minHeight: 62, padding: '0 12px', borderBottom: index < Math.min(visible, filtered.length) - 1 ? btb.borderSoft : undefined }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
                 <TokenIcon symbol={market.symbol} logoUrl={market.imageUrl} size={31}/>
-                <div style={{ minWidth: 0 }}><div style={{ display: 'flex', gap: 5, alignItems: 'center' }}><span style={{ color: btb.text, fontSize: 11.5, fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis' }}>{market.symbol}</span><span style={{ color: btb.textDim, fontSize: 8.5 }}>{market.dex}{market.version ? ` ${market.version}` : ''}</span></div><a href={`https://robinhoodchain.blockscout.com/token/${market.address}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 8.5, textDecoration: 'none' }}>{market.address.slice(0, 6)}…{market.address.slice(-4)} ↗</a></div>
+                <div style={{ minWidth: 0 }}><div style={{ display: 'flex', gap: 5, alignItems: 'center' }}><span style={{ color: btb.text, fontSize: 11.5, fontWeight: 850, overflow: 'hidden', textOverflow: 'ellipsis' }}>{market.symbol}</span><span style={{ color: btb.textDim, fontSize: 8.5 }}>{market.dex}{market.version ? ` ${market.version}` : ''}</span></div><a href={`https://robinhoodchain.blockscout.com/token/${market.address}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 8.5, textDecoration: 'none' }}>{market.address.slice(0, 6)}…{market.address.slice(-4)}</a></div>
               </div>
               <span style={{ color: btb.text, fontSize: 10.5, fontWeight: 750, textAlign: 'right' }}>{usd(market.priceUsd, false)}</span>
               <span style={{ fontSize: 10, textAlign: 'right' }}>{change(market.change24h)}</span>
@@ -179,7 +179,7 @@ export function TradeScreen({ address, onConnectWallet, marketFeed }: {
       {visible < filtered.length && <button onClick={() => setVisible(value => value + 30)} style={{ width: '100%', height: 36, marginTop: 9, borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.025)', color: btb.textMuted, fontFamily: 'inherit', fontSize: 10.5, fontWeight: 750, cursor: 'pointer' }}>Load more markets</button>}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginTop: 9, color: btb.textDim, fontSize: 8.5, lineHeight: 1.4 }}>
         <span>Trending uses live volume, liquidity and trade activity. New markets and high returns can be extremely risky.</span>
-        <a href="https://dexscreener.com/robinhood" target="_blank" rel="noopener noreferrer" style={{ color: btb.textMuted, textDecoration: 'none' }}>Market data by Dexscreener ↗</a>
+        <a href="https://dexscreener.com/robinhood" target="_blank" rel="noopener noreferrer" style={{ color: btb.textMuted, textDecoration: 'none' }}>Market data by Dexscreener</a>
       </div>
     </Glass>
   </div>;

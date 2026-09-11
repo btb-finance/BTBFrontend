@@ -6,6 +6,7 @@ import { encodeFunctionData, formatUnits, erc20Abi, type PublicClient } from 'vi
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
+import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -347,7 +348,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 
         {phase === 'done' ? (
           <div style={{ textAlign: 'center', padding: '12px 0 4px' }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+            <div style={{ width: 48, height: 48, borderRadius: 999, margin: '0 auto 10px', background: 'rgba(82,227,164,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={22} color={btb.green}/></div>
             <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Position rebalanced</div>
             <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 6, lineHeight: 1.5 }}>
               Your {pos.symbol0}/{pos.symbol1} liquidity is back in range{preview ? ` — only ${preview.pct < 1 ? '<1' : preview.pct.toFixed(0)}% was swapped, so you kept your ${heavySym}.` : '.'}
@@ -426,7 +427,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
                 <span style={{ color: btb.textMuted, fontSize: 12 }}>Swap needed</span>
                 {preview ? (
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 700, textAlign: 'right' }}>
-                    {preview.amt.toLocaleString('en-US', { maximumFractionDigits: 4 })} {preview.sym} → {preview.otherSym}
+                    {preview.amt.toLocaleString('en-US', { maximumFractionDigits: 4 })} {preview.sym} to {preview.otherSym}
                     <span style={{ color: preview.pct <= 15 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>
                       ({preview.pct < 1 ? '<1' : preview.pct.toFixed(0)}%)
                     </span>
@@ -460,7 +461,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               {phase === 'running' ? 'Rebalancing…' : phase === 'error' ? 'Retry rebalance' : 'Rebalance position'}
             </Button>
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Withdraw → swap only the gap → re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to {3 + (pos.staked ? 1 : 0) + (restake ? 1 : 0)} transactions in your wallet.
+              Withdraw, swap only the gap, re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to {3 + (pos.staked ? 1 : 0) + (restake ? 1 : 0)} transactions in your wallet.
             </div>
           </>
         )}

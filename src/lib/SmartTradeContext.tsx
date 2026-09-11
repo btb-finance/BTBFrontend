@@ -49,7 +49,7 @@ export function SmartTradeProvider({ children }: { children: ReactNode }) {
       const label = side === 'buy' ? 'Buy' : 'Dump';
       if (!mine || !tradeStatus) return { label, disabled: false };
       if (tradeStatus.phase === 'working') return { label: side === 'buy' ? 'Buying…' : 'Selling…', disabled: true };
-      if (tradeStatus.phase === 'confirmed') return { label: side === 'buy' ? 'Bought ✓' : 'Sold ✓', disabled: false };
+      if (tradeStatus.phase === 'confirmed') return { label: side === 'buy' ? 'Bought' : 'Sold', disabled: false };
       return { label, disabled: false };
     },
   }), [presets, tradeStatus]);

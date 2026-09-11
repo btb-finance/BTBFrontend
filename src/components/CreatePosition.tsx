@@ -1083,7 +1083,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         border: `1px solid ${severe ? 'rgba(255,107,122,0.3)' : 'rgba(255,179,107,0.3)'}`,
         borderRadius: 12, padding: '10px 12px',
       }}>
-        ⚠️ This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
+        This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
       </div>
     );
   }
@@ -1263,7 +1263,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 </div>
                 {!tokenUsd && (
                   <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
-                    No USD price data for this pair yet — try again in a moment.
+                    No USD price data for this pair yet; try again in a moment.
                   </div>
                 )}
               </>
@@ -1349,7 +1349,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <div style={{ color: btb.text, fontSize: 10.5, marginTop: 7, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ color: btb.textDim }}>Swap to balance</span>
                     <span style={{ fontWeight: 700 }}>
-                      {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} → {swapPreview.otherSym}
+                      {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} to {swapPreview.otherSym}
                       <span style={{ color: swapPreview.pct <= 60 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
                     </span>
                   </div>

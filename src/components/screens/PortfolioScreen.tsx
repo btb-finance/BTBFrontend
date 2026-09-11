@@ -124,7 +124,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
                   title={`Open contract ${t.address}`}
                   onClick={(event) => event.stopPropagation()}
                   style={{ color: btb.textDim, textDecoration: 'none' }}
-                >{shortAddress(t.address)} ↗</a>
+                >{shortAddress(t.address)}</a>
               ) : <span title={t.address} style={{ color: btb.textDim }}>{shortAddress(t.address)}</span>}
             </div>
             {t.suspiciousQuote && <div style={{ color: btb.amber, fontSize: 9.5, fontWeight: 700, marginTop: 1 }}>UNVERIFIED QUOTE · CHECK CONTRACT</div>}

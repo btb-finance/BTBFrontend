@@ -135,7 +135,7 @@ function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: strin
             </div>
             {r.hash && (
               <a href={`${explorer ?? 'https://etherscan.io'}/tx/${r.hash}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontFamily: 'monospace', textDecoration: 'none' }}>↗</a>
+                style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontFamily: 'monospace', textDecoration: 'none' }}>tx</a>
             )}
           </div>
         );

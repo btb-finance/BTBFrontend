@@ -733,7 +733,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
                   {canRebalance && (
                     <MobileActBtn
-                      label="⚖ Rebalance"
+                      label="Rebalance"
                       onClick={() => setRebalance(p)}
                       disabled={busy || !canTransact}
                       amber={!p.inRange}

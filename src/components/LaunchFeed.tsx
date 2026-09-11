@@ -117,7 +117,7 @@ export function LaunchFeed({ active, onTrade }: { active: boolean; onTrade: (mar
           ['LP locked only', lockedOnly, () => setLockedOnly(value => !value), 'Hide pools whose liquidity is not held by the launchpad locker'],
           ['Sellable only', sellableOnly, () => setSellableOnly(value => !value), 'Hide anything whose simulated sell has not succeeded'],
         ] as const).map(([label, on, toggle, title]) => (
-          <button key={label} onClick={toggle} title={title} style={{ height: 32, padding: '0 11px', borderRadius: 9, border: on ? '1px solid rgba(82,227,164,.36)' : btb.borderSoft, background: on ? 'rgba(82,227,164,.1)' : 'rgba(255,255,255,.025)', color: on ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>{on ? '✓ ' : ''}{label}</button>
+          <button key={label} onClick={toggle} title={title} style={{ height: 32, padding: '0 11px', borderRadius: 9, border: on ? '1px solid rgba(82,227,164,.36)' : btb.borderSoft, background: on ? 'rgba(82,227,164,.1)' : 'rgba(255,255,255,.025)', color: on ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>{label}</button>
         ))}
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter by name or contract" spellCheck={false} style={{ marginLeft: isMobile ? 0 : 'auto', flex: isMobile ? '1 0 100%' : '0 1 240px', height: 32, boxSizing: 'border-box', borderRadius: 9, border: btb.borderSoft, background: 'rgba(255,255,255,.035)', color: btb.text, padding: '0 10px', outline: 'none', fontSize: 10.5 }}/>
       </div>
@@ -145,7 +145,7 @@ export function LaunchFeed({ active, onTrade }: { active: boolean; onTrade: (mar
                     {safetyChip(pool, safety)}
                     {pool.lpLocked === true && <Chip tone="good" title="The LP position NFT is held by the launchpad locker right now">LP LOCKED</Chip>}
                   </div>
-                  <a href={`https://robinhoodchain.blockscout.com/token/${pool.token}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 8.5, textDecoration: 'none' }}>{pool.token.slice(0, 6)}…{pool.token.slice(-4)} ↗</a>
+                  <a href={`https://robinhoodchain.blockscout.com/token/${pool.token}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textDim, fontSize: 8.5, textDecoration: 'none' }}>{pool.token.slice(0, 6)}…{pool.token.slice(-4)}</a>
                 </div>
               </div>
             );

@@ -143,7 +143,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     try {
       await convert({ walletAddress: address });
     } catch (e) {
-      setError(readableError(e, 'Could not enter this week — try again'));
+      setError(readableError(e, 'Could not enter this week; try again'));
     } finally {
       setBusy(null);
     }
@@ -155,7 +155,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     try {
       await claim({ payoutId: payoutId as Id<'rewardPayouts'> });
     } catch (e) {
-      setError(readableError(e, 'Could not claim — try again'));
+      setError(readableError(e, 'Could not claim; try again'));
     } finally {
       setBusy(null);
     }
@@ -168,7 +168,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       const r = await checkInNow({ walletAddress: address });
       if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0), `Day ${r.newStreak} check-in`);
     } catch (e) {
-      setError(readableError(e, 'Could not check in — try again'));
+      setError(readableError(e, 'Could not check in; try again'));
     } finally {
       setBusy(null);
     }
@@ -483,7 +483,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                     target="_blank" rel="noopener noreferrer"
                     style={{ color: btb.textMuted, fontSize: 11, textDecoration: 'none' }}
                   >
-                    tx ↗
+                    tx
                   </a>
                 )}
               </div>

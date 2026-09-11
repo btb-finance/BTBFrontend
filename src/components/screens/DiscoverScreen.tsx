@@ -660,7 +660,7 @@ export function DiscoverScreen() {
             )}
             <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
               style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
-              {simulatable ? 'Simulate' : 'View ↗'}
+              {simulatable ? 'Simulate' : 'View'}
             </Button>
           </div>
         );
@@ -774,7 +774,7 @@ export function DiscoverScreen() {
                   )}
                   <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
                     style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
-                    {simulatable ? 'Simulate' : 'View ↗'}
+                    {simulatable ? 'Simulate' : 'View'}
                   </Button>
                 </div>
               </Glass>
@@ -842,7 +842,7 @@ export function DiscoverScreen() {
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
                       background: 'rgba(255,255,255,0.06)',
-                    }}>View ↗</a>
+                    }}>View</a>
                   </div>
                 </Glass>
               ))}

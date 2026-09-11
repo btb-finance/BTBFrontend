@@ -1061,7 +1061,7 @@ function CrossChainResearch({ chains, isMobile }: {
           </div>
           {winner && (
             <div style={{ margin: 12, padding: '13px 14px', borderRadius: 14, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green, fontSize: 17 }}>★</div>
+              <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green }}><Icon name="star" size={16} color={btb.green}/></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
                 <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1467,7 +1467,7 @@ export function SimulateScreen() {
       const pools = merged.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
 
       if (pools.length === 0 && failedChecks.length > 0) {
-        setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error) — try again. ${3 - failedChecks.length > 0 ? 'No pool found on the rest.' : ''}`);
+        setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error); try again. ${3 - failedChecks.length > 0 ? 'No pool found on the rest.' : ''}`);
       } else if (pools.length === 0) {
         setError(`No pool found for ${tokenA.symbol}/${tokenB.symbol} on any DEX we track.`);
       } else if (failedChecks.length > 0) {
@@ -1587,7 +1587,7 @@ export function SimulateScreen() {
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                           color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
                           background: 'rgba(255,255,255,0.06)',
-                        }}>View ↗</a>
+                        }}>View</a>
                       ) : (
                         <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, marginLeft: 'auto', width: 100 }}>
                           Simulate
@@ -1628,7 +1628,7 @@ export function SimulateScreen() {
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
                       background: 'rgba(255,255,255,0.06)',
-                    }}>View ↗</a>
+                    }}>View</a>
                   ) : (
                     <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, justifySelf: 'end', width: 100 }}>
                       Simulate
