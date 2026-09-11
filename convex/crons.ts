@@ -28,10 +28,6 @@ if (process.env.DISABLE_CRONS !== "1") {
   // and DexScreener independently, keeping Convex/upstream usage bounded.
   crons.interval("refresh dashboard markets", { minutes: 30 }, internal.marketsRefresh.refresh);
 
-  // The Yearn vault catalog — one ydaemon call for the whole app instead of
-  // one per visitor who opens Earn, Portfolio, or Stake.
-  crons.interval("refresh yearn vaults", { minutes: 30 }, internal.globalRefresh.refreshYearnVaults);
-
   // Global BearNFT/BearStaking numbers. These were polled every 15-20s by the
   // app shell of every visitor, connected or not; per-wallet reads stay live
   // on the client.

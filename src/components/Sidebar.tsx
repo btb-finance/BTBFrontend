@@ -27,7 +27,7 @@ const NAV_SECTIONS: { label: string; items: { id: Tab; label: string; icon: stri
 ];
 
 export function Sidebar({
-  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onEarn, onConnect,
+  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onConnect,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
@@ -35,7 +35,6 @@ export function Sidebar({
   isReadOnly: boolean;
   onDisconnect: () => void;
   onDocs: () => void;
-  onEarn: () => void;
   onConnect: () => void;
 }) {
   const { collapsed, forceCollapsed, toggle, width } = useSidebar();
@@ -119,18 +118,6 @@ export function Sidebar({
             })}
           </div>
         ))}
-      </div>
-
-      <div
-        onClick={onEarn}
-        title={collapsed ? 'Earn' : undefined}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', borderRadius: 10,
-          justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '10px 0' : '9px 10px',
-        }}
-      >
-        <Icon name="launch" size={17} color={btb.textMuted} />
-        {!collapsed && <span style={{ color: btb.textMuted, fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap' }}>Earn</span>}
       </div>
 
       <div

@@ -17,11 +17,9 @@ import { internal } from "./_generated/api";
 import { createPublicClient, fallback, http } from "viem";
 import { mainnet } from "viem/chains";
 import { MAINNET_RPCS } from "./rpcEndpoints";
-import { fetchYearnVaultsFromApi, toWire } from "../src/lib/yearnVaults";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { BEAR_NFT_ABI, BEAR_STAKING_ABI } from "../src/contracts/abis";
 
-export const SNAPSHOT_YEARN_VAULTS = "yearn-vaults";
 export const SNAPSHOT_BEAR_STATS = "bear-stats";
 
 function mainnetClient() {
@@ -30,18 +28,6 @@ function mainnetClient() {
     transport: fallback(MAINNET_RPCS.map((u) => http(u, { timeout: 12_000, retryCount: 1 }))),
   });
 }
-
-/** The Yearn vault catalog — one ydaemon call for the whole app. */
-export const refreshYearnVaults = internalAction({
-  args: {},
-  handler: async (ctx) => {
-    const vaults = await fetchYearnVaultsFromApi();
-    await ctx.runMutation(internal.snapshots.save, {
-      key: SNAPSHOT_YEARN_VAULTS,
-      json: JSON.stringify({ version: 1, vaults: vaults.map(toWire) }),
-    });
-  },
-});
 
 /**
  * Global BearNFT + BearStaking numbers (mint progress, pool stats). These are

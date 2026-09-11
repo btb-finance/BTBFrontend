@@ -16,7 +16,6 @@ const TAB_META: Record<string, { title: string; description: string }> = {
   nft:       { title: 'BTB Bear NFT', description: 'Mint and stake BTB Bears to earn BTBB rewards.' },
   agent:     { title: 'Agent', description: 'Your personal AI agent that reads your portfolio and flags risks.' },
   studio:    { title: 'Agent Studio', description: 'Create a smart account, compose a strategy across any protocols, set your rules once, and hand the work to an agent that can never break them.' },
-  earn:      { title: 'Earn', description: 'Yearn vaults and staking on Ethereum. Deposit once, yield compounds itself.' },
   docs:      { title: 'Docs', description: 'Guides and documentation for the BTB Finance app.' },
 };
 

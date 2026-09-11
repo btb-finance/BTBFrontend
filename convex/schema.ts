@@ -42,7 +42,7 @@ export default defineSchema({
 
   // Cron-driven global snapshots — data identical for every visitor, recomputed
   // on a schedule and read with one query instead of per-visitor API work.
-  // `key` is the dataset name (e.g. "yearn-vaults", "bear-stats").
+  // `key` is the dataset name (e.g. "bear-stats").
   snapshots: defineTable({
     key: v.string(),
     json: v.string(),

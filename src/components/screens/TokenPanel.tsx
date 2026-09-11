@@ -71,17 +71,16 @@ function shortDate(ms: number) {
  * click is intercepted and handled in-app: these are tabs of the same React
  * shell, and letting the browser follow the link would tear down and re-boot
  * the whole wallet stack for what is really a state change. */
-type EarnAction = 'swap' | 'simulate' | 'earn';
+type EarnAction = 'swap' | 'simulate';
 
 const EARN_ROWS: { icon: string; label: string; detail: string; href: string; action: EarnAction; tint: string }[] = [
   { icon: 'swap', label: 'Make a swap', detail: 'Points scale with trade size', href: '/swap', action: 'swap', tint: '#52E3A4' },
   { icon: 'chart', label: 'Simulate a pool', detail: '+100 XP a day, +100 per chain researched', href: '/simulate', action: 'simulate', tint: '#7DD3FC' },
-  { icon: 'stake', label: 'Stake or supply', detail: 'Points per staking / supplying action', href: '/earn', action: 'earn', tint: '#FFB36B' },
 ];
 
 /** The three-beat story: use → enter → claim. */
 const STEPS: { title: string; detail: string }[] = [
-  { title: 'Use the app', detail: 'Swaps, LP, staking and check-ins earn points on their own.' },
+  { title: 'Use the app', detail: 'Swaps, LP positions, simulations and check-ins earn points on their own.' },
   { title: 'Enter the split', detail: "Friday, the week's revenue is shared by points. One entry per wallet." },
   { title: 'Claim BTB', detail: 'Lands in your wallet. No gas, no signature. Claim before next Friday.' },
 ];
@@ -106,12 +105,11 @@ function StatTile({ label, value, sub, color }: { label: string; value: string; 
  * The Earn/rewards block. Lives at the top of Home rather than on its own tab —
  * it is a panel, not a screen, so it brings no page chrome of its own.
  */
-export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
+export function TokenPanel({ onSwap, address, onConnect, goto }: {
   onSwap: () => void;
   address?: string;
   onConnect: () => void;
   goto: (t: Tab) => void;
-  onEarn: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<'convert' | 'claim' | 'checkin' | null>(null);
@@ -222,7 +220,6 @@ export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
     event.preventDefault();
     if (action === 'swap') { onSwap(); return; }
     if (action === 'simulate') { goto('simulate'); return; }
-    if (action === 'earn') { onEarn(); return; }
   };
 
   // The strip shows the current 7-day cycle of the streak, so day 7 (the bonus
@@ -339,7 +336,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
           <div>
             <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.7, lineHeight: 1.1 }}>Use BTB. Get paid every Friday.</div>
             <div style={{ color: btb.textMuted, fontSize: 13.5, lineHeight: 1.5, marginTop: 8 }}>
-              BTB shares its weekly revenue with the people who use it. Swaps, liquidity, staking and a daily check-in all earn points. Points become BTB.
+              BTB shares its weekly revenue with the people who use it. Swaps, liquidity and a daily check-in all earn points. Points become BTB.
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
@@ -436,7 +433,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
       {/* ── earn more points ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <SectionHeader title="Earn more points"/>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0,1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0,1fr))', gap: 8 }}>
           {EARN_ROWS.map(row => (
             <a
               key={row.label}
