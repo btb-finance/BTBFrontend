@@ -16,6 +16,16 @@ import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useSidebar } from '../../lib/SidebarContext';
 import { ChainLogo } from '../ChainLogo';
 
+function RowBtn({ label, onClick, green }: { label: string; onClick: () => void; green?: boolean }) {
+  return (
+    <button onClick={onClick} style={{
+      height: 28, padding: '0 10px', borderRadius: 9, border: green ? '1px solid rgba(82,227,164,0.45)' : btb.borderSoft,
+      background: green ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.07)', color: green ? btb.green : btb.text,
+      fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+    }}>{label}</button>
+  );
+}
+
 function fmt(n: number, dp = 2) {
   return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
 }
@@ -100,6 +110,10 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
   const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8'];
   const top4 = trustedTokens.slice(0, 4);
 
+  const canSwapToken = (t: Token) => !!KYBER_CHAINS[t.chainId ?? 1];
+  const canSimulateToken = (t: Token) => !!CHAIN_DATA_NETWORKS[t.chainId ?? 1];
+  const openLpFor = (t: Token) => ([1, 4663, 8453].includes(t.chainId ?? 1) ? setLpToken(t) : onSimulate?.(t));
+
   const allTokenColumns: Column<Token>[] = [
     {
       key: 'symbol', label: 'Asset', sortable: true, sortValue: t => t.symbol,
@@ -128,6 +142,15 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
               ) : <span title={t.address} style={{ color: btb.textDim }}>{shortAddress(t.address)}</span>}
             </div>
             {t.suspiciousQuote && <div style={{ color: btb.amber, fontSize: 9.5, fontWeight: 700, marginTop: 1 }}>UNVERIFIED QUOTE · CHECK CONTRACT</div>}
+            {isMobile && (canSwapToken(t) || canSimulateToken(t)) && (
+              // Phone: the actions sit under the name, full width of the cell,
+              // instead of a third column that pushes the table sideways.
+              <div style={{ display: 'flex', gap: 5, marginTop: 7 }} onClick={e => e.stopPropagation()}>
+                {canSimulateToken(t) && <RowBtn label="Add LP" green onClick={() => openLpFor(t)}/>}
+                {canSimulateToken(t) && <RowBtn label="Simulate" onClick={() => onSimulate?.(t)}/>}
+                {canSwapToken(t) && <RowBtn label="Swap" onClick={() => onSwap?.(t)}/>}
+              </div>
+            )}
           </div>
         </div>
       ),
@@ -212,31 +235,33 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
       },
     },
   ];
-  const columns = allTokenColumns.filter(c => !isMobile || c.key !== 'balance');
+  const columns = allTokenColumns.filter(c => !isMobile || (c.key !== 'balance' && c.key !== 'actions'));
 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <Glass padding={20} radius={18} strong style={{ flex: 1, minWidth: 260, display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ flex: 1 }}>
+        <Glass padding={isMobile ? 16 : 20} radius={18} strong style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>Net worth</div>
-            <div style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.6, marginTop: 4 }}>${fmt(totalUsd)}</div>
+            <div style={{ color: btb.text, fontSize: isMobile ? 'clamp(20px, 7vw, 30px)' : 30, fontWeight: 800, letterSpacing: -0.6, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${fmt(totalUsd)}</div>
             <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>
               {allTokensWithBalance.length} tokens{allTokensWithBalance.length > trustedTokens.length && ` · ${allTokensWithBalance.length - trustedTokens.length} quotes excluded from net worth`}
             </div>
           </div>
-          {onSend && (
-            <Button variant="ghost" size="sm" onClick={onSend} title="Send tokens from this wallet"
-              style={{ height: 34, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
-              <Icon name="send" size={12} /> Send
-            </Button>
-          )}
-          <Glass padding={0} radius={999} style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
-            <div className={refreshing ? 'spin' : undefined} style={refreshing ? { width: 16, height: 16 } : undefined}>
-              <Icon name="refresh" size={16} />
-            </div>
-          </Glass>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {onSend && (
+              <Button variant="ghost" size="sm" fullWidth={false} onClick={onSend} title="Send tokens from this wallet"
+                style={{ height: 34, width: isMobile ? 34 : undefined, padding: isMobile ? 0 : undefined, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
+                <Icon name="send" size={12} />{!isMobile && ' Send'}
+              </Button>
+            )}
+            <Glass padding={0} radius={999} style={{ width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
+              <div className={refreshing ? 'spin' : undefined} style={refreshing ? { width: 16, height: 16 } : undefined}>
+                <Icon name="refresh" size={16} />
+              </div>
+            </Glass>
+          </div>
         </Glass>
 
         {top4.length > 0 && (
@@ -310,6 +335,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
       )}
 
       {lpToken && <TokenLpPicker token={lpToken} onClose={() => setLpToken(null)} />}
+
     </div>
   );
 }

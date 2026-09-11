@@ -716,7 +716,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
                   {p.staked ? (
                     <>
                       {p.staked.earned > 0n && <MobileActBtn label={busy ? '…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={busy || !canTransact} green/>}
