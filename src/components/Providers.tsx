@@ -6,6 +6,7 @@ import { makeConfig } from '@/lib/wagmi';
 import { TxProvider } from '@/lib/TxTracker';
 import { ReactNode, useState, useEffect } from 'react';
 import { ChainThemeProvider } from '@/lib/ChainThemeContext';
+import { XpToastProvider } from '@/lib/XpToast';
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud';
 
@@ -49,7 +50,7 @@ export function Providers({ children }: { children: ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <ChainThemeProvider>
             <TxProvider>
-              {children}
+              <XpToastProvider>{children}</XpToastProvider>
             </TxProvider>
           </ChainThemeProvider>
         </QueryClientProvider>
