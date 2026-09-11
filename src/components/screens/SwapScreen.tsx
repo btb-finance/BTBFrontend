@@ -408,6 +408,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const [errMsg,    setErrMsg]    = useState('');
   // Max slippage for the swap, in bps. The pill in the header cycles it.
   const [slippageBps, setSlippageBps] = useState(50);
+  const [lastSwap, setLastSwap] = useState<{ amount: string; from: string; out: string; to: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chainTokens = (() => {
@@ -600,6 +601,9 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   }
 
   // Debounced fetch on input changes
+  // A new amount starts a new swap: drop the last result banner.
+  useEffect(() => { if (fromAmt && (step === 'success' || step === 'error')) setStep('form'); }, [fromAmt]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!fromAmt || parseFloat(fromAmt) <= 0) { setQuote(null); return; }
@@ -682,7 +686,9 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       });
 
       if (lastHash) setTxHash(lastHash);
+      setLastSwap({ amount: fromAmt, from: fromToken.symbol, out: bestOutFormatted, to: toToken.symbol });
       setStep('success');
+      setFromAmt(''); setQuote(null);
       setBalanceRefreshNonce(value => value + 1);
       if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).then(r => showXp(r.awarded ?? 0, 'Swap')).catch(() => {});
     } catch (e: any) {
@@ -702,8 +708,10 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const canSwap = !!quote && !!address && !quoting && !insufficientBalance;
   const chainExplorer = SUPPORTED_CHAINS.find(chain => chain.id === chainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
 
-  // ── Form step ──────────────────────────────────────────────────────────────
-  if (step === 'form') return (
+  // Everything happens on this one screen: progress in the button, the
+  // result as a banner above it. No review, progress, or result pages.
+  const busy = step === 'approving' || step === 'sending';
+  return (
     <Screen gap={16}>
       {/* One header row: mode, network, slippage. The network is also set by
           picking a token you hold on another chain, so it stays compact. */}
@@ -784,15 +792,34 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         </div>
       )}
 
+      {step === 'success' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(82,227,164,0.10)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 14, padding: '11px 14px' }}>
+          <Icon name="check" size={16} color={btb.green}/>
+          <div style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 13, fontWeight: 700 }}>
+            Swapped{lastSwap ? ` ${lastSwap.amount} ${lastSwap.from} for ${lastSwap.out} ${lastSwap.to}` : ''}
+            <span style={{ color: btb.textMuted, fontWeight: 500 }}> · +{SWAP_XP} XP</span>
+          </div>
+          {txHash && <a href={`${chainExplorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12, flexShrink: 0 }}>tx</a>}
+        </div>
+      )}
+      {step === 'error' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.35)', borderRadius: 14, padding: '11px 14px' }}>
+          <Icon name="close" size={16} color={btb.loss}/>
+          <div style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 12.5, lineHeight: 1.4 }}>{errMsg || 'Transaction failed'}</div>
+          <button onClick={() => setStep('form')} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Dismiss</button>
+        </div>
+      )}
+
       <Button
         // One tap: the quote line above is the review. The wallet's own
         // confirmation is the second look; progress shows on the next screen.
-        onClick={() => (!address ? onConnectWallet?.() : canSwap && executeSwap())}
-        disabled={!address ? false : !canSwap}
-        icon={address && canSwap ? 'swap' : undefined}
+        onClick={() => (!address ? onConnectWallet?.() : canSwap && !busy && executeSwap())}
+        disabled={!address ? false : !canSwap || busy}
+        loading={busy}
+        icon={address && canSwap && !busy ? 'swap' : undefined}
         style={{ marginTop: 4, fontSize: 18 }}
       >
-        {!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? `Swap ${fromToken.symbol} for ${toToken.symbol}` : quoteErr ? 'No route found' : 'Enter amount'}
+        {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : !address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? `Swap ${fromToken.symbol} for ${toToken.symbol}` : quoteErr ? 'No route found' : 'Enter amount'}
       </Button>
 
       {picker && (
@@ -827,122 +854,6 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   );
 
   // ── Confirm / sending step ─────────────────────────────────────────────────
-  if (step === 'confirm' || step === 'approving' || step === 'sending') return (
-    <Screen gap={16}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 4px' }}>
-        <div onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <Icon name="back" size={18} color={btb.textMuted}/>
-        </div>
-        <div>
-          <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.4 }}>Confirm swap</div>
-          {CHAIN_META[chainId] && <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={chainId} size={16}/><span style={{ color: btb.textMuted, fontSize: 12 }}>{CHAIN_META[chainId].name}</span></div>}
-        </div>
-      </div>
-
-      <Glass padding={0} radius={22} strong style={{ overflow: 'hidden' }}>
-        {/* Pay row */}
-        <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <TokenIcon symbol={fromToken.symbol} size={40} logoUrl={fromToken.logoURI}/>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 2 }}>You pay</div>
-            <div style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {parseFloat(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}
-            </div>
-            {fromToken.usdPrice && <div style={{ color: btb.textDim, fontSize: 12 }}>≈ ${(parseFloat(fromAmt) * fromToken.usdPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
-          </div>
-        </div>
-        {/* Divider with arrow */}
-        <div style={{ position: 'relative', height: 1, background: 'rgba(255,255,255,0.07)', margin: '0 18px' }}>
-          <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon name="down" size={14} color={btb.textMuted}/>
-          </div>
-        </div>
-        {/* Receive row */}
-        <div style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <TokenIcon symbol={toToken.symbol} size={40} logoUrl={toToken.logoURI}/>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 2 }}>You receive</div>
-            <div style={{ color: '#52E3A4', fontSize: 17, fontWeight: 800, letterSpacing: -0.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {bestOutFormatted} {toToken.symbol}
-            </div>
-            {toUsd != null && toUsd > 0 && <div style={{ color: btb.textDim, fontSize: 12 }}>≈ ${toUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
-          </div>
-        </div>
-      </Glass>
-
-      <Glass padding={14} radius={18} soft>
-        {quote && [
-          ['Rate',         `1 ${fromToken.symbol} = ${quote.rate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`],
-          ['Network fee',  quote.gasUsd > 0 ? `~ $${quote.gasUsd.toFixed(2)}` : '—'],
-          ['Price impact', `${quote.priceImpact > 0 ? quote.priceImpact.toFixed(2) : '< 0.01'}%`],
-          ['Slippage',     '0.5%'],
-          ['BTB fee',      `${BTB_SWAP_FEE_PERCENT}% · received token`],
-          ['Route',        quote.route],
-        ].map(([label, value], i, arr) => (
-          <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
-            <span style={{ color: btb.textMuted, fontSize: 13 }}>{label}</span>
-            <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{value}</span>
-          </div>
-        ))}
-      </Glass>
-
-      <div style={{ display: 'flex', gap: 10 }}>
-        <Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1, fontSize: 15 }}>Cancel</Button>
-        <Button
-          size="md"
-          onClick={executeSwap}
-          disabled={step === 'approving' || step === 'sending'}
-          loading={step === 'approving' || step === 'sending'}
-          icon={step === 'approving' || step === 'sending' ? undefined : 'swap'}
-          style={{ flex: 2 }}
-        >
-          {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : 'Confirm swap'}
-        </Button>
-      </div>
-    </Screen>
-  );
-
-  // ── Success step ───────────────────────────────────────────────────────────
-  if (step === 'success') return (
-    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
-      <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(82,227,164,0.15)', border: '2px solid rgba(82,227,164,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="check" size={36} color={btb.green}/>
-      </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ color: btb.text, fontSize: 24, fontWeight: 800, letterSpacing: -0.5 }}>Swap complete!</div>
-        <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 8 }}>
-          {fromAmt} {fromToken.symbol} to {bestOutFormatted} {toToken.symbol}
-        </div>
-        <Badge bg="rgba(82,227,164,0.14)" border="1px solid rgba(82,227,164,0.3)" color="#52E3A4" style={{ gap: 5, marginTop: 10, padding: '4px 12px', fontSize: 13 }}>
-          <Icon name="bolt" size={13} color="#52E3A4"/> +{SWAP_XP} XP earned
-        </Badge>
-      </div>
-      {txHash && (
-        <a href={`${chainExplorer}/tx/${txHash}`} target="_blank" rel="noreferrer"
-          style={{ color: btb.textMuted, fontSize: 12, fontFamily: 'monospace' }}>
-          {txHash.slice(0, 14)}…{txHash.slice(-8)}
-        </a>
-      )}
-      <button onClick={reset} style={{ width: '100%', maxWidth: 360, height: 56, borderRadius: 18, border: 'none', cursor: 'pointer', background: 'rgba(82,227,164,0.15)', color: btb.green, fontSize: 16, fontWeight: 700, fontFamily: 'inherit', outline: '1px solid rgba(82,227,164,0.35)' }}>Swap again</button>
-    </Screen>
-  );
-
-  // ── Error step ─────────────────────────────────────────────────────────────
-  return (
-    <Screen gap={20} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh' }}>
-      <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="close" size={32} color={btb.red}/>
-      </div>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ color: btb.text, fontSize: 22, fontWeight: 800 }}>Transaction failed</div>
-        <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 8, lineHeight: 1.5, maxWidth: 300 }}>{errMsg}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 10, width: '100%', maxWidth: 360 }}>
-        <button onClick={reset} style={{ flex: 1, height: 52, borderRadius: 16, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Cancel</button>
-        <button onClick={() => setStep('confirm')} style={{ flex: 1, height: 52, borderRadius: 16, border: 'none', background: btb.gradPrimary, color: btb.bg, fontSize: 15, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>Retry</button>
-      </div>
-    </Screen>
-  );
 }
 
 function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () => void; onConnectWallet?: () => void }) {
