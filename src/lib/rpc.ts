@@ -40,6 +40,12 @@ export const MAINNET_RPCS = [
   'https://eth-mainnet.public.blastapi.io',
   'https://rpc.mevblocker.io',
   'https://rpc.fullsend.to',
+  'https://eth.meowrpc.com',
+  'https://1.rpc.thirdweb.com',
+  'https://ethereum-json-rpc.stakely.io',
+  'https://public.1rpc.io/eth',
+  'https://rpc-eth.blockmachine.io',
+  'https://rpc.swiftnodes.io/rpc/eth',
 ];
 
 /** Wagmi transport for chain 1 — falls over to the next RPC if one fails. */

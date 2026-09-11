@@ -1,4 +1,4 @@
-// Alchemy Portfolio API — token balances + NFTs across chains
+// Alchemy Portfolio API — token balances across chains (fallback behind Krystal)
 
 export const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? 'INhvk7-hUrgf5niZBGbae';
 const BASE = `https://api.g.alchemy.com/data/v1/${ALCHEMY_KEY}`;
@@ -143,53 +143,3 @@ export async function fetchAlchemyNativePrices(symbols: string[]): Promise<Recor
 }
 
 
-// ─── Position-NFT enumeration ────────────────────────────────────────────────
-// LP positions (Uniswap V3/V4, PancakeSwap V3) are NFTs. One indexed Alchemy
-// call returns every position tokenId the wallet owns across all of those
-// contracts at once — replacing the slow on-chain paths (balanceOf +
-// tokenOfOwnerByIndex loops for V3, Transfer-log scans for V4).
-const NFT_HOST = `https://eth-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_KEY}`;
-
-/** TokenIds the owner holds per contract (keys are lowercase addresses). */
-export async function fetchOwnedNftTokenIds(
-  owner: string,
-  contracts: string[],
-): Promise<Map<string, bigint[]>> {
-  const out = new Map<string, bigint[]>(contracts.map((c) => [c.toLowerCase(), []]));
-  let pageKey: string | undefined;
-  do {
-    const qs = new URLSearchParams({ owner, withMetadata: 'false', pageSize: '100' });
-    for (const c of contracts) qs.append('contractAddresses[]', c);
-    if (pageKey) qs.set('pageKey', pageKey);
-    const res = await fetch(`${NFT_HOST}/getNFTsForOwner?${qs}`, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) throw new Error(`alchemy nft ${res.status}`);
-    const json = await res.json() as { ownedNfts?: { contractAddress?: string; tokenId?: string }[]; pageKey?: string };
-    for (const n of json.ownedNfts ?? []) {
-      const key = n.contractAddress?.toLowerCase();
-      if (!key || n.tokenId == null) continue;
-      try { out.get(key)?.push(BigInt(n.tokenId)); } catch { /* non-numeric tokenId — skip */ }
-    }
-    pageKey = json.pageKey;
-  } while (pageKey);
-  return out;
-}
-
-/** Enumerate Robinhood Chain ERC-721 holdings through Blockscout. The app
- * subsequently verifies ownership and reads every position from chain RPC. */
-export async function fetchRobinhoodOwnedNftTokenIds(owner: string, contracts: string[]): Promise<Map<string, bigint[]>> {
-  const out = new Map<string, bigint[]>(contracts.map((c) => [c.toLowerCase(), []]));
-  let params: Record<string, string> | null = null;
-  do {
-    const qs = new URLSearchParams({ type: 'ERC-721', ...(params ?? {}) });
-    const res = await fetch(`https://robinhoodchain.blockscout.com/api/v2/addresses/${owner}/nft?${qs}`, { signal: AbortSignal.timeout(12_000) });
-    if (!res.ok) throw new Error(`Robinhood NFT index ${res.status}`);
-    const json = await res.json() as { items?: { id?: string; token?: { address_hash?: string } }[]; next_page_params?: Record<string, string | number> | null };
-    for (const item of json.items ?? []) {
-      const key = item.token?.address_hash?.toLowerCase();
-      if (!key || item.id == null || !out.has(key)) continue;
-      try { out.get(key)?.push(BigInt(item.id)); } catch { /* malformed id */ }
-    }
-    params = json.next_page_params ? Object.fromEntries(Object.entries(json.next_page_params).map(([k, v]) => [k, String(v)])) : null;
-  } while (params);
-  return out;
-}

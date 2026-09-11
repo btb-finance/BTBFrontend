@@ -54,8 +54,13 @@ export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {
 }
 
 /** Every Slipstream position the wallet holds on Base, across all three managers. */
-export async function fetchAerodromePositions(client: PublicClient, owner: `0x${string}`): Promise<LiquidityPosition[]> {
-  const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchV3Positions(client, owner, d)));
+export async function fetchAerodromePositions(
+  client: PublicClient,
+  owner: `0x${string}`,
+  /** Pre-enumerated tokenIds per manager (Blockscout); omit to enumerate on-chain. */
+  knownIds?: Map<string, bigint[]>,
+): Promise<LiquidityPosition[]> {
+  const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchV3Positions(client, owner, d, knownIds?.get(d.positionManager.toLowerCase()))));
   const ok = results.filter((r): r is PromiseFulfilledResult<LiquidityPosition[]> => r.status === 'fulfilled');
   if (ok.length === 0) throw (results[0] as PromiseRejectedResult).reason;
   return ok.flatMap((r) => r.value);
