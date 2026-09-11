@@ -496,17 +496,33 @@ export function DiscoverScreen() {
     for (const t of tokens) if (t.logoURI) m.set(t.address.toLowerCase(), t.logoURI);
     return m;
   }, [tokens]);
+  // What the wallet holds, keyed by chain + address, valued in USD. Chain
+  // matters: USDC on Base is not USDC on Ethereum for LP purposes.
   const held = useMemo(() => {
-    const s = new Set<string>();
+    const m = new Map<string, number>();
     for (const t of positions) {
       if (parseFloat(t.balance ?? '0') <= 0) continue;
-      for (const a of lpAddressesForToken(t.address)) s.add(a);
+      for (const a of lpAddressesForToken(t.address)) {
+        const key = `${t.chainId ?? 1}:${a}`;
+        m.set(key, (m.get(key) ?? 0) + (t.usdValue ?? 0));
+      }
     }
-    return s;
+    return m;
   }, [positions]);
-  const heldSyms = (p: EarnPool): string[] => {
+  const heldSides = (p: EarnPool): { sym: string; usd: number }[] => {
     const syms = p.pair.split('-');
-    return (p.underlyingTokens ?? []).map((t, i) => (held.has(t.toLowerCase()) ? syms[i] : null)).filter((x): x is string => !!x);
+    const chainId = discoverChainId(p.chain, p.chainId) ?? 1;
+    return (p.underlyingTokens ?? [])
+      .map((t, i) => { const usd = held.get(`${chainId}:${t.toLowerCase()}`); return usd == null ? null : { sym: syms[i], usd }; })
+      .filter((x): x is { sym: string; usd: number } => !!x);
+  };
+  const heldSyms = (p: EarnPool): string[] => heldSides(p).map((s) => s.sym);
+  /** Ranking for "pools for your holdings": both sides held beats one side,
+   * then by how much of the pool's tokens the wallet actually holds. */
+  const holdScore = (p: EarnPool): number => {
+    const sides = heldSides(p);
+    if (sides.length === 0) return 0;
+    return sides.length * 1e12 + sides.reduce((s, x) => s + x.usd, 0);
   };
 
   const filtered = useMemo(() => {
@@ -517,6 +533,22 @@ export function DiscoverScreen() {
       return !q || p.pair.toLowerCase().includes(q) || p.dex.toLowerCase().includes(q) || p.chain.toLowerCase().includes(q);
     });
   }, [pools, search, selectedChain, selectedDex]);
+
+  // Pools the wallet can enter with what it already holds come first, on
+  // their own, ranked by how much of the pair is in the wallet. Everything
+  // else keeps the volume ranking below. No search: the search is the intent.
+  const FOR_YOU_MAX = 8;
+  const [showAllForYou, setShowAllForYou] = useState(false);
+  const forYouAll = useMemo(() => {
+    if (search.trim() || held.size === 0) return [];
+    return filtered
+      .filter(p => holdScore(p) > 0 && p.tvlUsd >= 50_000)
+      .sort((a, b) => holdScore(b) - holdScore(a) || (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, held, search]);
+  const forYou = showAllForYou ? forYouAll : forYouAll.slice(0, FOR_YOU_MAX);
+  const forYouKeys = useMemo(() => new Set(forYou.map(p => `${p.chain}-${p.id}`)), [forYou]);
+  const rest = useMemo(() => filtered.filter(p => !forYouKeys.has(`${p.chain}-${p.id}`)), [filtered, forYouKeys]);
 
   const chains = useMemo(() => {
     const byName = new Map<string, DiscoverChain>();
@@ -590,7 +622,7 @@ export function DiscoverScreen() {
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
                   <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
-                    You hold {mine.join(' + ')}
+                    {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                   </Badge>
                 )}
               </div>
@@ -670,46 +702,7 @@ export function DiscoverScreen() {
 
   const columns = allColumns.filter(c => c.key !== 'volume' || hasVolumeData);
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <DiscoverStatusBanner isMobile={isMobile} />
-      <div style={{ display: 'flex', gap: 10, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-        <div style={{
-          flex: 1, minWidth: isMobile ? '100%' : 220, display: 'flex', alignItems: 'center', gap: 8,
-          padding: '0 14px', height: 42, borderRadius: 12,
-          background: btb.surfaceSoft, border: btb.borderSoft,
-        }}>
-          <Icon name="search" size={15} color={btb.textMuted} />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search a token or pair — eth, eth/usdc, ethusdc"
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
-          />
-        </div>
-        <DiscoverChainSelect chains={chains} value={selectedChain} onChange={(chainName) => {
-          setSelectedChain(chainName);
-          setSelectedDex(current => current === 'all' || pools.some(pool =>
-            (chainName === 'all' || pool.chain === chainName) && pool.dex === current
-          ) ? current : 'all');
-          const chain = chains.find(item => item.name === chainName);
-          if (chain?.chainId) setThemeChainId(chain.chainId);
-        }} mobile={isMobile}/>
-        <DiscoverDexSelect dexes={dexes} value={selectedDex} onChange={setSelectedDex} mobile={isMobile} logos={dexLogos}/>
-      </div>
-
-      {isMobile ? (
-        // Compact card list — the full table is far too wide for phones.
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {loading && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <Spinner size={26} color="#fff" track="rgba(255,255,255,0.18)" />
-            </div>
-          )}
-          {!loading && filtered.length === 0 && (
-            <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 32 }}>No pools found</div>
-          )}
-          {!loading && [...filtered].sort((a, b) => b.tvlUsd - a.tvlUsd).map(p => {
+  const renderMobileCard = (p: EarnPool) => {
             const [s0, s1] = splitPair(p);
             const mine = heldSyms(p);
             const [addr0, addr1] = p.underlyingTokens ?? [];
@@ -737,7 +730,7 @@ export function DiscoverScreen() {
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (
                         <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
-                          You hold {mine.join(' + ')}
+                          {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                         </Badge>
                       )}
                     </div>
@@ -779,23 +772,110 @@ export function DiscoverScreen() {
                 </div>
               </Glass>
             );
-          })}
+          };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <DiscoverStatusBanner isMobile={isMobile} />
+      <div style={{ display: 'flex', gap: 10, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+        <div style={{
+          flex: 1, minWidth: isMobile ? '100%' : 220, display: 'flex', alignItems: 'center', gap: 8,
+          padding: '0 14px', height: 42, borderRadius: 12,
+          background: btb.surfaceSoft, border: btb.borderSoft,
+        }}>
+          <Icon name="search" size={15} color={btb.textMuted} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search a token or pair — eth, eth/usdc, ethusdc"
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
+          />
+        </div>
+        <DiscoverChainSelect chains={chains} value={selectedChain} onChange={(chainName) => {
+          setSelectedChain(chainName);
+          setSelectedDex(current => current === 'all' || pools.some(pool =>
+            (chainName === 'all' || pool.chain === chainName) && pool.dex === current
+          ) ? current : 'all');
+          const chain = chains.find(item => item.name === chainName);
+          if (chain?.chainId) setThemeChainId(chain.chainId);
+        }} mobile={isMobile}/>
+        <DiscoverDexSelect dexes={dexes} value={selectedDex} onChange={setSelectedDex} mobile={isMobile} logos={dexLogos}/>
+      </div>
+
+      {isMobile ? (
+        // Compact card list — the full table is far too wide for phones.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {loading && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+              <Spinner size={26} color="#fff" track="rgba(255,255,255,0.18)" />
+            </div>
+          )}
+          {!loading && filtered.length === 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 32 }}>No pools found</div>
+          )}
+          {!loading && forYou.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 0' }}>
+              <span style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Pools for your holdings</span>
+              {forYouAll.length > FOR_YOU_MAX && (
+                <button onClick={() => setShowAllForYou(v => !v)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {showAllForYou ? 'Show fewer' : `Show all ${forYouAll.length}`}
+                </button>
+              )}
+            </div>
+          )}
+          {!loading && forYou.map(renderMobileCard)}
+          {!loading && forYou.length > 0 && rest.length > 0 && (
+            <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3, padding: '8px 4px 0' }}>All pools</div>
+          )}
+          {!loading && [...rest].sort((a, b) => b.tvlUsd - a.tvlUsd).map(renderMobileCard)}
         </div>
       ) : (
-        <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
-          <DataTable
-            columns={columns}
-            rows={filtered}
-            rowKey={p => `${p.chain}-${p.id}`}
-            loading={loading}
-            emptyMessage="No pools found"
-            // Volume, not TVL. Sorting by TVL is what put pools holding nine
-            // figures with no trades at the top of the table.
-            defaultSortKey="volume"
-            onRowClick={p => canSimulatePool(p)
-              ? openSimulator(p)
-              : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
-          />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {!loading && forYou.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+                <div>
+                  <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Pools for your holdings</span>
+                  <span style={{ color: btb.textDim, fontSize: 12, marginLeft: 10 }}>ranked by what you already hold, both sides first</span>
+                </div>
+                {forYouAll.length > FOR_YOU_MAX && (
+                  <button onClick={() => setShowAllForYou(v => !v)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {showAllForYou ? 'Show fewer' : `Show all ${forYouAll.length}`}
+                  </button>
+                )}
+              </div>
+              <div style={{ borderRadius: 16, border: '1px solid rgba(82,227,164,0.25)', background: 'rgba(82,227,164,0.04)', overflow: 'hidden' }}>
+                <DataTable
+                  columns={columns}
+                  rows={forYou}
+                  rowKey={p => `${p.chain}-${p.id}`}
+                  loading={false}
+                  emptyMessage=""
+                  onRowClick={p => canSimulatePool(p)
+                    ? openSimulator(p)
+                    : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+                />
+              </div>
+            </div>
+          )}
+          {!loading && forYou.length > 0 && (
+            <div style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3, padding: '4px 4px 0' }}>All pools</div>
+          )}
+          <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
+            <DataTable
+              columns={columns}
+              rows={rest}
+              rowKey={p => `${p.chain}-${p.id}`}
+              loading={loading}
+              emptyMessage="No pools found"
+              // Volume, not TVL. Sorting by TVL is what put pools holding nine
+              // figures with no trades at the top of the table.
+              defaultSortKey="volume"
+              onRowClick={p => canSimulatePool(p)
+                ? openSimulator(p)
+                : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+            />
+          </div>
         </div>
       )}
 
