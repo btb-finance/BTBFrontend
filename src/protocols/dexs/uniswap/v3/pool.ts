@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI } from './abis';
+import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLIPSTREAM_POOL_ABI } from './abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
 export interface MintPool {
@@ -16,6 +16,8 @@ export interface MintPool {
   tick: number;
   /** Current in-range liquidity — denominator for fee-share estimates. */
   liquidity: bigint;
+  /** Slipstream: `fee` above is the tickSpacing key; this is the pool's actual swap fee (pips). */
+  poolFeePips?: number;
 }
 
 const ZERO = '0x0000000000000000000000000000000000000000';
@@ -123,11 +125,14 @@ export async function fetchPoolsForMint(
   d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Promise<Record<number, MintPool>> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
+  // Slipstream: "tiers" are tick spacings, slot0 has one field fewer, and the
+  // swap fee is a per-pool value read separately.
+  const slip = !!d.slipstream;
 
   const [addrRes, metaRes] = await Promise.all([
     withSafeMulticall(client).multicall({
       contracts: d.feeTiers.map((fee) => ({
-        address: d.factory, abi: FACTORY_ABI, functionName: 'getPool' as const, args: [token0, token1, fee] as const,
+        address: d.factory, abi: slip ? SLIPSTREAM_FACTORY_ABI : FACTORY_ABI, functionName: 'getPool' as const, args: [token0, token1, fee] as const,
       })),
       allowFailure: true,
     }),
@@ -152,8 +157,9 @@ export async function fetchPoolsForMint(
   const stateRes = existing.length > 0
     ? await withSafeMulticall(client).multicall({
         contracts: existing.flatMap((a) => [
-          { address: a.pool, abi: POOL_ABI, functionName: 'slot0' as const },
+          { address: a.pool, abi: slip ? SLIPSTREAM_POOL_ABI : POOL_ABI, functionName: 'slot0' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'liquidity' as const },
+          { address: a.pool, abi: POOL_ABI, functionName: 'fee' as const },
         ]),
         allowFailure: true,
       })
@@ -169,9 +175,10 @@ export async function fetchPoolsForMint(
   const out: Record<number, MintPool> = {};
   for (const a of addrs) {
     const idx = existing.findIndex((e) => e.fee === a.fee);
-    let exists = idx >= 0, sqrtPriceX96 = 0n, tick = 0, liquidity = 0n;
+    let exists = idx >= 0, sqrtPriceX96 = 0n, tick = 0, liquidity = 0n, poolFeePips: number | undefined;
     if (idx >= 0) {
-      const s = stateRes[idx * 2], l = stateRes[idx * 2 + 1];
+      const s = stateRes[idx * 3], l = stateRes[idx * 3 + 1], f = stateRes[idx * 3 + 2];
+      if (slip && f.status === 'success') poolFeePips = Number(f.result);
       if (s.status === 'success') {
         const slot = s.result as readonly unknown[];
         sqrtPriceX96 = slot[0] as bigint;
@@ -179,7 +186,7 @@ export async function fetchPoolsForMint(
       } else exists = false; // state read failed — treat as unusable
       if (l.status === 'success') liquidity = l.result as bigint;
     }
-    out[a.fee] = { address: a.pool, token0, token1, ...meta, fee: a.fee, exists, sqrtPriceX96, tick, liquidity };
+    out[a.fee] = { address: a.pool, token0, token1, ...meta, fee: a.fee, exists, sqrtPriceX96, tick, liquidity, ...(poolFeePips != null ? { poolFeePips } : {}) };
   }
   return out;
 }

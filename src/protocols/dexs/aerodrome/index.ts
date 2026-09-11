@@ -48,6 +48,10 @@ export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
   slipstreamDeployment('0xe1f8cd9AC4e4A65F54f38a5CdAfCA44f6dD68b53', '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef'),
 ];
 
+/** New positions go to the current (gauges V3) deployment — the one new
+ * pools and gauges are created on. */
+export const AERODROME_MINT_DEPLOYMENT = AERODROME_CL_DEPLOYMENTS[2];
+
 /** The deployment a position was read from — carried on the position itself. */
 export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {
   const pm = p.positionManager?.toLowerCase();

@@ -28,6 +28,7 @@ import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { fetchOwnedNftTokenIds } from '../lib/blockscout';
 import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
+import { RebalanceFlow } from './RebalanceFlow';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
 import { getUniversalWalletDeployment } from '../lib/universalWallet';
@@ -324,8 +325,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       if (t?.usdPrice) fromStore[key] = t.usdPrice;
     }
     if (Object.keys(fromStore).length > 0) setUsd((u) => ({ ...fromStore, ...u }));
-    getTokenPricesUsd(addrs)
-      .then((llama) => setUsd({ ...fromStore, ...llama }))
+    // DeFiLlama keys prices by chain: price each token on the chain it lives on.
+    const byChain = new Map<string, string[]>();
+    for (const p of positions) {
+      const chain = p.chainId === BASE_CHAIN_ID ? 'base' : p.chainId === 4663 ? null : 'ethereum';
+      if (!chain) continue;
+      byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1]);
+    }
+    Promise.all([...byChain].map(([chain, list]) => getTokenPricesUsd([...new Set(list)], chain).catch(() => ({}))))
+      .then((parts) => setUsd({ ...fromStore, ...Object.assign({}, ...parts) }))
       .catch(() => {});
   }, [positions]);
 
@@ -819,7 +827,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         />
       )}
 
-      {rebalance && connectedAddress && canActOn(rebalance) && (
+      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol !== 'uniswap-v4' && (
+        <RebalanceFlow
+          pos={rebalance}
+          account={connectedAddress as `0x${string}`}
+          onClose={() => setRebalance(null)}
+          onDone={async () => { await load(); }}
+        />
+      )}
+      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol === 'uniswap-v4' && (
         <RebalanceSheet
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
