@@ -1,0 +1,6 @@
+{
+  "name": "BTB Finance",
+  "description": "Concentrated liquidity for real people: simulate, add, manage and rebalance LP positions, and get paid a share of BTB revenue every Friday.",
+  "iconPath": "icon-512.png",
+  "safe_app": true
+}
