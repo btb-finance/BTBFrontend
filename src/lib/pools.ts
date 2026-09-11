@@ -739,7 +739,11 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
   const chain = p.chain.toLowerCase();
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
   if (chain === 'base') {
-    return p.project === 'aerodrome-slipstream' && tokens.length >= 2
+    // DeFiLlama rows say "aerodrome-slipstream"; DexPaprika rows collapse to
+    // the "aerodrome" brand with a CLMM model. Aerodrome V2 (AMM) is not mintable.
+    const slipstream = p.project === 'aerodrome-slipstream'
+      || (/^aerodrome/i.test(p.project) && (p.liquidityModel === 'CLMM' || /v3|slipstream|cl/i.test(p.version ?? '')));
+    return slipstream && tokens.length >= 2
       ? { tokenA: tokens[0], tokenB: tokens[1], dex: 'aerodrome', chainId: 8453 }
       : null;
   }

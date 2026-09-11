@@ -158,7 +158,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
         const chainId = t.chainId ?? 1;
         const canSwap = !!KYBER_CHAINS[chainId];
         const canSimulate = !!CHAIN_DATA_NETWORKS[chainId];
-        const openLp = () => (chainId === 1 ? setLpToken(t) : onSimulate?.(t));
+        const openLp = () => ([1, 4663, 8453].includes(chainId) ? setLpToken(t) : onSimulate?.(t));
         if (!canSwap && !canSimulate) {
           return <span style={{ color: btb.textDim, fontSize: 11.5 }}>View only</span>;
         }
