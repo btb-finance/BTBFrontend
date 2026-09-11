@@ -101,6 +101,17 @@ export default defineSchema({
     .index("by_wallet_quest", ["walletAddress", "questId"])
     .index("by_status", ["status", "submittedAt"]),
 
+  // Once-a-day XP awards (Simulate: first pool checked, cross-chain research
+  // per chain). `day` is UTC midnight ms; `key` names the action so a second
+  // hit the same day is a no-op instead of a second payout.
+  dailyAwards: defineTable({
+    walletAddress: v.string(),         // lowercase
+    day: v.float64(),
+    key: v.string(),                   // "simulate:pool" | "simulate:chain:<chainId>"
+    xp: v.float64(),
+    createdAt: v.float64(),
+  }).index("by_wallet_day_key", ["walletAddress", "day", "key"]),
+
   // Per-epoch XP ledger. `users.points` stays a lifetime vanity counter; the
   // weekly BTB split is decided purely by what a wallet earned inside one
   // Friday→Friday window, so every award site writes here too.

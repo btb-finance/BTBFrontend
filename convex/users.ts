@@ -120,6 +120,42 @@ export const awardXp = mutation({
   },
 });
 
+/** Simulate rewards: 100 XP the first time a wallet checks a pool each day,
+ * and 100 XP per chain used in cross-chain research, each chain once a day. */
+export const SIMULATE_XP = 100;
+
+export const awardSimulateXp = mutation({
+  args: {
+    walletAddress: v.string(),
+    kind: v.union(v.literal("pool"), v.literal("chain")),
+    chainId: v.optional(v.float64()),
+  },
+  handler: async (ctx, { walletAddress, kind, chainId }) => {
+    const addr = walletAddress.toLowerCase();
+    if (kind === "chain" && !Number.isInteger(chainId)) return { ok: false, awarded: 0 };
+    const key = kind === "pool" ? "simulate:pool" : `simulate:chain:${chainId}`;
+    const now = Date.now();
+    const day = now - (now % MS_PER_DAY);
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_wallet", (q) => q.eq("walletAddress", addr))
+      .unique();
+    if (!user) return { ok: false, awarded: 0 };
+
+    const already = await ctx.db
+      .query("dailyAwards")
+      .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day).eq("key", key))
+      .unique();
+    if (already) return { ok: true, awarded: 0 };
+
+    await ctx.db.insert("dailyAwards", { walletAddress: addr, day, key, xp: SIMULATE_XP, createdAt: now });
+    await ctx.db.patch(user._id, { points: user.points + SIMULATE_XP });
+    await addEpochPoints(ctx, addr, SIMULATE_XP);
+    return { ok: true, awarded: SIMULATE_XP };
+  },
+});
+
 // ── DeFi activity ──────────────────────────────────────────────────────────
 
 /**

@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig, useConnection } from 'wagmi';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeAbiParameters, erc20Abi, isAddress, keccak256, parseAbiParameters, zeroAddress, type PublicClient } from 'viem';
 import { Glass } from '../Glass';
@@ -707,6 +709,8 @@ function CrossChainResearch({ chains, isMobile }: {
   isMobile: boolean;
 }) {
   const config = useConfig();
+  const { address } = useConnection();
+  const awardSimulateXp = useMutation(api.users.awardSimulateXp);
   const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
@@ -846,6 +850,12 @@ function CrossChainResearch({ chains, isMobile }: {
     }));
     setResults(initial);
     setResearching(true);
+    // 100 XP per chain researched, each chain once a day (server-enforced).
+    if (address) {
+      for (const selectedChainId of new Set(tasks.map(task => task.chainId))) {
+        awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId }).catch(() => {});
+      }
+    }
 
     const catalogs = new Map<number, Promise<Token[]>>();
     const loadCatalog = (targetChainId: number) => {
@@ -1147,7 +1157,8 @@ function CrossChainResearch({ chains, isMobile }: {
 
 export function SimulateScreen() {
   const config = useConfig();
-  const { chainId: walletChainId } = useConnection();
+  const { chainId: walletChainId, address } = useConnection();
+  const awardSimulateXp = useMutation(api.users.awardSimulateXp);
   const { isMobile } = useSidebar();
   const { tokens, positions } = useTokenStore();
   const { pools: sharedEarnPools } = useDiscoverPools();
@@ -1194,6 +1205,12 @@ export function SimulateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundPool[] | null>(null);
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
+  // First pool checked each day pays 100 XP; the server ignores repeats.
+  useEffect(() => {
+    if (!sheetFee || !address) return;
+    awardSimulateXp({ walletAddress: address, kind: 'pool' }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetFee != null, address]);
   const appliedPair = useRef(false);
   const autoComparedPair = useRef(false);
 
