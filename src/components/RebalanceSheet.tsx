@@ -20,7 +20,7 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { aerodromeDeploymentOf, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { aerodromeDeploymentOf, buildGaugeUnstake, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
@@ -207,6 +207,20 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
         ? liveCentered
         : heldHeavyRange(livePos.currentTick, spacing, liveWidth, heavySide);
       const tl = liveRange.tickLower, tu = liveRange.tickUpper;
+
+      // 0 · A gauge-staked Aerodrome NFT has to come back to the wallet first
+      // (this also pays out the earned AERO). Done before the snapshot so the
+      // rewards never count as position budget.
+      if (pos.staked) {
+        setStepMsg('Unstaking from the Aerodrome gauge…');
+        await runCalls(config, {
+          account, calls: buildGaugeUnstake(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          verify: {
+            test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'ownerOf', args: [pos.id] })).toLowerCase() === account.toLowerCase(),
+            error: 'Unstake confirmed, but the RPC still shows the NFT in the gauge. Retry safely in a moment.',
+          },
+        });
+      }
 
       // Snapshot wallet so we only ever redeploy what THIS position returns,
       // never the user's unrelated balances of the same tokens.

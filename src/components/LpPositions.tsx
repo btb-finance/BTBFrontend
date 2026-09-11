@@ -23,7 +23,7 @@ import {
   ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromePositions, aerodromeDeploymentOf, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { fetchOwnedNftTokenIds, fetchRobinhoodOwnedNftTokenIds } from '../lib/alchemy';
 import { Icon } from './Icon';
@@ -108,6 +108,17 @@ function fmtAmt(raw: bigint, decimals: number): string {
 }
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
+
+/** Krystal's Aerodrome rows on Base → candidate tokenIds per position manager
+ * (Krystal does not say which manager, so every id is tried on all three). */
+function krystalAeroIds(items: { chainId: number; tokenId: string; pool?: { projectKey?: string } }[]): Map<string, bigint[]> {
+  const ids: bigint[] = [];
+  for (const item of items) {
+    if (item.chainId !== BASE_CHAIN_ID || !item.pool?.projectKey?.toLowerCase().includes('aerodrome')) continue;
+    try { ids.push(BigInt(item.tokenId)); } catch { /* not numeric */ }
+  }
+  return new Map(AERODROME_CL_DEPLOYMENTS.map((d) => [d.positionManager.toLowerCase(), ids]));
+}
 
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
@@ -197,6 +208,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
   const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
   const krystal = krystalData ?? null;
+  const krystalRef = useRef(krystal);
+  krystalRef.current = krystal;
   const canTransact = !!connectedAddress && !!address && connectedAddress.toLowerCase() === address.toLowerCase();
   const storeTokensRef = useRef(storeTokens);
   storeTokensRef.current = storeTokens;
@@ -233,10 +246,10 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
       // Each protocol renders as soon as it resolves and degrades
       // independently — a slow/failing V4 log scan can't hold up the V3 list.
-      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum') => (items: LiquidityPosition[]) =>
+      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum', staked = false) => (items: LiquidityPosition[]) =>
         setPositions((prev) => {
           const next = [
-            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId),
+            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId || !!p.staked !== staked),
             ...items.map((p) => ({ ...p, chainId, chainName })),
           ];
           positionsRef.current = next;
@@ -251,7 +264,13 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           fetchV4Positions(robinhoodClient, address as `0x${string}`, robinhoodIdsFor(ROBINHOOD_UNISWAP_V4.positionManager), ROBINHOOD_UNISWAP_V4, 0n).then(merge('uniswap-v4', 4663, 'Robinhood Chain')),
         ] : []),
         // Aerodrome Slipstream on Base — enumerated on-chain (no NFT index there).
-        ...(baseClient ? [fetchAerodromePositions(baseClient, address as `0x${string}`).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base'))] : []),
+        ...(baseClient ? [
+          fetchAerodromePositions(baseClient, address as `0x${string}`).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base')),
+          // Gauge-staked NFTs live in the gauge, not the wallet. Krystal's rows
+          // seed the candidate ids alongside the wallet's own transfer history.
+          fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
+            .then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base', true)),
+        ] : []),
       ]);
       setCachedLpPositions(address, positionsRef.current);
     } catch { /* read failure — leave list empty */ }
@@ -283,6 +302,23 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
       .then((llama) => setUsd({ ...fromStore, ...llama }))
       .catch(() => {});
   }, [positions]);
+
+  /** Gauge actions for a staked Aerodrome position: claim AERO, or unstake
+   * (which also claims) so the NFT is back in the wallet for NPM actions. */
+  async function gaugeAction(pos: LiquidityPosition, action: 'claim' | 'unstake') {
+    if (!connectedAddress || !canTransact || !pos.staked) return;
+    setBusyId(posKey(pos));
+    try {
+      await runCalls(config, {
+        account: connectedAddress as `0x${string}`,
+        calls: action === 'claim' ? buildGaugeClaim(pos) : buildGaugeUnstake(pos),
+        label: `${action === 'claim' ? 'Claim AERO' : 'Unstake'} ${pos.symbol0}/${pos.symbol1}`,
+        track, chainId: pos.chainId ?? 1,
+      });
+      await load();
+    } catch { /* surfaced via the global tx pill */ }
+    finally { setBusyId(null); }
+  }
 
   async function collect(pos: LiquidityPosition) {
     if (!connectedAddress || !canTransact) return;
@@ -371,6 +407,13 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ marginTop: v > 0 ? 3 : 0, whiteSpace: 'nowrap' }}>
               {p.inRange ? 'In range, earning' : 'Out of range, not earning'}
             </Badge>
+            {p.staked && (
+              <div style={{ marginTop: 4 }}>
+                <Badge size="sm" border="none" bg="rgba(42,107,255,0.16)" color="#7FA6FF" style={{ whiteSpace: 'nowrap' }}>
+                  Staked · {fmtAmt(p.staked.earned, 18)} {p.staked.rewardSymbol} claimable
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
 
@@ -407,9 +450,18 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap' }}>
-          <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-          {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
-          <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
+          {p.staked ? (
+            <>
+              <CardActBtn icon="gift" label={busy ? 'Working…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={p.staked.earned === 0n || busy || !canTransact} green={p.staked.earned > 0n}/>
+              <CardActBtn icon="down" label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
+            </>
+          ) : (
+            <>
+              <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
+              {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+              <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
+            </>
+          )}
           {canAutomate && <CardActBtn icon="bolt" label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
           {canRebalance && <CardActBtn icon="refresh" label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact} amber={!p.inRange}/>}
         </div>
@@ -629,10 +681,19 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                 )}
 
                 <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
-                  <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-                  {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>} 
-                  {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
-                  {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>} 
+                  {p.staked ? (
+                    <>
+                      {p.staked.earned > 0n && <MobileActBtn label={busy ? '…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={busy || !canTransact} green/>}
+                      <MobileActBtn label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
+                    </>
+                  ) : (
+                    <>
+                      <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
+                      {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+                      {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
+                    </>
+                  )}
+                  {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
                   {canRebalance && (
                     <MobileActBtn
                       label="⚖ Rebalance"
