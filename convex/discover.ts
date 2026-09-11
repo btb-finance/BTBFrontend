@@ -6,7 +6,7 @@
  * files). The frontend (`src/lib/discoverPools.ts`) reads the snapshot with
  * one query and only computes client-side when it's missing or stale.
  */
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 
 export const save = internalMutation({
@@ -22,6 +22,15 @@ export const save = internalMutation({
 });
 
 /** The latest snapshot — `json` is `{ version, pools: EarnPool[], priceChange: Record<string, number> }`. */
+/** Same row for server-side actions (the DEX coverage step reads and merges). */
+export const getInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db.query("discoverPools").first();
+    return row ? { json: row.json, updatedAt: row.updatedAt } : null;
+  },
+});
+
 export const get = query({
   args: {},
   handler: async (ctx) => {
