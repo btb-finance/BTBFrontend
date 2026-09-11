@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI } from './abis';
+import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLIPSTREAM_POOL_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -97,7 +97,7 @@ export async function fetchV3Positions(
   const slot0Res = await withSafeMulticall(client).multicall({
     contracts: poolAddrs.map((addr) => ({
       address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      abi: POOL_ABI, functionName: 'slot0' as const,
+      abi: slip ? SLIPSTREAM_POOL_ABI : POOL_ABI, functionName: 'slot0' as const,
     })),
     allowFailure: true,
   });
