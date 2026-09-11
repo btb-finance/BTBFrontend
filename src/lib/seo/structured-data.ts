@@ -1,9 +1,9 @@
 import { SITE } from './config';
 
 /**
- * JSON-LD structured data — what makes a search for "nft" surface the BTB Bears
- * as the headline result ("the first NFTs that pay you forever") and unlocks
- * rich results (organization knowledge panel, app listing, FAQ accordions).
+ * JSON-LD structured data: makes a search for an LP simulator or concentrated
+ * liquidity manager surface BTB as the headline result and unlocks rich
+ * results (organization knowledge panel, app listing, FAQ accordions).
  *
  * Returns an array of schema.org graphs; rendered by <JsonLd/>.
  */
@@ -46,29 +46,33 @@ export function structuredData(): Record<string, unknown>[] {
     image: OG,
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
     featureList: [
-      'Mint BTB Bear NFTs',
-      'Stake NFTs to earn BTBB rewards forever',
-      'Best-price token swaps',
-      'Track your portfolio',
-      'Self-custody wallet — connect MetaMask, Coinbase, WalletConnect',
+      'Free LP simulator: fees, impermanent loss, range coverage, historical replay',
+      'Discover the best pools by APR, TVL and volume across chains',
+      'Add, withdraw, collect and rebalance concentrated liquidity on Uniswap V3 and V4, PancakeSwap V3 and Aerodrome',
+      'Cross-chain LP research for one pair across every supported chain',
+      'Weekly BTB revenue share for swaps, positions, simulations and daily check-ins',
+      'Best-price swaps on every major chain',
+      'Self-custody: MetaMask, Coinbase, WalletConnect, Safe',
     ],
     publisher: { '@id': `${SITE.url}/#organization` },
   };
 
-  // The headline product — a search for "nft that pays you" should land here.
-  const bearsNft = {
+  // The headline product: the LP simulator.
+  const simulator = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
-    '@id': `${SITE.url}/#btb-bears`,
-    name: 'BTB Bear NFT',
+    '@type': 'SoftwareApplication',
+    '@id': `${SITE.url}/#simulator`,
+    name: 'BTB LP Simulator',
     image: OG,
-    brand: { '@type': 'Brand', name: SITE.name },
-    category: 'NFT',
+    applicationCategory: 'FinanceApplication',
+    operatingSystem: 'Web',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
     description:
-      'BTB Bears are the first NFTs that pay you forever. Mint a Bear, stake it, ' +
-      'and earn BTBB rewards from a 1% tax on every BTBB transfer — passive, ' +
-      'on-chain income that never stops.',
-    url: `${SITE.url}/#nft`,
+      'Free concentrated liquidity simulator. Pick any pool on Uniswap V3 or V4, ' +
+      'PancakeSwap or Aerodrome, set a range and deposit, and see projected fees, ' +
+      'impermanent loss, probability of staying in range, LP versus holding and a ' +
+      'historical replay before you deposit. Deploy the position from the same screen.',
+    url: `${SITE.url}/simulate`,
   };
 
   const faq = {
@@ -78,38 +82,46 @@ export function structuredData(): Record<string, unknown>[] {
     mainEntity: [
       {
         '@type': 'Question',
-        name: 'What are BTB Bears?',
+        name: 'What is BTB Finance?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'BTB Bears are the first NFTs that pay you forever. They are Ethereum NFTs you mint on BTB Finance, then stake to earn ongoing BTBB rewards.',
+          text: 'BTB Finance is an app for liquidity providers. Simulate a position before you deposit, find the best pools across chains, then add, rebalance and manage concentrated liquidity on Uniswap V3 and V4, PancakeSwap V3 and Aerodrome from one place. Using it earns points, and BTB shares its revenue with users every Friday.',
         },
       },
       {
         '@type': 'Question',
-        name: 'How do NFTs that pay you forever work?',
+        name: 'Is the LP simulator free?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Every BTBB transfer carries a 1% tax that is distributed to staked BTB Bears. As long as your Bear is staked, it keeps earning a share of that flow — passive income that never expires.',
+          text: 'Yes, and no wallet is needed. Pick a pool, set a range and a deposit, and see projected fees, impermanent loss for your exact range, probability of staying in range, LP versus holding, and a historical replay. Simulating with a connected wallet also earns points toward the weekly BTB split.',
         },
       },
       {
         '@type': 'Question',
-        name: 'How do I earn from staking a BTB Bear?',
+        name: 'Which DEXes and chains can I manage LP positions on?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Mint a BTB Bear, open the Stake & Earn tab, approve and stake it, then claim your accrued BTBB rewards anytime. Rewards accrue continuously while staked.',
+          text: 'Uniswap V3 and V4 and PancakeSwap V3 on Ethereum, Uniswap V3 and V4 on Robinhood Chain, and Aerodrome Slipstream on Base, including gauge staking. Positions on other chains show read-only analytics. Swaps route through every major chain.',
         },
       },
       {
         '@type': 'Question',
-        name: 'Can I swap tokens on BTB Finance?',
+        name: 'How does the weekly BTB revenue share work?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Yes. BTB Finance routes swaps for best execution on Ethereum mainnet, so you get competitive pricing directly from the same wallet you use to mint and stake.',
+          text: 'Swaps, LP positions, simulations and a daily check-in earn points during the week. Enter the split before Friday, and the week\'s revenue is shared out in BTB in proportion to points. Claim lands in your wallet with no gas and no signature.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Can I rebalance an out-of-range position?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Yes. Rebalance withdraws the position (unstaking from an Aerodrome gauge first if needed) and opens the Add liquidity sheet for the same pool, where you choose any new range, use a one-token smart fit, or split ranges, and restake.',
         },
       },
     ],
   };
 
-  return [organization, website, webApp, bearsNft, faq];
+  return [organization, website, webApp, simulator, faq];
 }

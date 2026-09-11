@@ -95,7 +95,7 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.8 }}>BTB Finance</div>
           <div style={{ color: btb.textMuted, fontSize: 15, marginTop: 6, lineHeight: 1.45, maxWidth: 280 }}>
-            Swap, stake, and mint NFTs from one frosted wallet.
+            Simulate, add and manage LP positions, and get paid every Friday.
           </div>
         </div>
       </div>

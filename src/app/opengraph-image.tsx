@@ -45,8 +45,8 @@ export default function Image() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 78, fontWeight: 900, letterSpacing: -2, lineHeight: 1.05 }}>
-            The first NFTs that
+          <div style={{ fontSize: 72, fontWeight: 900, letterSpacing: -2, lineHeight: 1.05 }}>
+            Simulate. Add. Manage.
           </div>
           <div
             style={{
@@ -54,20 +54,20 @@ export default function Image() {
               fontWeight: 900,
               letterSpacing: -2,
               lineHeight: 1.05,
-              background: 'linear-gradient(90deg,#FFFFFF,#F59E0B)',
+              background: 'linear-gradient(90deg,#FFFFFF,#52E3A4)',
               backgroundClip: 'text',
               color: 'transparent',
             }}
           >
-            pay you forever.
+            Get paid every Friday.
           </div>
           <div style={{ marginTop: 26, fontSize: 30, color: 'rgba(255,255,255,0.7)' }}>
-            Mint a BTB Bear · stake it · earn BTBB rewards on-chain.
+            The LP app that shares its revenue with the people who use it.
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', fontSize: 26, color: 'rgba(255,255,255,0.55)' }}>
-          Mint &nbsp;·&nbsp; Stake &amp; Earn &nbsp;·&nbsp; Swap &nbsp;·&nbsp; btb.finance
+          Simulate &nbsp;·&nbsp; Discover &nbsp;·&nbsp; LP &nbsp;·&nbsp; Swap &nbsp;·&nbsp; btb.finance
         </div>
       </div>
     ),

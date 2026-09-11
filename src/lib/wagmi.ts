@@ -52,7 +52,7 @@ export type SupportedChainId = SupportedChain['id'];
 
 const DAPP_METADATA = {
   name: 'BTB Finance',
-  description: 'Swap, stake, and mint NFTs — BTB Finance mini app',
+  description: 'Simulate, add and manage LP positions. Get paid every Friday.',
   url: 'https://btb.finance',
   icons: ['https://btb.finance/icon.png'],
 };
