@@ -29,7 +29,10 @@ export function isWeth(addr: string): boolean {
 /** A V3-architecture DEX deployment (Uniswap V3 or a byte-compatible fork). */
 export interface V3Deployment {
   /** Position tag used in LiquidityPosition.protocol. */
-  protocol: 'uniswap-v3' | 'pancakeswap-v3';
+  protocol: 'uniswap-v3' | 'pancakeswap-v3' | 'aerodrome-cl';
+  /** Aerodrome Slipstream: pools keyed by tickSpacing, not fee (see protocols/dexs/aerodrome). */
+  slipstream?: boolean;
+  chainId?: number;
   positionManager: `0x${string}`;
   factory: `0x${string}`;
   feeTiers: readonly number[];
