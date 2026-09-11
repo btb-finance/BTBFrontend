@@ -17,6 +17,7 @@
 import { encodeFunctionData, type PublicClient } from 'viem';
 import type { V3Deployment } from '../uniswap/v3/addresses';
 import { fetchV3Positions } from '../uniswap/v3/positions';
+import { fetchPoolsForMint, type MintPool } from '../uniswap/v3/pool';
 import { SLIPSTREAM_FACTORY_ABI } from '../uniswap/v3/abis';
 import type { Call } from '@/lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -51,6 +52,33 @@ export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
 /** New positions go to the current (gauges V3) deployment — the one new
  * pools and gauges are created on. */
 export const AERODROME_MINT_DEPLOYMENT = AERODROME_CL_DEPLOYMENTS[2];
+
+/** Slipstream pools for a pair across all three factories, keyed by tick
+ * spacing, plus which deployment owns each spacing (the mint must go through
+ * that deployment's position manager). A spacing that exists on more than
+ * one factory keeps the deepest pool. */
+export async function fetchAerodromePoolsForMint(
+  client: PublicClient,
+  tokenA: `0x${string}`,
+  tokenB: `0x${string}`,
+): Promise<{ pools: Record<number, MintPool>; deploymentByTier: Record<number, V3Deployment> }> {
+  const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchPoolsForMint(client, tokenA, tokenB, d)));
+  const pools: Record<number, MintPool> = {};
+  const deploymentByTier: Record<number, V3Deployment> = {};
+  results.forEach((r, i) => {
+    if (r.status !== 'fulfilled') return;
+    for (const [tier, pool] of Object.entries(r.value)) {
+      const key = Number(tier);
+      const current = pools[key];
+      if (!current || (!current.exists && pool.exists) || (pool.exists && pool.liquidity > current.liquidity)) {
+        pools[key] = pool;
+        deploymentByTier[key] = AERODROME_CL_DEPLOYMENTS[i];
+      }
+    }
+  });
+  if (results.every((r) => r.status === 'rejected')) throw (results[0] as PromiseRejectedResult).reason;
+  return { pools, deploymentByTier };
+}
 
 /** The deployment a position was read from — carried on the position itself. */
 export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {

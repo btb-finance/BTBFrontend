@@ -29,7 +29,8 @@ import {
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
-import { AERODROME_MINT_DEPLOYMENT, BASE_CHAIN_ID, BASE_WETH, gaugeForPool, buildGaugeStake } from '@/protocols/dexs/aerodrome';
+import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
+import { AERODROME_MINT_DEPLOYMENT, BASE_CHAIN_ID, BASE_WETH, gaugeForPool, buildGaugeStake, fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
@@ -130,16 +131,21 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
-  const deployment = dex === 'aerodrome' ? AERODROME_MINT_DEPLOYMENT : dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-  const isSlipstream = !!deployment.slipstream;
+  // Aerodrome has three live Slipstream deployments, each with its own
+  // factory and position manager; the pair's pools can sit on any of them, so
+  // the deployment follows the selected tick spacing once pools are loaded.
+  const [aeroDeploymentByTier, setAeroDeploymentByTier] = useState<Record<number, V3Deployment>>({});
+  const baseDeployment = dex === 'aerodrome' ? AERODROME_MINT_DEPLOYMENT : dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const isSlipstream = !!baseDeployment.slipstream;
   const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
   const chainWeth = chainId === 4663 ? ROBINHOOD_WETH : chainId === BASE_CHAIN_ID ? BASE_WETH : WETH;
   // Aerodrome: stake the minted NFT so it earns AERO emissions.
   const [stakeAfterMint, setStakeAfterMint] = useState(isSlipstream && stakeByDefault);
   const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
-    initialFee !== undefined && deployment.feeTiers.includes(initialFee) ? initialFee : deployment.feeTiers[2],
+    initialFee !== undefined && baseDeployment.feeTiers.includes(initialFee) ? initialFee : baseDeployment.feeTiers[2],
   );
+  const deployment: V3Deployment = dex === 'aerodrome' ? (aeroDeploymentByTier[fee] ?? baseDeployment) : baseDeployment;
   // All fee tiers are fetched in one batch up front — switching tiers is instant.
   const [pools, setPools] = useState<Record<number, MintPool> | null>(null);
   const [loadingPool, setLoadingPool] = useState(true);
@@ -259,7 +265,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
         .finally(() => { if (live) setLoadingPool(false); });
     } else if (tokenA && tokenB) {
-      fetchPoolsForMint(client, tokenA, tokenB, deployment)
+      (dex === 'aerodrome'
+        ? fetchAerodromePoolsForMint(client, tokenA, tokenB).then(({ pools, deploymentByTier }) => { if (live) setAeroDeploymentByTier(deploymentByTier); return pools; })
+        : fetchPoolsForMint(client, tokenA, tokenB, baseDeployment))
         .then((record) => {
           if (!live) return;
           setPools(record);
