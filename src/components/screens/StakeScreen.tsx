@@ -13,7 +13,6 @@ import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { useTokenStore } from '../../lib/TokenStore';
 import { CONTRACTS } from '../../lib/wagmi';
-import { useYearnVaults, useYearnPositions } from '../../lib/yearn';
 import { fetchOwnedNftTokenIds } from '../../lib/alchemy';
 import { api } from '../../../convex/_generated/api';
 import {
@@ -243,8 +242,6 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
   const config = useConfig();
   const history = useQuery(api.agent.history, { walletAddress });
   const sendChat = useAction(api.agentChat.chat);
-  const { vaults } = useYearnVaults();
-  const { positions: yearnPositions } = useYearnPositions(walletAddress, vaults);
 
   const [lps, setLps] = useState<LpSummary[] | null>(null);
   const [input, setInput] = useState('');
@@ -297,22 +294,6 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
     try {
       const extras = JSON.stringify({
         lps: (lps ?? []).slice(0, 20),
-        yearn: yearnPositions.slice(0, 20).map(p => ({
-          vault: p.vault.name, token: p.vault.token.symbol,
-          amount: p.underlying.toPrecision(5), usd: Math.round(p.usd),
-        })),
-        // The Earn tab's vault market — lets the agent recommend single-token
-        // auto-compounding yield, not just LP pools.
-        vaultList: (vaults ?? [])
-          .filter(v => v.apy != null && v.tvlUsd > 200_000)
-          .sort((a, b) => (b.apy ?? 0) - (a.apy ?? 0))
-          .slice(0, 15)
-          .map(v => ({
-            vault: v.name, token: v.token.symbol,
-            apyPct: +(((v.apy ?? 0) * 100).toFixed(2)),
-            tvlUsd: Math.round(v.tvlUsd),
-            stable: ['USDC', 'USDT', 'DAI', 'USDS', 'CRVUSD', 'USDE'].includes(v.token.symbol.toUpperCase()),
-          })),
       });
       await sendChat({ walletAddress, message: msg, extras });
     } catch (e) {

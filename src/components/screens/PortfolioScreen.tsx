@@ -11,7 +11,6 @@ import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions } from '../LpPositions';
 import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
-import { useYearnVaults, useYearnPositions, type YearnPosition } from '../../lib/yearn';
 import { useSidebar } from '../../lib/SidebarContext';
 import { ChainLogo } from '../ChainLogo';
 
@@ -62,9 +61,9 @@ function isNativeAddress(address: string) {
     || normalized === '0x0000000000000000000000000000000000000000';
 }
 
-export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (token: Token) => void; onSwap?: (token: Token) => void; onOpenEarn?: () => void } = {}) {
+export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) => void; onSwap?: (token: Token) => void } = {}) {
   const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
-  const [tab, setTab] = useState<'tokens' | 'lps' | 'earn'>('tokens');
+  const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
   const [lpToken, setLpToken] = useState<Token | null>(null);
   const [showHiddenAssets, setShowHiddenAssets] = useState(false);
   const [tokenSearch, setTokenSearch] = useState('');
@@ -93,12 +92,8 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
   const refreshing = loadingBalances && tokensWithBalance.length > 0;
   const { isMobile } = useSidebar();
 
-  // Yearn vault/staking positions from the Earn tab count toward net worth too
-  const { vaults } = useYearnVaults();
-  const { positions: earnPositions, loading: loadingEarn } = useYearnPositions(walletAddress, vaults);
-  const earnUsd = earnPositions.reduce((s, p) => s + p.usd, 0);
   const trustedTokens = allTokensWithBalance.filter(t => !t.suspiciousQuote);
-  const totalUsd = trustedTokens.reduce((s, t) => s + (t.usdValue ?? 0), 0) + earnUsd;
+  const totalUsd = trustedTokens.reduce((s, t) => s + (t.usdValue ?? 0), 0);
 
   const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8'];
   const top4 = trustedTokens.slice(0, 4);
@@ -205,36 +200,6 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
   ];
   const columns = allTokenColumns.filter(c => !isMobile || c.key !== 'balance');
 
-  const allEarnColumns: Column<YearnPosition>[] = [
-    {
-      key: 'vault', label: 'Vault', sortable: true, sortValue: p => p.vault.name,
-      render: p => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <TokenIcon symbol={p.vault.token.symbol} size={30} logoUrl={p.vault.token.icon} />
-          <div>
-            <div style={{ fontWeight: 700 }}>{p.vault.name}</div>
-            <div style={{ color: btb.textMuted, fontSize: 11.5 }}>
-              Yearn · {p.vault.token.symbol}
-              {p.stakedShares > 0n && <span style={{ color: '#A78BFA' }}> · staked</span>}
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'apy', label: 'APY', align: 'right', sortable: true, sortValue: p => p.vault.apy ?? 0,
-      render: p => <span style={{ color: '#52E3A4', fontWeight: 700 }}>{p.vault.apy == null ? '—' : `${(p.vault.apy * 100).toFixed(2)}%`}</span>,
-    },
-    {
-      key: 'balance', label: 'Deposited', align: 'right', sortable: true, sortValue: p => p.underlying,
-      render: p => <span>{fmtBal(p.underlying)} {p.vault.token.symbol}</span>,
-    },
-    {
-      key: 'value', label: 'Value', align: 'right', sortable: true, sortValue: p => p.usd,
-      render: p => <span style={{ fontWeight: 700 }}>${fmt(p.usd)}</span>,
-    },
-  ];
-  const earnColumns = allEarnColumns.filter(c => !isMobile || c.key !== 'balance');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -244,7 +209,7 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
             <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>Net worth</div>
             <div style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.6, marginTop: 4 }}>${fmt(totalUsd)}</div>
             <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 4 }}>
-              {allTokensWithBalance.length} tokens{allTokensWithBalance.length > trustedTokens.length && ` · ${allTokensWithBalance.length - trustedTokens.length} quotes excluded from net worth`}{earnUsd > 0 && ` · $${fmt(earnUsd)} earning in Yearn`}
+              {allTokensWithBalance.length} tokens{allTokensWithBalance.length > trustedTokens.length && ` · ${allTokensWithBalance.length - trustedTokens.length} quotes excluded from net worth`}
             </div>
           </div>
           <Glass padding={0} radius={999} style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
@@ -273,7 +238,7 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: isMobile ? 4 : 8, minWidth: 0 }}>
-          {([['tokens', 'Tokens'], ['lps', isMobile ? 'LPs' : 'LP Positions'], ['earn', earnPositions.length > 0 ? `Earn (${earnPositions.length})` : 'Earn']] as const).map(([t, label]) => {
+          {([['tokens', 'Tokens'], ['lps', isMobile ? 'LPs' : 'LP Positions']] as const).map(([t, label]) => {
             const active = tab === t;
             return (
               <button key={t} onClick={() => setTab(t)} style={{
@@ -311,18 +276,6 @@ export function PortfolioScreen({ onSend, onSwap, onOpenEarn }: { onSend?: (toke
           <StudioPositions />
           <LpPositions showEmpty />
         </>
-      ) : tab === 'earn' ? (
-        <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
-          <DataTable
-            columns={earnColumns}
-            rows={earnPositions}
-            rowKey={p => p.vault.address}
-            loading={loadingEarn && earnPositions.length === 0}
-            emptyMessage={walletAddress ? 'No Yearn positions yet. Open the Earn tab to deposit.' : 'Connect a wallet to see Earn positions'}
-            defaultSortKey="value"
-            onRowClick={onOpenEarn ? () => onOpenEarn() : undefined}
-          />
-        </div>
       ) : (
         <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
           <DataTable
