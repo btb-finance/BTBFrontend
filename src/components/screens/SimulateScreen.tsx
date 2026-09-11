@@ -40,6 +40,7 @@ import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { useDiscoverPools, waitForDiscoverPools } from '../../lib/discoverPools';
+import { useXpToast } from '../../lib/XpToast';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 type SimulateMode = 'single' | 'cross-chain';
@@ -711,6 +712,7 @@ function CrossChainResearch({ chains, isMobile }: {
   const config = useConfig();
   const { address } = useConnection();
   const awardSimulateXp = useMutation(api.users.awardSimulateXp);
+  const showXp = useXpToast();
   const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
@@ -853,7 +855,9 @@ function CrossChainResearch({ chains, isMobile }: {
     // 100 XP per chain researched, each chain once a day (server-enforced).
     if (address) {
       for (const selectedChainId of new Set(tasks.map(task => task.chainId))) {
-        awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId }).catch(() => {});
+        const chainName = chains.find(chain => chain.id === selectedChainId)?.name ?? 'chain';
+        awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId })
+          .then(r => showXp(r.awarded, `${chainName} research`)).catch(() => {});
       }
     }
 
@@ -1159,6 +1163,7 @@ export function SimulateScreen() {
   const config = useConfig();
   const { chainId: walletChainId, address } = useConnection();
   const awardSimulateXp = useMutation(api.users.awardSimulateXp);
+  const showXp = useXpToast();
   const { isMobile } = useSidebar();
   const { tokens, positions } = useTokenStore();
   const { pools: sharedEarnPools } = useDiscoverPools();
@@ -1208,7 +1213,7 @@ export function SimulateScreen() {
   // First pool checked each day pays 100 XP; the server ignores repeats.
   useEffect(() => {
     if (!sheetFee || !address) return;
-    awardSimulateXp({ walletAddress: address, kind: 'pool' }).catch(() => {});
+    awardSimulateXp({ walletAddress: address, kind: 'pool' }).then(r => showXp(r.awarded, 'Pool simulated')).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetFee != null, address]);
   const appliedPair = useRef(false);

@@ -1,4 +1,5 @@
 'use client';
+import { useXpToast } from '../../lib/XpToast';
 import { useState, useEffect, useRef } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
@@ -394,6 +395,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   }
 
   const awardXp = useMutation(api.users.awardXp);
+  const showXp = useXpToast();
 
   const isNativeFrom = fromToken.address === 'ETH';
 
@@ -641,7 +643,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       if (lastHash) setTxHash(lastHash);
       setStep('success');
       setBalanceRefreshNonce(value => value + 1);
-      if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).catch(() => {});
+      if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).then(r => showXp(r.awarded ?? 0, 'Swap')).catch(() => {});
     } catch (e: any) {
       setErrMsg(e?.shortMessage ?? e?.message ?? 'Transaction failed');
       setStep('error');
@@ -881,6 +883,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   const config = useConfig();
   const { track } = useTx();
   const awardXp = useMutation(api.users.awardXp);
+  const showXp = useXpToast();
   const availableChains = SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]);
   const firstChain = walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
   const firstDestination = firstChain === 8453 ? 42161 : 8453;
@@ -1047,7 +1050,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
       const { lastHash } = await runCalls(config, { account: address, calls, label: `Bridge ${fromToken.symbol} → ${toToken.symbol}`, track, chainId: fromChainId });
       if (lastHash) setTxHash(lastHash);
       setStep('success');
-      awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).catch(() => {});
+      awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).then(r => showXp(r.awarded ?? 0, 'Cross-chain swap')).catch(() => {});
     } catch (error) {
       const rawMessage = (error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed';
       setErrMsg(rawMessage.toLowerCase().includes('return amount is not enough')

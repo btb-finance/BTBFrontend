@@ -13,6 +13,7 @@ import { btb } from '../design-tokens';
 import { CONTRACTS } from '../../lib/wagmi';
 import { readableError } from '../../lib/errorText';
 import { useSidebar } from '../../lib/SidebarContext';
+import { useXpToast } from '../../lib/XpToast';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const shortAddr = `${BTB_ADDRESS.slice(0, 6)}…${BTB_ADDRESS.slice(-4)}`;
@@ -116,6 +117,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
   const [busy, setBusy] = useState<'convert' | 'claim' | 'checkin' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { isMobile } = useSidebar();
+  const showXp = useXpToast();
 
   // Live per-wallet state: this week's points, opt-in flag, live denominator.
   const status = useQuery(api.rewards.getStatus, address ? { walletAddress: address } : 'skip');
@@ -165,7 +167,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto, onEarn }: {
     if (!address || busy) return;
     setBusy('checkin'); setError(null);
     try {
-      await checkInNow({ walletAddress: address });
+      const r = await checkInNow({ walletAddress: address });
+      if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0), `Day ${r.newStreak} check-in`);
     } catch (e) {
       setError(readableError(e, 'Could not check in — try again'));
     } finally {
