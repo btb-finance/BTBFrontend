@@ -33,7 +33,7 @@ import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
 import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
-import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
+import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, STABLES, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { withSafeMulticall } from '../../lib/safeMulticall';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
@@ -1265,8 +1265,15 @@ export function SimulateScreen() {
   // metadata from the selected chain before starting the comparison.
   useEffect(() => {
     if (appliedPair.current || loadingTokens) return;
-    const { a, b } = presetPair;
-    if (!a || !b) return;
+    const { a } = presetPair;
+    if (!a) return;
+    // Only one token linked (Portfolio's Simulate/LP buttons): pair it with
+    // the chain's stablecoin, or the native token when it is itself a stable.
+    const listedA = chainTokens.find(token => token.address.toLowerCase() === a);
+    const aIsStable = !!listedA && STABLES.has(listedA.symbol.toUpperCase());
+    const stable = chainTokens.find(token => ['USDC', 'USDT'].includes(token.symbol.toUpperCase()) && token.address.toLowerCase() !== a);
+    const b = presetPair.b ?? (aIsStable || !stable ? 'eth' : stable.address.toLowerCase());
+    if (b === a) return;
 
     let cancelled = false;
     const nativeSymbol = CHAIN_META[chainId]?.symbol ?? 'ETH';

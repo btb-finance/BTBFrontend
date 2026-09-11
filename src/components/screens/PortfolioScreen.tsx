@@ -11,6 +11,8 @@ import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions } from '../LpPositions';
 import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
+import { KYBER_CHAINS } from '../../lib/kyberswap';
+import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useSidebar } from '../../lib/SidebarContext';
 import { ChainLogo } from '../ChainLogo';
 
@@ -61,7 +63,7 @@ function isNativeAddress(address: string) {
     || normalized === '0x0000000000000000000000000000000000000000';
 }
 
-export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) => void; onSwap?: (token: Token) => void } = {}) {
+export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void } = {}) {
   const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
   const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
   const [lpToken, setLpToken] = useState<Token | null>(null);
@@ -147,52 +149,64 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
         : <span style={{ fontWeight: 700 }}>${fmt(t.usdValue ?? 0)}</span>,
     },
     {
-      key: 'actions', label: '', align: 'right', width: isMobile ? '124px' : '220px',
+      key: 'actions', label: '', align: 'right', width: isMobile ? '124px' : '250px',
       render: t => {
-        // Wallet actions all run on Ethereum mainnet only (wagmi is pinned to
-        // chain 1) — showing live Send/Swap/LP buttons for another chain's
-        // token would submit a broken/misdirected transaction.
-        const isMainnet = (t.chainId ?? 1) === 1;
-        const isRobinhood = t.chainId === 4663;
-        if (!isMainnet && !isRobinhood) {
+        // Every token gets the three LP moves. Swap runs through KyberSwap on
+        // the token's own chain; Simulate opens the finder for that chain with
+        // the token preselected; LP uses the mainnet pool picker on Ethereum
+        // and the finder (which can deploy on Aerodrome/Base) elsewhere.
+        const chainId = t.chainId ?? 1;
+        const canSwap = !!KYBER_CHAINS[chainId];
+        const canSimulate = !!CHAIN_DATA_NETWORKS[chainId];
+        const openLp = () => (chainId === 1 ? setLpToken(t) : onSimulate?.(t));
+        if (!canSwap && !canSimulate) {
           return <span style={{ color: btb.textDim, fontSize: 11.5 }}>View only</span>;
-        }
-        if (isRobinhood) {
-          return <Button variant="ghost" size="sm" onClick={() => onSend?.(t)} style={{ height: 32, border: btb.borderSoft }}>Send</Button>;
         }
         if (isMobile) {
           // icon-only so the table fits a phone without sideways scrolling
           return (
             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-              <Button variant="ghost" size="sm" title="Send" onClick={() => onSend?.(t)}
-                style={{ height: 32, width: 34, padding: 0, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
-                <Icon name="send" size={13} />
-              </Button>
-              <Button size="sm" title="Swap" onClick={() => onSwap?.(t)}
-                style={{ height: 32, width: 34, padding: 0, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: 'none' }}>
-                <Icon name="swap" size={13} />
-              </Button>
-              <Button variant="success" size="sm" title="Add LP" onClick={() => setLpToken(t)}
-                style={{ height: 32, width: 34, padding: 0, boxShadow: 'none' }}>
-                <Icon name="plus" size={13} />
-              </Button>
+              {canSwap && (
+                <Button size="sm" title="Swap" onClick={() => onSwap?.(t)}
+                  style={{ height: 32, width: 34, padding: 0, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: 'none' }}>
+                  <Icon name="swap" size={13} />
+                </Button>
+              )}
+              {canSimulate && (
+                <Button variant="ghost" size="sm" title="Simulate LP" onClick={() => onSimulate?.(t)}
+                  style={{ height: 32, width: 34, padding: 0, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
+                  <Icon name="chart" size={13} />
+                </Button>
+              )}
+              {canSimulate && (
+                <Button variant="success" size="sm" title="Add LP" onClick={openLp}
+                  style={{ height: 32, width: 34, padding: 0, boxShadow: 'none' }}>
+                  <Icon name="plus" size={13} />
+                </Button>
+              )}
             </div>
           );
         }
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-            <Button variant="ghost" size="sm" onClick={() => onSend?.(t)}
-              style={{ height: 32, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
-              <Icon name="send" size={12} /> Send
-            </Button>
-            <Button size="sm" onClick={() => onSwap?.(t)}
-              style={{ height: 32, gap: 5, fontSize: 12, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: 'none' }}>
-              <Icon name="swap" size={12} /> Swap
-            </Button>
-            <Button variant="success" size="sm" onClick={() => setLpToken(t)}
-              style={{ height: 32, gap: 5, fontSize: 12, boxShadow: 'none' }}>
-              <Icon name="plus" size={12} /> LP
-            </Button>
+            {canSwap && (
+              <Button size="sm" onClick={() => onSwap?.(t)}
+                style={{ height: 32, gap: 5, fontSize: 12, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: 'none' }}>
+                <Icon name="swap" size={12} /> Swap
+              </Button>
+            )}
+            {canSimulate && (
+              <Button variant="ghost" size="sm" onClick={() => onSimulate?.(t)}
+                style={{ height: 32, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
+                <Icon name="chart" size={12} /> Simulate
+              </Button>
+            )}
+            {canSimulate && (
+              <Button variant="success" size="sm" onClick={openLp}
+                style={{ height: 32, gap: 5, fontSize: 12, boxShadow: 'none' }}>
+                <Icon name="plus" size={12} /> LP
+              </Button>
+            )}
           </div>
         );
       },
@@ -212,6 +226,12 @@ export function PortfolioScreen({ onSend, onSwap }: { onSend?: (token: Token) =>
               {allTokensWithBalance.length} tokens{allTokensWithBalance.length > trustedTokens.length && ` · ${allTokensWithBalance.length - trustedTokens.length} quotes excluded from net worth`}
             </div>
           </div>
+          {onSend && (
+            <Button variant="ghost" size="sm" onClick={onSend} title="Send tokens from this wallet"
+              style={{ height: 34, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text }}>
+              <Icon name="send" size={12} /> Send
+            </Button>
+          )}
           <Glass padding={0} radius={999} style={{ width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: refreshing ? 'default' : 'pointer' }} onClick={() => { if (!refreshing) refetchBalances(); }}>
             <div className={refreshing ? 'spin' : undefined} style={refreshing ? { width: 16, height: 16 } : undefined}>
               <Icon name="refresh" size={16} />

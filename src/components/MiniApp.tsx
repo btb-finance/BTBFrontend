@@ -85,6 +85,16 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   const openOverlay = (o: Exclude<Overlay, null>) => { setOverlay(o); syncUrl(screen, o); };
   const closeOverlay = () => { setOverlay(null); syncUrl(screen, null); };
 
+  // Open the Simulate tab on the token's chain with it preselected
+  // (/simulate?chain=…&tokenA=…); the finder pairs it with the chain's stable
+  // or native token and searches every DEX it knows on that chain.
+  const openSimulate = (t: Token) => {
+    setOverlay(null);
+    setScreen('simulate');
+    const q = new URLSearchParams({ chain: String(t.chainId ?? 1), tokenA: t.address });
+    window.history.pushState(null, '', `/simulate?${q}`);
+  };
+
   // Open the swap tab with a preselected pair and a URL that carries it
   // (/swap?from=…&to=…), so the destination is fully linkable.
   const openSwap = (opts?: { from?: Token; toAddress?: string }) => {
@@ -115,7 +125,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
-      case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })}/>;
+      case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'studio':    return <AgentStudioScreen/>;
