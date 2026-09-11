@@ -16,6 +16,7 @@ import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
+import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -553,6 +554,37 @@ async function findV3Pools(
     if (addr !== '0x0000000000000000000000000000000000000000') pools.push({ protocol, feeTier: deployment.feeTiers[i], address: addr });
   });
   return pools;
+}
+
+/** Aerodrome Slipstream on Base: every tick spacing on every live
+ * deployment, straight from the factories, so a pool shows even when no
+ * market index has picked it up yet. Fee is per pool (read from it). */
+async function findAerodromePools(
+  client: PublicClient,
+  tokenA: Token,
+  tokenB: Token,
+  wrappedNative: `0x${string}`,
+): Promise<FoundPool[]> {
+  const addrA = toV3Address(tokenA.address, wrappedNative);
+  const addrB = toV3Address(tokenB.address, wrappedNative);
+  const calls = AERODROME_CL_DEPLOYMENTS.flatMap(d => d.feeTiers.map(spacing => ({
+    address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool' as const, args: [addrA, addrB, spacing] as const, deployment: d,
+  })));
+  const found = await withSafeMulticall(client).multicall({ contracts: calls.map(({ deployment: _d, ...c }) => c), allowFailure: true });
+  const live = calls
+    .map((c, i) => ({ deployment: c.deployment, address: found[i].status === 'success' ? (found[i].result as `0x${string}`) : null }))
+    .filter((x): x is { deployment: V3Deployment; address: `0x${string}` } => !!x.address && x.address !== '0x0000000000000000000000000000000000000000');
+  if (live.length === 0) return [];
+  const fees = await withSafeMulticall(client).multicall({
+    contracts: live.map(x => ({ address: x.address, abi: POOL_ABI, functionName: 'fee' as const })),
+    allowFailure: true,
+  });
+  return live.map((x, i) => ({
+    protocol: 'uniswap-v3' as const,
+    feeTier: fees[i].status === 'success' ? Number(fees[i].result) : 0,
+    address: x.address,
+    dexLabel: 'Aerodrome Slipstream',
+  }));
 }
 
 function resolveCrossChainToken(catalog: Token[], chainId: number, symbol: string): Token | null {
@@ -1421,6 +1453,7 @@ export function SimulateScreen() {
         ...(uniswapV3 ? [{ label: 'Uniswap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, uniswapV3, wrappedNative) }] : []),
         { label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) },
         { label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, PANCAKE_V3_DEPLOYMENT, wrappedNative) },
+        ...(chainId === 8453 ? [{ label: 'Aerodrome', run: () => findAerodromePools(client, tokenA, tokenB, wrappedNative) }] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
         (v): { ok: true; pools: FoundPool[] } => {
@@ -1567,7 +1600,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3, Uniswap V4, PancakeSwap V3, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3, Uniswap V4, PancakeSwap V3{chainId === 8453 ? ', Aerodrome Slipstream' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
