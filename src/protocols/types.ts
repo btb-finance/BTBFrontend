@@ -46,6 +46,9 @@ export interface LiquidityPosition {
   /** Fork deployments with several managers (Aerodrome Slipstream): the NPM
    * this position lives in, so actions target the right contract. */
   positionManager?: `0x${string}`;
+  /** Aerodrome: the NFT is deposited in a gauge and earns AERO instead of
+   * swap fees. Unstake (gauge.withdraw) before any NPM action. */
+  staked?: { gauge: `0x${string}`; earned: bigint; rewardToken: `0x${string}`; rewardSymbol: string };
 }
 
 /** Minimal token metadata used when rendering a position. */
