@@ -6,7 +6,7 @@
  * Context assembled per message:
  *  - the wallet's token balances (server-side snapshot, also used for the gate)
  *  - the Discover pool list (precomputed hourly by discoverRefresh.ts)
- *  - client-provided extras: LP positions and Yearn Earn positions (compact JSON)
+ *  - client-provided extras: LP positions (compact JSON)
  *
  * Access is enforced HERE, not just in the UI: the wallet must hold 10M BTB
  * per its balance snapshot. API key lives in the GLM_API_KEY env var.
@@ -61,14 +61,14 @@ function buildSystemPrompt(
   } catch { /* keep "unavailable" */ }
 
   return [
-    "You are the BTB Agent, the in app assistant of BTB Finance (btb.finance), a DeFi app on Ethereum mainnet with swaps, concentrated liquidity LPing (Uniswap V3/V4, PancakeSwap V3), and Yearn vault deposits.",
+    "You are the BTB Agent, the in app assistant of BTB Finance (btb.finance), a DeFi app on Ethereum mainnet with swaps, concentrated liquidity LPing (Uniswap V3/V4, PancakeSwap V3).",
     "You help the user decide where to deploy their capital: suggest concrete LP pools or vaults that match the tokens they already hold, sized to their balances. Always cover risk honestly: impermanent loss for volatile pairs, out of range risk for concentrated positions, low TVL or low volume pools being unreliable, and that APRs move constantly.",
-    "Ground every suggestion in the data below. If the user holds both sides of a pool pair, say so. Prefer high TVL pools for beginners and stable pairs for low risk. For low risk or stablecoin yield questions, ALWAYS compare LP pools against the Yearn vaults in vaultList: vaults take one token, auto compound, and have no impermanent loss, so when a stable vault pays more APY than a stable LP, recommend the vault (deposits happen in the app's Earn tab). When the user mentions a token that is not in the data, call the search_token tool to get its live price, liquidity, volume, and pools before answering; flag thin liquidity, brand new pairs, and big 24h moves as risks. Never invent pools, vaults, or numbers that are not in the data. Keep replies short and scannable, and do not use em dashes. You are not a licensed financial advisor and say so once when giving allocation advice.",
+    "Ground every suggestion in the data below. If the user holds both sides of a pool pair, say so. Prefer high TVL pools for beginners and stable pairs for low risk. When the user mentions a token that is not in the data, call the search_token tool to get its live price, liquidity, volume, and pools before answering; flag thin liquidity, brand new pairs, and big 24h moves as risks. Never invent pools or numbers that are not in the data. Keep replies short and scannable, and do not use em dashes. You are not a licensed financial advisor and say so once when giving allocation advice.",
     "",
     "USER TOKEN BALANCES:",
     held || "none on record (ask them to open the Portfolio tab once so balances sync)",
     "",
-    "APP DATA JSON — lps: the user's LP positions · yearn: the user's vault deposits · vaultList: Yearn vaults available in the Earn tab (apyPct, tvlUsd, stable flag):",
+    "APP DATA JSON — lps: the user's LP positions:",
     extras && extras.length > 2 ? extras.slice(0, 8000) : "none provided",
     "",
     "TOP POOLS RIGHT NOW (pair · dex · fee · TVL · APR):",
@@ -126,7 +126,7 @@ export const chat = action({
   args: {
     walletAddress: v.string(),
     message: v.string(),
-    /** Compact JSON from the client: LP positions + Yearn positions. */
+    /** Compact JSON from the client: LP positions. */
     extras: v.optional(v.string()),
   },
   handler: async (ctx, { walletAddress, message, extras }): Promise<string> => {

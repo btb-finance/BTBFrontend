@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig, useConnection } from 'wagmi';
+import { useMutation } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeAbiParameters, erc20Abi, isAddress, keccak256, parseAbiParameters, zeroAddress, type PublicClient } from 'viem';
 import { Glass } from '../Glass';
@@ -38,6 +40,7 @@ import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { useDiscoverPools, waitForDiscoverPools } from '../../lib/discoverPools';
+import { useXpToast } from '../../lib/XpToast';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 type SimulateMode = 'single' | 'cross-chain';
@@ -707,6 +710,9 @@ function CrossChainResearch({ chains, isMobile }: {
   isMobile: boolean;
 }) {
   const config = useConfig();
+  const { address } = useConnection();
+  const awardSimulateXp = useMutation(api.users.awardSimulateXp);
+  const showXp = useXpToast();
   const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
@@ -846,6 +852,14 @@ function CrossChainResearch({ chains, isMobile }: {
     }));
     setResults(initial);
     setResearching(true);
+    // 100 XP per chain researched, each chain once a day (server-enforced).
+    if (address) {
+      for (const selectedChainId of new Set(tasks.map(task => task.chainId))) {
+        const chainName = chains.find(chain => chain.id === selectedChainId)?.name ?? 'chain';
+        awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId })
+          .then(r => showXp(r.awarded, `${chainName} research`)).catch(() => {});
+      }
+    }
 
     const catalogs = new Map<number, Promise<Token[]>>();
     const loadCatalog = (targetChainId: number) => {
@@ -1147,7 +1161,9 @@ function CrossChainResearch({ chains, isMobile }: {
 
 export function SimulateScreen() {
   const config = useConfig();
-  const { chainId: walletChainId } = useConnection();
+  const { chainId: walletChainId, address } = useConnection();
+  const awardSimulateXp = useMutation(api.users.awardSimulateXp);
+  const showXp = useXpToast();
   const { isMobile } = useSidebar();
   const { tokens, positions } = useTokenStore();
   const { pools: sharedEarnPools } = useDiscoverPools();
@@ -1194,6 +1210,12 @@ export function SimulateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundPool[] | null>(null);
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
+  // First pool checked each day pays 100 XP; the server ignores repeats.
+  useEffect(() => {
+    if (!sheetFee || !address) return;
+    awardSimulateXp({ walletAddress: address, kind: 'pool' }).then(r => showXp(r.awarded, 'Pool simulated')).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetFee != null, address]);
   const appliedPair = useRef(false);
   const autoComparedPair = useRef(false);
 

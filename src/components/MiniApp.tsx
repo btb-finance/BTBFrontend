@@ -24,7 +24,6 @@ import { AgentStudioScreen } from './screens/AgentStudioScreen';
 import { ReceiveModal } from './ReceiveModal';
 import { SendModal } from './SendModal';
 import { DocsScreen } from './screens/DocsScreen';
-import { EarnScreen } from './screens/EarnScreen';
 import { btb } from './design-tokens';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
@@ -38,7 +37,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   onLeave: () => void;
 }) {
   // Screen + overlay are seeded from the URL (each tab has a real path, e.g.
-  // /discover, /token, /earn) and kept in sync via pushState/popstate below.
+  // /discover, /token, /docs) and kept in sync via pushState/popstate below.
   const initialRoute = parsePath(usePathname() ?? '/');
   const [screen, setScreen]   = useState<Tab>(initialRoute.screen);
   const [overlay, setOverlay] = useState<Overlay>(initialRoute.overlay);
@@ -59,8 +58,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   // Warm the Discover pool list in the background right after the shell
   // mounts, so the tab opens instantly instead of starting its fetch on first
   // visit. The prefetcher no-ops when the snapshot is already fresh or in
-  // flight. Yearn no longer needs warming — its catalog is a Convex snapshot
-  // the Earn/Portfolio screens subscribe to directly.
+  // flight.
   useEffect(() => {
     prefetchDiscoverPools(getPublicClient(config));
   }, [config]);
@@ -81,7 +79,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // Switching tabs also closes any overlay (Earn/Docs) so navigation always
+  // Switching tabs also closes any overlay (Docs) so navigation always
   // does something visible — especially important for the mobile bottom nav.
   const goto = (t: Tab) => { if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
   const openOverlay = (o: Exclude<Overlay, null>) => { setOverlay(o); syncUrl(screen, o); };
@@ -110,7 +108,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
   const content = (() => {
     switch (screen) {
       case 'home':      return <HomeScreen goto={goto} address={effectiveAddress}
-                          onEarn={() => openOverlay('earn')}
                           onConnectWallet={() => setShowConnect(true)}
                           onBuyBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'trade':     return <TradeScreen address={effectiveAddress} marketFeed={marketFeed}
@@ -118,7 +115,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
-      case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })} onOpenEarn={() => openOverlay('earn')}/>;
+      case 'portfolio': return <PortfolioScreen onSend={(t) => { setSendToken(t); requireWallet(() => setShowSend(true))(); }} onSwap={(t) => openSwap({ from: t })}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'studio':    return <AgentStudioScreen/>;
@@ -127,8 +124,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
 
   const overlayContent = overlay === 'docs'
     ? <DocsScreen onBack={closeOverlay}/>
-    : overlay === 'earn'
-    ? <EarnScreen onBack={closeOverlay} address={effectiveAddress} onConnect={() => setShowConnect(true)}/>
     : null;
 
   return (
@@ -141,7 +136,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
           isReadOnly={isReadOnly}
           onDisconnect={handleLeave}
           onDocs={() => openOverlay('docs')}
-          onEarn={() => openOverlay('earn')}
           onConnect={() => setShowConnect(true)}
         />
       )}
@@ -157,7 +151,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
           setTab={goto}
           address={effectiveAddress}
           isReadOnly={isReadOnly}
-          onEarn={() => openOverlay('earn')}
           onDocs={() => openOverlay('docs')}
           onConnect={() => setShowConnect(true)}
           onDisconnect={handleLeave}

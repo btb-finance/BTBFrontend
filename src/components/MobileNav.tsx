@@ -6,7 +6,7 @@ import { btb } from './design-tokens';
 import { Tab } from './types';
 
 // Bottom navigation shown instead of the sidebar below the mobile breakpoint.
-// Four primary tabs stay visible; everything else (remaining tabs, Earn, Docs,
+// Four primary tabs stay visible; everything else (remaining tabs, Docs,
 // wallet) lives in the "More" sheet.
 const PRIMARY: { id: Tab; label: string; icon: string }[] = [
   { id: 'home',      label: 'Home',      icon: 'home' },
@@ -23,12 +23,11 @@ const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'studio',   label: 'Agent Studio', icon: 'rocket' },
 ];
 
-export function MobileNav({ tab, setTab, address, isReadOnly, onEarn, onDocs, onConnect, onDisconnect }: {
+export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect, onDisconnect }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   address?: string;
   isReadOnly: boolean;
-  onEarn: () => void;
   onDocs: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -67,7 +66,6 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onEarn, onDocs, on
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {[
                 ...MORE_TABS.map(i => ({ ...i, onClick: () => { setTab(i.id); setSheet(false); }, active: tab === i.id })),
-                { id: 'earn', label: 'Earn', icon: 'launch', onClick: () => { onEarn(); setSheet(false); }, active: false },
                 { id: 'docs', label: 'Docs', icon: 'doc',    onClick: () => { onDocs(); setSheet(false); }, active: false },
               ].map(i => (
                 <div key={i.id} onClick={i.onClick} style={{
