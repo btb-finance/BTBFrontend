@@ -29,7 +29,9 @@ import {
   type MintPool, type V4MintPool, type PoolDay, type BacktestResult,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
-import { AERODROME_MINT_DEPLOYMENT, BASE_CHAIN_ID, BASE_WETH, gaugeForPool, buildGaugeStake } from '@/protocols/dexs/aerodrome';
+import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
+import { gaugeForPool, buildGaugeStake, fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
+import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
@@ -102,7 +104,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
-  dex?: 'uniswap' | 'pancakeswap' | 'aerodrome';
+  dex?: LpDex;
   /** Fee tier of the pool the user clicked — preselected when valid (V3). */
   initialFee?: number;
   /** Exact starting range (e.g. handed over from the simulator page). */
@@ -115,7 +117,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   v4PoolId?: `0x${string}`;
   /** Open as the earnings simulator (USD amount, no wallet) instead of a deposit. */
   simulate?: boolean;
-  chainId?: 1 | 4663 | 8453;
+  chainId?: LpChainId;
   /** Aerodrome: stake the new NFT in the pool's gauge after minting (default on). */
   stakeByDefault?: boolean;
   onClose: () => void; onDone?: () => void;
@@ -130,16 +132,23 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
-  const deployment = dex === 'aerodrome' ? AERODROME_MINT_DEPLOYMENT : dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-  const isSlipstream = !!deployment.slipstream;
-  const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
-  const chainWeth = chainId === 4663 ? ROBINHOOD_WETH : chainId === BASE_CHAIN_ID ? BASE_WETH : WETH;
+  // Aerodrome has three live Slipstream deployments, each with its own
+  // factory and position manager; the pair's pools can sit on any of them, so
+  // the deployment follows the selected tick spacing once pools are loaded.
+  const [aeroDeploymentByTier, setAeroDeploymentByTier] = useState<Record<number, V3Deployment>>({});
+  const baseDeployment = v3DeploymentFor(dex, chainId) ?? UNISWAP_V3_DEPLOYMENT;
+  const isSlipstream = !!baseDeployment.slipstream;
+  // Only Aerodrome has gauges the sheet can stake into.
+  const isAerodromeGauge = dex === 'aerodrome';
+  const v4Deployment = v4DeploymentFor(chainId) ?? UNISWAP_V4;
+  const chainWeth = wrappedNativeFor(chainId);
   // Aerodrome: stake the minted NFT so it earns AERO emissions.
-  const [stakeAfterMint, setStakeAfterMint] = useState(isSlipstream && stakeByDefault);
+  const [stakeAfterMint, setStakeAfterMint] = useState(isAerodromeGauge && stakeByDefault);
   const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
-    initialFee !== undefined && deployment.feeTiers.includes(initialFee) ? initialFee : deployment.feeTiers[2],
+    initialFee !== undefined && baseDeployment.feeTiers.includes(initialFee) ? initialFee : baseDeployment.feeTiers[2],
   );
+  const deployment: V3Deployment = dex === 'aerodrome' ? (aeroDeploymentByTier[fee] ?? baseDeployment) : baseDeployment;
   // All fee tiers are fetched in one batch up front — switching tiers is instant.
   const [pools, setPools] = useState<Record<number, MintPool> | null>(null);
   const [loadingPool, setLoadingPool] = useState(true);
@@ -166,7 +175,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [usd, setUsd] = useState<Record<string, number>>({});
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
-  const [slippageBps, setSlippageBps] = useState(chainId === 4663 ? 500 : SLIPPAGE_BPS);
+  const [slippageBps, setSlippageBps] = useState(lpSlippageBps(chainId, SLIPPAGE_BPS));
   const [autoManage, setAutoManage] = useState(false);
   const [automationRules, setAutomationRules] = useState<AutomationRuleValues>({
     ...DEFAULT_AUTOMATION_RULES,
@@ -217,8 +226,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return s0 && !s1; // token0 stable → base the volatile token1
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
-  const dexLabel = dex === 'aerodrome' ? 'Aerodrome' : dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
-  const chainLabel = chainId === BASE_CHAIN_ID ? 'Base' : chainId === 4663 ? 'Robinhood Chain' : 'Ethereum';
+  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
+  const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
   const feeSwitchProtocol: FeeSwitchProtocol = dex === 'pancakeswap' ? 'pancakeswap-v3' : isV4 ? 'uniswap-v4' : 'uniswap-v3';
@@ -259,7 +268,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         .catch((e: Error) => { if (live) setPoolErr(e?.message ?? 'network error'); })
         .finally(() => { if (live) setLoadingPool(false); });
     } else if (tokenA && tokenB) {
-      fetchPoolsForMint(client, tokenA, tokenB, deployment)
+      (dex === 'aerodrome'
+        ? fetchAerodromePoolsForMint(client, tokenA, tokenB).then(({ pools, deploymentByTier }) => { if (live) setAeroDeploymentByTier(deploymentByTier); return pools; })
+        : fetchPoolsForMint(client, tokenA, tokenB, baseDeployment))
         .then((record) => {
           if (!live) return;
           setPools(record);
@@ -294,7 +305,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     }
     // Native ETH (V4 currency 0x0) isn't a token DeFiLlama knows — price it as WETH.
     const priceToken0 = isNativeCurrency(pool.token0) ? WETH : pool.token0;
-    getTokenPricesUsd([priceToken0, pool.token1], chainId === BASE_CHAIN_ID ? 'base' : 'ethereum')
+    getTokenPricesUsd([priceToken0, pool.token1], chainId === 8453 ? 'base' : chainId === 56 ? 'bsc' : 'ethereum')
       .then((p) => {
         if (!live) return;
         if (priceToken0 !== pool.token0 && p[WETH.toLowerCase()]) p[pool.token0.toLowerCase()] = p[WETH.toLowerCase()];
@@ -512,7 +523,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   /** Aerodrome: after a mint, deposit the wallet's newest NFT in the gauge. */
   async function stakeNewest(acct: `0x${string}`) {
-    if (!isSlipstream || !stakeAfterMint || !pool) return;
+    if (!isAerodromeGauge || !stakeAfterMint || !pool) return;
     const client = getPublicClient(config, { chainId });
     if (!client) return;
     const gauge = await gaugeForPool(client, deployment, pool.token0, pool.token1, fee);
@@ -997,8 +1008,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               if (splitRange) setSplitAmt((v) => side === 0 ? { ...v, str0: str } : { ...v, str1: str });
               else { setAmt({ side, str }); setSwapPreview(null); }
             }}
-            inputMode="decimal" placeholder="0"
-            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
+            inputMode="decimal" placeholder={disabled ? 'Not needed for this range' : '0'}
+            title={disabled ? `Your range sits ${need === 'token0' ? 'above' : 'below'} the current price, so it only takes ${need === 'token0' ? sym0 : sym1}. Widen the range to deposit both.` : undefined}
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: disabled ? 13 : 20, fontWeight: 700, fontFamily: 'inherit', cursor: disabled ? 'not-allowed' : 'text' }}/>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <TokenIcon symbol={sym} size={20} />
             {wethSide === side && !isV4 ? (
@@ -1083,7 +1095,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         border: `1px solid ${severe ? 'rgba(255,107,122,0.3)' : 'rgba(255,179,107,0.3)'}`,
         borderRadius: 12, padding: '10px 12px',
       }}>
-        ⚠️ This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
+        This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
       </div>
     );
   }
@@ -1263,7 +1275,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 </div>
                 {!tokenUsd && (
                   <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
-                    No USD price data for this pair yet — try again in a moment.
+                    No USD price data for this pair yet; try again in a moment.
                   </div>
                 )}
               </>
@@ -1349,7 +1361,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <div style={{ color: btb.text, fontSize: 10.5, marginTop: 7, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ color: btb.textDim }}>Swap to balance</span>
                     <span style={{ fontWeight: 700 }}>
-                      {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} → {swapPreview.otherSym}
+                      {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} to {swapPreview.otherSym}
                       <span style={{ color: swapPreview.pct <= 60 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
                     </span>
                   </div>
@@ -1488,7 +1500,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
                   <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
                 </div>
-                {isSlipstream && !simOnly && (
+                {isAerodromeGauge && !simOnly && (
                   <div
                     onClick={() => setStakeAfterMint((v) => !v)}
                     title="Stake the new position in the Aerodrome gauge to earn AERO"

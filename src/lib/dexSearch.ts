@@ -68,7 +68,9 @@ const POOL_FEE_ABI = [{
   outputs: [{ type: 'uint24' }],
 }] as const;
 /** Standard Uniswap V3 pool state — any pool answering these is simulatable
- * with the shared V3 math, regardless of which DEX deployed it. */
+ * with the shared V3 math, regardless of which DEX deployed it. slot0 is
+ * decoded to its first two words only: Uniswap returns seven fields and
+ * Aerodrome Slipstream six (no feeProtocol), and the head is all we use. */
 const V3_STATE_ABI = [
   {
     type: 'function',
@@ -78,11 +80,6 @@ const V3_STATE_ABI = [
     outputs: [
       { name: 'sqrtPriceX96', type: 'uint160' },
       { name: 'tick', type: 'int24' },
-      { name: 'observationIndex', type: 'uint16' },
-      { name: 'observationCardinality', type: 'uint16' },
-      { name: 'observationCardinalityNext', type: 'uint16' },
-      { name: 'feeProtocol', type: 'uint8' },
-      { name: 'unlocked', type: 'bool' },
     ],
   },
   {

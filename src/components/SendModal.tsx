@@ -198,13 +198,13 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Transaction sent</div>
-              <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 6 }}>{amount} {token} → {to.slice(0,8)}…{to.slice(-4)}</div>
+              <div style={{ color: btb.textMuted, fontSize: 14, marginTop: 6 }}>{amount} {token} to {to.slice(0,8)}…{to.slice(-4)}</div>
               {isSuccess && <div style={{ color: btb.green, fontSize: 12, marginTop: 4 }}>Confirmed on-chain</div>}
             </div>
             {txHash && (
               <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer"
                 style={{ color: btb.textMuted, fontSize: 12, fontFamily: 'monospace' }}>
-                {txHash.slice(0, 14)}…{txHash.slice(-8)} ↗
+                {txHash.slice(0, 14)}…{txHash.slice(-8)}
               </a>
             )}
             <Button size="md" onClick={onClose} style={{ background: 'rgba(82,227,164,0.15)', color: btb.green, boxShadow: 'none', outline: '1px solid rgba(82,227,164,0.35)' }}>Done</Button>

@@ -178,7 +178,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
           </div>
 
           <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55, padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.035)', border: btb.borderSoft, marginBottom: 12 }}>
-            The NFT moves into the same universal smart account used by BTB trading. The agent can only remove, safely swap and re-add this pool inside the range limits you sign. It cannot transfer the NFT or withdraw funds.
+            The NFT moves into your universal BTB smart account. The agent can only remove, safely swap and re-add this pool inside the range limits you sign. It cannot transfer the NFT or withdraw funds.
           </div>
 
           {smartDeployment ? (

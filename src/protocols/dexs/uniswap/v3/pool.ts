@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLIPSTREAM_POOL_ABI } from './abis';
+import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI } from './abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
 export interface MintPool {
@@ -18,6 +18,9 @@ export interface MintPool {
   liquidity: bigint;
   /** Slipstream: `fee` above is the tickSpacing key; this is the pool's actual swap fee (pips). */
   poolFeePips?: number;
+  /** The pool's own tick spacing, read from the contract when known. Fork
+   * pools (Aerodrome) do not follow the Uniswap fee-to-spacing table. */
+  tickSpacing?: number;
 }
 
 const ZERO = '0x0000000000000000000000000000000000000000';
@@ -34,9 +37,11 @@ export async function fetchKnownV3Pool(
   fee: number,
 ): Promise<MintPool> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
-  const [slot0, liquidity, metaRes] = await Promise.all([
-    client.readContract({ address: pool, abi: POOL_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
+  const TICK_SPACING_ABI = [{ name: 'tickSpacing', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] }] as const;
+  const [slot0, liquidity, tickSpacing, metaRes] = await Promise.all([
+    client.readContract({ address: pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
     client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
+    client.readContract({ address: pool, abi: TICK_SPACING_ABI, functionName: 'tickSpacing' }).then(Number).catch(() => undefined),
     withSafeMulticall(client).multicall({
       contracts: [
         { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
@@ -60,6 +65,7 @@ export async function fetchKnownV3Pool(
     sqrtPriceX96: slot0[0] as bigint,
     tick: Number(slot0[1]),
     liquidity,
+    ...(tickSpacing ? { tickSpacing } : {}),
   };
 }
 
@@ -95,7 +101,7 @@ export async function fetchPoolForMint(
   let sqrtPriceX96 = 0n, tick = 0, liquidity = 0n;
   if (exists) {
     const [s, liq] = await Promise.all([
-      client.readContract({ address: pool, abi: POOL_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
+      client.readContract({ address: pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
       client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
     ]);
     sqrtPriceX96 = s[0] as bigint;
@@ -157,7 +163,8 @@ export async function fetchPoolsForMint(
   const stateRes = existing.length > 0
     ? await withSafeMulticall(client).multicall({
         contracts: existing.flatMap((a) => [
-          { address: a.pool, abi: slip ? SLIPSTREAM_POOL_ABI : POOL_ABI, functionName: 'slot0' as const },
+          // Price and tick only: decodes V3, Ramses (seven words) and Slipstream (six) alike.
+          { address: a.pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'liquidity' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'fee' as const },
         ]),

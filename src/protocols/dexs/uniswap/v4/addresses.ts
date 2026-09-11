@@ -26,6 +26,42 @@ export const ROBINHOOD_UNISWAP_V4: V4Deployment = {
   permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
 };
 
+/**
+ * Official Uniswap V4 deployments by chain (docs.uniswap.org/contracts/v4/
+ * deployments), verified on-chain: each PositionManager, StateView and Quoter
+ * reports the PoolManager listed here. Permit2 is canonical everywhere.
+ */
+export const UNISWAP_V4_DEPLOYMENTS: Record<number, V4Deployment> = {
+  1: UNISWAP_V4,
+  4663: ROBINHOOD_UNISWAP_V4,
+  8453: {
+    poolManager: '0x498581fF718922c3f8e6A244956aF099B2652b2b',
+    positionManager: '0x7C5f5A4bBd8fD63184577525326123B519429bDc',
+    stateView: '0xA3c0c9b65baD0b08107Aa264b0f3dB444b867A71',
+    quoter: '0x0d5e0F971ED27FBfF6c2837bf31316121532048D',
+    permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+  },
+  56: {
+    poolManager: '0x28e2Ea090877bF75740558f6BFB36A5ffeE9e9dF',
+    positionManager: '0x7A4a5c919aE2541AeD11041A1AEeE68f1287f95b',
+    stateView: '0xd13Dd3D6E93f276FAfc9Db9E6BB47C1180aeE0c4',
+    quoter: '0x9F75dD27D6664c475B90e105573E550ff69437B0',
+    permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+  },
+};
+
+/** Block just before each V4 deployment: lower bound for Transfer-log scans. */
+export const V4_DEPLOY_BLOCKS: Record<number, bigint> = {
+  1: 21_680_000n,
+  4663: 0n,
+  8453: 25_350_000n,
+  56: 45_970_000n,
+};
+
+export function uniswapV4DeploymentForChain(chainId: number): V4Deployment | null {
+  return UNISWAP_V4_DEPLOYMENTS[chainId] ?? null;
+}
+
 /** V4 represents native ETH as currency address(0) — always sorted as currency0. */
 export const NATIVE_CURRENCY = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 

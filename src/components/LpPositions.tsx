@@ -19,13 +19,11 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
-  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
-  ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
+  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
-import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
-import { fetchOwnedNftTokenIds } from '../lib/blockscout';
+import { fetchAerodromeStakedByIds, withGauges, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
 import { RebalanceFlow } from './RebalanceFlow';
@@ -75,27 +73,26 @@ function RangeDetails({ p, compact }: { p: LiquidityPosition; compact?: boolean 
 }
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
-function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
-  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
-  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-}
+const v3DeploymentOf = deploymentOfPosition;
+const v4DeploymentOf = v4DeploymentOfPosition;
+const canActOn = (p: LiquidityPosition) => canActOnPosition(p, (hooks) => isNativeCurrency(hooks ?? NATIVE_CURRENCY));
 
-/** Chains whose V3-style positions the app can act on directly (withdraw,
- * add, rebalance) rather than only read through Krystal analytics. */
-function canActOn(p: LiquidityPosition): boolean {
-  const chainId = p.chainId ?? 1;
-  if (chainId === 1) return p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY);
-  if (chainId === 4663) return p.protocol === 'uniswap-v3';
-  if (chainId === BASE_CHAIN_ID) return p.protocol === 'aerodrome-cl';
-  return false;
+/** Badge text; Aerodrome positions on an older Slipstream deployment say so. */
+function protocolBadgeLabel(p: LiquidityPosition): string {
+  if (p.protocol === 'aerodrome-cl') {
+    const label = deploymentOfPosition(p).label ?? '';
+    return /old/i.test(label) ? 'AERO V3 (old)' : 'AERO V3';
+  }
+  return PROTOCOL_BADGE[p.protocol].label;
 }
-const v4DeploymentOf = (p: LiquidityPosition) => p.chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
 
 const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; color: string }> = {
   'uniswap-v3': { label: 'V3', color: '#FF007A' },
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
   'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
+  'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
+  'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
 };
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -110,22 +107,13 @@ function fmtAmt(raw: bigint, decimals: number): string {
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
 
-/** Krystal's Aerodrome rows on Base → candidate tokenIds per position manager
- * (Krystal does not say which manager, so every id is tried on all three). */
-function krystalAeroIds(items: { chainId: number; tokenId: string; pool?: { projectKey?: string } }[]): Map<string, bigint[]> {
-  const ids: bigint[] = [];
-  for (const item of items) {
-    if (item.chainId !== BASE_CHAIN_ID || !item.pool?.projectKey?.toLowerCase().includes('aerodrome')) continue;
-    try { ids.push(BigInt(item.tokenId)); } catch { /* not numeric */ }
-  }
-  return new Map(AERODROME_CL_DEPLOYMENTS.map((d) => [d.positionManager.toLowerCase(), ids]));
-}
-
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
   'aerodrome-cl': 'aerodrome',
+  'giga-v3': 'giga',
+  'ramses-v3': 'ramses',
 };
 
 /** Krystal row ↔ on-chain position. Aerodrome's projectKey varies by
@@ -217,94 +205,114 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
   const positionsRef = useRef<LiquidityPosition[]>([]);
 
+  // Krystal is the index: its rows say which position NFTs the wallet has on
+  // each chain (manager address, tokenId, gauge when staked). The chain RPC
+  // then supplies the live numbers for exactly those ids. No Blockscout, no
+  // balanceOf loops, no Transfer-log scans. A cheap balanceOf pass on the V3
+  // style managers still runs so a position minted a minute ago shows before
+  // Krystal has indexed it.
+  const krystalOpenKey = (krystal?.positions ?? [])
+    .filter((i) => !(i.status?.toUpperCase().includes('CLOSED') || i.closedTime > 0))
+    .map((i) => `${i.chainId}:${i.tokenAddress ?? ''}:${i.tokenId}:${i.id ?? ''}`).sort().join(',');
   const load = useCallback(async () => {
     if (!address) { setPositions([]); return; }
+    const owner = address as `0x${string}`;
     // A previous full snapshot renders instantly; the refresh runs silently.
     const cached = getCachedLpPositions(address);
     if (cached && positionsRef.current.length === 0) setPositions(cached);
-    setLoading(!cached);
+    setLoading(!cached && positionsRef.current.length === 0);
     try {
-      const client = getPublicClient(config, { chainId: 1 });
-      const robinhoodClient = getPublicClient(config, { chainId: 4663 });
-      const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
-      if (!client) return;
-      // Fast path: every position (V3, V4, Pancake V3) is an NFT — one
-      // Blockscout call enumerates all tokenIds at once, replacing the
-      // balanceOf/tokenOfOwnerByIndex loops and the V4 Transfer-log scan.
-      // On failure `ids` is null and each fetcher falls back to its own
-      // on-chain enumeration.
-      const ids = await fetchOwnedNftTokenIds(1, address, [
-        UNISWAP_V3_DEPLOYMENT.positionManager,
-        UNISWAP_V4.positionManager,
-        PANCAKE_V3_DEPLOYMENT.positionManager,
-      ]).catch(() => null);
-      const idsFor = (contract: string) => ids?.get(contract.toLowerCase());
-      const robinhoodContracts = [ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager, ROBINHOOD_UNISWAP_V4.positionManager];
-      const robinhoodIds = robinhoodClient
-        ? await fetchOwnedNftTokenIds(4663, address, robinhoodContracts).catch(() => null)
-        : null;
-      const robinhoodIdsFor = (contract: string) => robinhoodIds?.get(contract.toLowerCase());
-
-      // Each protocol renders as soon as it resolves and degrades
-      // independently — a slow/failing V4 log scan can't hold up the V3 list.
-      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum', staked = false) => (items: LiquidityPosition[]) =>
+      const merge = (protocol: LiquidityPosition['protocol'], chainId: number, chainName: string, staked = false) => (items: LiquidityPosition[]) =>
         setPositions((prev) => {
+          const seen = new Set(items.map(posKey));
           const next = [
-            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId || !!p.staked !== staked),
+            ...prev.filter((p) => !(p.protocol === protocol && (p.chainId ?? 1) === chainId && !!p.staked === staked) || seen.has(posKey(p))),
             ...items.map((p) => ({ ...p, chainId, chainName })),
-          ];
+          ].filter((p, i, arr) => arr.findIndex((q) => posKey(q) === posKey(p) && !!q.staked === !!p.staked) === i);
           positionsRef.current = next;
           return next;
         });
-      await Promise.allSettled([
-        fetchV3Positions(client, address as `0x${string}`, undefined, idsFor(UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3')),
-        fetchV4Positions(client, address as `0x${string}`, idsFor(UNISWAP_V4.positionManager)).then(merge('uniswap-v4')),
-        fetchPancakePositions(client, address as `0x${string}`, idsFor(PANCAKE_V3_DEPLOYMENT.positionManager)).then(merge('pancakeswap-v3')),
-        ...(robinhoodClient ? [
-          fetchV3Positions(robinhoodClient, address as `0x${string}`, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, robinhoodIdsFor(ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3', 4663, 'Robinhood Chain')),
-          fetchV4Positions(robinhoodClient, address as `0x${string}`, robinhoodIdsFor(ROBINHOOD_UNISWAP_V4.positionManager), ROBINHOOD_UNISWAP_V4, 0n).then(merge('uniswap-v4', 4663, 'Robinhood Chain')),
-        ] : []),
-        // Aerodrome Slipstream on Base — enumerated on-chain (no NFT index there).
-        ...(baseClient ? [
-          fetchOwnedNftTokenIds(BASE_CHAIN_ID, address, AERODROME_CL_DEPLOYMENTS.map((d) => d.positionManager)).catch(() => undefined)
-            .then((baseIds) => fetchAerodromePositions(baseClient, address as `0x${string}`, baseIds)).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base')),
-          // Gauge-staked NFTs live in the gauge, not the wallet. Krystal's rows
-          // seed the candidate ids alongside the wallet's own transfer history.
-          fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
-            .then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base', true)),
-        ] : []),
-      ]);
+
+      const rows = (krystalRef.current?.positions ?? []).filter((i) => !(i.status?.toUpperCase().includes('CLOSED') || i.closedTime > 0));
+      const jobs: Promise<unknown>[] = [];
+      for (const chainId of LP_CHAINS) {
+        const client = getPublicClient(config, { chainId });
+        if (!client) continue;
+        const chainName = LP_CHAIN_NAMES[chainId];
+        const v3 = v3DeploymentFor('uniswap', chainId);
+        const v4 = v4DeploymentFor(chainId);
+        const cake = v3DeploymentFor('pancakeswap', chainId);
+        const aero = chainId === 8453 ? AERODROME_CL_DEPLOYMENTS : [];
+
+        // Krystal ids for this chain, bucketed by the manager contract they live in.
+        const byManager = new Map<string, bigint[]>();
+        const stakedAero: { id: bigint; gauge: `0x${string}`; manager: `0x${string}` }[] = [];
+        for (const row of rows) {
+          if (row.chainId !== chainId || !row.tokenAddress) continue;
+          let id: bigint;
+          try { id = BigInt(row.tokenId); } catch { continue; }
+          const manager = row.tokenAddress.toLowerCase();
+          const gauge = row.id?.split('_')[1];
+          if (row.farming && gauge && /^0x[0-9a-f]{40}$/i.test(gauge) && aero.some((d) => d.positionManager.toLowerCase() === manager)) {
+            stakedAero.push({ id, gauge: gauge as `0x${string}`, manager: manager as `0x${string}` });
+            continue;
+          }
+          byManager.set(manager, [...(byManager.get(manager) ?? []), id]);
+        }
+        const idsIn = (manager?: string) => (manager ? byManager.get(manager.toLowerCase()) : undefined);
+
+        // V3 style managers: Krystal ids plus a cheap balanceOf enumeration
+        // (two multicalls) so brand new positions appear straight away.
+        const giga = v3DeploymentFor('giga', chainId);
+        const ramses = v3DeploymentFor('ramses', chainId);
+        const v3Like: { protocol: LiquidityPosition['protocol']; d: V3Deployment }[] = [
+          ...(v3 ? [{ protocol: 'uniswap-v3' as const, d: v3 }] : []),
+          ...(cake ? [{ protocol: 'pancakeswap-v3' as const, d: cake }] : []),
+          ...(giga ? [{ protocol: 'giga-v3' as const, d: giga }] : []),
+          ...(ramses ? [{ protocol: 'ramses-v3' as const, d: ramses }] : []),
+          ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
+        ];
+        for (const { protocol, d } of v3Like) {
+          const known = idsIn(d.positionManager) ?? [];
+          jobs.push(
+            fetchV3Positions(client, owner, d)
+              .catch(() => [] as LiquidityPosition[])
+              .then(async (enumerated) => {
+                const have = new Set(enumerated.map((p) => p.id));
+                const missing = known.filter((id) => !have.has(id));
+                const extra = missing.length > 0 ? await fetchV3Positions(client, owner, d, missing).catch(() => []) : [];
+                return [...enumerated, ...extra];
+              })
+              .then((items) => protocol === 'aerodrome-cl' ? withGauges(client, items).catch(() => items) : items)
+              .then((items) => setPositions((prev) => {
+                const keep = prev.filter((p) => !(p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked && p.positionManager?.toLowerCase() === d.positionManager.toLowerCase()) && !(protocol !== 'aerodrome-cl' && p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked));
+                const next = [...keep, ...items.map((p) => ({ ...p, chainId, chainName, positionManager: p.positionManager ?? d.positionManager }))];
+                positionsRef.current = next;
+                return next;
+              })),
+          );
+        }
+        // V4: Krystal ids only. There is no cheap enumeration for the V4
+        // manager, and the log scan it needs is what made this screen slow.
+        const v4Ids = v4 ? idsIn(v4.positionManager) : undefined;
+        if (v4 && v4Ids && v4Ids.length > 0) {
+          jobs.push(fetchV4Positions(client, owner, v4Ids, v4, v4DeployBlockFor(chainId)).then(merge('uniswap-v4', chainId, chainName)));
+        }
+        // Aerodrome gauges: Krystal names the gauge, so read each staked NFT directly.
+        if (stakedAero.length > 0) {
+          jobs.push(fetchAerodromeStakedByIds(client, owner, stakedAero).then(merge('aerodrome-cl', chainId, chainName, true)));
+        }
+      }
+      await Promise.allSettled(jobs);
       setCachedLpPositions(address, positionsRef.current);
-    } catch { /* read failure — leave list empty */ }
+    } catch { /* read failure: leave the list as it was */ }
     finally { setLoading(false); }
-  }, [address, config]);
+  // krystalOpenKey: re-run once Krystal's index lands or changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, config, krystalOpenKey]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Krystal usually resolves after the first on-chain pass, and its rows are
-  // the surest source of staked Aerodrome tokenIds (the gauge, not the wallet,
-  // owns those NFTs). Re-run the gauge scan once those ids are known.
-  const krystalAeroKey = (krystal?.positions ?? []).filter((i) => i.chainId === BASE_CHAIN_ID && i.pool?.projectKey?.toLowerCase().includes('aerodrome')).map((i) => i.tokenId).sort().join(',');
-  useEffect(() => {
-    if (!address || !krystalAeroKey) return;
-    const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
-    if (!baseClient) return;
-    let live = true;
-    fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
-      .then((items) => {
-        if (!live) return;
-        setPositions((prev) => {
-          const keep = prev.filter((p) => !(p.protocol === 'aerodrome-cl' && p.staked));
-          const next = [...keep, ...items.map((p) => ({ ...p, chainId: BASE_CHAIN_ID, chainName: 'Base' }))];
-          positionsRef.current = next;
-          setCachedLpPositions(address, next);
-          return next;
-        });
-      })
-      .catch(() => {});
-    return () => { live = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, krystalAeroKey, config]);
   useEffect(() => { positionsRef.current = positions; }, [positions]);
 
   // Live USD prices for every token held across positions — used only for the
@@ -432,7 +440,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
               <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
-              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
               <Badge size="sm" color={btb.textDim} bg="transparent" border="none" style={{ fontSize: 10, padding: '1px 2px' }}>#{p.id.toString()}</Badge>
             </div>
           </div>
@@ -677,7 +685,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
                       <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
                       <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
-                      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{PROTOCOL_BADGE[p.protocol].label}</Badge>
+                      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -716,7 +724,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
                   {p.staked ? (
                     <>
                       {p.staked.earned > 0n && <MobileActBtn label={busy ? '…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={busy || !canTransact} green/>}
@@ -733,7 +741,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                   {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
                   {canRebalance && (
                     <MobileActBtn
-                      label="⚖ Rebalance"
+                      label="Rebalance"
                       onClick={() => setRebalance(p)}
                       disabled={busy || !canTransact}
                       amber={!p.inRange}
@@ -935,10 +943,10 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const [useEth, setUseEth] = useState(true);
 
   const isV4 = pos.protocol === 'uniswap-v4';
-  const actionSlippageBps = pos.chainId === 4663 ? 500 : SLIPPAGE_BPS;
+  const actionSlippageBps = lpSlippageBps(pos.chainId ?? 1, SLIPPAGE_BPS);
   // Native-ETH deposit side. V3: the WETH token (user can toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always ETH, nothing to toggle.
-  const chainWeth = pos.chainId === 4663 ? ROBINHOOD_WETH.toLowerCase() : pos.chainId === BASE_CHAIN_ID ? BASE_WETH.toLowerCase() : null;
+  const chainWeth = (pos.chainId ?? 1) === 1 ? null : wrappedNativeFor(pos.chainId ?? 1).toLowerCase();
   const wethSide: 0 | 1 | null = isV4 ? null : (chainWeth ? pos.token0.toLowerCase() === chainWeth : isWeth(pos.token0)) ? 0 : (chainWeth ? pos.token1.toLowerCase() === chainWeth : isWeth(pos.token1)) ? 1 : null;
   const nativeSide: 0 | 1 | null = isV4 ? (isNativeCurrency(pos.token0) ? 0 : null) : wethSide;
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);
@@ -1031,7 +1039,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {PROTOCOL_BADGE[pos.protocol].label}</div>
+        <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {protocolBadgeLabel(pos)}</div>
 
         {mode === 'withdraw' ? (
           <>

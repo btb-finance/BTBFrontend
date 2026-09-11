@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLIPSTREAM_POOL_ABI } from './abis';
+import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, RAMSES_NPM_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -23,6 +23,9 @@ export async function fetchV3Positions(
   // Slipstream keys pools by tickSpacing where V3 uses fee — same slot in the
   // positions() struct, same getPool arity, different meaning.
   const slip = !!d.slipstream;
+  // Ramses: ten-field position struct, tickSpacing third, no nonce/operator.
+  const compact = !!d.compactPositions;
+  const npmAbi = compact ? RAMSES_NPM_ABI : slip ? SLIPSTREAM_NPM_ABI : NPM_ABI;
 
   let tokenIds: bigint[];
   if (knownIds) {
@@ -47,7 +50,7 @@ export async function fetchV3Positions(
 
   // 2) position struct for each tokenId
   const posCalls = tokenIds.map((id) => ({
-    address: npm, abi: slip ? SLIPSTREAM_NPM_ABI : NPM_ABI, functionName: 'positions' as const, args: [id] as const,
+    address: npm, abi: npmAbi, functionName: 'positions' as const, args: [id] as const,
   }));
   const posRes = await withSafeMulticall(client).multicall({ contracts: posCalls, allowFailure: true });
   if (posCalls.length > 0 && !posRes.some((result) => result.status === 'success')) {
@@ -61,7 +64,10 @@ export async function fetchV3Positions(
   const raws: Raw[] = [];
   posRes.forEach((r, i) => {
     if (r.status !== 'success') return;
-    const p = r.result as readonly unknown[];
+    const raw = r.result as readonly unknown[];
+    // Normalise the compact layout onto the twelve-field one by prefixing two
+    // empty slots, so every index below is the same for both.
+    const p = compact ? [undefined, undefined, ...raw] : raw;
     const liquidity = p[7] as bigint;
     const owed0 = p[10] as bigint;
     const owed1 = p[11] as bigint;
@@ -97,7 +103,8 @@ export async function fetchV3Positions(
   const slot0Res = await withSafeMulticall(client).multicall({
     contracts: poolAddrs.map((addr) => ({
       address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      abi: slip ? SLIPSTREAM_POOL_ABI : POOL_ABI, functionName: 'slot0' as const,
+      // Price and tick only: works for seven-field (V3, Ramses) and six-field (Slipstream) slot0 alike.
+      abi: SLOT0_HEAD_ABI, functionName: 'slot0' as const,
     })),
     allowFailure: true,
   });

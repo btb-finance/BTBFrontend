@@ -9,7 +9,6 @@ export const KYBER_CHAINS: Record<number, string> = {
   43114: 'avalanche',
   59144: 'linea',
   80094: 'berachain',
-  146:   'sonic',
   2020:  'ronin',
   130:   'unichain',
   999:   'hyperevm',

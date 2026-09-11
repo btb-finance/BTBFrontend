@@ -20,7 +20,6 @@ export const CHAIN_DATA_NETWORKS: Record<number, ChainDataNetwork> = {
   43114: { gecko: 'avax',            dexScreener: 'avalanche', dexPaprika: 'avalanche', llama: 'avax' },
   59144: { gecko: 'linea',           dexScreener: 'linea',     dexPaprika: 'linea',     llama: 'linea' },
   80094: { gecko: 'berachain',       dexScreener: 'berachain', dexPaprika: 'berachain', llama: 'berachain' },
-  146:   { gecko: 'sonic',           dexScreener: 'sonic',     dexPaprika: 'sonic',     llama: 'sonic' },
   2020:  { gecko: 'ronin',           dexScreener: 'ronin',     dexPaprika: 'ronin',     llama: 'ronin' },
   130:   { gecko: 'unichain',        dexScreener: 'unichain',  dexPaprika: 'unichain',  llama: 'unichain' },
   999:   { gecko: 'hyperevm',        dexScreener: 'hyperevm',  dexPaprika: 'hyperevm',  llama: 'hyperevm' },

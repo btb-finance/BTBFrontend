@@ -1,1 +1,1 @@
-export type Tab = 'home' | 'trade' | 'discover' | 'simulate' | 'swap' | 'portfolio' | 'nft' | 'stake' | 'studio';
+export type Tab = 'home' | 'discover' | 'simulate' | 'swap' | 'portfolio' | 'nft' | 'stake' | 'studio';

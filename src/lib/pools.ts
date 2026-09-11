@@ -18,6 +18,9 @@ import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchNetworkTopPools, fetchNetworkDexes, type DexPaprikaPoolRow, type DexPaprikaDex } from './dexpaprika';
 import { fetchDexScreenerPool } from './dexscreener';
 import { withSafeMulticall } from './safeMulticall';
+import { fetchDexRegistry, fetchDexTopPools, type DexRegistryEntry } from './geckoterminal';
+import { CHAIN_DATA_NETWORKS } from './chainDataNetworks';
+import { v4DeploymentFor } from '@/protocols/lpChains';
 
 export { fmtCompactUsd, fmtFeeTier };
 
@@ -363,7 +366,7 @@ function poolShapeKey(p: EarnPool): string {
 const CHAIN_ICON = (chain: string) =>
   `https://icons.llamao.fi/icons/chains/rsz_${chain.toLowerCase().replace(/[^a-z0-9]/g, '')}?w=48&h=48`;
 
-async function fetchDexLogos(): Promise<Map<string, string>> {
+export async function fetchDexLogos(): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   try {
     const res = await fetch('https://api.llama.fi/protocols');
@@ -381,7 +384,7 @@ async function fetchDexLogos(): Promise<Map<string, string>> {
   return out;
 }
 
-function applyLogos(pools: EarnPool[], dexLogos: Map<string, string>): void {
+export function applyLogos(pools: EarnPool[], dexLogos: Map<string, string>): void {
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
   const cache = new Map<string, string | undefined>();
   for (const pool of pools) {
@@ -503,6 +506,11 @@ function isPoolAddress(id: string): boolean {
  * read is dropped rather than guessed at, because multiplying volume by an
  * invented fee is how you end up publishing an APR nobody can earn.
  */
+/** Per chain, how many DEXes missing from the volume list get their own
+ * page fetched on a refresh. Bounds the cron's run time on chains with a
+ * long tail of tiny venues. */
+const MAX_EXTRA_DEXES_PER_CHAIN = 25;
+
 export async function ingestChainPools(
   client: PublicClient | null,
   chainId: number | undefined,
@@ -511,11 +519,78 @@ export async function ingestChainPools(
   minTvlUsd: number,
   limit = 100,
 ): Promise<EarnPool[]> {
-  const [rows, dexes] = await Promise.all([
+  const [topRows, dexes] = await Promise.all([
     fetchNetworkTopPools(network, limit).catch(() => [] as DexPaprikaPoolRow[]),
     fetchNetworkDexes(network).catch(() => [] as DexPaprikaDex[]),
   ]);
   const brands = brandLabels(dexes);
+  return finishRows(client, chainId, chainName, minTvlUsd, topRows, brands);
+}
+
+/**
+ * The network top list is volume ranked, so on a young chain whole DEXes can
+ * be absent from it. Walk GeckoTerminal's DEX registry and pull the top pools
+ * of every concentrated liquidity venue the snapshot does not cover yet.
+ * Server side only, one chain per call: the calls are paced to the public
+ * rate limit, which is too slow for a page load and too slow to do every
+ * chain inside one Convex action.
+ */
+export async function ingestChainExtras(
+  client: PublicClient | null,
+  chainId: number,
+  chainName: string,
+  minTvlUsd: number,
+  /** Pools already in the snapshot for this chain: their DEX brands are
+   * covered and their ids are skipped. */
+  existing: EarnPool[],
+): Promise<EarnPool[]> {
+  const gecko = CHAIN_DATA_NETWORKS[chainId]?.gecko;
+  if (!gecko || typeof window !== 'undefined') return [];
+  const covered = new Set(existing.map(p => brandKey(p.project)));
+  const registry = await fetchDexRegistry(gecko).catch(() => [] as DexRegistryEntry[]);
+  const seen = new Set(existing.map(p => p.id.toLowerCase()));
+  // GeckoTerminal ids carry the network ("uniswap-v3-robinhood"); strip it
+  // and the version to compare brands with what the snapshot already has.
+  const geckoBrand = (id: string) => brandKey(id.replace(new RegExp(`-${gecko}$`), '').replace(/-/g, '_'));
+  // Concentrated liquidity venues only: that is what the app can simulate
+  // and mint on, and it keeps the paced call count small.
+  const NOT_CL = /(?:^|[_-])v2(?:$|[_-])|launchpad|bankr|virtuals|clanker|mint-club|curve|kickstart|legacy|dlmm|family|abyss|parityswap|robinswap|hoodit/i;
+  const uncovered = registry.filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id)).slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
+  const rows: DexPaprikaPoolRow[] = [];
+  for (const dex of uncovered) {
+    const pools = await fetchDexTopPools(gecko, dex.id).catch(() => []);
+    for (const p of pools) {
+      if (seen.has(p.address)) continue;
+      seen.add(p.address);
+      rows.push({
+        id: p.address,
+        // "uniswap-v3-robinhood" becomes "uniswap_v3": no network suffix, so
+        // brand grouping, logos and mint targets match the other sources.
+        dexId: dex.id.replace(new RegExp(`-${gecko}$`), '').replace(/-/g, '_'),
+        // GeckoTerminal suffixes the network ("Ramses V3 (Robinhood)"); the chain column already says so.
+        dexName: dex.name.replace(/\s*\([^)]*\)\s*$/, ''),
+        volume24hUsd: p.volume24hUsd,
+        tvlUsd: p.tvlUsd,
+        transactions24h: p.transactions24h,
+        priceChange24h: p.priceChange24h,
+        priceUsd: p.priceUsd,
+        tokenAddresses: p.tokenAddresses,
+        feePct: p.feePct,
+      });
+    }
+  }
+  return finishRows(client, chainId, chainName, minTvlUsd, rows, new Map());
+}
+
+/** Filter provider rows to live, priced, nameable pools and shape them as EarnPool. */
+async function finishRows(
+  client: PublicClient | null,
+  chainId: number | undefined,
+  chainName: string,
+  minTvlUsd: number,
+  rows: DexPaprikaPoolRow[],
+  brands: Map<string, { label: string; protocol: string }>,
+): Promise<EarnPool[]> {
   const live = rows.filter(r =>
     r.tvlUsd >= minTvlUsd
     && r.transactions24h >= MIN_TXNS_24H
@@ -549,6 +624,22 @@ export async function ingestChainPools(
       feeByPool.set(r.id.toLowerCase(), fee);
     }
   });
+  // Uniswap V4 pools are not contracts, so fee() cannot be called on them;
+  // the singleton's StateView answers with the LP fee for the pool id.
+  const v4 = chainId != null ? v4DeploymentFor(chainId) : null;
+  const v4Rows = client === null || !v4 ? [] : live.filter(r => /uniswap[_-]?v4/i.test(r.dexId) && /^0x[0-9a-f]{64}$/i.test(r.id) && r.feePct == null);
+  if (v4 && v4Rows.length > 0) {
+    const slots = await withSafeMulticall(client!).multicall({
+      contracts: v4Rows.map(r => ({ address: v4.stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getSlot0', args: [r.id as `0x${string}`] })),
+      allowFailure: true,
+    }).catch(() => []);
+    v4Rows.forEach((r, i) => {
+      const s = slots[i];
+      if (s?.status !== 'success') return;
+      const lpFee = Number((s.result as readonly unknown[])[3]);
+      if (lpFee > 0 && lpFee <= MAX_PLAUSIBLE_FEE && (lpFee & DYNAMIC_FEE_FLAG) === 0) feeByPool.set(r.id.toLowerCase(), lpFee);
+    });
+  }
   for (const r of live) {
     const key = r.id.toLowerCase();
     if (feeByPool.has(key)) continue;
@@ -731,14 +822,35 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap'; chainId: 1 | 4663 } | null {
-  const chainId = p.chain.toLowerCase() === 'ethereum' ? 1 : p.chain.toLowerCase() === 'robinhood chain' ? 4663 : null;
-  if (!chainId) return null;
-  if (p.dex.toLowerCase() !== 'uniswap' && p.project.startsWith('uniswap-')) return null;
+export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses'; chainId: 1 | 4663 | 8453 | 56 };
+
+/** Where "Add LP" can mint in-app: Uniswap V3/V4 and PancakeSwap V3 on
+ * Ethereum, Base and BNB Chain, Uniswap V3/V4 on Robinhood Chain, Aerodrome
+ * Slipstream on Base. */
+export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null {
+  const chain = p.chain.toLowerCase();
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
-  if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap', chainId };
-  if (chainId === 1 && p.project === 'pancakeswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
-  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
+  const chainId = chain === 'ethereum' ? 1 : chain === 'base' ? 8453 : chain === 'bnb chain' || chain === 'bsc' || chain === 'binance' ? 56 : chain === 'robinhood chain' ? 4663 : null;
+  if (!chainId) return null;
+  if (chainId === 8453) {
+    // DeFiLlama rows say "aerodrome-slipstream"; DexPaprika rows collapse to
+    // the "aerodrome" brand with a CLMM model. Aerodrome V2 (AMM) is not mintable.
+    const slipstream = p.project === 'aerodrome-slipstream'
+      || (/^aerodrome/i.test(p.project) && (p.liquidityModel === 'CLMM' || /v3|slipstream|cl/i.test(p.version ?? '')));
+    if (slipstream && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'aerodrome', chainId: 8453 };
+  }
+  if (chainId === 4663 && tokens.length >= 2) {
+    const cl = p.liquidityModel === 'CLMM' || /v3|cl/i.test(p.version ?? '');
+    if (/^giga/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'giga', chainId: 4663 };
+    if (/^ramses/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'ramses', chainId: 4663 };
+  }
+  if (p.dex.toLowerCase() !== 'uniswap' && p.project.startsWith('uniswap-')) return null;
+  const isUniV3 = p.project === 'uniswap-v3' || (/^uniswap/i.test(p.project) && p.version === 'V3');
+  const isCakeV3 = p.project === 'pancakeswap-v3' || (/^pancake/i.test(p.project) && p.version === 'V3');
+  if (isUniV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap', chainId };
+  if (chainId !== 4663 && isCakeV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
+  const isUniV4 = (p.project === 'uniswap-v4' || (/^uniswap/i.test(p.project) && p.version === 'V4')) && /^0x[0-9a-f]{64}$/i.test(p.id);
+  if (isUniV4 && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
   return null;
 }
 

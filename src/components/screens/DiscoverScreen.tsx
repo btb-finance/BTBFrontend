@@ -360,7 +360,7 @@ export function DiscoverScreen() {
   const { setThemeChainId } = useChainTheme();
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
-  const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 } | null>(null);
+  const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 | 8453 | 56 } | null>(null);
 
   // Open a pool. Minting flows put a shareable URL in the address bar with the
   // token addresses carried in the query, so the link resolves forever even if
@@ -387,7 +387,7 @@ export function DiscoverScreen() {
     if (openedFromUrl.current || sheet || directMint) return;
     const link = parsePoolPath(window.location.pathname);
     if (!link) return;
-    const chainId: 1 | 4663 | null = link.chain === 'ethereum' ? 1 : link.chain === 'robinhoodchain' ? 4663 : null;
+    const chainId: 1 | 4663 | 8453 | 56 | null = link.chain === 'ethereum' ? 1 : link.chain === 'robinhoodchain' ? 4663 : link.chain === 'base' ? 8453 : link.chain === 'bnbchain' || link.chain === 'bsc' ? 56 : null;
     const params = new URLSearchParams(window.location.search);
     const pair = (params.get('t') ?? '').split('-');
     const v4 = params.get('p');
@@ -496,17 +496,33 @@ export function DiscoverScreen() {
     for (const t of tokens) if (t.logoURI) m.set(t.address.toLowerCase(), t.logoURI);
     return m;
   }, [tokens]);
+  // What the wallet holds, keyed by chain + address, valued in USD. Chain
+  // matters: USDC on Base is not USDC on Ethereum for LP purposes.
   const held = useMemo(() => {
-    const s = new Set<string>();
+    const m = new Map<string, number>();
     for (const t of positions) {
       if (parseFloat(t.balance ?? '0') <= 0) continue;
-      for (const a of lpAddressesForToken(t.address)) s.add(a);
+      for (const a of lpAddressesForToken(t.address)) {
+        const key = `${t.chainId ?? 1}:${a}`;
+        m.set(key, (m.get(key) ?? 0) + (t.usdValue ?? 0));
+      }
     }
-    return s;
+    return m;
   }, [positions]);
-  const heldSyms = (p: EarnPool): string[] => {
+  const heldSides = (p: EarnPool): { sym: string; usd: number }[] => {
     const syms = p.pair.split('-');
-    return (p.underlyingTokens ?? []).map((t, i) => (held.has(t.toLowerCase()) ? syms[i] : null)).filter((x): x is string => !!x);
+    const chainId = discoverChainId(p.chain, p.chainId) ?? 1;
+    return (p.underlyingTokens ?? [])
+      .map((t, i) => { const usd = held.get(`${chainId}:${t.toLowerCase()}`); return usd == null ? null : { sym: syms[i], usd }; })
+      .filter((x): x is { sym: string; usd: number } => !!x);
+  };
+  const heldSyms = (p: EarnPool): string[] => heldSides(p).map((s) => s.sym);
+  /** Ranking for "pools for your holdings": both sides held beats one side,
+   * then by how much of the pool's tokens the wallet actually holds. */
+  const holdScore = (p: EarnPool): number => {
+    const sides = heldSides(p);
+    if (sides.length === 0) return 0;
+    return sides.length * 1e12 + sides.reduce((s, x) => s + x.usd, 0);
   };
 
   const filtered = useMemo(() => {
@@ -517,6 +533,22 @@ export function DiscoverScreen() {
       return !q || p.pair.toLowerCase().includes(q) || p.dex.toLowerCase().includes(q) || p.chain.toLowerCase().includes(q);
     });
   }, [pools, search, selectedChain, selectedDex]);
+
+  // Pools the wallet can enter with what it already holds come first, on
+  // their own, ranked by how much of the pair is in the wallet. Everything
+  // else keeps the volume ranking below. No search: the search is the intent.
+  const FOR_YOU_MAX = 8;
+  const [showAllForYou, setShowAllForYou] = useState(false);
+  const forYouAll = useMemo(() => {
+    if (search.trim() || held.size === 0) return [];
+    return filtered
+      .filter(p => holdScore(p) > 0 && p.tvlUsd >= 50_000)
+      .sort((a, b) => holdScore(b) - holdScore(a) || (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, held, search]);
+  const forYou = showAllForYou ? forYouAll : forYouAll.slice(0, FOR_YOU_MAX);
+  const forYouKeys = useMemo(() => new Set(forYou.map(p => `${p.chain}-${p.id}`)), [forYou]);
+  const rest = useMemo(() => filtered.filter(p => !forYouKeys.has(`${p.chain}-${p.id}`)), [filtered, forYouKeys]);
 
   const chains = useMemo(() => {
     const byName = new Map<string, DiscoverChain>();
@@ -590,7 +622,7 @@ export function DiscoverScreen() {
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
                   <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
-                    You hold {mine.join(' + ')}
+                    {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                   </Badge>
                 )}
               </div>
@@ -660,7 +692,7 @@ export function DiscoverScreen() {
             )}
             <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
               style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
-              {simulatable ? 'Simulate' : 'View ↗'}
+              {simulatable ? 'Simulate' : 'View'}
             </Button>
           </div>
         );
@@ -669,6 +701,78 @@ export function DiscoverScreen() {
   ];
 
   const columns = allColumns.filter(c => c.key !== 'volume' || hasVolumeData);
+
+  const renderMobileCard = (p: EarnPool) => {
+            const [s0, s1] = splitPair(p);
+            const mine = heldSyms(p);
+            const [addr0, addr1] = p.underlyingTokens ?? [];
+            const pct = p.apyChange1d ?? priceChange[p.id];
+            const mintable = mintTarget(p) !== null;
+            const simulatable = canSimulatePool(p);
+            return (
+              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? openPool(p, false) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', flexShrink: 0 }}>
+                    <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
+                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined} /></div>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
+                      <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
+                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
+                          <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
+                          {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
+                        </Badge>
+                      </span>
+                      <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
+                      {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
+                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
+                      {mine.length > 0 && (
+                        <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                          {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
+                    <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10 }}>
+                  <div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>TVL</div>
+                    <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600 }}>{fmtCompactUsd(p.tvlUsd)}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>24h</div>
+                    <div style={{ color: pct == null ? btb.textDim : pct >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 600 }}>
+                      {pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>Fees (24h)</div>
+                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.text, fontSize: 12.5, fontWeight: 600 }}>{p.source === 'dexscreener' && p.feeTier == null ? 'n/a' : <>{p.fees24hUsd == null && '≈ '}{fmtCompactUsd(estFees24h(p))}</>}</div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 12 }} onClick={e => e.stopPropagation()}>
+                  {mintable && (
+                    <Button variant="success" size="sm" onClick={() => openPool(p, false)}
+                      style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
+                      <Icon name="plus" size={12} /> Add LP
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+                    style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
+                    {simulatable ? 'Simulate' : 'View'}
+                  </Button>
+                </div>
+              </Glass>
+            );
+          };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -709,93 +813,69 @@ export function DiscoverScreen() {
           {!loading && filtered.length === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 32 }}>No pools found</div>
           )}
-          {!loading && [...filtered].sort((a, b) => b.tvlUsd - a.tvlUsd).map(p => {
-            const [s0, s1] = splitPair(p);
-            const mine = heldSyms(p);
-            const [addr0, addr1] = p.underlyingTokens ?? [];
-            const pct = p.apyChange1d ?? priceChange[p.id];
-            const mintable = mintTarget(p) !== null;
-            const simulatable = canSimulatePool(p);
-            return (
-              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? openPool(p, false) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ display: 'flex', flexShrink: 0 }}>
-                    <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
-                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined} /></div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
-                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
-                          <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
-                          {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
-                        </Badge>
-                      </span>
-                      <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
-                      {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
-                      {mine.length > 0 && (
-                        <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
-                          You hold {mine.join(' + ')}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
-                    <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10 }}>
-                  <div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>TVL</div>
-                    <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600 }}>{fmtCompactUsd(p.tvlUsd)}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>24h</div>
-                    <div style={{ color: pct == null ? btb.textDim : pct >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 600 }}>
-                      {pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>Fees (24h)</div>
-                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.text, fontSize: 12.5, fontWeight: 600 }}>{p.source === 'dexscreener' && p.feeTier == null ? 'n/a' : <>{p.fees24hUsd == null && '≈ '}{fmtCompactUsd(estFees24h(p))}</>}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }} onClick={e => e.stopPropagation()}>
-                  {mintable && (
-                    <Button variant="success" size="sm" onClick={() => openPool(p, false)}
-                      style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
-                      <Icon name="plus" size={12} /> Add LP
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
-                    style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
-                    {simulatable ? 'Simulate' : 'View ↗'}
-                  </Button>
-                </div>
-              </Glass>
-            );
-          })}
+          {!loading && forYou.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 0' }}>
+              <span style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Pools for your holdings</span>
+              {forYouAll.length > FOR_YOU_MAX && (
+                <button onClick={() => setShowAllForYou(v => !v)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {showAllForYou ? 'Show fewer' : `Show all ${forYouAll.length}`}
+                </button>
+              )}
+            </div>
+          )}
+          {!loading && forYou.map(renderMobileCard)}
+          {!loading && forYou.length > 0 && rest.length > 0 && (
+            <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3, padding: '8px 4px 0' }}>All pools</div>
+          )}
+          {!loading && [...rest].sort((a, b) => b.tvlUsd - a.tvlUsd).map(renderMobileCard)}
         </div>
       ) : (
-        <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
-          <DataTable
-            columns={columns}
-            rows={filtered}
-            rowKey={p => `${p.chain}-${p.id}`}
-            loading={loading}
-            emptyMessage="No pools found"
-            // Volume, not TVL. Sorting by TVL is what put pools holding nine
-            // figures with no trades at the top of the table.
-            defaultSortKey="volume"
-            onRowClick={p => canSimulatePool(p)
-              ? openSimulator(p)
-              : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
-          />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {!loading && forYou.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+                <div>
+                  <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Pools for your holdings</span>
+                  <span style={{ color: btb.textDim, fontSize: 12, marginLeft: 10 }}>ranked by what you already hold, both sides first</span>
+                </div>
+                {forYouAll.length > FOR_YOU_MAX && (
+                  <button onClick={() => setShowAllForYou(v => !v)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {showAllForYou ? 'Show fewer' : `Show all ${forYouAll.length}`}
+                  </button>
+                )}
+              </div>
+              <div style={{ borderRadius: 16, border: '1px solid rgba(82,227,164,0.25)', background: 'rgba(82,227,164,0.04)', overflow: 'hidden' }}>
+                <DataTable
+                  columns={columns}
+                  rows={forYou}
+                  rowKey={p => `${p.chain}-${p.id}`}
+                  loading={false}
+                  emptyMessage=""
+                  onRowClick={p => canSimulatePool(p)
+                    ? openSimulator(p)
+                    : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+                />
+              </div>
+            </div>
+          )}
+          {!loading && forYou.length > 0 && (
+            <div style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3, padding: '4px 4px 0' }}>All pools</div>
+          )}
+          <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
+            <DataTable
+              columns={columns}
+              rows={rest}
+              rowKey={p => `${p.chain}-${p.id}`}
+              loading={loading}
+              emptyMessage="No pools found"
+              // Volume, not TVL. Sorting by TVL is what put pools holding nine
+              // figures with no trades at the top of the table.
+              defaultSortKey="volume"
+              onRowClick={p => canSimulatePool(p)
+                ? openSimulator(p)
+                : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+            />
+          </div>
         </div>
       )}
 
@@ -842,7 +922,7 @@ export function DiscoverScreen() {
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
                       background: 'rgba(255,255,255,0.06)',
-                    }}>View ↗</a>
+                    }}>View</a>
                   </div>
                 </Glass>
               ))}
@@ -857,7 +937,9 @@ export function DiscoverScreen() {
           v4PoolId={sheetProps.v4PoolId}
           dex={sheetProps.dex}
           chainId={sheetProps.chainId}
-          initialFee={sheet.pool.feeTier}
+          // Slipstream keys pools by tick spacing, which the list does not carry;
+          // the sheet then opens on the deepest spacing for the pair.
+          initialFee={sheetProps.dex === 'aerodrome' ? undefined : sheet.pool.feeTier}
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
           tokenPricesUsd={sheet.pool.tokenPricesUsd}
           simulate={sheet.simulate}

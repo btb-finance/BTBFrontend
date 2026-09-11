@@ -23,6 +23,7 @@ import {
   UNISWAP_V4, ROBINHOOD_UNISWAP_V4, isNativeCurrency,
   type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
+import { v4DeploymentFor } from '@/protocols/lpChains';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 import type { DailyBar } from '../../lib/geckoterminal';
 import type { TokenSafety } from '../../lib/tokenSafety';
@@ -76,7 +77,7 @@ export function useSimPools(
     const deployment = dex === 'pancakeswap'
       ? PANCAKE_V3_DEPLOYMENT
       : uniswapV3DeploymentForChain(chainId);
-    const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+    const v4Deployment = v4DeploymentFor(chainId) ?? UNISWAP_V4;
     const token0 = tokenA ? toV3Address(tokenA, wrappedNative) : undefined;
     const token1 = tokenB ? toV3Address(tokenB, wrappedNative) : undefined;
     const run = v4PoolId
@@ -222,7 +223,7 @@ export function usePoolExtras(
           pool.tick,
           pool.liquidity,
           spacing,
-          chainId === 4663 ? ROBINHOOD_UNISWAP_V4.stateView : UNISWAP_V4.stateView,
+          (v4DeploymentFor(chainId) ?? UNISWAP_V4).stateView,
         )
       : fetchTickLiquidityDistribution(client, pool.address, pool.tick, pool.liquidity, spacing);
     fetcher.then((pts) => { if (live && pts.length > 0) setTickLiq(pts); }).catch(() => {});

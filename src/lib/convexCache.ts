@@ -13,12 +13,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { cacheKey, type CacheArgs } from './cacheKeys';
+import { usePolledQuery } from './polledQuery';
 
 export type Cached<T> = { data: T | null; loading: boolean };
 
 /** A cron-refreshed global snapshot, parsed. `null` before the first tick. */
 export function useSnapshot<T>(key: string): Cached<T> {
-  const row = useQuery(api.snapshots.get, { key });
+  // Snapshots are rewritten by 30-minute crons; poll at that cadence.
+  const row = usePolledQuery(api.snapshots.get, { key }, 30 * 60_000);
   const data = useMemo(() => {
     if (!row) return null;
     try { return JSON.parse(row.json) as T; } catch { return null; }

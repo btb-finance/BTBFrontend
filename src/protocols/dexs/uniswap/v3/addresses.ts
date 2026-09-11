@@ -29,10 +29,16 @@ export function isWeth(addr: string): boolean {
 /** A V3-architecture DEX deployment (Uniswap V3 or a byte-compatible fork). */
 export interface V3Deployment {
   /** Position tag used in LiquidityPosition.protocol. */
-  protocol: 'uniswap-v3' | 'pancakeswap-v3' | 'aerodrome-cl';
-  /** Aerodrome Slipstream: pools keyed by tickSpacing, not fee (see protocols/dexs/aerodrome). */
+  protocol: 'uniswap-v3' | 'pancakeswap-v3' | 'aerodrome-cl' | 'giga-v3' | 'ramses-v3';
+  /** Pools keyed by tickSpacing, not fee (Aerodrome Slipstream, Ramses V3):
+   * factory getPool and mint take a spacing, the fee is read from the pool. */
   slipstream?: boolean;
+  /** Ramses V3 position manager: positions() has no nonce/operator (ten
+   * fields, tickSpacing third) and mint() has no sqrtPriceX96 argument. */
+  compactPositions?: boolean;
   chainId?: number;
+  /** Display name when a protocol has several live deployments (Aerodrome). */
+  label?: string;
   positionManager: `0x${string}`;
   factory: `0x${string}`;
   feeTiers: readonly number[];

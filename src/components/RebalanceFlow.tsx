@@ -11,15 +11,12 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { buildRemove, fetchV3Positions, SLIPPAGE_BPS, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, type LiquidityPosition, type V3Deployment } from '@/protocols/dexs/uniswap';
+import { buildRemove, fetchV3Positions, SLIPPAGE_BPS, type LiquidityPosition } from '@/protocols/dexs/uniswap';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
-import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { aerodromeDeploymentOf, buildGaugeUnstake, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { buildGaugeUnstake } from '@/protocols/dexs/aerodrome';
+import { deploymentOfPosition, lpSlippageBps, type LpChainId } from '@/protocols/lpChains';
 
-function deploymentOf(p: LiquidityPosition): V3Deployment {
-  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
-  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-}
+const deploymentOf = deploymentOfPosition;
 
 function fmtAmt(raw: bigint, decimals: number): string {
   const n = parseFloat(formatUnits(raw, decimals));
@@ -53,8 +50,8 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
   const chainId = pos.chainId ?? 1;
   const deployment = deploymentOf(pos);
-  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : 'uniswap';
-  const slippage = chainId === 4663 ? 500 : SLIPPAGE_BPS;
+  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : 'uniswap';
+  const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
   const h1 = pos.amount1 + pos.fees1;
 
@@ -101,8 +98,8 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         tokenA={pos.token0}
         tokenB={pos.token1}
         dex={dex}
-        chainId={chainId as 1 | 4663 | 8453}
-        initialFee={pos.protocol === 'aerodrome-cl' ? pos.tickSpacing : pos.fee}
+        chainId={chainId as LpChainId}
+        initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' ? pos.tickSpacing : pos.fee}
         stakeByDefault={!!pos.staked}
         onClose={async () => { await onDone(); onClose(); }}
         onDone={() => {}}

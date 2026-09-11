@@ -14,6 +14,11 @@ import { ChainLogo } from '../ChainLogo';
 import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
+import { CreatePosition } from '../CreatePosition';
+import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
+import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { v3DeploymentFor, v4DeploymentFor, isLpChain, type LpChainId, type LpDex } from '@/protocols/lpChains';
+import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -33,7 +38,7 @@ import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
 import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
-import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, type EarnPool } from '../../lib/pools';
+import { getEarnPools, addRangeAprs, fmtApr, fmtCompactUsd, STABLES, type EarnPool } from '../../lib/pools';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { withSafeMulticall } from '../../lib/safeMulticall';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
@@ -553,6 +558,56 @@ async function findV3Pools(
   return pools;
 }
 
+/** Aerodrome Slipstream on Base: every tick spacing on every live
+ * deployment, straight from the factories, so a pool shows even when no
+ * market index has picked it up yet. Fee is per pool (read from it). */
+async function findAerodromePools(
+  client: PublicClient,
+  tokenA: Token,
+  tokenB: Token,
+  wrappedNative: `0x${string}`,
+): Promise<FoundPool[]> {
+  return findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, AERODROME_CL_DEPLOYMENTS, 'Aerodrome Slipstream');
+}
+
+/** Any tick-spacing keyed V3 fork (Aerodrome Slipstream, Ramses V3): every
+ * spacing on every given deployment, fee read from each pool. */
+async function findSpacingKeyedPools(
+  client: PublicClient,
+  tokenA: Token,
+  tokenB: Token,
+  wrappedNative: `0x${string}`,
+  deployments: readonly V3Deployment[],
+  dexLabel: string,
+): Promise<FoundPool[]> {
+  const addrA = toV3Address(tokenA.address, wrappedNative);
+  const addrB = toV3Address(tokenB.address, wrappedNative);
+  const calls = deployments.flatMap(d => d.feeTiers.map(spacing => ({
+    address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool' as const, args: [addrA, addrB, spacing] as const, deployment: d,
+  })));
+  const found = await withSafeMulticall(client).multicall({ contracts: calls.map(({ deployment: _d, ...c }) => c), allowFailure: true });
+  const live = calls
+    .map((c, i) => ({ deployment: c.deployment, address: found[i].status === 'success' ? (found[i].result as `0x${string}`) : null }))
+    .filter((x): x is { deployment: V3Deployment; address: `0x${string}` } => !!x.address && x.address !== '0x0000000000000000000000000000000000000000');
+  if (live.length === 0) return [];
+  const fees = await withSafeMulticall(client).multicall({
+    contracts: live.map(x => ({ address: x.address, abi: POOL_ABI, functionName: 'fee' as const })),
+    allowFailure: true,
+  });
+  return live.map((x, i) => ({
+    protocol: 'uniswap-v3' as const,
+    feeTier: fees[i].status === 'success' ? Number(fees[i].result) : 0,
+    address: x.address,
+    dexLabel,
+  }));
+}
+
+/** Giga V3 on Robinhood Chain: a fee-keyed Uniswap V3 fork, probed like one. */
+async function findGigaPools(client: PublicClient, tokenA: Token, tokenB: Token, wrappedNative: `0x${string}`): Promise<FoundPool[]> {
+  const rows = await findV3Pools(client, 'uniswap-v3', tokenA, tokenB, GIGA_V3_DEPLOYMENT, wrappedNative);
+  return rows.map(r => ({ ...r, dexLabel: 'Giga V3' }));
+}
+
 function resolveCrossChainToken(catalog: Token[], chainId: number, symbol: string): Token | null {
   const wanted = symbol.toUpperCase();
   const chainSymbol = CHAIN_META[chainId]?.symbol?.toUpperCase();
@@ -1061,7 +1116,7 @@ function CrossChainResearch({ chains, isMobile }: {
           </div>
           {winner && (
             <div style={{ margin: 12, padding: '13px 14px', borderRadius: 14, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green, fontSize: 17 }}>★</div>
+              <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green }}><Icon name="star" size={16} color={btb.green}/></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
                 <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1210,6 +1265,51 @@ export function SimulateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundPool[] | null>(null);
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
+  // Add LP straight from a finder row, skipping the simulator.
+  const [mintFee, setMintFee] = useState<FoundPool | null>(null);
+  // Aerodrome runs several Slipstream deployments; a pool's factory tells
+  // which one, so old-deployment pools can be labelled as such.
+  const [aeroLabelByPool, setAeroLabelByPool] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (chainId !== 8453 || !found) return;
+    const targets = found.filter(f => f.address && /aerodrome/i.test(f.dexLabel ?? '') && !aeroLabelByPool[f.address.toLowerCase()]);
+    if (targets.length === 0) return;
+    const client = getPublicClient(config, { chainId: 8453 });
+    if (!client) return;
+    let live = true;
+    const FACTORY_ABI = [{ name: 'factory', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const;
+    withSafeMulticall(client).multicall({ contracts: targets.map(f => ({ address: f.address!, abi: FACTORY_ABI, functionName: 'factory' as const })), allowFailure: true })
+      .then(res => {
+        if (!live) return;
+        const next: Record<string, string> = {};
+        targets.forEach((f, i) => {
+          const r = res[i];
+          if (r.status !== 'success') return;
+          const d = AERODROME_CL_DEPLOYMENTS.find(x => x.factory.toLowerCase() === (r.result as string).toLowerCase());
+          if (d?.label) next[f.address!.toLowerCase()] = d.label;
+        });
+        setAeroLabelByPool(prev => ({ ...prev, ...next }));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [found, chainId, config]);
+  const rowLabel = (f: FoundPool) => {
+    const aero = f.address ? aeroLabelByPool[f.address.toLowerCase()] : undefined;
+    return aero && /old/i.test(aero) ? `${foundPoolDexLabel(f)} (old)` : foundPoolDexLabel(f);
+  };
+  /** Pools the app can mint on from this finder: Uniswap V3 and PancakeSwap
+   * V3 on Ethereum, Uniswap V3 on Robinhood, Aerodrome Slipstream on Base. */
+  const mintDexFor = (f: FoundPool): { dex: LpDex; chainId: LpChainId } | null => {
+    if (f.external || !isLpChain(chainId)) return null;
+    if (chainId === 8453 && /aerodrome/i.test(f.dexLabel ?? '')) return { dex: 'aerodrome', chainId: 8453 };
+    if (chainId === 4663 && /giga/i.test(f.dexLabel ?? '')) return { dex: 'giga', chainId: 4663 };
+    if (chainId === 4663 && /ramses/i.test(f.dexLabel ?? '')) return { dex: 'ramses', chainId: 4663 };
+    if (f.dexLabel) return null;
+    if (f.protocol === 'uniswap-v3' && v3DeploymentFor('uniswap', chainId)) return { dex: 'uniswap', chainId };
+    if (f.protocol === 'pancakeswap-v3' && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId };
+    return null;
+  };
   // First pool checked each day pays 100 XP; the server ignores repeats.
   useEffect(() => {
     if (!sheetFee || !address) return;
@@ -1265,8 +1365,15 @@ export function SimulateScreen() {
   // metadata from the selected chain before starting the comparison.
   useEffect(() => {
     if (appliedPair.current || loadingTokens) return;
-    const { a, b } = presetPair;
-    if (!a || !b) return;
+    const { a } = presetPair;
+    if (!a) return;
+    // Only one token linked (Portfolio's Simulate/LP buttons): pair it with
+    // the chain's stablecoin, or the native token when it is itself a stable.
+    const listedA = chainTokens.find(token => token.address.toLowerCase() === a);
+    const aIsStable = !!listedA && STABLES.has(listedA.symbol.toUpperCase());
+    const stable = chainTokens.find(token => ['USDC', 'USDT'].includes(token.symbol.toUpperCase()) && token.address.toLowerCase() !== a);
+    const b = presetPair.b ?? (aIsStable || !stable ? 'eth' : stable.address.toLowerCase());
+    if (b === a) return;
 
     let cancelled = false;
     const nativeSymbol = CHAIN_META[chainId]?.symbol ?? 'ETH';
@@ -1324,7 +1431,8 @@ export function SimulateScreen() {
       const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
       if (!client) throw new Error('No RPC client available');
       const uniswapV3 = uniswapV3DeploymentForChain(chainId);
-      const uniswapV4 = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+      const uniswapV4 = v4DeploymentFor(chainId);
+      const cakeV3 = v3DeploymentFor('pancakeswap', chainId);
 
       // Full-market pool discovery (GeckoTerminal + DexScreener) runs in
       // parallel with the on-chain probes — it finds pools on DEXes the
@@ -1366,8 +1474,13 @@ export function SimulateScreen() {
       // the pair having no pool when we simply couldn't check.
       const checks: { label: string; run: () => Promise<FoundPool[]> }[] = [
         ...(uniswapV3 ? [{ label: 'Uniswap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, uniswapV3, wrappedNative) }] : []),
-        { label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) },
-        { label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, PANCAKE_V3_DEPLOYMENT, wrappedNative) },
+        ...(uniswapV4 ? [{ label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) }] : []),
+        ...(cakeV3 ? [{ label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, cakeV3, wrappedNative) }] : []),
+        ...(chainId === 8453 ? [{ label: 'Aerodrome', run: () => findAerodromePools(client, tokenA, tokenB, wrappedNative) }] : []),
+        ...(chainId === 4663 ? [
+          { label: 'Giga V3', run: () => findGigaPools(client, tokenA, tokenB, wrappedNative) },
+          { label: 'Ramses V3', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [RAMSES_V3_DEPLOYMENT], 'Ramses V3') },
+        ] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
         (v): { ok: true; pools: FoundPool[] } => {
@@ -1460,7 +1573,7 @@ export function SimulateScreen() {
       const pools = merged.sort((a, b) => (b.tvlUsd ?? 0) - (a.tvlUsd ?? 0));
 
       if (pools.length === 0 && failedChecks.length > 0) {
-        setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error) — try again. ${3 - failedChecks.length > 0 ? 'No pool found on the rest.' : ''}`);
+        setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error); try again. ${3 - failedChecks.length > 0 ? 'No pool found on the rest.' : ''}`);
       } else if (pools.length === 0) {
         setError(`No pool found for ${tokenA.symbol}/${tokenB.symbol} on any DEX we track.`);
       } else if (failedChecks.length > 0) {
@@ -1514,7 +1627,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3, Uniswap V4, PancakeSwap V3, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
@@ -1552,7 +1665,7 @@ export function SimulateScreen() {
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
               {found.map((f, i) => {
-                const label = foundPoolDexLabel(f);
+                const label = rowLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
                   <div key={foundPoolKey(f)} style={{
@@ -1580,11 +1693,18 @@ export function SimulateScreen() {
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                           color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
                           background: 'rgba(255,255,255,0.06)',
-                        }}>View ↗</a>
+                        }}>View</a>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, marginLeft: 'auto', width: 100 }}>
-                          Simulate
-                        </Button>
+                        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                          {mintDexFor(f) && (
+                            <Button variant="success" size="sm" onClick={() => setMintFee(f)} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
+                              Add LP
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
+                            Simulate
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1599,7 +1719,7 @@ export function SimulateScreen() {
               ))}
             </div>
             {found.map((f, i) => {
-              const label = foundPoolDexLabel(f);
+              const label = rowLabel(f);
               return (
                 <div key={foundPoolKey(f)} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1621,11 +1741,18 @@ export function SimulateScreen() {
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
                       background: 'rgba(255,255,255,0.06)',
-                    }}>View ↗</a>
+                    }}>View</a>
                   ) : (
-                    <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, justifySelf: 'end', width: 100 }}>
-                      Simulate
-                    </Button>
+                    <div style={{ display: 'flex', gap: 6, justifySelf: 'end' }}>
+                      {mintDexFor(f) && (
+                        <Button variant="success" size="sm" onClick={() => setMintFee(f)} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
+                          Add LP
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
+                        Simulate
+                      </Button>
+                    </div>
                   )}
                 </div>
               );
@@ -1633,6 +1760,19 @@ export function SimulateScreen() {
           </div>
           )}
         </Glass>
+      )}
+
+      {mintFee && tokenA && tokenB && mintDexFor(mintFee) && (
+        <CreatePosition
+          tokenA={toV3Address(tokenA.address, wrappedNative)}
+          tokenB={toV3Address(tokenB.address, wrappedNative)}
+          dex={mintDexFor(mintFee)!.dex}
+          chainId={mintDexFor(mintFee)!.chainId}
+          // Spacing-keyed DEXes (Aerodrome, Ramses): the sheet picks the deepest spacing.
+          initialFee={['aerodrome', 'ramses'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
+          fees24hUsd={mintFee.fees24hUsd}
+          onClose={() => setMintFee(null)}
+        />
       )}
 
       {sheetFee && sheetMeta && tokenA && tokenB && (

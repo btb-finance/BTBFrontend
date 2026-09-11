@@ -1,5 +1,6 @@
 'use client';
 import { useXpToast } from './XpToast';
+import { usePolledQuery } from './polledQuery';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, ReactNode } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useReadContracts } from 'wagmi';
@@ -78,8 +79,11 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
   const refreshBalances   = useAction(api.balances.refresh);
 
   // Convex token list + USD prices — refreshed by crons.
-  const convexTokenList = useQuery(api.tokens.listAll) ?? [];
-  const convexPrices    = useQuery(api.queries.listAllPrices) ?? [];
+  // Polled, not subscribed: the token list refreshes hourly and prices every
+  // five minutes by cron, so polling at that cadence is just as fresh and
+  // stops every visitor re-reading both tables on every cron write.
+  const convexTokenList = usePolledQuery(api.tokens.listAll, {}, 60 * 60_000) ?? [];
+  const convexPrices    = usePolledQuery(api.queries.listAllPrices, {}, 5 * 60_000) ?? [];
   // Cached wallet holdings — fetched server-side, read here as the single
   // source of truth for `positions`.
   const snapshot        = useQuery(

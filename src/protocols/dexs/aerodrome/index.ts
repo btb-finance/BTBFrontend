@@ -17,6 +17,7 @@
 import { encodeFunctionData, type PublicClient } from 'viem';
 import type { V3Deployment } from '../uniswap/v3/addresses';
 import { fetchV3Positions } from '../uniswap/v3/positions';
+import { fetchPoolsForMint, type MintPool } from '../uniswap/v3/pool';
 import { SLIPSTREAM_FACTORY_ABI } from '../uniswap/v3/abis';
 import type { Call } from '@/lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -29,9 +30,10 @@ export const BASE_WETH = '0x4200000000000000000000000000000000000006' as const;
 /** Slipstream tick spacings; there is no fee tier list, fees live on the pool. */
 const SLIPSTREAM_TICK_SPACINGS = [1, 50, 100, 200, 2000] as const;
 
-function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`): V3Deployment {
+function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`, label: string): V3Deployment {
   return {
     protocol: 'aerodrome-cl',
+    label,
     slipstream: true,
     chainId: BASE_CHAIN_ID,
     positionManager,
@@ -43,14 +45,41 @@ function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${stri
 }
 
 export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
-  slipstreamDeployment('0x827922686190790b37229fd06084350E74485b72', '0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A'),
-  slipstreamDeployment('0xa990C6a764b73BF43cee5Bb40339c3322FB9D55F', '0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a'),
-  slipstreamDeployment('0xe1f8cd9AC4e4A65F54f38a5CdAfCA44f6dD68b53', '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef'),
+  slipstreamDeployment('0x827922686190790b37229fd06084350E74485b72', '0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A', 'Aerodrome (old)'),
+  slipstreamDeployment('0xa990C6a764b73BF43cee5Bb40339c3322FB9D55F', '0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a', 'Aerodrome (old, gauge caps)'),
+  slipstreamDeployment('0xe1f8cd9AC4e4A65F54f38a5CdAfCA44f6dD68b53', '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef', 'Aerodrome'),
 ];
 
 /** New positions go to the current (gauges V3) deployment — the one new
  * pools and gauges are created on. */
 export const AERODROME_MINT_DEPLOYMENT = AERODROME_CL_DEPLOYMENTS[2];
+
+/** Slipstream pools for a pair across all three factories, keyed by tick
+ * spacing, plus which deployment owns each spacing (the mint must go through
+ * that deployment's position manager). A spacing that exists on more than
+ * one factory keeps the deepest pool. */
+export async function fetchAerodromePoolsForMint(
+  client: PublicClient,
+  tokenA: `0x${string}`,
+  tokenB: `0x${string}`,
+): Promise<{ pools: Record<number, MintPool>; deploymentByTier: Record<number, V3Deployment> }> {
+  const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchPoolsForMint(client, tokenA, tokenB, d)));
+  const pools: Record<number, MintPool> = {};
+  const deploymentByTier: Record<number, V3Deployment> = {};
+  results.forEach((r, i) => {
+    if (r.status !== 'fulfilled') return;
+    for (const [tier, pool] of Object.entries(r.value)) {
+      const key = Number(tier);
+      const current = pools[key];
+      if (!current || (!current.exists && pool.exists) || (pool.exists && pool.liquidity > current.liquidity)) {
+        pools[key] = pool;
+        deploymentByTier[key] = AERODROME_CL_DEPLOYMENTS[i];
+      }
+    }
+  });
+  if (results.every((r) => r.status === 'rejected')) throw (results[0] as PromiseRejectedResult).reason;
+  return { pools, deploymentByTier };
+}
 
 /** The deployment a position was read from — carried on the position itself. */
 export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {
@@ -89,10 +118,6 @@ export const CL_GAUGE_ABI = [
   { name: 'stakedContains', type: 'function', stateMutability: 'view', inputs: [{ name: 'depositor', type: 'address' }, { name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
   { name: 'stakedValues', type: 'function', stateMutability: 'view', inputs: [{ name: 'depositor', type: 'address' }], outputs: [{ name: '', type: 'uint256[]' }] },
   { name: 'rewardToken', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
-] as const;
-
-const VOTER_ABI = [
-  { name: 'isGauge', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'bool' }] },
 ] as const;
 
 const VOTER_GAUGES_ABI = [
@@ -142,88 +167,37 @@ export function buildGaugeStake(positionManager: `0x${string}`, gauge: `0x${stri
   ];
 }
 
-const OWNER_OF_ABI = [
-  { name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] },
-] as const;
-
-/** Every Slipstream NFT the wallet has ever sent away, per position manager —
- * the candidate set for "is it sitting in a gauge?". Blockscout, keyless. */
-async function fetchTransferredOutIds(owner: `0x${string}`): Promise<Map<string, bigint[]>> {
-  const out = new Map<string, bigint[]>();
-  // Sequential on purpose: Blockscout's public tier rate-limits bursts, and
-  // three managers × pages fired at once was enough to trip it.
-  for (const d of AERODROME_CL_DEPLOYMENTS) {
-    const ids = new Set<bigint>();
-    let params: Record<string, string> | null = {};
-    for (let page = 0; page < 6 && params; page++) {
-      const qs = new URLSearchParams({ type: 'ERC-721', filter: 'from', token: d.positionManager, ...params });
-      let res = await fetch(`https://base.blockscout.com/api/v2/addresses/${owner}/token-transfers?${qs}`, { signal: AbortSignal.timeout(12_000) });
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, 1_200));
-        res = await fetch(`https://base.blockscout.com/api/v2/addresses/${owner}/token-transfers?${qs}`, { signal: AbortSignal.timeout(12_000) });
-      }
-      if (!res.ok) break;
-      const body = await res.json() as {
-        items?: { from?: { hash?: string }; total?: { token_id?: string } }[];
-        next_page_params?: Record<string, string> | null;
-      };
-      for (const item of body.items ?? []) {
-        if (item.from?.hash?.toLowerCase() !== owner.toLowerCase()) continue;
-        const id = item.total?.token_id;
-        if (id) ids.add(BigInt(id));
-      }
-      params = body.next_page_params ?? null;
-    }
-    out.set(d.positionManager.toLowerCase(), [...ids]);
-  }
-  return out;
-}
-
-/** Positions the wallet has staked in Aerodrome gauges, with claimable AERO. */
-export async function fetchStakedAerodromePositions(
+/** Staked positions when the gauge is already known (Krystal names it):
+ * read the NFT state and the claimable AERO directly, no discovery. */
+export async function fetchAerodromeStakedByIds(
   client: PublicClient,
   owner: `0x${string}`,
-  /** Extra candidate tokenIds per position manager (e.g. from Krystal). */
-  extraIds: Map<string, bigint[]> = new Map(),
+  entries: { id: bigint; gauge: `0x${string}`; manager: `0x${string}` }[],
 ): Promise<LiquidityPosition[]> {
-  const transferred = await fetchTransferredOutIds(owner).catch(() => new Map<string, bigint[]>());
-  const results: LiquidityPosition[] = [];
-  await Promise.all(AERODROME_CL_DEPLOYMENTS.map(async (d) => {
-    const pm = d.positionManager.toLowerCase();
-    const ids = [...new Set([...(transferred.get(pm) ?? []), ...(extraIds.get(pm) ?? [])])];
-    if (ids.length === 0) return;
-    // Who holds each NFT now? Only gauge-held ones matter.
-    const owners = await withSafeMulticall(client).multicall({
-      contracts: ids.map((id) => ({ address: d.positionManager, abi: OWNER_OF_ABI, functionName: 'ownerOf' as const, args: [id] as const })),
-      allowFailure: true,
-    });
-    const held = ids.map((id, i) => ({ id, holder: owners[i].status === 'success' ? (owners[i].result as `0x${string}`) : null }))
-      .filter((x): x is { id: bigint; holder: `0x${string}` } => !!x.holder && x.holder.toLowerCase() !== owner.toLowerCase());
-    if (held.length === 0) return;
-    const gaugeChecks = await withSafeMulticall(client).multicall({
-      contracts: held.map((x) => ({ address: AERODROME_VOTER, abi: VOTER_ABI, functionName: 'isGauge' as const, args: [x.holder] as const })),
-      allowFailure: true,
-    });
-    const inGauge = held.filter((_, i) => gaugeChecks[i].status === 'success' && gaugeChecks[i].result === true);
-    if (inGauge.length === 0) return;
-    const staked = await withSafeMulticall(client).multicall({
-      contracts: inGauge.flatMap((x) => [
-        { address: x.holder, abi: CL_GAUGE_ABI, functionName: 'stakedContains' as const, args: [owner, x.id] as const },
-        { address: x.holder, abi: CL_GAUGE_ABI, functionName: 'earned' as const, args: [owner, x.id] as const },
+  const out: LiquidityPosition[] = [];
+  const byManager = new Map<string, typeof entries>();
+  for (const e of entries) byManager.set(e.manager.toLowerCase(), [...(byManager.get(e.manager.toLowerCase()) ?? []), e]);
+  await Promise.all([...byManager].map(async ([pm, list]) => {
+    const d = AERODROME_CL_DEPLOYMENTS.find((x) => x.positionManager.toLowerCase() === pm);
+    if (!d) return;
+    const checks = await withSafeMulticall(client).multicall({
+      contracts: list.flatMap((e) => [
+        { address: e.gauge, abi: CL_GAUGE_ABI, functionName: 'stakedContains' as const, args: [owner, e.id] as const },
+        { address: e.gauge, abi: CL_GAUGE_ABI, functionName: 'earned' as const, args: [owner, e.id] as const },
       ]),
       allowFailure: true,
     });
-    const mine = inGauge
-      .map((x, i) => ({ ...x, isMine: staked[i * 2].status === 'success' && staked[i * 2].result === true, earned: staked[i * 2 + 1].status === 'success' ? (staked[i * 2 + 1].result as bigint) : 0n }))
-      .filter((x) => x.isMine);
+    const mine = list.filter((_, i) => checks[i * 2].status === 'success' && checks[i * 2].result === true);
     if (mine.length === 0) return;
-    const positions = await fetchV3Positions(client, owner, d, mine.map((x) => x.id));
+    const positions = await fetchV3Positions(client, owner, d, mine.map((e) => e.id));
     for (const p of positions) {
-      const s = mine.find((x) => x.id === p.id);
-      if (s) results.push({ ...p, staked: { gauge: s.holder, earned: s.earned, rewardToken: AERO_TOKEN, rewardSymbol: 'AERO' } });
+      const i = list.findIndex((e) => e.id === p.id);
+      const e = list[i];
+      const earned = checks[i * 2 + 1]?.status === 'success' ? (checks[i * 2 + 1].result as bigint) : 0n;
+      out.push({ ...p, staked: { gauge: e.gauge, earned, rewardToken: AERO_TOKEN, rewardSymbol: 'AERO' } });
     }
   }));
-  return results;
+  return out;
 }
 
 /** Unstake: the gauge returns the NFT to the wallet and pays earned AERO. */

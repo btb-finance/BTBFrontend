@@ -13,6 +13,7 @@ import {
 } from '../lib/pools';
 import type { Token } from '../lib/TokenStore';
 import { CreatePosition } from './CreatePosition';
+import type { LpChainId } from '../protocols/lpChains';
 
 const MAX_SUGGESTIONS = 8;
 
@@ -37,11 +38,14 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         if (!live) return;
         // Rank the FULL candidate set before truncating — slicing first would
         // drop lower-TVL pools that out-earn the big ones on range APR.
+        // Same chain as the token, and only pools the app can mint on
+        // (Uniswap, PancakeSwap, Aerodrome on Base).
+        const chainId = token.chainId ?? 1;
         const candidates = poolsForToken(all, lpAddressesForToken(token.address))
-          .filter((p) => mintTarget(p) !== null);
+          .filter((p) => mintTarget(p)?.chainId === chainId);
         setPools([...candidates].sort(byApr).slice(0, MAX_SUGGESTIONS));
-        const client = getPublicClient(config);
-        if (client && candidates.length > 0) {
+        const client = getPublicClient(config, { chainId: chainId as LpChainId });
+        if (client && candidates.length > 0 && chainId === 1) {
           addRangeAprs(client, candidates)
             .then((ep) => { if (live) setPools([...ep].sort(byApr).slice(0, MAX_SUGGESTIONS)); })
             .catch(() => {});
@@ -59,7 +63,8 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         tokenB={t.tokenB}
         v4PoolId={t.v4PoolId}
         dex={t.dex}
-        initialFee={sheet.feeTier}
+        chainId={t.chainId}
+        initialFee={t.dex === 'aerodrome' ? undefined : sheet.feeTier}
         fees24hUsd={sheet.fees24hUsd ?? (sheet.tvlUsd * sheet.apyBase) / 100 / 365}
         onClose={() => setSheet(null)}
         onDone={onClose}
@@ -80,7 +85,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         {!pools && !error && <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Finding pools…</div>}
         {pools && pools.length === 0 && (
           <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 0' }}>
-            No active Uniswap or PancakeSwap pool found for {token.symbol} on Ethereum yet.
+            No pool the app can mint on was found for {token.symbol} on this chain yet.
           </div>
         )}
 

@@ -143,7 +143,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     try {
       await convert({ walletAddress: address });
     } catch (e) {
-      setError(readableError(e, 'Could not enter this week — try again'));
+      setError(readableError(e, 'Could not enter this week; try again'));
     } finally {
       setBusy(null);
     }
@@ -155,7 +155,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     try {
       await claim({ payoutId: payoutId as Id<'rewardPayouts'> });
     } catch (e) {
-      setError(readableError(e, 'Could not claim — try again'));
+      setError(readableError(e, 'Could not claim; try again'));
     } finally {
       setBusy(null);
     }
@@ -168,7 +168,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       const r = await checkInNow({ walletAddress: address });
       if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0), `Day ${r.newStreak} check-in`);
     } catch (e) {
-      setError(readableError(e, 'Could not check in — try again'));
+      setError(readableError(e, 'Could not check in; try again'));
     } finally {
       setBusy(null);
     }
@@ -419,12 +419,16 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       {/* ── how it works: three beats ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <SectionHeader title="How it works" right="Every Friday"/>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+        {/* Three cards across on desktop; on a phone that is three 100px
+            columns of tiny text, so each beat becomes a row instead. */}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
           {STEPS.map((step, i) => (
-            <div key={step.title} style={{ ...CARD_STYLE, borderRadius: 16, padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(82,227,164,0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
-              <span style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>{step.title}</span>
-              <span style={{ color: btb.textMuted, fontSize: 10.5, lineHeight: 1.45 }}>{step.detail}</span>
+            <div key={step.title} style={{ ...CARD_STYLE, borderRadius: 16, padding: isMobile ? '12px 14px' : '14px 12px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'flex-start' : 'stretch', gap: isMobile ? 12 : 8 }}>
+              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: 'rgba(82,227,164,0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{step.title}</span>
+                <span style={{ color: btb.textMuted, fontSize: isMobile ? 12 : 10.5, lineHeight: 1.45 }}>{step.detail}</span>
+              </span>
             </div>
           ))}
         </div>
@@ -483,7 +487,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                     target="_blank" rel="noopener noreferrer"
                     style={{ color: btb.textMuted, fontSize: 11, textDecoration: 'none' }}
                   >
-                    tx ↗
+                    tx
                   </a>
                 )}
               </div>
@@ -516,9 +520,11 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       )}
 
       {/* ── contract ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <div style={isMobile
+        ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }
+        : { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Button
-          size="sm" variant="successSoft" fullWidth={false}
+          size="sm" variant="successSoft" fullWidth={!isMobile ? false : true}
           icon={copied ? 'check' : 'wallet'}
           onClick={copyAddress}
           title="Copy contract address"
@@ -526,16 +532,16 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         >
           {copied ? 'Copied' : shortAddr}
         </Button>
-        <Button size="sm" variant="successSoft" fullWidth={false} icon="swap" onClick={onSwap}>
+        <Button size="sm" variant="successSoft" fullWidth={!isMobile ? false : true} icon="swap" onClick={onSwap}>
           Get BTB
         </Button>
-        <Button size="sm" variant="successSoft" fullWidth={false} icon="launch" href={`https://etherscan.io/token/${BTB_ADDRESS}`} target="_blank">
+        <Button size="sm" variant="successSoft" fullWidth={!isMobile ? false : true} icon="launch" href={`https://etherscan.io/token/${BTB_ADDRESS}`} target="_blank">
           Etherscan
         </Button>
-        <Button size="sm" variant="successSoft" fullWidth={false} icon="twitter" href="https://x.com/BTB_Finance" target="_blank">
+        <Button size="sm" variant="successSoft" fullWidth={!isMobile ? false : true} icon="twitter" href="https://x.com/BTB_Finance" target="_blank">
           Follow
         </Button>
-        <Button size="sm" variant="successSoft" fullWidth={false} icon="discord" href="https://discord.gg/bqFEPA56Tc" target="_blank">
+        <Button size="sm" variant="successSoft" fullWidth={!isMobile ? false : true} icon="discord" href="https://discord.gg/bqFEPA56Tc" target="_blank">
           Discord
         </Button>
       </div>
