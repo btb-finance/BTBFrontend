@@ -23,7 +23,6 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   10: ['https://optimism-rpc.publicnode.com', 'https://optimism.drpc.org'],
   8453: ['https://base-rpc.publicnode.com', 'https://base.drpc.org'],
   43114: ['https://avalanche-c-chain-rpc.publicnode.com', 'https://avalanche.drpc.org'],
-  146: ['https://sonic-rpc.publicnode.com', 'https://sonic.drpc.org'],
   59144: ['https://linea-rpc.publicnode.com', 'https://linea.drpc.org'],
   534352: ['https://scroll-rpc.publicnode.com', 'https://scroll.drpc.org'],
   5000: ['https://mantle-rpc.publicnode.com', 'https://mantle.drpc.org'],

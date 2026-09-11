@@ -98,6 +98,10 @@ function parseFeeTierPct(poolMeta?: string): number | undefined {
  * Uniswap/PancakeSwap pool a caller actually wanted (they'd just get filtered
  * back out downstream, wasting the slots). Pass the exact slugs you'll use.
  */
+/** Chains Discover does not list, whatever DeFiLlama has for them: too little
+ * real LP activity for the app's audience. */
+const EXCLUDED_CHAINS = new Set(['Hemi', 'Gnosis', 'xDai', 'Fraxtal', 'Flare', 'Celo', 'Sonic']);
+
 export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: string[]): Promise<LlamaPool[]> {
   const res = await fetch('https://yields.llama.fi/pools');
   if (!res.ok) throw new Error(`DeFiLlama ${res.status}`);
@@ -106,7 +110,7 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
   const allowed = projects ? new Set(projects) : null;
 
   const ranked = rows
-    .filter((r) => DEX_NAMES[r.project] && (!allowed || allowed.has(r.project)) && (r.tvlUsd ?? 0) >= minTvlUsd)
+    .filter((r) => DEX_NAMES[r.project] && (!allowed || allowed.has(r.project)) && (r.tvlUsd ?? 0) >= minTvlUsd && !EXCLUDED_CHAINS.has(r.chain))
     .map((r) => ({
       id: r.pool,
       project: r.project,

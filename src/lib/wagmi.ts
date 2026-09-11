@@ -2,7 +2,7 @@ import { createConfig } from 'wagmi';
 import {
   arbitrum, avalanche, base, berachain, blast, bsc, etherlink, fantom, hyperEvm,
   linea, mainnet, mantle, megaeth, monad, optimism, plasma, polygon, ronin, scroll,
-  sonic, unichain, zkSync,
+  unichain, zkSync,
 } from 'wagmi/chains';
 import { defineChain, fallback, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask, safe } from '@wagmi/connectors';
@@ -43,7 +43,7 @@ export function robinhoodTransport() {
   })));
 }
 export const SUPPORTED_CHAINS = [
-  mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain, sonic,
+  mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain,
   ronin, unichain, linea, hyperEvm, plasma, etherlink, mantle, scroll, fantom,
   blast, zkSync, monad, megaeth, robinhoodChain,
 ] as const;
@@ -83,7 +83,7 @@ export function makeConfig() {
       [bsc.id]: chainTransport(bsc.id), [polygon.id]: chainTransport(polygon.id),
       [arbitrum.id]: chainTransport(arbitrum.id), [optimism.id]: chainTransport(optimism.id),
       [base.id]: chainTransport(base.id), [avalanche.id]: chainTransport(avalanche.id),
-      [berachain.id]: chainTransport(berachain.id), [sonic.id]: chainTransport(sonic.id),
+      [berachain.id]: chainTransport(berachain.id),
       [ronin.id]: chainTransport(ronin.id), [unichain.id]: chainTransport(unichain.id),
       [linea.id]: chainTransport(linea.id), [hyperEvm.id]: chainTransport(hyperEvm.id),
       [plasma.id]: chainTransport(plasma.id), [etherlink.id]: chainTransport(etherlink.id),
@@ -118,7 +118,6 @@ export const CHAIN_META: Record<number, { name: string; symbol: string; color: s
   324:    { name: 'zkSync',    symbol: 'ETH',  color: '#8C8DFC' },
   81457:  { name: 'Blast',     symbol: 'ETH',  color: '#FCFC03' },
   80094:  { name: 'Berachain', symbol: 'BERA', color: '#FF8A00' },
-  146:    { name: 'Sonic', symbol: 'S', color: '#7C5CFC' },
   2020:   { name: 'Ronin', symbol: 'RON', color: '#1273EA' },
   130:    { name: 'Unichain', symbol: 'ETH', color: '#FF37C7' },
   999:    { name: 'HyperEVM', symbol: 'HYPE', color: '#50E3C2' },

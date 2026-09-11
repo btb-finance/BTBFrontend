@@ -18,6 +18,8 @@ import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchNetworkTopPools, fetchNetworkDexes, type DexPaprikaPoolRow, type DexPaprikaDex } from './dexpaprika';
 import { fetchDexScreenerPool } from './dexscreener';
 import { withSafeMulticall } from './safeMulticall';
+import { fetchDexRegistry, fetchDexTopPools, type DexRegistryEntry } from './geckoterminal';
+import { CHAIN_DATA_NETWORKS } from './chainDataNetworks';
 
 export { fmtCompactUsd, fmtFeeTier };
 
@@ -503,6 +505,11 @@ function isPoolAddress(id: string): boolean {
  * read is dropped rather than guessed at, because multiplying volume by an
  * invented fee is how you end up publishing an APR nobody can earn.
  */
+/** Per chain, how many DEXes missing from the volume list get their own
+ * page fetched on a refresh. Bounds the cron's run time on chains with a
+ * long tail of tiny venues. */
+const MAX_EXTRA_DEXES_PER_CHAIN = 30;
+
 export async function ingestChainPools(
   client: PublicClient | null,
   chainId: number | undefined,
@@ -511,11 +518,55 @@ export async function ingestChainPools(
   minTvlUsd: number,
   limit = 100,
 ): Promise<EarnPool[]> {
-  const [rows, dexes] = await Promise.all([
+  const [topRows, dexes] = await Promise.all([
     fetchNetworkTopPools(network, limit).catch(() => [] as DexPaprikaPoolRow[]),
     fetchNetworkDexes(network).catch(() => [] as DexPaprikaDex[]),
   ]);
   const brands = brandLabels(dexes);
+  // The network top list is volume ranked, so on a young chain whole DEXes
+  // can be absent from it. Walk GeckoTerminal's DEX registry and pull the top
+  // pools of every venue the list did not cover, so the DEX filter and the
+  // table know about all of them. Server side only: the calls are paced to
+  // stay inside the public rate limit, which is too slow for a page load.
+  const rows = [...topRows];
+  if (chainId != null && typeof window === 'undefined') {
+    const gecko = CHAIN_DATA_NETWORKS[chainId]?.gecko;
+    if (gecko) {
+      const covered = new Set(topRows.map(r => brandKey(r.dexId)));
+      const registry = await fetchDexRegistry(gecko).catch(() => [] as DexRegistryEntry[]);
+      const seen = new Set(topRows.map(r => r.id.toLowerCase()));
+      // GeckoTerminal ids carry the network ("uniswap-v3-robinhood"); strip it
+      // and the version to compare brands with the volume list.
+      const geckoBrand = (id: string) => brandKey(id.replace(new RegExp(`-${gecko}$`), '').replace(/-/g, '_'));
+      // Concentrated liquidity venues only: that is what the app can simulate
+      // and mint on, and it keeps the paced call count small.
+      const NOT_CL = /(?:^|[_-])v2(?:$|[_-])|launchpad|bankr|virtuals|clanker|mint-club|curve|kickstart|legacy|dlmm|family|abyss|parityswap|robinswap|hoodit/i;
+      const uncovered = registry.filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id)).slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
+      if (process.env.DEBUG_DISCOVER) console.log('[discover]', chainName, 'registry', registry.length, 'uncovered', uncovered.map(d => d.id));
+      for (const dex of uncovered) {
+        const pools = await fetchDexTopPools(gecko, dex.id).catch(() => []);
+        if (process.env.DEBUG_DISCOVER) console.log('[discover]', dex.id, pools.length);
+        for (const p of pools) {
+          if (seen.has(p.address)) continue;
+          seen.add(p.address);
+          rows.push({
+            id: p.address,
+            dexId: dex.id.replace(/-/g, '_'),
+            // GeckoTerminal suffixes the network ("Ramses V3 (Robinhood)"); the chain column already says so.
+            dexName: dex.name.replace(/\s*\([^)]*\)\s*$/, ''),
+            volume24hUsd: p.volume24hUsd,
+            tvlUsd: p.tvlUsd,
+            transactions24h: p.transactions24h,
+            priceChange24h: p.priceChange24h,
+            priceUsd: p.priceUsd,
+            tokenAddresses: p.tokenAddresses,
+            feePct: p.feePct,
+          });
+        }
+      }
+    }
+  }
+  if (process.env.DEBUG_DISCOVER) console.log('[discover]', chainName, 'rows', rows.length, 'extras', rows.length - topRows.length);
   const live = rows.filter(r =>
     r.tvlUsd >= minTvlUsd
     && r.transactions24h >= MIN_TXNS_24H
@@ -562,6 +613,7 @@ export async function ingestChainPools(
   }
 
   const priced = live.filter(r => feeByPool.has(r.id.toLowerCase()));
+  if (process.env.DEBUG_DISCOVER) console.log('[discover]', chainName, 'live', live.length, 'priced', priced.length, 'unpriced', live.filter(r => !feeByPool.has(r.id.toLowerCase())).slice(0, 5).map(r => `${r.dexId} ${r.id.slice(0, 8)} fee=${r.feePct}`));
   if (priced.length === 0) return [];
 
   // Round 2: symbols. The listing carries token addresses only.

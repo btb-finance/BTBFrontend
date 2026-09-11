@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server';
 const UPSTREAM = 'https://api.krystal.app/all/v1/lp/userPositions';
 // Networks currently advertised by Krystal's public LP config. This endpoint
 // is read-only; unsupported/empty chains simply return no positions.
-const CHAIN_IDS = '1,10,56,130,137,146,2020,324,42161,43114,59144,80094,81457,8453,999';
+const CHAIN_IDS = '1,10,56,130,137,2020,324,42161,43114,59144,80094,81457,8453,999';
 
 /** Read-only Krystal LP analytics proxy. The address is the only caller input;
  * chain, pagination and endpoint are pinned so this cannot become an open proxy. */

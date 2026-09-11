@@ -201,3 +201,97 @@ export async function fetchPoolDailyHistory(poolAddress: string, days = 30, netw
     return [];
   }
 }
+
+// ── DEX registry and per-DEX pools ──────────────────────────────────────────
+// GeckoTerminal lists every DEX it indexes on a network and the top pools of
+// each one. The Discover cron uses this to cover venues the volume-ranked top
+// list misses: on a young chain the second and third DEX by TVL can have no
+// pool in the network's top hundred.
+
+export interface DexRegistryEntry { id: string; name: string }
+
+/** Every DEX GeckoTerminal knows on a network, all pages. */
+export async function fetchDexRegistry(network = 'eth'): Promise<DexRegistryEntry[]> {
+  const out: DexRegistryEntry[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const res = await fetch(`${BASE}/networks/${network}/dexes?page=${page}`, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) break;
+    const json = await res.json() as { data?: { id: string; attributes?: { name?: string } }[] };
+    const rows = json.data ?? [];
+    for (const r of rows) out.push({ id: r.id, name: r.attributes?.name ?? r.id });
+    if (rows.length < 20) break;
+  }
+  return out;
+}
+
+export interface DexPoolRow {
+  address: string;
+  dexId: string;
+  name: string;
+  tvlUsd: number;
+  volume24hUsd: number;
+  transactions24h: number;
+  priceChange24h?: number;
+  priceUsd: number;
+  tokenAddresses: string[];
+  /** Fee as a percent (0.3 = 0.3%) when the pool name carries it. */
+  feePct?: number;
+}
+
+// The free tier allows 30 calls a minute across everything, and the Discover
+// cron walks several chains at once, so per-DEX pool calls queue through one
+// shared pacer instead of each chain pacing itself.
+let paceTail: Promise<void> = Promise.resolve();
+function paced<T>(fn: () => Promise<T>, gapMs = 2_500): Promise<T> {
+  const run = paceTail.then(fn);
+  paceTail = run.then(() => new Promise<void>(r => setTimeout(r, gapMs)), () => new Promise<void>(r => setTimeout(r, gapMs)));
+  return run;
+}
+
+/** One page (20) of a DEX's top pools by 24h volume, with the fields the
+ * Discover pipeline needs. Paced to the public rate limit. */
+export function fetchDexTopPools(network: string, dexId: string, page = 1): Promise<DexPoolRow[]> {
+  return paced(() => fetchDexTopPoolsNow(network, dexId, page));
+}
+
+async function fetchDexTopPoolsNow(network: string, dexId: string, page = 1): Promise<DexPoolRow[]> {
+  let res: Response | null = null;
+  // The public limit is enforced in bursts as well as per minute; on a 429
+  // honour Retry-After (or wait a little) and try again, twice.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(`${BASE}/networks/${network}/dexes/${dexId}/pools?page=${page}&sort=h24_volume_usd_desc`, { signal: AbortSignal.timeout(12000) });
+    if (res.status !== 429) break;
+    const retryAfter = Number(res.headers.get('retry-after'));
+    await new Promise(r => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 15_000));
+  }
+  if (!res || !res.ok) return [];
+  const json = await res.json() as {
+    data?: {
+      attributes: PoolAttrs & { name?: string; base_token_price_usd?: string; price_change_percentage?: { h24?: string }; transactions?: { h24?: { buys?: number; sells?: number } } };
+      relationships?: { dex?: { data?: { id?: string } }; base_token?: { data?: { id?: string } }; quote_token?: { data?: { id?: string } } };
+    }[];
+  };
+  const out: DexPoolRow[] = [];
+  for (const row of json.data ?? []) {
+    const address = row.attributes.address?.toLowerCase();
+    const base = row.relationships?.base_token?.data?.id?.split('_').pop()?.toLowerCase();
+    const quote = row.relationships?.quote_token?.data?.id?.split('_').pop()?.toLowerCase();
+    if (!address || !base || !quote) continue;
+    const name = row.attributes.name ?? '';
+    const feeMatch = name.match(/([\d.]+)%\s*$/);
+    const tx = row.attributes.transactions?.h24;
+    out.push({
+      address,
+      dexId: row.relationships?.dex?.data?.id ?? dexId,
+      name,
+      tvlUsd: parseFloat(row.attributes.reserve_in_usd ?? '0') || 0,
+      volume24hUsd: parseFloat(row.attributes.volume_usd?.h24 ?? '0') || 0,
+      transactions24h: (tx?.buys ?? 0) + (tx?.sells ?? 0),
+      priceChange24h: row.attributes.price_change_percentage?.h24 != null ? parseFloat(row.attributes.price_change_percentage.h24) : undefined,
+      priceUsd: parseFloat(row.attributes.base_token_price_usd ?? '0') || 0,
+      tokenAddresses: [base, quote],
+      feePct: feeMatch ? parseFloat(feeMatch[1]) : undefined,
+    });
+  }
+  return out;
+}
