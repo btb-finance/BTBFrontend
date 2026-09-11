@@ -20,6 +20,7 @@ import { fetchDexScreenerPool } from './dexscreener';
 import { withSafeMulticall } from './safeMulticall';
 import { fetchDexRegistry, fetchDexTopPools, type DexRegistryEntry } from './geckoterminal';
 import { CHAIN_DATA_NETWORKS } from './chainDataNetworks';
+import { v4DeploymentFor } from '@/protocols/lpChains';
 
 export { fmtCompactUsd, fmtFeeTier };
 
@@ -365,7 +366,7 @@ function poolShapeKey(p: EarnPool): string {
 const CHAIN_ICON = (chain: string) =>
   `https://icons.llamao.fi/icons/chains/rsz_${chain.toLowerCase().replace(/[^a-z0-9]/g, '')}?w=48&h=48`;
 
-async function fetchDexLogos(): Promise<Map<string, string>> {
+export async function fetchDexLogos(): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   try {
     const res = await fetch('https://api.llama.fi/protocols');
@@ -383,7 +384,7 @@ async function fetchDexLogos(): Promise<Map<string, string>> {
   return out;
 }
 
-function applyLogos(pools: EarnPool[], dexLogos: Map<string, string>): void {
+export function applyLogos(pools: EarnPool[], dexLogos: Map<string, string>): void {
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
   const cache = new Map<string, string | undefined>();
   for (const pool of pools) {
@@ -563,7 +564,9 @@ export async function ingestChainExtras(
       seen.add(p.address);
       rows.push({
         id: p.address,
-        dexId: dex.id.replace(/-/g, '_'),
+        // "uniswap-v3-robinhood" becomes "uniswap_v3": no network suffix, so
+        // brand grouping, logos and mint targets match the other sources.
+        dexId: dex.id.replace(new RegExp(`-${gecko}$`), '').replace(/-/g, '_'),
         // GeckoTerminal suffixes the network ("Ramses V3 (Robinhood)"); the chain column already says so.
         dexName: dex.name.replace(/\s*\([^)]*\)\s*$/, ''),
         volume24hUsd: p.volume24hUsd,
@@ -621,6 +624,22 @@ async function finishRows(
       feeByPool.set(r.id.toLowerCase(), fee);
     }
   });
+  // Uniswap V4 pools are not contracts, so fee() cannot be called on them;
+  // the singleton's StateView answers with the LP fee for the pool id.
+  const v4 = chainId != null ? v4DeploymentFor(chainId) : null;
+  const v4Rows = client === null || !v4 ? [] : live.filter(r => /uniswap[_-]?v4/i.test(r.dexId) && /^0x[0-9a-f]{64}$/i.test(r.id) && r.feePct == null);
+  if (v4 && v4Rows.length > 0) {
+    const slots = await withSafeMulticall(client!).multicall({
+      contracts: v4Rows.map(r => ({ address: v4.stateView, abi: STATE_VIEW_ABI as Abi, functionName: 'getSlot0', args: [r.id as `0x${string}`] })),
+      allowFailure: true,
+    }).catch(() => []);
+    v4Rows.forEach((r, i) => {
+      const s = slots[i];
+      if (s?.status !== 'success') return;
+      const lpFee = Number((s.result as readonly unknown[])[3]);
+      if (lpFee > 0 && lpFee <= MAX_PLAUSIBLE_FEE && (lpFee & DYNAMIC_FEE_FLAG) === 0) feeByPool.set(r.id.toLowerCase(), lpFee);
+    });
+  }
   for (const r of live) {
     const key = r.id.toLowerCase();
     if (feeByPool.has(key)) continue;
@@ -830,7 +849,8 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
   const isCakeV3 = p.project === 'pancakeswap-v3' || (/^pancake/i.test(p.project) && p.version === 'V3');
   if (isUniV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap', chainId };
   if (chainId !== 4663 && isCakeV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
-  if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
+  const isUniV4 = (p.project === 'uniswap-v4' || (/^uniswap/i.test(p.project) && p.version === 'V4')) && /^0x[0-9a-f]{64}$/i.test(p.id);
+  if (isUniV4 && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
   return null;
 }
 

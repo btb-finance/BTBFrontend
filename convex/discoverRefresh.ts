@@ -19,7 +19,7 @@ import { internal } from "./_generated/api";
 import { createPublicClient, fallback, http } from "viem";
 import { mainnet } from "viem/chains";
 import { getChainClient } from "../src/lib/chainClient";
-import { getEarnPools, addRangeAprs, ingestChainExtras, DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
+import { getEarnPools, addRangeAprs, ingestChainExtras, fetchDexLogos, applyLogos, DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
 import { v } from "convex/values";
 import { fetchPoolPriceChanges } from "../src/lib/geckoterminal";
 
@@ -103,6 +103,7 @@ export const coverDexes = internalAction({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const extras = await ingestChainExtras(client as any, target.chainId, chainName, 50_000, existing).catch(() => [] as EarnPool[]);
     if (extras.length > 0) {
+      applyLogos(extras, await fetchDexLogos().catch(() => new Map<string, string>()));
       // Re-read before writing: the base refresh may have run meanwhile.
       const latest = await ctx.runQuery(internal.discover.getInternal, {});
       const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
