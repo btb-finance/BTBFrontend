@@ -19,12 +19,11 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
-  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition,
+  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromePositions, fetchStakedAerodromePositions, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromeStakedByIds, withGauges, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
-import { fetchOwnedNftTokenIds } from '../lib/blockscout';
 import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
 import { RebalanceFlow } from './RebalanceFlow';
@@ -105,17 +104,6 @@ function fmtAmt(raw: bigint, decimals: number): string {
 }
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
-
-/** Krystal's Aerodrome rows on Base → candidate tokenIds per position manager
- * (Krystal does not say which manager, so every id is tried on all three). */
-function krystalAeroIds(items: { chainId: number; tokenId: string; pool?: { projectKey?: string } }[]): Map<string, bigint[]> {
-  const ids: bigint[] = [];
-  for (const item of items) {
-    if (item.chainId !== BASE_CHAIN_ID || !item.pool?.projectKey?.toLowerCase().includes('aerodrome')) continue;
-    try { ids.push(BigInt(item.tokenId)); } catch { /* not numeric */ }
-  }
-  return new Map(AERODROME_CL_DEPLOYMENTS.map((d) => [d.positionManager.toLowerCase(), ids]));
-}
 
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
@@ -213,26 +201,35 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
   const positionsRef = useRef<LiquidityPosition[]>([]);
 
+  // Krystal is the index: its rows say which position NFTs the wallet has on
+  // each chain (manager address, tokenId, gauge when staked). The chain RPC
+  // then supplies the live numbers for exactly those ids. No Blockscout, no
+  // balanceOf loops, no Transfer-log scans. A cheap balanceOf pass on the V3
+  // style managers still runs so a position minted a minute ago shows before
+  // Krystal has indexed it.
+  const krystalOpenKey = (krystal?.positions ?? [])
+    .filter((i) => !(i.status?.toUpperCase().includes('CLOSED') || i.closedTime > 0))
+    .map((i) => `${i.chainId}:${i.tokenAddress ?? ''}:${i.tokenId}:${i.id ?? ''}`).sort().join(',');
   const load = useCallback(async () => {
     if (!address) { setPositions([]); return; }
+    const owner = address as `0x${string}`;
     // A previous full snapshot renders instantly; the refresh runs silently.
     const cached = getCachedLpPositions(address);
     if (cached && positionsRef.current.length === 0) setPositions(cached);
-    setLoading(!cached);
+    setLoading(!cached && positionsRef.current.length === 0);
     try {
-      const owner = address as `0x${string}`;
-      // Each protocol on each chain renders as soon as it resolves and
-      // degrades independently: a slow V4 log scan on one chain never holds
-      // up the V3 list on another.
       const merge = (protocol: LiquidityPosition['protocol'], chainId: number, chainName: string, staked = false) => (items: LiquidityPosition[]) =>
         setPositions((prev) => {
+          const seen = new Set(items.map(posKey));
           const next = [
-            ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId || !!p.staked !== staked),
+            ...prev.filter((p) => !(p.protocol === protocol && (p.chainId ?? 1) === chainId && !!p.staked === staked) || seen.has(posKey(p))),
             ...items.map((p) => ({ ...p, chainId, chainName })),
-          ];
+          ].filter((p, i, arr) => arr.findIndex((q) => posKey(q) === posKey(p) && !!q.staked === !!p.staked) === i);
           positionsRef.current = next;
           return next;
         });
+
+      const rows = (krystalRef.current?.positions ?? []).filter((i) => !(i.status?.toUpperCase().includes('CLOSED') || i.closedTime > 0));
       const jobs: Promise<unknown>[] = [];
       for (const chainId of LP_CHAINS) {
         const client = getPublicClient(config, { chainId });
@@ -242,54 +239,72 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         const v4 = v4DeploymentFor(chainId);
         const cake = v3DeploymentFor('pancakeswap', chainId);
         const aero = chainId === 8453 ? AERODROME_CL_DEPLOYMENTS : [];
-        // Fast path: every position is an NFT, so one Blockscout call lists
-        // all tokenIds at once where the chain has a Blockscout. Elsewhere,
-        // or on failure, each fetcher enumerates on-chain itself.
-        const managers = [v3?.positionManager, v4?.positionManager, cake?.positionManager, ...aero.map((d) => d.positionManager)].filter((x): x is `0x${string}` => !!x);
-        const idsPromise = fetchOwnedNftTokenIds(chainId, owner, managers).catch(() => null);
-        const idsFor = async (contract: string) => (await idsPromise)?.get(contract.toLowerCase());
-        if (v3) jobs.push(idsFor(v3.positionManager).then((ids) => fetchV3Positions(client, owner, v3, ids)).then(merge('uniswap-v3', chainId, chainName)));
-        if (v4) jobs.push(idsFor(v4.positionManager).then((ids) => fetchV4Positions(client, owner, ids, v4, v4DeployBlockFor(chainId))).then(merge('uniswap-v4', chainId, chainName)));
-        if (cake) jobs.push(idsFor(cake.positionManager).then((ids) => fetchPancakePositions(client, owner, ids)).then(merge('pancakeswap-v3', chainId, chainName)));
-        if (aero.length > 0) {
-          jobs.push(idsPromise.then((ids) => fetchAerodromePositions(client, owner, ids ?? undefined)).then(merge('aerodrome-cl', chainId, chainName)));
-          // Gauge-staked NFTs live in the gauge, not the wallet. Krystal's rows
-          // seed the candidate ids alongside the wallet's own transfer history.
-          jobs.push(fetchStakedAerodromePositions(client, owner, krystalAeroIds(krystalRef.current?.positions ?? [])).then(merge('aerodrome-cl', chainId, chainName, true)));
+
+        // Krystal ids for this chain, bucketed by the manager contract they live in.
+        const byManager = new Map<string, bigint[]>();
+        const stakedAero: { id: bigint; gauge: `0x${string}`; manager: `0x${string}` }[] = [];
+        for (const row of rows) {
+          if (row.chainId !== chainId || !row.tokenAddress) continue;
+          let id: bigint;
+          try { id = BigInt(row.tokenId); } catch { continue; }
+          const manager = row.tokenAddress.toLowerCase();
+          const gauge = row.id?.split('_')[1];
+          if (row.farming && gauge && /^0x[0-9a-f]{40}$/i.test(gauge) && aero.some((d) => d.positionManager.toLowerCase() === manager)) {
+            stakedAero.push({ id, gauge: gauge as `0x${string}`, manager: manager as `0x${string}` });
+            continue;
+          }
+          byManager.set(manager, [...(byManager.get(manager) ?? []), id]);
+        }
+        const idsIn = (manager?: string) => (manager ? byManager.get(manager.toLowerCase()) : undefined);
+
+        // V3 style managers: Krystal ids plus a cheap balanceOf enumeration
+        // (two multicalls) so brand new positions appear straight away.
+        const v3Like: { protocol: LiquidityPosition['protocol']; d: V3Deployment }[] = [
+          ...(v3 ? [{ protocol: 'uniswap-v3' as const, d: v3 }] : []),
+          ...(cake ? [{ protocol: 'pancakeswap-v3' as const, d: cake }] : []),
+          ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
+        ];
+        for (const { protocol, d } of v3Like) {
+          const known = idsIn(d.positionManager) ?? [];
+          jobs.push(
+            fetchV3Positions(client, owner, d)
+              .catch(() => [] as LiquidityPosition[])
+              .then(async (enumerated) => {
+                const have = new Set(enumerated.map((p) => p.id));
+                const missing = known.filter((id) => !have.has(id));
+                const extra = missing.length > 0 ? await fetchV3Positions(client, owner, d, missing).catch(() => []) : [];
+                return [...enumerated, ...extra];
+              })
+              .then((items) => protocol === 'aerodrome-cl' ? withGauges(client, items).catch(() => items) : items)
+              .then((items) => setPositions((prev) => {
+                const keep = prev.filter((p) => !(p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked && p.positionManager?.toLowerCase() === d.positionManager.toLowerCase()) && !(protocol !== 'aerodrome-cl' && p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked));
+                const next = [...keep, ...items.map((p) => ({ ...p, chainId, chainName, positionManager: p.positionManager ?? d.positionManager }))];
+                positionsRef.current = next;
+                return next;
+              })),
+          );
+        }
+        // V4: Krystal ids only. There is no cheap enumeration for the V4
+        // manager, and the log scan it needs is what made this screen slow.
+        const v4Ids = v4 ? idsIn(v4.positionManager) : undefined;
+        if (v4 && v4Ids && v4Ids.length > 0) {
+          jobs.push(fetchV4Positions(client, owner, v4Ids, v4, v4DeployBlockFor(chainId)).then(merge('uniswap-v4', chainId, chainName)));
+        }
+        // Aerodrome gauges: Krystal names the gauge, so read each staked NFT directly.
+        if (stakedAero.length > 0) {
+          jobs.push(fetchAerodromeStakedByIds(client, owner, stakedAero).then(merge('aerodrome-cl', chainId, chainName, true)));
         }
       }
       await Promise.allSettled(jobs);
       setCachedLpPositions(address, positionsRef.current);
-    } catch { /* read failure — leave list empty */ }
+    } catch { /* read failure: leave the list as it was */ }
     finally { setLoading(false); }
-  }, [address, config]);
+  // krystalOpenKey: re-run once Krystal's index lands or changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, config, krystalOpenKey]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Krystal usually resolves after the first on-chain pass, and its rows are
-  // the surest source of staked Aerodrome tokenIds (the gauge, not the wallet,
-  // owns those NFTs). Re-run the gauge scan once those ids are known.
-  const krystalAeroKey = (krystal?.positions ?? []).filter((i) => i.chainId === BASE_CHAIN_ID && i.pool?.projectKey?.toLowerCase().includes('aerodrome')).map((i) => i.tokenId).sort().join(',');
-  useEffect(() => {
-    if (!address || !krystalAeroKey) return;
-    const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
-    if (!baseClient) return;
-    let live = true;
-    fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
-      .then((items) => {
-        if (!live) return;
-        setPositions((prev) => {
-          const keep = prev.filter((p) => !(p.protocol === 'aerodrome-cl' && p.staked));
-          const next = [...keep, ...items.map((p) => ({ ...p, chainId: BASE_CHAIN_ID, chainName: 'Base' }))];
-          positionsRef.current = next;
-          setCachedLpPositions(address, next);
-          return next;
-        });
-      })
-      .catch(() => {});
-    return () => { live = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address, krystalAeroKey, config]);
   useEffect(() => { positionsRef.current = positions; }, [positions]);
 
   // Live USD prices for every token held across positions — used only for the

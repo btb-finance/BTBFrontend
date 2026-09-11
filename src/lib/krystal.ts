@@ -13,6 +13,10 @@ export interface KrystalPositionAnalytics {
   chainId: number;
   chainName: string;
   tokenAddress?: string;
+  /** Provider row id: `<manager>-<tokenId>` with `_<gauge>` appended when farmed. */
+  id?: string;
+  /** True when the NFT is staked in a farm or gauge rather than held by the wallet. */
+  farming?: boolean;
   chainLogo?: string;
   tokenId: string;
   status: string;
