@@ -49,6 +49,8 @@ export interface LiquidityPosition {
   /** Aerodrome: the NFT is deposited in a gauge and earns AERO instead of
    * swap fees. Unstake (gauge.withdraw) before any NPM action. */
   staked?: { gauge: `0x${string}`; earned: bigint; rewardToken: `0x${string}`; rewardSymbol: string };
+  /** Aerodrome: wallet-held position whose pool has a gauge it could be staked in. */
+  stakeable?: { gauge: `0x${string}` };
 }
 
 /** Minimal token metadata used when rendering a position. */

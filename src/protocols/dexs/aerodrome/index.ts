@@ -17,6 +17,7 @@
 import { encodeFunctionData, type PublicClient } from 'viem';
 import type { V3Deployment } from '../uniswap/v3/addresses';
 import { fetchV3Positions } from '../uniswap/v3/positions';
+import { SLIPSTREAM_FACTORY_ABI } from '../uniswap/v3/abis';
 import type { Call } from '@/lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import type { LiquidityPosition } from '@/protocols/types';
@@ -63,7 +64,7 @@ export async function fetchAerodromePositions(
   const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchV3Positions(client, owner, d, knownIds?.get(d.positionManager.toLowerCase()))));
   const ok = results.filter((r): r is PromiseFulfilledResult<LiquidityPosition[]> => r.status === 'fulfilled');
   if (ok.length === 0) throw (results[0] as PromiseRejectedResult).reason;
-  return ok.flatMap((r) => r.value);
+  return withGauges(client, ok.flatMap((r) => r.value)).catch(() => ok.flatMap((r) => r.value));
 }
 
 // ── Gauge staking ───────────────────────────────────────────────────────────
@@ -90,6 +91,53 @@ const VOTER_ABI = [
   { name: 'isGauge', type: 'function', stateMutability: 'view', inputs: [{ name: '', type: 'address' }], outputs: [{ name: '', type: 'bool' }] },
 ] as const;
 
+const VOTER_GAUGES_ABI = [
+  { name: 'gauges', type: 'function', stateMutability: 'view', inputs: [{ name: 'pool', type: 'address' }], outputs: [{ name: '', type: 'address' }] },
+] as const;
+
+const NPM_APPROVE_ABI = [
+  { name: 'approve', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'tokenId', type: 'uint256' }], outputs: [] },
+] as const;
+
+const ZERO = '0x0000000000000000000000000000000000000000';
+
+/** The gauge for each wallet-held position's pool, so the card can offer
+ * Stake. Positions whose pool has no gauge come back unchanged. */
+export async function withGauges(client: PublicClient, positions: LiquidityPosition[]): Promise<LiquidityPosition[]> {
+  const live = positions.filter((p) => p.liquidity > 0n && p.tickSpacing != null && p.positionManager);
+  if (live.length === 0) return positions;
+  const pools = await withSafeMulticall(client).multicall({
+    contracts: live.map((p) => ({ address: aerodromeDeploymentOf(p).factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool' as const, args: [p.token0, p.token1, p.tickSpacing!] as const })),
+    allowFailure: true,
+  });
+  const gauges = await withSafeMulticall(client).multicall({
+    contracts: pools.map((r) => ({ address: AERODROME_VOTER, abi: VOTER_GAUGES_ABI, functionName: 'gauges' as const, args: [(r.status === 'success' ? r.result : ZERO) as `0x${string}`] as const })),
+    allowFailure: true,
+  });
+  const gaugeOf = new Map<bigint, `0x${string}`>();
+  live.forEach((p, i) => {
+    const g = gauges[i];
+    if (g.status === 'success' && (g.result as string).toLowerCase() !== ZERO) gaugeOf.set(p.id, g.result as `0x${string}`);
+  });
+  return positions.map((p) => (gaugeOf.has(p.id) ? { ...p, stakeable: { gauge: gaugeOf.get(p.id)! } } : p));
+}
+
+/** Gauge for a pool by key — used to restake a freshly minted position. */
+export async function gaugeForPool(client: PublicClient, d: V3Deployment, token0: `0x${string}`, token1: `0x${string}`, tickSpacing: number): Promise<`0x${string}` | null> {
+  const pool = await client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, tickSpacing] });
+  if (pool.toLowerCase() === ZERO) return null;
+  const gauge = await client.readContract({ address: AERODROME_VOTER, abi: VOTER_GAUGES_ABI, functionName: 'gauges', args: [pool] });
+  return gauge.toLowerCase() === ZERO ? null : gauge;
+}
+
+/** Stake: approve the gauge for this NFT, then deposit it. */
+export function buildGaugeStake(positionManager: `0x${string}`, gauge: `0x${string}`, tokenId: bigint): Call[] {
+  return [
+    { to: positionManager, data: encodeFunctionData({ abi: NPM_APPROVE_ABI, functionName: 'approve', args: [gauge, tokenId] }) },
+    { to: gauge, data: encodeFunctionData({ abi: CL_GAUGE_ABI, functionName: 'deposit', args: [tokenId] }) },
+  ];
+}
+
 const OWNER_OF_ABI = [
   { name: 'ownerOf', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'address' }] },
 ] as const;
@@ -98,12 +146,18 @@ const OWNER_OF_ABI = [
  * the candidate set for "is it sitting in a gauge?". Blockscout, keyless. */
 async function fetchTransferredOutIds(owner: `0x${string}`): Promise<Map<string, bigint[]>> {
   const out = new Map<string, bigint[]>();
-  await Promise.all(AERODROME_CL_DEPLOYMENTS.map(async (d) => {
+  // Sequential on purpose: Blockscout's public tier rate-limits bursts, and
+  // three managers × pages fired at once was enough to trip it.
+  for (const d of AERODROME_CL_DEPLOYMENTS) {
     const ids = new Set<bigint>();
     let params: Record<string, string> | null = {};
     for (let page = 0; page < 6 && params; page++) {
-      const qs = new URLSearchParams({ type: 'ERC-721', token: d.positionManager, ...params });
-      const res = await fetch(`https://base.blockscout.com/api/v2/addresses/${owner}/token-transfers?${qs}`, { signal: AbortSignal.timeout(12_000) });
+      const qs = new URLSearchParams({ type: 'ERC-721', filter: 'from', token: d.positionManager, ...params });
+      let res = await fetch(`https://base.blockscout.com/api/v2/addresses/${owner}/token-transfers?${qs}`, { signal: AbortSignal.timeout(12_000) });
+      if (res.status === 429) {
+        await new Promise((r) => setTimeout(r, 1_200));
+        res = await fetch(`https://base.blockscout.com/api/v2/addresses/${owner}/token-transfers?${qs}`, { signal: AbortSignal.timeout(12_000) });
+      }
       if (!res.ok) break;
       const body = await res.json() as {
         items?: { from?: { hash?: string }; total?: { token_id?: string } }[];
@@ -117,7 +171,7 @@ async function fetchTransferredOutIds(owner: `0x${string}`): Promise<Map<string,
       params = body.next_page_params ?? null;
     }
     out.set(d.positionManager.toLowerCase(), [...ids]);
-  }));
+  }
   return out;
 }
 
