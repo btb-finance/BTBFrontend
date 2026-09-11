@@ -406,6 +406,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const [quoteErr,  setQuoteErr]  = useState<string | null>(null);
   const [txHash,    setTxHash]    = useState<`0x${string}` | undefined>();
   const [errMsg,    setErrMsg]    = useState('');
+  // Max slippage for the swap, in bps. The pill in the header cycles it.
+  const [slippageBps, setSlippageBps] = useState(50);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chainTokens = (() => {
@@ -660,7 +662,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         }
       }
 
-      const tx = await buildKyberTx(activeQuote.routeSummary, activeQuote.routerAddress, address, address, 50, chainId);
+      const tx = await buildKyberTx(activeQuote.routeSummary, activeQuote.routerAddress, address, address, slippageBps, chainId);
       const txValue = isNativeFrom
         ? BigInt(activeQuote.routeSummary.amountIn ?? '0')
         : BigInt(tx.value && tx.value !== '0' ? tx.value : '0');
@@ -703,12 +705,18 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   // ── Form step ──────────────────────────────────────────────────────────────
   if (step === 'form') return (
     <Screen gap={16}>
-      <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-        <ChainSelect chains={SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id])} value={chainId} onChange={selectChain} ariaLabel="Swap network"/>
-        <Glass padding={0} radius={999} style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="settings" size={18}/>
-        </Glass>
+      {/* One header row: mode, network, slippage. The network is also set by
+          picking a token you hold on another chain, so it stays compact. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 150 }}><SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/></div>
+        <ChainSelect chains={SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id])} value={chainId} onChange={selectChain} small ariaLabel="Swap network"/>
+        <div
+          onClick={() => { const opts = [10, 50, 100, 300]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
+          title="Max slippage. Tap to change."
+          style={{ flexShrink: 0, cursor: 'pointer', height: 40, padding: '0 10px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1 }}>
+          <span style={{ color: btb.textDim, fontSize: 9 }}>Slippage</span>
+          <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
+        </div>
       </div>
 
       <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 2 }}>
