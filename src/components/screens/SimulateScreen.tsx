@@ -14,6 +14,7 @@ import { ChainLogo } from '../ChainLogo';
 import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
+import { CreatePosition } from '../CreatePosition';
 import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenStore, Token } from '../../lib/TokenStore';
@@ -1210,6 +1211,19 @@ export function SimulateScreen() {
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState<FoundPool[] | null>(null);
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
+  // Add LP straight from a finder row, skipping the simulator.
+  const [mintFee, setMintFee] = useState<FoundPool | null>(null);
+  /** Pools the app can mint on from this finder: Uniswap V3 and PancakeSwap
+   * V3 on Ethereum, Uniswap V3 on Robinhood, Aerodrome Slipstream on Base. */
+  const mintDexFor = (f: FoundPool): { dex: 'uniswap' | 'pancakeswap' | 'aerodrome'; chainId: 1 | 4663 | 8453 } | null => {
+    if (f.external) return null;
+    if (chainId === 8453 && /aerodrome/i.test(f.dexLabel ?? '')) return { dex: 'aerodrome', chainId: 8453 };
+    if (f.dexLabel) return null;
+    if (chainId === 1 && f.protocol === 'uniswap-v3') return { dex: 'uniswap', chainId: 1 };
+    if (chainId === 1 && f.protocol === 'pancakeswap-v3') return { dex: 'pancakeswap', chainId: 1 };
+    if (chainId === 4663 && f.protocol === 'uniswap-v3') return { dex: 'uniswap', chainId: 4663 };
+    return null;
+  };
   // First pool checked each day pays 100 XP; the server ignores repeats.
   useEffect(() => {
     if (!sheetFee || !address) return;
@@ -1589,9 +1603,16 @@ export function SimulateScreen() {
                           background: 'rgba(255,255,255,0.06)',
                         }}>View</a>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, marginLeft: 'auto', width: 100 }}>
-                          Simulate
-                        </Button>
+                        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                          {mintDexFor(f) && (
+                            <Button variant="success" size="sm" onClick={() => setMintFee(f)} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
+                              Add LP
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
+                            Simulate
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1630,9 +1651,16 @@ export function SimulateScreen() {
                       background: 'rgba(255,255,255,0.06)',
                     }}>View</a>
                   ) : (
-                    <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, justifySelf: 'end', width: 100 }}>
-                      Simulate
-                    </Button>
+                    <div style={{ display: 'flex', gap: 6, justifySelf: 'end' }}>
+                      {mintDexFor(f) && (
+                        <Button variant="success" size="sm" onClick={() => setMintFee(f)} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
+                          Add LP
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
+                        Simulate
+                      </Button>
+                    </div>
                   )}
                 </div>
               );
@@ -1640,6 +1668,19 @@ export function SimulateScreen() {
           </div>
           )}
         </Glass>
+      )}
+
+      {mintFee && tokenA && tokenB && mintDexFor(mintFee) && (
+        <CreatePosition
+          tokenA={toV3Address(tokenA.address, wrappedNative)}
+          tokenB={toV3Address(tokenB.address, wrappedNative)}
+          dex={mintDexFor(mintFee)!.dex}
+          chainId={mintDexFor(mintFee)!.chainId}
+          // Slipstream keys pools by tick spacing; the sheet picks the deepest one.
+          initialFee={mintDexFor(mintFee)!.dex === 'aerodrome' ? undefined : mintFee.feeTier}
+          fees24hUsd={mintFee.fees24hUsd}
+          onClose={() => setMintFee(null)}
+        />
       )}
 
       {sheetFee && sheetMeta && tokenA && tokenB && (

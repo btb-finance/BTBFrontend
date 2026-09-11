@@ -142,6 +142,16 @@ export const SLIPSTREAM_FACTORY_ABI = [
   { name: 'getPool', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenA', type: 'address' }, { name: 'tokenB', type: 'address' }, { name: 'tickSpacing', type: 'int24' }], outputs: [{ name: 'pool', type: 'address' }] },
 ] as const;
 
+/** slot0 decoded to sqrtPriceX96 and tick only. Works on Uniswap V3 (seven
+ * outputs) and Slipstream (six) alike; use it wherever only the price and
+ * tick matter. */
+export const SLOT0_HEAD_ABI = [
+  { name: 'slot0', type: 'function', stateMutability: 'view', inputs: [], outputs: [
+    { name: 'sqrtPriceX96', type: 'uint160' },
+    { name: 'tick', type: 'int24' },
+  ] },
+] as const;
+
 /** Slipstream CLPool.slot0 has no feeProtocol field (six outputs, not seven). */
 export const SLIPSTREAM_POOL_ABI = [
   { name: 'slot0', type: 'function', stateMutability: 'view', inputs: [], outputs: [

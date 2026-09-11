@@ -131,7 +131,9 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
 
   const pool = pools?.[feeTier]?.exists ? pools[feeTier] : null;
   const v4Pool = isV4 && pool ? (pool as V4MintPool) : null;
-  const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[feeTier] ?? 60;
+  // The pool's own spacing wins (fork pools such as Aerodrome do not follow
+  // Uniswap's fee-to-spacing table); the table is the fallback.
+  const spacing = v4Pool ? v4Pool.tickSpacing : pool?.tickSpacing ?? deployment.tickSpacings[feeTier] ?? 60;
 
   const { history, estimatedHistory, fallbackCloses, tokenUsd, tickLiq, poolCreatedAt } =
     usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks, feeTier);
@@ -386,7 +388,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <CreatePosition
             tokenA={!isV4 ? mintTokenA : undefined}
             tokenB={!isV4 ? mintTokenB : undefined}
-            initialFee={!isV4 && !isAerodrome ? feeTier : undefined}
+            initialFee={isAerodrome ? pool?.tickSpacing : !isV4 ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
             dex={isAerodrome ? 'aerodrome' : dex}
