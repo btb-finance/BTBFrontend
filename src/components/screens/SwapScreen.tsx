@@ -183,23 +183,64 @@ function sortedTokens(tokens: Token[]): Token[] {
 
 // ─── Token picker ─────────────────────────────────────────────────────────────
 
-function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose }: {
+function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, held, chainId }: {
   tokens: Token[]; selected: string; loading?: boolean; onSelect: (t: Token) => void; onImport: (address: string) => Promise<Token>; onClose: () => void;
+  /** Wallet holdings across every chain. Shown first with a chain mark;
+   * picking one on another chain moves the swap to that chain. */
+  held?: Token[];
+  chainId?: number;
 }) {
   const { width: sidebarWidth } = useSidebar();
   const [q, setQ] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const sorted = sortedTokens(tokens);
   const ql = q.toLowerCase();
-  const filtered = ql
-    ? sorted.filter(t =>
-        t.symbol.toLowerCase().includes(ql) ||
-        t.name.toLowerCase().includes(ql) ||
-        t.address.toLowerCase().includes(ql)
-      )
-    : sorted; // show every token — balance-first sorted, search-narrowable
-  const visible = ql ? filtered : filtered.slice(0, 100);
+  const matches = (t: Token) => !ql
+    || t.symbol.toLowerCase().includes(ql)
+    || t.name.toLowerCase().includes(ql)
+    || t.address.toLowerCase().includes(ql);
+  const heldSorted = sortedTokens((held ?? []).filter(t => balanceNum(t) > 0)).filter(matches);
+  const heldKeys = new Set(heldSorted.map(t => `${t.chainId ?? 1}:${t.address.toLowerCase()}`));
+  const sorted = sortedTokens(tokens).filter(t => matches(t) && !heldKeys.has(`${t.chainId ?? chainId ?? 1}:${t.address.toLowerCase()}`));
+  const filtered = [...heldSorted, ...sorted];
+  const visible = ql ? sorted : sorted.slice(0, 100);
+  const chainName = chainId ? CHAIN_META[chainId]?.name ?? 'this network' : 'this network';
+
+  const row = (t: Token, showChain: boolean) => (
+    <div key={`${t.chainId ?? chainId ?? 1}:${t.address}`} onClick={() => { onSelect(t); onClose(); }} style={{
+      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderRadius: 14,
+      background: t.address.toLowerCase() === selected.toLowerCase() && (t.chainId ?? chainId) === chainId ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
+    }}>
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <TokenIcon symbol={t.symbol} size={38} logoUrl={t.logoURI}/>
+        {showChain && t.chainId != null && (
+          <span style={{ position: 'absolute', right: -3, bottom: -3, borderRadius: 999, background: '#0A0A0F', padding: 1.5, display: 'inline-flex' }}>
+            <ChainLogo chainId={t.chainId} size={15}/>
+          </span>
+        )}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>{t.symbol}</div>
+        <div style={{ color: btb.textMuted, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {showChain && t.chainId != null ? `${CHAIN_META[t.chainId]?.name ?? 'Chain ' + t.chainId} · ` : ''}{t.name}
+        </div>
+      </div>
+      {(() => {
+        const bal = parseFloat(t.balance ?? '0');
+        if (!bal || !isFinite(bal)) return null;
+        return (
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>
+              {bal.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+            </div>
+            {t.usdValue != null && t.usdValue > 0 && (
+              <div style={{ color: btb.textMuted, fontSize: 11 }}>${t.usdValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
+            )}
+          </div>
+        );
+      })()}
+    </div>
+  );
 
   return (
     <Portal>
@@ -212,37 +253,19 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose }:
             <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search token…"
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 15, fontFamily: 'inherit' }}/>
           </div>
-          {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>{loading ? 'Loading network tokens…' : `${tokens.length.toLocaleString()} tokens · balances shown first`}</div>}
+          {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>{loading ? 'Loading network tokens…' : held ? 'Your tokens on every chain first, then everything on this network' : `${tokens.length.toLocaleString()} tokens · balances shown first`}</div>}
         </div>
         <div style={{ overflowY: 'auto', padding: '0 12px 48px' }}>
           {isAddress(q.trim()) && !filtered.some(token => token.address.toLowerCase() === q.trim().toLowerCase()) && <button onClick={async () => { setImporting(true); setImportError(null); try { const token = await onImport(q.trim()); onSelect(token); onClose(); } catch (error) { setImportError((error as Error).message || 'Could not import token'); } finally { setImporting(false); } }} disabled={importing} style={{ width: '100%', minHeight: 46, margin: '4px 0 8px', borderRadius: 12, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', color: btb.green, fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: importing ? 'wait' : 'pointer' }}>{importing ? 'Checking contract…' : `Import ${q.slice(0, 8)}…${q.slice(-6)}`}</button>}
           {importError && <div style={{ color: btb.red, fontSize: 11, padding: '0 6px 8px' }}>{importError}</div>}
-          {visible.map(t => (
-            <div key={t.address} onClick={() => { onSelect(t); onClose(); }} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderRadius: 14,
-              background: t.address.toLowerCase() === selected.toLowerCase() ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
-            }}>
-              <TokenIcon symbol={t.symbol} size={38} logoUrl={t.logoURI}/>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>{t.symbol}</div>
-                <div style={{ color: btb.textMuted, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
-              </div>
-              {(() => {
-                const bal = parseFloat(t.balance ?? '0');
-                if (!bal || !isFinite(bal)) return null;
-                return (
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>
-                      {bal.toLocaleString('en-US', { maximumFractionDigits: 4 })}
-                    </div>
-                    {t.usdValue != null && t.usdValue > 0 && (
-                      <div style={{ color: btb.textMuted, fontSize: 11 }}>${t.usdValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          ))}
+          {heldSorted.length > 0 && (
+            <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 8px 2px' }}>Your tokens</div>
+          )}
+          {heldSorted.map(t => row(t, true))}
+          {heldSorted.length > 0 && visible.length > 0 && (
+            <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, padding: '10px 8px 2px' }}>All tokens on {chainName}</div>
+          )}
+          {visible.map(t => row(t, false))}
           {filtered.length === 0 && !loading && <div style={{ color: btb.textMuted, fontSize: 14, textAlign: 'center', padding: 24 }}>No tokens found. Paste a contract address to import one.</div>}
         </div>
       </div>
@@ -750,7 +773,25 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
           tokens={chainTokens}
           loading={loadingTokenList}
           selected={picker === 'from' ? fromToken.address : toToken.address}
-          onSelect={t => { picker === 'from' ? setFromToken(t) : setToToken(t); setFromAmt(''); setQuote(null); }}
+          chainId={chainId}
+          // Paying: the wallet's holdings on every chain lead the list, and
+          // picking one elsewhere moves the whole swap to that chain, the way
+          // the bridge does. Receiving stays on the current chain.
+          held={picker === 'from' ? positions.filter(t => KYBER_CHAINS[t.chainId ?? 1]) : positions.filter(t => (t.chainId ?? 1) === chainId)}
+          onSelect={t => {
+            const tokenChain = t.chainId ?? 1;
+            if (picker === 'from' && tokenChain !== chainId && KYBER_CHAINS[tokenChain]) {
+              setChainId(tokenChain);
+              const from = { ...t, address: isNativeToken(t.address) ? 'ETH' : t.address.toLowerCase() };
+              setFromToken(from);
+              const quoteDefault = DEFAULT_QUOTES[tokenChain];
+              const native = nativeEthForChain(tokenChain);
+              const sameAsFrom = (x: Token) => x.address.toLowerCase() === from.address.toLowerCase();
+              setToToken(quoteDefault && !sameAsFrom(quoteDefault) ? quoteDefault : !sameAsFrom(native) ? native : quoteDefault ?? native);
+            } else if (picker === 'from') setFromToken(t);
+            else setToToken(t);
+            setFromAmt(''); setQuote(null); setQuoteErr(null); setStep('form');
+          }}
           onImport={importToken}
           onClose={() => setPicker(null)}
         />
