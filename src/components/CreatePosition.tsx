@@ -1006,8 +1006,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               if (splitRange) setSplitAmt((v) => side === 0 ? { ...v, str0: str } : { ...v, str1: str });
               else { setAmt({ side, str }); setSwapPreview(null); }
             }}
-            inputMode="decimal" placeholder="0"
-            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
+            inputMode="decimal" placeholder={disabled ? 'Not needed for this range' : '0'}
+            title={disabled ? `Your range sits ${need === 'token0' ? 'above' : 'below'} the current price, so it only takes ${need === 'token0' ? sym0 : sym1}. Widen the range to deposit both.` : undefined}
+            style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: disabled ? 13 : 20, fontWeight: 700, fontFamily: 'inherit', cursor: disabled ? 'not-allowed' : 'text' }}/>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <TokenIcon symbol={sym} size={20} />
             {wethSide === side && !isV4 ? (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { usePolledQuery } from './polledQuery';
 import { api } from '../../convex/_generated/api';
 import type { MarketToken } from './robinhoodMarkets';
 
@@ -15,7 +15,8 @@ export type MarketFeedData = {
 };
 
 export function useMarketFeed(): MarketFeedData {
-  const row = useQuery(api.markets.get, {});
+  // The market snapshot is rewritten every 30 minutes by cron; poll, do not subscribe.
+  const row = usePolledQuery(api.markets.get, {}, 30 * 60_000);
   return useMemo(() => {
     if (row === undefined) return { markets: [], updatedAt: null, loading: true, error: null };
     if (!row) return { markets: [], updatedAt: null, loading: false, error: 'Market snapshot is not ready yet.' };
