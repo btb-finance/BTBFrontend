@@ -23,7 +23,7 @@ import {
   ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { fetchOwnedNftTokenIds } from '../lib/blockscout';
 import { Icon } from './Icon';
@@ -279,6 +279,31 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   }, [address, config]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Krystal usually resolves after the first on-chain pass, and its rows are
+  // the surest source of staked Aerodrome tokenIds (the gauge, not the wallet,
+  // owns those NFTs). Re-run the gauge scan once those ids are known.
+  const krystalAeroKey = (krystal?.positions ?? []).filter((i) => i.chainId === BASE_CHAIN_ID && i.pool?.projectKey?.toLowerCase().includes('aerodrome')).map((i) => i.tokenId).sort().join(',');
+  useEffect(() => {
+    if (!address || !krystalAeroKey) return;
+    const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
+    if (!baseClient) return;
+    let live = true;
+    fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
+      .then((items) => {
+        if (!live) return;
+        setPositions((prev) => {
+          const keep = prev.filter((p) => !(p.protocol === 'aerodrome-cl' && p.staked));
+          const next = [...keep, ...items.map((p) => ({ ...p, chainId: BASE_CHAIN_ID, chainName: 'Base' }))];
+          positionsRef.current = next;
+          setCachedLpPositions(address, next);
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, krystalAeroKey, config]);
   useEffect(() => { positionsRef.current = positions; }, [positions]);
 
   // Live USD prices for every token held across positions — used only for the
@@ -306,14 +331,15 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
   /** Gauge actions for a staked Aerodrome position: claim AERO, or unstake
    * (which also claims) so the NFT is back in the wallet for NPM actions. */
-  async function gaugeAction(pos: LiquidityPosition, action: 'claim' | 'unstake') {
-    if (!connectedAddress || !canTransact || !pos.staked) return;
+  async function gaugeAction(pos: LiquidityPosition, action: 'claim' | 'unstake' | 'stake') {
+    if (!connectedAddress || !canTransact) return;
+    if (action === 'stake' ? !pos.stakeable || !pos.positionManager : !pos.staked) return;
     setBusyId(posKey(pos));
     try {
       await runCalls(config, {
         account: connectedAddress as `0x${string}`,
-        calls: action === 'claim' ? buildGaugeClaim(pos) : buildGaugeUnstake(pos),
-        label: `${action === 'claim' ? 'Claim AERO' : 'Unstake'} ${pos.symbol0}/${pos.symbol1}`,
+        calls: action === 'claim' ? buildGaugeClaim(pos) : action === 'unstake' ? buildGaugeUnstake(pos) : buildGaugeStake(pos.positionManager!, pos.stakeable!.gauge, pos.id),
+        label: `${action === 'claim' ? 'Claim AERO' : action === 'unstake' ? 'Unstake' : 'Stake'} ${pos.symbol0}/${pos.symbol1}`,
         track, chainId: pos.chainId ?? 1,
       });
       await load();
@@ -461,6 +487,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
               <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
               {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
               <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
+              {p.stakeable && hasLiquidity && <CardActBtn icon="bolt" label="Stake for AERO" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
             </>
           )}
           {canAutomate && <CardActBtn icon="bolt" label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
@@ -692,6 +719,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                       <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
                       {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
                       {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
+                      {p.stakeable && hasLiquidity && <MobileActBtn label="Stake" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
                     </>
                   )}
                   {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}

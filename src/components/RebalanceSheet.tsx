@@ -20,7 +20,7 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { aerodromeDeploymentOf, buildGaugeUnstake, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeStake, gaugeForPool, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
@@ -119,6 +119,8 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 
   const [widthPct, setWidthPct] = useState<number>(10);
   const [strategy, setStrategy] = useState<'keep' | 'balanced'>('keep');
+  // Aerodrome: put the new position back in the gauge so AERO keeps flowing.
+  const [restake, setRestake] = useState<boolean>(!!pos.staked);
   const [phase, setPhase] = useState<Phase>('config');
   const [stepMsg, setStepMsg] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -317,6 +319,20 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
         } : undefined,
       });
 
+      // 4 · Aerodrome: stake the new NFT in the pool's gauge (same pool, same
+      // gauge as before). The freshly minted id is the wallet's newest.
+      if (restake && deployment.slipstream) {
+        setStepMsg('Staking the new position for AERO…');
+        const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [account] });
+        const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [account, count - 1n] });
+        const gauge = pos.staked?.gauge ?? await gaugeForPool(client, deployment, pos.token0, pos.token1, spacing);
+        if (gauge) {
+          await runCalls(config, {
+            account, calls: buildGaugeStake(deployment.positionManager, gauge, newId), label: `Rebalance · stake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          });
+        }
+      }
+
       setPhase('done');
     } catch (e) {
       setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Rebalance failed');
@@ -377,6 +393,14 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               />
             </div>
 
+            {deployment.slipstream && (pos.staked || pos.stakeable) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '12px 0 2px', cursor: 'pointer' }}>
+                <input type="checkbox" checked={restake} onChange={(e) => setRestake(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#52E3A4' }}/>
+                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Stake the new position in the Aerodrome gauge</span>
+                <span style={{ color: btb.textDim, fontSize: 11 }}>earns AERO instead of swap fees</span>
+              </label>
+            )}
+
             {/* Range width */}
             <div style={{ color: btb.textMuted, fontSize: 12, margin: '14px 0 6px' }}>Range width</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -436,7 +460,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               {phase === 'running' ? 'Rebalancing…' : phase === 'error' ? 'Retry rebalance' : 'Rebalance position'}
             </Button>
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Withdraw → swap only the gap → re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to three transactions in your wallet.
+              Withdraw → swap only the gap → re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to {3 + (pos.staked ? 1 : 0) + (restake ? 1 : 0)} transactions in your wallet.
             </div>
           </>
         )}
