@@ -228,13 +228,16 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     setStrategy('custom');
   }, [pool, flip, spacing]);
 
-  const deploySupported = chainId === 1 || (chainId === 4663 && dex === 'uniswap');
-  const deployChainId: 1 | 4663 = chainId === 4663 ? 4663 : 1;
+  // Aerodrome Slipstream on Base is a V3 fork the app can mint on (see
+  // protocols/dexs/aerodrome), so it is the one dexLabel pool that deploys.
+  const isAerodrome = chainId === 8453 && /aerodrome/i.test(selected.dexLabel ?? '');
+  const deploySupported = chainId === 1 || (chainId === 4663 && dex === 'uniswap') || isAerodrome;
+  const deployChainId: 1 | 4663 | 8453 = chainId === 4663 ? 4663 : chainId === 8453 ? 8453 : 1;
   // A third-party V3 fork pool is simulate-only: the deploy flow mints through
   // the Uniswap/PancakeSwap router, which would resolve a different (or no)
   // pool for the same pair+fee. The simulation itself is still exact — it reads
   // the fork pool's own state.
-  const canDeploy = deploySupported && !selected.dexLabel && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
+  const canDeploy = deploySupported && (!selected.dexLabel || isAerodrome) && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
   const dexLabel = selected.dexLabel ?? (dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`);
 
   const sectionProps = { isMobile };
@@ -383,10 +386,10 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <CreatePosition
             tokenA={!isV4 ? mintTokenA : undefined}
             tokenB={!isV4 ? mintTokenB : undefined}
-            initialFee={!isV4 ? feeTier : undefined}
+            initialFee={!isV4 && !isAerodrome ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
-            dex={dex}
+            dex={isAerodrome ? 'aerodrome' : dex}
             chainId={deployChainId}
             fees24hUsd={current?.fees24hUsd}
             onClose={() => setDeploying(false)}

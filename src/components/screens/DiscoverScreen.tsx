@@ -360,7 +360,7 @@ export function DiscoverScreen() {
   const { setThemeChainId } = useChainTheme();
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
-  const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 } | null>(null);
+  const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 | 8453 } | null>(null);
 
   // Open a pool. Minting flows put a shareable URL in the address bar with the
   // token addresses carried in the query, so the link resolves forever even if
@@ -387,7 +387,7 @@ export function DiscoverScreen() {
     if (openedFromUrl.current || sheet || directMint) return;
     const link = parsePoolPath(window.location.pathname);
     if (!link) return;
-    const chainId: 1 | 4663 | null = link.chain === 'ethereum' ? 1 : link.chain === 'robinhoodchain' ? 4663 : null;
+    const chainId: 1 | 4663 | 8453 | null = link.chain === 'ethereum' ? 1 : link.chain === 'robinhoodchain' ? 4663 : link.chain === 'base' ? 8453 : null;
     const params = new URLSearchParams(window.location.search);
     const pair = (params.get('t') ?? '').split('-');
     const v4 = params.get('p');
@@ -937,7 +937,9 @@ export function DiscoverScreen() {
           v4PoolId={sheetProps.v4PoolId}
           dex={sheetProps.dex}
           chainId={sheetProps.chainId}
-          initialFee={sheet.pool.feeTier}
+          // Slipstream keys pools by tick spacing, which the list does not carry;
+          // the sheet then opens on the deepest spacing for the pair.
+          initialFee={sheetProps.dex === 'aerodrome' ? undefined : sheet.pool.feeTier}
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
           tokenPricesUsd={sheet.pool.tokenPricesUsd}
           simulate={sheet.simulate}

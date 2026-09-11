@@ -731,11 +731,21 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export function mintTarget(p: EarnPool, forSimulate = false): { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap'; chainId: 1 | 4663 } | null {
-  const chainId = p.chain.toLowerCase() === 'ethereum' ? 1 : p.chain.toLowerCase() === 'robinhood chain' ? 4663 : null;
+export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome'; chainId: 1 | 4663 | 8453 };
+
+/** Where "Add LP" can mint in-app: Uniswap V3/V4 and PancakeSwap V3 on
+ * Ethereum, Uniswap V3/V4 on Robinhood Chain, Aerodrome Slipstream on Base. */
+export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null {
+  const chain = p.chain.toLowerCase();
+  const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
+  if (chain === 'base') {
+    return p.project === 'aerodrome-slipstream' && tokens.length >= 2
+      ? { tokenA: tokens[0], tokenB: tokens[1], dex: 'aerodrome', chainId: 8453 }
+      : null;
+  }
+  const chainId = chain === 'ethereum' ? 1 : chain === 'robinhood chain' ? 4663 : null;
   if (!chainId) return null;
   if (p.dex.toLowerCase() !== 'uniswap' && p.project.startsWith('uniswap-')) return null;
-  const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
   if (p.project === 'uniswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap', chainId };
   if (chainId === 1 && p.project === 'pancakeswap-v3' && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
   if (p.project === 'uniswap-v4' && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
