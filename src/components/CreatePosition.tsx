@@ -30,7 +30,8 @@ import {
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
-import { AERODROME_MINT_DEPLOYMENT, BASE_CHAIN_ID, BASE_WETH, gaugeForPool, buildGaugeStake, fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
+import { gaugeForPool, buildGaugeStake, fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
+import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
@@ -116,7 +117,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   v4PoolId?: `0x${string}`;
   /** Open as the earnings simulator (USD amount, no wallet) instead of a deposit. */
   simulate?: boolean;
-  chainId?: 1 | 4663 | 8453;
+  chainId?: LpChainId;
   /** Aerodrome: stake the new NFT in the pool's gauge after minting (default on). */
   stakeByDefault?: boolean;
   onClose: () => void; onDone?: () => void;
@@ -135,10 +136,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // factory and position manager; the pair's pools can sit on any of them, so
   // the deployment follows the selected tick spacing once pools are loaded.
   const [aeroDeploymentByTier, setAeroDeploymentByTier] = useState<Record<number, V3Deployment>>({});
-  const baseDeployment = dex === 'aerodrome' ? AERODROME_MINT_DEPLOYMENT : dex === 'pancakeswap' ? PANCAKE_V3_DEPLOYMENT : chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
+  const baseDeployment = v3DeploymentFor(dex, chainId) ?? UNISWAP_V3_DEPLOYMENT;
   const isSlipstream = !!baseDeployment.slipstream;
-  const v4Deployment = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
-  const chainWeth = chainId === 4663 ? ROBINHOOD_WETH : chainId === BASE_CHAIN_ID ? BASE_WETH : WETH;
+  const v4Deployment = v4DeploymentFor(chainId) ?? UNISWAP_V4;
+  const chainWeth = wrappedNativeFor(chainId);
   // Aerodrome: stake the minted NFT so it earns AERO emissions.
   const [stakeAfterMint, setStakeAfterMint] = useState(isSlipstream && stakeByDefault);
   const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
@@ -172,7 +173,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [usd, setUsd] = useState<Record<string, number>>({});
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
-  const [slippageBps, setSlippageBps] = useState(chainId === 4663 ? 500 : SLIPPAGE_BPS);
+  const [slippageBps, setSlippageBps] = useState(lpSlippageBps(chainId, SLIPPAGE_BPS));
   const [autoManage, setAutoManage] = useState(false);
   const [automationRules, setAutomationRules] = useState<AutomationRuleValues>({
     ...DEFAULT_AUTOMATION_RULES,
@@ -224,7 +225,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
   const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
-  const chainLabel = chainId === BASE_CHAIN_ID ? 'Base' : chainId === 4663 ? 'Robinhood Chain' : 'Ethereum';
+  const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
   const feeSwitchProtocol: FeeSwitchProtocol = dex === 'pancakeswap' ? 'pancakeswap-v3' : isV4 ? 'uniswap-v4' : 'uniswap-v3';
@@ -302,7 +303,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     }
     // Native ETH (V4 currency 0x0) isn't a token DeFiLlama knows — price it as WETH.
     const priceToken0 = isNativeCurrency(pool.token0) ? WETH : pool.token0;
-    getTokenPricesUsd([priceToken0, pool.token1], chainId === BASE_CHAIN_ID ? 'base' : 'ethereum')
+    getTokenPricesUsd([priceToken0, pool.token1], chainId === 8453 ? 'base' : chainId === 56 ? 'bsc' : 'ethereum')
       .then((p) => {
         if (!live) return;
         if (priceToken0 !== pool.token0 && p[WETH.toLowerCase()]) p[pool.token0.toLowerCase()] = p[WETH.toLowerCase()];

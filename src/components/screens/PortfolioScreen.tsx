@@ -13,6 +13,7 @@ import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
+import { isLpChain } from '../../protocols/lpChains';
 import { useSidebar } from '../../lib/SidebarContext';
 import { ChainLogo } from '../ChainLogo';
 
@@ -112,7 +113,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
 
   const canSwapToken = (t: Token) => !!KYBER_CHAINS[t.chainId ?? 1];
   const canSimulateToken = (t: Token) => !!CHAIN_DATA_NETWORKS[t.chainId ?? 1];
-  const openLpFor = (t: Token) => ([1, 4663, 8453].includes(t.chainId ?? 1) ? setLpToken(t) : onSimulate?.(t));
+  const openLpFor = (t: Token) => (isLpChain(t.chainId ?? 1) ? setLpToken(t) : onSimulate?.(t));
 
   const allTokenColumns: Column<Token>[] = [
     {
@@ -181,7 +182,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
         const chainId = t.chainId ?? 1;
         const canSwap = !!KYBER_CHAINS[chainId];
         const canSimulate = !!CHAIN_DATA_NETWORKS[chainId];
-        const openLp = () => ([1, 4663, 8453].includes(chainId) ? setLpToken(t) : onSimulate?.(t));
+        const openLp = () => (isLpChain(chainId) ? setLpToken(t) : onSimulate?.(t));
         if (!canSwap && !canSimulate) {
           return <span style={{ color: btb.textDim, fontSize: 11.5 }}>View only</span>;
         }

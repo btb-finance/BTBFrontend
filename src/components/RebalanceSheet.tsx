@@ -21,22 +21,19 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeStake, gaugeForPool, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { buildGaugeUnstake, buildGaugeStake, gaugeForPool } from '@/protocols/dexs/aerodrome';
+import { deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, lpSlippageBps } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
 const WIDTH_PRESETS = [5, 10, 25] as const;
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
-function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
-  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
-  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-}
+const v3DeploymentOf = deploymentOfPosition;
 
-/** Chains where the withdraw → swap → mint flow is wired up. */
+/** Chains where the withdraw, swap, mint flow is wired up. */
 function rebalanceSupported(p: LiquidityPosition): boolean {
-  const chainId = p.chainId ?? 1;
-  return chainId === 1 || (chainId === 4663 && p.protocol === 'uniswap-v3') || (chainId === BASE_CHAIN_ID && p.protocol === 'aerodrome-cl');
+  return canActOnPosition(p, (hooks) => isNativeCurrency(hooks ?? '0x0000000000000000000000000000000000000000'));
 }
 
 const QUOTER_ABI = [{ type: 'function', name: 'quoteExactInputSingle', stateMutability: 'nonpayable', inputs: [{ name: 'params', type: 'tuple', components: [{ name: 'tokenIn', type: 'address' }, { name: 'tokenOut', type: 'address' }, { name: 'amountIn', type: 'uint256' }, { name: 'fee', type: 'uint24' }, { name: 'sqrtPriceLimitX96', type: 'uint160' }] }], outputs: [{ name: 'amountOut', type: 'uint256' }, { name: 'sqrtPriceX96After', type: 'uint160' }, { name: 'initializedTicksCrossed', type: 'uint32' }, { name: 'gasEstimate', type: 'uint256' }] }] as const;
@@ -181,9 +178,9 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
 
   /** Build the withdraw calls for whichever protocol the position belongs to. */
   function removeCalls(livePos: LiquidityPosition) {
-    const slippage = livePos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : 100;
+    const slippage = lpSlippageBps(livePos.chainId ?? 1, 100);
     return isV4
-      ? buildV4Remove(livePos, 10_000, slippage, account)
+      ? buildV4Remove(livePos, 10_000, slippage, account, v4DeploymentOfPosition(pos))
       : buildRemove(livePos, 10_000, slippage, account, deployment);
   }
 
@@ -196,7 +193,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
     setPhase('running'); setErr(null);
     try {
       const chainId = pos.chainId ?? 1;
-      const actionSlippage = chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS;
+      const actionSlippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
       // Refresh the NFT and pool state immediately before building minimum
@@ -300,7 +297,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               tickLower: tl, tickUpper: tu,
               liquidity: L,
               amount0Max: maxIn(a0, actionSlippage), amount1Max: maxIn(a1, actionSlippage),
-              recipient: account,
+              recipient: account, deployment: v4DeploymentOfPosition(pos),
             })
           : buildMint({
               token0: pos.token0, token1: pos.token1, fee: pos.fee,
@@ -461,7 +458,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
               {phase === 'running' ? 'Rebalancing…' : phase === 'error' ? 'Retry rebalance' : 'Rebalance position'}
             </Button>
             <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-              Withdraw, swap only the gap, re-add, each slippage-protected ({(pos.chainId === 4663 ? ROBINHOOD_SLIPPAGE_BPS : SLIPPAGE_BPS) / 100}%). Confirm up to {3 + (pos.staked ? 1 : 0) + (restake ? 1 : 0)} transactions in your wallet.
+              Withdraw, swap only the gap, re-add, each slippage-protected ({lpSlippageBps(pos.chainId ?? 1, SLIPPAGE_BPS) / 100}%). Confirm up to {3 + (pos.staked ? 1 : 0) + (restake ? 1 : 0)} transactions in your wallet.
             </div>
           </>
         )}

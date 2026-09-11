@@ -16,6 +16,7 @@ import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
+import { v3DeploymentFor, v4DeploymentFor, isLpChain, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
@@ -1279,13 +1280,12 @@ export function SimulateScreen() {
   };
   /** Pools the app can mint on from this finder: Uniswap V3 and PancakeSwap
    * V3 on Ethereum, Uniswap V3 on Robinhood, Aerodrome Slipstream on Base. */
-  const mintDexFor = (f: FoundPool): { dex: 'uniswap' | 'pancakeswap' | 'aerodrome'; chainId: 1 | 4663 | 8453 } | null => {
-    if (f.external) return null;
+  const mintDexFor = (f: FoundPool): { dex: LpDex; chainId: LpChainId } | null => {
+    if (f.external || !isLpChain(chainId)) return null;
     if (chainId === 8453 && /aerodrome/i.test(f.dexLabel ?? '')) return { dex: 'aerodrome', chainId: 8453 };
     if (f.dexLabel) return null;
-    if (chainId === 1 && f.protocol === 'uniswap-v3') return { dex: 'uniswap', chainId: 1 };
-    if (chainId === 1 && f.protocol === 'pancakeswap-v3') return { dex: 'pancakeswap', chainId: 1 };
-    if (chainId === 4663 && f.protocol === 'uniswap-v3') return { dex: 'uniswap', chainId: 4663 };
+    if (f.protocol === 'uniswap-v3' && v3DeploymentFor('uniswap', chainId)) return { dex: 'uniswap', chainId };
+    if (f.protocol === 'pancakeswap-v3' && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId };
     return null;
   };
   // First pool checked each day pays 100 XP; the server ignores repeats.
@@ -1409,7 +1409,8 @@ export function SimulateScreen() {
       const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
       if (!client) throw new Error('No RPC client available');
       const uniswapV3 = uniswapV3DeploymentForChain(chainId);
-      const uniswapV4 = chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+      const uniswapV4 = v4DeploymentFor(chainId);
+      const cakeV3 = v3DeploymentFor('pancakeswap', chainId);
 
       // Full-market pool discovery (GeckoTerminal + DexScreener) runs in
       // parallel with the on-chain probes — it finds pools on DEXes the
@@ -1451,8 +1452,8 @@ export function SimulateScreen() {
       // the pair having no pool when we simply couldn't check.
       const checks: { label: string; run: () => Promise<FoundPool[]> }[] = [
         ...(uniswapV3 ? [{ label: 'Uniswap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, uniswapV3, wrappedNative) }] : []),
-        { label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) },
-        { label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, PANCAKE_V3_DEPLOYMENT, wrappedNative) },
+        ...(uniswapV4 ? [{ label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) }] : []),
+        ...(cakeV3 ? [{ label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, cakeV3, wrappedNative) }] : []),
         ...(chainId === 8453 ? [{ label: 'Aerodrome', run: () => findAerodromePools(client, tokenA, tokenB, wrappedNative) }] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
@@ -1600,7 +1601,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3, Uniswap V4, PancakeSwap V3{chainId === 8453 ? ', Aerodrome Slipstream' : ''}, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />

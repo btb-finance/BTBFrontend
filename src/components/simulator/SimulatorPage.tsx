@@ -8,6 +8,7 @@
  * CreatePosition mint flow.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { isLpChain, v3DeploymentFor, type LpChainId } from '@/protocols/lpChains';
 import { Portal } from '../Portal';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
@@ -233,8 +234,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   // Aerodrome Slipstream on Base is a V3 fork the app can mint on (see
   // protocols/dexs/aerodrome), so it is the one dexLabel pool that deploys.
   const isAerodrome = chainId === 8453 && /aerodrome/i.test(selected.dexLabel ?? '');
-  const deploySupported = chainId === 1 || (chainId === 4663 && dex === 'uniswap') || isAerodrome;
-  const deployChainId: 1 | 4663 | 8453 = chainId === 4663 ? 4663 : chainId === 8453 ? 8453 : 1;
+  const deploySupported = isAerodrome || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
+  const deployChainId: LpChainId = isLpChain(chainId) ? chainId : 1;
   // A third-party V3 fork pool is simulate-only: the deploy flow mints through
   // the Uniswap/PancakeSwap router, which would resolve a different (or no)
   // pool for the same pair+fee. The simulation itself is still exact — it reads

@@ -19,12 +19,11 @@ import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
-  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
-  ROBINHOOD_UNISWAP_V4, ROBINHOOD_WETH, type LiquidityPosition, type V3Deployment,
+  fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromePositions, fetchStakedAerodromePositions, aerodromeDeploymentOf, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, BASE_WETH } from '@/protocols/dexs/aerodrome';
-import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
+import { fetchAerodromePositions, fetchStakedAerodromePositions, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { fetchOwnedNftTokenIds } from '../lib/blockscout';
 import { Icon } from './Icon';
 import { RebalanceSheet } from './RebalanceSheet';
@@ -75,26 +74,14 @@ function RangeDetails({ p, compact }: { p: LiquidityPosition; compact?: boolean 
 }
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
-function v3DeploymentOf(p: LiquidityPosition): V3Deployment {
-  if (p.protocol === 'aerodrome-cl') return aerodromeDeploymentOf(p);
-  return p.protocol === 'pancakeswap-v3' ? PANCAKE_V3_DEPLOYMENT : p.chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT;
-}
-
-/** Chains whose V3-style positions the app can act on directly (withdraw,
- * add, rebalance) rather than only read through Krystal analytics. */
-function canActOn(p: LiquidityPosition): boolean {
-  const chainId = p.chainId ?? 1;
-  if (chainId === 1) return p.protocol !== 'uniswap-v4' || isNativeCurrency(p.hooks ?? NATIVE_CURRENCY);
-  if (chainId === 4663) return p.protocol === 'uniswap-v3';
-  if (chainId === BASE_CHAIN_ID) return p.protocol === 'aerodrome-cl';
-  return false;
-}
-const v4DeploymentOf = (p: LiquidityPosition) => p.chainId === 4663 ? ROBINHOOD_UNISWAP_V4 : UNISWAP_V4;
+const v3DeploymentOf = deploymentOfPosition;
+const v4DeploymentOf = v4DeploymentOfPosition;
+const canActOn = (p: LiquidityPosition) => canActOnPosition(p, (hooks) => isNativeCurrency(hooks ?? NATIVE_CURRENCY));
 
 /** Badge text; Aerodrome positions on an older Slipstream deployment say so. */
 function protocolBadgeLabel(p: LiquidityPosition): string {
   if (p.protocol === 'aerodrome-cl') {
-    const label = aerodromeDeploymentOf(p).label ?? '';
+    const label = deploymentOfPosition(p).label ?? '';
     return /old/i.test(label) ? 'AERO V3 (old)' : 'AERO V3';
   }
   return PROTOCOL_BADGE[p.protocol].label;
@@ -233,30 +220,11 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     if (cached && positionsRef.current.length === 0) setPositions(cached);
     setLoading(!cached);
     try {
-      const client = getPublicClient(config, { chainId: 1 });
-      const robinhoodClient = getPublicClient(config, { chainId: 4663 });
-      const baseClient = getPublicClient(config, { chainId: BASE_CHAIN_ID });
-      if (!client) return;
-      // Fast path: every position (V3, V4, Pancake V3) is an NFT — one
-      // Blockscout call enumerates all tokenIds at once, replacing the
-      // balanceOf/tokenOfOwnerByIndex loops and the V4 Transfer-log scan.
-      // On failure `ids` is null and each fetcher falls back to its own
-      // on-chain enumeration.
-      const ids = await fetchOwnedNftTokenIds(1, address, [
-        UNISWAP_V3_DEPLOYMENT.positionManager,
-        UNISWAP_V4.positionManager,
-        PANCAKE_V3_DEPLOYMENT.positionManager,
-      ]).catch(() => null);
-      const idsFor = (contract: string) => ids?.get(contract.toLowerCase());
-      const robinhoodContracts = [ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager, ROBINHOOD_UNISWAP_V4.positionManager];
-      const robinhoodIds = robinhoodClient
-        ? await fetchOwnedNftTokenIds(4663, address, robinhoodContracts).catch(() => null)
-        : null;
-      const robinhoodIdsFor = (contract: string) => robinhoodIds?.get(contract.toLowerCase());
-
-      // Each protocol renders as soon as it resolves and degrades
-      // independently — a slow/failing V4 log scan can't hold up the V3 list.
-      const merge = (protocol: LiquidityPosition['protocol'], chainId = 1, chainName = 'Ethereum', staked = false) => (items: LiquidityPosition[]) =>
+      const owner = address as `0x${string}`;
+      // Each protocol on each chain renders as soon as it resolves and
+      // degrades independently: a slow V4 log scan on one chain never holds
+      // up the V3 list on another.
+      const merge = (protocol: LiquidityPosition['protocol'], chainId: number, chainName: string, staked = false) => (items: LiquidityPosition[]) =>
         setPositions((prev) => {
           const next = [
             ...prev.filter((p) => p.protocol !== protocol || (p.chainId ?? 1) !== chainId || !!p.staked !== staked),
@@ -265,24 +233,32 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           positionsRef.current = next;
           return next;
         });
-      await Promise.allSettled([
-        fetchV3Positions(client, address as `0x${string}`, undefined, idsFor(UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3')),
-        fetchV4Positions(client, address as `0x${string}`, idsFor(UNISWAP_V4.positionManager)).then(merge('uniswap-v4')),
-        fetchPancakePositions(client, address as `0x${string}`, idsFor(PANCAKE_V3_DEPLOYMENT.positionManager)).then(merge('pancakeswap-v3')),
-        ...(robinhoodClient ? [
-          fetchV3Positions(robinhoodClient, address as `0x${string}`, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, robinhoodIdsFor(ROBINHOOD_UNISWAP_V3_DEPLOYMENT.positionManager)).then(merge('uniswap-v3', 4663, 'Robinhood Chain')),
-          fetchV4Positions(robinhoodClient, address as `0x${string}`, robinhoodIdsFor(ROBINHOOD_UNISWAP_V4.positionManager), ROBINHOOD_UNISWAP_V4, 0n).then(merge('uniswap-v4', 4663, 'Robinhood Chain')),
-        ] : []),
-        // Aerodrome Slipstream on Base — enumerated on-chain (no NFT index there).
-        ...(baseClient ? [
-          fetchOwnedNftTokenIds(BASE_CHAIN_ID, address, AERODROME_CL_DEPLOYMENTS.map((d) => d.positionManager)).catch(() => undefined)
-            .then((baseIds) => fetchAerodromePositions(baseClient, address as `0x${string}`, baseIds)).then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base')),
+      const jobs: Promise<unknown>[] = [];
+      for (const chainId of LP_CHAINS) {
+        const client = getPublicClient(config, { chainId });
+        if (!client) continue;
+        const chainName = LP_CHAIN_NAMES[chainId];
+        const v3 = v3DeploymentFor('uniswap', chainId);
+        const v4 = v4DeploymentFor(chainId);
+        const cake = v3DeploymentFor('pancakeswap', chainId);
+        const aero = chainId === 8453 ? AERODROME_CL_DEPLOYMENTS : [];
+        // Fast path: every position is an NFT, so one Blockscout call lists
+        // all tokenIds at once where the chain has a Blockscout. Elsewhere,
+        // or on failure, each fetcher enumerates on-chain itself.
+        const managers = [v3?.positionManager, v4?.positionManager, cake?.positionManager, ...aero.map((d) => d.positionManager)].filter((x): x is `0x${string}` => !!x);
+        const idsPromise = fetchOwnedNftTokenIds(chainId, owner, managers).catch(() => null);
+        const idsFor = async (contract: string) => (await idsPromise)?.get(contract.toLowerCase());
+        if (v3) jobs.push(idsFor(v3.positionManager).then((ids) => fetchV3Positions(client, owner, v3, ids)).then(merge('uniswap-v3', chainId, chainName)));
+        if (v4) jobs.push(idsFor(v4.positionManager).then((ids) => fetchV4Positions(client, owner, ids, v4, v4DeployBlockFor(chainId))).then(merge('uniswap-v4', chainId, chainName)));
+        if (cake) jobs.push(idsFor(cake.positionManager).then((ids) => fetchPancakePositions(client, owner, ids)).then(merge('pancakeswap-v3', chainId, chainName)));
+        if (aero.length > 0) {
+          jobs.push(idsPromise.then((ids) => fetchAerodromePositions(client, owner, ids ?? undefined)).then(merge('aerodrome-cl', chainId, chainName)));
           // Gauge-staked NFTs live in the gauge, not the wallet. Krystal's rows
           // seed the candidate ids alongside the wallet's own transfer history.
-          fetchStakedAerodromePositions(baseClient, address as `0x${string}`, krystalAeroIds(krystalRef.current?.positions ?? []))
-            .then(merge('aerodrome-cl', BASE_CHAIN_ID, 'Base', true)),
-        ] : []),
-      ]);
+          jobs.push(fetchStakedAerodromePositions(client, owner, krystalAeroIds(krystalRef.current?.positions ?? [])).then(merge('aerodrome-cl', chainId, chainName, true)));
+        }
+      }
+      await Promise.allSettled(jobs);
       setCachedLpPositions(address, positionsRef.current);
     } catch { /* read failure — leave list empty */ }
     finally { setLoading(false); }
@@ -944,10 +920,10 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const [useEth, setUseEth] = useState(true);
 
   const isV4 = pos.protocol === 'uniswap-v4';
-  const actionSlippageBps = pos.chainId === 4663 ? 500 : SLIPPAGE_BPS;
+  const actionSlippageBps = lpSlippageBps(pos.chainId ?? 1, SLIPPAGE_BPS);
   // Native-ETH deposit side. V3: the WETH token (user can toggle ETH vs WETH).
   // V4: currency0 = address(0) IS native ETH — always ETH, nothing to toggle.
-  const chainWeth = pos.chainId === 4663 ? ROBINHOOD_WETH.toLowerCase() : pos.chainId === BASE_CHAIN_ID ? BASE_WETH.toLowerCase() : null;
+  const chainWeth = (pos.chainId ?? 1) === 1 ? null : wrappedNativeFor(pos.chainId ?? 1).toLowerCase();
   const wethSide: 0 | 1 | null = isV4 ? null : (chainWeth ? pos.token0.toLowerCase() === chainWeth : isWeth(pos.token0)) ? 0 : (chainWeth ? pos.token1.toLowerCase() === chainWeth : isWeth(pos.token1)) ? 1 : null;
   const nativeSide: 0 | 1 | null = isV4 ? (isNativeCurrency(pos.token0) ? 0 : null) : wethSide;
   const ethMode = isV4 ? nativeSide !== null : (wethSide !== null && useEth);

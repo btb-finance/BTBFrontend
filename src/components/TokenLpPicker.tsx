@@ -13,6 +13,7 @@ import {
 } from '../lib/pools';
 import type { Token } from '../lib/TokenStore';
 import { CreatePosition } from './CreatePosition';
+import type { LpChainId } from '../protocols/lpChains';
 
 const MAX_SUGGESTIONS = 8;
 
@@ -43,7 +44,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         const candidates = poolsForToken(all, lpAddressesForToken(token.address))
           .filter((p) => mintTarget(p)?.chainId === chainId);
         setPools([...candidates].sort(byApr).slice(0, MAX_SUGGESTIONS));
-        const client = getPublicClient(config, { chainId: chainId as 1 | 4663 | 8453 });
+        const client = getPublicClient(config, { chainId: chainId as LpChainId });
         if (client && candidates.length > 0 && chainId === 1) {
           addRangeAprs(client, candidates)
             .then((ep) => { if (live) setPools([...ep].sort(byApr).slice(0, MAX_SUGGESTIONS)); })
