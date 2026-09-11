@@ -16,6 +16,7 @@ import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
+import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { v3DeploymentFor, v4DeploymentFor, isLpChain, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
@@ -566,9 +567,22 @@ async function findAerodromePools(
   tokenB: Token,
   wrappedNative: `0x${string}`,
 ): Promise<FoundPool[]> {
+  return findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, AERODROME_CL_DEPLOYMENTS, 'Aerodrome Slipstream');
+}
+
+/** Any tick-spacing keyed V3 fork (Aerodrome Slipstream, Ramses V3): every
+ * spacing on every given deployment, fee read from each pool. */
+async function findSpacingKeyedPools(
+  client: PublicClient,
+  tokenA: Token,
+  tokenB: Token,
+  wrappedNative: `0x${string}`,
+  deployments: readonly V3Deployment[],
+  dexLabel: string,
+): Promise<FoundPool[]> {
   const addrA = toV3Address(tokenA.address, wrappedNative);
   const addrB = toV3Address(tokenB.address, wrappedNative);
-  const calls = AERODROME_CL_DEPLOYMENTS.flatMap(d => d.feeTiers.map(spacing => ({
+  const calls = deployments.flatMap(d => d.feeTiers.map(spacing => ({
     address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool' as const, args: [addrA, addrB, spacing] as const, deployment: d,
   })));
   const found = await withSafeMulticall(client).multicall({ contracts: calls.map(({ deployment: _d, ...c }) => c), allowFailure: true });
@@ -584,8 +598,14 @@ async function findAerodromePools(
     protocol: 'uniswap-v3' as const,
     feeTier: fees[i].status === 'success' ? Number(fees[i].result) : 0,
     address: x.address,
-    dexLabel: 'Aerodrome Slipstream',
+    dexLabel,
   }));
+}
+
+/** Giga V3 on Robinhood Chain: a fee-keyed Uniswap V3 fork, probed like one. */
+async function findGigaPools(client: PublicClient, tokenA: Token, tokenB: Token, wrappedNative: `0x${string}`): Promise<FoundPool[]> {
+  const rows = await findV3Pools(client, 'uniswap-v3', tokenA, tokenB, GIGA_V3_DEPLOYMENT, wrappedNative);
+  return rows.map(r => ({ ...r, dexLabel: 'Giga V3' }));
 }
 
 function resolveCrossChainToken(catalog: Token[], chainId: number, symbol: string): Token | null {
@@ -1283,6 +1303,8 @@ export function SimulateScreen() {
   const mintDexFor = (f: FoundPool): { dex: LpDex; chainId: LpChainId } | null => {
     if (f.external || !isLpChain(chainId)) return null;
     if (chainId === 8453 && /aerodrome/i.test(f.dexLabel ?? '')) return { dex: 'aerodrome', chainId: 8453 };
+    if (chainId === 4663 && /giga/i.test(f.dexLabel ?? '')) return { dex: 'giga', chainId: 4663 };
+    if (chainId === 4663 && /ramses/i.test(f.dexLabel ?? '')) return { dex: 'ramses', chainId: 4663 };
     if (f.dexLabel) return null;
     if (f.protocol === 'uniswap-v3' && v3DeploymentFor('uniswap', chainId)) return { dex: 'uniswap', chainId };
     if (f.protocol === 'pancakeswap-v3' && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId };
@@ -1455,6 +1477,10 @@ export function SimulateScreen() {
         ...(uniswapV4 ? [{ label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) }] : []),
         ...(cakeV3 ? [{ label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, cakeV3, wrappedNative) }] : []),
         ...(chainId === 8453 ? [{ label: 'Aerodrome', run: () => findAerodromePools(client, tokenA, tokenB, wrappedNative) }] : []),
+        ...(chainId === 4663 ? [
+          { label: 'Giga V3', run: () => findGigaPools(client, tokenA, tokenB, wrappedNative) },
+          { label: 'Ramses V3', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [RAMSES_V3_DEPLOYMENT], 'Ramses V3') },
+        ] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
         (v): { ok: true; pools: FoundPool[] } => {
@@ -1601,7 +1627,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
@@ -1742,8 +1768,8 @@ export function SimulateScreen() {
           tokenB={toV3Address(tokenB.address, wrappedNative)}
           dex={mintDexFor(mintFee)!.dex}
           chainId={mintDexFor(mintFee)!.chainId}
-          // Slipstream keys pools by tick spacing; the sheet picks the deepest one.
-          initialFee={mintDexFor(mintFee)!.dex === 'aerodrome' ? undefined : mintFee.feeTier}
+          // Spacing-keyed DEXes (Aerodrome, Ramses): the sheet picks the deepest spacing.
+          initialFee={['aerodrome', 'ramses'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
           fees24hUsd={mintFee.fees24hUsd}
           onClose={() => setMintFee(null)}
         />

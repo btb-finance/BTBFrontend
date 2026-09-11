@@ -8,7 +8,7 @@
  * CreatePosition mint flow.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { isLpChain, v3DeploymentFor, type LpChainId } from '@/protocols/lpChains';
+import { isLpChain, v3DeploymentFor, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { Portal } from '../Portal';
 import { Icon } from '../Icon';
 import { btb } from '../design-tokens';
@@ -234,13 +234,18 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   // Aerodrome Slipstream on Base is a V3 fork the app can mint on (see
   // protocols/dexs/aerodrome), so it is the one dexLabel pool that deploys.
   const isAerodrome = chainId === 8453 && /aerodrome/i.test(selected.dexLabel ?? '');
-  const deploySupported = isAerodrome || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
+  // Robinhood-native forks the app can mint on; both carry a dexLabel.
+  const forkDex: LpDex | null = isAerodrome ? 'aerodrome'
+    : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
+    : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
+    : null;
+  const deploySupported = !!forkDex || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
   const deployChainId: LpChainId = isLpChain(chainId) ? chainId : 1;
   // A third-party V3 fork pool is simulate-only: the deploy flow mints through
   // the Uniswap/PancakeSwap router, which would resolve a different (or no)
   // pool for the same pair+fee. The simulation itself is still exact — it reads
   // the fork pool's own state.
-  const canDeploy = deploySupported && (!selected.dexLabel || isAerodrome) && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
+  const canDeploy = deploySupported && (!selected.dexLabel || !!forkDex) && (!isV4 || (!!v4Pool && isNativeCurrency(v4Pool.hooks)));
   const dexLabel = selected.dexLabel ?? (dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`);
 
   const sectionProps = { isMobile };
@@ -389,10 +394,10 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <CreatePosition
             tokenA={!isV4 ? mintTokenA : undefined}
             tokenB={!isV4 ? mintTokenB : undefined}
-            initialFee={isAerodrome ? pool?.tickSpacing : !isV4 ? feeTier : undefined}
+            initialFee={forkDex === 'aerodrome' || forkDex === 'ramses' ? pool?.tickSpacing : !isV4 ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
-            dex={isAerodrome ? 'aerodrome' : dex}
+            dex={forkDex ?? dex}
             chainId={deployChainId}
             fees24hUsd={current?.fees24hUsd}
             onClose={() => setDeploying(false)}

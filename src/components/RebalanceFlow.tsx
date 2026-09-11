@@ -50,7 +50,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
   const chainId = pos.chainId ?? 1;
   const deployment = deploymentOf(pos);
-  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : 'uniswap';
+  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : 'uniswap';
   const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
   const h1 = pos.amount1 + pos.fees1;
@@ -99,7 +99,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         tokenB={pos.token1}
         dex={dex}
         chainId={chainId as LpChainId}
-        initialFee={pos.protocol === 'aerodrome-cl' ? pos.tickSpacing : pos.fee}
+        initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' ? pos.tickSpacing : pos.fee}
         stakeByDefault={!!pos.staked}
         onClose={async () => { await onDone(); onClose(); }}
         onDone={() => {}}

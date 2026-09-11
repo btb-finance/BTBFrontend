@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLIPSTREAM_POOL_ABI, SLOT0_HEAD_ABI } from './abis';
+import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI } from './abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
 export interface MintPool {
@@ -163,7 +163,8 @@ export async function fetchPoolsForMint(
   const stateRes = existing.length > 0
     ? await withSafeMulticall(client).multicall({
         contracts: existing.flatMap((a) => [
-          { address: a.pool, abi: slip ? SLIPSTREAM_POOL_ABI : POOL_ABI, functionName: 'slot0' as const },
+          // Price and tick only: decodes V3, Ramses (seven words) and Slipstream (six) alike.
+          { address: a.pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'liquidity' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'fee' as const },
         ]),

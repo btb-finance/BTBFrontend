@@ -91,6 +91,8 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
   'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
+  'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
+  'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
 };
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -110,6 +112,8 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
   'aerodrome-cl': 'aerodrome',
+  'giga-v3': 'giga',
+  'ramses-v3': 'ramses',
 };
 
 /** Krystal row ↔ on-chain position. Aerodrome's projectKey varies by
@@ -259,9 +263,13 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
 
         // V3 style managers: Krystal ids plus a cheap balanceOf enumeration
         // (two multicalls) so brand new positions appear straight away.
+        const giga = v3DeploymentFor('giga', chainId);
+        const ramses = v3DeploymentFor('ramses', chainId);
         const v3Like: { protocol: LiquidityPosition['protocol']; d: V3Deployment }[] = [
           ...(v3 ? [{ protocol: 'uniswap-v3' as const, d: v3 }] : []),
           ...(cake ? [{ protocol: 'pancakeswap-v3' as const, d: cake }] : []),
+          ...(giga ? [{ protocol: 'giga-v3' as const, d: giga }] : []),
+          ...(ramses ? [{ protocol: 'ramses-v3' as const, d: ramses }] : []),
           ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
         ];
         for (const { protocol, d } of v3Like) {

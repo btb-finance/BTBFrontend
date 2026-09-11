@@ -31,7 +31,7 @@ import {
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { gaugeForPool, buildGaugeStake, fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
-import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId } from '@/protocols/lpChains';
+import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
@@ -104,7 +104,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
-  dex?: 'uniswap' | 'pancakeswap' | 'aerodrome';
+  dex?: LpDex;
   /** Fee tier of the pool the user clicked — preselected when valid (V3). */
   initialFee?: number;
   /** Exact starting range (e.g. handed over from the simulator page). */
@@ -138,10 +138,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [aeroDeploymentByTier, setAeroDeploymentByTier] = useState<Record<number, V3Deployment>>({});
   const baseDeployment = v3DeploymentFor(dex, chainId) ?? UNISWAP_V3_DEPLOYMENT;
   const isSlipstream = !!baseDeployment.slipstream;
+  // Only Aerodrome has gauges the sheet can stake into.
+  const isAerodromeGauge = dex === 'aerodrome';
   const v4Deployment = v4DeploymentFor(chainId) ?? UNISWAP_V4;
   const chainWeth = wrappedNativeFor(chainId);
   // Aerodrome: stake the minted NFT so it earns AERO emissions.
-  const [stakeAfterMint, setStakeAfterMint] = useState(isSlipstream && stakeByDefault);
+  const [stakeAfterMint, setStakeAfterMint] = useState(isAerodromeGauge && stakeByDefault);
   const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
     initialFee !== undefined && baseDeployment.feeTiers.includes(initialFee) ? initialFee : baseDeployment.feeTiers[2],
@@ -224,7 +226,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return s0 && !s1; // token0 stable → base the volatile token1
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
-  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
+  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
   const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
@@ -521,7 +523,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
   /** Aerodrome: after a mint, deposit the wallet's newest NFT in the gauge. */
   async function stakeNewest(acct: `0x${string}`) {
-    if (!isSlipstream || !stakeAfterMint || !pool) return;
+    if (!isAerodromeGauge || !stakeAfterMint || !pool) return;
     const client = getPublicClient(config, { chainId });
     if (!client) return;
     const gauge = await gaugeForPool(client, deployment, pool.token0, pool.token1, fee);
@@ -1498,7 +1500,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
                   <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
                 </div>
-                {isSlipstream && !simOnly && (
+                {isAerodromeGauge && !simOnly && (
                   <div
                     onClick={() => setStakeAfterMint((v) => !v)}
                     title="Stake the new position in the Aerodrome gauge to earn AERO"
