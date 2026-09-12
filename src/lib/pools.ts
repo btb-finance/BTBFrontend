@@ -719,6 +719,15 @@ async function finishRows(
  * @param client When provided, also runs a DexPaprika discovery pass (see
  * `ingestDexPaprika`) to surface pools DeFiLlama/the subgraphs miss entirely.
  */
+/** A pool with a price range: V3-style ticks, V4, DLMM, Slipstream. V2-style
+ * constant-product pools are full range and out of scope. */
+export function isConcentratedPool(p: EarnPool): boolean {
+  if (p.version === 'V2') return false;
+  if (p.liquidityModel === 'AMM') return false;
+  if (/(?:^|[-_])v2(?:$|[-_])|aerodrome-v1|velodrome-v2|-amm$/i.test(p.project)) return false;
+  return true;
+}
+
 export async function getEarnPools(
   minTvlUsd = 50_000,
   client?: PublicClient | ((chainId?: number) => PublicClient | null),
@@ -806,11 +815,17 @@ export async function getEarnPools(
 
   if (pools.length === 0) throw new Error('no pool source available');
 
-  applyLogos(pools, await fetchDexLogos());
+  // Concentrated liquidity only. Full-range AMM pools (Uniswap V2 style,
+  // Aerodrome V2 and the like) have no range to simulate or manage, which is
+  // the whole point of the app, so they never reach Discover.
+  const concentrated = pools.filter(isConcentratedPool);
+  if (concentrated.length === 0) throw new Error('no pool source available');
+
+  applyLogos(concentrated, await fetchDexLogos());
 
   // Rank by what people actually trade. Sorting by TVL is what put pools with
   // nine figures of idle liquidity and zero trades at the top of Discover.
-  return pools.sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0) || b.tvlUsd - a.tvlUsd);
+  return concentrated.sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0) || b.tvlUsd - a.tvlUsd);
 }
 
 /** External link for a pool — Uniswap explore page for indexer pools, DeFiLlama otherwise. */

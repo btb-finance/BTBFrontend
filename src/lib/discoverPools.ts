@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import type { PublicClient } from 'viem';
 import { ConvexHttpClient } from 'convex/browser';
 import { api } from '../../convex/_generated/api';
-import { getEarnPools, addRangeAprs, EarnPool } from './pools';
+import { getEarnPools, addRangeAprs, isConcentratedPool, EarnPool } from './pools';
 import { fetchPoolPriceChanges } from './geckoterminal';
 
 // Same fallback as Providers.tsx — keep in sync.
@@ -66,7 +66,8 @@ export function prefetchDiscoverPools(client?: PublicClient) {
         const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
         if (snap.pools?.length > 0) {
           ts = Date.now();
-          set({ pools: snap.pools, priceChange: snap.priceChange ?? {}, loading: false });
+          // Older snapshots may still carry full-range rows; drop them here too.
+          set({ pools: snap.pools.filter(isConcentratedPool), priceChange: snap.priceChange ?? {}, loading: false });
           return;
         }
       }

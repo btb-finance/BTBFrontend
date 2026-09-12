@@ -75,6 +75,13 @@ function discoverChainId(name: string, explicitId?: number): number | undefined 
   )?.[0]) || undefined;
 }
 
+/** DEX filter key. Venues that run several generations side by side get one
+ * chip per generation ("Uniswap V3", "Uniswap V4"), since they are different
+ * products with different pools, ranges and fees. */
+function dexKey(p: EarnPool): string {
+  return p.version && /uniswap|pancakeswap|sushiswap|orvex|swaphood/i.test(p.dex) ? `${p.dex} ${p.version}` : p.dex;
+}
+
 function canSimulatePool(pool: EarnPool): boolean {
   const chainId = discoverChainId(pool.chain, pool.chainId);
   const pair = pool.underlyingTokens;
