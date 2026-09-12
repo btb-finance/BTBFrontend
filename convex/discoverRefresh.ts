@@ -74,8 +74,21 @@ export const refresh = internalAction({
       priceChange = await fetchPoolPriceChanges(addressable.map((p) => p.id)).catch(() => ({}));
     }
 
+    // Keep the DEX coverage rows from the previous cycle rather than wiping
+    // them: the coverage steps below take up to a quarter of an hour, and
+    // without this the extra DEXes vanished from Discover for that long every
+    // half hour. The steps then replace each chain's rows with fresh numbers.
+    const previous = await ctx.runQuery(internal.discover.getInternal, {});
+    const baseKeys = new Set(withRange.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
+    let carried: EarnPool[] = [];
+    if (previous) {
+      try {
+        const prev = JSON.parse(previous.json) as { pools?: EarnPool[] };
+        carried = (prev.pools ?? []).filter((p) => isConcentratedPool(p) && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
+      } catch { /* unreadable previous snapshot: start clean */ }
+    }
     await ctx.runMutation(internal.discover.save, {
-      json: JSON.stringify({ version: 2, pools: withRange, priceChange }),
+      json: JSON.stringify({ version: 2, pools: [...withRange, ...carried], priceChange }),
     });
 
     // DEX coverage runs as independent follow-up actions, one chain each,
@@ -108,8 +121,9 @@ export const coverDexes = internalAction({
       // Re-read before writing: the base refresh may have run meanwhile.
       const latest = await ctx.runQuery(internal.discover.getInternal, {});
       const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
-      const have = new Set(current.pools.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
-      const merged = [...current.pools, ...extras.filter((p) => !have.has(`${p.chain}:${p.id.toLowerCase()}`))];
+      // Fresh rows win over what the snapshot already had for the same pool.
+      const fresh = new Set(extras.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
+      const merged = [...current.pools.filter((p) => !fresh.has(`${p.chain}:${p.id.toLowerCase()}`)), ...extras];
       await ctx.runMutation(internal.discover.save, {
         json: JSON.stringify({ ...current, pools: merged }),
       });

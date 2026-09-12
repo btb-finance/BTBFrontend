@@ -38,3 +38,13 @@ export const get = query({
     return row ? { json: row.json, updatedAt: row.updatedAt } : null;
   },
 });
+
+/** Operator view: recent scheduled functions and their state (debugging the
+ * DEX coverage steps). */
+export const listScheduled = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.system.query("_scheduled_functions").order("desc").take(20);
+    return rows.map((r) => ({ name: r.name, args: r.args, scheduledTime: new Date(r.scheduledTime).toISOString(), state: r.state, completedTime: r.completedTime ? new Date(r.completedTime).toISOString() : null }));
+  },
+});
