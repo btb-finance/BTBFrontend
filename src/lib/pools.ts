@@ -556,7 +556,25 @@ export async function ingestChainExtras(
   // Concentrated liquidity venues only: that is what the app can simulate
   // and mint on, and it keeps the paced call count small.
   const NOT_CL = /(?:^|[_-])v2(?:$|[_-])|launchpad|bankr|virtuals|clanker|mint-club|curve|kickstart|legacy|dlmm|family|abyss|parityswap|robinswap|hoodit/i;
-  const uncovered = registry.filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id)).slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
+  // Which uncovered venues matter most: DexPaprika reports 24h volume per
+  // DEX (matched to GeckoTerminal ids by normalised name), then anything
+  // whose id says it is concentrated, then the rest. The slot cap applies to
+  // that order, so a chain with a long tail of dead venues still covers the
+  // live ones.
+  const paprikaDexes = await fetchNetworkDexes(CHAIN_DATA_NETWORKS[chainId]?.dexPaprika ?? '').catch(() => [] as DexPaprikaDex[]);
+  const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const volumeOf = (geckoId: string) => {
+    const key = squash(geckoId.replace(new RegExp(`-${gecko}$`), ''));
+    const hit = paprikaDexes.find(d => squash(d.dexId) === key || squash(d.dexName) === key);
+    return hit?.volume24hUsd ?? 0;
+  };
+  const CL_HINT = /v3|v4|(?:^|[-_])cl(?:$|[-_])|clmm|slipstream|concentrated|maverick|hydrex|thena|ramses|giga|ekubo/i;
+  const uncovered = registry
+    .filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id))
+    .map(dex => ({ dex, volume: volumeOf(dex.id), cl: CL_HINT.test(dex.id) ? 1 : 0 }))
+    .sort((a, b) => b.volume - a.volume || b.cl - a.cl)
+    .map(x => x.dex)
+    .slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
   const rows: DexPaprikaPoolRow[] = [];
   // Stay well inside the action time limit even when the provider makes us
   // wait on rate limits; whatever was gathered by then is merged.
@@ -797,7 +815,10 @@ export async function getEarnPools(
     for (const { chainId, network, chain } of DISCOVERY_CHAINS) {
       const chainClient = clientFor(chainId);
       if (chainId != null && !chainClient) continue;
-      const discovered = await ingestChainPools(chainClient, chainId, network, chain, minTvlUsd)
+      // Four hundred rows per chain by volume: on Ethereum, Base and BNB that
+      // reaches well past the top venue into Alien Base, Hydrex, Maverick,
+      // Sushi V3 and the other active concentrated DEXes. Cheap: four pages.
+      const discovered = await ingestChainPools(chainClient, chainId, network, chain, minTvlUsd, 400)
         .catch(() => [] as EarnPool[]);
       if (discovered.length === 0) continue;
       // Matching on id alone is not enough: DeFiLlama keys pools by its own
