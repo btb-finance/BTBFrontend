@@ -723,9 +723,12 @@ async function finishRows(
  * constant-product pools are full range and out of scope. */
 export function isConcentratedPool(p: EarnPool): boolean {
   if (p.version === 'V2') return false;
-  if (p.liquidityModel === 'AMM') return false;
-  if (/(?:^|[-_])v2(?:$|[-_])|aerodrome-v1|velodrome-v2|-amm$/i.test(p.project)) return false;
-  return true;
+  if (p.version === 'V3' || p.version === 'V4') return true;
+  if (p.liquidityModel === 'CLMM' || p.liquidityModel === 'DLMM') return true;
+  // DeFiLlama rows carry no version and only tag the ve(3,3) venues as CLMM,
+  // so decide from the project slug for everything else.
+  if (/(?:^|[-_])v2(?:$|[-_])|aerodrome-v1|-amm$|^sushiswap$|^curve|^balancer|^blackhole$|wombat|woofi|fluid-dex|raydium|skate|hx-finance|hyperbrick|spinup|gliquid|nest-amm|kyberswap|quickswap-dex|^project-x$/i.test(p.project)) return false;
+  return /v3|v4|(?:^|[-_])cl(?:$|[-_])|clmm|slipstream|concentrated|bluefin-spot|turbos|orca|hybra|pharaoh|nest-cl/i.test(p.project);
 }
 
 export async function getEarnPools(
