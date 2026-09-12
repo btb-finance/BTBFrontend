@@ -33,7 +33,8 @@ import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
 import { stakingSupported, stakeTargetForPool, buildStakeCalls } from '@/protocols/staking';
 import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
-import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
 import {
@@ -295,6 +296,50 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, tokenA, tokenB, v4PoolId, dex, chainId, retryNonce]);
 
+  /**
+   * Re-read the pool's live price. Paired amounts, preset ranges and the
+   * mint's minimums all derive from sqrtPriceX96 and tick, so a sheet left
+   * open for a minute would otherwise quote a stale tick and the mint would
+   * revert on its slippage check. Runs on a timer while open and once more
+   * right before signing. Returns the fresh pool, or null when unreadable.
+   */
+  const poolRef = useRef<MintPool | null>(null);
+  poolRef.current = pool;
+  async function refreshPool(): Promise<MintPool | null> {
+    const cur = poolRef.current;
+    if (!cur || !cur.exists) return null;
+    const client = getPublicClient(config, { chainId });
+    if (!client) return null;
+    try {
+      let sqrtPriceX96: bigint, tick: number, liquidity: bigint;
+      if (v4Pool && v4PoolId) {
+        const [s0, liq] = await Promise.all([
+          client.readContract({ address: v4Deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [v4PoolId] }) as Promise<readonly [bigint, number, number, number]>,
+          client.readContract({ address: v4Deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [v4PoolId] }) as Promise<bigint>,
+        ]);
+        sqrtPriceX96 = s0[0]; tick = Number(s0[1]); liquidity = liq;
+      } else {
+        const [s0, liq] = await Promise.all([
+          client.readContract({ address: cur.address, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
+          client.readContract({ address: cur.address, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
+        ]);
+        sqrtPriceX96 = s0[0] as bigint; tick = Number(s0[1]); liquidity = liq;
+      }
+      if (sqrtPriceX96 === 0n) return null;
+      const next = { ...cur, sqrtPriceX96, tick, liquidity };
+      if (sqrtPriceX96 !== cur.sqrtPriceX96 || liquidity !== cur.liquidity) {
+        setPools((prev) => (prev && prev[cur.fee] ? { ...prev, [cur.fee]: { ...prev[cur.fee], sqrtPriceX96, tick, liquidity } } : prev));
+      }
+      return next;
+    } catch { return null; }
+  }
+  useEffect(() => {
+    if (!pool?.exists || busy) return;
+    const t = setInterval(() => { void refreshPool(); }, 12_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool?.address, pool?.exists, busy]);
+
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
     let live = true;
@@ -546,19 +591,28 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     if (!address || !pool || !ticks) return;
     setBusy(true); setErr(null);
     try {
+      // Amounts at the tick the chain reports now, not the one from when the
+      // sheet opened. The user's typed side is kept; the other side is repaired.
+      const fresh = (await refreshPool()) ?? pool;
+      let [m0, m1] = [add0, add1];
+      if (!splitRange && !simOnly && amt.str && parseFloat(amt.str) > 0) {
+        const raw = parseUnits(amt.str, amt.side === 0 ? fresh.decimals0 : fresh.decimals1);
+        const r = addAmounts(fresh.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, amt.side, raw);
+        m0 = r.amount0; m1 = r.amount1;
+      }
       const calls = v4Pool
         ? buildV4Mint({
             poolKey: v4Pool.poolKey,
             tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
             // V4 mints a liquidity amount; the maxes cap what the pool may pull.
-            liquidity: liquidityForAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, add0, add1),
-            amount0Max: maxIn(add0, slippageBps), amount1Max: maxIn(add1, slippageBps),
+            liquidity: liquidityForAmounts(fresh.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, m0, m1),
+            amount0Max: maxIn(m0, slippageBps), amount1Max: maxIn(m1, slippageBps),
             recipient: address as `0x${string}`, deployment: v4Deployment,
           })
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee,
             tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
-            amount0Desired: add0, amount1Desired: add1,
+            amount0Desired: m0, amount1Desired: m1,
             slippageBps: slippageBps, recipient: address as `0x${string}`,
             nativeEthSide: ethMode ? wethSide : null,
             deployment, tickSpacing: isSlipstream ? fee : undefined,
