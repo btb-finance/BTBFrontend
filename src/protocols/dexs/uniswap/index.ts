@@ -34,7 +34,7 @@ export type { V3Deployment } from './v3/addresses';
 // v4
 export { UNISWAP_V4, ROBINHOOD_UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency } from './v4/addresses';
 export type { PoolKey, V4Deployment } from './v4/addresses';
-export { fetchV4Positions } from './v4/positions';
+export { fetchV4Positions, poolIdOf } from './v4/positions';
 export { buildV4Mint, buildV4Increase, buildV4Remove, buildV4Collect } from './v4/actions';
 export { fetchV4PoolForMint } from './v4/pool';
 export type { V4MintPool } from './v4/pool';

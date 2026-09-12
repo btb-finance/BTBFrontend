@@ -27,7 +27,6 @@ import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploy
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
-import { RebalanceSheet } from './RebalanceSheet';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
@@ -76,6 +75,9 @@ function fmtAmt(raw: bigint, decimals: number): string {
 }
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
+
+/** Chains Krystal's LP index covers (see api/krystal/lp/route.ts). */
+const KRYSTAL_LP_CHAINS = new Set([1, 10, 56, 130, 137, 2020, 324, 42161, 43114, 59144, 80094, 81457, 8453, 999]);
 
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
@@ -275,11 +277,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               })),
           );
         }
-        // V4: Krystal ids only. There is no cheap enumeration for the V4
-        // manager, and the log scan it needs is what made this screen slow.
+        // V4: Krystal ids where Krystal indexes the chain. Where it does not
+        // (Robinhood), fall back to the manager's Transfer-log scan; the chain
+        // is young enough for that to be quick.
         const v4Ids = v4 ? idsIn(v4.positionManager) : undefined;
         if (v4 && v4Ids && v4Ids.length > 0) {
           jobs.push(fetchV4Positions(client, owner, v4Ids, v4, v4DeployBlockFor(chainId)).then(merge('uniswap-v4', chainId, chainName)));
+        } else if (v4 && !KRYSTAL_LP_CHAINS.has(chainId)) {
+          jobs.push(fetchV4Positions(client, owner, undefined, v4, v4DeployBlockFor(chainId)).catch(() => [] as LiquidityPosition[]).then(merge('uniswap-v4', chainId, chainName)));
         }
         // Aerodrome gauges: Krystal names the gauge, so read each staked NFT directly.
         if (stakedAero.length > 0) {
@@ -817,20 +822,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         />
       )}
 
-      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol !== 'uniswap-v4' && (
+      {rebalance && connectedAddress && canActOn(rebalance) && (
         <RebalanceFlow
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
           onClose={() => setRebalance(null)}
           onDone={async () => { await load(); }}
-        />
-      )}
-      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol === 'uniswap-v4' && (
-        <RebalanceSheet
-          pos={rebalance}
-          account={connectedAddress as `0x${string}`}
-          onClose={() => setRebalance(null)}
-          onDone={async () => { setRebalance(null); await load(); }}
         />
       )}
 

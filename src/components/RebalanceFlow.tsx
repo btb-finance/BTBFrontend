@@ -11,7 +11,8 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { buildRemove, fetchV3Positions, SLIPPAGE_BPS, type LiquidityPosition } from '@/protocols/dexs/uniswap';
+import { buildRemove, fetchV3Positions, fetchV4Positions, buildV4Remove, poolIdOf, SLIPPAGE_BPS, type LiquidityPosition, type PoolKey } from '@/protocols/dexs/uniswap';
+import { v4DeploymentOfPosition } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { buildUnstakeCalls } from '@/protocols/staking';
 import { deploymentOfPosition, lpSlippageBps, type LpChainId } from '@/protocols/lpChains';
@@ -49,7 +50,13 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   const [err, setErr] = useState<string | null>(null);
 
   const chainId = pos.chainId ?? 1;
+  const isV4 = pos.protocol === 'uniswap-v4';
   const deployment = deploymentOf(pos);
+  const v4 = v4DeploymentOfPosition(pos);
+  // V4 positions are keyed by pool id, which the Add sheet needs to reopen the same pool.
+  const v4PoolKey: PoolKey | null = isV4
+    ? { currency0: pos.token0, currency1: pos.token1, fee: pos.fee, tickSpacing: pos.tickSpacing ?? 60, hooks: pos.hooks ?? '0x0000000000000000000000000000000000000000' }
+    : null;
   const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : pos.protocol === 'up-v3' ? 'up' : 'uniswap';
   const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
@@ -61,7 +68,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
       if (pos.staked) {
-        setStepMsg('Unstaking from the Aerodrome gauge…');
+        setStepMsg(`Unstaking (pays out your ${pos.staked.rewardSymbol})…`);
         await runCalls(config, {
           account, calls: buildUnstakeCalls(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
           verify: {
@@ -71,12 +78,16 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         });
       }
       // Re-read right before building minimums: amounts move with the price.
-      const live = (await fetchV3Positions(client, account, deployment, [pos.id]))[0] ?? pos;
+      const live = isV4
+        ? (await fetchV4Positions(client, account, [pos.id], v4, 0n))[0] ?? pos
+        : (await fetchV3Positions(client, account, deployment, [pos.id]))[0] ?? pos;
       if (live.liquidity > 0n || live.fees0 > 0n || live.fees1 > 0n) {
         setStepMsg('Withdrawing your liquidity and fees…');
         await runCalls(config, {
-          account, calls: buildRemove(live, 10_000, slippage, account, deployment), label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`, track, chainId,
-          verify: {
+          account,
+          calls: isV4 ? buildV4Remove(live, 10_000, slippage, account, v4) : buildRemove(live, 10_000, slippage, account, deployment),
+          label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          verify: isV4 ? undefined : {
             test: async () => {
               const s = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'positions', args: [pos.id] });
               return s[7] === 0n && s[10] === 0n && s[11] === 0n;
@@ -95,8 +106,9 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   if (phase === 'add') {
     return (
       <CreatePosition
-        tokenA={pos.token0}
-        tokenB={pos.token1}
+        tokenA={isV4 ? undefined : pos.token0}
+        tokenB={isV4 ? undefined : pos.token1}
+        v4PoolId={v4PoolKey ? poolIdOf(v4PoolKey) : undefined}
         dex={dex}
         chainId={chainId as LpChainId}
         initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' || pos.protocol === 'up-v3' ? pos.tickSpacing : pos.fee}

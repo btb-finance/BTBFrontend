@@ -712,7 +712,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   /**
    * Balanced smart-fit deposit: swap only the gap (KyberSwap) so a single-token
    * wallet deposits a real two-sided position, then mint. Same audited pattern
-   * as RebalanceSheet (minus the withdraw — funds come straight from the wallet).
+   * as the rebalance flow (minus the withdraw; funds come straight from the wallet).
    * Confirms up to two wallet txs (swap, then add). V4 native ETH (currency0) is
    * swapped/deposited as ETH with a gas reserve; V3 deposits the ERC-20 tokens.
    */
