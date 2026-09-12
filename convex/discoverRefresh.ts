@@ -78,24 +78,25 @@ export const refresh = internalAction({
       json: JSON.stringify({ version: 2, pools: withRange, priceChange }),
     });
 
-    // DEX coverage runs as a chain of follow-up actions, one chain each, so
-    // the paced GeckoTerminal walk never pushes a single action past its
-    // time limit. Each step merges into the snapshot just saved.
-    await ctx.scheduler.runAfter(0, internal.discoverRefresh.coverDexes, { index: 0 });
+    // DEX coverage runs as independent follow-up actions, one chain each,
+    // staggered so their paced GeckoTerminal walks do not overlap. Scheduled
+    // up front rather than chained, so one chain failing or timing out never
+    // stops the others. Each step merges into whatever snapshot is current.
+    for (let index = 0; index < DISCOVERY_CHAINS.length; index++) {
+      await ctx.scheduler.runAfter(index * 4 * 60_000, internal.discoverRefresh.coverDexes, { index });
+    }
   },
 });
 
 /** Pull the top pools of every concentrated liquidity DEX the base snapshot
- * missed on one discovery chain, merge them in, then schedule the next chain. */
+ * missed on one discovery chain and merge them in. */
 export const coverDexes = internalAction({
   args: { index: v.number() },
   handler: async (ctx, { index }) => {
     const target = DISCOVERY_CHAINS[index];
-    if (!target) return;
-    const next = () => ctx.scheduler.runAfter(5_000, internal.discoverRefresh.coverDexes, { index: index + 1 });
-    if (target.chainId == null) { await next(); return; }
+    if (!target || target.chainId == null) return;
     const row = await ctx.runQuery(internal.discover.getInternal, {});
-    if (!row) { await next(); return; }
+    if (!row) return;
     const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
     const chainName = target.chain;
     const existing = snap.pools.filter((p) => p.chain === chainName);
@@ -113,6 +114,5 @@ export const coverDexes = internalAction({
         json: JSON.stringify({ ...current, pools: merged }),
       });
     }
-    await next();
   },
 });

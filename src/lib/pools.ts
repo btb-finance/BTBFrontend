@@ -510,6 +510,7 @@ function isPoolAddress(id: string): boolean {
  * page fetched on a refresh. Bounds the cron's run time on chains with a
  * long tail of tiny venues. */
 const MAX_EXTRA_DEXES_PER_CHAIN = 25;
+const EXTRAS_TIME_BUDGET_MS = 5 * 60_000;
 
 export async function ingestChainPools(
   client: PublicClient | null,
@@ -557,7 +558,11 @@ export async function ingestChainExtras(
   const NOT_CL = /(?:^|[_-])v2(?:$|[_-])|launchpad|bankr|virtuals|clanker|mint-club|curve|kickstart|legacy|dlmm|family|abyss|parityswap|robinswap|hoodit/i;
   const uncovered = registry.filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id)).slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
   const rows: DexPaprikaPoolRow[] = [];
+  // Stay well inside the action time limit even when the provider makes us
+  // wait on rate limits; whatever was gathered by then is merged.
+  const deadline = Date.now() + EXTRAS_TIME_BUDGET_MS;
   for (const dex of uncovered) {
+    if (Date.now() > deadline) break;
     const pools = await fetchDexTopPools(gecko, dex.id).catch(() => []);
     for (const p of pools) {
       if (seen.has(p.address)) continue;
