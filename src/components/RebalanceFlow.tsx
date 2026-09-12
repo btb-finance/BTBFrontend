@@ -13,7 +13,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { buildRemove, fetchV3Positions, SLIPPAGE_BPS, type LiquidityPosition } from '@/protocols/dexs/uniswap';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
-import { buildGaugeUnstake } from '@/protocols/dexs/aerodrome';
+import { buildUnstakeCalls } from '@/protocols/staking';
 import { deploymentOfPosition, lpSlippageBps, type LpChainId } from '@/protocols/lpChains';
 
 const deploymentOf = deploymentOfPosition;
@@ -50,7 +50,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
   const chainId = pos.chainId ?? 1;
   const deployment = deploymentOf(pos);
-  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : 'uniswap';
+  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : pos.protocol === 'up-v3' ? 'up' : 'uniswap';
   const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
   const h1 = pos.amount1 + pos.fees1;
@@ -63,7 +63,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
       if (pos.staked) {
         setStepMsg('Unstaking from the Aerodrome gauge…');
         await runCalls(config, {
-          account, calls: buildGaugeUnstake(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          account, calls: buildUnstakeCalls(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
           verify: {
             test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'ownerOf', args: [pos.id] })).toLowerCase() === account.toLowerCase(),
             error: 'Unstake confirmed, but the RPC still shows the NFT in the gauge. Retry in a moment.',
@@ -99,7 +99,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         tokenB={pos.token1}
         dex={dex}
         chainId={chainId as LpChainId}
-        initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' ? pos.tickSpacing : pos.fee}
+        initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' || pos.protocol === 'up-v3' ? pos.tickSpacing : pos.fee}
         stakeByDefault={!!pos.staked}
         onClose={async () => { await onDone(); onClose(); }}
         onDone={() => {}}
@@ -122,11 +122,11 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Step n={1} title="Withdraw everything to your wallet" active>
-              {pos.staked && <div>Unstake from the gauge (pays out your earned AERO).</div>}
+              {pos.staked && <div>Unstake first (pays out your earned {pos.staked.rewardSymbol}).</div>}
               <div>Remove the position and collect fees: <b style={{ color: btb.text }}>{fmtAmt(h0, pos.decimals0)} {pos.symbol0}</b> + <b style={{ color: btb.text }}>{fmtAmt(h1, pos.decimals1)} {pos.symbol1}</b>.</div>
             </Step>
             <Step n={2} title="Pick any new range and add">
-              <div>The full Add liquidity sheet opens for this pool: presets or custom bounds, one-token smart fit, split ranges{pos.protocol === 'aerodrome-cl' ? ', and restake for AERO' : ''}.</div>
+              <div>The full Add liquidity sheet opens for this pool: presets or custom bounds, one-token smart fit, split ranges{pos.staked || pos.stakeable ? `, and restake for ${(pos.staked ?? pos.stakeable)?.rewardSymbol ?? 'rewards'}` : ''}.</div>
             </Step>
           </div>
 

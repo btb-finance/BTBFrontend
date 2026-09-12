@@ -24,6 +24,7 @@ export interface MintPool {
 }
 
 const ZERO = '0x0000000000000000000000000000000000000000';
+const TICK_SPACING_ABI = [{ name: 'tickSpacing', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] }] as const;
 
 /**
  * Read a V3-compatible pool that was already resolved by a factory probe.
@@ -37,7 +38,6 @@ export async function fetchKnownV3Pool(
   fee: number,
 ): Promise<MintPool> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
-  const TICK_SPACING_ABI = [{ name: 'tickSpacing', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] }] as const;
   const [slot0, liquidity, tickSpacing, metaRes] = await Promise.all([
     client.readContract({ address: pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
     client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
@@ -167,6 +167,9 @@ export async function fetchPoolsForMint(
           { address: a.pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'liquidity' as const },
           { address: a.pool, abi: POOL_ABI, functionName: 'fee' as const },
+          // The pool's own spacing: forks (Giga, Ramses, UP) do not all follow
+          // Uniswap's fee-to-spacing table, and a mint with misaligned ticks reverts.
+          { address: a.pool, abi: TICK_SPACING_ABI, functionName: 'tickSpacing' as const },
         ]),
         allowFailure: true,
       })
@@ -182,9 +185,10 @@ export async function fetchPoolsForMint(
   const out: Record<number, MintPool> = {};
   for (const a of addrs) {
     const idx = existing.findIndex((e) => e.fee === a.fee);
-    let exists = idx >= 0, sqrtPriceX96 = 0n, tick = 0, liquidity = 0n, poolFeePips: number | undefined;
+    let exists = idx >= 0, sqrtPriceX96 = 0n, tick = 0, liquidity = 0n, poolFeePips: number | undefined, tickSpacing: number | undefined;
     if (idx >= 0) {
-      const s = stateRes[idx * 3], l = stateRes[idx * 3 + 1], f = stateRes[idx * 3 + 2];
+      const s = stateRes[idx * 4], l = stateRes[idx * 4 + 1], f = stateRes[idx * 4 + 2], ts = stateRes[idx * 4 + 3];
+      if (ts.status === 'success') tickSpacing = Number(ts.result);
       if (slip && f.status === 'success') poolFeePips = Number(f.result);
       if (s.status === 'success') {
         const slot = s.result as readonly unknown[];
@@ -193,7 +197,7 @@ export async function fetchPoolsForMint(
       } else exists = false; // state read failed — treat as unusable
       if (l.status === 'success') liquidity = l.result as bigint;
     }
-    out[a.fee] = { address: a.pool, token0, token1, ...meta, fee: a.fee, exists, sqrtPriceX96, tick, liquidity, ...(poolFeePips != null ? { poolFeePips } : {}) };
+    out[a.fee] = { address: a.pool, token0, token1, ...meta, fee: a.fee, exists, sqrtPriceX96, tick, liquidity, ...(poolFeePips != null ? { poolFeePips } : {}), ...(tickSpacing ? { tickSpacing } : {}) };
   }
   return out;
 }

@@ -21,7 +21,7 @@ import {
   type LiquidityPosition, type V3Deployment, type PoolKey,
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { buildGaugeUnstake, buildGaugeStake, gaugeForPool } from '@/protocols/dexs/aerodrome';
+import { buildUnstakeCalls, buildStakeCalls, stakeTargetForPool } from '@/protocols/staking';
 import { deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, lpSlippageBps } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -214,7 +214,7 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
       if (pos.staked) {
         setStepMsg('Unstaking from the Aerodrome gauge…');
         await runCalls(config, {
-          account, calls: buildGaugeUnstake(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          account, calls: buildUnstakeCalls(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
           verify: {
             test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'ownerOf', args: [pos.id] })).toLowerCase() === account.toLowerCase(),
             error: 'Unstake confirmed, but the RPC still shows the NFT in the gauge. Retry safely in a moment.',
@@ -323,10 +323,10 @@ export function RebalanceSheet({ pos, account, onClose, onDone }: {
         setStepMsg('Staking the new position for AERO…');
         const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [account] });
         const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [account, count - 1n] });
-        const gauge = pos.staked?.gauge ?? await gaugeForPool(client, deployment, pos.token0, pos.token1, spacing);
-        if (gauge) {
+        const target = await stakeTargetForPool(client, deployment, pos.token0, pos.token1, spacing).catch(() => null);
+        if (target) {
           await runCalls(config, {
-            account, calls: buildGaugeStake(deployment.positionManager, gauge, newId), label: `Rebalance · stake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+            account, calls: buildStakeCalls(target.kind, target.contract, deployment.positionManager, newId, account), label: `Rebalance · stake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
           });
         }
       }

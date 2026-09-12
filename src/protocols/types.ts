@@ -13,7 +13,7 @@ export const MAINNET = 1;
 
 /** A liquidity position a user holds in a protocol. */
 export interface LiquidityPosition {
-  protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3' | 'aerodrome-cl' | 'giga-v3' | 'ramses-v3';
+  protocol: 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3' | 'aerodrome-cl' | 'giga-v3' | 'ramses-v3' | 'up-v3';
   /** Position id (V3 = NFT tokenId; V4 = position tokenId). */
   id: bigint;
   chainId?: number;
@@ -48,9 +48,12 @@ export interface LiquidityPosition {
   positionManager?: `0x${string}`;
   /** Aerodrome: the NFT is deposited in a gauge and earns AERO instead of
    * swap fees. Unstake (gauge.withdraw) before any NPM action. */
-  staked?: { gauge: `0x${string}`; earned: bigint; rewardToken: `0x${string}`; rewardSymbol: string };
-  /** Aerodrome: wallet-held position whose pool has a gauge it could be staked in. */
-  stakeable?: { gauge: `0x${string}` };
+  /** The NFT is deposited in a staking contract and earns emissions instead
+   * of swap fees. `gauge` is that contract: a ve(3,3) CL gauge (Aerodrome,
+   * UP) or a MasterChef V3 style farm (Giga). Unstake before any NPM action. */
+  staked?: { kind?: 'gauge' | 'masterchef'; gauge: `0x${string}`; earned: bigint; rewardToken: `0x${string}`; rewardSymbol: string };
+  /** Wallet-held position whose pool has a staking contract it could go into. */
+  stakeable?: { kind?: 'gauge' | 'masterchef'; gauge: `0x${string}`; rewardSymbol?: string };
 }
 
 /** Minimal token metadata used when rendering a position. */
