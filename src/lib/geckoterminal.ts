@@ -262,7 +262,7 @@ async function fetchDexTopPoolsNow(network: string, dexId: string, page = 1): Pr
     res = await fetch(`${BASE}/networks/${network}/dexes/${dexId}/pools?page=${page}&sort=h24_volume_usd_desc`, { signal: AbortSignal.timeout(12000) });
     if (res.status !== 429) break;
     const retryAfter = Number(res.headers.get('retry-after'));
-    await new Promise(r => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 15_000));
+    await new Promise(r => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 20) * 1000 : 8_000));
   }
   if (!res || !res.ok) return [];
   const json = await res.json() as {

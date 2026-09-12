@@ -12,7 +12,7 @@ import { TokenIcon } from './TokenIcon';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { useTokenStore } from '../lib/TokenStore';
+import { useTokenStore, useTokenLogos } from '../lib/TokenStore';
 import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import {
@@ -25,6 +25,7 @@ import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/p
 import { fetchAerodromeStakedByIds, withGauges, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { Icon } from './Icon';
+import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
 import { RebalanceSheet } from './RebalanceSheet';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
@@ -38,39 +39,6 @@ import {
 import { getCachedLpPositions, setCachedLpPositions, useKrystalLp } from '../lib/appData';
 import { ChainLogo } from './ChainLogo';
 
-const fmtPrice = (v: number) => !Number.isFinite(v) || v === 0 || v >= 1e12 ? '∞'
-  : v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : v.toPrecision(5);
-
-/** Price range, current price, and a position-of-price bar for one position. */
-function RangeDetails({ p, compact }: { p: LiquidityPosition; compact?: boolean }) {
-  const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
-  const pLow = tickToPrice(p.tickLower, p.decimals0, p.decimals1);
-  const pHigh = tickToPrice(p.tickUpper, p.decimals0, p.decimals1);
-  const pNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
-  return (
-    <div style={{ minWidth: compact ? undefined : 150 }}>
-      <div style={{ color: btb.textMuted, fontSize: compact ? 11.5 : 11, whiteSpace: 'nowrap' }}>
-        {fullRange ? 'Full range' : <>{fmtPrice(pLow)} to {fmtPrice(pHigh)}</>}
-        <span style={{ color: btb.textDim }}> {p.symbol1} per {p.symbol0}</span>
-      </div>
-      <div style={{ color: btb.textDim, fontSize: compact ? 11 : 10.5, marginTop: 2, whiteSpace: 'nowrap' }}>
-        now {fmtPrice(pNow)} {p.symbol1}
-      </div>
-      {!fullRange && p.tickUpper > p.tickLower && (
-        <div style={{ position: 'relative', height: 5, borderRadius: 999, background: 'rgba(255,255,255,0.09)', marginTop: 6 }}>
-          <div style={{
-            position: 'absolute', top: 0, bottom: 0, left: '15%', right: '15%', borderRadius: 999,
-            background: p.inRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,179,107,0.35)',
-          }}/>
-          <div style={{
-            position: 'absolute', top: -2.5, width: 2, height: 10, borderRadius: 2, background: '#fff',
-            left: `${Math.max(2, Math.min(98, 15 + 70 * (p.currentTick - p.tickLower) / (p.tickUpper - p.tickLower)))}%`,
-          }}/>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
 const v3DeploymentOf = deploymentOfPosition;
@@ -175,7 +143,16 @@ function fmtSignedPercent(value: number): string {
  * the Earn and Portfolio screens. Renders nothing when there are no positions
  * (unless `showEmpty`).
  */
-export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {}) {
+/** Live totals the Portfolio hero folds into net worth. */
+export interface LpSummary {
+  valueUsd: number;
+  feesUsd: number;
+  count: number;
+  inRange: number;
+  loading: boolean;
+}
+
+export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: boolean; onSummary?: (s: LpSummary) => void } = {}) {
   const { isMobile } = useSidebar();
   const { address: connectedAddress } = useConnection();
   const config = useConfig();
@@ -193,6 +170,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   // TokenStore prices cover tokens DeFiLlama doesn't index (BTB, small caps) —
   // read through a ref so balance refreshes don't retrigger the price effect.
   const { tokens: storeTokens, walletAddress } = useTokenStore();
+  const logoFor = useTokenLogos();
   const address = walletAddress ?? connectedAddress;
   // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
   const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
@@ -380,6 +358,50 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     finally { setBusyId(null); }
   }
 
+  const valueOf = (p: LiquidityPosition) => {
+    const p0 = usd[p.token0.toLowerCase()] ?? 0;
+    const p1 = usd[p.token1.toLowerCase()] ?? 0;
+    return parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
+  };
+  const feesValueOf = (p: LiquidityPosition) => {
+    const p0 = usd[p.token0.toLowerCase()] ?? 0;
+    const p1 = usd[p.token1.toLowerCase()] ?? 0;
+    return parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
+  };
+  const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
+  const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
+  const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
+  const feePositions = positions.filter((p) => (p.fees0 > 0n || p.fees1 > 0n) && !p.staked);
+  const collectingAll = busyId === 'collect-all';
+
+  /** One confirmation per chain: every position's collect goes out as a
+   * single EIP-5792 bundle (sequential fallback lives in runCalls). */
+  async function collectAll() {
+    if (!connectedAddress || !canTransact || feePositions.length === 0) return;
+    setBusyId('collect-all');
+    try {
+      const byChain = new Map<number, LiquidityPosition[]>();
+      for (const p of feePositions) byChain.set(p.chainId ?? 1, [...(byChain.get(p.chainId ?? 1) ?? []), p]);
+      for (const [chainId, list] of byChain) {
+        await runCalls(config, {
+          account: connectedAddress as `0x${string}`,
+          calls: list.flatMap((pos) => pos.protocol === 'uniswap-v4'
+            ? buildV4Collect(pos, connectedAddress as `0x${string}`, v4DeploymentOf(pos))
+            : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos))),
+          label: `Collect fees from ${list.length} position${list.length === 1 ? '' : 's'}`,
+          track, chainId,
+        });
+      }
+      await load();
+    } catch { /* surfaced via the global tx pill */ }
+    finally { setBusyId(null); }
+  }
+
+  useEffect(() => {
+    onSummary?.({ valueUsd: totalValueUsd, feesUsd: pendingFeesUsd, count: positions.length, inRange: inRangeCount, loading: loading || krystalLoading });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalValueUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading]);
+
   if (!address) {
     return showEmpty ? (
       <Glass padding={16} radius={18}>
@@ -394,19 +416,6 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     if (!showEmpty) return null;
   }
 
-  const valueOf = (p: LiquidityPosition) => {
-    const p0 = usd[p.token0.toLowerCase()] ?? 0;
-    const p1 = usd[p.token1.toLowerCase()] ?? 0;
-    return parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
-  };
-  const feesValueOf = (p: LiquidityPosition) => {
-    const p0 = usd[p.token0.toLowerCase()] ?? 0;
-    const p1 = usd[p.token1.toLowerCase()] ?? 0;
-    return parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
-  };
-  const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
-  const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
-  const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
   const analyticsOf = (p: LiquidityPosition) => krystal?.positions?.find((item) => krystalMatches(p, item));
   const krystalStats = krystal?.statsByChain?.all ?? krystal?.statsByChain?.['1'];
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
@@ -417,7 +426,8 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0,
   );
 
-  /** Desktop position card: labeled stats on top, labeled actions below. */
+  /** One position card, same layout on desktop and phone: header, three
+   * stat boxes, range bar, history list, equal-width actions. */
   const renderPositionCard = (p: LiquidityPosition) => {
     const hasFees = p.fees0 > 0n || p.fees1 > 0n;
     const hasLiquidity = p.liquidity > 0n;
@@ -427,87 +437,110 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
     const v = valueOf(p);
     const f = feesValueOf(p);
     const a = analyticsOf(p);
-    const statLabel = { color: btb.textDim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 0.5, marginBottom: 4 };
+    const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+    const krystalLogo = (symbol: string) => a?.currentAmounts?.find((amt) => amt.token?.symbol?.toUpperCase() === symbol.toUpperCase())?.token?.logo;
+    const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0);
+    const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? krystalLogo(p.symbol1);
+    const box = lpBox(isMobile);
+    const boxLabel = lpBoxLabel;
+    const boxValue = lpBoxValue(isMobile);
+    const line = (label: string, value: string, color: string = btb.text, bold = false) => (
+      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
+        <span style={{ color: bold ? btb.text : btb.textMuted, fontWeight: bold ? 800 : 500 }}>{label}</span>
+        <span style={{ color, fontWeight: bold ? 800 : 600 }}>{value}</span>
+      </div>
+    );
     return (
-      <Glass key={posKey(p)} padding={16} radius={18}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+      <Glass key={posKey(p)} padding={isMobile ? 14 : 18} radius={20}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <div style={{ display: 'flex', flexShrink: 0 }}>
-            <TokenIcon symbol={p.symbol0} size={30} />
-            <div style={{ marginLeft: -9 }}><TokenIcon symbol={p.symbol1} size={30} /></div>
+            <TokenIcon symbol={p.symbol0} size={32} logoUrl={logo0} />
+            <div style={{ marginLeft: -10 }}><TokenIcon symbol={p.symbol1} size={32} logoUrl={logo1} /></div>
           </div>
-          <div>
-            <div style={{ color: btb.text, fontWeight: 800, fontSize: 15.5 }}>{p.symbol0} / {p.symbol1}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ color: btb.text, fontWeight: 800, fontSize: 16 }}>{p.symbol0}/{p.symbol1}</span>
+              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 11, padding: '2px 7px' }}>{fmtFeeTier(p.fee)}</Badge>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+              <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
+              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
+                {p.inRange ? 'In range' : 'Out of range'}
+              </Badge>
               <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
-              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
               <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
-              <Badge size="sm" color={btb.textDim} bg="transparent" border="none" style={{ fontSize: 10, padding: '1px 2px' }}>#{p.id.toString()}</Badge>
             </div>
           </div>
-          <div style={{ flex: 1 }}/>
-          <div style={{ textAlign: 'right' }}>
-            {v > 0 && <div style={{ color: btb.text, fontSize: 19, fontWeight: 800 }}>${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
-            <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ marginTop: v > 0 ? 3 : 0, whiteSpace: 'nowrap' }}>
-              {p.inRange ? 'In range, earning' : 'Out of range, not earning'}
-            </Badge>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
             {p.staked && (
-              <div style={{ marginTop: 4 }}>
-                <Badge size="sm" border="none" bg="rgba(42,107,255,0.16)" color="#7FA6FF" style={{ whiteSpace: 'nowrap' }}>
-                  Staked · {fmtAmt(p.staked.earned, 18)} {p.staked.rewardSymbol} claimable
-                </Badge>
+              <div style={{ marginTop: v > 0 ? 4 : 0 }}>
+                <Badge size="sm" border="none" bg="rgba(255,179,107,0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
               </div>
             )}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginTop: 14 }}>
-          <div>
-            <div style={statLabel}>Position</div>
-            <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, lineHeight: 1.5 }}>
-              {fmtAmt(p.amount0, p.decimals0)} {p.symbol0}<br/>{fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 14 }}>
+          <div style={box}>
+            <div style={boxLabel}><TokenIcon symbol={p.symbol0} size={16} logoUrl={logo0}/>{p.symbol0}</div>
+            <div style={boxValue}>{fmtAmt(p.amount0, p.decimals0)}</div>
+          </div>
+          <div style={box}>
+            <div style={boxLabel}><TokenIcon symbol={p.symbol1} size={16} logoUrl={logo1}/>{p.symbol1}</div>
+            <div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div>
+          </div>
+          {p.staked ? (
+            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(255,179,107,0.07)', border: '1px solid rgba(255,179,107,0.22)' }}>
+              <div style={boxLabel}>Rewards</div>
+              <div style={{ ...boxValue, color: btb.amber }}>{fmtAmt(p.staked.earned, 18)}</div>
+              <div style={{ color: 'rgba(255,179,107,0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
             </div>
-          </div>
-          <div>
-            <div style={statLabel}>Unclaimed fees</div>
-            {hasFees ? (
-              <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 700, lineHeight: 1.5 }}>
-                {f > 0 && <div>${f.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
-                {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
-              </div>
-            ) : <div style={{ color: btb.textDim, fontSize: 12.5 }}>Nothing to claim yet</div>}
-          </div>
-          <div>
-            <div style={statLabel}>Range</div>
-            <RangeDetails p={p} compact/>
-          </div>
-          <div>
-            <div style={statLabel}>Performance</div>
-            {a ? (
-              <div style={{ lineHeight: 1.5 }}>
-                <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800 }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
-                <div style={{ color: btb.textMuted, fontSize: 11 }}>lifetime fees ${(sumKrystalUsd(a.feePending) + sumKrystalUsd(a.feesClaimed)).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                {a.feeApr > 0 && <div style={{ color: btb.textDim, fontSize: 10.5 }}>fee APR {a.feeApr.toFixed(1)}%</div>}
-              </div>
-            ) : <div style={{ color: btb.textDim, fontSize: 12.5 }}>No history yet</div>}
-          </div>
+          ) : (
+            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(82,227,164,0.07)' : box.background, border: hasFees ? '1px solid rgba(82,227,164,0.22)' : box.border }}>
+              <div style={boxLabel}>Unclaimed fees</div>
+              <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
+              {hasFees && (
+                <div style={{ color: 'rgba(82,227,164,0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)', flexWrap: 'wrap' }}>
+        <div style={{ ...box, marginTop: 8 }}>
+          <RangeBar p={p}/>
+        </div>
+
+        {a && (
+          <div style={{ ...box, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {line('Invested', money(a.totalDepositValue))}
+            {line('Current value', money(v > 0 ? v : a.totalDepositValue + a.pnl))}
+            {a.totalWithdrawValue > 0 && line('Withdrawn', money(a.totalWithdrawValue))}
+            {a.feeApr > 0 && line('Fee APR', `${a.feeApr.toFixed(1)}%`, btb.textMuted)}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 2, paddingTop: 8 }}>
+              {line('P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss, true)}
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 'auto-fit'}, minmax(${isMobile ? 0 : 130}px, 1fr))`, gap: 8, marginTop: 12 }}>
           {p.staked ? (
             <>
-              <CardActBtn icon="gift" label={busy ? 'Working…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={p.staked.earned === 0n || busy || !canTransact} green={p.staked.earned > 0n}/>
-              <CardActBtn icon="down" label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
+              <LpButton full tone="green" label={busy ? 'Working…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={p.staked.earned === 0n || busy || !canTransact}/>
+              <LpButton full tone="amber" label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
             </>
           ) : (
             <>
-              <CardActBtn icon="plus" label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-              {hasLiquidity && <CardActBtn icon="down" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
-              <CardActBtn icon="gift" label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact} green={hasFees}/>
-              {p.stakeable && hasLiquidity && <CardActBtn icon="bolt" label="Stake for AERO" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
+              <LpButton full tone="green" solid={hasFees} label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact}/>
+              <LpButton full label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
+              {p.stakeable && hasLiquidity && <LpButton full label="Stake for AERO" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
             </>
           )}
-          {canAutomate && <CardActBtn icon="bolt" label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
-          {canRebalance && <CardActBtn icon="refresh" label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact} amber={!p.inRange}/>}
+          {canAutomate && <LpButton full label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
+          {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
+          {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
         </div>
       </Glass>
     );
@@ -588,7 +621,27 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {positions.length > 0 && (
+      {feePositions.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+          padding: isMobile ? '12px 14px' : '14px 18px', borderRadius: 16,
+          background: 'linear-gradient(90deg, rgba(82,227,164,0.12), rgba(26,173,119,0.08))',
+          border: '1px solid rgba(82,227,164,0.24)',
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: btb.green, fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: -0.3 }}>
+              ${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} in fees to collect
+            </div>
+            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
+              from {feePositions.length} position{feePositions.length === 1 ? '' : 's'}{feePositions.length > 1 ? ', one confirmation per chain' : ''}
+            </div>
+          </div>
+          <LpButton tone="green" solid icon="gift" label={collectingAll ? 'Collecting…' : feePositions.length === 1 ? 'Collect fees' : 'Collect all'} onClick={collectAll} disabled={collectingAll || !!busyId || !canTransact} />
+        </div>
+      )}
+
+      {/* Portfolio shows these same totals in its own stat tiles. */}
+      {positions.length > 0 && !onSummary && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? 6 : 10 }}>
           {([
             { label: 'Total value', value: `$${totalValueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, color: btb.text },
@@ -665,92 +718,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
           {!loading && !krystalLoading && positions.length === 0 && otherChainPositions.length === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
           )}
-          {positions.map(p => {
-            const hasFees = p.fees0 > 0n || p.fees1 > 0n;
-            const hasLiquidity = p.liquidity > 0n;
-            const canRebalance = hasLiquidity && canActOn(p);
-            const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
-            const busy = busyId === posKey(p);
-            const value = valueOf(p);
-            const analytics = analyticsOf(p);
-            return (
-              <Glass key={posKey(p)} padding={14} radius={18}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ display: 'flex', flexShrink: 0 }}>
-                    <TokenIcon symbol={p.symbol0} size={26} />
-                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={26} /></div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: btb.text, fontWeight: 700, fontSize: 14 }}>{p.symbol0} / {p.symbol1}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
-                      <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{fmtFeeTier(p.fee)}</Badge>
-                      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    {value > 0 && (
-                      <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>
-                        ${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}
-                      </div>
-                    )}
-                    <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ marginTop: value > 0 ? 3 : 0, whiteSpace: 'nowrap' }}>
-                      {p.inRange ? 'In range' : 'Out of range'}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 10 }}>
-                  {fmtAmt(p.amount0, p.decimals0)} {p.symbol0} + {fmtAmt(p.amount1, p.decimals1)} {p.symbol1}
-                </div>
-                {hasFees && (
-                  <div style={{ color: btb.green, fontSize: 12, marginTop: 3 }}>
-                    Fees: {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
-                  </div>
-                )}
-                <div style={{ marginTop: 9 }}>
-                  <RangeDetails p={p} compact/>
-                </div>
-                {analytics && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 9 }}>
-                    <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
-                      <div style={{ color: btb.textDim, fontSize: 9.5 }}>HISTORICAL PNL</div>
-                      <div style={{ color: analytics.pnl >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>{fmtSignedMoney(analytics.pnl)} · {fmtSignedPercent(analytics.returnOnInvestment)}</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
-                      <div style={{ color: btb.textDim, fontSize: 9.5 }}>LIFETIME FEES</div>
-                      <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>${(sumKrystalUsd(analytics.feePending) + sumKrystalUsd(analytics.feesClaimed)).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
-                  {p.staked ? (
-                    <>
-                      {p.staked.earned > 0n && <MobileActBtn label={busy ? '…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={busy || !canTransact} green/>}
-                      <MobileActBtn label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
-                    </>
-                  ) : (
-                    <>
-                      <MobileActBtn label="Add" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-                      {hasLiquidity && <MobileActBtn label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
-                      {hasFees && <MobileActBtn label={busy ? '…' : 'Collect'} onClick={() => collect(p)} disabled={busy || !canTransact} green/>}
-                      {p.stakeable && hasLiquidity && <MobileActBtn label="Stake" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
-                    </>
-                  )}
-                  {canAutomate && <MobileActBtn label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
-                  {canRebalance && (
-                    <MobileActBtn
-                      label="Rebalance"
-                      onClick={() => setRebalance(p)}
-                      disabled={busy || !canTransact}
-                      amber={!p.inRange}
-                    />
-                  )}
-                </div>
-              </Glass>
-            );
-          })}
+          {[...positions].sort((a, b) => valueOf(b) - valueOf(a)).map(renderPositionCard)}
           {otherChainPositions.map((item) => {
             const symbols = krystalSymbols(item);
             const symbol0 = symbols[0] ?? 'LP';
@@ -796,7 +764,7 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
                     <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>${lifetimeFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', marginTop: 12 }}><MobileActBtn label="Read only" onClick={() => {}} disabled /></div>
+                <div style={{ display: 'flex', marginTop: 12 }}><LpButton full label="Read only" onClick={() => {}} disabled /></div>
               </Glass>
             );
           })}
@@ -861,54 +829,6 @@ export function LpPositions({ showEmpty = false }: { showEmpty?: boolean } = {})
         />
       )}
     </div>
-  );
-}
-
-/** Full-width-sharing action button for the mobile card layout — bigger tap
- * target than the table's compact ActBtn. */
-function MobileActBtn({ label, onClick, disabled, green, amber }: {
-  label: string; onClick: () => void; disabled?: boolean; green?: boolean; amber?: boolean;
-}) {
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      flex: 1, minWidth: 90, height: 38, borderRadius: 12, border: 'none', fontFamily: 'inherit',
-      fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap',
-      cursor: disabled ? 'default' : 'pointer',
-      background: disabled ? 'rgba(255,255,255,0.06)'
-        : green ? btb.gradGreen
-        : amber ? 'rgba(255,179,107,0.16)'
-        : 'rgba(255,255,255,0.1)',
-      color: disabled ? btb.textDim : amber ? btb.amber : '#fff',
-    }}>{label}</button>
-  );
-}
-
-/** Labeled card action: icon plus text, no guessing what a button does. */
-function CardActBtn({ icon, label, onClick, disabled, green, amber }: {
-  icon: string; label: string; onClick: () => void; disabled?: boolean; green?: boolean; amber?: boolean;
-}) {
-  const tint = disabled ? btb.textDim : green ? btb.green : amber ? btb.amber : btb.text;
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        height: 36, padding: '0 14px', borderRadius: 10, fontFamily: 'inherit', whiteSpace: 'nowrap',
-        display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
-        cursor: disabled ? 'default' : 'pointer', color: tint,
-        background: disabled ? 'rgba(255,255,255,0.05)'
-          : green ? 'rgba(82,227,164,0.12)'
-          : amber ? 'rgba(255,179,107,0.14)'
-          : 'rgba(255,255,255,0.07)',
-        border: disabled ? btb.borderSoft
-          : green ? '1px solid rgba(82,227,164,0.35)'
-          : amber ? '1px solid rgba(255,179,107,0.4)'
-          : '1px solid rgba(255,255,255,0.13)',
-      }}
-    >
-      <Icon name={icon} size={14} color={tint}/>
-      {label}
-    </button>
   );
 }
 

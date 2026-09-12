@@ -100,7 +100,7 @@ function parseFeeTierPct(poolMeta?: string): number | undefined {
  */
 /** Chains Discover does not list, whatever DeFiLlama has for them: too little
  * real LP activity for the app's audience. */
-const EXCLUDED_CHAINS = new Set(['Hemi', 'Gnosis', 'xDai', 'Fraxtal', 'Flare', 'Celo', 'Sonic']);
+const EXCLUDED_CHAINS = new Set(['Hemi', 'Gnosis', 'xDai', 'Fraxtal', 'Flare', 'Celo', 'Sonic', 'Bob', 'BOB', 'Ink']);
 
 export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: string[]): Promise<LlamaPool[]> {
   const res = await fetch('https://yields.llama.fi/pools');

@@ -19,7 +19,7 @@ import { internal } from "./_generated/api";
 import { createPublicClient, fallback, http } from "viem";
 import { mainnet } from "viem/chains";
 import { getChainClient } from "../src/lib/chainClient";
-import { getEarnPools, addRangeAprs, ingestChainExtras, fetchDexLogos, applyLogos, DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
+import { getEarnPools, addRangeAprs, ingestChainExtras, fetchDexLogos, applyLogos, isConcentratedPool, DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
 import { v } from "convex/values";
 import { fetchPoolPriceChanges } from "../src/lib/geckoterminal";
 
@@ -74,45 +74,59 @@ export const refresh = internalAction({
       priceChange = await fetchPoolPriceChanges(addressable.map((p) => p.id)).catch(() => ({}));
     }
 
+    // Keep the DEX coverage rows from the previous cycle rather than wiping
+    // them: the coverage steps below take up to a quarter of an hour, and
+    // without this the extra DEXes vanished from Discover for that long every
+    // half hour. The steps then replace each chain's rows with fresh numbers.
+    const previous = await ctx.runQuery(internal.discover.getInternal, {});
+    const baseKeys = new Set(withRange.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
+    let carried: EarnPool[] = [];
+    if (previous) {
+      try {
+        const prev = JSON.parse(previous.json) as { pools?: EarnPool[] };
+        carried = (prev.pools ?? []).filter((p) => isConcentratedPool(p) && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
+      } catch { /* unreadable previous snapshot: start clean */ }
+    }
     await ctx.runMutation(internal.discover.save, {
-      json: JSON.stringify({ version: 2, pools: withRange, priceChange }),
+      json: JSON.stringify({ version: 2, pools: [...withRange, ...carried], priceChange }),
     });
 
-    // DEX coverage runs as a chain of follow-up actions, one chain each, so
-    // the paced GeckoTerminal walk never pushes a single action past its
-    // time limit. Each step merges into the snapshot just saved.
-    await ctx.scheduler.runAfter(0, internal.discoverRefresh.coverDexes, { index: 0 });
+    // DEX coverage runs as independent follow-up actions, one chain each,
+    // staggered so their paced GeckoTerminal walks do not overlap. Scheduled
+    // up front rather than chained, so one chain failing or timing out never
+    // stops the others. Each step merges into whatever snapshot is current.
+    for (let index = 0; index < DISCOVERY_CHAINS.length; index++) {
+      await ctx.scheduler.runAfter(index * 4 * 60_000, internal.discoverRefresh.coverDexes, { index });
+    }
   },
 });
 
 /** Pull the top pools of every concentrated liquidity DEX the base snapshot
- * missed on one discovery chain, merge them in, then schedule the next chain. */
+ * missed on one discovery chain and merge them in. */
 export const coverDexes = internalAction({
   args: { index: v.number() },
   handler: async (ctx, { index }) => {
     const target = DISCOVERY_CHAINS[index];
-    if (!target) return;
-    const next = () => ctx.scheduler.runAfter(5_000, internal.discoverRefresh.coverDexes, { index: index + 1 });
-    if (target.chainId == null) { await next(); return; }
+    if (!target || target.chainId == null) return;
     const row = await ctx.runQuery(internal.discover.getInternal, {});
-    if (!row) { await next(); return; }
+    if (!row) return;
     const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
     const chainName = target.chain;
     const existing = snap.pools.filter((p) => p.chain === chainName);
     const client = getChainClient(target.chainId);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const extras = await ingestChainExtras(client as any, target.chainId, chainName, 50_000, existing).catch(() => [] as EarnPool[]);
+    const extras = (await ingestChainExtras(client as any, target.chainId, chainName, 50_000, existing).catch(() => [] as EarnPool[])).filter(isConcentratedPool);
     if (extras.length > 0) {
       applyLogos(extras, await fetchDexLogos().catch(() => new Map<string, string>()));
       // Re-read before writing: the base refresh may have run meanwhile.
       const latest = await ctx.runQuery(internal.discover.getInternal, {});
       const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
-      const have = new Set(current.pools.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
-      const merged = [...current.pools, ...extras.filter((p) => !have.has(`${p.chain}:${p.id.toLowerCase()}`))];
+      // Fresh rows win over what the snapshot already had for the same pool.
+      const fresh = new Set(extras.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
+      const merged = [...current.pools.filter((p) => !fresh.has(`${p.chain}:${p.id.toLowerCase()}`)), ...extras];
       await ctx.runMutation(internal.discover.save, {
         json: JSON.stringify({ ...current, pools: merged }),
       });
     }
-    await next();
   },
 });

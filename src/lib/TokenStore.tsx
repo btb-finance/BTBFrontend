@@ -53,6 +53,29 @@ const Ctx = createContext<TokenStoreState>({
 
 export function useTokenStore() { return useContext(Ctx); }
 
+/**
+ * Logo lookup for tokens the app already knows: wallet holdings on every
+ * chain first, then the Convex mainnet list. Wrapped native tokens fall back
+ * to the chain's native logo so WETH on Base still gets a picture.
+ */
+export function useTokenLogos() {
+  const { positions, tokens } = useTokenStore();
+  return useMemo(() => {
+    const byKey = new Map<string, string>();
+    const bySymbol = new Map<string, string>();
+    const add = (t: Token, chainId: number) => {
+      if (!t.logoURI) return;
+      byKey.set(`${chainId}:${t.address.toLowerCase()}`, t.logoURI);
+      if (!bySymbol.has(t.symbol.toUpperCase())) bySymbol.set(t.symbol.toUpperCase(), t.logoURI);
+    };
+    for (const t of tokens) add(t, 1);
+    for (const t of positions) add(t, t.chainId ?? 1);
+    return (address: string, chainId: number, symbol?: string): string | undefined =>
+      byKey.get(`${chainId}:${address.toLowerCase()}`)
+      ?? (symbol ? bySymbol.get(symbol.toUpperCase()) ?? bySymbol.get(symbol.toUpperCase().replace(/^W/, '')) : undefined);
+  }, [positions, tokens]);
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 const NATIVE = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';

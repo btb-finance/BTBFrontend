@@ -142,20 +142,23 @@ export interface DexPaprikaDex {
   dexId: string;
   dexName: string;
   protocol: string;
+  /** 24h volume across the venue, when the provider reports it. */
+  volume24hUsd?: number;
 }
 
 export async function fetchNetworkDexes(network: string): Promise<DexPaprikaDex[]> {
   try {
-    const res = await fetch(proxied(`networks/${network}/dexes`, {}));
+    const res = await fetch(proxied(`networks/${network}/dexes`, { limit: 100 }));
     if (!res.ok) return [];
     const body = await res.json();
     const rows = body?.dexes ?? body?.results ?? (Array.isArray(body) ? body : []);
-    return (rows as { dex_id?: string; dex_name?: string; protocol?: string }[])
+    return (rows as { dex_id?: string; dex_name?: string; protocol?: string; volume_usd_24h?: number }[])
       .filter(d => !!d.dex_id)
       .map(d => ({
         dexId: d.dex_id as string,
         dexName: d.dex_name ?? (d.dex_id as string),
         protocol: d.protocol ?? (d.dex_id as string),
+        volume24hUsd: typeof d.volume_usd_24h === 'number' ? d.volume_usd_24h : undefined,
       }));
   } catch { return []; }
 }

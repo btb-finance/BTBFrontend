@@ -6,10 +6,14 @@ import { formatUnits } from 'viem';
 import { Badge } from './Badge';
 import { Icon } from './Icon';
 import { btb } from './design-tokens';
-import { useTokenStore } from '../lib/TokenStore';
+import { useTokenStore, useTokenLogos } from '../lib/TokenStore';
 import { ChainLogo } from './ChainLogo';
+import { TokenIcon } from './TokenIcon';
+import { Glass } from './Glass';
+import { useSidebar } from '../lib/SidebarContext';
+import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
 import {
-  BTB_CHAIN_ID, fetchStudioLp, positionAmounts, sqrtPriceToPrice, tickToPrice,
+  BTB_CHAIN_ID, fetchStudioLp, positionAmounts,
   type StudioLpSnapshot,
 } from '../lib/btbStudio';
 
@@ -21,6 +25,8 @@ import {
 export function StudioPositions() {
   const { address: connected } = useConnection();
   const { walletAddress } = useTokenStore();
+  const { isMobile } = useSidebar();
+  const logoFor = useTokenLogos();
   const owner = (walletAddress ?? connected) as `0x${string}` | undefined;
   const config = useConfig();
   const [snap, setSnap] = useState<StudioLpSnapshot | null>(null);
@@ -43,13 +49,13 @@ export function StudioPositions() {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const fmtP = (v: number) => v >= 1e9 || v === 0 ? v.toExponential(2)
-    : v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : v.toPrecision(5);
-  const fmtA = (v: number) => v === 0 ? '0' : v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : v.toPrecision(5);
-  const fmtB = (v: bigint, dec: number) => {
-    const n = parseFloat(formatUnits(v, dec));
-    return fmtA(n);
-  };
+  const fmtA = (v: number) => v === 0 ? '0' : v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 2 })
+    : v >= 0.01 ? v.toLocaleString('en-US', { maximumFractionDigits: 4 }) : v.toLocaleString('en-US', { maximumSignificantDigits: 3, maximumFractionDigits: 10 });
+  const fmtB = (v: bigint, dec: number) => fmtA(parseFloat(formatUnits(v, dec)));
+  const box = lpBox(isMobile);
+  const boxValue = lpBoxValue(isMobile);
+  const logo0 = logoFor(snap.strategy.token0, BTB_CHAIN_ID, snap.sym0);
+  const logo1 = logoFor(snap.strategy.token1, BTB_CHAIN_ID, snap.sym1);
 
   return (
     <div style={{ marginBottom: 14 }}>
@@ -74,67 +80,57 @@ export function StudioPositions() {
           const [rawA0, rawA1] = positionAmounts(p.liquidity, snap.sqrtPriceX96, p.tickLower, p.tickUpper);
           const amt0 = rawA0 / 10 ** snap.dec0;
           const amt1 = rawA1 / 10 ** snap.dec1;
-          const pLow = tickToPrice(p.tickLower, snap.dec0, snap.dec1);
-          const pHigh = tickToPrice(p.tickUpper, snap.dec0, snap.dec1);
-          const pNow = sqrtPriceToPrice(snap.sqrtPriceX96, snap.dec0, snap.dec1);
-          const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
           const hasFees = p.fees0 > 0n || p.fees1 > 0n;
+          const open = p.liquidity > 0n;
           return (
-            <div key={p.id.toString()} style={{
-              background: btb.surfaceSoft, border: btb.borderSoft, borderRadius: 14, padding: '12px 14px',
-              display: 'flex', flexDirection: 'column', gap: 10,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>
-                  {snap.sym0} / {snap.sym1} #{p.id.toString()}
-                </span>
-                <Badge size="sm" color={btb.textDim}>{snap.strategy.fee / 10000}%</Badge>
-                {p.liquidity > 0n ? (inRange
-                  ? <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.12)" border="1px solid rgba(82,227,164,0.35)">In range, earning</Badge>
-                  : <Badge size="sm" color="#FFB36B" bg="rgba(255,179,107,0.12)" border="1px solid rgba(255,179,107,0.35)">Out of range</Badge>
-                ) : <Badge size="sm" color={btb.textDim}>Closed</Badge>}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                <div>
-                  <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>In position</div>
-                  <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, marginTop: 3 }}>
-                    {fmtA(amt0)} {snap.sym0}<br/>{fmtA(amt1)} {snap.sym1}
-                  </div>
+            <Glass key={p.id.toString()} padding={isMobile ? 14 : 18} radius={20}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ display: 'flex', flexShrink: 0 }}>
+                  <TokenIcon symbol={snap.sym0} size={32} logoUrl={logo0} />
+                  <div style={{ marginLeft: -10 }}><TokenIcon symbol={snap.sym1} size={32} logoUrl={logo1} /></div>
                 </div>
-                <div>
-                  <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Unclaimed fees</div>
-                  <div style={{ color: hasFees ? btb.green : btb.textMuted, fontSize: 12.5, fontWeight: 700, marginTop: 3 }}>
-                    {fmtB(p.fees0, snap.dec0)} {snap.sym0}<br/>{fmtB(p.fees1, snap.dec1)} {snap.sym1}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ color: btb.text, fontWeight: 800, fontSize: 16 }}>{snap.sym0}/{snap.sym1}</span>
+                    <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 11, padding: '2px 7px' }}>{snap.strategy.fee / 10000}%</Badge>
                   </div>
-                </div>
-                <div>
-                  <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Range, {snap.sym1} per {snap.sym0}</div>
-                  <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, marginTop: 3 }}>
-                    {fullRange ? 'Full range' : <>{fmtP(pLow)} to {fmtP(pHigh)}</>}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4 }}>Current price</div>
-                  <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, marginTop: 3 }}>
-                    {fmtP(pNow)} {snap.sym1}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+                    <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
+                    {open ? (
+                      <Badge size="sm" border="none" bg={inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
+                    ) : <Badge size="sm" border="none" bg={btb.surfaceSoft} color={btb.textDim}>Closed</Badge>}
+                    <ChainLogo chainId={4663} size={15}/>
+                    <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.12)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Smart account</Badge>
                   </div>
                 </div>
               </div>
 
-              {p.liquidity > 0n && !fullRange && p.tickUpper > p.tickLower && (
-                <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)' }}>
-                  <div style={{
-                    position: 'absolute', top: 0, bottom: 0, left: '15%', right: '15%',
-                    borderRadius: 999, background: inRange ? 'rgba(82,227,164,0.35)' : 'rgba(255,179,107,0.3)',
-                  }}/>
-                  <div style={{
-                    position: 'absolute', top: -3, width: 2, height: 12, borderRadius: 2, background: '#fff',
-                    left: `${Math.max(2, Math.min(98, 15 + 70 * (snap.currentTick - p.tickLower) / (p.tickUpper - p.tickLower)))}%`,
-                  }}/>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 14 }}>
+                <div style={box}>
+                  <div style={lpBoxLabel}><TokenIcon symbol={snap.sym0} size={16} logoUrl={logo0}/>{snap.sym0}</div>
+                  <div style={boxValue}>{fmtA(amt0)}</div>
+                </div>
+                <div style={box}>
+                  <div style={lpBoxLabel}><TokenIcon symbol={snap.sym1} size={16} logoUrl={logo1}/>{snap.sym1}</div>
+                  <div style={boxValue}>{fmtA(amt1)}</div>
+                </div>
+                <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(82,227,164,0.07)' : box.background, border: hasFees ? '1px solid rgba(82,227,164,0.22)' : box.border }}>
+                  <div style={lpBoxLabel}>Unclaimed fees</div>
+                  <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? `${fmtB(p.fees0, snap.dec0)} ${snap.sym0}` : 'None yet'}</div>
+                  {hasFees && <div style={{ color: 'rgba(82,227,164,0.75)', fontSize: 11.5, marginTop: 2 }}>+ {fmtB(p.fees1, snap.dec1)} {snap.sym1}</div>}
+                </div>
+              </div>
+
+              {open && (
+                <div style={{ ...box, marginTop: 8 }}>
+                  <RangeBar p={{ symbol0: snap.sym0, symbol1: snap.sym1, decimals0: snap.dec0, decimals1: snap.dec1, tickLower: p.tickLower, tickUpper: p.tickUpper, currentTick: snap.currentTick, inRange }}/>
                 </div>
               )}
-            </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8, marginTop: 12 }}>
+                <LpButton full tone="green" icon="bolt" label="Manage in Agent Studio" onClick={goStudio}/>
+              </div>
+            </Glass>
           );
         })}
       </div>

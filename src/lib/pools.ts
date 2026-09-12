@@ -510,6 +510,7 @@ function isPoolAddress(id: string): boolean {
  * page fetched on a refresh. Bounds the cron's run time on chains with a
  * long tail of tiny venues. */
 const MAX_EXTRA_DEXES_PER_CHAIN = 25;
+const EXTRAS_TIME_BUDGET_MS = 5 * 60_000;
 
 export async function ingestChainPools(
   client: PublicClient | null,
@@ -555,9 +556,31 @@ export async function ingestChainExtras(
   // Concentrated liquidity venues only: that is what the app can simulate
   // and mint on, and it keeps the paced call count small.
   const NOT_CL = /(?:^|[_-])v2(?:$|[_-])|launchpad|bankr|virtuals|clanker|mint-club|curve|kickstart|legacy|dlmm|family|abyss|parityswap|robinswap|hoodit/i;
-  const uncovered = registry.filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id)).slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
+  // Which uncovered venues matter most: DexPaprika reports 24h volume per
+  // DEX (matched to GeckoTerminal ids by normalised name), then anything
+  // whose id says it is concentrated, then the rest. The slot cap applies to
+  // that order, so a chain with a long tail of dead venues still covers the
+  // live ones.
+  const paprikaDexes = await fetchNetworkDexes(CHAIN_DATA_NETWORKS[chainId]?.dexPaprika ?? '').catch(() => [] as DexPaprikaDex[]);
+  const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const volumeOf = (geckoId: string) => {
+    const key = squash(geckoId.replace(new RegExp(`-${gecko}$`), ''));
+    const hit = paprikaDexes.find(d => squash(d.dexId) === key || squash(d.dexName) === key);
+    return hit?.volume24hUsd ?? 0;
+  };
+  const CL_HINT = /v3|v4|(?:^|[-_])cl(?:$|[-_])|clmm|slipstream|concentrated|maverick|hydrex|thena|ramses|giga|ekubo/i;
+  const uncovered = registry
+    .filter(dex => !covered.has(geckoBrand(dex.id)) && !NOT_CL.test(dex.id))
+    .map(dex => ({ dex, volume: volumeOf(dex.id), cl: CL_HINT.test(dex.id) ? 1 : 0 }))
+    .sort((a, b) => b.volume - a.volume || b.cl - a.cl)
+    .map(x => x.dex)
+    .slice(0, MAX_EXTRA_DEXES_PER_CHAIN);
   const rows: DexPaprikaPoolRow[] = [];
+  // Stay well inside the action time limit even when the provider makes us
+  // wait on rate limits; whatever was gathered by then is merged.
+  const deadline = Date.now() + EXTRAS_TIME_BUDGET_MS;
   for (const dex of uncovered) {
+    if (Date.now() > deadline) break;
     const pools = await fetchDexTopPools(gecko, dex.id).catch(() => []);
     for (const p of pools) {
       if (seen.has(p.address)) continue;
@@ -714,6 +737,18 @@ async function finishRows(
  * @param client When provided, also runs a DexPaprika discovery pass (see
  * `ingestDexPaprika`) to surface pools DeFiLlama/the subgraphs miss entirely.
  */
+/** A pool with a price range: V3-style ticks, V4, DLMM, Slipstream. V2-style
+ * constant-product pools are full range and out of scope. */
+export function isConcentratedPool(p: EarnPool): boolean {
+  if (p.version === 'V2') return false;
+  if (p.version === 'V3' || p.version === 'V4') return true;
+  if (p.liquidityModel === 'CLMM' || p.liquidityModel === 'DLMM') return true;
+  // DeFiLlama rows carry no version and only tag the ve(3,3) venues as CLMM,
+  // so decide from the project slug for everything else.
+  if (/(?:^|[-_])v2(?:$|[-_])|aerodrome-v1|-amm$|^sushiswap$|^curve|^balancer|^blackhole$|wombat|woofi|fluid-dex|raydium|skate|hx-finance|hyperbrick|spinup|gliquid|nest-amm|kyberswap|quickswap-dex|^project-x$/i.test(p.project)) return false;
+  return /v3|v4|(?:^|[-_])cl(?:$|[-_])|clmm|slipstream|concentrated|bluefin-spot|turbos|orca|hybra|pharaoh|nest-cl/i.test(p.project);
+}
+
 export async function getEarnPools(
   minTvlUsd = 50_000,
   client?: PublicClient | ((chainId?: number) => PublicClient | null),
@@ -780,7 +815,10 @@ export async function getEarnPools(
     for (const { chainId, network, chain } of DISCOVERY_CHAINS) {
       const chainClient = clientFor(chainId);
       if (chainId != null && !chainClient) continue;
-      const discovered = await ingestChainPools(chainClient, chainId, network, chain, minTvlUsd)
+      // Four hundred rows per chain by volume: on Ethereum, Base and BNB that
+      // reaches well past the top venue into Alien Base, Hydrex, Maverick,
+      // Sushi V3 and the other active concentrated DEXes. Cheap: four pages.
+      const discovered = await ingestChainPools(chainClient, chainId, network, chain, minTvlUsd, 400)
         .catch(() => [] as EarnPool[]);
       if (discovered.length === 0) continue;
       // Matching on id alone is not enough: DeFiLlama keys pools by its own
@@ -801,11 +839,17 @@ export async function getEarnPools(
 
   if (pools.length === 0) throw new Error('no pool source available');
 
-  applyLogos(pools, await fetchDexLogos());
+  // Concentrated liquidity only. Full-range AMM pools (Uniswap V2 style,
+  // Aerodrome V2 and the like) have no range to simulate or manage, which is
+  // the whole point of the app, so they never reach Discover.
+  const concentrated = pools.filter(isConcentratedPool);
+  if (concentrated.length === 0) throw new Error('no pool source available');
+
+  applyLogos(concentrated, await fetchDexLogos());
 
   // Rank by what people actually trade. Sorting by TVL is what put pools with
   // nine figures of idle liquidity and zero trades at the top of Discover.
-  return pools.sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0) || b.tvlUsd - a.tvlUsd);
+  return concentrated.sort((a, b) => (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0) || b.tvlUsd - a.tvlUsd);
 }
 
 /** External link for a pool — Uniswap explore page for indexer pools, DeFiLlama otherwise. */

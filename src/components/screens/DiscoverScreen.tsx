@@ -75,6 +75,13 @@ function discoverChainId(name: string, explicitId?: number): number | undefined 
   )?.[0]) || undefined;
 }
 
+/** DEX filter key. Venues that run several generations side by side get one
+ * chip per generation ("Uniswap V3", "Uniswap V4"), since they are different
+ * products with different pools, ranges and fees. */
+function dexKey(p: EarnPool): string {
+  return p.version && /uniswap|pancakeswap|sushiswap|orvex|swaphood/i.test(p.dex) ? `${p.dex} ${p.version}` : p.dex;
+}
+
 function canSimulatePool(pool: EarnPool): boolean {
   const chainId = discoverChainId(pool.chain, pool.chainId);
   const pair = pool.underlyingTokens;
@@ -529,7 +536,7 @@ export function DiscoverScreen() {
     const q = search.trim().toLowerCase();
     return pools.filter(p => {
       if (selectedChain !== 'all' && p.chain !== selectedChain) return false;
-      if (selectedDex !== 'all' && p.dex !== selectedDex) return false;
+      if (selectedDex !== 'all' && dexKey(p) !== selectedDex) return false;
       return !q || p.pair.toLowerCase().includes(q) || p.dex.toLowerCase().includes(q) || p.chain.toLowerCase().includes(q);
     });
   }, [pools, search, selectedChain, selectedDex]);
@@ -557,7 +564,7 @@ export function DiscoverScreen() {
   }, [pools]);
   const dexLogos = useMemo(() => {
     const m = new Map<string, string>();
-    for (const pool of pools) if (pool.dexLogo && !m.has(pool.dex)) m.set(pool.dex, pool.dexLogo);
+    for (const pool of pools) if (pool.dexLogo && !m.has(dexKey(pool))) m.set(dexKey(pool), pool.dexLogo);
     return m;
   }, [pools]);
   const chainLogos = useMemo(() => {
@@ -568,7 +575,7 @@ export function DiscoverScreen() {
   const dexes = useMemo(() => [...new Set(
     pools
       .filter(pool => selectedChain === 'all' || pool.chain === selectedChain)
-      .map(pool => pool.dex)
+      .map(pool => dexKey(pool))
   )].sort(), [pools, selectedChain]);
 
   useEffect(() => {
@@ -614,7 +621,7 @@ export function DiscoverScreen() {
                 <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
                   <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
                     <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
-                    {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
+                    {p.version ?? (p.liquidityModel === 'CLMM' ? 'CL' : '')}
                   </Badge>
                 </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
@@ -722,7 +729,7 @@ export function DiscoverScreen() {
                       <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
                         <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
                           <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
-                          {p.liquidityModel === 'CLMM' ? 'CL' : p.version}
+                          {p.version ?? (p.liquidityModel === 'CLMM' ? 'CL' : '')}
                         </Badge>
                       </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
@@ -794,7 +801,7 @@ export function DiscoverScreen() {
         <DiscoverChainSelect chains={chains} value={selectedChain} onChange={(chainName) => {
           setSelectedChain(chainName);
           setSelectedDex(current => current === 'all' || pools.some(pool =>
-            (chainName === 'all' || pool.chain === chainName) && pool.dex === current
+            (chainName === 'all' || pool.chain === chainName) && dexKey(pool) === current
           ) ? current : 'all');
           const chain = chains.find(item => item.name === chainName);
           if (chain?.chainId) setThemeChainId(chain.chainId);
