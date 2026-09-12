@@ -239,6 +239,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
     : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
     : chainId === 4663 && /^up\b/i.test(selected.dexLabel ?? '') ? 'up'
+    : chainId === 4663 && /sushi/i.test(selected.dexLabel ?? '') ? 'sushiswap'
     : null;
   const deploySupported = !!forkDex || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
   const deployChainId: LpChainId = isLpChain(chainId) ? chainId : 1;

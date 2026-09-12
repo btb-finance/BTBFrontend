@@ -62,6 +62,7 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
   'up-v3': { label: 'UP', color: '#8B5CF6' },
+  'sushiswap-v3': { label: 'SUSHI V3', color: '#FA52A0' },
 };
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -87,6 +88,7 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'giga-v3': 'giga',
   'ramses-v3': 'ramses',
   'up-v3': 'up',
+  'sushiswap-v3': 'sushiswapv3',
 };
 
 /** Krystal row ↔ on-chain position. Aerodrome's projectKey varies by
@@ -249,12 +251,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const giga = v3DeploymentFor('giga', chainId);
         const ramses = v3DeploymentFor('ramses', chainId);
         const up = v3DeploymentFor('up', chainId);
+        const sushi = v3DeploymentFor('sushiswap', chainId);
         const v3Like: { protocol: LiquidityPosition['protocol']; d: V3Deployment }[] = [
           ...(v3 ? [{ protocol: 'uniswap-v3' as const, d: v3 }] : []),
           ...(cake ? [{ protocol: 'pancakeswap-v3' as const, d: cake }] : []),
           ...(giga ? [{ protocol: 'giga-v3' as const, d: giga }] : []),
           ...(ramses ? [{ protocol: 'ramses-v3' as const, d: ramses }] : []),
           ...(up ? [{ protocol: 'up-v3' as const, d: up }] : []),
+          ...(sushi ? [{ protocol: 'sushiswap-v3' as const, d: sushi }] : []),
           ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
         ];
         for (const { protocol, d } of v3Like) {

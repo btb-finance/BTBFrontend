@@ -57,7 +57,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   const v4PoolKey: PoolKey | null = isV4
     ? { currency0: pos.token0, currency1: pos.token1, fee: pos.fee, tickSpacing: pos.tickSpacing ?? 60, hooks: pos.hooks ?? '0x0000000000000000000000000000000000000000' }
     : null;
-  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : pos.protocol === 'up-v3' ? 'up' : 'uniswap';
+  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : pos.protocol === 'up-v3' ? 'up' : pos.protocol === 'sushiswap-v3' ? 'sushiswap' : 'uniswap';
   const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
   const h1 = pos.amount1 + pos.fees1;

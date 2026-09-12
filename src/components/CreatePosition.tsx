@@ -230,7 +230,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return s0 && !s1; // token0 stable → base the volatile token1
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
-  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' || dex === 'up' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
+  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' || dex === 'up' || dex === 'sushiswap' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
   const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;

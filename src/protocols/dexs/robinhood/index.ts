@@ -47,6 +47,18 @@ export const GIGA_V3_DEPLOYMENT: V3Deployment = {
   tickSpacings: { 50: 10, 100: 1, 200: 4, 500: 10, 1000: 20, 2000: 40, 3000: 60, 10000: 200, 20000: 400 },
 };
 
+/** SushiSwap V3 on Robinhood Chain: a byte-compatible Uniswap V3 fork with
+ * its own factory and manager. Tiers read from feeAmountTickSpacing. */
+export const SUSHI_V3_ROBINHOOD_DEPLOYMENT: V3Deployment = {
+  protocol: 'sushiswap-v3',
+  chainId: ROBINHOOD_CHAIN_ID,
+  label: 'SushiSwap V3',
+  positionManager: '0x51d0e5188afe12d502e29D982d20C190e7816107',
+  factory: '0xE51960f1B45f1C9FB6D166E6a884F866fC70433B',
+  feeTiers: [500, 3000, 10000],
+  tickSpacings: { 500: 10, 3000: 60, 10000: 200 },
+};
+
 /** Ramses tick spacings; the "tier" key is the spacing itself. */
 const RAMSES_TICK_SPACINGS = [1, 5, 10, 50, 100, 200] as const;
 
