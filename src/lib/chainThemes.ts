@@ -111,4 +111,3 @@ export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Reco
     '--chain-app-background': 'radial-gradient(900px 600px at 8% -10%, rgba(29,233,182,.13), transparent 60%), radial-gradient(800px 600px at 100% 0%, rgba(11,122,94,.16), transparent 60%), #0B0F0E',
   };
 }
-}
