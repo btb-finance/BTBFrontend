@@ -1275,7 +1275,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   return (
     <Portal>
     <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-      <div style={{ width: '100%', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
+      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
         {/* Compact single-row header: back chevron + title, pair/dex as an
             inline subtitle — keeps the tap-to-go-back affordance without the
             tall "Back to Discover" stack eating the top of small screens. */}
@@ -1341,6 +1341,22 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </>
             )}
 
+            {/* Desktop: results on the left, the form on the right so the
+                estimate updates beside the controls instead of below them. */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 460px', gap: 18, alignItems: 'start' }}>
+            {!isMobile && (
+              <div style={{ position: 'sticky', top: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {renderDepositSummary()}
+                {!splitRange && renderEarnings()}
+                {!splitRange && renderBacktest()}
+                {!(sim && sim.inRange && sim.daily > 0) && (
+                  <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 22, color: btb.textMuted, fontSize: 13, lineHeight: 1.6 }}>
+                    <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Estimated earnings</div>
+                    Pick a range and enter an amount on the right. The fee estimate, APR, share of in-range liquidity and the 30-day backtest appear here and update as you change the range.
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{
               width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
@@ -1504,9 +1520,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
             {simOnly && renderNeedWarning()}
             {renderPriceDeviationWarning()}
-            {renderDepositSummary()}
-            {!splitRange && renderEarnings()}
-            {!splitRange && renderBacktest()}
+            {isMobile && renderDepositSummary()}
+            {isMobile && !splitRange && renderEarnings()}
+            {isMobile && !splitRange && renderBacktest()}
 
             {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
@@ -1531,6 +1547,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   : <>Slippage-protected ({slippageBps / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}</>}
               </div>
             )}
+            </div>
             </div>
           </>
         )}
