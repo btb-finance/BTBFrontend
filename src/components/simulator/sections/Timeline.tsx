@@ -18,7 +18,7 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
     >
       <div style={{ position: 'relative', paddingLeft: 22 }}>
         {/* spine */}
-        <div style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, borderRadius: 2, background: 'rgba(255,255,255,0.1)' }} />
+        <div style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, borderRadius: 2, background: 'rgba(var(--fg-rgb), 0.1)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sim.timeline.map((step) => {
             const selected = step.days === sim.horizonDays;
@@ -27,13 +27,13 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
               <div key={step.label} onClick={clickable ? () => setHorizonDays(step.days) : undefined} style={{
                 position: 'relative', borderRadius: 14, padding: '10px 13px',
                 cursor: clickable ? 'pointer' : 'default',
-                background: selected ? 'rgba(82,227,164,0.09)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${selected ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.07)'}`,
+                background: selected ? 'rgba(82,227,164,0.09)' : 'rgba(var(--fg-rgb), 0.03)',
+                border: `1px solid ${selected ? 'rgba(82,227,164,0.45)' : 'rgba(var(--fg-rgb), 0.07)'}`,
               }}>
                 {/* node on the spine */}
                 <div style={{
                   position: 'absolute', left: -19.5, top: 16, width: 9, height: 9, borderRadius: 999,
-                  background: selected ? '#52E3A4' : 'rgba(255,255,255,0.3)',
+                  background: selected ? '#52E3A4' : 'rgba(var(--fg-rgb), 0.3)',
                   boxShadow: selected ? '0 0 8px rgba(82,227,164,0.7)' : 'none',
                 }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

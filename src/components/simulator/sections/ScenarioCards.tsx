@@ -24,15 +24,15 @@ export function ScenarioCards({ sim, setMovePct, isMobile }: {
           return (
             <button key={sc.key} onClick={() => setMovePct(movePct)} style={{
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              background: selected ? 'rgba(82,227,164,0.1)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${selected ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+              background: selected ? 'rgba(82,227,164,0.1)' : 'rgba(var(--fg-rgb), 0.04)',
+              border: `1px solid ${selected ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
               borderRadius: 18, padding: '15px 16px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ color: btb.text, fontSize: 15, fontWeight: 800, flex: 1 }}>{sc.label}</span>
                 <span style={{
                   fontSize: 11.5, fontWeight: 800, color: btb.textMuted,
-                  background: 'rgba(255,255,255,0.07)', borderRadius: 999, padding: '3px 9px',
+                  background: 'rgba(var(--fg-rgb), 0.07)', borderRadius: 999, padding: '3px 9px',
                 }}>{Math.round(sc.probability * 100)}% model band</span>
               </div>
               <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>

@@ -105,12 +105,12 @@ function ChainMark({ name, chainId, size, src }: { name: string; chainId?: numbe
         height={size}
         loading="lazy"
         decoding="async"
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(255,255,255,.12)' }}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)' }}
       />
     );
   }
   return (
-    <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.1)', boxShadow: '0 0 0 1px rgba(255,255,255,.12)', flexShrink: 0 }}>
+    <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--fg-rgb), .1)', boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)', flexShrink: 0 }}>
       <Icon name="globe" size={Math.max(10, size - 7)} color={btb.textMuted}/>
     </span>
   );
@@ -198,8 +198,8 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         <Icon name="down" size={13} color={btb.textMuted}/>
       </button>
       {open && (
-        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
-          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(var(--bg-rgb), .98)', border: '1px solid rgba(var(--fg-rgb), .13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
             <input
               autoFocus
@@ -211,7 +211,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
               style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
             />
           </div>
-          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
             <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
               {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
             </span>
@@ -221,7 +221,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
           {filteredChains.map(chain => {
             const active = value === chain.name;
             return (
-              <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+              <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
                 <ChainMark name={chain.name} chainId={chain.chainId} size={23} src={chain.logo}/>
                 <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
@@ -307,11 +307,11 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
           position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0,
           width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', maxHeight: 360,
           overflowY: 'auto', padding: 7, borderRadius: 16,
-          background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)',
+          background: 'rgba(var(--bg-rgb), .98)', border: '1px solid rgba(var(--fg-rgb), .13)',
           boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
         }}>
-          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
             <input
               autoFocus
@@ -325,7 +325,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
           </div>
           {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
             width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
-            background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent',
+            background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
             color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 9,
           }}>
@@ -338,7 +338,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
             return (
               <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
                 width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
-                background: active ? 'rgba(255,255,255,.1)' : 'transparent',
+                background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
                 color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 9,
               }}>
@@ -814,7 +814,7 @@ export function DiscoverScreen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {loading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <Spinner size={26} color="#fff" track="rgba(255,255,255,0.18)" />
+              <Spinner size={26} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)" />
             </div>
           )}
           {!loading && filtered.length === 0 && (
@@ -891,7 +891,7 @@ export function DiscoverScreen() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>All {marketSymbol} pools across DEXes</span>
-            {marketLoading && <Spinner size={14} color="#fff" track="rgba(255,255,255,0.18)"/>}
+            {marketLoading && <Spinner size={14} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>}
           </div>
           {!marketLoading && (marketPools?.length ?? 0) === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 2px' }}>
@@ -928,7 +928,7 @@ export function DiscoverScreen() {
                       height: 32, padding: '0 14px', borderRadius: 12, border: btb.borderSoft, flexShrink: 0,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: 'rgba(var(--fg-rgb), 0.06)',
                     }}>View</a>
                   </div>
                 </Glass>

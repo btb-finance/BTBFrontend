@@ -164,7 +164,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
 
   return (
     <Portal>
-      <div style={{ position: 'fixed', inset: 0, left: sidebarWidth, zIndex: 390, background: 'rgba(5,5,9,0.78)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'flex-end' }} onMouseDown={onClose}>
+      <div style={{ position: 'fixed', inset: 0, left: sidebarWidth, zIndex: 390, background: 'rgba(var(--bg-rgb), 0.78)', backdropFilter: 'blur(10px)', display: 'flex', justifyContent: 'flex-end' }} onMouseDown={onClose}>
         <div onMouseDown={(event) => event.stopPropagation()} style={{ width: isMobile ? '100%' : 480, height: '100%', overflowY: 'auto', background: btb.bg, borderLeft: btb.borderSoft, padding: isMobile ? '18px 14px 96px' : '24px 22px 40px', boxSizing: 'border-box' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
             <div>
@@ -174,10 +174,10 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
                 {pos.symbol0} / {pos.symbol1} · {pos.chainName ?? 'Ethereum'}
               </div>
             </div>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 999, border: btb.borderSoft, background: 'rgba(255,255,255,0.06)', color: btb.textMuted, cursor: 'pointer', fontSize: 18 }}>×</button>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 999, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.06)', color: btb.textMuted, cursor: 'pointer', fontSize: 18 }}>×</button>
           </div>
 
-          <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55, padding: 12, borderRadius: 12, background: 'rgba(255,255,255,0.035)', border: btb.borderSoft, marginBottom: 12 }}>
+          <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55, padding: 12, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.035)', border: btb.borderSoft, marginBottom: 12 }}>
             The NFT moves into your universal BTB smart account. The agent can only remove, safely swap and re-add this pool inside the range limits you sign. It cannot transfer the NFT or withdraw funds.
           </div>
 

@@ -9,7 +9,7 @@ html, body {
   min-height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  color: #fff;
+  color: var(--btb-text, #fff);
 }
 
 html, body, button, input, select, textarea {

@@ -99,7 +99,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
         width: '100%', maxWidth: 420, minWidth: 0,
         maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden',
         background: 'rgba(28,4,10,0.97)',
-        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 28,
+        border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 28,
         padding: '24px 20px 28px', display: 'flex', flexDirection: 'column', gap: 16,
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -111,8 +111,8 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
           <span style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>
             {step === 'form' ? 'Send' : step === 'confirm' ? 'Confirm send' : step === 'sending' ? 'Sending…' : step === 'sent' ? 'Sent!' : 'Failed'}
           </span>
-          <div onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round">
+          <div onClick={onClose} style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" stroke="rgba(var(--fg-rgb), 0.7)" strokeWidth="2" strokeLinecap="round">
               <path d="M1 1l12 12M13 1L1 13"/>
             </svg>
           </div>
@@ -124,8 +124,8 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
               <div key={t.address + t.chainId} onClick={() => { setSelectedKey(keyOf(t)); setAmount(''); }} style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '8px 14px 8px 8px', borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-                background: selectedKey === keyOf(t) ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.06)',
-                border: selectedKey === keyOf(t) ? '1px solid rgba(255,255,255,0.2)' : btb.borderSoft,
+                background: selectedKey === keyOf(t) ? 'rgba(var(--fg-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)',
+                border: selectedKey === keyOf(t) ? '1px solid rgba(var(--fg-rgb), 0.2)' : btb.borderSoft,
                 transition: 'all 0.15s', whiteSpace: 'nowrap',
               }}>
                 <TokenIcon symbol={t.symbol} size={24} logoUrl={t.logoURI}/>
@@ -137,7 +137,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
             ))}
           </div>
 
-          <div style={{ background: 'rgba(255,255,255,0.05)', border: btb.border, borderRadius: 20, padding: '14px 16px' }}>
+          <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: btb.border, borderRadius: 20, padding: '14px 16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <span style={{ color: btb.textMuted, fontSize: 12 }}>Amount</span>
               <span style={{ color: btb.textMuted, fontSize: 12 }}>
@@ -158,7 +158,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
             {amountUsd != null && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 4 }}>≈ ${amountUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
           </div>
 
-          <div style={{ background: 'rgba(255,255,255,0.05)', border: toError ? '1px solid rgba(255,255,255,0.25)' : btb.border, borderRadius: 20, padding: '14px 16px' }}>
+          <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: toError ? '1px solid rgba(var(--fg-rgb), 0.25)' : btb.border, borderRadius: 20, padding: '14px 16px' }}>
             <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>To address</div>
             <input value={to} onChange={e => { setTo(e.target.value); setToError(''); }} placeholder="0x…"
               style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 14, fontFamily: 'monospace', letterSpacing: 0.3 }}/>
@@ -166,13 +166,13 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
           </div>
 
           <Button size="md" disabled={!amount || !to} onClick={handleReview} style={{
-            background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
-            color: '#fff', boxShadow: '0 8px 24px rgba(255,255,255,0.2)',
+            background: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.18),rgba(var(--fg-rgb), 0.08))',
+            color: 'var(--btb-text)', boxShadow: '0 8px 24px rgba(var(--fg-rgb), 0.2)',
           }}>Review send</Button>
         </>}
 
         {(step === 'confirm' || step === 'sending') && <>
-          <div style={{ background: 'rgba(255,255,255,0.05)', border: btb.border, borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: btb.border, borderRadius: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <Row label="From"    value={`${fromAddress.slice(0,8)}…${fromAddress.slice(-6)}`}/>
             <Row label="To"      value={`${to.slice(0,8)}…${to.slice(-6)}`}/>
             <Row label="Amount"  value={`${amount} ${token}`}/>
@@ -183,10 +183,10 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
               style={{ flex: 1, border: btb.border, fontSize: 15 }}>Edit</Button>
             <Button size="md" disabled={step === 'sending'} icon={step === 'sending' ? undefined : 'send'} onClick={handleSend}
               style={{
-                flex: 2, background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))', color: '#fff',
-                boxShadow: '0 8px 24px rgba(255,255,255,0.12)', opacity: step === 'sending' ? 0.7 : 1,
+                flex: 2, background: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.18),rgba(var(--fg-rgb), 0.08))', color: 'var(--btb-text)',
+                boxShadow: '0 8px 24px rgba(var(--fg-rgb), 0.12)', opacity: step === 'sending' ? 0.7 : 1,
               }}>
-              {step === 'sending' ? <><Spinner size={18} color="#fff" track="rgba(255,255,255,0.2)" /> Sending…</> : 'Confirm send'}
+              {step === 'sending' ? <><Spinner size={18} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.2)" /> Sending…</> : 'Confirm send'}
             </Button>
           </div>
         </>}
@@ -220,7 +220,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
               <div style={{ color: btb.text, fontSize: 20, fontWeight: 800 }}>Transaction failed</div>
               <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 8, maxWidth: 280 }}>{errMsg}</div>
             </div>
-            <Button size="md" onClick={() => setStep('confirm')} style={{ background: 'rgba(255,255,255,0.08)', color: btb.text, boxShadow: 'none' }}>Try again</Button>
+            <Button size="md" onClick={() => setStep('confirm')} style={{ background: 'rgba(var(--fg-rgb), 0.08)', color: btb.text, boxShadow: 'none' }}>Try again</Button>
           </div>
         )}
       </div>
@@ -231,7 +231,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
 
 function Row({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: last ? 0 : 14, borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: last ? 0 : 14, borderBottom: last ? 'none' : '1px solid rgba(var(--fg-rgb), 0.06)' }}>
       <span style={{ color: btb.textMuted, fontSize: 13 }}>{label}</span>
       <span style={{ color: btb.text, fontSize: 13, fontWeight: 600, fontFamily: label === 'From' || label === 'To' ? 'monospace' : 'inherit' }}>{value}</span>
     </div>

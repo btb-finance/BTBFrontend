@@ -27,7 +27,7 @@ export function SensitivityPanel({ sim, movePct, setMovePct, isMobile }: {
       right={movePct !== 0 ? (
         <button onClick={() => setMovePct(0)} style={{
           height: 30, padding: '0 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
-          fontSize: 11.5, fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: btb.border, color: btb.text,
+          fontSize: 11.5, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.07)', border: btb.border, color: btb.text,
         }}>Reset to 0%</button>
       ) : undefined}
     >

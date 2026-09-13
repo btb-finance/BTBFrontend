@@ -51,7 +51,7 @@ export function RealBacktest({ sim, isMobile }: { sim: Sim; isMobile: boolean })
         : `Historical range replay · last ${b.days} daily snapshots`}
       subtitle="Pool price, fee totals, and liquidity are historical. Your fee share is estimated from each day’s recorded liquidity; daily snapshots cannot measure intraday time in range or exact tick-level fee growth."
     >
-      <div style={{ background: 'rgba(255,255,255,0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px' }}>
+      <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px' }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
           {bandBot > bandTop && <rect x={PAD} y={bandTop} width={W - PAD * 2} height={bandBot - bandTop} rx={4} fill="rgba(82,227,164,0.12)" stroke="rgba(82,227,164,0.4)" strokeWidth={1} />}
           <path d={path} fill="none" stroke={chart.net} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />

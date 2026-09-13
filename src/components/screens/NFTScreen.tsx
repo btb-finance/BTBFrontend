@@ -39,7 +39,7 @@ function PrimaryBtn({ label, icon, loading, disabled, onClick, green }: {
   // the Button's built-in disabled/loading visual still wins otherwise.
   const whiteOverride: React.CSSProperties | undefined =
     !green && active
-      ? { background: 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))', color: '#fff', boxShadow: '0 8px 20px rgba(255,255,255,0.12)' }
+      ? { background: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.18),rgba(var(--fg-rgb), 0.08))', color: 'var(--btb-text)', boxShadow: '0 8px 20px rgba(var(--fg-rgb), 0.12)' }
       : undefined;
   return (
     <Button
@@ -141,10 +141,10 @@ function MintTab({ address }: { address?: string }) {
       <Glass padding={20} radius={28} strong style={{ width: 380, flexShrink: 0 }}>
         <div style={{
           height: 260, borderRadius: 20, position: 'relative', overflow: 'hidden',
-          background: 'linear-gradient(135deg,#0F172A 0%,#334155 35%,#FFFFFF 65%,rgba(255,255,255,0.7) 85%,#F59E0B 100%)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25), 0 16px 40px rgba(255,255,255,0.2)',
+          background: 'linear-gradient(135deg,#0F172A 0%,#334155 35%,#FFFFFF 65%,rgba(var(--fg-rgb), 0.7) 85%,#F59E0B 100%)',
+          boxShadow: 'inset 0 1px 0 rgba(var(--fg-rgb), 0.25), 0 16px 40px rgba(var(--fg-rgb), 0.2)',
         }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 25% 20%, rgba(255,255,255,0.4), transparent 45%)' }}/>
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 25% 20%, rgba(var(--fg-rgb), 0.4), transparent 45%)' }}/>
           <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 80% 75%, rgba(240,180,255,0.35), transparent 50%)' }}/>
           <svg viewBox="0 0 200 200" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.28 }}>
             <ellipse cx="100" cy="130" rx="55" ry="50" fill="#fff"/>
@@ -155,7 +155,7 @@ function MintTab({ address }: { address?: string }) {
             <circle cx="108" cy="88" r="7" fill="#0F172A"/>
             <ellipse cx="100" cy="102" rx="10" ry="6" fill="#0F172A"/>
           </svg>
-          <div style={{ position: 'absolute', bottom: 14, left: 16, color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
+          <div style={{ position: 'absolute', bottom: 14, left: 16, color: 'rgba(var(--fg-rgb), 0.9)', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}>
             BTB BEAR {isLoading ? '…' : `· #${minted + 1}`}
           </div>
           {userBalance > 0 && (
@@ -183,8 +183,8 @@ function MintTab({ address }: { address?: string }) {
             </span>
             <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{pct.toFixed(2)}%</span>
           </div>
-          <div style={{ height: 6, borderRadius: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-            <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: 'linear-gradient(90deg,#FFFFFF,rgba(255,255,255,0.7),#F59E0B)', boxShadow: '0 0 10px rgba(255,255,255,0.2)', transition: 'width 0.5s' }}/>
+          <div style={{ height: 6, borderRadius: 6, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
+            <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: 'linear-gradient(90deg,#FFFFFF,rgba(var(--fg-rgb), 0.7),#F59E0B)', boxShadow: '0 0 10px rgba(var(--fg-rgb), 0.2)', transition: 'width 0.5s' }}/>
           </div>
         </div>
 
@@ -202,7 +202,7 @@ function MintTab({ address }: { address?: string }) {
             <span style={{ color: btb.text, fontSize: 15, fontWeight: 600 }}>Quantity</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button onClick={() => setQty(qty - 1)}
-                style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.14)', color: 'var(--btb-text)', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 −
               </button>
               <input
@@ -213,13 +213,13 @@ function MintTab({ address }: { address?: string }) {
                 aria-label="Mint quantity"
                 style={{
                   width: 70, height: 38, textAlign: 'center',
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)',
+                  background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.14)',
                   borderRadius: 12, color: btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit',
                   outline: 'none', MozAppearance: 'textfield',
                 }}
               />
               <button onClick={() => setQty(qty + 1)}
-                style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#fff', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.14)', color: 'var(--btb-text)', fontSize: 22, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 +
               </button>
             </div>
@@ -231,15 +231,15 @@ function MintTab({ address }: { address?: string }) {
                 style={{
                   flex: 1, height: 34, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
                   fontSize: 13, fontWeight: 700,
-                  background: qty === v ? 'rgba(245,158,11,0.18)' : 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${qty === v ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                  background: qty === v ? 'rgba(245,158,11,0.18)' : 'rgba(var(--fg-rgb), 0.06)',
+                  border: `1px solid ${qty === v ? 'rgba(245,158,11,0.5)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                   color: qty === v ? btb.amber : btb.textMuted,
                 }}>
                 {v === maxQty && v > 100 ? `Max ${v}` : v}
               </button>
             ))}
           </div>
-          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid rgba(var(--fg-rgb), 0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <span style={{ color: btb.textMuted, fontSize: 13 }}>Total cost</span>
             <div style={{ color: btb.text, fontWeight: 800, fontSize: 26, letterSpacing: -0.4 }}>
               {(priceEth * qty).toFixed(4)} <span style={{ color: btb.textMuted, fontSize: 14, fontWeight: 600 }}>ETH</span>
@@ -269,7 +269,7 @@ function MintTab({ address }: { address?: string }) {
             ['Utility',      'Stake for BTBB rewards'],
             ['Chain',        'Ethereum mainnet'],
           ].map(([l, v], i, a) => (
-            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}>
               <span style={{ color: btb.textMuted, fontSize: 13 }}>{l}</span>
               <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{v}</span>
             </div>
@@ -443,7 +443,7 @@ function StakeTab({ address }: { address?: string }) {
             ['On claim tax',  '1% BTBB transfer tax'],
             ['Pool type',     'Fungible · equal share per NFT'],
           ].map(([l, v], i, a) => (
-            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < a.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}>
               <span style={{ color: btb.textMuted, fontSize: 13 }}>{l}</span>
               <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{v}</span>
             </div>
@@ -463,7 +463,7 @@ function StakeTab({ address }: { address?: string }) {
               { label: 'Staked', value: isLoading ? '…' : String(myStaked), sub: 'NFTs' },
               { label: 'In wallet', value: isLoading ? '…' : String(myBalance), sub: 'NFTs' },
             ].map(({ label, value, sub }) => (
-              <div key={label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px 16px' }}>
+              <div key={label} style={{ background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 14, padding: '14px 16px' }}>
                 <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</div>
                 <div style={{ color: btb.text, fontSize: 32, fontWeight: 800, marginTop: 4, letterSpacing: -0.5 }}>{value}</div>
                 <div style={{ color: btb.textMuted, fontSize: 11 }}>{sub}</div>
@@ -477,15 +477,15 @@ function StakeTab({ address }: { address?: string }) {
               {myBalance > 0 && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 12px', flexShrink: 0 }}>
-                      <button onClick={() => setStakeQty(stakeCount - 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 14, padding: '8px 12px', flexShrink: 0 }}>
+                      <button onClick={() => setStakeQty(stakeCount - 1)} style={{ background: 'none', border: 'none', color: 'var(--btb-text)', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
                       <input
                         value={stakeStr === '' ? String(maxStakeable) : stakeStr}
                         onChange={e => setStakeStr(e.target.value.replace(/[^0-9]/g, '').slice(0, 3))}
                         onBlur={() => setStakeStr(String(stakeCount))}
                         inputMode="numeric" aria-label="Stake quantity"
                         style={{ width: 48, background: 'transparent', border: 'none', outline: 'none', textAlign: 'center', color: btb.text, fontSize: 18, fontWeight: 700, fontFamily: 'inherit' }}/>
-                      <button onClick={() => setStakeQty(stakeCount + 1)} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
+                      <button onClick={() => setStakeQty(stakeCount + 1)} style={{ background: 'none', border: 'none', color: 'var(--btb-text)', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
                     </div>
                     <PrimaryBtn
                       label={loading
@@ -504,10 +504,10 @@ function StakeTab({ address }: { address?: string }) {
               {/* Unstake flow */}
               {myStaked > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: '8px 16px', flexShrink: 0 }}>
-                    <button onClick={() => setUnstakeCount(c => Math.max(1, c - 1))} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 14, padding: '8px 16px', flexShrink: 0 }}>
+                    <button onClick={() => setUnstakeCount(c => Math.max(1, c - 1))} style={{ background: 'none', border: 'none', color: 'var(--btb-text)', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>−</button>
                     <span style={{ color: btb.text, fontSize: 18, fontWeight: 700, minWidth: 24, textAlign: 'center' }}>{cappedUnstake}</span>
-                    <button onClick={() => setUnstakeCount(c => Math.min(myStaked, c + 1))} style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
+                    <button onClick={() => setUnstakeCount(c => Math.min(myStaked, c + 1))} style={{ background: 'none', border: 'none', color: 'var(--btb-text)', fontSize: 20, cursor: 'pointer', padding: 0, lineHeight: 1 }}>+</button>
                   </div>
                   <PrimaryBtn label={loading ? 'Unstaking…' : 'Unstake'} icon="send" loading={loading} onClick={doUnstake} green/>
                 </div>
@@ -541,9 +541,9 @@ export function NFTScreen() {
   return (
     <Screen gap={20}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <Badge bg="rgba(226,232,240,0.2)" border="1px solid rgba(255,255,255,0.2)" style={{ gap: 6, padding: '6px 12px' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.7)', boxShadow: '0 0 8px rgba(255,255,255,0.7)', display: 'inline-block' }}/>
-          <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
+        <Badge bg="rgba(226,232,240,0.2)" border="1px solid rgba(var(--fg-rgb), 0.2)" style={{ gap: 6, padding: '6px 12px' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(var(--fg-rgb), 0.7)', boxShadow: '0 0 8px rgba(var(--fg-rgb), 0.7)', display: 'inline-block' }}/>
+          <span style={{ color: 'var(--btb-text)', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
         </Badge>
       </div>
 
@@ -552,10 +552,10 @@ export function NFTScreen() {
         {(['mint', 'stake'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             height: 42, borderRadius: 14, border: 'none', cursor: 'pointer',
-            background: tab === t ? 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))' : 'transparent',
+            background: tab === t ? 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.18),rgba(var(--fg-rgb), 0.08))' : 'transparent',
             color: tab === t ? '#fff' : btb.textMuted,
             fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-            boxShadow: tab === t ? '0 4px 12px rgba(255,255,255,0.1)' : 'none',
+            boxShadow: tab === t ? '0 4px 12px rgba(var(--fg-rgb), 0.1)' : 'none',
             transition: 'all 0.2s', textTransform: 'capitalize',
           }}>{t === 'mint' ? 'Mint NFT' : 'Stake & Earn'}</button>
         ))}

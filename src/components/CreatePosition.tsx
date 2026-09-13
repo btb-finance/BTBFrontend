@@ -925,8 +925,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }
 
   const inputStyle = (disabled: boolean): CSSProperties => ({
-    width: '100%', height: 42, background: disabled ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '0 12px',
+    width: '100%', height: 42, background: disabled ? 'rgba(var(--fg-rgb), 0.03)' : 'rgba(var(--fg-rgb), 0.06)',
+    border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 12, padding: '0 12px',
     color: disabled ? btb.textDim : btb.text, fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
     outline: 'none', boxSizing: 'border-box',
   });
@@ -934,7 +934,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // +/- stepper button for the min/max price inputs.
   const stepBtn: CSSProperties = {
     flex: 1, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800, lineHeight: 1,
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: btb.textMuted,
+    background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)', color: btb.textMuted,
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
   };
 
@@ -947,7 +947,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       return (
         <div style={{ marginBottom: 22 }}>
           <div style={{ color: btb.text, fontSize: 14, fontWeight: 750, marginBottom: 12 }}>Price range</div>
-          <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.12)' }} />
           <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8 }}>Loading current price…</div>
         </div>
       );
@@ -1025,7 +1025,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         <div
           onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
           style={{ position: 'relative', height: 32, display: 'flex', alignItems: 'center', touchAction: 'none' }}>
-          <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.12)' }} />
           <div onPointerDown={(e) => beginDrag(e, 'band')} title="Drag to move range" style={{ position: 'absolute', left: `${left}%`, width: `${Math.max(1, right - left)}%`, height: 6, borderRadius: 999, background: btb.green, cursor: 'grab' }} />
           <div onPointerDown={(e) => beginDrag(e, 'low')} aria-label="Lower price bound" style={{ position: 'absolute', left: `calc(${left}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
           <div onPointerDown={(e) => beginDrag(e, 'high')} aria-label="Upper price bound" style={{ position: 'absolute', left: `calc(${right}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
@@ -1058,8 +1058,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return (
       <div key={side} style={{
         marginBottom: 8, padding: '9px 12px', borderRadius: 14,
-        background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: disabled ? 'rgba(var(--fg-rgb), 0.02)' : 'rgba(var(--fg-rgb), 0.05)',
+        border: '1px solid rgba(var(--fg-rgb), 0.1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
@@ -1076,7 +1076,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <TokenIcon symbol={sym} size={20} />
             {wethSide === side && !isV4 ? (
-              <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(255,255,255,0.08)' }}>
+              <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(var(--fg-rgb), 0.08)' }}>
                 {([['ETH', true], ['WETH', false]] as const).map(([label, active]) => (
                   <button key={label} type="button" onClick={() => setUseEth(active)} style={{
                     height: 24, padding: '0 7px', border: 0, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
@@ -1180,7 +1180,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         </div>
         {total > 0 && (
           <>
-            <div style={{ display: 'flex', height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 8, background: 'rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 8, background: 'rgba(var(--fg-rgb), 0.06)' }}>
               <div style={{ width: `${pct0}%`, background: '#52E3A4' }} />
               <div style={{ width: `${pct1}%`, background: '#5B8DEF' }} />
             </div>
@@ -1200,7 +1200,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const b = backtest;
     const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 100 ? Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : Math.abs(v).toFixed(2)}`;
     const cell = (label: string, value: string, color: string) => (
-      <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
+      <div style={{ flex: 1, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 10, padding: '8px 10px' }}>
         <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
         <div style={{ color, fontSize: 14, fontWeight: 800 }}>{value}</div>
       </div>
@@ -1241,7 +1241,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               {yieldOpen && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 10, minWidth: 118,
-                  background: 'rgba(18,18,26,0.98)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10,
+                  background: 'rgba(18,18,26,0.98)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 10,
                   padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                 }}>
                   {YIELD_PERIODS.map(p => (
@@ -1286,15 +1286,15 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         }}>
           <div style={{
             pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
-            background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
+            background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 14, padding: 8,
           }}>
                 <div
                   onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
                   title="Tap to change liquidity slippage"
                   style={{
                     flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
                     display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                   }}>
                   <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
@@ -1306,7 +1306,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     title={`Stake the new position to earn ${rewardSymbol}`}
                     style={{
                       flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                      background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                      background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                       display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                     }}>
                     <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
@@ -1330,7 +1330,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div onClick={onClose} title="Back to Discover" style={{
             width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-            background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+            background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Icon name="back" size={14} color={btb.textMuted}/>
@@ -1350,7 +1350,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool — {poolErr}</div>
             <button onClick={() => setRetryNonce((n) => n + 1)} style={{
               marginTop: 10, height: 36, padding: '0 18px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: btb.text,
+              fontSize: 13, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.16)', color: btb.text,
             }}>Retry</button>
           </div>
         ) : !pool?.exists ? (
@@ -1367,8 +1367,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   {[100, 1000, 10000].map((v) => (
                     <button key={v} onClick={() => setSimUsdStr(String(v))} style={{
                       flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(var(--fg-rgb), 0.05)',
+                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
                       color: simUsdStr === String(v) ? '#52E3A4' : btb.textMuted,
                     }}>${v.toLocaleString('en-US')}</button>
                   ))}
@@ -1428,8 +1428,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Desktop: the form column scrolls on its own and stays in view while the simulator scrolls. */}
             <div style={{ minWidth: 0, ...(isMobile ? {} : { position: 'sticky' as const, top: 0, maxHeight: '100vh', overflowY: 'auto' as const, paddingBottom: 12 }) }}>
             <div style={{
-              width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
+              width: '100%', boxSizing: 'border-box', background: 'rgba(var(--fg-rgb), 0.025)',
+              border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
             }}>
             {/* Current price + flip */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
@@ -1438,7 +1438,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </span>
               <button onClick={toggleFlip} title="Flip which token prices are quoted in" style={{
                 flexShrink: 0, height: 26, padding: '0 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
+                fontSize: 11, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.07)', border: '1px solid rgba(var(--fg-rgb), 0.14)', color: btb.textMuted,
               }}>⇄ {qQuote}/{qBase}</button>
             </div>
             {renderRangeBar()}
@@ -1447,8 +1447,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               {RANGE_PRESETS.map((r) => (
                 <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); setSwapPreview(null); }} style={{
                   flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                  background: rangeMode === r.pct ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${rangeMode === r.pct ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                  background: rangeMode === r.pct ? 'rgba(82,227,164,0.18)' : 'rgba(var(--fg-rgb), 0.05)',
+                  border: `1px solid ${rangeMode === r.pct ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
                   color: rangeMode === r.pct ? '#52E3A4' : btb.textMuted,
                 }}>{r.label}</button>
               ))}
@@ -1482,7 +1482,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
             {!simOnly && !splitRange && address && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: btb.textDim, fontSize: 10 }}>You hold</div>
                   <div style={{ color: btb.text, fontSize: 12, fontWeight: 700, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1492,7 +1492,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
                 {/* Single-token wallets: segmented Balanced / Single-sided choice. */}
                 {((effBal0 <= 0n) !== (effBal1 <= 0n)) && !(!isV4 && ethMode && wethSide === (effBal0 > 0n ? 0 : 1)) && (
-                  <div style={{ display: 'flex', marginTop: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 9, padding: 2 }}>
+                  <div style={{ display: 'flex', marginTop: 8, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 9, padding: 2 }}>
                     {([['balanced', 'Balanced'], ['single', 'Single-sided']] as const).map(([val, title]) => (
                       <button key={val} onClick={() => { setSmartStrategy(val); applySmartFit(val); }} style={{
                         flex: 1, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
@@ -1523,8 +1523,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               <>
                 {!isV4 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '0 2px 8px' }}>
-                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
-                      <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(255,255,255,0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
+                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(var(--fg-rgb), 0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
+                      <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(var(--fg-rgb), 0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
                       Use uneven amounts
                     </button>
                     {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : '#FFB36B', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
@@ -1545,8 +1545,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                       style={{
                         width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: universalDeployment ? 'pointer' : 'default',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontFamily: 'inherit', textAlign: 'left',
-                        border: `1px solid ${autoManage ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                        background: autoManage ? 'rgba(82,227,164,0.09)' : 'rgba(255,255,255,0.035)',
+                        border: `1px solid ${autoManage ? 'rgba(82,227,164,0.4)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                        background: autoManage ? 'rgba(82,227,164,0.09)' : 'rgba(var(--fg-rgb), 0.035)',
                         color: universalDeployment ? btb.text : btb.textDim,
                       }}
                     >
@@ -1556,7 +1556,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                           {universalDeployment ? 'The NFT is created directly in your universal account; only your wallet can withdraw it.' : 'Guarded automation currently supports Robinhood Chain.'}
                         </span>
                       </span>
-                      <span style={{ flexShrink: 0, width: 30, height: 17, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: autoManage ? btb.green : 'rgba(255,255,255,0.18)' }}>
+                      <span style={{ flexShrink: 0, width: 30, height: 17, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: autoManage ? btb.green : 'rgba(var(--fg-rgb), 0.18)' }}>
                         <span style={{ display: 'block', width: 13, height: 13, borderRadius: '50%', background: '#fff', transform: `translateX(${autoManage ? 13 : 0}px)`, transition: 'transform 0.18s' }} />
                       </span>
                     </button>

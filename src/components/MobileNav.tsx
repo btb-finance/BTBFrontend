@@ -4,6 +4,7 @@ import { Icon } from './Icon';
 import { Button } from './Button';
 import { btb } from './design-tokens';
 import { Tab } from './types';
+import { useChainTheme } from '../lib/ChainThemeContext';
 
 // Bottom navigation shown instead of the sidebar below the mobile breakpoint.
 // Four primary tabs stay visible; everything else (remaining tabs, Docs,
@@ -32,6 +33,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
   onDisconnect: () => void;
 }) {
   const [sheet, setSheet] = useState(false);
+  const { mode, toggleMode } = useChainTheme();
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : undefined;
   const moreActive = MORE_TABS.some(i => i.id === tab);
 
@@ -62,7 +64,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
             borderRadius: '24px 24px 0 0', padding: '16px 16px calc(90px + env(safe-area-inset-bottom))',
             display: 'flex', flexDirection: 'column', gap: 14,
           }}>
-            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.2)', margin: '0 auto' }}/>
+            <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.2)', margin: '0 auto' }}/>
 
             {/* remaining tabs + overlays */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -73,7 +75,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
                 <div key={i.id} onClick={i.onClick} style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                   padding: '14px 0 12px', borderRadius: 16, cursor: 'pointer',
-                  background: i.active ? btb.surfaceStrong : 'rgba(255,255,255,0.05)',
+                  background: i.active ? btb.surfaceStrong : 'rgba(var(--fg-rgb), 0.05)',
                   border: btb.borderSoft,
                 }}>
                   <Icon name={i.icon} size={20} color={i.active ? btb.text : btb.textMuted}/>
@@ -82,9 +84,11 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
               ))}
             </div>
 
+            <Button size="sm" variant="ghost" fullWidth onClick={toggleMode}>{mode === 'dark' ? 'Switch to day' : 'Switch to night'}</Button>
+
             {/* wallet */}
             {address ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, borderRadius: 16, padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 16, padding: '12px 14px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>{shortAddr}</div>
                   {isReadOnly && <div style={{ color: btb.textMuted, fontSize: 11 }}>Watching (read-only)</div>}
@@ -106,7 +110,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
         background: btb.glass, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: btb.shadow,
         display: 'flex', alignItems: 'stretch', gap: 2,
       }}>
-        <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--fg-rgb), 0.45), transparent)', pointerEvents: 'none' }} />
         {PRIMARY.map(i => item(tab === i.id && !sheet, i.icon, i.label, () => { setSheet(false); setTab(i.id); }))}
         {item(sheet || moreActive, 'menu', 'More', () => setSheet(s => !s))}
       </div>

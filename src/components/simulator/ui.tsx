@@ -60,7 +60,7 @@ export function Stat({ label, value, color, sub, style }: {
   label: string; value: string; color?: string; sub?: string; style?: CSSProperties;
 }) {
   return (
-    <div style={{ flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '9px 11px', ...style }}>
+    <div style={{ flex: 1, minWidth: 0, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '9px 11px', ...style }}>
       <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
       <div style={{ color: color ?? btb.text, fontSize: 15, fontWeight: 800, marginTop: 2, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
       {sub && <div style={{ color: btb.textDim, fontSize: 10, marginTop: 2 }}>{sub}</div>}
@@ -75,8 +75,8 @@ export function OptionCard({ selected, onClick, title, sub, badge, flex = 1 }: {
   return (
     <button onClick={onClick} style={{
       flex, minWidth: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-      background: selected ? 'rgba(82,227,164,0.12)' : 'rgba(255,255,255,0.04)',
-      border: `1px solid ${selected ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
+      background: selected ? 'rgba(82,227,164,0.12)' : 'rgba(var(--fg-rgb), 0.04)',
+      border: `1px solid ${selected ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
       borderRadius: 14, padding: '11px 13px',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -94,7 +94,7 @@ export function PlusDivider() {
     <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
       <div style={{
         width: 26, height: 26, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, color: btb.textMuted, fontSize: 14, fontWeight: 800,
+        background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, color: btb.textMuted, fontSize: 14, fontWeight: 800,
       }}>+</div>
     </div>
   );
@@ -108,6 +108,6 @@ export const chart = {
   net: '#7DD3FC',       // net and price lines
   alt: '#5B8DEF',       // secondary comparison series
   neg: '#FF6B7A',       // losses
-  grid: 'rgba(255,255,255,0.07)',
-  axis: 'rgba(255,255,255,0.35)',
+  grid: 'rgba(var(--fg-rgb), 0.07)',
+  axis: 'rgba(var(--fg-rgb), 0.35)',
 } as const;

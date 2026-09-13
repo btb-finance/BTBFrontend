@@ -166,7 +166,7 @@ function QuestRow({
             rows={quest.proof === 'text' ? 3 : 2}
             style={{
               width: '100%', resize: 'vertical', padding: '9px 11px', borderRadius: 11,
-              background: 'rgba(255,255,255,0.06)', border: btb.borderSoft, color: btb.text,
+              background: 'rgba(var(--fg-rgb), 0.06)', border: btb.borderSoft, color: btb.text,
               fontSize: 13.5, fontFamily: 'inherit', outline: 'none',
             }}
           />

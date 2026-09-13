@@ -46,7 +46,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
     const y = (v: number) => plotH - PAD - (v / maxV) * (plotH - PAD * 2);
 
     return (
-      <div style={{ background: 'rgba(255,255,255,0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
+      <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }} onPointerLeave={() => setHover(null)}>
           <line x1={PAD} x2={W - PAD} y1={H - AXIS - PAD} y2={H - AXIS - PAD} stroke={chart.grid} strokeWidth={1} />
           {shown.map((d, i) => {
@@ -68,7 +68,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
         </svg>
         {hover !== null && shown[hover] && (
           <div style={{
-            position: 'absolute', top: 8, right: 10, background: 'rgba(12,12,18,0.95)', border: btb.borderSoft,
+            position: 'absolute', top: 8, right: 10, background: 'rgba(var(--bg-rgb), 0.95)', border: btb.borderSoft,
             borderRadius: 10, padding: '7px 10px', fontSize: 11, pointerEvents: 'none',
           }}>
             <div style={{ color: btb.textDim }}>{new Date(shown[hover].date * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
@@ -87,7 +87,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
         ? 'Your share of the fees this pool actually earned each day, at your deposit and range.'
         : 'Fee estimate for your deposit and range. Day by day history needs subgraph data, which is not available for this pool.'}
       right={mode && series.length > 0 ? (
-        <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 4, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 10, padding: 3 }}>
           {(['daily', 'cumulative'] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)} style={{
               height: 26, padding: '0 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',

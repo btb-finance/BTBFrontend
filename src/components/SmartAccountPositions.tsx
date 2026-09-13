@@ -123,7 +123,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         {wallet && <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChainLogo chainId={CHAIN_ID} size={18}/>
           <a href={`${EXPLORER}${wallet.account}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textMuted, fontSize: 10.5, textDecoration: 'none' }}>{shortAddress(wallet.account)}</a>
-          <Badge size="sm" border="none" bg={wallet.deployed ? wallet.paused ? 'rgba(255,179,107,.13)' : 'rgba(82,227,164,.13)' : 'rgba(255,255,255,.06)'} color={wallet.deployed ? wallet.paused ? btb.amber : btb.green : btb.textDim}>{wallet.deployed ? wallet.paused ? 'Paused' : 'Active' : 'Not created'}</Badge>
+          <Badge size="sm" border="none" bg={wallet.deployed ? wallet.paused ? 'rgba(255,179,107,.13)' : 'rgba(82,227,164,.13)' : 'rgba(var(--fg-rgb), .06)'} color={wallet.deployed ? wallet.paused ? btb.amber : btb.green : btb.textDim}>{wallet.deployed ? wallet.paused ? 'Paused' : 'Active' : 'Not created'}</Badge>
         </div>}
       </div>
       {wallet && <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
@@ -156,7 +156,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
               <ChainLogo chainId={CHAIN_ID} size={15}/>
             </div>
           </div>
-          <Badge size="sm" border="none" bg={active ? 'rgba(82,227,164,.14)' : 'rgba(255,255,255,.06)'} color={active ? btb.green : btb.textDim} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>{active ? 'Automated' : policy ? 'Stopped' : 'Manual'}</Badge>
+          <Badge size="sm" border="none" bg={active ? 'rgba(82,227,164,.14)' : 'rgba(var(--fg-rgb), .06)'} color={active ? btb.green : btb.textDim} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>{active ? 'Automated' : policy ? 'Stopped' : 'Manual'}</Badge>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 14 }}>
           <div style={box}><div style={lpBoxLabel}><TokenIcon symbol={p.symbol0} size={16} logoUrl={logo0}/>{p.symbol0}</div><div style={boxValue}>{fmtAmt(p.amount0, p.decimals0)}</div></div>

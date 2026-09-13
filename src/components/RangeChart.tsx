@@ -129,7 +129,7 @@ export function RangeChart({ points, min, max, current, onChange }: {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(12, Math.max(0.3, z * factor))); }}
               style={{
-                width: 28, height: 28, borderRadius: 9, border: '1px solid rgba(255,255,255,0.16)', cursor: 'pointer',
+                width: 28, height: 28, borderRadius: 9, border: '1px solid rgba(var(--fg-rgb), 0.16)', cursor: 'pointer',
                 background: 'rgba(20,20,28,0.85)', color: btb.text, fontSize: 15, lineHeight: 1, fontFamily: 'inherit', padding: 0,
               }}>{label}</button>
           ))}

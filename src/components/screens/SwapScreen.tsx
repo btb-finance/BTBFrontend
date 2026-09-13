@@ -107,8 +107,8 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
           height: small ? 34 : 40,
           padding: small ? '0 8px 0 7px' : '0 9px 0 8px',
           borderRadius: 999,
-          background: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(var(--fg-rgb), 0.05)',
+          border: '1px solid rgba(var(--fg-rgb), 0.12)',
           color: btb.text,
           fontFamily: 'inherit',
           cursor: 'pointer',
@@ -141,8 +141,8 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
             gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
             gap: 2,
             borderRadius: 18,
-            background: 'rgba(12,12,18,.98)',
-            border: '1px solid rgba(255,255,255,.13)',
+            background: 'rgba(var(--bg-rgb), .98)',
+            border: '1px solid rgba(var(--fg-rgb), .13)',
             boxShadow: '0 18px 50px rgba(0,0,0,.5)',
             backdropFilter: 'blur(18px)',
             WebkitBackdropFilter: 'blur(18px)',
@@ -168,7 +168,7 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
                   padding: '0 9px',
                   border: 'none',
                   borderRadius: 12,
-                  background: active ? 'rgba(255,255,255,.1)' : 'transparent',
+                  background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
                   color: disabled ? btb.textDim : btb.text,
                   opacity: disabled ? .42 : 1,
                   fontFamily: 'inherit',
@@ -241,12 +241,12 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
   const row = (t: Token, showChain: boolean) => (
     <div key={`${t.chainId ?? chainId ?? 1}:${t.address}`} onClick={() => { onSelect(t); onClose(); }} style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 8px', borderRadius: 14,
-      background: t.address.toLowerCase() === selected.toLowerCase() && (t.chainId ?? chainId) === chainId ? 'rgba(255,255,255,0.08)' : 'transparent', cursor: 'pointer',
+      background: t.address.toLowerCase() === selected.toLowerCase() && (t.chainId ?? chainId) === chainId ? 'rgba(var(--fg-rgb), 0.08)' : 'transparent', cursor: 'pointer',
     }}>
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <TokenIcon symbol={t.symbol} size={38} logoUrl={t.logoURI}/>
         {showChain && t.chainId != null && (
-          <span style={{ position: 'absolute', right: -3, bottom: -3, borderRadius: 999, background: '#0A0A0F', padding: 1.5, display: 'inline-flex' }}>
+          <span style={{ position: 'absolute', right: -3, bottom: -3, borderRadius: 999, background: 'var(--chain-bg)', padding: 1.5, display: 'inline-flex' }}>
             <ChainLogo chainId={t.chainId} size={15}/>
           </span>
         )}
@@ -277,10 +277,10 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, minWidth: 0, maxHeight: '82vh', background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, display: 'flex', flexDirection: 'column' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, minWidth: 0, maxHeight: '82vh', background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 20px 0' }}>
             <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Select token</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: btb.borderSoft, borderRadius: 14, padding: '10px 14px', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--fg-rgb), 0.06)', border: btb.borderSoft, borderRadius: 14, padding: '10px 14px', marginBottom: 8 }}>
             <Icon name="search" size={16} color={btb.textMuted}/>
             <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Search token…"
               style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 15, fontFamily: 'inherit' }}/>
@@ -309,10 +309,10 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
 
 function TokenPill({ token, onClick }: { token: Token; onClick: () => void }) {
   return (
-    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 6px', background: 'rgba(255,255,255,0.1)', border: btb.border, borderRadius: 999, flexShrink: 0, cursor: 'pointer', maxWidth: 160 }}>
+    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px 6px 6px', background: 'rgba(var(--fg-rgb), 0.1)', border: btb.border, borderRadius: 999, flexShrink: 0, cursor: 'pointer', maxWidth: 160 }}>
       <TokenIcon symbol={token.symbol} size={28} logoUrl={token.logoURI}/>
       <span style={{ color: btb.text, fontSize: 16, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{token.symbol}</span>
-      <Icon name="down" size={14} color="rgba(255,255,255,0.7)"/>
+      <Icon name="down" size={14} color="rgba(var(--fg-rgb), 0.7)"/>
     </div>
   );
 }
@@ -328,14 +328,14 @@ function QuoteDetails({ summary, children }: { summary: React.ReactNode; childre
         <span style={{ color: btb.textMuted, fontSize: 12, flexShrink: 0 }}>{open ? 'Hide' : 'Details'}</span>
         <Icon name={open ? 'up' : 'down'} size={14} color={btb.textMuted}/>
       </div>
-      {open && <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>{children}</div>}
+      {open && <div style={{ padding: '0 14px 12px', borderTop: '1px solid rgba(var(--fg-rgb), 0.07)' }}>{children}</div>}
     </Glass>
   );
 }
 
 function InfoRow({ label, value, last }: { label: string; value: React.ReactNode; last?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 4px', borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 4px', borderBottom: last ? 'none' : '1px solid rgba(var(--fg-rgb), 0.06)' }}>
       <span style={{ color: btb.textMuted, fontSize: 13 }}>{label}</span>
       <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{value}</span>
     </div>
@@ -344,12 +344,12 @@ function InfoRow({ label, value, last }: { label: string; value: React.ReactNode
 
 function SwapModeTabs({ mode, onSwap, onBridge }: { mode: 'swap' | 'bridge'; onSwap: () => void; onBridge: () => void }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: 4, borderRadius: 16, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: 4, borderRadius: 16, background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft }}>
       {([
         ['swap', 'Swap', onSwap],
         ['bridge', 'Bridge', onBridge],
       ] as const).map(([value, label, action]) => (
-        <button key={value} onClick={action} style={{ height: 38, border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: mode === value ? btb.text : btb.textMuted, background: mode === value ? 'rgba(255,255,255,0.1)' : 'transparent', boxShadow: mode === value ? 'inset 0 1px 0 rgba(255,255,255,.1)' : 'none' }}>{label}</button>
+        <button key={value} onClick={action} style={{ height: 38, border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, color: mode === value ? btb.text : btb.textMuted, background: mode === value ? 'rgba(var(--fg-rgb), 0.1)' : 'transparent', boxShadow: mode === value ? 'inset 0 1px 0 rgba(var(--fg-rgb), .1)' : 'none' }}>{label}</button>
       ))}
     </div>
   );
@@ -753,7 +753,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         <div
           onClick={() => { const opts = [10, 50, 100, 300]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
           title="Max slippage. Tap to change."
-          style={{ flexShrink: 0, cursor: 'pointer', height: 40, padding: '0 10px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1 }}>
+          style={{ flexShrink: 0, cursor: 'pointer', height: 40, padding: '0 10px', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1 }}>
           <span style={{ color: btb.textDim, fontSize: 9 }}>Slippage</span>
           <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
         </div>
@@ -779,9 +779,9 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         <div onClick={flip} style={{
           position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
           width: 44, height: 44, borderRadius: 14, zIndex: 5, cursor: 'pointer',
-          background: 'linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08))', border: '4px solid rgba(10,10,15,0.95)',
+          background: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.2),rgba(var(--fg-rgb), 0.08))', border: '4px solid rgba(var(--bg-rgb), 0.95)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 20px rgba(255,255,255,0.2), inset 0 1px 0 rgba(255,255,255,0.3)',
+          boxShadow: '0 8px 20px rgba(var(--fg-rgb), 0.2), inset 0 1px 0 rgba(var(--fg-rgb), 0.3)',
         }}>
           <Icon name="swap" size={20}/>
         </div>
@@ -819,7 +819,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       )}
 
       {quoteErr && (
-        <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 14, padding: '10px 14px', color: btb.red, fontSize: 13 }}>
+        <div style={{ background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.18)', borderRadius: 14, padding: '10px 14px', color: btb.red, fontSize: 13 }}>
           {quoteErr}
         </div>
       )}
@@ -1099,7 +1099,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><input value={fromAmt} onChange={event => { setFromAmt(event.target.value); setQuote(null); }} inputMode="decimal" placeholder="0" style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 34, fontWeight: 800 }}/><TokenPill token={fromToken} onClick={() => setPicker('from')}/></div>
         {fromToken.usdPrice && fromAmt && <div style={{ color: btb.textDim, fontSize: 12, marginTop: 5 }}>≈ ${(Number(fromAmt) * fromToken.usdPrice).toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
       </Glass>
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '-8px 0', zIndex: 2 }}><div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,.1)', border: '4px solid rgba(10,10,15,.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="down" size={17}/></div></div>
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '-8px 0', zIndex: 2 }}><div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(var(--fg-rgb), .1)', border: '4px solid rgba(var(--bg-rgb), .95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="down" size={17}/></div></div>
       <Glass padding={18} radius={24} strong>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span style={{ color: btb.textMuted, fontSize: 13 }}>Receive on</span>
@@ -1120,7 +1120,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         {btbFeePercent === 0 && <InfoRow label="BTB fee" value="Free"/>}
         <InfoRow label="Route" last value={route}/>
       </QuoteDetails>}
-      {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
+      {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(var(--fg-rgb), .08)', border: '1px solid rgba(var(--fg-rgb), .18)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
       <Button onClick={() => !address ? onConnectWallet?.() : canReview && execute()} disabled={!!address && !canReview} style={{ fontSize: 18 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest bridge…' : quote ? `Bridge ${fromToken.symbol} to ${CHAIN_META[toChainId]?.name ?? 'destination'}` : quoteErr ? 'No route found' : 'Enter amount'}</Button>
       {picker && (
         <TokenPicker tokens={picker === 'from' ? fromTokens : toTokens} loading={picker === 'from' ? loadingFrom : loadingTo} selected={picker === 'from' ? fromToken.address : toToken.address} onSelect={token => { picker === 'from' ? setFromToken(token) : setToToken(token); setFromAmt(''); setQuote(null); }} onImport={tokenAddress => importToken(tokenAddress, picker === 'from' ? fromChainId : toChainId)} onClose={() => setPicker(null)}/>
@@ -1130,8 +1130,8 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
 
   if (step === 'confirm' || step === 'approving' || step === 'sending') return (
     <Screen gap={16} style={{ width: '100%', maxWidth: 520, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(255,255,255,.08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={fromChainId} size={16}/>{CHAIN_META[fromChainId]?.name}<span>to</span><ChainLogo chainId={toChainId} size={16}/>{CHAIN_META[toChainId]?.name}</div></div></div>
-      <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(255,255,255,.08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={fromChainId} size={16}/>{CHAIN_META[fromChainId]?.name}<span>to</span><ChainLogo chainId={toChainId} size={16}/>{CHAIN_META[toChainId]?.name}</div></div></div>
+      <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(var(--fg-rgb), .08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
       <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/><InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · from amount` : 'None'}/>{lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}%`}/>}<InfoRow label="BTB fee" value={btbFeePercent > 0 ? `${btbFeePercent}%` : 'Free'}/><InfoRow label="Route" last value={route}/></Glass>
       <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>
     </Screen>

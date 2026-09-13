@@ -267,7 +267,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const sectionProps = { isMobile };
 
   const horizonPicker = (
-    <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 3, flexShrink: 0 }}>
+    <div style={{ display: 'flex', gap: 4, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 12, padding: 3, flexShrink: 0 }}>
       {[7, 30, 90, 180].map((d) => (
         <button key={d} onClick={() => setHorizonDays(d)} style={{
           height: 28, padding: isMobile ? '0 8px' : '0 11px', borderRadius: 9, border: 'none', cursor: 'pointer',
@@ -332,7 +332,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div onClick={onClose} title="Back to pool comparison" style={{
               width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-              background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+              background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Icon name="back" size={14} color={btb.textMuted} />
@@ -353,7 +353,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
               <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool{error ? ` (${error})` : ''}.</div>
               <button onClick={retry} style={{
                 marginTop: 10, height: 36, padding: '0 18px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: btb.border, color: btb.text,
+                fontSize: 13, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.08)', border: btb.border, color: btb.text,
               }}>Retry</button>
             </div>
           ) : (
@@ -381,7 +381,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                         style={{
                           color: risky ? btb.loss : warm ? btb.amber : btb.textMuted,
                           fontSize: 10.5, fontWeight: 700,
-                          background: risky ? 'rgba(255,107,122,.1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(255,255,255,.04)',
+                          background: risky ? 'rgba(255,107,122,.1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(var(--fg-rgb), .04)',
                           border: risky ? '1px solid rgba(255,107,122,.3)' : warm ? '1px solid rgba(255,202,107,.25)' : btb.borderSoft,
                           borderRadius: 8, padding: '3px 8px',
                         }}

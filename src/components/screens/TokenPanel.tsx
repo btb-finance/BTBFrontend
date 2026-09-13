@@ -88,7 +88,7 @@ const STEPS: { title: string; detail: string }[] = [
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const LABEL_STYLE = { color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.5 };
-const CARD_STYLE = { background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, borderRadius: 14, padding: '11px 13px', minWidth: 0 };
+const CARD_STYLE = { background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 14, padding: '11px 13px', minWidth: 0 };
 
 /** Small stat tile used across the hero and proof grids. */
 function StatTile({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
@@ -252,10 +252,10 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     borderRadius: 24,
     padding: isMobile ? 18 : 24,
     border: '1px solid rgba(82,227,164,0.25)',
-    background: 'radial-gradient(120% 150% at 88% -30%, rgba(82,227,164,0.20), transparent 55%), radial-gradient(90% 120% at 0% 115%, rgba(125,211,252,0.10), transparent 55%), linear-gradient(165deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015))',
+    background: 'radial-gradient(120% 150% at 88% -30%, rgba(82,227,164,0.20), transparent 55%), radial-gradient(90% 120% at 0% 115%, rgba(125,211,252,0.10), transparent 55%), linear-gradient(165deg, rgba(var(--fg-rgb), 0.06), rgba(var(--fg-rgb), 0.015))',
     display: 'flex', flexDirection: 'column' as const, gap: 16,
   };
-  const panelStyle = { borderRadius: 24, padding: isMobile ? 18 : 24, border: btb.border, background: 'rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column' as const, gap: 14 };
+  const panelStyle = { borderRadius: 24, padding: isMobile ? 18 : 24, border: btb.border, background: 'rgba(var(--fg-rgb), 0.05)', display: 'flex', flexDirection: 'column' as const, gap: 14 };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -291,7 +291,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               </div>
             </div>
             <svg width="52" height="52" viewBox="0 0 52 52" fill="none" strokeWidth="2" style={{ flexShrink: 0 }}>
-              <circle cx="26" cy="26" r="22" stroke="rgba(255,255,255,0.10)"/>
+              <circle cx="26" cy="26" r="22" stroke="rgba(var(--fg-rgb), 0.10)"/>
               <circle cx="26" cy="26" r="22" stroke={btb.green} strokeDasharray="138" strokeDashoffset={ringOffset} strokeLinecap="round" transform="rotate(-90 26 26)"/>
               {checkedIn
                 ? <path d="M17 26l6 6 12-12" stroke={btb.green} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -304,10 +304,10 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               const box = d.state === 'done'
                 ? { background: 'rgba(82,227,164,0.22)', border: '1px solid rgba(82,227,164,0.5)', color: btb.green }
                 : d.state === 'today'
-                  ? { background: 'rgba(255,255,255,0.10)', border: '1px dashed rgba(82,227,164,0.7)', color: btb.green }
+                  ? { background: 'rgba(var(--fg-rgb), 0.10)', border: '1px dashed rgba(82,227,164,0.7)', color: btb.green }
                   : d.bonus
                     ? { background: 'rgba(255,179,107,0.10)', border: '1px solid rgba(255,179,107,0.4)', color: btb.amber }
-                    : { background: 'rgba(255,255,255,0.04)', border: btb.borderSoft, color: btb.textDim };
+                    : { background: 'rgba(var(--fg-rgb), 0.04)', border: btb.borderSoft, color: btb.textDim };
               return (
                 <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
                   <div style={{ ...box, width: '100%', height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
@@ -373,7 +373,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{ height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(100, sharePct ?? 0)}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg,#52E3A4,#1aad77)', transition: 'width .4s' }}/>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: btb.textDim, fontSize: 10.5, flexWrap: 'wrap' }}>
@@ -445,7 +445,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               onClick={handleEarnRow(row.action)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', minHeight: 44, textDecoration: 'none',
-                background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, borderRadius: 16, cursor: 'pointer',
+                background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 16, cursor: 'pointer',
               }}
             >
               <span style={{
@@ -512,7 +512,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                     {e.settledAt ? `settled ${shortDate(e.settledAt)}` : 'open'} · {e.requesterCount ?? 0} entered
                   </div>
                 </div>
-                <Badge color={e.state === 'paid' ? '#52E3A4' : btb.textMuted} bg="rgba(255,255,255,.05)" border="none">{e.state}</Badge>
+                <Badge color={e.state === 'paid' ? '#52E3A4' : btb.textMuted} bg="rgba(var(--fg-rgb), .05)" border="none">{e.state}</Badge>
               </div>
             ))}
           </Glass>

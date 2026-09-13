@@ -193,7 +193,7 @@ export function MiniApp() {
 
   if (!mounted) return (
     <div style={{ minHeight: '100vh', background: btb.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Spinner size={48} color="#FFFFFF" track="rgba(255,255,255,0.18)" style={{ borderWidth: 3 }}/>
+      <Spinner size={48} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)" style={{ borderWidth: 3 }}/>
     </div>
   );
 

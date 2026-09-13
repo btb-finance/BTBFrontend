@@ -47,10 +47,41 @@ function hexRgb(hex: string): string {
   return `${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}`;
 }
 
-export function chainThemeCss(theme: ChainTheme): Record<string, string> {
+export type ColorMode = 'dark' | 'light';
+
+/**
+ * Every surface, border and text colour in the app is written against
+ * `--fg-rgb` (the ink) and `--bg-rgb` (the paper), so day and night are one
+ * swap of those two triples plus the handful of absolutes below.
+ */
+export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Record<string, string> {
   const accentRgb = hexRgb(theme.accent);
+  if (mode === 'light') {
+    return {
+      '--color-mode': 'light',
+      '--fg-rgb': '14, 16, 24',
+      '--bg-rgb': '246, 247, 250',
+      '--chain-bg': '#F6F7FA',
+      '--btb-text': '#0E1018',
+      '--chain-accent': theme.accent,
+      '--chain-accent-2': theme.accent2,
+      '--chain-accent-soft': `rgba(${accentRgb}, .10)`,
+      '--chain-surface': 'rgba(14,16,24,.045)',
+      '--chain-surface-strong': 'rgba(14,16,24,.075)',
+      '--chain-surface-soft': 'rgba(14,16,24,.03)',
+      '--chain-border': '1px solid rgba(14,16,24,.12)',
+      '--chain-border-soft': '1px solid rgba(14,16,24,.07)',
+      '--chain-shadow': '0 8px 28px rgba(20,24,40,.10), 0 1px 0 rgba(255,255,255,.6) inset',
+      '--chain-gradient': 'linear-gradient(135deg, #14161F, #2A2D3A)',
+      '--chain-app-background': '#F6F7FA',
+    };
+  }
   return {
+    '--color-mode': 'dark',
+    '--fg-rgb': '255, 255, 255',
+    '--bg-rgb': '10, 10, 15',
     '--chain-bg': '#0A0A0F',
+    '--btb-text': '#FFFFFF',
     '--chain-accent': theme.accent,
     '--chain-accent-2': theme.accent2,
     '--chain-accent-soft': `rgba(${accentRgb}, .08)`,

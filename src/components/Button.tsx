@@ -34,7 +34,7 @@ function activeVisual(variant: Variant): CSSProperties {
     case 'success':
       return {
         background: btb.gradGreen,
-        color: '#fff',
+        color: 'var(--btb-text)',
         boxShadow: '0 8px 20px rgba(82,227,164,0.3)',
       };
     case 'successSoft':
@@ -47,7 +47,7 @@ function activeVisual(variant: Variant): CSSProperties {
       };
     case 'ghost':
       return {
-        background: 'rgba(255,255,255,0.06)',
+        background: 'rgba(var(--fg-rgb), 0.06)',
         color: btb.textMuted,
         border: btb.borderSoft,
       };
@@ -62,7 +62,7 @@ function activeVisual(variant: Variant): CSSProperties {
       return {
         background: btb.gradPrimary,
         color: btb.bg,
-        boxShadow: '0 10px 30px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.3)',
+        boxShadow: '0 10px 30px rgba(var(--fg-rgb), 0.12), inset 0 1px 0 rgba(var(--fg-rgb), 0.3)',
       };
   }
 }
@@ -87,7 +87,7 @@ export function Button({
   const dims = SIZES[size];
   const isDisabled = disabled || loading;
   const visual = isDisabled
-    ? { background: 'rgba(255,255,255,0.07)', color: btb.textDim, border: 'none' as const, boxShadow: 'none' }
+    ? { background: 'rgba(var(--fg-rgb), 0.07)', color: btb.textDim, border: 'none' as const, boxShadow: 'none' }
     : activeVisual(variant);
   // Spinner/icon colors track the resolved text color — including a caller's
   // override — so a recoloured button doesn't keep a mismatched glyph.
@@ -122,7 +122,7 @@ export function Button({
 
   const content = (
     <>
-      {loading ? <Spinner size={18} color={fg} track="rgba(255,255,255,0.25)" /> : icon ? <Icon name={icon} size={18} color={fg} /> : null}
+      {loading ? <Spinner size={18} color={fg} track="rgba(var(--fg-rgb), 0.25)" /> : icon ? <Icon name={icon} size={18} color={fg} /> : null}
       {children}
     </>
   );

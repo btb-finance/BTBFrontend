@@ -378,7 +378,7 @@ export function AgentStudioFilm() {
                   {STORY.map((_, i) => (
                     <span key={i} style={{
                       width: i === sc ? 18 : 6, height: 6, borderRadius: 999,
-                      background: i === sc ? btb.green : 'rgba(255,255,255,0.15)',
+                      background: i === sc ? btb.green : 'rgba(var(--fg-rgb), 0.15)',
                       transition: 'width 0.3s',
                     }}/>
                   ))}
@@ -424,7 +424,7 @@ export function AgentStudioFilm() {
                   <svg viewBox={`0 0 ${W} ${H}`} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
                     {/* Route skeleton */}
                     {faintEdges.map((d, i) => (
-                      <path key={i} d={d} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={1.5}/>
+                      <path key={i} d={d} fill="none" stroke="rgba(var(--fg-rgb), 0.10)" strokeWidth={1.5}/>
                     ))}
                     {/* Active flow */}
                     {!holding && (
@@ -458,7 +458,7 @@ export function AgentStudioFilm() {
                         <span style={{
                           width: 44, height: 44, borderRadius: 15,
                           background: `${meta.color}2E`,
-                          border: `1.5px solid ${isActive ? meta.color : 'rgba(255,255,255,0.12)'}`,
+                          border: `1.5px solid ${isActive ? meta.color : 'rgba(var(--fg-rgb), 0.12)'}`,
                           boxShadow: isActive ? `0 0 22px ${meta.color}66` : undefined,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           transition: 'border 0.3s, box-shadow 0.3s',
@@ -501,7 +501,7 @@ export function AgentStudioFilm() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   animation: 'asFadeUp 0.7s ease both, asGlow 2.4s ease-in-out infinite',
                 }}>
-                  <Icon name="rocket" size={30} color="#fff"/>
+                  <Icon name="rocket" size={30} color="var(--btb-text)"/>
                 </div>
                 <div style={{ color: btb.text, fontSize: 40, fontWeight: 800, letterSpacing: -0.8, lineHeight: 1.05, animation: 'asFadeUp 0.7s 0.2s ease both' }}>
                   Coming soon
@@ -516,7 +516,7 @@ export function AgentStudioFilm() {
 
           {/* Timeline */}
           <div style={{ padding: '0 24px 18px' }}>
-            <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{ height: 4, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${overall}%`, background: btb.gradGreen, transition: 'width 0.7s ease' }}/>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>

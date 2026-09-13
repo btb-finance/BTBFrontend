@@ -27,7 +27,7 @@ export const DEFAULT_AUTOMATION_RULES: AutomationRuleValues = {
 
 const controlStyle = {
   width: '100%', height: 34, borderRadius: 9, padding: '0 9px', fontFamily: 'inherit',
-  color: btb.text, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+  color: btb.text, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
   fontSize: 11.5, fontWeight: 700, outline: 'none',
 } as const;
 

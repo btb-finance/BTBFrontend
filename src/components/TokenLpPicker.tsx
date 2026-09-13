@@ -75,7 +75,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 330, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '80vh', overflowY: 'auto' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))', maxHeight: '80vh', overflowY: 'auto' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Put your {token.symbol} to work</div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 2, marginBottom: 16 }}>
           Best pools for your {token.symbol} · pick one to add liquidity
@@ -97,7 +97,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                     <span style={{ color: btb.text, fontSize: 14, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.pair}</span>
                     {p.feeTier !== undefined && (
-                      <Badge size="sm" color={btb.textMuted} bg="rgba(255,255,255,0.08)" border="none">{fmtFeeTier(p.feeTier)}</Badge>
+                      <Badge size="sm" color={btb.textMuted} bg="rgba(var(--fg-rgb), 0.08)" border="none">{fmtFeeTier(p.feeTier)}</Badge>
                     )}
                     {p.version && (
                       <Badge size="sm" color="#FF007A" bg="rgba(255,0,122,0.12)" border="none">{p.version}</Badge>

@@ -125,7 +125,7 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
               fill={barInBand ? 'rgba(82,227,164,0.55)' : 'rgba(125,211,252,0.35)'} />
           );
         })}
-        <line x1={PAD} x2={W - PAD} y1={chartH} y2={chartH} stroke="rgba(255,255,255,0.12)" strokeWidth={1}/>
+        <line x1={PAD} x2={W - PAD} y1={chartH} y2={chartH} stroke="rgba(var(--fg-rgb), 0.12)" strokeWidth={1}/>
         {/* current price */}
         <line x1={clampX(x(current))} x2={clampX(x(current))} y1={PAD} y2={chartH} stroke={btb.text} strokeWidth={1} strokeDasharray="3 3" opacity={0.6}/>
         {handle('min', lineMin)}
@@ -157,7 +157,7 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(12, Math.max(0.3, z * factor))); }}
               style={{
-                width: 24, height: 24, borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)', cursor: 'pointer',
+                width: 24, height: 24, borderRadius: 8, border: '1px solid rgba(var(--fg-rgb), 0.16)', cursor: 'pointer',
                 background: 'rgba(20,20,28,0.85)', color: btb.text, fontSize: 13, lineHeight: 1, fontFamily: 'inherit', padding: 0,
               }}>{label}</button>
           ))}

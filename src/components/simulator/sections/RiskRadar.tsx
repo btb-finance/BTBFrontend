@@ -72,14 +72,14 @@ export function RiskRadar({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
           {axes.map((a, i) => (
             <div key={a.name} onClick={() => setActive(active === i ? null : i)} style={{
               borderRadius: 12, padding: '8px 11px', cursor: 'pointer',
-              background: active === i ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.03)',
+              background: active === i ? 'rgba(var(--fg-rgb), 0.07)' : 'rgba(var(--fg-rgb), 0.03)',
               border: active === i ? btb.border : btb.borderSoft,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: btb.text, fontSize: 12, fontWeight: 700 }}>{a.name}</span>
                 <span style={{ fontSize: 12, fontWeight: 800, color: a.risk >= 60 ? btb.loss : a.risk >= 35 ? btb.amber : btb.green }}>{a.risk}</span>
               </div>
-              <div style={{ height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.07)', margin: '5px 0' }}>
+              <div style={{ height: 4, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.07)', margin: '5px 0' }}>
                 <div style={{ width: `${a.risk}%`, height: '100%', borderRadius: 999, background: a.risk >= 60 ? btb.loss : a.risk >= 35 ? btb.amber : btb.green }} />
               </div>
               <div style={{ color: btb.textDim, fontSize: 10.5, lineHeight: 1.4 }}>{a.note}</div>

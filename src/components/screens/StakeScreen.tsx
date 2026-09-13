@@ -32,7 +32,7 @@ const SUGGESTIONS = [
 ];
 
 const CAPABILITIES = [
-  { icon: 'pie',    color: '#FFFFFF', bg: 'rgba(255,255,255,0.08)',  title: 'Reads your portfolio',     desc: 'Sees every balance, position, and price across all your tokens.' },
+  { icon: 'pie',    color: 'var(--btb-text)', bg: 'rgba(var(--fg-rgb), 0.08)',  title: 'Reads your portfolio',     desc: 'Sees every balance, position, and price across all your tokens.' },
   { icon: 'chart',  color: '#52E3A4', bg: 'rgba(82,227,164,0.12)',   title: 'Knows the market',         desc: 'Has live TVL, volume, and APR for every pool on Discover and Earn.' },
   { icon: 'shield', color: '#FFB36B', bg: 'rgba(255,179,107,0.15)',  title: 'Talks risk honestly',      desc: 'Flags impermanent loss, thin pools, and out of range positions.' },
   { icon: 'send',   color: '#94A3B8', bg: 'rgba(148,163,184,0.15)',  title: 'Suggests next moves',      desc: 'Recommends LPs and vaults sized to what you actually hold.' },
@@ -84,18 +84,18 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
       <Glass padding={28} radius={28} strong style={{ textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(circle at 30% 0%, rgba(255,255,255,0.18), transparent 55%), radial-gradient(circle at 80% 100%, rgba(255,179,107,0.18), transparent 55%)',
+          background: 'radial-gradient(circle at 30% 0%, rgba(var(--fg-rgb), 0.18), transparent 55%), radial-gradient(circle at 80% 100%, rgba(255,179,107,0.18), transparent 55%)',
           pointerEvents: 'none',
         }}/>
         <div style={{ position: 'relative' }}>
           <div style={{
             width: 76, height: 76, borderRadius: 24, margin: '0 auto 18px',
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,179,107,0.18))',
-            border: '1px solid rgba(255,255,255,0.2)',
+            background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(255,179,107,0.18))',
+            border: '1px solid rgba(var(--fg-rgb), 0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 12px 32px rgba(255,179,107,0.25), inset 0 1px 0 rgba(255,255,255,0.3)',
+            boxShadow: '0 12px 32px rgba(255,179,107,0.25), inset 0 1px 0 rgba(var(--fg-rgb), 0.3)',
           }}>
-            <Icon name="bolt" size={36} color="#fff"/>
+            <Icon name="bolt" size={36} color="var(--btb-text)"/>
           </div>
           <div style={{ color: btb.text, fontSize: 24, fontWeight: 800, letterSpacing: -0.5, marginBottom: 8 }}>
             Your personal AI agent
@@ -145,7 +145,7 @@ function InlineMd({ text }: { text: string }) {
           return <strong key={i} style={{ color: btb.text, fontWeight: 800 }}>{p.slice(2, -2)}</strong>;
         }
         if (p.startsWith('`') && p.endsWith('`')) {
-          return <code key={i} style={{ background: 'rgba(255,255,255,0.09)', padding: '1px 5px', borderRadius: 5, fontSize: 12 }}>{p.slice(1, -1)}</code>;
+          return <code key={i} style={{ background: 'rgba(var(--fg-rgb), 0.09)', padding: '1px 5px', borderRadius: 5, fontSize: 12 }}>{p.slice(1, -1)}</code>;
         }
         if (p.startsWith('*') && p.endsWith('*') && p.length > 2) {
           return <em key={i} style={{ color: btb.textMuted }}>{p.slice(1, -1)}</em>;
@@ -183,11 +183,11 @@ function AgentMessage({ content }: { content: string }) {
                 {rows.map((cells, r) => (
                   <tr key={r}>
                     {cells.map((c, ci) => r === 0 ? (
-                      <th key={ci} style={{ textAlign: 'left', padding: '5px 10px 5px 0', borderBottom: '1px solid rgba(255,255,255,0.16)', color: btb.textMuted, fontWeight: 700, fontSize: 11.5, whiteSpace: 'nowrap' }}>
+                      <th key={ci} style={{ textAlign: 'left', padding: '5px 10px 5px 0', borderBottom: '1px solid rgba(var(--fg-rgb), 0.16)', color: btb.textMuted, fontWeight: 700, fontSize: 11.5, whiteSpace: 'nowrap' }}>
                         <InlineMd text={c}/>
                       </th>
                     ) : (
-                      <td key={ci} style={{ padding: '5px 10px 5px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', whiteSpace: 'nowrap' }}>
+                      <td key={ci} style={{ padding: '5px 10px 5px 0', borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', whiteSpace: 'nowrap' }}>
                         <InlineMd text={c}/>
                       </td>
                     ))}
@@ -316,11 +316,11 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 42, height: 42, borderRadius: 14, flexShrink: 0,
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.22), rgba(255,179,107,0.18))',
-          border: '1px solid rgba(255,255,255,0.2)',
+          background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(255,179,107,0.18))',
+          border: '1px solid rgba(var(--fg-rgb), 0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Icon name="bolt" size={20} color="#fff"/>
+          <Icon name="bolt" size={20} color="var(--btb-text)"/>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>BTB Agent</div>
@@ -365,7 +365,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
                   <button key={s} onClick={() => submit(s)} disabled={busy} style={{
                     padding: '10px 14px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
                     fontSize: 12.5, fontWeight: 600, textAlign: 'left',
-                    background: 'rgba(255,255,255,0.05)', border: btb.borderSoft, color: btb.textMuted,
+                    background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, color: btb.textMuted,
                   }}>{s}</button>
                 ))}
               </div>
@@ -375,7 +375,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
             <div key={m._id} style={{
               alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
               maxWidth: '85%', padding: '10px 14px', borderRadius: 16,
-              background: m.role === 'user' ? 'rgba(82,227,164,0.12)' : 'rgba(255,255,255,0.06)',
+              background: m.role === 'user' ? 'rgba(82,227,164,0.12)' : 'rgba(var(--fg-rgb), 0.06)',
               border: m.role === 'user' ? '1px solid rgba(82,227,164,0.25)' : btb.borderSoft,
               color: btb.text, fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word',
               ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' as const } : {}),
@@ -392,7 +392,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
           )}
           {busy && (
             <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px' }}>
-              <Spinner size={14} color="#fff" track="rgba(255,255,255,0.18)"/>
+              <Spinner size={14} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>
               <span style={{ color: btb.textMuted, fontSize: 12.5 }}>Thinking…</span>
             </div>
           )}
@@ -412,7 +412,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
             placeholder="Ask about pools, risk, or your positions…"
             disabled={busy}
             style={{
-              flex: 1, minWidth: 0, background: 'rgba(255,255,255,0.06)', border: btb.borderSoft,
+              flex: 1, minWidth: 0, background: 'rgba(var(--fg-rgb), 0.06)', border: btb.borderSoft,
               borderRadius: 14, padding: '0 14px', height: 44, outline: 'none',
               color: btb.text, fontSize: 14, fontFamily: 'inherit',
             }}

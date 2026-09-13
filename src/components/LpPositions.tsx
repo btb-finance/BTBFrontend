@@ -542,7 +542,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {line('Current value', money(v > 0 ? v : a.totalDepositValue + a.pnl))}
             {a.totalWithdrawValue > 0 && line('Withdrawn', money(a.totalWithdrawValue))}
             {a.feeApr > 0 && line('Fee APR', `${a.feeApr.toFixed(1)}%`, btb.textMuted)}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 2, paddingTop: 8 }}>
+            <div style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', marginTop: 2, paddingTop: 8 }}>
               {line('P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss, true)}
             </div>
           </div>
@@ -694,7 +694,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               { label: 'Vs holding', value: fmtSignedMoney(krystalStats.compareWithHodl), color: krystalStats.compareWithHodl >= 0 ? btb.green : btb.loss },
               { label: 'Positions', value: `${krystalStats.openPositionCount} open · ${krystalStats.closedPositionCount} closed`, color: btb.text },
             ].map((item) => (
-              <div key={item.label} style={{ padding: '9px 10px', borderRadius: 11, background: 'rgba(255,255,255,0.035)', minWidth: 0 }}>
+              <div key={item.label} style={{ padding: '9px 10px', borderRadius: 11, background: 'rgba(var(--fg-rgb), 0.035)', minWidth: 0 }}>
                 <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
                 <div style={{ color: item.color, fontSize: isMobile ? 13 : 14, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
               </div>
@@ -715,7 +715,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 const symbols = [...new Set((item.feePending ?? []).map((amount) => amount.token?.symbol).filter(Boolean))];
                 const closed = item.closedTime ? new Date(item.closedTime * 1000).toLocaleDateString() : 'closed';
                 return (
-                  <div key={`${item.pool?.projectKey}-${item.tokenId}`} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr 0.8fr 0.7fr 0.7fr', gap: 10, alignItems: 'center', padding: '9px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.035)' }}>
+                  <div key={`${item.pool?.projectKey}-${item.tokenId}`} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr 0.8fr 0.7fr 0.7fr', gap: 10, alignItems: 'center', padding: '9px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.035)' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
                       <div style={{ color: btb.textDim, fontSize: 9.5, marginTop: 2 }}>{item.pool?.project ?? 'LP'} · {closed}</div>
@@ -778,11 +778,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 )}
                 {pendingFees > 0 && <div style={{ color: btb.green, fontSize: 12, marginTop: 3 }}>Fees: ${pendingFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 9 }}>
-                  <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
+                  <div style={{ background: 'rgba(var(--fg-rgb), 0.035)', borderRadius: 10, padding: '8px 9px' }}>
                     <div style={{ color: btb.textDim, fontSize: 9.5 }}>HISTORICAL PNL</div>
                     <div style={{ color: item.pnl >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>{fmtSignedMoney(item.pnl)} · {fmtSignedPercent(item.returnOnInvestment)}</div>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
+                  <div style={{ background: 'rgba(var(--fg-rgb), 0.035)', borderRadius: 10, padding: '8px 9px' }}>
                     <div style={{ color: btb.textDim, fontSize: 9.5 }}>LIFETIME FEES</div>
                     <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>${lifetimeFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
                   </div>
@@ -851,9 +851,9 @@ function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: (
   return (
     <button onClick={onClick} disabled={disabled} style={{
       height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
-      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(82,227,164,0.4)' : '1px solid rgba(255,255,255,0.14)',
+      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(82,227,164,0.4)' : '1px solid rgba(var(--fg-rgb), 0.14)',
       cursor: disabled ? 'default' : 'pointer',
-      background: disabled ? 'rgba(255,255,255,0.06)' : green ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.07)',
+      background: disabled ? 'rgba(var(--fg-rgb), 0.06)' : green ? 'rgba(82,227,164,0.16)' : 'rgba(var(--fg-rgb), 0.07)',
       color: disabled ? btb.textDim : green ? btb.green : btb.text,
     }}>{label}</button>
   );
@@ -970,7 +970,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>
@@ -982,8 +982,8 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               {[25, 50, 75, 100].map((v) => (
                 <button key={v} onClick={() => setPct(v)} style={{
                   flex: 1, height: 40, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
-                  background: pct === v ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${pct === v ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                  background: pct === v ? 'rgba(82,227,164,0.18)' : 'rgba(var(--fg-rgb), 0.06)',
+                  border: `1px solid ${pct === v ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                   color: pct === v ? '#52E3A4' : btb.textMuted,
                 }}>{v}%</button>
               ))}
@@ -998,9 +998,9 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         ) : (
           <>
             {wethSide !== null && (
-              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
+              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 14, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '10px 14px' }}>
                 <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(var(--fg-rgb), 0.18)', position: 'relative', transition: 'background 0.2s' }}>
                   <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
                 </div>
               </div>
@@ -1016,7 +1016,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               value={amtStr}
               onChange={(e) => setAmtStr(e.target.value.replace(/[^0-9.]/g, ''))}
               inputMode="decimal" placeholder="0"
-              style={{ width: '100%', height: 52, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '0 16px', color: btb.text, fontSize: 22, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}/>
+              style={{ width: '100%', height: 52, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 14, padding: '0 16px', color: btb.text, fontSize: 22, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}/>
             {(add0 > 0n || add1 > 0n) && (
               <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 10 }}>
                 Deposit: {fmtAmt(add0, pos.decimals0)} {sym0} + {fmtAmt(add1, pos.decimals1)} {sym1}

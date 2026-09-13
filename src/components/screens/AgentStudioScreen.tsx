@@ -143,17 +143,17 @@ function StepCard({ n, title, state, help, children }: {
         <span style={{
           width: 24, height: 24, borderRadius: '50%', flexShrink: 0, fontSize: 12, fontWeight: 800,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: state === 'done' ? btb.gradGreen : 'rgba(255,255,255,0.1)',
-          color: '#fff',
+          background: state === 'done' ? btb.gradGreen : 'rgba(var(--fg-rgb), 0.1)',
+          color: 'var(--btb-text)',
         }}>
-          {state === 'done' ? <Icon name="check" size={12} color="#fff"/> : n}
+          {state === 'done' ? <Icon name="check" size={12} color="var(--btb-text)"/> : n}
         </span>
         <span style={{ color: btb.text, fontSize: 15, fontWeight: 800, flex: 1 }}>{title}</span>
         {help && (
           <span onClick={() => setShowHelp(s => !s)} style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', flexShrink: 0,
             padding: '4px 10px', borderRadius: 999,
-            background: showHelp ? 'rgba(82,227,164,0.15)' : 'rgba(255,255,255,0.06)',
+            background: showHelp ? 'rgba(82,227,164,0.15)' : 'rgba(var(--fg-rgb), 0.06)',
             border: showHelp ? '1px solid rgba(82,227,164,0.35)' : btb.borderSoft,
           }}>
             <Icon name="bolt" size={11} color={showHelp ? btb.green : btb.textMuted}/>
@@ -779,7 +779,7 @@ export function AgentStudioScreen() {
                   {['0.5', '1', '5', '10', '30', 'full'].map(p => (
                     <span key={p} onClick={() => setRangeInput(p)} style={{
                       padding: '2px 8px', borderRadius: 999, cursor: 'pointer', fontSize: 10.5, fontWeight: 700,
-                      background: rangeInput === p ? 'rgba(82,227,164,0.15)' : 'rgba(255,255,255,0.05)',
+                      background: rangeInput === p ? 'rgba(82,227,164,0.15)' : 'rgba(var(--fg-rgb), 0.05)',
                       border: rangeInput === p ? '1px solid rgba(82,227,164,0.35)' : btb.borderSoft,
                       color: rangeInput === p ? btb.green : btb.textMuted,
                     }}>
@@ -974,7 +974,7 @@ export function AgentStudioScreen() {
 
                       {/* Range visual: where the price sits inside the band */}
                       {p.liquidity > 0n && p.tickUpper > p.tickLower && data.currentTick !== null && !(p.tickLower <= -887200 && p.tickUpper >= 887200) && (
-                        <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'visible' }}>
+                        <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'visible' }}>
                           <div style={{
                             position: 'absolute', top: 0, bottom: 0, left: '15%', right: '15%',
                             borderRadius: 999, background: inRange ? 'rgba(82,227,164,0.35)' : 'rgba(255,179,107,0.3)',

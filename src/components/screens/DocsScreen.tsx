@@ -6,7 +6,7 @@ import { Screen } from '../Screen';
 import { btb } from '../design-tokens';
 
 const GUIDES = [
-  { icon: 'rocket',  color: '#FFFFFF', bg: 'rgba(255,255,255,0.1)',  title: 'Getting started',  desc: 'Connect a wallet on Ethereum mainnet and the rest of the app unlocks.' },
+  { icon: 'rocket',  color: 'var(--btb-text)', bg: 'rgba(var(--fg-rgb), 0.1)',  title: 'Getting started',  desc: 'Connect a wallet on Ethereum mainnet and the rest of the app unlocks.' },
   { icon: 'refresh', color: '#52E3A4', bg: 'rgba(82,227,164,0.15)',  title: 'How swaps work',   desc: 'Routes through KyberSwap for best-price across DEXs — no extra protocol fee on top.' },
   { icon: 'image',   color: '#FFB36B', bg: 'rgba(255,179,107,0.15)', title: 'BTB Bear NFT',     desc: '100k cap, 0.01 ETH per mint. Stake to earn BTBB from the 1% transfer tax pool.' },
   { icon: 'pie',     color: '#94A3B8', bg: 'rgba(148,163,184,0.15)', title: 'Portfolio tracking', desc: 'Every ERC-20 you hold, priced from on-chain pools. Refreshed on demand.' },
@@ -23,10 +23,10 @@ const FAQS = [
 ];
 
 const LINKS: { icon: string; color: string; label: string; sub: string; href: string }[] = [
-  { icon: 'doc',     color: '#FFFFFF', label: 'Documentation', sub: 'Full protocol docs coming soon', href: 'https://github.com/btb-finance' },
+  { icon: 'doc',     color: 'var(--btb-text)', label: 'Documentation', sub: 'Full protocol docs coming soon', href: 'https://github.com/btb-finance' },
   { icon: 'discord', color: '#5865F2', label: 'Discord',       sub: 'Join the community',             href: 'https://discord.gg/bqFEPA56Tc' },
-  { icon: 'twitter', color: '#fff',    label: 'X / Twitter',   sub: '@BTB_Finance',                   href: 'https://x.com/BTB_Finance' },
-  { icon: 'github',  color: '#fff',    label: 'GitHub',        sub: 'Open source contracts',          href: 'https://github.com/btb-finance' },
+  { icon: 'twitter', color: 'var(--btb-text)',    label: 'X / Twitter',   sub: '@BTB_Finance',                   href: 'https://x.com/BTB_Finance' },
+  { icon: 'github',  color: 'var(--btb-text)',    label: 'GitHub',        sub: 'Open source contracts',          href: 'https://github.com/btb-finance' },
   { icon: 'mail',    color: '#52E3A4', label: 'Support',       sub: 'hello@btb.finance',              href: 'mailto:hello@btb.finance' },
 ];
 
@@ -45,7 +45,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div onClick={onBack} style={{
           width: 40, height: 40, borderRadius: 12,
-          background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+          background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
           <Icon name="back" size={18}/>
@@ -57,7 +57,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       <Glass padding={20} radius={22} strong style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 0% 0%, rgba(255,255,255,0.15), transparent 55%), radial-gradient(circle at 100% 100%, rgba(255,179,107,0.18), transparent 55%)',
+          background: 'radial-gradient(circle at 0% 0%, rgba(var(--fg-rgb), 0.15), transparent 55%), radial-gradient(circle at 100% 100%, rgba(255,179,107,0.18), transparent 55%)',
         }}/>
         <div style={{ position: 'relative' }}>
           <div style={{ color: '#FFB36B', fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>The pitch</div>
@@ -110,7 +110,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
         <div style={{ color: btb.text, fontSize: 17, fontWeight: 700, marginBottom: 12, letterSpacing: -0.3 }}>FAQ</div>
         <Glass padding={0} radius={20}>
           {filteredFaqs.map((f, i) => (
-            <div key={i} style={{ borderBottom: i < filteredFaqs.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+            <div key={i} style={{ borderBottom: i < filteredFaqs.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}>
               <div
                 onClick={() => setOpenFaq(openFaq === i ? null : i)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', cursor: 'pointer' }}
@@ -139,12 +139,12 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
               rel={l.href.startsWith('mailto:') ? undefined : 'noreferrer'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                borderBottom: i < LINKS.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                borderBottom: i < LINKS.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none',
                 cursor: 'pointer', textDecoration: 'none',
               }}>
               <div style={{
                 width: 36, height: 36, borderRadius: 10,
-                background: 'rgba(255,255,255,0.06)', border: btb.borderSoft,
+                background: 'rgba(var(--fg-rgb), 0.06)', border: btb.borderSoft,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
                 <Icon name={l.icon} size={18} color={l.color}/>
@@ -153,7 +153,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
                 <div style={{ color: btb.text, fontSize: 14, fontWeight: 600 }}>{l.label}</div>
                 <div style={{ color: btb.textMuted, fontSize: 12 }}>{l.sub}</div>
               </div>
-              <Icon name="arrow" size={16} color="rgba(255,255,255,0.35)"/>
+              <Icon name="arrow" size={16} color="rgba(var(--fg-rgb), 0.35)"/>
             </a>
           ))}
         </Glass>

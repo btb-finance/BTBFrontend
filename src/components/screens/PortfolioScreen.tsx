@@ -131,7 +131,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
   const hasChange = trustedTokens.some(t => t.change1d != null);
 
   // Allocation bar: top four holdings, everything else grouped.
-  const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8', 'rgba(255,255,255,0.28)'];
+  const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
   const top4 = trustedTokens.slice(0, 4);
   const restUsd = tokensUsd - top4.reduce((s, t) => s + (t.usdValue ?? 0), 0);
   const allocation = [
@@ -198,13 +198,13 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
       <div style={{ display: 'flex', gap: 6, justifyContent: isMobile ? 'stretch' : 'flex-end' }} onClick={e => e.stopPropagation()}>
         {canSwap && (
           <Button size="sm" fullWidth={isMobile} onClick={() => onSwap?.(t)}
-            style={{ height: h, gap: 5, fontSize: 12, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: 'none', borderRadius: 10 }}>
+            style={{ height: h, gap: 5, fontSize: 12, background: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.15),rgba(var(--fg-rgb), 0.07))', color: btb.text, boxShadow: 'none', borderRadius: 10 }}>
             <Icon name="swap" size={12} /> Swap
           </Button>
         )}
         {canSimulate && (
           <Button variant="ghost" size="sm" fullWidth={isMobile} onClick={() => onSimulate?.(t)}
-            style={{ height: h, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text, borderRadius: 10 }}>
+            style={{ height: h, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.07)', color: btb.text, borderRadius: 10 }}>
             <Icon name="chart" size={12} /> Simulate
           </Button>
         )}
@@ -282,7 +282,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {onSend && (
               <Button variant="ghost" size="sm" fullWidth={false} onClick={onSend} title="Send tokens from this wallet"
-                style={{ height: 36, width: isMobile ? 36 : undefined, padding: isMobile ? 0 : undefined, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text, borderRadius: 999 }}>
+                style={{ height: 36, width: isMobile ? 36 : undefined, padding: isMobile ? 0 : undefined, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.07)', color: btb.text, borderRadius: 999 }}>
                 <Icon name="send" size={12} />{!isMobile && ' Send'}
               </Button>
             )}
@@ -319,7 +319,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
           <button key={s.label} onClick={() => setTab(s.go)} style={{
             textAlign: 'left', padding: isMobile ? '10px 12px' : '12px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
             background: s.active ? btb.surfaceStrong : btb.surfaceSoft,
-            border: `1px solid ${s.active ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)'}`,
+            border: `1px solid ${s.active ? 'rgba(var(--fg-rgb), 0.22)' : 'rgba(var(--fg-rgb), 0.07)'}`,
           }}>
             <div style={{ color: btb.textMuted, fontSize: isMobile ? 10 : 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
             <div style={{ color: s.color, fontSize: isMobile ? 17 : 20, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</div>
@@ -335,8 +335,8 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
               <button key={t} onClick={() => setTab(t)} style={{
                 height: isMobile ? 30 : 32, padding: isMobile ? '0 12px' : '0 16px', borderRadius: 9,
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: isMobile ? 12.5 : 13, fontWeight: 700, whiteSpace: 'nowrap',
-                background: active ? 'rgba(255,255,255,0.12)' : 'transparent', border: 'none',
-                color: active ? '#fff' : btb.textMuted,
+                background: active ? 'rgba(var(--fg-rgb), 0.12)' : 'transparent', border: 'none',
+                color: active ? btb.text : btb.textMuted,
               }}>{label}</button>
             );
           })}
@@ -350,10 +350,10 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
               onChange={event => setTokenSearch(event.target.value)}
               placeholder="Search token or contract"
               aria-label="Search token or contract"
-              style={{ flex: isMobile ? 1 : undefined, width: isMobile ? undefined : 210, minWidth: 0, height: isMobile ? 34 : 36, boxSizing: 'border-box', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,0.055)', color: btb.text, padding: '0 10px', outline: 'none', fontFamily: 'inherit', fontSize: 12 }}
+              style={{ flex: isMobile ? 1 : undefined, width: isMobile ? undefined : 210, minWidth: 0, height: isMobile ? 34 : 36, boxSizing: 'border-box', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.055)', color: btb.text, padding: '0 10px', outline: 'none', fontFamily: 'inherit', fontSize: 12 }}
             />
             {hiddenAssetCount > 0 && (
-              <button onClick={() => setShowHiddenAssets(value => !value)} style={{ height: isMobile ? 34 : 36, padding: '0 11px', borderRadius: 10, border: btb.borderSoft, background: showHiddenAssets ? 'rgba(255,255,255,0.1)' : 'transparent', color: showHiddenAssets ? btb.text : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button onClick={() => setShowHiddenAssets(value => !value)} style={{ height: isMobile ? 34 : 36, padding: '0 11px', borderRadius: 10, border: btb.borderSoft, background: showHiddenAssets ? 'rgba(var(--fg-rgb), 0.1)' : 'transparent', color: showHiddenAssets ? btb.text : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 {showHiddenAssets ? 'Hide risky' : `Hidden (${hiddenAssetCount})`}
               </button>
             )}

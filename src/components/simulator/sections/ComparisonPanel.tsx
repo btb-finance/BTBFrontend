@@ -31,7 +31,7 @@ export function ComparisonPanel({ sim }: { sim: Sim }) {
                   {fmtUsd(r.valueUsd)} <span style={{ color: btb.textDim, fontWeight: 600 }}>({fmtSignedPct(roi)})</span>
                 </span>
               </div>
-              <div style={{ height: r.isYou ? 18 : 12, borderRadius: 999, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+              <div style={{ height: r.isYou ? 18 : 12, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.05)', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.max(pct, 1)}%`, height: '100%', borderRadius: 999,
                   background: r.isYou ? chart.fees : chart.alt,

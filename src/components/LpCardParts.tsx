@@ -16,7 +16,7 @@ export function fmtPrice(v: number) {
  * portfolio read as one design. */
 export const lpBox = (isMobile: boolean) => ({
   padding: isMobile ? '10px 12px' : '12px 14px', borderRadius: 14,
-  background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.05)', minWidth: 0,
+  background: 'rgba(var(--fg-rgb), 0.035)', border: '1px solid rgba(var(--fg-rgb), 0.05)', minWidth: 0,
 });
 export const lpBoxLabel = { color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 } as const;
 export const lpBoxValue = (isMobile: boolean) => ({
@@ -55,7 +55,7 @@ export function RangeBar({ p }: { p: RangeBarProps }) {
         <span style={{ color: tone, fontSize: 14, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
       </div>
       <div style={{ position: 'relative', height: 30, marginTop: 8 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(255,255,255,0.05)' }}/>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.05)' }}/>
         <div style={{
           position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, borderRadius: 10,
           background: p.inRange ? 'rgba(82,227,164,0.16)' : 'rgba(255,179,107,0.14)',
@@ -81,7 +81,7 @@ export function RangeBar({ p }: { p: RangeBarProps }) {
 export type LpTone = 'neutral' | 'green' | 'amber' | 'danger';
 
 const LP_TONES: Record<LpTone, { color: string; bg: string; border: string }> = {
-  neutral: { color: btb.text,  bg: 'rgba(255,255,255,0.07)',  border: 'rgba(255,255,255,0.13)' },
+  neutral: { color: btb.text,  bg: 'rgba(var(--fg-rgb), 0.07)',  border: 'rgba(var(--fg-rgb), 0.13)' },
   green:   { color: btb.green, bg: 'rgba(82,227,164,0.12)',   border: 'rgba(82,227,164,0.35)' },
   amber:   { color: btb.amber, bg: 'rgba(255,179,107,0.14)',  border: 'rgba(255,179,107,0.4)' },
   danger:  { color: btb.loss,  bg: 'rgba(255,107,122,0.10)',  border: 'rgba(255,107,122,0.3)' },
@@ -104,8 +104,8 @@ export function LpButton({ icon, label, onClick, disabled, tone = 'neutral', sol
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
         minWidth: full ? 0 : undefined, overflow: 'hidden', textOverflow: 'ellipsis',
         cursor: disabled ? 'default' : 'pointer', color,
-        background: disabled ? 'rgba(255,255,255,0.05)' : solid && tone === 'green' ? btb.gradGreen : t.bg,
-        border: `1px solid ${disabled ? 'rgba(255,255,255,0.07)' : solid ? 'transparent' : t.border}`,
+        background: disabled ? 'rgba(var(--fg-rgb), 0.05)' : solid && tone === 'green' ? btb.gradGreen : t.bg,
+        border: `1px solid ${disabled ? 'rgba(var(--fg-rgb), 0.07)' : solid ? 'transparent' : t.border}`,
         boxShadow: !disabled && solid ? '0 6px 16px rgba(82,227,164,0.25)' : 'none',
         transition: 'opacity 0.15s, transform 0.1s',
       }}

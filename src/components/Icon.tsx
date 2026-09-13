@@ -2,7 +2,7 @@
 
 interface IconProps { name: string; size?: number; color?: string; }
 
-export function Icon({ name, size = 22, color = '#fff' }: IconProps) {
+export function Icon({ name, size = 22, color = 'var(--btb-text)' }: IconProps) {
   const s = { width: size, height: size, stroke: color, fill: 'none', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (name) {
     case 'home':    return <svg viewBox="0 0 24 24" {...s}><path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-7h-6v7H5a2 2 0 0 1-2-2z"/></svg>;
