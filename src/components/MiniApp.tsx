@@ -7,7 +7,7 @@ import { prefetchDiscoverPools } from '../lib/discoverPools';
 import { pathFor, parsePath, type Overlay } from '../lib/routes';
 import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
-import { Sidebar } from './Sidebar';
+import { TopNav } from './TopNav';
 import { MobileNav } from './MobileNav';
 import { Tab } from './types';
 import { ConnectScreen } from './screens/ConnectScreen';
@@ -131,9 +131,9 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
     : null;
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--chain-app-background, #0A0A0F)', display: 'flex', transition: 'background 280ms ease' }}>
+    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--chain-app-background, #0A0A0F)', display: 'flex', flexDirection: 'column', transition: 'background 280ms ease' }}>
       {!isMobile && (
-        <Sidebar
+        <TopNav
           tab={screen}
           setTab={goto}
           address={effectiveAddress}
@@ -145,7 +145,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       )}
       <div style={{
         flex: 1, minWidth: 0, overflowY: 'auto',
-        padding: isMobile ? '18px 14px calc(96px + env(safe-area-inset-bottom))' : '32px clamp(16px, 3vw, 40px) 60px',
+        width: '100%', maxWidth: isMobile ? undefined : 1360, margin: isMobile ? undefined : '0 auto',
+        padding: isMobile ? '18px 14px calc(96px + env(safe-area-inset-bottom))' : '28px clamp(16px, 3vw, 40px) 60px',
       }}>
         {overlayContent ?? content}
       </div>

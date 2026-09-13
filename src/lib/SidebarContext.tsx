@@ -14,13 +14,13 @@ interface SidebarCtx {
   /** True when collapse is forced by a narrow window — the toggle is inert, hide it. */
   forceCollapsed: boolean;
   toggle: () => void;
-  /** 0 on mobile — the sidebar is hidden and overlays should span the full width. */
+  /** Horizontal space taken beside the content. Always 0 since the desktop nav moved to a top bar. */
   width: number;
   /** True below the mobile breakpoint: sidebar is replaced by the bottom nav. */
   isMobile: boolean;
 }
 
-const Ctx = createContext<SidebarCtx>({ collapsed: false, forceCollapsed: false, toggle: () => {}, width: EXPANDED_WIDTH, isMobile: false });
+const Ctx = createContext<SidebarCtx>({ collapsed: false, forceCollapsed: false, toggle: () => {}, width: 0, isMobile: false });
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -53,7 +53,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }
 
   const effCollapsed = collapsed || narrow;
-  const width = isMobile ? 0 : effCollapsed ? COLLAPSED_WIDTH : EXPANDED_WIDTH;
+  // Desktop navigation is a top bar now, so nothing sits beside the content:
+  // overlays keyed on `width` span the whole window on every breakpoint.
+  const width = 0;
+  void EXPANDED_WIDTH; void COLLAPSED_WIDTH;
 
   return <Ctx.Provider value={{ collapsed: effCollapsed, forceCollapsed: narrow, toggle, width, isMobile }}>{children}</Ctx.Provider>;
 }
