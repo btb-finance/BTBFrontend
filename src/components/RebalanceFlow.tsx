@@ -11,9 +11,10 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { buildRemove, fetchV3Positions, SLIPPAGE_BPS, type LiquidityPosition } from '@/protocols/dexs/uniswap';
+import { buildRemove, fetchV3Positions, fetchV4Positions, buildV4Remove, poolIdOf, SLIPPAGE_BPS, type LiquidityPosition, type PoolKey } from '@/protocols/dexs/uniswap';
+import { v4DeploymentOfPosition } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
-import { buildGaugeUnstake } from '@/protocols/dexs/aerodrome';
+import { buildUnstakeCalls } from '@/protocols/staking';
 import { deploymentOfPosition, lpSlippageBps, type LpChainId } from '@/protocols/lpChains';
 
 const deploymentOf = deploymentOfPosition;
@@ -49,8 +50,14 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   const [err, setErr] = useState<string | null>(null);
 
   const chainId = pos.chainId ?? 1;
+  const isV4 = pos.protocol === 'uniswap-v4';
   const deployment = deploymentOf(pos);
-  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : 'uniswap';
+  const v4 = v4DeploymentOfPosition(pos);
+  // V4 positions are keyed by pool id, which the Add sheet needs to reopen the same pool.
+  const v4PoolKey: PoolKey | null = isV4
+    ? { currency0: pos.token0, currency1: pos.token1, fee: pos.fee, tickSpacing: pos.tickSpacing ?? 60, hooks: pos.hooks ?? '0x0000000000000000000000000000000000000000' }
+    : null;
+  const dex = pos.protocol === 'aerodrome-cl' ? 'aerodrome' : pos.protocol === 'pancakeswap-v3' ? 'pancakeswap' : pos.protocol === 'giga-v3' ? 'giga' : pos.protocol === 'ramses-v3' ? 'ramses' : pos.protocol === 'up-v3' ? 'up' : pos.protocol === 'sushiswap-v3' ? 'sushiswap' : 'uniswap';
   const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
   const h1 = pos.amount1 + pos.fees1;
@@ -61,9 +68,9 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
       if (pos.staked) {
-        setStepMsg('Unstaking from the Aerodrome gauge…');
+        setStepMsg(`Unstaking (pays out your ${pos.staked.rewardSymbol})…`);
         await runCalls(config, {
-          account, calls: buildGaugeUnstake(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          account, calls: buildUnstakeCalls(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
           verify: {
             test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'ownerOf', args: [pos.id] })).toLowerCase() === account.toLowerCase(),
             error: 'Unstake confirmed, but the RPC still shows the NFT in the gauge. Retry in a moment.',
@@ -71,12 +78,16 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         });
       }
       // Re-read right before building minimums: amounts move with the price.
-      const live = (await fetchV3Positions(client, account, deployment, [pos.id]))[0] ?? pos;
+      const live = isV4
+        ? (await fetchV4Positions(client, account, [pos.id], v4, 0n))[0] ?? pos
+        : (await fetchV3Positions(client, account, deployment, [pos.id]))[0] ?? pos;
       if (live.liquidity > 0n || live.fees0 > 0n || live.fees1 > 0n) {
         setStepMsg('Withdrawing your liquidity and fees…');
         await runCalls(config, {
-          account, calls: buildRemove(live, 10_000, slippage, account, deployment), label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`, track, chainId,
-          verify: {
+          account,
+          calls: isV4 ? buildV4Remove(live, 10_000, slippage, account, v4) : buildRemove(live, 10_000, slippage, account, deployment),
+          label: `Rebalance · withdraw ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          verify: isV4 ? undefined : {
             test: async () => {
               const s = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'positions', args: [pos.id] });
               return s[7] === 0n && s[10] === 0n && s[11] === 0n;
@@ -95,11 +106,12 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   if (phase === 'add') {
     return (
       <CreatePosition
-        tokenA={pos.token0}
-        tokenB={pos.token1}
+        tokenA={isV4 ? undefined : pos.token0}
+        tokenB={isV4 ? undefined : pos.token1}
+        v4PoolId={v4PoolKey ? poolIdOf(v4PoolKey) : undefined}
         dex={dex}
         chainId={chainId as LpChainId}
-        initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' ? pos.tickSpacing : pos.fee}
+        initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' || pos.protocol === 'up-v3' ? pos.tickSpacing : pos.fee}
         stakeByDefault={!!pos.staked}
         onClose={async () => { await onDone(); onClose(); }}
         onDone={() => {}}
@@ -122,11 +134,11 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Step n={1} title="Withdraw everything to your wallet" active>
-              {pos.staked && <div>Unstake from the gauge (pays out your earned AERO).</div>}
+              {pos.staked && <div>Unstake first (pays out your earned {pos.staked.rewardSymbol}).</div>}
               <div>Remove the position and collect fees: <b style={{ color: btb.text }}>{fmtAmt(h0, pos.decimals0)} {pos.symbol0}</b> + <b style={{ color: btb.text }}>{fmtAmt(h1, pos.decimals1)} {pos.symbol1}</b>.</div>
             </Step>
             <Step n={2} title="Pick any new range and add">
-              <div>The full Add liquidity sheet opens for this pool: presets or custom bounds, one-token smart fit, split ranges{pos.protocol === 'aerodrome-cl' ? ', and restake for AERO' : ''}.</div>
+              <div>The full Add liquidity sheet opens for this pool: presets or custom bounds, one-token smart fit, split ranges{pos.staked || pos.stakeable ? `, and restake for ${(pos.staked ?? pos.stakeable)?.rewardSymbol ?? 'rewards'}` : ''}.</div>
             </Step>
           </div>
 

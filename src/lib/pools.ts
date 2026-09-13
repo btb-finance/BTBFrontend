@@ -866,7 +866,7 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses'; chainId: 1 | 4663 | 8453 | 56 };
+export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap'; chainId: 1 | 4663 | 8453 | 56 };
 
 /** Where "Add LP" can mint in-app: Uniswap V3/V4 and PancakeSwap V3 on
  * Ethereum, Base and BNB Chain, Uniswap V3/V4 on Robinhood Chain, Aerodrome
@@ -887,12 +887,16 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
     const cl = p.liquidityModel === 'CLMM' || /v3|cl/i.test(p.version ?? '');
     if (/^giga/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'giga', chainId: 4663 };
     if (/^ramses/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'ramses', chainId: 4663 };
+    if (/^up(?:[-_]|$)/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'up', chainId: 4663 };
+    if (/^sushi/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'sushiswap', chainId: 4663 };
   }
-  if (p.dex.toLowerCase() !== 'uniswap' && p.project.startsWith('uniswap-')) return null;
+  // Registry rows keep the fork's brand in `dex`; a Uniswap-shaped project
+  // under another brand (Mdex on BNB) is not the Uniswap deployment.
+  if (/^uniswap/i.test(p.project) && !/uniswap/i.test(p.dex)) return null;
   const isUniV3 = p.project === 'uniswap-v3' || (/^uniswap/i.test(p.project) && p.version === 'V3');
   const isCakeV3 = p.project === 'pancakeswap-v3' || (/^pancake/i.test(p.project) && p.version === 'V3');
   if (isUniV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'uniswap', chainId };
-  if (chainId !== 4663 && isCakeV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
+  if (isCakeV3 && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'pancakeswap', chainId };
   const isUniV4 = (p.project === 'uniswap-v4' || (/^uniswap/i.test(p.project) && p.version === 'V4')) && /^0x[0-9a-f]{64}$/i.test(p.id);
   if (isUniV4 && (forSimulate || !p.hooks || /^0x0+$/.test(p.hooks))) return { v4PoolId: p.id as `0x${string}`, dex: 'uniswap', chainId };
   return null;

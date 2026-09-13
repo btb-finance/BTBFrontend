@@ -22,11 +22,11 @@ type WalletDef = {
 
 // `connectorId` matches the `id` exposed by each @wagmi/connectors connector.
 const WALLETS: WalletDef[] = [
+  { id: 'injected',      name: 'Browser Wallet',  sub: 'MetaMask, Rabby, Brave, OKX', glyph: 'B',  bg: '#333',                                              connectorId: 'injected' },
   { id: 'metamask',      name: 'MetaMask',        sub: 'Mobile + extension', glyph: 'M', bg: '#F6851B',                                            connectorId: 'metaMaskSDK' },
   { id: 'coinbase',      name: 'Coinbase Wallet', sub: 'Easy onboarding',    glyph: 'C',  bg: '#1652F0',                                            connectorId: 'coinbaseWalletSDK' },
   { id: 'walletconnect', name: 'WalletConnect',   sub: 'Scan with any app',  glyph: 'W',  bg: '#3B99FC',                                            connectorId: 'walletConnect' },
   { id: 'rainbow',       name: 'Rainbow',         sub: 'Mobile-first',       glyph: 'R', bg: 'linear-gradient(135deg,#FF6B6B,#94A3B8)',            connectorId: 'walletConnect' },
-  { id: 'injected',      name: 'Browser Wallet',  sub: 'Brave, Rabby, OKX…', glyph: 'B',  bg: '#333',                                              connectorId: 'injected' },
 ];
 
 export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () => void; onImport?: (address: string) => void; onClose?: () => void }) {

@@ -546,6 +546,14 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         </Button>
       </div>
 
+      {/* Crawlable path to the comparison pages; they are server-rendered outside the app shell. */}
+      <div style={{ marginTop: 22, color: btb.textDim, fontSize: 12, lineHeight: 1.6 }}>
+        Paying for LP tools? See how BTB compares to{' '}
+        <a href="/vs/metrix-finance" style={{ color: btb.textMuted }}>Metrix Finance</a>,{' '}
+        <a href="/vs/drippy-finance" style={{ color: btb.textMuted }}>Drippy Finance</a> and{' '}
+        <a href="/vs/revert-finance" style={{ color: btb.textMuted }}>Revert</a>.
+      </div>
+
     </div>
   );
 }

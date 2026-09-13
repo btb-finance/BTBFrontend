@@ -16,7 +16,7 @@ import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
-import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, SUSHI_V3_ROBINHOOD_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { v3DeploymentFor, v4DeploymentFor, isLpChain, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
@@ -1305,6 +1305,8 @@ export function SimulateScreen() {
     if (chainId === 8453 && /aerodrome/i.test(f.dexLabel ?? '')) return { dex: 'aerodrome', chainId: 8453 };
     if (chainId === 4663 && /giga/i.test(f.dexLabel ?? '')) return { dex: 'giga', chainId: 4663 };
     if (chainId === 4663 && /ramses/i.test(f.dexLabel ?? '')) return { dex: 'ramses', chainId: 4663 };
+    if (chainId === 4663 && /^up\b/i.test(f.dexLabel ?? '')) return { dex: 'up', chainId: 4663 };
+    if (chainId === 4663 && /sushi/i.test(f.dexLabel ?? '')) return { dex: 'sushiswap', chainId: 4663 };
     if (f.dexLabel) return null;
     if (f.protocol === 'uniswap-v3' && v3DeploymentFor('uniswap', chainId)) return { dex: 'uniswap', chainId };
     if (f.protocol === 'pancakeswap-v3' && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId };
@@ -1480,6 +1482,8 @@ export function SimulateScreen() {
         ...(chainId === 4663 ? [
           { label: 'Giga V3', run: () => findGigaPools(client, tokenA, tokenB, wrappedNative) },
           { label: 'Ramses V3', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [RAMSES_V3_DEPLOYMENT], 'Ramses V3') },
+          { label: 'UP', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [UP_V3_DEPLOYMENT], 'UP V3') },
+          { label: 'SushiSwap V3', run: () => findV3Pools(client, 'uniswap-v3', tokenA, tokenB, SUSHI_V3_ROBINHOOD_DEPLOYMENT, wrappedNative).then(rows => rows.map(r => ({ ...r, dexLabel: 'SushiSwap V3' }))) },
         ] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
@@ -1627,7 +1631,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3' : ''}, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3, UP, SushiSwap V3' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
@@ -1769,7 +1773,7 @@ export function SimulateScreen() {
           dex={mintDexFor(mintFee)!.dex}
           chainId={mintDexFor(mintFee)!.chainId}
           // Spacing-keyed DEXes (Aerodrome, Ramses): the sheet picks the deepest spacing.
-          initialFee={['aerodrome', 'ramses'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
+          initialFee={['aerodrome', 'ramses', 'up'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
           fees24hUsd={mintFee.fees24hUsd}
           onClose={() => setMintFee(null)}
         />

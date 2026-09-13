@@ -22,11 +22,11 @@ import {
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromeStakedByIds, withGauges, buildGaugeUnstake, buildGaugeClaim, buildGaugeStake, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
-import { RebalanceSheet } from './RebalanceSheet';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutomatePositionSheet } from './AutomatePositionSheet';
 import { SmartAccountPositions } from './SmartAccountPositions';
@@ -61,6 +61,8 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
   'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
+  'up-v3': { label: 'UP', color: '#8B5CF6' },
+  'sushiswap-v3': { label: 'SUSHI V3', color: '#FA52A0' },
 };
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -75,6 +77,9 @@ function fmtAmt(raw: bigint, decimals: number): string {
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
 
+/** Chains Krystal's LP index covers (see api/krystal/lp/route.ts). */
+const KRYSTAL_LP_CHAINS = new Set([1, 10, 56, 130, 137, 2020, 324, 42161, 43114, 59144, 80094, 81457, 8453, 999]);
+
 const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v3': 'uniswapv3',
   'uniswap-v4': 'uniswapv4',
@@ -82,6 +87,8 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'aerodrome-cl': 'aerodrome',
   'giga-v3': 'giga',
   'ramses-v3': 'ramses',
+  'up-v3': 'up',
+  'sushiswap-v3': 'sushiswapv3',
 };
 
 /** Krystal row ↔ on-chain position. Aerodrome's projectKey varies by
@@ -243,11 +250,15 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         // (two multicalls) so brand new positions appear straight away.
         const giga = v3DeploymentFor('giga', chainId);
         const ramses = v3DeploymentFor('ramses', chainId);
+        const up = v3DeploymentFor('up', chainId);
+        const sushi = v3DeploymentFor('sushiswap', chainId);
         const v3Like: { protocol: LiquidityPosition['protocol']; d: V3Deployment }[] = [
           ...(v3 ? [{ protocol: 'uniswap-v3' as const, d: v3 }] : []),
           ...(cake ? [{ protocol: 'pancakeswap-v3' as const, d: cake }] : []),
           ...(giga ? [{ protocol: 'giga-v3' as const, d: giga }] : []),
           ...(ramses ? [{ protocol: 'ramses-v3' as const, d: ramses }] : []),
+          ...(up ? [{ protocol: 'up-v3' as const, d: up }] : []),
+          ...(sushi ? [{ protocol: 'sushiswap-v3' as const, d: sushi }] : []),
           ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
         ];
         for (const { protocol, d } of v3Like) {
@@ -261,7 +272,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 const extra = missing.length > 0 ? await fetchV3Positions(client, owner, d, missing).catch(() => []) : [];
                 return [...enumerated, ...extra];
               })
-              .then((items) => protocol === 'aerodrome-cl' ? withGauges(client, items).catch(() => items) : items)
+              .then((items) => stakingSupported(d) ? withStakeTargets(client, d, items).catch(() => items) : items)
               .then((items) => setPositions((prev) => {
                 const keep = prev.filter((p) => !(p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked && p.positionManager?.toLowerCase() === d.positionManager.toLowerCase()) && !(protocol !== 'aerodrome-cl' && p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked));
                 const next = [...keep, ...items.map((p) => ({ ...p, chainId, chainName, positionManager: p.positionManager ?? d.positionManager }))];
@@ -270,15 +281,23 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               })),
           );
         }
-        // V4: Krystal ids only. There is no cheap enumeration for the V4
-        // manager, and the log scan it needs is what made this screen slow.
+        // V4: Krystal ids where Krystal indexes the chain. Where it does not
+        // (Robinhood), fall back to the manager's Transfer-log scan; the chain
+        // is young enough for that to be quick.
         const v4Ids = v4 ? idsIn(v4.positionManager) : undefined;
         if (v4 && v4Ids && v4Ids.length > 0) {
           jobs.push(fetchV4Positions(client, owner, v4Ids, v4, v4DeployBlockFor(chainId)).then(merge('uniswap-v4', chainId, chainName)));
+        } else if (v4 && !KRYSTAL_LP_CHAINS.has(chainId)) {
+          jobs.push(fetchV4Positions(client, owner, undefined, v4, v4DeployBlockFor(chainId)).catch(() => [] as LiquidityPosition[]).then(merge('uniswap-v4', chainId, chainName)));
         }
         // Aerodrome gauges: Krystal names the gauge, so read each staked NFT directly.
         if (stakedAero.length > 0) {
           jobs.push(fetchAerodromeStakedByIds(client, owner, stakedAero).then(merge('aerodrome-cl', chainId, chainName, true)));
+        }
+        // Venues Krystal does not index (UP gauges, Giga's farm on Robinhood):
+        // the staking contracts themselves enumerate the wallet's positions.
+        for (const d of stakingDeploymentsFor(chainId)) {
+          jobs.push(fetchStakedPositions(client, owner, d).catch(() => [] as LiquidityPosition[]).then(merge(d.protocol, chainId, chainName, true)));
         }
       }
       await Promise.allSettled(jobs);
@@ -332,8 +351,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     try {
       await runCalls(config, {
         account: connectedAddress as `0x${string}`,
-        calls: action === 'claim' ? buildGaugeClaim(pos) : action === 'unstake' ? buildGaugeUnstake(pos) : buildGaugeStake(pos.positionManager!, pos.stakeable!.gauge, pos.id),
-        label: `${action === 'claim' ? 'Claim AERO' : action === 'unstake' ? 'Unstake' : 'Stake'} ${pos.symbol0}/${pos.symbol1}`,
+        calls: action === 'claim'
+          ? buildClaimCalls(pos, connectedAddress as `0x${string}`)
+          : action === 'unstake'
+            ? buildUnstakeCalls(pos)
+            : buildStakeCalls(pos.stakeable!.kind ?? 'gauge', pos.stakeable!.gauge, pos.positionManager!, pos.id, connectedAddress as `0x${string}`),
+        label: `${action === 'claim' ? `Claim ${pos.staked?.rewardSymbol ?? 'rewards'}` : action === 'unstake' ? 'Unstake' : 'Stake'} ${pos.symbol0}/${pos.symbol1}`,
         track, chainId: pos.chainId ?? 1,
       });
       await load();
@@ -535,7 +558,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <>
               <LpButton full tone="green" solid={hasFees} label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact}/>
               <LpButton full label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-              {p.stakeable && hasLiquidity && <LpButton full label="Stake for AERO" onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
+              {p.stakeable && hasLiquidity && <LpButton full label={`Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`} onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
             </>
           )}
           {canAutomate && <LpButton full label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
@@ -803,20 +826,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         />
       )}
 
-      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol !== 'uniswap-v4' && (
+      {rebalance && connectedAddress && canActOn(rebalance) && (
         <RebalanceFlow
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
           onClose={() => setRebalance(null)}
           onDone={async () => { await load(); }}
-        />
-      )}
-      {rebalance && connectedAddress && canActOn(rebalance) && rebalance.protocol === 'uniswap-v4' && (
-        <RebalanceSheet
-          pos={rebalance}
-          account={connectedAddress as `0x${string}`}
-          onClose={() => setRebalance(null)}
-          onDone={async () => { setRebalance(null); await load(); }}
         />
       )}
 

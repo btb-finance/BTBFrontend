@@ -238,6 +238,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const forkDex: LpDex | null = isAerodrome ? 'aerodrome'
     : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
     : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
+    : chainId === 4663 && /^up\b/i.test(selected.dexLabel ?? '') ? 'up'
+    : chainId === 4663 && /sushi/i.test(selected.dexLabel ?? '') ? 'sushiswap'
     : null;
   const deploySupported = !!forkDex || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
   const deployChainId: LpChainId = isLpChain(chainId) ? chainId : 1;
@@ -394,7 +396,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <CreatePosition
             tokenA={!isV4 ? mintTokenA : undefined}
             tokenB={!isV4 ? mintTokenB : undefined}
-            initialFee={forkDex === 'aerodrome' || forkDex === 'ramses' ? pool?.tickSpacing : !isV4 ? feeTier : undefined}
+            initialFee={forkDex === 'aerodrome' || forkDex === 'ramses' || forkDex === 'up' ? pool?.tickSpacing : !isV4 ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
             dex={forkDex ?? dex}

@@ -30,9 +30,11 @@ import {
 } from '@/protocols/dexs/uniswap';
 import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/pancakeswap';
 import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
-import { gaugeForPool, buildGaugeStake, fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
+import { stakingSupported, stakeTargetForPool, buildStakeCalls } from '@/protocols/staking';
 import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
-import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
 import {
@@ -139,11 +141,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const baseDeployment = v3DeploymentFor(dex, chainId) ?? UNISWAP_V3_DEPLOYMENT;
   const isSlipstream = !!baseDeployment.slipstream;
   // Only Aerodrome has gauges the sheet can stake into.
-  const isAerodromeGauge = dex === 'aerodrome';
+  // Venues whose pools have a staking contract the sheet can deposit into
+  // (Aerodrome and UP gauges, Giga's farm).
+  const canStake = stakingSupported(baseDeployment);
+  const rewardSymbol = dex === 'aerodrome' ? 'AERO' : dex === 'up' ? 'UP' : dex === 'giga' ? 'GIGA' : 'rewards';
   const v4Deployment = v4DeploymentFor(chainId) ?? UNISWAP_V4;
   const chainWeth = wrappedNativeFor(chainId);
   // Aerodrome: stake the minted NFT so it earns AERO emissions.
-  const [stakeAfterMint, setStakeAfterMint] = useState(isAerodromeGauge && stakeByDefault);
+  const [stakeAfterMint, setStakeAfterMint] = useState(canStake && stakeByDefault);
   const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
     initialFee !== undefined && baseDeployment.feeTiers.includes(initialFee) ? initialFee : baseDeployment.feeTiers[2],
@@ -226,7 +231,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return s0 && !s1; // token0 stable → base the volatile token1
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
-  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
+  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' || dex === 'up' || dex === 'sushiswap' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
   const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
@@ -291,6 +296,50 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, tokenA, tokenB, v4PoolId, dex, chainId, retryNonce]);
 
+  /**
+   * Re-read the pool's live price. Paired amounts, preset ranges and the
+   * mint's minimums all derive from sqrtPriceX96 and tick, so a sheet left
+   * open for a minute would otherwise quote a stale tick and the mint would
+   * revert on its slippage check. Runs on a timer while open and once more
+   * right before signing. Returns the fresh pool, or null when unreadable.
+   */
+  const poolRef = useRef<MintPool | null>(null);
+  poolRef.current = pool;
+  async function refreshPool(): Promise<MintPool | null> {
+    const cur = poolRef.current;
+    if (!cur || !cur.exists) return null;
+    const client = getPublicClient(config, { chainId });
+    if (!client) return null;
+    try {
+      let sqrtPriceX96: bigint, tick: number, liquidity: bigint;
+      if (v4Pool && v4PoolId) {
+        const [s0, liq] = await Promise.all([
+          client.readContract({ address: v4Deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getSlot0', args: [v4PoolId] }) as Promise<readonly [bigint, number, number, number]>,
+          client.readContract({ address: v4Deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [v4PoolId] }) as Promise<bigint>,
+        ]);
+        sqrtPriceX96 = s0[0]; tick = Number(s0[1]); liquidity = liq;
+      } else {
+        const [s0, liq] = await Promise.all([
+          client.readContract({ address: cur.address, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
+          client.readContract({ address: cur.address, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
+        ]);
+        sqrtPriceX96 = s0[0] as bigint; tick = Number(s0[1]); liquidity = liq;
+      }
+      if (sqrtPriceX96 === 0n) return null;
+      const next = { ...cur, sqrtPriceX96, tick, liquidity };
+      if (sqrtPriceX96 !== cur.sqrtPriceX96 || liquidity !== cur.liquidity) {
+        setPools((prev) => (prev && prev[cur.fee] ? { ...prev, [cur.fee]: { ...prev[cur.fee], sqrtPriceX96, tick, liquidity } } : prev));
+      }
+      return next;
+    } catch { return null; }
+  }
+  useEffect(() => {
+    if (!pool?.exists || busy) return;
+    const t = setInterval(() => { void refreshPool(); }, 12_000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool?.address, pool?.exists, busy]);
+
   // 30-day price/fee history (chart + earnings sim) and token USD prices.
   useEffect(() => {
     let live = true;
@@ -317,7 +366,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }, [pool, isV4, dex, chainId, tokenPricesUsd]);
 
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
-  const spacing = v4Pool ? v4Pool.tickSpacing : deployment.tickSpacings[fee];
+  // The pool's own tick spacing wins; the deployment table is the fallback.
+  // Ticks snapped to the wrong spacing are the usual reason a mint reverts.
+  const spacing = v4Pool ? v4Pool.tickSpacing : pool?.tickSpacing ?? deployment.tickSpacings[fee];
 
   const ticks = useMemo(() => {
     if (!pool || !pool.exists) return null;
@@ -521,18 +572,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const short0 = !simOnly && add0 > effBal0;
   const short1 = !simOnly && add1 > effBal1;
 
-  /** Aerodrome: after a mint, deposit the wallet's newest NFT in the gauge. */
+  /** After a mint, put the wallet's newest NFT into the pool's staking contract. */
   async function stakeNewest(acct: `0x${string}`) {
-    if (!isAerodromeGauge || !stakeAfterMint || !pool) return;
+    if (!canStake || !stakeAfterMint || !pool) return;
     const client = getPublicClient(config, { chainId });
     if (!client) return;
-    const gauge = await gaugeForPool(client, deployment, pool.token0, pool.token1, fee);
-    if (!gauge) return;
-    setStepMsg('Staking for AERO…');
+    const target = await stakeTargetForPool(client, deployment, pool.token0, pool.token1, fee).catch(() => null);
+    if (!target) return;
+    setStepMsg(`Staking for ${target.rewardSymbol}…`);
     const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [acct] });
     if (count === 0n) return;
     const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [acct, count - 1n] });
-    await runCalls(config, { account: acct, calls: buildGaugeStake(deployment.positionManager, gauge, newId), label: `Stake ${pool.symbol0}/${pool.symbol1} for AERO`, track, chainId });
+    await runCalls(config, { account: acct, calls: buildStakeCalls(target.kind, target.contract, deployment.positionManager, newId, acct), label: `Stake ${pool.symbol0}/${pool.symbol1} for ${target.rewardSymbol}`, track, chainId });
   }
 
   async function mint() {
@@ -540,19 +591,28 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     if (!address || !pool || !ticks) return;
     setBusy(true); setErr(null);
     try {
+      // Amounts at the tick the chain reports now, not the one from when the
+      // sheet opened. The user's typed side is kept; the other side is repaired.
+      const fresh = (await refreshPool()) ?? pool;
+      let [m0, m1] = [add0, add1];
+      if (!splitRange && !simOnly && amt.str && parseFloat(amt.str) > 0) {
+        const raw = parseUnits(amt.str, amt.side === 0 ? fresh.decimals0 : fresh.decimals1);
+        const r = addAmounts(fresh.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, amt.side, raw);
+        m0 = r.amount0; m1 = r.amount1;
+      }
       const calls = v4Pool
         ? buildV4Mint({
             poolKey: v4Pool.poolKey,
             tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
             // V4 mints a liquidity amount; the maxes cap what the pool may pull.
-            liquidity: liquidityForAmounts(pool.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, add0, add1),
-            amount0Max: maxIn(add0, slippageBps), amount1Max: maxIn(add1, slippageBps),
+            liquidity: liquidityForAmounts(fresh.sqrtPriceX96, ticks.tickLower, ticks.tickUpper, m0, m1),
+            amount0Max: maxIn(m0, slippageBps), amount1Max: maxIn(m1, slippageBps),
             recipient: address as `0x${string}`, deployment: v4Deployment,
           })
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee,
             tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
-            amount0Desired: add0, amount1Desired: add1,
+            amount0Desired: m0, amount1Desired: m1,
             slippageBps: slippageBps, recipient: address as `0x${string}`,
             nativeEthSide: ethMode ? wethSide : null,
             deployment, tickSpacing: isSlipstream ? fee : undefined,
@@ -706,7 +766,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   /**
    * Balanced smart-fit deposit: swap only the gap (KyberSwap) so a single-token
    * wallet deposits a real two-sided position, then mint. Same audited pattern
-   * as RebalanceSheet (minus the withdraw — funds come straight from the wallet).
+   * as the rebalance flow (minus the withdraw; funds come straight from the wallet).
    * Confirms up to two wallet txs (swap, then add). V4 native ETH (currency0) is
    * swapped/deposited as ETH with a gas reserve; V3 deposits the ERC-20 tokens.
    */
@@ -1500,17 +1560,17 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
                   <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
                 </div>
-                {isAerodromeGauge && !simOnly && (
+                {canStake && !simOnly && (
                   <div
                     onClick={() => setStakeAfterMint((v) => !v)}
-                    title="Stake the new position in the Aerodrome gauge to earn AERO"
+                    title={`Stake the new position to earn ${rewardSymbol}`}
                     style={{
                       flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
                       background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
                       display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                     }}>
                     <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
-                    <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? 'AERO on' : 'off'}</span>
+                    <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
                   </div>
                 )}
                 <Button variant="success" size="sm" onClick={() => (autoManage ? mintManaged() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
