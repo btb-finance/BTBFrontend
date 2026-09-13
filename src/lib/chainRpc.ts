@@ -4,7 +4,8 @@ import { fallback, http, type Transport } from 'viem';
  * Keyless RPC fallbacks per chain — the cross-chain read path (token metadata,
  * pool probes, cross-chain research) used to ride viem's single default public
  * RPC per chain, which rate-limits and fails often. Every endpoint here was
- * verified live with eth_chainId before being listed; order = preferred first.
+ * verified live (eth_chainId plus a multicall3 eth_call, batch JSON-RPC) before
+ * being listed; order = fastest first at the time of the check.
  *
  * Ethereum mainnet has its own long list — see ./rpc.ts (MAINNET_TRANSPORT).
  * Robinhood Chain routes through its own pooled proxy — see ./robinhoodRpc.ts.
@@ -16,8 +17,17 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   // viem's built in default endpoint and hung. The dedicated failover list in
   // ./rpc.ts is still what the wallet config uses; this is the keyless subset
   // for server side reads.
-  1: ['https://eth.drpc.org', 'https://ethereum.publicnode.com', 'https://eth.llamarpc.com'],
-  56: ['https://bsc-rpc.publicnode.com', 'https://bsc-dataseed.bnbchain.org'],
+  1: [
+    'https://eth.api.pocket.network', 'https://gateway.tenderly.co/public/mainnet', 'https://eth.rpc.blxrbdn.com',
+    'https://ethereum.public.blockpi.network/v1/rpc/public', 'https://0xrpc.io/eth', 'https://eth.blockrazor.xyz',
+    'https://eth.drpc.org', 'https://ethereum-rpc.publicnode.com', 'https://1.rpc.thirdweb.com', 'https://eth.meowrpc.com',
+  ],
+  56: [
+    'https://rpc.swiftnodes.io/rpc/bsc', 'https://bsc.rpc.blxrbdn.com', 'https://bsc.api.pocket.network', 'https://public.1rpc.io/bnb',
+    'https://bsc-dataseed1.bnbchain.org', 'https://bsc-dataseed1.defibit.io', 'https://bsc-dataseed1.ninicoin.io', 'https://bsc-dataseed2.bnbchain.org',
+    'https://rpc-bsc.48.club', 'https://binance.nodereal.io', 'https://bsc-mainnet.public.blastapi.io', 'https://bsc-rpc.publicnode.com',
+    'https://bsc-dataseed.bnbchain.org', 'https://56.rpc.thirdweb.com',
+  ],
   137: ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org'],
   42161: ['https://arbitrum-one-rpc.publicnode.com', 'https://arbitrum.drpc.org'],
   10: ['https://optimism-rpc.publicnode.com', 'https://optimism.drpc.org'],
@@ -32,7 +42,11 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   250: ['https://rpc.fantom.network', 'https://fantom.drpc.org'],
   80094: ['https://berachain-rpc.publicnode.com', 'https://rpc.berachain.com'],
   9745: ['https://rpc.plasma.to'],
-  143: ['https://rpc.monad.xyz'],
+  143: [
+    'https://rpc.monad.xyz', 'https://rpc2.monad.xyz', 'https://rpc.swiftnodes.io/rpc/monad', 'https://rpc1.monad.xyz', 'https://rpc3.monad.xyz',
+    'https://monad-rpc.huginn.tech', 'https://infra.originstake.com/monad/evm', 'https://monad-mainnet.rpc.sentio.xyz', 'https://rpc4.monad.xyz',
+    'https://143.rpc.thirdweb.com',
+  ],
   2020: ['https://api.roninchain.com/rpc'],
   4326: ['https://mainnet.megaeth.com/rpc'],
   999: ['https://rpc.hyperliquid.xyz/evm'],
