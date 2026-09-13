@@ -54,12 +54,14 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const selected = chains.find(chain => chain.id === value) ?? chains[0];
 
   useEffect(() => {
     if (!open) return;
     const closeOutside = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const t = event.target as Node;
+      if (!rootRef.current?.contains(t) && !listRef.current?.contains(t)) setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -77,6 +79,20 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
   // The LP chains first, then the rest in their wagmi order, so the four
   // networks the app is built around never hide behind a scroll.
   const ordered = [...chains].sort((a, b) => rank(a.id) - rank(b.id));
+  // The card that hosts the picker clips overflow, so the list is portalled
+  // to the body and pinned under the button with a fixed position.
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const r = rootRef.current?.getBoundingClientRect();
+      if (r) setAnchor({ top: r.bottom + 8, right: Math.max(12, window.innerWidth - r.right) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [open]);
 
   return (
     <div ref={rootRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -105,15 +121,17 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
         <ChainLogo chainId={selected.id} size={small ? 20 : 23}/>
         <Icon name="down" size={12} color={btb.textMuted}/>
       </button>
-      {open && (
+      {open && anchor && (
+        <Portal>
         <div
+          ref={listRef}
           role="listbox"
           aria-label={ariaLabel}
           style={{
-            position: 'absolute',
-            zIndex: 80,
-            top: 'calc(100% + 8px)',
-            right: 0,
+            position: 'fixed',
+            zIndex: 450,
+            top: anchor.top,
+            right: anchor.right,
             width: 420,
             maxWidth: 'min(420px, calc(100vw - 40px))',
             maxHeight: 'min(70vh, 520px)',
@@ -167,6 +185,7 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
             );
           })}
         </div>
+        </Portal>
       )}
     </div>
   );
