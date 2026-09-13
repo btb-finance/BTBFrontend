@@ -17,7 +17,7 @@ import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
 import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, SUSHI_V3_ROBINHOOD_DEPLOYMENT } from '@/protocols/dexs/robinhood';
-import { v3DeploymentFor, v4DeploymentFor, isLpChain, type LpChainId, type LpDex } from '@/protocols/lpChains';
+import { v3DeploymentFor, v4DeploymentFor, isLpChain, wrappedNativeFor, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
 import { useSidebar } from '../../lib/SidebarContext';
@@ -139,6 +139,29 @@ function toCurrency(address: string): `0x${string}` {
 /** V3/PancakeSwap V3 have no native-ETH pools — 'ETH' always means the WETH contract there. */
 function toV3Address(address: string, wrappedNative: `0x${string}` = WETH): `0x${string}` {
   return (address.toLowerCase() === 'eth' ? wrappedNative : address) as `0x${string}`;
+}
+
+/**
+ * Add LP target for a market-indexed pool (DexScreener / GeckoTerminal row).
+ * Only labels that name a concentrated product we deploy on are mintable;
+ * a bare "Uniswap" at 0.3% could be V2, so it is left alone.
+ */
+function marketMintTarget(chainId: number, pool: MarketPool): { dex: LpDex; chainId: LpChainId; fee?: number } | null {
+  if (!isLpChain(chainId)) return null;
+  const label = pool.dexLabel ?? '';
+  const fee = pool.feePct != null ? Math.round(pool.feePct * 1_000_000) : undefined;
+  if (chainId === 8453 && /aerodrome/i.test(label)) return /slipstream|v3|cl/i.test(label) ? { dex: 'aerodrome', chainId } : null;
+  if (chainId === 4663 && /giga/i.test(label)) return { dex: 'giga', chainId };
+  if (chainId === 4663 && /ramses/i.test(label)) return /v3|cl/i.test(label) ? { dex: 'ramses', chainId } : null;
+  if (chainId === 4663 && /^up\b/i.test(label)) return { dex: 'up', chainId };
+  if (chainId === 4663 && /sushi/i.test(label) && /v3/i.test(label)) return { dex: 'sushiswap', chainId, fee };
+  if (/pancake/i.test(label) && /v3/i.test(label) && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId, fee };
+  if (/uniswap/i.test(label)) {
+    if (/v3/i.test(label)) return { dex: 'uniswap', chainId, fee };
+    // Unversioned rows: V2 is always 0.3%, so any other tier is V3.
+    if (!/v2|v4/i.test(label) && fee != null && fee !== 3000) return { dex: 'uniswap', chainId, fee };
+  }
+  return null;
 }
 
 /** One retry for transient RPC hiccups — a public multicall failing once
@@ -771,6 +794,7 @@ function CrossChainResearch({ chains, isMobile }: {
   const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 4326].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
+  const [mint, setMint] = useState<{ result: CrossChainResearchResult; pool: MarketPool; target: { dex: LpDex; chainId: LpChainId; fee?: number } } | null>(null);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
   const [pairTokenA, setPairTokenA] = useState<ResearchTokenOption | null>(null);
   const [pairTokenB, setPairTokenB] = useState<ResearchTokenOption | null>(null);
@@ -1160,7 +1184,10 @@ function CrossChainResearch({ chains, isMobile }: {
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.volume24hUsd)}</span>}
                 {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{marketAprText(pool)}</span>}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {(() => { const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null; return target && (
+                    <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>
+                  ); })()}
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
                 {isMobile && <MobilePoolMetrics pool={pool}/>}
@@ -1194,21 +1221,39 @@ function CrossChainResearch({ chains, isMobile }: {
                     </a>
                   )}
                 </div>
-                {topPools.map((pool, index) => (
-                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1.2fr .8fr .8fr', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
+                {topPools.map((pool, index) => {
+                  const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null;
+                  return (
+                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr .8fr .8fr auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
                     <span style={{ color: btb.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <DexLogo name={pool.dexLabel} size={16}/>
                       <span>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
                     </span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{marketAprText(pool)}</span>}
-                    {isMobile && <MobilePoolMetrics pool={pool}/>}
+                    <span style={{ minWidth: 62, display: 'flex', justifyContent: 'flex-end' }}>
+                      {target && <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>}
+                    </span>
+                    {isMobile && <span style={{ gridColumn: '1 / -1' }}><MobilePoolMetrics pool={pool}/></span>}
                   </div>
-                ))}
+                  );
+                })}
               </Glass>
             );
           })}
         </div>
+      )}
+
+      {mint && mint.result.tokenA && mint.result.tokenB && (
+        <CreatePosition
+          tokenA={toV3Address(mint.result.tokenA.address, wrappedNativeFor(mint.target.chainId))}
+          tokenB={toV3Address(mint.result.tokenB.address, wrappedNativeFor(mint.target.chainId))}
+          dex={mint.target.dex}
+          chainId={mint.target.chainId}
+          initialFee={mint.target.fee}
+          fees24hUsd={mint.pool.feePct != null ? mint.pool.volume24hUsd * mint.pool.feePct : undefined}
+          onClose={() => setMint(null)}
+        />
       )}
     </>
   );
