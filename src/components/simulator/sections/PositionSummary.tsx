@@ -128,7 +128,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
             display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 800, color: btb.green,
             background: 'rgba(var(--green-rgb), 0.1)', border: '1px solid rgba(var(--green-rgb), 0.35)', borderRadius: 999, padding: '4px 9px',
           }}>
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green, boxShadow: '0 0 6px #52E3A4' }} />
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green, boxShadow: '0 0 6px #FFA24A' }} />
             {isMobile ? null : 'LIVE POOL DATA'}
           </span>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>

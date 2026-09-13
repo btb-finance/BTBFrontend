@@ -17,14 +17,15 @@ export const btb = {
   red:         'var(--btb-text, #FFFFFF)',
   redDeep:     'rgba(var(--fg-rgb, 255,255,255),0.7)',
   pink:        'var(--btb-text, #FFFFFF)',
-  amber:       'var(--btb-amber, #FFB36B)',
-  green:       'var(--btb-green, #52E3A4)',
+  // Brand accent: mango orange. The token keeps its historical name so no call site moves.
+  amber:       'var(--btb-amber, #FFD166)',
+  green:       'var(--btb-green, #FFA24A)',
   loss:        'var(--btb-loss, #FF6B7A)',
   shadow:      'var(--chain-shadow, 0 8px 32px rgba(0,0,0,0.35))',
   blur:        'blur(32px) saturate(140%)',
   // Shared gradients — keep button/CTA fills consistent in one place.
   gradPrimary: 'var(--chain-gradient, linear-gradient(135deg,rgba(var(--fg-rgb, 255,255,255),0.95),rgba(200,210,220,0.9)))',
-  gradGreen:   'linear-gradient(135deg,#52E3A4,#1aad77)', // solid brand fill with white text, same in both modes
+  gradGreen:   'linear-gradient(135deg,#FFB454,#F07A1A)', // solid brand fill with white text, same in both modes
 } as const;
 
 export const PALETTE_PRESETS = {

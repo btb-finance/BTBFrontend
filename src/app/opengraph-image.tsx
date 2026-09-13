@@ -18,7 +18,7 @@ export default function Image() {
           justifyContent: 'space-between',
           padding: '72px',
           background: 'linear-gradient(135deg, #0A0A0F 0%, #1E293B 55%, #334155 100%)',
-          color: 'var(--btb-text)',
+          color: '#FFFFFF',
           fontFamily: 'sans-serif',
         }}
       >
@@ -34,7 +34,7 @@ export default function Image() {
               background: 'linear-gradient(140deg,#FFFFFF 0%, #1E293B 100%)',
               fontSize: 60,
               fontWeight: 900,
-              color: 'var(--chain-bg)',
+              color: '#0A0A0F',
             }}
           >
             B
@@ -54,19 +54,19 @@ export default function Image() {
               fontWeight: 900,
               letterSpacing: -2,
               lineHeight: 1.05,
-              background: 'linear-gradient(90deg,#FFFFFF,#52E3A4)',
+              background: 'linear-gradient(90deg,#FFFFFF,#FFA24A)',
               backgroundClip: 'text',
               color: 'transparent',
             }}
           >
             Get paid every Friday.
           </div>
-          <div style={{ marginTop: 26, fontSize: 30, color: 'rgba(var(--fg-rgb), 0.7)' }}>
+          <div style={{ marginTop: 26, fontSize: 30, color: 'rgba(255,255,255,0.7)' }}>
             The LP app that shares its revenue with the people who use it.
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', fontSize: 26, color: 'rgba(var(--fg-rgb), 0.55)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', fontSize: 26, color: 'rgba(255,255,255,0.55)' }}>
           Simulate &nbsp;·&nbsp; Discover &nbsp;·&nbsp; LP &nbsp;·&nbsp; Swap &nbsp;·&nbsp; btb.finance
         </div>
       </div>
