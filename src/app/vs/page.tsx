@@ -27,10 +27,10 @@ export default function VsIndex() {
               <tr key={c.slug}>
                 <td style={styles.td}>{c.name}</td>
                 <td style={styles.tdMuted}>{c.pricing.filter((p) => p.price !== '$0').map((p) => `${p.plan}: ${p.price}`).join('; ')}</td>
-                <td style={styles.td}><Link href={`/vs/${c.slug}`} style={{ color: '#FFA24A', fontWeight: 700, textDecoration: 'none' }}>Compare</Link></td>
+                <td style={styles.td}><Link href={`/vs/${c.slug}`} style={{ color: '#7C8CFF', fontWeight: 700, textDecoration: 'none' }}>Compare</Link></td>
               </tr>
             ))}
-            <tr><td style={styles.tdStrong}>BTB Finance</td><td style={styles.tdStrong}>$0, plus a revenue share every Friday</td><td style={styles.td}><Link href="/simulate" style={{ color: '#FFA24A', fontWeight: 700, textDecoration: 'none' }}>Open</Link></td></tr>
+            <tr><td style={styles.tdStrong}>BTB Finance</td><td style={styles.tdStrong}>$0, plus a revenue share every Friday</td><td style={styles.td}><Link href="/simulate" style={{ color: '#7C8CFF', fontWeight: 700, textDecoration: 'none' }}>Open</Link></td></tr>
           </tbody>
         </table>
       </div>

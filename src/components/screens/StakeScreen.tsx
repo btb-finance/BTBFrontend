@@ -56,7 +56,7 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)"
           style={{ gap: 6, padding: '6px 12px', fontSize: 12 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #FFA24A' }}/>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #7C8CFF' }}/>
           <span style={{ color: 'var(--btb-green)', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
         </Badge>
       </div>
@@ -328,7 +328,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
         </div>
         {holder ? (
           <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)" style={{ gap: 6, flexShrink: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #FFA24A' }}/>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #7C8CFF' }}/>
             <span style={{ color: 'var(--btb-green)', fontSize: 11, fontWeight: 700 }}>{btbBalance} BTB</span>
           </Badge>
         ) : (

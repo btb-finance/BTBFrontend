@@ -54,7 +54,7 @@ export default function Image() {
               fontWeight: 900,
               letterSpacing: -2,
               lineHeight: 1.05,
-              background: 'linear-gradient(90deg,#FFFFFF,#FFA24A)',
+              background: 'linear-gradient(90deg,#FFFFFF,#7C8CFF)',
               backgroundClip: 'text',
               color: 'transparent',
             }}
