@@ -5,19 +5,19 @@ import { btb } from './design-tokens';
 import { Tab } from './types';
 
 /** The LP journey, in the order a user walks it. */
-const PRIMARY: { id: Tab; label: string; icon: string }[] = [
-  { id: 'home',      label: 'Dashboard', icon: 'home' },
-  { id: 'discover',  label: 'Discover',  icon: 'chart' },
-  { id: 'simulate',  label: 'Simulate',  icon: 'layers' },
-  { id: 'portfolio', label: 'Portfolio', icon: 'pie' },
-  { id: 'swap',      label: 'Swap',      icon: 'swap' },
+const PRIMARY: { id: Tab; label: string }[] = [
+  { id: 'home',      label: 'Dashboard' },
+  { id: 'discover',  label: 'Discover' },
+  { id: 'simulate',  label: 'Simulate' },
+  { id: 'portfolio', label: 'Portfolio' },
+  { id: 'swap',      label: 'Swap' },
 ];
 
 /** Everything outside the LP loop lives behind one More menu. */
-const MORE: { id: Tab; label: string; icon: string }[] = [
-  { id: 'nft',    label: 'NFT',          icon: 'nft' },
-  { id: 'stake',  label: 'Agent',        icon: 'bolt' },
-  { id: 'studio', label: 'Agent Studio', icon: 'rocket' },
+const MORE: { id: Tab; label: string }[] = [
+  { id: 'nft',    label: 'NFT' },
+  { id: 'stake',  label: 'Agent' },
+  { id: 'studio', label: 'Agent Studio' },
 ];
 
 export const TOP_NAV_HEIGHT = 60;
@@ -72,7 +72,6 @@ export function TopNav({
           const active = tab === item.id;
           return (
             <div key={item.id} onClick={() => setTab(item.id)} style={itemStyle(active)}>
-              <Icon name={item.icon} size={16} color={active ? btb.text : btb.textMuted} />
               <span>{item.label}</span>
             </div>
           );
@@ -94,14 +93,12 @@ export function TopNav({
                 const active = tab === item.id;
                 return (
                   <div key={item.id} onClick={() => { setTab(item.id); setMoreOpen(false); }} style={{ ...itemStyle(active), height: 38 }}>
-                    <Icon name={item.icon} size={16} color={active ? btb.text : btb.textMuted} />
                     <span>{item.label}</span>
                   </div>
                 );
               })}
               <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 6px' }} />
               <div onClick={() => { onDocs(); setMoreOpen(false); }} style={{ ...itemStyle(false), height: 38 }}>
-                <Icon name="doc" size={16} color={btb.textMuted} />
                 <span>Docs</span>
               </div>
             </div>
@@ -114,7 +111,6 @@ export function TopNav({
           height: 38, padding: '0 6px 0 12px', borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft,
           display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
         }}>
-          <Icon name="wallet" size={14} color={isReadOnly ? '#FFB36B' : btb.text} />
           <div style={{ lineHeight: 1.1 }}>
             {isReadOnly && <div style={{ color: '#FFB36B', fontSize: 9, fontWeight: 700, letterSpacing: 0.3, textTransform: 'uppercase' }}>Read-only</div>}
             <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, fontFamily: 'monospace' }}>{shortAddr}</div>
@@ -129,7 +125,6 @@ export function TopNav({
           background: btb.gradGreen, color: '#fff', fontSize: 13, fontWeight: 700,
           display: 'flex', alignItems: 'center', gap: 7,
         }}>
-          <Icon name="wallet" size={15} color="#fff" />
           Connect Wallet
         </div>
       )}
