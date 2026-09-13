@@ -131,7 +131,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
   const hasChange = trustedTokens.some(t => t.change1d != null);
 
   // Allocation bar: top four holdings, everything else grouped.
-  const COLORS = ['#FFFFFF', 'var(--btb-amber)', 'var(--btb-green)', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
+  const COLORS = ['var(--btb-text)', 'var(--btb-amber)', 'var(--btb-green)', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
   const top4 = trustedTokens.slice(0, 4);
   const restUsd = tokensUsd - top4.reduce((s, t) => s + (t.usdValue ?? 0), 0);
   const allocation = [
@@ -262,7 +262,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
               {([
-                { label: 'Tokens', value: tokensUsd, dot: '#FFFFFF', color: btb.text },
+                { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
                 { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
                 { label: 'Unclaimed fees', value: lp.feesUsd, dot: btb.green, color: btb.green },
               ] as const).map(b => (
