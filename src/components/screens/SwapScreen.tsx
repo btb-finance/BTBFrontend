@@ -69,17 +69,17 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
   if (!selected) return null;
 
   return (
-    <div ref={rootRef} style={{ position: 'relative', width: small ? 190 : 230, maxWidth: '100%', flexShrink: 1 }}>
+    <div ref={rootRef} style={{ position: 'relative', flexShrink: 0 }}>
       <button
         type="button"
         aria-label={ariaLabel}
+        title={selected.name}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen(value => !value)}
         style={{
-          width: '100%',
           height: small ? 34 : 40,
-          padding: small ? '0 10px' : '0 12px',
+          padding: small ? '0 8px 0 7px' : '0 9px 0 8px',
           borderRadius: 999,
           background: 'rgba(255,255,255,0.05)',
           border: '1px solid rgba(255,255,255,0.12)',
@@ -88,12 +88,12 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 4,
         }}
       >
+        {/* Logo only: the name is in the tooltip and the list, so the Swap / Bridge switch keeps the width. */}
         <ChainLogo chainId={selected.id} size={small ? 20 : 23}/>
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: small ? 12 : 12.5, fontWeight: 750 }}>{selected.name}</span>
-        <Icon name="down" size={13} color={btb.textMuted}/>
+        <Icon name="down" size={12} color={btb.textMuted}/>
       </button>
       {open && (
         <div
