@@ -38,6 +38,12 @@ function isNativeToken(address: string) {
 
 type ChainOption = { id: number; name: string };
 
+const CHAIN_PRIORITY = [1, 8453, 56, 4663, 42161, 10, 137];
+function rank(id: number): number {
+  const i = CHAIN_PRIORITY.indexOf(id);
+  return i === -1 ? CHAIN_PRIORITY.length : i;
+}
+
 export function ChainSelect({ chains, value, onChange, disabledId, small = false, ariaLabel }: {
   chains: readonly ChainOption[];
   value: number;
@@ -67,6 +73,10 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
   }, [open]);
 
   if (!selected) return null;
+
+  // The LP chains first, then the rest in their wagmi order, so the four
+  // networks the app is built around never hide behind a scroll.
+  const ordered = [...chains].sort((a, b) => rank(a.id) - rank(b.id));
 
   return (
     <div ref={rootRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -104,11 +114,14 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
             zIndex: 80,
             top: 'calc(100% + 8px)',
             right: 0,
-            width: 260,
-            maxWidth: 'min(260px, calc(100vw - 40px))',
-            maxHeight: 310,
+            width: 420,
+            maxWidth: 'min(420px, calc(100vw - 40px))',
+            maxHeight: 'min(70vh, 520px)',
             overflowY: 'auto',
             padding: 7,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+            gap: 2,
             borderRadius: 18,
             background: 'rgba(12,12,18,.98)',
             border: '1px solid rgba(255,255,255,.13)',
@@ -117,7 +130,7 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
             WebkitBackdropFilter: 'blur(18px)',
           }}
         >
-          {chains.map(chain => {
+          {ordered.map(chain => {
             const disabled = chain.id === disabledId;
             const active = chain.id === value;
             return (
