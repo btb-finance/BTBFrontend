@@ -9,7 +9,8 @@ import { UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, WETH, ROBINHOOD
 import { uniswapV4DeploymentForChain, V4_DEPLOY_BLOCKS, type V4Deployment } from './dexs/uniswap/v4/addresses';
 import { PANCAKE_V3_DEPLOYMENT } from './dexs/pancakeswap';
 import { AERODROME_CL_DEPLOYMENTS, BASE_WETH } from './dexs/aerodrome';
-import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, SUSHI_V3_ROBINHOOD_DEPLOYMENT } from './dexs/robinhood';
+import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from './dexs/robinhood';
+import { sushiV3DeploymentForChain } from './dexs/sushiswap';
 import type { LiquidityPosition } from './types';
 
 export const LP_CHAINS = [1, 8453, 56, 4663] as const;
@@ -44,7 +45,7 @@ export function v3DeploymentFor(dex: LpDex, chainId: number): V3Deployment | nul
   if (dex === 'giga') return chainId === 4663 ? GIGA_V3_DEPLOYMENT : null;
   if (dex === 'ramses') return chainId === 4663 ? RAMSES_V3_DEPLOYMENT : null;
   if (dex === 'up') return chainId === 4663 ? UP_V3_DEPLOYMENT : null;
-  if (dex === 'sushiswap') return chainId === 4663 ? SUSHI_V3_ROBINHOOD_DEPLOYMENT : null;
+  if (dex === 'sushiswap') return sushiV3DeploymentForChain(chainId);
   return uniswapV3DeploymentForChain(chainId);
 }
 
@@ -67,7 +68,7 @@ export function deploymentOfPosition(p: LiquidityPosition): V3Deployment {
   if (p.protocol === 'giga-v3') return GIGA_V3_DEPLOYMENT;
   if (p.protocol === 'ramses-v3') return RAMSES_V3_DEPLOYMENT;
   if (p.protocol === 'up-v3') return UP_V3_DEPLOYMENT;
-  if (p.protocol === 'sushiswap-v3') return SUSHI_V3_ROBINHOOD_DEPLOYMENT;
+  if (p.protocol === 'sushiswap-v3') return sushiV3DeploymentForChain(p.chainId ?? 1) ?? sushiV3DeploymentForChain(4663)!;
   return uniswapV3DeploymentForChain(chainId) ?? (chainId === 4663 ? ROBINHOOD_UNISWAP_V3_DEPLOYMENT : UNISWAP_V3_DEPLOYMENT);
 }
 
@@ -81,7 +82,8 @@ export function canActOnPosition(p: LiquidityPosition, isNativeOrUnhooked: (hook
   if (!isLpChain(chainId)) return false;
   if (p.protocol === 'aerodrome-cl') return chainId === 8453;
   if (p.protocol === 'pancakeswap-v3') return PANCAKE_V3_CHAINS.includes(chainId);
-  if (p.protocol === 'giga-v3' || p.protocol === 'ramses-v3' || p.protocol === 'up-v3' || p.protocol === 'sushiswap-v3') return chainId === 4663;
+  if (p.protocol === 'sushiswap-v3') return !!sushiV3DeploymentForChain(chainId);
+  if (p.protocol === 'giga-v3' || p.protocol === 'ramses-v3' || p.protocol === 'up-v3') return chainId === 4663;
   if (p.protocol === 'uniswap-v4') return !!v4DeploymentFor(chainId) && isNativeOrUnhooked(p.hooks);
   return !!uniswapV3DeploymentForChain(chainId);
 }

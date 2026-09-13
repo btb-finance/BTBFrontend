@@ -16,7 +16,8 @@ import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
-import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, SUSHI_V3_ROBINHOOD_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
 import { v3DeploymentFor, v4DeploymentFor, isLpChain, wrappedNativeFor, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { ChainSelect } from './SwapScreen';
@@ -154,7 +155,7 @@ function marketMintTarget(chainId: number, pool: MarketPool): { dex: LpDex; chai
   if (chainId === 4663 && /giga/i.test(label)) return { dex: 'giga', chainId };
   if (chainId === 4663 && /ramses/i.test(label)) return /v3|cl/i.test(label) ? { dex: 'ramses', chainId } : null;
   if (chainId === 4663 && /^up\b/i.test(label)) return { dex: 'up', chainId };
-  if (chainId === 4663 && /sushi/i.test(label) && /v3/i.test(label)) return { dex: 'sushiswap', chainId, fee };
+  if (/sushi/i.test(label) && /v3/i.test(label) && sushiV3DeploymentForChain(chainId)) return { dex: 'sushiswap', chainId, fee };
   if (/pancake/i.test(label) && /v3/i.test(label) && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId, fee };
   if (/uniswap/i.test(label)) {
     if (/v3/i.test(label)) return { dex: 'uniswap', chainId, fee };
@@ -1351,7 +1352,7 @@ export function SimulateScreen() {
     if (chainId === 4663 && /giga/i.test(f.dexLabel ?? '')) return { dex: 'giga', chainId: 4663 };
     if (chainId === 4663 && /ramses/i.test(f.dexLabel ?? '')) return { dex: 'ramses', chainId: 4663 };
     if (chainId === 4663 && /^up\b/i.test(f.dexLabel ?? '')) return { dex: 'up', chainId: 4663 };
-    if (chainId === 4663 && /sushi/i.test(f.dexLabel ?? '')) return { dex: 'sushiswap', chainId: 4663 };
+    if (/sushi/i.test(f.dexLabel ?? '') && sushiV3DeploymentForChain(chainId)) return { dex: 'sushiswap', chainId };
     if (f.dexLabel) return null;
     if (f.protocol === 'uniswap-v3' && v3DeploymentFor('uniswap', chainId)) return { dex: 'uniswap', chainId };
     if (f.protocol === 'pancakeswap-v3' && v3DeploymentFor('pancakeswap', chainId)) return { dex: 'pancakeswap', chainId };
@@ -1480,6 +1481,7 @@ export function SimulateScreen() {
       const uniswapV3 = uniswapV3DeploymentForChain(chainId);
       const uniswapV4 = v4DeploymentFor(chainId);
       const cakeV3 = v3DeploymentFor('pancakeswap', chainId);
+      const sushiV3 = sushiV3DeploymentForChain(chainId);
 
       // Full-market pool discovery (GeckoTerminal + DexScreener) runs in
       // parallel with the on-chain probes — it finds pools on DEXes the
@@ -1524,11 +1526,11 @@ export function SimulateScreen() {
         ...(uniswapV4 ? [{ label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) }] : []),
         ...(cakeV3 ? [{ label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, cakeV3, wrappedNative) }] : []),
         ...(chainId === 8453 ? [{ label: 'Aerodrome', run: () => findAerodromePools(client, tokenA, tokenB, wrappedNative) }] : []),
+        ...(sushiV3 ? [{ label: 'SushiSwap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, sushiV3, wrappedNative).then(rows => rows.map(r => ({ ...r, dexLabel: 'SushiSwap V3' }))) }] : []),
         ...(chainId === 4663 ? [
           { label: 'Giga V3', run: () => findGigaPools(client, tokenA, tokenB, wrappedNative) },
           { label: 'Ramses V3', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [RAMSES_V3_DEPLOYMENT], 'Ramses V3') },
           { label: 'UP', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [UP_V3_DEPLOYMENT], 'UP V3') },
-          { label: 'SushiSwap V3', run: () => findV3Pools(client, 'uniswap-v3', tokenA, tokenB, SUSHI_V3_ROBINHOOD_DEPLOYMENT, wrappedNative).then(rows => rows.map(r => ({ ...r, dexLabel: 'SushiSwap V3' }))) },
         ] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
@@ -1676,7 +1678,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3, UP, SushiSwap V3' : ''}, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3, UP, SushiSwap V3' : chainId === 1 ? ', SushiSwap V3' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />

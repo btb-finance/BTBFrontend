@@ -15,6 +15,7 @@ import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
 import { LiquidityDepthChart } from '../LiquidityDepthChart';
 import { useSidebar } from '../../lib/SidebarContext';
+import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
 import { STABLES } from '../../lib/pools';
 import {
   nearestUsableTick, fmtFeeTier, isNativeCurrency, uniswapV3DeploymentForChain,
@@ -252,7 +253,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
     : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
     : chainId === 4663 && /^up\b/i.test(selected.dexLabel ?? '') ? 'up'
-    : chainId === 4663 && /sushi/i.test(selected.dexLabel ?? '') ? 'sushiswap'
+    : /sushi/i.test(selected.dexLabel ?? '') && sushiV3DeploymentForChain(chainId) ? 'sushiswap'
     : null;
   const deploySupported = !!forkDex || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
   const deployChainId: LpChainId = isLpChain(chainId) ? chainId : 1;

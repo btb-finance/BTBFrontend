@@ -890,6 +890,10 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
     if (/^up(?:[-_]|$)/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'up', chainId: 4663 };
     if (/^sushi/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'sushiswap', chainId: 4663 };
   }
+  // Mainnet SushiSwap: only rows that name V3. The bare "sushiswap" project is the V2 AMM.
+  if (chainId === 1 && tokens.length >= 2 && /^sushi/i.test(p.project) && (/v3/i.test(p.project) || /v3/i.test(p.version ?? ''))) {
+    return { tokenA: tokens[0], tokenB: tokens[1], dex: 'sushiswap', chainId: 1 };
+  }
   // Registry rows keep the fork's brand in `dex`; a Uniswap-shaped project
   // under another brand (Mdex on BNB) is not the Uniswap deployment.
   if (/^uniswap/i.test(p.project) && !/uniswap/i.test(p.dex)) return null;
