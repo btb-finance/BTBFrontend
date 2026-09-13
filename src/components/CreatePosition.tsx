@@ -33,6 +33,8 @@ import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
 import { stakingSupported, stakeTargetForPool, buildStakeCalls } from '@/protocols/staking';
 import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
+import { SimulatorPage } from './simulator/SimulatorPage';
+import { CHAIN_DATA_NETWORKS } from '../lib/chainDataNetworks';
 import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
@@ -1272,6 +1274,52 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     );
   }
 
+  // Sticky deposit bar: full width under the form on mobile, pinned to the
+  // bottom of the form column on desktop.
+  const showActionBar = !simOnly && pool?.exists && !loadingPool && !poolErr;
+  const actionBar =       (
+        <div style={{
+          position: 'sticky', zIndex: 5, pointerEvents: 'none',
+          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
+          display: 'block',
+          padding: isMobile ? '0 0 10px' : '12px 0 0',
+        }}>
+          <div style={{
+            pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
+            background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
+          }}>
+                <div
+                  onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
+                  title="Tap to change liquidity slippage"
+                  style={{
+                    flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
+                  }}>
+                  <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
+                  <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
+                </div>
+                {canStake && !simOnly && (
+                  <div
+                    onClick={() => setStakeAfterMint((v) => !v)}
+                    title={`Stake the new position to earn ${rewardSymbol}`}
+                    style={{
+                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                      background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
+                      display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
+                    }}>
+                    <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
+                    <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
+                  </div>
+                )}
+                <Button variant="success" size="sm" onClick={() => (autoManage ? mintManaged() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                  {busy ? (stepMsg || 'Confirming…') : autoManage ? (splitRange ? 'Create 2 managed LPs' : 'Create managed LP') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
+                </Button>
+          </div>
+        </div>
+      );
+
   return (
     <Portal>
     <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
@@ -1345,18 +1393,39 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 estimate updates beside the controls instead of below them. */}
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 460px', gap: 18, alignItems: 'start' }}>
             {!isMobile && (
-              <div style={{ position: 'sticky', top: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
                 {renderDepositSummary()}
-                {!splitRange && renderEarnings()}
-                {!splitRange && renderBacktest()}
-                {!(sim && sim.inRange && sim.daily > 0) && (
-                  <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: 22, color: btb.textMuted, fontSize: 13, lineHeight: 1.6 }}>
-                    <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Estimated earnings</div>
-                    Pick a range and enter an amount on the right. The fee estimate, APR, share of in-range liquidity and the 30-day backtest appear here and update as you change the range.
-                  </div>
+                {pool?.exists && ticks && CHAIN_DATA_NETWORKS[chainId] && (
+                  <SimulatorPage
+                    // The same simulator as /simulate, driven by this form's range,
+                    // tier and amount; dragging on its depth chart moves the range.
+                    tokenA={!isV4 ? tokenA : undefined}
+                    tokenB={!isV4 ? tokenB : undefined}
+                    selected={{
+                      protocol: isV4 ? 'uniswap-v4' : dex === 'pancakeswap' ? 'pancakeswap-v3' : 'uniswap-v3',
+                      feeTier: fee,
+                      address: !isV4 ? (pool.address as `0x${string}`) : undefined,
+                      v4PoolId,
+                      dexLabel: dex === 'uniswap' || dex === 'pancakeswap' ? undefined : dexLabel,
+                      fees24hUsd,
+                    }}
+                    siblings={[]}
+                    chainId={chainId}
+                    chainName={chainLabel}
+                    wrappedNative={wrappedNativeFor(chainId)}
+                    networks={CHAIN_DATA_NETWORKS[chainId]}
+                    onClose={() => {}}
+                    embed={{
+                      ticks,
+                      feeTier: fee,
+                      depositUsd: sim?.depositUsd && sim.depositUsd > 0 ? sim.depositUsd : 10_000,
+                      onRange: (t) => { setRangeMode(t); setSmartNote(null); setSwapPreview(null); },
+                    }}
+                  />
                 )}
               </div>
             )}
+            <div style={{ minWidth: 0 }}>
             <div style={{
               width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
@@ -1548,54 +1617,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </div>
             )}
             </div>
+            {!isMobile && showActionBar && actionBar}
+            </div>
             </div>
           </>
         )}
       </div>
 
-      {/* Full-width sticky action bar keeps the final deposit action reachable. */}
-      {!simOnly && pool?.exists && !loadingPool && !poolErr && (
-        <div style={{
-          position: 'sticky', zIndex: 5, pointerEvents: 'none',
-          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
-          display: 'block',
-          padding: isMobile ? '0 0 10px' : '0 24px calc(12px + env(safe-area-inset-bottom, 0px))',
-        }}>
-          <div style={{
-            pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
-            background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
-          }}>
-                <div
-                  onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
-                  title="Tap to change liquidity slippage"
-                  style={{
-                    flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                    display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
-                  }}>
-                  <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
-                  <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
-                </div>
-                {canStake && !simOnly && (
-                  <div
-                    onClick={() => setStakeAfterMint((v) => !v)}
-                    title={`Stake the new position to earn ${rewardSymbol}`}
-                    style={{
-                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                      background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
-                      display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
-                    }}>
-                    <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
-                    <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
-                  </div>
-                )}
-                <Button variant="success" size="sm" onClick={() => (autoManage ? mintManaged() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
-                  {busy ? (stepMsg || 'Confirming…') : autoManage ? (splitRange ? 'Create 2 managed LPs' : 'Create managed LP') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
-                </Button>
-          </div>
-        </div>
-      )}
+      {isMobile && showActionBar && actionBar}
     </div>
     </Portal>
   );
