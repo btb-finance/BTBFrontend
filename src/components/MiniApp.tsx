@@ -131,7 +131,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
     : null;
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--chain-app-background, #0B0F0E)', display: 'flex', flexDirection: 'column', transition: 'background 280ms ease' }}>
+    <div style={{ minHeight: '100vh', width: '100%', background: 'var(--chain-app-background, #0A0A0F)', display: 'flex', flexDirection: 'column', transition: 'background 280ms ease' }}>
       {!isMobile && (
         <TopNav
           tab={screen}

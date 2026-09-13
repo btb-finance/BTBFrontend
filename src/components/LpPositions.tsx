@@ -61,7 +61,7 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
   'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
-  'up-v3': { label: 'UP', color: '#1DE9B6' },
+  'up-v3': { label: 'UP', color: '#52E3A4' },
   'sushiswap-v3': { label: 'SUSHI V3', color: '#FA52A0' },
 };
 

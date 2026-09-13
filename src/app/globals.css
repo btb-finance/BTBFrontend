@@ -5,7 +5,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: var(--chain-bg, #0B0F0E);
+  background: var(--chain-bg, #0A0A0F);
   min-height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;

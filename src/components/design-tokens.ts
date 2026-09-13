@@ -1,5 +1,5 @@
 export const btb = {
-  bg:          'var(--chain-bg, #0B0F0E)',
+  bg:          'var(--chain-bg, #0A0A0F)',
   glass:       'var(--chain-surface, rgba(255,255,255,0.06))',
   glassStrong: 'var(--chain-surface-strong, rgba(255,255,255,0.10))',
   glassSoft:   'var(--chain-surface-soft, rgba(255,255,255,0.03))',
@@ -17,15 +17,14 @@ export const btb = {
   red:         'var(--btb-text, #FFFFFF)',
   redDeep:     'rgba(var(--fg-rgb, 255,255,255),0.7)',
   pink:        'var(--btb-text, #FFFFFF)',
-  // Brand accent: Krystal mint on a green-black base.
-  amber:       'var(--btb-amber, #FDB022)',
-  green:       'var(--btb-green, #1DE9B6)',
+  amber:       'var(--btb-amber, #FFB36B)',
+  green:       'var(--btb-green, #52E3A4)',
   loss:        'var(--btb-loss, #FF6B7A)',
   shadow:      'var(--chain-shadow, 0 8px 32px rgba(0,0,0,0.35))',
   blur:        'blur(32px) saturate(140%)',
   // Shared gradients — keep button/CTA fills consistent in one place.
   gradPrimary: 'var(--chain-gradient, linear-gradient(135deg,rgba(var(--fg-rgb, 255,255,255),0.95),rgba(200,210,220,0.9)))',
-  gradGreen:   'linear-gradient(135deg,#1DE9B6,#0B7A5E)', // solid brand fill with white text, same in both modes
+  gradGreen:   'linear-gradient(135deg,#52E3A4,#1aad77)', // solid brand fill with white text, same in both modes
 } as const;
 
 export const PALETTE_PRESETS = {
