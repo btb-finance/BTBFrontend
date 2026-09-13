@@ -48,7 +48,7 @@ export function TopNav({
   }, [moreOpen]);
 
   const itemStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', gap: 7, height: 36, padding: '0 12px', borderRadius: 10, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 7, height: 34, padding: '0 14px', borderRadius: 999, cursor: 'pointer',
     background: active ? btb.surfaceStrong : 'transparent',
     color: active ? btb.text : btb.textMuted, fontSize: 13.5, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap',
     transition: 'background 120ms ease, color 120ms ease',
@@ -58,8 +58,7 @@ export function TopNav({
     <header style={{
       position: 'sticky', top: 0, zIndex: 100, height: TOP_NAV_HEIGHT, flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 18, padding: '0 clamp(16px, 3vw, 40px)',
-      background: 'rgba(10,10,15,0.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-      borderBottom: btb.borderSoft,
+      background: 'transparent',
     }}>
       <div onClick={() => setTab('home')} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', marginRight: 6 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -67,7 +66,12 @@ export function TopNav({
         <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>BTB</span>
       </div>
 
-      <nav style={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+      <nav style={{
+        position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: 4, borderRadius: 999,
+        background: btb.glass, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: btb.shadow,
+      }}>
+        <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent)', pointerEvents: 'none', borderRadius: 999 }} />
         {PRIMARY.map(item => {
           const active = tab === item.id;
           return (
@@ -86,25 +90,26 @@ export function TopNav({
           {moreOpen && (
             <div style={{
               position: 'absolute', top: 42, left: 0, minWidth: 190, padding: 6, borderRadius: 14,
-              background: 'rgba(14,14,20,0.98)', border: btb.borderSoft, boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
+              background: btb.glassStrong, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: '0 16px 40px rgba(0,0,0,0.45)',
               display: 'flex', flexDirection: 'column', gap: 2,
             }}>
               {MORE.map(item => {
                 const active = tab === item.id;
                 return (
-                  <div key={item.id} onClick={() => { setTab(item.id); setMoreOpen(false); }} style={{ ...itemStyle(active), height: 38 }}>
+                  <div key={item.id} onClick={() => { setTab(item.id); setMoreOpen(false); }} style={{ ...itemStyle(active), height: 38, borderRadius: 10 }}>
                     <span>{item.label}</span>
                   </div>
                 );
               })}
               <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '4px 6px' }} />
-              <div onClick={() => { onDocs(); setMoreOpen(false); }} style={{ ...itemStyle(false), height: 38 }}>
+              <div onClick={() => { onDocs(); setMoreOpen(false); }} style={{ ...itemStyle(false), height: 38, borderRadius: 10 }}>
                 <span>Docs</span>
               </div>
             </div>
           )}
         </div>
       </nav>
+      </div>
 
       {shortAddr ? (
         <div style={{
