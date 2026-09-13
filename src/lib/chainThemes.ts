@@ -60,8 +60,8 @@ export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Reco
     return {
       '--color-mode': 'light',
       '--fg-rgb': '14, 16, 24',
-      '--bg-rgb': '246, 247, 250',
-      '--chain-bg': '#F6F7FA',
+      '--bg-rgb': '232, 234, 240',
+      '--chain-bg': '#E8EAF0',
       '--btb-text': '#0E1018',
       '--btb-text-muted': 'rgba(14,16,24,.68)',
       '--btb-text-dim': 'rgba(14,16,24,.5)',
@@ -74,14 +74,14 @@ export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Reco
       '--chain-accent': theme.accent,
       '--chain-accent-2': theme.accent2,
       '--chain-accent-soft': `rgba(${accentRgb}, .10)`,
-      '--chain-surface': 'rgba(14,16,24,.045)',
-      '--chain-surface-strong': 'rgba(14,16,24,.075)',
-      '--chain-surface-soft': 'rgba(14,16,24,.03)',
+      '--chain-surface': 'rgba(255,255,255,.55)',
+      '--chain-surface-strong': 'rgba(255,255,255,.8)',
+      '--chain-surface-soft': 'rgba(255,255,255,.35)',
       '--chain-border': '1px solid rgba(14,16,24,.12)',
       '--chain-border-soft': '1px solid rgba(14,16,24,.07)',
       '--chain-shadow': '0 8px 28px rgba(20,24,40,.10), 0 1px 0 rgba(255,255,255,.6) inset',
       '--chain-gradient': 'linear-gradient(135deg, #14161F, #2A2D3A)',
-      '--chain-app-background': '#F6F7FA',
+      '--chain-app-background': 'linear-gradient(180deg, #E3E6EE 0%, #ECEEF4 40%, #E8EAF0 100%)',
     };
   }
   return {
