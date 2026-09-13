@@ -1425,7 +1425,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                 )}
               </div>
             )}
-            <div style={{ minWidth: 0 }}>
+            {/* Desktop: the form column scrolls on its own and stays in view while the simulator scrolls. */}
+            <div style={{ minWidth: 0, ...(isMobile ? {} : { position: 'sticky' as const, top: 0, maxHeight: '100vh', overflowY: 'auto' as const, paddingBottom: 12 }) }}>
             <div style={{
               width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.025)',
               border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
