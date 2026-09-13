@@ -113,7 +113,7 @@ const CROSS_CHAIN_TOKEN_OVERRIDES: Record<number, Record<string, Token>> = {
 // spacings or it doesn't.
 const V4_TICK_SPACINGS: Record<number, number> = { 100: 1, 500: 10, 3000: 60, 10000: 200 };
 const V4_FEE_TIERS = [100, 500, 3000, 10000];
-const CROSS_CHAIN_RANK_COLUMNS = 'minmax(0, 1.15fr) minmax(0, .7fr) minmax(0, .7fr) minmax(0, .7fr) 64px';
+const CROSS_CHAIN_RANK_COLUMNS = 'minmax(0, 1.15fr) minmax(0, .7fr) minmax(0, .7fr) minmax(0, .7fr) auto';
 const WRAPPED_NATIVE_FALLBACKS: Record<number, `0x${string}`> = {
   1: WETH,
   56: '0xBB4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
@@ -1166,7 +1166,7 @@ function CrossChainResearch({ chains, isMobile }: {
               : null;
             return (
               <div key={`${result.key}:${pool.address}`} style={{
-                display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : CROSS_CHAIN_RANK_COLUMNS,
+                display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : CROSS_CHAIN_RANK_COLUMNS,
                 alignItems: 'center', gap: 10, padding: '10px 15px',
                 borderBottom: index < rankedPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined,
                 background: index === 0 ? 'rgba(82,227,164,.045)' : undefined,
@@ -1184,7 +1184,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                 {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.volume24hUsd)}</span>}
                 {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{marketAprText(pool)}</span>}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
                   {(() => { const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null; return target && (
                     <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>
                   ); })()}
@@ -1224,14 +1224,14 @@ function CrossChainResearch({ chains, isMobile }: {
                 {topPools.map((pool, index) => {
                   const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null;
                   return (
-                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr .8fr .8fr auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
-                    <span style={{ color: btb.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : 'minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, .8fr) auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(255,255,255,.04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
+                    <span style={{ color: btb.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                       <DexLogo name={pool.dexLabel} size={16}/>
-                      <span>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
                     </span>
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{marketAprText(pool)}</span>}
-                    <span style={{ minWidth: 62, display: 'flex', justifyContent: 'flex-end' }}>
+                    <span style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
                       {target && <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>}
                     </span>
                     {isMobile && <span style={{ gridColumn: '1 / -1' }}><MobilePoolMetrics pool={pool}/></span>}
