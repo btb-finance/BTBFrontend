@@ -41,6 +41,8 @@ export const SITE = {
     // Rewards
     'DeFi revenue share', 'earn crypto for providing liquidity', 'LP rewards',
     'daily check-in crypto', 'get paid to LP',
+    // Versus paid tools
+    'Metrix Finance alternative', 'Drippy Finance alternative', 'Revert Finance alternative', 'free LP tools',
     // Swap
     'best price token swap', 'DeFi swap', 'multichain swap',
   ],
