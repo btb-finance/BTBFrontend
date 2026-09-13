@@ -17,7 +17,7 @@ export default function Image() {
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '72px',
-          background: 'linear-gradient(135deg, #0A0A0F 0%, #1E293B 55%, #334155 100%)',
+          background: 'linear-gradient(135deg, #0B0F0E 0%, #1E293B 55%, #334155 100%)',
           color: '#FFFFFF',
           fontFamily: 'sans-serif',
         }}
@@ -34,7 +34,7 @@ export default function Image() {
               background: 'linear-gradient(140deg,#FFFFFF 0%, #1E293B 100%)',
               fontSize: 60,
               fontWeight: 900,
-              color: '#0A0A0F',
+              color: '#0B0F0E',
             }}
           >
             B
@@ -54,7 +54,7 @@ export default function Image() {
               fontWeight: 900,
               letterSpacing: -2,
               lineHeight: 1.05,
-              background: 'linear-gradient(90deg,#FFFFFF,#7C8CFF)',
+              background: 'linear-gradient(90deg,#FFFFFF,#1DE9B6)',
               backgroundClip: 'text',
               color: 'transparent',
             }}

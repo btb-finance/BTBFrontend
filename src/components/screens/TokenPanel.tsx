@@ -374,7 +374,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, sharePct ?? 0)}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg,#7C8CFF,#38BDF8)', transition: 'width .4s' }}/>
+              <div style={{ width: `${Math.min(100, sharePct ?? 0)}%`, height: '100%', borderRadius: 999, background: 'linear-gradient(90deg,#1DE9B6,#0B7A5E)', transition: 'width .4s' }}/>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: btb.textDim, fontSize: 10.5, flexWrap: 'wrap' }}>
               <span>Pot so far: <b style={{ color: btb.text }}>{formatBtb(currentPot.toString())} BTB</b></span>

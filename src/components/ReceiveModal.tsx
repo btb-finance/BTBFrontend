@@ -100,7 +100,7 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
           padding: '6px 14px', borderRadius: 999,
           background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.18)',
         }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 6px #7C8CFF' }}/>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 6px #1DE9B6' }}/>
           <span style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600 }}>Ethereum Mainnet</span>
         </div>
 

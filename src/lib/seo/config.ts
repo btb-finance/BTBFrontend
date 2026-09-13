@@ -11,8 +11,8 @@ export const SITE = {
   shortName: 'BTB',
   url: 'https://btb.finance',
   locale: 'en_US',
-  themeColor: '#0A0A0F',
-  backgroundColor: '#0A0A0F',
+  themeColor: '#0B0F0E',
+  backgroundColor: '#0B0F0E',
 
   // Primary positioning: the LP app that pays its users. Keyword-led so a
   // search for "LP simulator", "concentrated liquidity", "Uniswap V3
