@@ -77,8 +77,8 @@ function questState(quest: Quest, submissions: Submission[], now: number) {
 
 const STATUS_STYLE: Record<string, { label: string; color: string }> = {
   auto:     { label: 'Auto',    color: btb.textDim },
-  pending:  { label: 'Review',  color: '#FFB36B' },
-  done:     { label: 'Done',    color: '#52E3A4' },
+  pending:  { label: 'Review',  color: 'var(--btb-amber)' },
+  done:     { label: 'Done',    color: 'var(--btb-green)' },
   cooldown: { label: '',        color: btb.textDim },
 };
 
@@ -158,7 +158,7 @@ function QuestRow({
       {submittable && open && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, padding: '0 2px 14px' }}>
           <div style={{ color: btb.textMuted, fontSize: 13, lineHeight: 1.55 }}>{quest.description}</div>
-          {state.note && <div style={{ color: '#FFB36B', fontSize: 12.5 }}>Rejected: {state.note}</div>}
+          {state.note && <div style={{ color: 'var(--btb-amber)', fontSize: 12.5 }}>Rejected: {state.note}</div>}
           <textarea
             value={proof}
             onChange={e => setProof(e.target.value)}
@@ -261,7 +261,7 @@ export function QuestBoard({ address, onConnect }: { address?: string; onConnect
               {address ? fmt(Math.round(myPoints)) : '—'}
             </span>
             {pendingXp > 0 && (
-              <span style={{ color: '#FFB36B', fontSize: 13, fontWeight: 700 }}>+{fmt(pendingXp)} in review</span>
+              <span style={{ color: 'var(--btb-amber)', fontSize: 13, fontWeight: 700 }}>+{fmt(pendingXp)} in review</span>
             )}
           </div>
 

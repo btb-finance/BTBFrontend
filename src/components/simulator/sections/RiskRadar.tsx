@@ -47,7 +47,7 @@ export function RiskRadar({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
             return <line key={i} x1={CX} y1={CY} x2={p.x} y2={p.y} stroke={chart.grid} strokeWidth={1} />;
           })}
           {/* risk shape */}
-          <polygon points={poly((i) => R * (axes[i].risk / 100))} fill="rgba(255,179,107,0.22)" stroke={chart.il} strokeWidth={2} strokeLinejoin="round" />
+          <polygon points={poly((i) => R * (axes[i].risk / 100))} fill="rgba(var(--amber-rgb), 0.22)" stroke={chart.il} strokeWidth={2} strokeLinejoin="round" />
           {/* vertex dots + labels */}
           {axes.map((a, i) => {
             const v = pt(i, R * (a.risk / 100));

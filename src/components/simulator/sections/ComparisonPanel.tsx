@@ -36,7 +36,7 @@ export function ComparisonPanel({ sim }: { sim: Sim }) {
                   width: `${Math.max(pct, 1)}%`, height: '100%', borderRadius: 999,
                   background: r.isYou ? chart.fees : chart.alt,
                   opacity: r.isYou ? 1 : 0.55,
-                  boxShadow: r.isYou ? '0 0 12px rgba(82,227,164,0.35)' : 'none',
+                  boxShadow: r.isYou ? '0 0 12px rgba(var(--green-rgb), 0.35)' : 'none',
                 }} />
               </div>
             </div>

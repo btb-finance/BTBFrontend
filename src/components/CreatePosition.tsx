@@ -1018,7 +1018,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
           <span style={{ color: btb.text, fontSize: 14, fontWeight: 750 }}>Price range</span>
-          <span style={{ color: inRange ? btb.green : '#FFB36B', fontSize: 11, fontWeight: 700 }}>
+          <span style={{ color: inRange ? btb.green : 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>
             {isFull ? 'Full range' : `Range ${fmtDistance(lowerDistance)} / ${fmtDistance(upperDistance)}`}
           </span>
         </div>
@@ -1097,7 +1097,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <span style={{ color: btb.textMuted, fontSize: 11 }}>
             {fmtAmt(bal, dec)}
             {isShort && !splitRange && (
-              <span onClick={() => applySmartFit()} style={{ color: '#52E3A4', fontWeight: 800, marginLeft: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 6, background: 'rgba(82,227,164,0.13)' }}>FIT RANGE</span>
+              <span onClick={() => applySmartFit()} style={{ color: 'var(--btb-green)', fontWeight: 800, marginLeft: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.13)' }}>FIT RANGE</span>
             )}
             {!disabled && (
               <span onClick={() => splitRange ? setSplitAmt((v) => side === 0 ? { ...v, str0: formatUnits(bal, dec) } : { ...v, str1: formatUnits(bal, dec) }) : setAmt({ side, str: formatUnits(bal, dec) })} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
@@ -1138,7 +1138,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const inSym = need === 'token0' ? sym0 : sym1;   // token deposited now
     const outSym = need === 'token0' ? sym1 : sym0;   // token you end up holding
     return (
-      <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+      <div style={{ color: 'var(--btb-amber)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
         Current price is outside this range — this is a single-sided {inSym} position. It deposits {inSym} only and earns no fees until the price reaches the range. Once it does, your {inSym} is swapped into {outSym} as the price passes through — you&apos;d finish holding {outSym}, not {inSym}. Only place this if you actually want to convert {inSym}→{outSym}.
       </div>
     );
@@ -1152,9 +1152,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const severe = pct >= 5;
     return (
       <div style={{
-        color: severe ? btb.loss : '#FFB36B', fontSize: 12, marginBottom: 10, lineHeight: 1.5,
-        background: severe ? 'rgba(255,107,122,0.08)' : 'rgba(255,179,107,0.08)',
-        border: `1px solid ${severe ? 'rgba(255,107,122,0.3)' : 'rgba(255,179,107,0.3)'}`,
+        color: severe ? btb.loss : 'var(--btb-amber)', fontSize: 12, marginBottom: 10, lineHeight: 1.5,
+        background: severe ? 'rgba(var(--loss-rgb), 0.08)' : 'rgba(var(--amber-rgb), 0.08)',
+        border: `1px solid ${severe ? 'rgba(var(--loss-rgb), 0.3)' : 'rgba(var(--amber-rgb), 0.3)'}`,
         borderRadius: 12, padding: '10px 12px',
       }}>
         This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
@@ -1181,11 +1181,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         {total > 0 && (
           <>
             <div style={{ display: 'flex', height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 8, background: 'rgba(var(--fg-rgb), 0.06)' }}>
-              <div style={{ width: `${pct0}%`, background: '#52E3A4' }} />
+              <div style={{ width: `${pct0}%`, background: 'var(--btb-green)' }} />
               <div style={{ width: `${pct1}%`, background: '#5B8DEF' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, color: btb.textMuted, fontSize: 11 }}>
-              <span><span style={{ color: '#52E3A4' }}>●</span> {sym0} {pct0.toFixed(1)}%</span>
+              <span><span style={{ color: 'var(--btb-green)' }}>●</span> {sym0} {pct0.toFixed(1)}%</span>
               <span>{sym1} {pct1.toFixed(1)}% <span style={{ color: '#5B8DEF' }}>●</span></span>
             </div>
           </>
@@ -1211,9 +1211,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <span style={{ color: btb.textMuted, fontSize: 12 }}>Historical daily-snapshot replay · last {b.days} days</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {cell('Estimated fees', money(b.feesUsd), '#52E3A4')}
-          {cell('LP vs holding', `${b.ilFraction < 0 ? '−' : '+'}${Math.abs(b.ilFraction * 100).toFixed(2)}%`, b.ilFraction < 0 ? '#FFB36B' : btb.text)}
-          {cell('Period fee return', `${((b.feesUsd / Math.max(b.depositUsd, 1)) * 100).toFixed(2)}%`, '#52E3A4')}
+          {cell('Estimated fees', money(b.feesUsd), 'var(--btb-green)')}
+          {cell('LP vs holding', `${b.ilFraction < 0 ? '−' : '+'}${Math.abs(b.ilFraction * 100).toFixed(2)}%`, b.ilFraction < 0 ? 'var(--btb-amber)' : btb.text)}
+          {cell('Period fee return', `${((b.feesUsd / Math.max(b.depositUsd, 1)) * 100).toFixed(2)}%`, 'var(--btb-green)')}
         </div>
         <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
           Price closed inside your range <b>{b.daysInRange}/{b.days} days</b>. Fees are estimated from historical pool fees and daily liquidity. LP vs holding is the fixed-range price-only comparison, not a realised wallet loss. Period return is not APR.
@@ -1235,8 +1235,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Projection-period dropdown */}
             <div style={{ position: 'relative' }}>
               <button onClick={() => setYieldOpen(o => !o)} style={{
-                cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 800, color: '#52E3A4',
-                background: 'rgba(82,227,164,0.14)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 8, padding: '3px 8px',
+                cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 800, color: 'var(--btb-green)',
+                background: 'rgba(var(--green-rgb), 0.14)', border: '1px solid rgba(var(--green-rgb), 0.4)', borderRadius: 8, padding: '3px 8px',
               }}>{YIELD_PERIODS.find(p => p.d === simDays)?.label ?? '1 month'} ▾</button>
               {yieldOpen && (
                 <div style={{
@@ -1247,8 +1247,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   {YIELD_PERIODS.map(p => (
                     <div key={p.d} onClick={() => { setSimDays(p.d); setYieldOpen(false); }} style={{
                       padding: '7px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                      color: simDays === p.d ? '#52E3A4' : btb.text,
-                      background: simDays === p.d ? 'rgba(82,227,164,0.12)' : 'transparent',
+                      color: simDays === p.d ? 'var(--btb-green)' : btb.text,
+                      background: simDays === p.d ? 'rgba(var(--green-rgb), 0.12)' : 'transparent',
                     }}>{p.label}</div>
                   ))}
                 </div>
@@ -1256,7 +1256,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             </div>
           </div>
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ color: '#52E3A4', fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
+            <span style={{ color: 'var(--btb-green)', fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
               ${total >= 100 ? total.toLocaleString('en-US', { maximumFractionDigits: 0 }) : total.toFixed(2)}
             </span>
             {sim.apr !== null && (
@@ -1306,7 +1306,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     title={`Stake the new position to earn ${rewardSymbol}`}
                     style={{
                       flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                      background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
+                      background: stakeAfterMint ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                       display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                     }}>
                     <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
@@ -1354,7 +1354,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             }}>Retry</button>
           </div>
         ) : !pool?.exists ? (
-          <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>
+          <div style={{ color: 'var(--btb-amber)', fontSize: 13, padding: '8px 0' }}>
             {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
           </div>
         ) : (
@@ -1367,9 +1367,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   {[100, 1000, 10000].map((v) => (
                     <button key={v} onClick={() => setSimUsdStr(String(v))} style={{
                       flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(var(--fg-rgb), 0.05)',
-                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-                      color: simUsdStr === String(v) ? '#52E3A4' : btb.textMuted,
+                      background: simUsdStr === String(v) ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.05)',
+                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                      color: simUsdStr === String(v) ? 'var(--btb-green)' : btb.textMuted,
                     }}>${v.toLocaleString('en-US')}</button>
                   ))}
                 </div>
@@ -1382,7 +1382,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     style={{ ...inputStyle(false), paddingLeft: 30 }}/>
                 </div>
                 {!tokenUsd && (
-                  <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
+                  <div style={{ color: 'var(--btb-amber)', fontSize: 12, marginBottom: 10 }}>
                     No USD price data for this pair yet; try again in a moment.
                   </div>
                 )}
@@ -1447,9 +1447,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               {RANGE_PRESETS.map((r) => (
                 <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); setSwapPreview(null); }} style={{
                   flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                  background: rangeMode === r.pct ? 'rgba(82,227,164,0.18)' : 'rgba(var(--fg-rgb), 0.05)',
-                  border: `1px solid ${rangeMode === r.pct ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-                  color: rangeMode === r.pct ? '#52E3A4' : btb.textMuted,
+                  background: rangeMode === r.pct ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.05)',
+                  border: `1px solid ${rangeMode === r.pct ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                  color: rangeMode === r.pct ? 'var(--btb-green)' : btb.textMuted,
                 }}>{r.label}</button>
               ))}
             </div>
@@ -1496,8 +1496,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     {([['balanced', 'Balanced'], ['single', 'Single-sided']] as const).map(([val, title]) => (
                       <button key={val} onClick={() => { setSmartStrategy(val); applySmartFit(val); }} style={{
                         flex: 1, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
-                        background: smartStrategy === val ? 'rgba(82,227,164,0.2)' : 'transparent',
-                        color: smartStrategy === val ? '#52E3A4' : btb.textMuted,
+                        background: smartStrategy === val ? 'rgba(var(--green-rgb), 0.2)' : 'transparent',
+                        color: smartStrategy === val ? 'var(--btb-green)' : btb.textMuted,
                       }}>{title}</button>
                     ))}
                   </div>
@@ -1508,7 +1508,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     <span style={{ color: btb.textDim }}>Swap to balance</span>
                     <span style={{ fontWeight: 700 }}>
                       {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} to {swapPreview.otherSym}
-                      <span style={{ color: swapPreview.pct <= 60 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
+                      <span style={{ color: swapPreview.pct <= 60 ? 'var(--btb-green)' : 'var(--btb-amber)', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
                     </span>
                   </div>
                 )}
@@ -1523,11 +1523,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               <>
                 {!isV4 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '0 2px 8px' }}>
-                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(var(--fg-rgb), 0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
+                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(var(--green-rgb), 0.4)' : 'rgba(var(--fg-rgb), 0.12)'}`, background: splitRange ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
                       <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(var(--fg-rgb), 0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
                       Use uneven amounts
                     </button>
-                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : '#FFB36B', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
+                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : 'var(--btb-amber)', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
                   </div>
                 )}
 
@@ -1545,8 +1545,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                       style={{
                         width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: universalDeployment ? 'pointer' : 'default',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontFamily: 'inherit', textAlign: 'left',
-                        border: `1px solid ${autoManage ? 'rgba(82,227,164,0.4)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-                        background: autoManage ? 'rgba(82,227,164,0.09)' : 'rgba(var(--fg-rgb), 0.035)',
+                        border: `1px solid ${autoManage ? 'rgba(var(--green-rgb), 0.4)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                        background: autoManage ? 'rgba(var(--green-rgb), 0.09)' : 'rgba(var(--fg-rgb), 0.035)',
                         color: universalDeployment ? btb.text : btb.textDim,
                       }}
                     >

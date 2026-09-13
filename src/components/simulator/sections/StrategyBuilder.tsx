@@ -30,9 +30,9 @@ export function StrategyBuilder(props: {
         {AMOUNT_CHIPS.map((v) => (
           <button key={v} onClick={() => p.setDepositStr(String(v))} style={{
             flex: 1, minWidth: 90, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-            background: p.depositStr === String(v) ? 'rgba(82,227,164,0.16)' : 'rgba(var(--fg-rgb), 0.05)',
-            border: `1px solid ${p.depositStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-            color: p.depositStr === String(v) ? '#52E3A4' : btb.textMuted,
+            background: p.depositStr === String(v) ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--fg-rgb), 0.05)',
+            border: `1px solid ${p.depositStr === String(v) ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+            color: p.depositStr === String(v) ? 'var(--btb-green)' : btb.textMuted,
           }}>${v.toLocaleString('en-US')}</button>
         ))}
       </div>

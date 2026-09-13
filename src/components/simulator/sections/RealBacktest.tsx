@@ -53,7 +53,7 @@ export function RealBacktest({ sim, isMobile }: { sim: Sim; isMobile: boolean })
     >
       <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px' }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-          {bandBot > bandTop && <rect x={PAD} y={bandTop} width={W - PAD * 2} height={bandBot - bandTop} rx={4} fill="rgba(82,227,164,0.12)" stroke="rgba(82,227,164,0.4)" strokeWidth={1} />}
+          {bandBot > bandTop && <rect x={PAD} y={bandTop} width={W - PAD * 2} height={bandBot - bandTop} rx={4} fill="rgba(var(--green-rgb), 0.12)" stroke="rgba(var(--green-rgb), 0.4)" strokeWidth={1} />}
           <path d={path} fill="none" stroke={chart.net} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           {days.map((d, i) => <circle key={i} cx={x(i)} cy={y(d.disp)} r={2.2} fill={d.inRange ? chart.fees : chart.il} opacity={d.inRange ? 0.95 : 0.9} />)}
           <text x={W - PAD - 2} y={Math.max(bandTop - 4, 10)} textAnchor="end" fontSize={9.5} fill={btb.textMuted} fontFamily="inherit">{fmtPrice(sim.dispUpper)}</text>
@@ -80,7 +80,7 @@ export function RealBacktest({ sim, isMobile }: { sim: Sim; isMobile: boolean })
 
       <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>
         {sim.historyEstimated && (
-          <div style={{ color: btb.amber, fontSize: 11.5, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 10, padding: '8px 11px', marginBottom: 8 }}>
+          <div style={{ color: btb.amber, fontSize: 11.5, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 10, padding: '8px 11px', marginBottom: 8 }}>
             {estimatedNote}
           </div>
         )}

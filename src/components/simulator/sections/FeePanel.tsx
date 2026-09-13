@@ -92,8 +92,8 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
             <button key={m} onClick={() => setMode(m)} style={{
               height: 26, padding: '0 10px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 11, fontWeight: 700, textTransform: 'capitalize',
-              background: mode === m ? 'rgba(82,227,164,0.2)' : 'transparent',
-              color: mode === m ? '#52E3A4' : btb.textMuted,
+              background: mode === m ? 'rgba(var(--green-rgb), 0.2)' : 'transparent',
+              color: mode === m ? 'var(--btb-green)' : btb.textMuted,
             }}>{m}</button>
           ))}
         </div>
@@ -102,7 +102,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
       {renderChart()}
 
       {!sim.hasFeeData && (
-        <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 12, padding: '10px 12px' }}>
+        <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 12, padding: '10px 12px' }}>
           No recent fee data found for this pool, so fee projections show as zero. The IL and price sections below still work.
         </div>
       )}
@@ -111,7 +111,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
           around the largest swaps — research puts their take at up to ~40% of
           fee income in affected pools. Passive LPs eat that dilution. */}
       {sim.volumeToTvl7d != null && sim.volumeToTvl7d / 7 > 1 && (
-        <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 12, padding: '10px 12px', marginTop: 10 }}>
+        <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 12, padding: '10px 12px', marginTop: 10 }}>
           This pool turns over roughly {(sim.volumeToTvl7d / 7).toFixed(0)}× its TVL per day. Heavy-turnover pools attract just-in-time LP bots that compete for the biggest swaps&apos; fees — treat these estimates as optimistic.
         </div>
       )}

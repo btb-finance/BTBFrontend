@@ -97,10 +97,10 @@ export function StudioPositions() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
                     <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
                     {open ? (
-                      <Badge size="sm" border="none" bg={inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
+                      <Badge size="sm" border="none" bg={inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
                     ) : <Badge size="sm" border="none" bg={btb.surfaceSoft} color={btb.textDim}>Closed</Badge>}
                     <ChainLogo chainId={4663} size={15}/>
-                    <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.12)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Smart account</Badge>
+                    <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.12)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Smart account</Badge>
                   </div>
                 </div>
               </div>
@@ -114,10 +114,10 @@ export function StudioPositions() {
                   <div style={lpBoxLabel}><TokenIcon symbol={snap.sym1} size={16} logoUrl={logo1}/>{snap.sym1}</div>
                   <div style={boxValue}>{fmtA(amt1)}</div>
                 </div>
-                <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(82,227,164,0.07)' : box.background, border: hasFees ? '1px solid rgba(82,227,164,0.22)' : box.border }}>
+                <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
                   <div style={lpBoxLabel}>Unclaimed fees</div>
                   <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? `${fmtB(p.fees0, snap.dec0)} ${snap.sym0}` : 'None yet'}</div>
-                  {hasFees && <div style={{ color: 'rgba(82,227,164,0.75)', fontSize: 11.5, marginTop: 2 }}>+ {fmtB(p.fees1, snap.dec1)} {snap.sym1}</div>}
+                  {hasFees && <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2 }}>+ {fmtB(p.fees1, snap.dec1)} {snap.sym1}</div>}
                 </div>
               </div>
 

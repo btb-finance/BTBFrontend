@@ -105,12 +105,12 @@ function AiExplain({ text, onClose }: { text: string; onClose: () => void }) {
   return (
     <div style={{
       marginTop: 12, padding: '12px 14px', borderRadius: 12,
-      background: 'rgba(82,227,164,0.06)', border: '1px solid rgba(82,227,164,0.22)',
+      background: 'rgba(var(--green-rgb), 0.06)', border: '1px solid rgba(var(--green-rgb), 0.22)',
     }}>
       <style>{'@keyframes aiBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }'}</style>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{
-          width: 20, height: 20, borderRadius: 7, background: 'rgba(82,227,164,0.15)',
+          width: 20, height: 20, borderRadius: 7, background: 'rgba(var(--green-rgb), 0.15)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <Icon name="bolt" size={11} color={btb.green}/>
@@ -153,8 +153,8 @@ function StepCard({ n, title, state, help, children }: {
           <span onClick={() => setShowHelp(s => !s)} style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', flexShrink: 0,
             padding: '4px 10px', borderRadius: 999,
-            background: showHelp ? 'rgba(82,227,164,0.15)' : 'rgba(var(--fg-rgb), 0.06)',
-            border: showHelp ? '1px solid rgba(82,227,164,0.35)' : btb.borderSoft,
+            background: showHelp ? 'rgba(var(--green-rgb), 0.15)' : 'rgba(var(--fg-rgb), 0.06)',
+            border: showHelp ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft,
           }}>
             <Icon name="bolt" size={11} color={showHelp ? btb.green : btb.textMuted}/>
             <span style={{ color: showHelp ? btb.green : btb.textMuted, fontSize: 11, fontWeight: 800 }}>ask AI</span>
@@ -632,7 +632,7 @@ export function AgentStudioScreen() {
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: btb.green, boxShadow: `0 0 8px ${btb.green}` }}/>
           <span style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>Agent Studio</span>
         </span>
-        <Badge color={btb.green} bg="rgba(82,227,164,0.12)" border="1px solid rgba(82,227,164,0.35)">Live on Robinhood Chain</Badge>
+        <Badge color={btb.green} bg="rgba(var(--green-rgb), 0.12)" border="1px solid rgba(var(--green-rgb), 0.35)">Live on Robinhood Chain</Badge>
         <div style={{ flex: 1 }}/>
         <span onClick={() => setFilm(true)} style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
           Watch the film
@@ -651,7 +651,7 @@ export function AgentStudioScreen() {
             {
               name: 'Uniswap V3', address: BTB_V2.uniV3Adapter, note: 'Mint, add, remove, collect, burn',
               status: releaseState === 'active' ? 'Active' : releaseState === 'pending' ? 'Ready to activate' : releaseState === 'loading' ? 'Checking' : 'Needs release',
-              color: releaseState === 'active' ? btb.green : '#FFB36B',
+              color: releaseState === 'active' ? btb.green : 'var(--btb-amber)',
             },
             { name: 'ERC-4626 vaults', address: BTB_V2.erc4626Adapter, note: 'Deposit, mint, withdraw, redeem', status: 'Deployed', color: '#78A8FF' },
             { name: 'Keeper incentives', address: BTB_V2.keeperIncentives, note: 'Optional sponsored automation', status: 'Deployed', color: '#78A8FF' },
@@ -686,8 +686,8 @@ export function AgentStudioScreen() {
       {(err || ok || busy) && (
         <div style={{
           padding: '10px 14px', borderRadius: 12, fontSize: 12.5, lineHeight: 1.5, wordBreak: 'break-word',
-          background: err ? 'rgba(255,107,122,0.1)' : 'rgba(82,227,164,0.08)',
-          border: err ? '1px solid rgba(255,107,122,0.35)' : '1px solid rgba(82,227,164,0.3)',
+          background: err ? 'rgba(var(--loss-rgb), 0.1)' : 'rgba(var(--green-rgb), 0.08)',
+          border: err ? '1px solid rgba(var(--loss-rgb), 0.35)' : '1px solid rgba(var(--green-rgb), 0.3)',
           color: err ? btb.loss : btb.green, fontWeight: 600,
         }}>
           {busy ? `${busy}…` : err ?? ok}
@@ -730,8 +730,8 @@ export function AgentStudioScreen() {
             {data.strategy.rangePct > 0 ? `plus minus ${data.strategy.rangePct}% range` : 'full range'}
             {data.currentTick !== null && data.strategy.rangePct > 0 && (
               data.currentTick >= data.strategy.tickLower && data.currentTick < data.strategy.tickUpper
-                ? <Badge color={btb.green} bg="rgba(82,227,164,0.12)" border="1px solid rgba(82,227,164,0.35)" style={{ marginLeft: 8 }}>In range</Badge>
-                : <Badge color="#FFB36B" bg="rgba(255,179,107,0.12)" border="1px solid rgba(255,179,107,0.35)" style={{ marginLeft: 8 }}>Out of range</Badge>
+                ? <Badge color={btb.green} bg="rgba(var(--green-rgb), 0.12)" border="1px solid rgba(var(--green-rgb), 0.35)" style={{ marginLeft: 8 }}>In range</Badge>
+                : <Badge color="var(--btb-amber)" bg="rgba(var(--amber-rgb), 0.12)" border="1px solid rgba(var(--amber-rgb), 0.35)" style={{ marginLeft: 8 }}>Out of range</Badge>
             )}
             <br/>
             Spending caps {fmt(BigInt(data.strategy.cap0), data.token0.decimals)} {data.token0.symbol} and{' '}
@@ -779,8 +779,8 @@ export function AgentStudioScreen() {
                   {['0.5', '1', '5', '10', '30', 'full'].map(p => (
                     <span key={p} onClick={() => setRangeInput(p)} style={{
                       padding: '2px 8px', borderRadius: 999, cursor: 'pointer', fontSize: 10.5, fontWeight: 700,
-                      background: rangeInput === p ? 'rgba(82,227,164,0.15)' : 'rgba(var(--fg-rgb), 0.05)',
-                      border: rangeInput === p ? '1px solid rgba(82,227,164,0.35)' : btb.borderSoft,
+                      background: rangeInput === p ? 'rgba(var(--green-rgb), 0.15)' : 'rgba(var(--fg-rgb), 0.05)',
+                      border: rangeInput === p ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft,
                       color: rangeInput === p ? btb.green : btb.textMuted,
                     }}>
                       {p === 'full' ? 'Full' : `${p}%`}
@@ -815,7 +815,7 @@ export function AgentStudioScreen() {
               <div style={{ color: btb.textMuted, fontSize: 13 }}>
                 Release scheduled behind the 24 hour timelock.{' '}
                 {releaseReady ? 'Ready to activate now.' : (
-                  <span style={{ color: '#FFB36B', fontWeight: 700, fontFamily: 'monospace' }}>
+                  <span style={{ color: 'var(--btb-amber)', fontWeight: 700, fontFamily: 'monospace' }}>
                     {String(hh).padStart(2, '0')}:{String(mm).padStart(2, '0')}:{String(ss).padStart(2, '0')} remaining
                   </span>
                 )}
@@ -927,8 +927,8 @@ export function AgentStudioScreen() {
                           {t0.symbol} / {t1.symbol} #{p.id.toString()}
                         </span>
                         {p.liquidity > 0n ? (inRange
-                          ? <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.12)" border="1px solid rgba(82,227,164,0.35)">In range, earning</Badge>
-                          : <Badge size="sm" color="#FFB36B" bg="rgba(255,179,107,0.12)" border="1px solid rgba(255,179,107,0.35)">Out of range, not earning</Badge>
+                          ? <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.12)" border="1px solid rgba(var(--green-rgb), 0.35)">In range, earning</Badge>
+                          : <Badge size="sm" color="var(--btb-amber)" bg="rgba(var(--amber-rgb), 0.12)" border="1px solid rgba(var(--amber-rgb), 0.35)">Out of range, not earning</Badge>
                         ) : <Badge size="sm" color={btb.textDim}>Closed</Badge>}
                         <div style={{ flex: 1 }}/>
                         <Button size="sm" fullWidth={false} variant="ghost" style={{ padding: '0 12px', height: 32 }}
@@ -977,7 +977,7 @@ export function AgentStudioScreen() {
                         <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'visible' }}>
                           <div style={{
                             position: 'absolute', top: 0, bottom: 0, left: '15%', right: '15%',
-                            borderRadius: 999, background: inRange ? 'rgba(82,227,164,0.35)' : 'rgba(255,179,107,0.3)',
+                            borderRadius: 999, background: inRange ? 'rgba(var(--green-rgb), 0.35)' : 'rgba(var(--amber-rgb), 0.3)',
                           }}/>
                           <div style={{
                             position: 'absolute', top: -3, width: 2, height: 12, borderRadius: 2, background: '#fff',
@@ -995,9 +995,9 @@ export function AgentStudioScreen() {
               && !(data.currentTick >= data.strategy.tickLower && data.currentTick < data.strategy.tickUpper) && (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '12px 14px',
-                borderRadius: 12, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)',
+                borderRadius: 12, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)',
               }}>
-                <span style={{ color: '#FFB36B', fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, flex: 1, minWidth: 200 }}>
+                <span style={{ color: 'var(--btb-amber)', fontSize: 12.5, fontWeight: 600, lineHeight: 1.5, flex: 1, minWidth: 200 }}>
                   The price left your range, so the position stopped earning fees.
                   Recenter unwinds it, moves your funds to a fresh range around the current price, and retires the old rules.
                 </span>

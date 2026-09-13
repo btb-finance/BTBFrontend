@@ -148,7 +148,7 @@ export function TopNav({
                 <Avatar address={address!} size={34}/>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>{shortAddr}</div>
-                  <div style={{ color: isReadOnly ? '#FFB36B' : btb.textMuted, fontSize: 11 }}>{isReadOnly ? 'Watching, read-only' : 'Connected'}</div>
+                  <div style={{ color: isReadOnly ? 'var(--btb-amber)' : btb.textMuted, fontSize: 11 }}>{isReadOnly ? 'Watching, read-only' : 'Connected'}</div>
                 </div>
               </div>
               <div style={{ height: 1, background: 'rgba(var(--fg-rgb), 0.08)', margin: '0 6px 4px' }} />

@@ -35,15 +35,15 @@ function activeVisual(variant: Variant): CSSProperties {
       return {
         background: btb.gradGreen,
         color: 'var(--btb-text)',
-        boxShadow: '0 8px 20px rgba(82,227,164,0.3)',
+        boxShadow: '0 8px 20px rgba(var(--green-rgb), 0.3)',
       };
     case 'successSoft':
       // Green identity without the weight of a solid fill — for secondary
       // actions that should still read as part of the brand.
       return {
-        background: 'rgba(82,227,164,0.12)',
+        background: 'rgba(var(--green-rgb), 0.12)',
         color: btb.green,
-        border: '1px solid rgba(82,227,164,0.32)',
+        border: '1px solid rgba(var(--green-rgb), 0.32)',
       };
     case 'ghost':
       return {
@@ -53,9 +53,9 @@ function activeVisual(variant: Variant): CSSProperties {
       };
     case 'danger':
       return {
-        background: 'rgba(255,107,122,0.15)',
+        background: 'rgba(var(--loss-rgb), 0.15)',
         color: btb.loss,
-        border: '1px solid rgba(255,107,122,0.4)',
+        border: '1px solid rgba(var(--loss-rgb), 0.4)',
       };
     case 'primary':
     default:

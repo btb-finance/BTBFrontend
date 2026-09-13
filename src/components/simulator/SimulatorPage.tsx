@@ -272,8 +272,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
         <button key={d} onClick={() => setHorizonDays(d)} style={{
           height: 28, padding: isMobile ? '0 8px' : '0 11px', borderRadius: 9, border: 'none', cursor: 'pointer',
           fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
-          background: horizonDays === d ? 'rgba(82,227,164,0.2)' : 'transparent',
-          color: horizonDays === d ? '#52E3A4' : btb.textMuted,
+          background: horizonDays === d ? 'rgba(var(--green-rgb), 0.2)' : 'transparent',
+          color: horizonDays === d ? 'var(--btb-green)' : btb.textMuted,
         }}>{d}d</button>
       ))}
     </div>
@@ -294,7 +294,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
         ) : error || !pool ? (
           <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool{error ? ` (${error})` : ''}.</div>
         ) : !sim ? (
-          <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 14, padding: '12px 14px' }}>
+          <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 14, padding: '12px 14px' }}>
             Waiting for USD price data for this pair. The analytics appear as soon as prices load.
           </div>
         ) : (
@@ -381,8 +381,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                         style={{
                           color: risky ? btb.loss : warm ? btb.amber : btb.textMuted,
                           fontSize: 10.5, fontWeight: 700,
-                          background: risky ? 'rgba(255,107,122,.1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(var(--fg-rgb), .04)',
-                          border: risky ? '1px solid rgba(255,107,122,.3)' : warm ? '1px solid rgba(255,202,107,.25)' : btb.borderSoft,
+                          background: risky ? 'rgba(var(--loss-rgb), .1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(var(--fg-rgb), .04)',
+                          border: risky ? '1px solid rgba(var(--loss-rgb), .3)' : warm ? '1px solid rgba(255,202,107,.25)' : btb.borderSoft,
                           borderRadius: 8, padding: '3px 8px',
                         }}
                       >
@@ -409,7 +409,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                 />
               )}
               {!sim && depositUsd > 0 && (
-                <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 14, padding: '12px 14px' }}>
+                <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 14, padding: '12px 14px' }}>
                   Waiting for USD price data for this pair. The builder below works; the analytics appear as soon as prices load.
                 </div>
               )}

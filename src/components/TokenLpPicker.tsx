@@ -108,7 +108,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ color: '#52E3A4', fontSize: 15, fontWeight: 800 }}>{fmtApr(p.aprRange ?? p.apy)}</div>
+                  <div style={{ color: 'var(--btb-green)', fontSize: 15, fontWeight: 800 }}>{fmtApr(p.aprRange ?? p.apy)}</div>
                   <div style={{ color: btb.textMuted, fontSize: 10 }}>
                     {p.requiresStaking
                       ? `stake LP · ${(p.rewardTokenSymbols ?? ['gauge']).join(' + ')}`

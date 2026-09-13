@@ -50,7 +50,7 @@ function ChangePill({ pct, size = 11 }: { pct?: number; size?: number }) {
   return (
     <span style={{
       display: 'inline-block', padding: '1px 6px', borderRadius: 6, fontSize: size, fontWeight: 700, whiteSpace: 'nowrap',
-      color: up ? btb.green : btb.loss, background: up ? 'rgba(82,227,164,0.12)' : 'rgba(255,107,122,0.12)',
+      color: up ? btb.green : btb.loss, background: up ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--loss-rgb), 0.12)',
     }}>{fmtSignedPct(pct)}</span>
   );
 }
@@ -131,7 +131,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
   const hasChange = trustedTokens.some(t => t.change1d != null);
 
   // Allocation bar: top four holdings, everything else grouped.
-  const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
+  const COLORS = ['#FFFFFF', 'var(--btb-amber)', 'var(--btb-green)', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
   const top4 = trustedTokens.slice(0, 4);
   const restUsd = tokensUsd - top4.reduce((s, t) => s + (t.usdValue ?? 0), 0);
   const allocation = [

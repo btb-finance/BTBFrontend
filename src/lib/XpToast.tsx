@@ -45,11 +45,11 @@ function Pill({ toast }: { toast: XpToast }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px 9px 10px', borderRadius: 999,
-      background: 'rgba(12,20,16,0.92)', border: '1px solid rgba(82,227,164,0.45)', boxShadow: btb.shadow,
+      background: 'rgba(12,20,16,0.92)', border: '1px solid rgba(var(--green-rgb), 0.45)', boxShadow: btb.shadow,
       backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur,
       transform: shown ? 'translateY(0)' : 'translateY(-12px)', opacity: shown ? 1 : 0, transition: 'transform .25s ease, opacity .25s ease',
     }}>
-      <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(82,227,164,0.18)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(var(--green-rgb), 0.18)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon name="star" size={14} color={btb.green}/>
       </span>
       <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>

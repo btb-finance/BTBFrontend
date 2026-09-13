@@ -74,7 +74,7 @@ function shortDate(ms: number) {
 type EarnAction = 'swap' | 'simulate';
 
 const EARN_ROWS: { icon: string; label: string; detail: string; href: string; action: EarnAction; tint: string }[] = [
-  { icon: 'swap', label: 'Make a swap', detail: 'Points scale with trade size', href: '/swap', action: 'swap', tint: '#52E3A4' },
+  { icon: 'swap', label: 'Make a swap', detail: 'Points scale with trade size', href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
   { icon: 'chart', label: 'Simulate a pool', detail: '+100 XP a day, +100 per chain researched', href: '/simulate', action: 'simulate', tint: '#7DD3FC' },
 ];
 
@@ -251,8 +251,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     overflow: 'hidden' as const,
     borderRadius: 24,
     padding: isMobile ? 18 : 24,
-    border: '1px solid rgba(82,227,164,0.25)',
-    background: 'radial-gradient(120% 150% at 88% -30%, rgba(82,227,164,0.20), transparent 55%), radial-gradient(90% 120% at 0% 115%, rgba(125,211,252,0.10), transparent 55%), linear-gradient(165deg, rgba(var(--fg-rgb), 0.06), rgba(var(--fg-rgb), 0.015))',
+    border: '1px solid rgba(var(--green-rgb), 0.25)',
+    background: 'radial-gradient(120% 150% at 88% -30%, rgba(var(--green-rgb), 0.20), transparent 55%), radial-gradient(90% 120% at 0% 115%, rgba(125,211,252,0.10), transparent 55%), linear-gradient(165deg, rgba(var(--fg-rgb), 0.06), rgba(var(--fg-rgb), 0.015))',
     display: 'flex', flexDirection: 'column' as const, gap: 16,
   };
   const panelStyle = { borderRadius: 24, padding: isMobile ? 18 : 24, border: btb.border, background: 'rgba(var(--fg-rgb), 0.05)', display: 'flex', flexDirection: 'column' as const, gap: 14 };
@@ -302,11 +302,11 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 6 }}>
             {strip.map(d => {
               const box = d.state === 'done'
-                ? { background: 'rgba(82,227,164,0.22)', border: '1px solid rgba(82,227,164,0.5)', color: btb.green }
+                ? { background: 'rgba(var(--green-rgb), 0.22)', border: '1px solid rgba(var(--green-rgb), 0.5)', color: btb.green }
                 : d.state === 'today'
-                  ? { background: 'rgba(var(--fg-rgb), 0.10)', border: '1px dashed rgba(82,227,164,0.7)', color: btb.green }
+                  ? { background: 'rgba(var(--fg-rgb), 0.10)', border: '1px dashed rgba(var(--green-rgb), 0.7)', color: btb.green }
                   : d.bonus
-                    ? { background: 'rgba(255,179,107,0.10)', border: '1px solid rgba(255,179,107,0.4)', color: btb.amber }
+                    ? { background: 'rgba(var(--amber-rgb), 0.10)', border: '1px solid rgba(var(--amber-rgb), 0.4)', color: btb.amber }
                     : { background: 'rgba(var(--fg-rgb), 0.04)', border: btb.borderSoft, color: btb.textDim };
               return (
                 <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -322,7 +322,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           </div>
 
           {checkedIn ? (
-            <div style={{ height: 56, borderRadius: 18, background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.4)', color: btb.green, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <div style={{ height: 56, borderRadius: 18, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.4)', color: btb.green, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <Icon name="check" size={18} color={btb.green}/> Checked in · next in {countdown(todayStart + MS_PER_DAY - now)}
             </div>
           ) : (
@@ -355,7 +355,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>This week's split</span>
             {status.hasRequested
-              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 999, padding: '5px 10px', color: btb.green, fontSize: 11, fontWeight: 800 }}><Icon name="check" size={12} color={btb.green}/>Entered</span>
+              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.4)', borderRadius: 999, padding: '5px 10px', color: btb.green, fontSize: 11, fontWeight: 800 }}><Icon name="check" size={12} color={btb.green}/>Entered</span>
               : <span style={{ color: btb.textDim, fontSize: 12 }}>{countdown(endsIn)} left</span>}
           </div>
 
@@ -398,9 +398,9 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
       {/* ── ready to claim — only when there is BTB waiting ── */}
       {claimable.map(row => (
-        <div key={row.payoutId} style={{ borderRadius: 24, padding: '18px 20px', border: '1px solid rgba(82,227,164,0.45)', background: 'rgba(82,227,164,0.10)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div key={row.payoutId} style={{ borderRadius: 24, padding: '18px 20px', border: '1px solid rgba(var(--green-rgb), 0.45)', background: 'rgba(var(--green-rgb), 0.10)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ ...LABEL_STYLE, color: 'rgba(82,227,164,0.8)' }}>Week {row.epochId} · ready</div>
+            <div style={{ ...LABEL_STYLE, color: 'rgba(var(--green-rgb), 0.8)' }}>Week {row.epochId} · ready</div>
             <div style={{ color: btb.green, fontSize: 24, fontWeight: 800, letterSpacing: -0.5, marginTop: 3 }}>{formatBtb(row.amountRaw)} BTB</div>
             <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2 }}>No gas, no signature · expires when next Friday settles</div>
           </div>
@@ -410,7 +410,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         </div>
       ))}
       {showLastAward && claimable.length === 0 && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(82,227,164,0.10)', border: '1px solid rgba(82,227,164,0.28)', borderRadius: 12, padding: '8px 12px', alignSelf: 'flex-start' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(var(--green-rgb), 0.10)', border: '1px solid rgba(var(--green-rgb), 0.28)', borderRadius: 12, padding: '8px 12px', alignSelf: 'flex-start' }}>
           <Icon name="receive" size={14} color={btb.green}/>
           <span style={{ color: btb.textMuted, fontSize: 11.5 }}>Last week you were paid <b style={{ color: btb.green }}>{formatBtb(lastAward)} BTB</b></span>
         </div>
@@ -424,7 +424,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
           {STEPS.map((step, i) => (
             <div key={step.title} style={{ ...CARD_STYLE, borderRadius: 16, padding: isMobile ? '12px 14px' : '14px 12px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', alignItems: isMobile ? 'flex-start' : 'stretch', gap: isMobile ? 12 : 8 }}>
-              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: 'rgba(82,227,164,0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: 'rgba(var(--green-rgb), 0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{step.title}</span>
                 <span style={{ color: btb.textMuted, fontSize: isMobile ? 12 : 10.5, lineHeight: 1.45 }}>{step.detail}</span>
@@ -473,7 +473,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             {payouts.map(p => (
               <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(82,227,164,.12)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(var(--green-rgb), .12)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon name="receive" size={14} color={btb.green}/>
                   </span>
                   <div>
@@ -512,7 +512,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                     {e.settledAt ? `settled ${shortDate(e.settledAt)}` : 'open'} · {e.requesterCount ?? 0} entered
                   </div>
                 </div>
-                <Badge color={e.state === 'paid' ? '#52E3A4' : btb.textMuted} bg="rgba(var(--fg-rgb), .05)" border="none">{e.state}</Badge>
+                <Badge color={e.state === 'paid' ? 'var(--btb-green)' : btb.textMuted} bg="rgba(var(--fg-rgb), .05)" border="none">{e.state}</Badge>
               </div>
             ))}
           </Glass>

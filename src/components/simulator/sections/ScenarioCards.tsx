@@ -24,8 +24,8 @@ export function ScenarioCards({ sim, setMovePct, isMobile }: {
           return (
             <button key={sc.key} onClick={() => setMovePct(movePct)} style={{
               cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              background: selected ? 'rgba(82,227,164,0.1)' : 'rgba(var(--fg-rgb), 0.04)',
-              border: `1px solid ${selected ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+              background: selected ? 'rgba(var(--green-rgb), 0.1)' : 'rgba(var(--fg-rgb), 0.04)',
+              border: `1px solid ${selected ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
               borderRadius: 18, padding: '15px 16px',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

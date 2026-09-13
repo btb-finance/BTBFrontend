@@ -58,7 +58,7 @@ function PrimaryBtn({ label, icon, loading, disabled, onClick, green }: {
 function ErrBox({ err }: { err: Error | null }) {
   if (!err) return null;
   return (
-    <div style={{ background: 'rgba(255,107,122,0.12)', border: '1px solid rgba(255,107,122,0.35)', borderRadius: 14, padding: '10px 14px', color: btb.loss, fontSize: 13 }}>
+    <div style={{ background: 'rgba(var(--loss-rgb), 0.12)', border: '1px solid rgba(var(--loss-rgb), 0.35)', borderRadius: 14, padding: '10px 14px', color: btb.loss, fontSize: 13 }}>
       {(err as any)?.shortMessage ?? err.message}
     </div>
   );
@@ -159,7 +159,7 @@ function MintTab({ address }: { address?: string }) {
             BTB BEAR {isLoading ? '…' : `· #${minted + 1}`}
           </div>
           {userBalance > 0 && (
-            <Badge bg="rgba(82,227,164,0.2)" border="1px solid rgba(82,227,164,0.4)" color="#52E3A4" style={{ position: 'absolute', top: 14, right: 14, padding: '3px 8px' }}>
+            <Badge bg="rgba(var(--green-rgb), 0.2)" border="1px solid rgba(var(--green-rgb), 0.4)" color="var(--btb-green)" style={{ position: 'absolute', top: 14, right: 14, padding: '3px 8px' }}>
               You own {userBalance}
             </Badge>
           )}
@@ -247,7 +247,7 @@ function MintTab({ address }: { address?: string }) {
           </div>
 
           {mintedQty > 0 && (
-            <div style={{ marginTop: 14, background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.3)', borderRadius: 14, padding: '10px 14px', color: '#52E3A4', fontSize: 13, fontWeight: 600 }}>
+            <div style={{ marginTop: 14, background: 'rgba(var(--green-rgb), 0.1)', border: '1px solid rgba(var(--green-rgb), 0.3)', borderRadius: 14, padding: '10px 14px', color: 'var(--btb-green)', fontSize: 13, fontWeight: 600 }}>
               Minted {mintedQty} BTB Bear NFT{mintedQty > 1 ? 's' : ''}! · +{(MINT_XP * mintedQty).toLocaleString('en-US')} XP
             </div>
           )}
@@ -405,13 +405,13 @@ function StakeTab({ address }: { address?: string }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <div style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pending rewards</div>
-              <div style={{ color: '#52E3A4', fontSize: 34, fontWeight: 800, letterSpacing: -1.2, marginTop: 6 }}>
+              <div style={{ color: 'var(--btb-green)', fontSize: 34, fontWeight: 800, letterSpacing: -1.2, marginTop: 6 }}>
                 {isLoading ? '…' : pendingBtbb.toLocaleString('en-US', { maximumFractionDigits: 6 })}
               </div>
               <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>BTBB · net after 1% transfer tax</div>
             </div>
-            <div style={{ width: 54, height: 54, borderRadius: 18, background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon name="gift" size={26} color="#52E3A4"/>
+            <div style={{ width: 54, height: 54, borderRadius: 18, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="gift" size={26} color="var(--btb-green)"/>
             </div>
           </div>
           <Button
@@ -423,7 +423,7 @@ function StakeTab({ address }: { address?: string }) {
             style={{
               marginTop: 16,
               borderRadius: 18,
-              ...(address && pendingBtbb >= 0.000001 && !loading ? { boxShadow: '0 6px 16px rgba(82,227,164,0.25)' } : {}),
+              ...(address && pendingBtbb >= 0.000001 && !loading ? { boxShadow: '0 6px 16px rgba(var(--green-rgb), 0.25)' } : {}),
             }}
           >
             {loading ? 'Processing…' : 'Claim rewards'}

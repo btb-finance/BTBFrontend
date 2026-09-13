@@ -487,7 +487,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
               <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
-              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
+              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
                 {p.inRange ? 'In range' : 'Out of range'}
               </Badge>
               <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
@@ -498,7 +498,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
             {p.staked && (
               <div style={{ marginTop: v > 0 ? 4 : 0 }}>
-                <Badge size="sm" border="none" bg="rgba(255,179,107,0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
+                <Badge size="sm" border="none" bg="rgba(var(--amber-rgb), 0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
               </div>
             )}
           </div>
@@ -514,17 +514,17 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div>
           </div>
           {p.staked ? (
-            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(255,179,107,0.07)', border: '1px solid rgba(255,179,107,0.22)' }}>
+            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
               <div style={boxLabel}>Rewards</div>
               <div style={{ ...boxValue, color: btb.amber }}>{fmtAmt(p.staked.earned, 18)}</div>
-              <div style={{ color: 'rgba(255,179,107,0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
+              <div style={{ color: 'rgba(var(--amber-rgb), 0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
             </div>
           ) : (
-            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(82,227,164,0.07)' : box.background, border: hasFees ? '1px solid rgba(82,227,164,0.22)' : box.border }}>
+            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
               <div style={boxLabel}>Unclaimed fees</div>
               <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
               {hasFees && (
-                <div style={{ color: 'rgba(82,227,164,0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
                 </div>
               )}
@@ -623,7 +623,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       sortValue: item => item.status?.toUpperCase() === 'IN_RANGE' ? 1 : 0,
       render: item => {
         const inRange = item.status?.toUpperCase() === 'IN_RANGE';
-        return <Badge size="sm" border="none" bg={inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>;
+        return <Badge size="sm" border="none" bg={inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>;
       },
     },
     {
@@ -648,8 +648,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
           padding: isMobile ? '12px 14px' : '14px 18px', borderRadius: 16,
-          background: 'linear-gradient(90deg, rgba(82,227,164,0.12), rgba(26,173,119,0.08))',
-          border: '1px solid rgba(82,227,164,0.24)',
+          background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.12), rgba(26,173,119,0.08))',
+          border: '1px solid rgba(var(--green-rgb), 0.24)',
         }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: btb.green, fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: -0.3 }}>
@@ -767,7 +767,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>${item.currentPositionValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                    <Badge size="sm" border="none" bg={inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={inRange ? btb.green : btb.amber} style={{ marginTop: 3, whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
+                    <Badge size="sm" border="none" bg={inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={inRange ? btb.green : btb.amber} style={{ marginTop: 3, whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
                   </div>
                 </div>
 
@@ -851,9 +851,9 @@ function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: (
   return (
     <button onClick={onClick} disabled={disabled} style={{
       height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
-      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(82,227,164,0.4)' : '1px solid rgba(var(--fg-rgb), 0.14)',
+      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(var(--green-rgb), 0.4)' : '1px solid rgba(var(--fg-rgb), 0.14)',
       cursor: disabled ? 'default' : 'pointer',
-      background: disabled ? 'rgba(var(--fg-rgb), 0.06)' : green ? 'rgba(82,227,164,0.16)' : 'rgba(var(--fg-rgb), 0.07)',
+      background: disabled ? 'rgba(var(--fg-rgb), 0.06)' : green ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--fg-rgb), 0.07)',
       color: disabled ? btb.textDim : green ? btb.green : btb.text,
     }}>{label}</button>
   );
@@ -982,9 +982,9 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               {[25, 50, 75, 100].map((v) => (
                 <button key={v} onClick={() => setPct(v)} style={{
                   flex: 1, height: 40, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
-                  background: pct === v ? 'rgba(82,227,164,0.18)' : 'rgba(var(--fg-rgb), 0.06)',
-                  border: `1px solid ${pct === v ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.12)'}`,
-                  color: pct === v ? '#52E3A4' : btb.textMuted,
+                  background: pct === v ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
+                  border: `1px solid ${pct === v ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.12)'}`,
+                  color: pct === v ? 'var(--btb-green)' : btb.textMuted,
                 }}>{v}%</button>
               ))}
             </div>
@@ -1000,7 +1000,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
             {wethSide !== null && (
               <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 14, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '10px 14px' }}>
                 <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(var(--fg-rgb), 0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? 'var(--btb-green)' : 'rgba(var(--fg-rgb), 0.18)', position: 'relative', transition: 'background 0.2s' }}>
                   <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
                 </div>
               </div>
@@ -1026,7 +1026,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               <div style={{ color: btb.loss, fontSize: 12, marginTop: 8 }}>Insufficient {short0 ? sym0 : sym1} balance</div>
             )}
             {!pos.inRange && (
-              <div style={{ color: '#FFB36B', fontSize: 11, marginTop: 8 }}>Out of range — only {inputSymbol} is needed at the current price.</div>
+              <div style={{ color: 'var(--btb-amber)', fontSize: 11, marginTop: 8 }}>Out of range — only {inputSymbol} is needed at the current price.</div>
             )}
           </>
         )}

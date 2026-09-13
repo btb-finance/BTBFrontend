@@ -288,7 +288,7 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
           {!q && <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 6, paddingLeft: 4 }}>{loading ? 'Loading network tokens…' : held ? 'Your tokens on every chain first, then everything on this network' : `${tokens.length.toLocaleString()} tokens · balances shown first`}</div>}
         </div>
         <div style={{ overflowY: 'auto', padding: '0 12px 48px' }}>
-          {isAddress(q.trim()) && !filtered.some(token => token.address.toLowerCase() === q.trim().toLowerCase()) && <button onClick={async () => { setImporting(true); setImportError(null); try { const token = await onImport(q.trim()); onSelect(token); onClose(); } catch (error) { setImportError((error as Error).message || 'Could not import token'); } finally { setImporting(false); } }} disabled={importing} style={{ width: '100%', minHeight: 46, margin: '4px 0 8px', borderRadius: 12, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', color: btb.green, fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: importing ? 'wait' : 'pointer' }}>{importing ? 'Checking contract…' : `Import ${q.slice(0, 8)}…${q.slice(-6)}`}</button>}
+          {isAddress(q.trim()) && !filtered.some(token => token.address.toLowerCase() === q.trim().toLowerCase()) && <button onClick={async () => { setImporting(true); setImportError(null); try { const token = await onImport(q.trim()); onSelect(token); onClose(); } catch (error) { setImportError((error as Error).message || 'Could not import token'); } finally { setImporting(false); } }} disabled={importing} style={{ width: '100%', minHeight: 46, margin: '4px 0 8px', borderRadius: 12, border: '1px solid rgba(var(--green-rgb), .3)', background: 'rgba(var(--green-rgb), .08)', color: btb.green, fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: importing ? 'wait' : 'pointer' }}>{importing ? 'Checking contract…' : `Import ${q.slice(0, 8)}…${q.slice(-6)}`}</button>}
           {importError && <div style={{ color: btb.red, fontSize: 11, padding: '0 6px 8px' }}>{importError}</div>}
           {heldSorted.length > 0 && (
             <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 8px 2px' }}>Your tokens</div>
@@ -808,7 +808,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
           <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`}/>
           <InfoRow label="Network fee"  value={dispGasUsd != null && dispGasUsd > 0 ? `~ $${dispGasUsd.toFixed(2)}` : '—'}/>
           <InfoRow label="BTB fee" value={`${BTB_SWAP_FEE_PERCENT}% · received token`}/>
-          <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : '#52E3A4' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>
+          <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : 'var(--btb-green)' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>
           <InfoRow label="Route" last value={
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <Icon name="bolt" size={12} color={btb.amber}/>
@@ -825,7 +825,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       )}
 
       {step === 'success' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(82,227,164,0.10)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 14, padding: '11px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--green-rgb), 0.10)', border: '1px solid rgba(var(--green-rgb), 0.4)', borderRadius: 14, padding: '11px 14px' }}>
           <Icon name="check" size={16} color={btb.green}/>
           <div style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 13, fontWeight: 700 }}>
             Swapped{lastSwap ? ` ${lastSwap.amount} ${lastSwap.from} for ${lastSwap.out} ${lastSwap.to}` : ''}
@@ -835,7 +835,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         </div>
       )}
       {step === 'error' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,107,122,0.08)', border: '1px solid rgba(255,107,122,0.35)', borderRadius: 14, padding: '11px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--loss-rgb), 0.08)', border: '1px solid rgba(var(--loss-rgb), 0.35)', borderRadius: 14, padding: '11px 14px' }}>
           <Icon name="close" size={16} color={btb.loss}/>
           <div style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 12.5, lineHeight: 1.4 }}>{errMsg || 'Transaction failed'}</div>
           <button onClick={() => setStep('form')} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Dismiss</button>
@@ -1138,7 +1138,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   );
 
   if (step === 'success') return (
-    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}><div style={{ width: 76, height: 76, borderRadius: '50%', background: 'rgba(82,227,164,.15)', border: '2px solid rgba(82,227,164,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={34} color={btb.green}/></div><div><div style={{ color: btb.text, fontSize: 24, fontWeight: 850 }}>Transfer started</div><div style={{ color: btb.textMuted, fontSize: 13, marginTop: 7, lineHeight: 1.5 }}>{outFormatted} {toToken.symbol} will arrive on {CHAIN_META[toChainId]?.name}. You do not need destination gas.</div></div>{txHash && <a href={`${explorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12 }}>Source transaction</a>}<Button onClick={() => { setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); }} style={{ width: '100%', maxWidth: 360 }}>Done</Button></Screen>
+    <Screen gap={18} style={{ alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}><div style={{ width: 76, height: 76, borderRadius: '50%', background: 'rgba(var(--green-rgb), .15)', border: '2px solid rgba(var(--green-rgb), .4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="check" size={34} color={btb.green}/></div><div><div style={{ color: btb.text, fontSize: 24, fontWeight: 850 }}>Transfer started</div><div style={{ color: btb.textMuted, fontSize: 13, marginTop: 7, lineHeight: 1.5 }}>{outFormatted} {toToken.symbol} will arrive on {CHAIN_META[toChainId]?.name}. You do not need destination gas.</div></div>{txHash && <a href={`${explorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12 }}>Source transaction</a>}<Button onClick={() => { setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); }} style={{ width: '100%', maxWidth: 360 }}>Done</Button></Screen>
   );
 
   return (

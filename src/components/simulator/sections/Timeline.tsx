@@ -27,17 +27,17 @@ export function Timeline({ sim, setHorizonDays, isMobile }: {
               <div key={step.label} onClick={clickable ? () => setHorizonDays(step.days) : undefined} style={{
                 position: 'relative', borderRadius: 14, padding: '10px 13px',
                 cursor: clickable ? 'pointer' : 'default',
-                background: selected ? 'rgba(82,227,164,0.09)' : 'rgba(var(--fg-rgb), 0.03)',
-                border: `1px solid ${selected ? 'rgba(82,227,164,0.45)' : 'rgba(var(--fg-rgb), 0.07)'}`,
+                background: selected ? 'rgba(var(--green-rgb), 0.09)' : 'rgba(var(--fg-rgb), 0.03)',
+                border: `1px solid ${selected ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.07)'}`,
               }}>
                 {/* node on the spine */}
                 <div style={{
                   position: 'absolute', left: -19.5, top: 16, width: 9, height: 9, borderRadius: 999,
-                  background: selected ? '#52E3A4' : 'rgba(var(--fg-rgb), 0.3)',
-                  boxShadow: selected ? '0 0 8px rgba(82,227,164,0.7)' : 'none',
+                  background: selected ? 'var(--btb-green)' : 'rgba(var(--fg-rgb), 0.3)',
+                  boxShadow: selected ? '0 0 8px rgba(var(--green-rgb), 0.7)' : 'none',
                 }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ color: selected ? '#52E3A4' : btb.text, fontSize: 13, fontWeight: 800, width: 68, flexShrink: 0 }}>
+                  <span style={{ color: selected ? 'var(--btb-green)' : btb.text, fontSize: 13, fontWeight: 800, width: 68, flexShrink: 0 }}>
                     {step.label}
                   </span>
                   {step.days === 0 ? (

@@ -75,7 +75,7 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
           {[sim.dispLower, sim.dispUpper].map((p, i) => {
             const m = (p / sim.dispPrice - 1) * 100;
             if (m < MOVES.min || m > MOVES.max) return null;
-            return <line key={i} x1={x(m)} x2={x(m)} y1={PADY} y2={plotH - PADY} stroke="rgba(82,227,164,0.35)" strokeWidth={1} strokeDasharray="3 3" />;
+            return <line key={i} x1={x(m)} x2={x(m)} y1={PADY} y2={plotH - PADY} stroke="rgba(var(--green-rgb), 0.35)" strokeWidth={1} strokeDasharray="3 3" />;
           })}
           {/* series */}
           <path d={path((s) => s.fees)} fill="none" stroke={chart.fees} strokeWidth={2} strokeLinejoin="round" />

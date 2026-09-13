@@ -43,7 +43,7 @@ export function SensitivityPanel({ sim, movePct, setMovePct, isMobile }: {
       <input
         type="range" min={-60} max={60} step={1} value={movePct}
         onChange={(e) => setMovePct(parseInt(e.target.value, 10))}
-        style={{ width: '100%', accentColor: '#52E3A4', cursor: 'pointer' }}
+        style={{ width: '100%', accentColor: 'var(--btb-green)', cursor: 'pointer' }}
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', color: btb.textDim, fontSize: 10, marginTop: 2 }}>
         <span>−60%</span><span>0</span><span>+60%</span>

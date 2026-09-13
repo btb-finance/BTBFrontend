@@ -73,7 +73,7 @@ export function AutomationRules({ value, onChange, agent, slippageBps, onSlippag
 }) {
   const set = <K extends keyof AutomationRuleValues>(key: K, next: AutomationRuleValues[K]) => onChange({ ...value, [key]: next });
   return (
-    <div style={{ borderRadius: 13, padding: 11, background: 'rgba(82,227,164,0.055)', border: '1px solid rgba(82,227,164,0.18)' }}>
+    <div style={{ borderRadius: 13, padding: 11, background: 'rgba(var(--green-rgb), 0.055)', border: '1px solid rgba(var(--green-rgb), 0.18)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline', marginBottom: 9 }}>
         <div>
           <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Automation limits</div>

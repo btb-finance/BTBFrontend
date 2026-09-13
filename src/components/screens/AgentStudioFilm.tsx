@@ -32,7 +32,7 @@ const CATALOG: Record<LegId, { name: string; icon: string; color: string }> = {
 
 const NODE_META: Record<NodeId, { name: string; icon: string; color: string }> = {
   ...CATALOG,
-  account: { name: 'Your account', icon: 'wallet', color: '#52E3A4' },
+  account: { name: 'Your account', icon: 'wallet', color: 'var(--btb-green)' },
 };
 
 // ── The film ─────────────────────────────────────────────────────────────────
@@ -319,7 +319,7 @@ export function AgentStudioFilm() {
       <style>{`
         @keyframes asFadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes asFade   { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes asGlow   { 0%, 100% { box-shadow: 0 12px 40px rgba(82,227,164,0.25); } 50% { box-shadow: 0 12px 60px rgba(82,227,164,0.55); } }
+        @keyframes asGlow   { 0%, 100% { box-shadow: 0 12px 40px rgba(var(--green-rgb), 0.25); } 50% { box-shadow: 0 12px 60px rgba(var(--green-rgb), 0.55); } }
         @keyframes asPulse  { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.12); } }
         @keyframes asDash   { to { stroke-dashoffset: -14; } }
       `}</style>
@@ -331,7 +331,7 @@ export function AgentStudioFilm() {
           <span style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase' }}>Agent Studio</span>
         </span>
         <div style={{ flex: 1 }}/>
-        <Badge color="#FFB36B" bg="rgba(255,179,107,0.12)" border="1px solid rgba(255,179,107,0.35)">Preview</Badge>
+        <Badge color="var(--btb-amber)" bg="rgba(var(--amber-rgb), 0.12)" border="1px solid rgba(var(--amber-rgb), 0.35)">Preview</Badge>
       </div>
 
       {/* Film frame */}
@@ -361,8 +361,8 @@ export function AgentStudioFilm() {
             {phase === 'story' && (
               <div key={`story-${sc}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 16 }}>
                 <div style={{
-                  width: 58, height: 58, borderRadius: 18, background: 'rgba(82,227,164,0.12)',
-                  border: '1px solid rgba(82,227,164,0.3)',
+                  width: 58, height: 58, borderRadius: 18, background: 'rgba(var(--green-rgb), 0.12)',
+                  border: '1px solid rgba(var(--green-rgb), 0.3)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   animation: 'asFadeUp 0.6s ease both',
                 }}>

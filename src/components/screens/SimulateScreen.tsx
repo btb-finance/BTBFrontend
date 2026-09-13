@@ -502,8 +502,8 @@ function TokenPickerButton({ label, token, onPick, tokens, onImportAddress }: {
               <div style={{ overflowY: 'auto', padding: '0 12px 20px' }}>
                 {pastedAddress && onImportAddress && !addressAlreadyListed && (
                   <button type="button" disabled={importing} onClick={importAddress} style={{
-                    width: '100%', minHeight: 48, marginBottom: 5, borderRadius: 13, border: '1px solid rgba(82,227,164,.3)',
-                    background: 'rgba(82,227,164,.08)', color: btb.green, padding: '8px 11px', cursor: importing ? 'wait' : 'pointer',
+                    width: '100%', minHeight: 48, marginBottom: 5, borderRadius: 13, border: '1px solid rgba(var(--green-rgb), .3)',
+                    background: 'rgba(var(--green-rgb), .08)', color: btb.green, padding: '8px 11px', cursor: importing ? 'wait' : 'pointer',
                     fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, textAlign: 'left',
                   }}>
                     {importing ? 'Checking this chain…' : `Find ${pastedAddress.slice(0, 8)}…${pastedAddress.slice(-6)} on this chain`}
@@ -753,8 +753,8 @@ function ResearchTokenPicker({ label, selected, options, selectedChainIds, loadi
               <div style={{ overflowY: 'auto', padding: '0 10px 16px' }}>
                 {pastedAddress && (
                   <button type="button" disabled={importing} onClick={importAddress} style={{
-                    width: '100%', minHeight: 48, marginBottom: 5, borderRadius: 13, border: '1px solid rgba(82,227,164,.3)',
-                    background: 'rgba(82,227,164,.08)', color: btb.green, padding: '8px 11px', cursor: importing ? 'wait' : 'pointer',
+                    width: '100%', minHeight: 48, marginBottom: 5, borderRadius: 13, border: '1px solid rgba(var(--green-rgb), .3)',
+                    background: 'rgba(var(--green-rgb), .08)', color: btb.green, padding: '8px 11px', cursor: importing ? 'wait' : 'pointer',
                     fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, textAlign: 'left',
                   }}>
                     {importing ? `Checking ${selectedChainCount} chains…` : `Find ${pastedAddress.slice(0, 8)}…${pastedAddress.slice(-6)} on selected chains`}
@@ -763,7 +763,7 @@ function ResearchTokenPicker({ label, selected, options, selectedChainIds, loadi
                 {importError && <div style={{ color: btb.loss, fontSize: 11, padding: '4px 8px 9px' }}>{importError}</div>}
                 {filtered.slice(0, 250).map(token => (
                   <button key={token.symbol} type="button" onClick={() => { onSelect(token); setOpen(false); setQuery(''); }} style={{
-                    width: '100%', minHeight: 52, border: 0, borderRadius: 13, background: selected?.symbol === token.symbol ? 'rgba(82,227,164,.08)' : 'transparent',
+                    width: '100%', minHeight: 52, border: 0, borderRadius: 13, background: selected?.symbol === token.symbol ? 'rgba(var(--green-rgb), .08)' : 'transparent',
                     color: btb.text, padding: '7px 9px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
                   }}>
                     <TokenIcon symbol={token.symbol} size={32} logoUrl={token.logoURI}/>
@@ -1075,8 +1075,8 @@ function CrossChainResearch({ chains, isMobile }: {
             const selected = selectedChains.includes(chain.id);
             return (
               <button key={chain.id} type="button" aria-pressed={selected} disabled={researching} onClick={() => toggleChain(chain.id)} style={{
-                height: 39, minWidth: 0, borderRadius: 12, border: selected ? '1px solid rgba(82,227,164,.42)' : btb.borderSoft,
-                background: selected ? 'rgba(82,227,164,.1)' : btb.surfaceSoft, color: selected ? btb.text : btb.textMuted,
+                height: 39, minWidth: 0, borderRadius: 12, border: selected ? '1px solid rgba(var(--green-rgb), .42)' : btb.borderSoft,
+                background: selected ? 'rgba(var(--green-rgb), .1)' : btb.surfaceSoft, color: selected ? btb.text : btb.textMuted,
                 padding: '0 9px', display: 'flex', alignItems: 'center', gap: 7, cursor: researching ? 'default' : 'pointer', fontFamily: 'inherit',
               }}>
                 <ChainLogo chainId={chain.id} size={20}/>
@@ -1091,8 +1091,8 @@ function CrossChainResearch({ chains, isMobile }: {
           <ResearchTokenPicker label="First token" selected={pairTokenA} options={pairTokenOptions} selectedChainIds={selectedChains} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenA(token); setPairError(null); }}/>
           <ResearchTokenPicker label="Second token" selected={pairTokenB} options={pairTokenOptions} selectedChainIds={selectedChains} loading={loadingPairTokens} disabled={researching || loadingPairTokens || selectedChains.length === 0} onSelect={token => { setPairTokenB(token); setPairError(null); }}/>
           <button type="button" disabled={researching || !pairTokenA || !pairTokenB} onClick={addPair} style={{
-            height: 48, gridColumn: isMobile ? '1 / -1' : undefined, borderRadius: 12, border: '1px solid rgba(82,227,164,.32)',
-            background: 'rgba(82,227,164,.09)', color: btb.green, padding: '0 15px', cursor: researching || !pairTokenA || !pairTokenB ? 'default' : 'pointer',
+            height: 48, gridColumn: isMobile ? '1 / -1' : undefined, borderRadius: 12, border: '1px solid rgba(var(--green-rgb), .32)',
+            background: 'rgba(var(--green-rgb), .09)', color: btb.green, padding: '0 15px', cursor: researching || !pairTokenA || !pairTokenB ? 'default' : 'pointer',
             opacity: !pairTokenA || !pairTokenB ? .55 : 1,
             fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
           }}>Add pair</button>
@@ -1105,7 +1105,7 @@ function CrossChainResearch({ chains, isMobile }: {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
             {pairs.map(pair => (
               <button key={pair.id} type="button" disabled={researching} onClick={() => removePair(pair.id)} title={`Remove ${pair.label}`} style={{
-                height: 32, borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.09)',
+                height: 32, borderRadius: 999, border: '1px solid rgba(var(--green-rgb), .35)', background: 'rgba(var(--green-rgb), .09)',
                 color: btb.text, padding: '0 11px', cursor: researching ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750,
               }}>{pair.label} <span style={{ color: btb.textMuted, marginLeft: 5 }}>×</span></button>
             ))}
@@ -1140,8 +1140,8 @@ function CrossChainResearch({ chains, isMobile }: {
             </div>
           </div>
           {winner && (
-            <div style={{ margin: 12, padding: '13px 14px', borderRadius: 14, border: '1px solid rgba(82,227,164,.3)', background: 'rgba(82,227,164,.08)', display: 'flex', alignItems: 'center', gap: 11 }}>
-              <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(82,227,164,.14)', color: btb.green }}><Icon name="star" size={16} color={btb.green}/></div>
+            <div style={{ margin: 12, padding: '13px 14px', borderRadius: 14, border: '1px solid rgba(var(--green-rgb), .3)', background: 'rgba(var(--green-rgb), .08)', display: 'flex', alignItems: 'center', gap: 11 }}>
+              <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', background: 'rgba(var(--green-rgb), .14)', color: btb.green }}><Icon name="star" size={16} color={btb.green}/></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 850, textTransform: 'uppercase', letterSpacing: .5 }}>{researching ? 'Current winner' : 'Winner'} by {rankLabel}</div>
                 <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850, marginTop: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -1170,7 +1170,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : CROSS_CHAIN_RANK_COLUMNS,
                 alignItems: 'center', gap: 10, padding: '10px 15px',
                 borderBottom: index < rankedPools.length - 1 ? '1px solid rgba(var(--fg-rgb), .04)' : undefined,
-                background: index === 0 ? 'rgba(82,227,164,.045)' : undefined,
+                background: index === 0 ? 'rgba(var(--green-rgb), .045)' : undefined,
               }}>
                 <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <ChainLogo chainId={result.chainId} size={22}/>
@@ -1187,7 +1187,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 750 }}>{marketAprText(pool)}</span>}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
                   {(() => { const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null; return target && (
-                    <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>
+                    <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), .35)', background: 'rgba(var(--green-rgb), .1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>
                   ); })()}
                   {simulateHref && <a href={simulateHref} style={{ color: btb.green, fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Simulate</a>}
                 </div>
@@ -1225,7 +1225,7 @@ function CrossChainResearch({ chains, isMobile }: {
                 {topPools.map((pool, index) => {
                   const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null;
                   return (
-                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : 'minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, .8fr) auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(var(--fg-rgb), .04)' : undefined, background: index === 0 ? 'rgba(82,227,164,.035)' : undefined }}>
+                  <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : 'minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, .8fr) auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(var(--fg-rgb), .04)' : undefined, background: index === 0 ? 'rgba(var(--green-rgb), .035)' : undefined }}>
                     <span style={{ color: btb.text, fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                       <DexLogo name={pool.dexLabel} size={16}/>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pool.dexLabel}{pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}</span>
@@ -1233,7 +1233,7 @@ function CrossChainResearch({ chains, isMobile }: {
                     {!isMobile && <span style={{ color: btb.text, fontSize: 12, fontWeight: 650 }}>{fmtCompactUsd(pool.tvlUsd)}</span>}
                     {!isMobile && <span title={pool.aprLabel} style={{ color: pool.aprPct != null ? btb.amber : btb.textDim, fontSize: 12, fontWeight: 700 }}>{marketAprText(pool)}</span>}
                     <span style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-                      {target && <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(82,227,164,.35)', background: 'rgba(82,227,164,.1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>}
+                      {target && <button type="button" onClick={() => setMint({ result, pool, target })} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), .35)', background: 'rgba(var(--green-rgb), .1)', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Add LP</button>}
                     </span>
                     {isMobile && <span style={{ gridColumn: '1 / -1' }}><MobilePoolMetrics pool={pool}/></span>}
                   </div>
@@ -1697,7 +1697,7 @@ export function SimulateScreen() {
         )}
 
         {error && (
-          <div style={{ marginTop: 12, background: 'rgba(255,107,122,0.12)', border: '1px solid rgba(255,107,122,0.35)', borderRadius: 12, padding: '10px 14px', color: btb.loss, fontSize: 13 }}>
+          <div style={{ marginTop: 12, background: 'rgba(var(--loss-rgb), 0.12)', border: '1px solid rgba(var(--loss-rgb), 0.35)', borderRadius: 12, padding: '10px 14px', color: btb.loss, fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -1721,7 +1721,7 @@ export function SimulateScreen() {
                 return (
                   <div key={foundPoolKey(f)} style={{
                     borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
-                    background: i === 0 ? 'rgba(82,227,164,0.05)' : 'rgba(var(--fg-rgb), 0.03)',
+                    background: i === 0 ? 'rgba(var(--green-rgb), 0.05)' : 'rgba(var(--fg-rgb), 0.03)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                       <DexLogo name={label} size={19}/>
@@ -1772,7 +1772,7 @@ export function SimulateScreen() {
             {found.map((f, i) => {
               const label = rowLabel(f);
               return (
-                <div key={foundPoolKey(f)} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.04)', background: i === 0 ? 'rgba(82,227,164,0.05)' : undefined }}>
+                <div key={foundPoolKey(f)} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.04)', background: i === 0 ? 'rgba(var(--green-rgb), 0.05)' : undefined }}>
                   <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <DexLogo name={label} size={20}/>
                     {label}

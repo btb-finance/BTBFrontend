@@ -100,7 +100,7 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
           padding: '6px 14px', borderRadius: 999,
           background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.18)',
         }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 6px #52E3A4' }}/>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 6px #52E3A4' }}/>
           <span style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600 }}>Ethereum Mainnet</span>
         </div>
 
@@ -126,16 +126,16 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
             borderRadius: 12,
             border: 'none', cursor: 'pointer',
             background: copied
-              ? 'rgba(82,227,164,0.18)'
+              ? 'rgba(var(--green-rgb), 0.18)'
               : 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.18),rgba(var(--fg-rgb), 0.08))',
-            color: copied ? '#52E3A4' : 'var(--btb-text)',
+            color: copied ? 'var(--btb-green)' : 'var(--btb-text)',
             fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', gap: 6,
             transition: 'background 0.2s, color 0.2s',
             boxShadow: copied ? 'none' : '0 4px 16px rgba(var(--fg-rgb), 0.18)',
           }}>
             {copied
-              ? <><Icon name="check" size={14} color="#52E3A4"/>Copied</>
+              ? <><Icon name="check" size={14} color="var(--btb-green)"/>Copied</>
               : <><Icon name="qr" size={14} color="var(--btb-text)"/>Copy</>
             }
           </button>

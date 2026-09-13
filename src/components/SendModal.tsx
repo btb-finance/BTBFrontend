@@ -193,7 +193,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
 
         {step === 'sent' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18, paddingTop: 16, paddingBottom: 8 }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(82,227,164,0.15)', border: '2px solid rgba(82,227,164,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(var(--green-rgb), 0.15)', border: '2px solid rgba(var(--green-rgb), 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="check" size={32} color={btb.green}/>
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -207,7 +207,7 @@ export function SendModal({ fromAddress, onClose, initialToken }: { fromAddress:
                 {txHash.slice(0, 14)}…{txHash.slice(-8)}
               </a>
             )}
-            <Button size="md" onClick={onClose} style={{ background: 'rgba(82,227,164,0.15)', color: btb.green, boxShadow: 'none', outline: '1px solid rgba(82,227,164,0.35)' }}>Done</Button>
+            <Button size="md" onClick={onClose} style={{ background: 'rgba(var(--green-rgb), 0.15)', color: btb.green, boxShadow: 'none', outline: '1px solid rgba(var(--green-rgb), 0.35)' }}>Done</Button>
           </div>
         )}
 

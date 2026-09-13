@@ -84,7 +84,7 @@ export function RangeChart({ points, min, max, current, onChange }: {
   const bandTop = clampY(y(effMax));
   const bandBot = clampY(y(effMin));
   const inBand = current >= effMin && current <= effMax;
-  const accent = inBand ? '#52E3A4' : '#FFB36B';
+  const accent = inBand ? 'var(--btb-green)' : 'var(--btb-amber)';
 
   const fmtTick = (p: number) => (p >= 1000 ? p.toLocaleString('en-US', { maximumFractionDigits: 0 }) : parseFloat(p.toPrecision(4)).toString());
 
@@ -106,8 +106,8 @@ export function RangeChart({ points, min, max, current, onChange }: {
         {/* selected range band */}
         {bandBot > bandTop && (
           <rect x={PAD} y={bandTop} width={W - PAD * 2} height={bandBot - bandTop}
-            fill={inBand ? 'rgba(82,227,164,0.10)' : 'rgba(255,179,107,0.09)'}
-            stroke={inBand ? 'rgba(82,227,164,0.45)' : 'rgba(255,179,107,0.4)'} strokeWidth={1} rx={4}/>
+            fill={inBand ? 'rgba(var(--green-rgb), 0.10)' : 'rgba(var(--amber-rgb), 0.09)'}
+            stroke={inBand ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--amber-rgb), 0.4)'} strokeWidth={1} rx={4}/>
         )}
         {/* price history */}
         <path d={path} fill="none" stroke="rgba(125,211,252,0.9)" strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round"/>

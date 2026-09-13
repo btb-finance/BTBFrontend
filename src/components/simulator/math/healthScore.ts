@@ -92,7 +92,7 @@ export function healthScore(i: HealthInput): Health {
 
   return {
     score,
-    color: score >= 70 ? '#52E3A4' : score >= 40 ? '#FFB36B' : '#FF6B7A',
+    color: score >= 70 ? 'var(--btb-green)' : score >= 40 ? 'var(--btb-amber)' : 'var(--btb-loss)',
     factors,
     topIssue: weakest.score < 60 ? weakest.note : null,
   };

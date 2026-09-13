@@ -63,7 +63,7 @@ export function PriceDistribution({ sim }: { sim: Sim }) {
           onPointerLeave={() => setHover(null)}
         >
           {/* in-range shading */}
-          {zHi > zLo && <path d={bandPath} fill="rgba(82,227,164,0.18)" />}
+          {zHi > zLo && <path d={bandPath} fill="rgba(var(--green-rgb), 0.18)" />}
           {/* distribution curve */}
           <path d={curve} fill="none" stroke={chart.net} strokeWidth={2} strokeLinejoin="round" />
           {/* range edges */}

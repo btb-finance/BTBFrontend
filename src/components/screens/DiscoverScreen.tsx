@@ -626,9 +626,9 @@ export function DiscoverScreen() {
                 </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
+                {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
-                  <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                  <Badge size="sm" color="#7DE3B0" bg="rgba(var(--green-rgb), 0.1)" border="1px solid rgba(var(--green-rgb), 0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
                     {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                   </Badge>
                 )}
@@ -734,9 +734,9 @@ export function DiscoverScreen() {
                       </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
+                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (
-                        <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                        <Badge size="sm" color="#7DE3B0" bg="rgba(var(--green-rgb), 0.1)" border="1px solid rgba(var(--green-rgb), 0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
                           {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                         </Badge>
                       )}
@@ -851,7 +851,7 @@ export function DiscoverScreen() {
                   </button>
                 )}
               </div>
-              <div style={{ borderRadius: 16, border: '1px solid rgba(82,227,164,0.25)', background: 'rgba(82,227,164,0.04)', overflow: 'hidden' }}>
+              <div style={{ borderRadius: 16, border: '1px solid rgba(var(--green-rgb), 0.25)', background: 'rgba(var(--green-rgb), 0.04)', overflow: 'hidden' }}>
                 <DataTable
                   columns={columns}
                   rows={forYou}

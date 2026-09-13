@@ -160,8 +160,8 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
 function Step({ n, title, active, children }: { n: number; title: string; active?: boolean; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 12, background: active ? 'rgba(82,227,164,0.06)' : 'rgba(var(--fg-rgb), 0.04)', border: `1px solid ${active ? 'rgba(82,227,164,0.3)' : 'rgba(var(--fg-rgb), 0.07)'}`, borderRadius: 14, padding: '12px 14px' }}>
-      <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, background: 'rgba(82,227,164,0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
+    <div style={{ display: 'flex', gap: 12, background: active ? 'rgba(var(--green-rgb), 0.06)' : 'rgba(var(--fg-rgb), 0.04)', border: `1px solid ${active ? 'rgba(var(--green-rgb), 0.3)' : 'rgba(var(--fg-rgb), 0.07)'}`, borderRadius: 14, padding: '12px 14px' }}>
+      <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, background: 'rgba(var(--green-rgb), 0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
       <div style={{ minWidth: 0 }}>
         <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>{title}</div>
         <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5, marginTop: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>{children}</div>

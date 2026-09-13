@@ -123,7 +123,7 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
         {wallet && <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ChainLogo chainId={CHAIN_ID} size={18}/>
           <a href={`${EXPLORER}${wallet.account}`} target="_blank" rel="noopener noreferrer" style={{ color: btb.textMuted, fontSize: 10.5, textDecoration: 'none' }}>{shortAddress(wallet.account)}</a>
-          <Badge size="sm" border="none" bg={wallet.deployed ? wallet.paused ? 'rgba(255,179,107,.13)' : 'rgba(82,227,164,.13)' : 'rgba(var(--fg-rgb), .06)'} color={wallet.deployed ? wallet.paused ? btb.amber : btb.green : btb.textDim}>{wallet.deployed ? wallet.paused ? 'Paused' : 'Active' : 'Not created'}</Badge>
+          <Badge size="sm" border="none" bg={wallet.deployed ? wallet.paused ? 'rgba(var(--amber-rgb), .13)' : 'rgba(var(--green-rgb), .13)' : 'rgba(var(--fg-rgb), .06)'} color={wallet.deployed ? wallet.paused ? btb.amber : btb.green : btb.textDim}>{wallet.deployed ? wallet.paused ? 'Paused' : 'Active' : 'Not created'}</Badge>
         </div>}
       </div>
       {wallet && <div style={{ display: 'flex', gap: 7, marginTop: 10 }}>
@@ -152,23 +152,23 @@ export function SmartAccountPositions({ address, canTransact, refreshNonce = 0 }
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
               <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
-              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,.14)' : 'rgba(255,179,107,.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{p.inRange ? 'In range' : 'Out of range'}</Badge>
+              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(var(--green-rgb), .14)' : 'rgba(var(--amber-rgb), .14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{p.inRange ? 'In range' : 'Out of range'}</Badge>
               <ChainLogo chainId={CHAIN_ID} size={15}/>
             </div>
           </div>
-          <Badge size="sm" border="none" bg={active ? 'rgba(82,227,164,.14)' : 'rgba(var(--fg-rgb), .06)'} color={active ? btb.green : btb.textDim} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>{active ? 'Automated' : policy ? 'Stopped' : 'Manual'}</Badge>
+          <Badge size="sm" border="none" bg={active ? 'rgba(var(--green-rgb), .14)' : 'rgba(var(--fg-rgb), .06)'} color={active ? btb.green : btb.textDim} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>{active ? 'Automated' : policy ? 'Stopped' : 'Manual'}</Badge>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 14 }}>
           <div style={box}><div style={lpBoxLabel}><TokenIcon symbol={p.symbol0} size={16} logoUrl={logo0}/>{p.symbol0}</div><div style={boxValue}>{fmtAmt(p.amount0, p.decimals0)}</div></div>
           <div style={box}><div style={lpBoxLabel}><TokenIcon symbol={p.symbol1} size={16} logoUrl={logo1}/>{p.symbol1}</div><div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div></div>
-          <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(82,227,164,0.07)' : box.background, border: hasFees ? '1px solid rgba(82,227,164,0.22)' : box.border }}>
+          <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
             <div style={lpBoxLabel}>Unclaimed fees</div>
             <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}` : 'None yet'}</div>
-            {hasFees && <div style={{ color: 'rgba(82,227,164,0.75)', fontSize: 11.5, marginTop: 2 }}>+ {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}</div>}
+            {hasFees && <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2 }}>+ {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}</div>}
           </div>
         </div>
         <div style={{ ...box, marginTop: 8 }}><RangeBar p={p}/></div>
-        {policy && <div style={{ ...box, marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '6px 14px', background: active ? 'rgba(82,227,164,.05)' : box.background }}>
+        {policy && <div style={{ ...box, marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '6px 14px', background: active ? 'rgba(var(--green-rgb), .05)' : box.background }}>
           <span style={{ color: active ? btb.green : btb.textDim, fontSize: 12, fontWeight: 800 }}>{active ? 'Guarded automation on' : 'Automation stopped'}</span>
           <span style={{ color: btb.textMuted, fontSize: 12 }}>Slippage up to {policy.maximumSlippageBps / 100}%</span>
           <span style={{ color: btb.textMuted, fontSize: 12 }}>Target {policy.targetTickWidth.toLocaleString()} ticks</span>

@@ -33,8 +33,8 @@ const SUGGESTIONS = [
 
 const CAPABILITIES = [
   { icon: 'pie',    color: 'var(--btb-text)', bg: 'rgba(var(--fg-rgb), 0.08)',  title: 'Reads your portfolio',     desc: 'Sees every balance, position, and price across all your tokens.' },
-  { icon: 'chart',  color: '#52E3A4', bg: 'rgba(82,227,164,0.12)',   title: 'Knows the market',         desc: 'Has live TVL, volume, and APR for every pool on Discover and Earn.' },
-  { icon: 'shield', color: '#FFB36B', bg: 'rgba(255,179,107,0.15)',  title: 'Talks risk honestly',      desc: 'Flags impermanent loss, thin pools, and out of range positions.' },
+  { icon: 'chart',  color: 'var(--btb-green)', bg: 'rgba(var(--green-rgb), 0.12)',   title: 'Knows the market',         desc: 'Has live TVL, volume, and APR for every pool on Discover and Earn.' },
+  { icon: 'shield', color: 'var(--btb-amber)', bg: 'rgba(var(--amber-rgb), 0.15)',  title: 'Talks risk honestly',      desc: 'Flags impermanent loss, thin pools, and out of range positions.' },
   { icon: 'send',   color: '#94A3B8', bg: 'rgba(148,163,184,0.15)',  title: 'Suggests next moves',      desc: 'Recommends LPs and vaults sized to what you actually hold.' },
 ];
 
@@ -54,10 +54,10 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
   return (
     <Screen gap={18} style={{ maxWidth: 640, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-        <Badge color="#52E3A4" bg="rgba(82,227,164,0.15)" border="1px solid rgba(82,227,164,0.35)"
+        <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)"
           style={{ gap: 6, padding: '6px 12px', fontSize: 12 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 8px #52E3A4' }}/>
-          <span style={{ color: '#52E3A4', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #52E3A4' }}/>
+          <span style={{ color: 'var(--btb-green)', fontSize: 12, fontWeight: 700, letterSpacing: 0.3 }}>LIVE</span>
         </Badge>
       </div>
 
@@ -66,10 +66,10 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
             width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-            background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.3)',
+            background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Icon name="bolt" size={20} color="#52E3A4"/>
+            <Icon name="bolt" size={20} color="var(--btb-green)"/>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Connect a wallet to start chatting</div>
@@ -84,16 +84,16 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
       <Glass padding={28} radius={28} strong style={{ textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(circle at 30% 0%, rgba(var(--fg-rgb), 0.18), transparent 55%), radial-gradient(circle at 80% 100%, rgba(255,179,107,0.18), transparent 55%)',
+          background: 'radial-gradient(circle at 30% 0%, rgba(var(--fg-rgb), 0.18), transparent 55%), radial-gradient(circle at 80% 100%, rgba(var(--amber-rgb), 0.18), transparent 55%)',
           pointerEvents: 'none',
         }}/>
         <div style={{ position: 'relative' }}>
           <div style={{
             width: 76, height: 76, borderRadius: 24, margin: '0 auto 18px',
-            background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(255,179,107,0.18))',
+            background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(var(--amber-rgb), 0.18))',
             border: '1px solid rgba(var(--fg-rgb), 0.2)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 12px 32px rgba(255,179,107,0.25), inset 0 1px 0 rgba(var(--fg-rgb), 0.3)',
+            boxShadow: '0 12px 32px rgba(var(--amber-rgb), 0.25), inset 0 1px 0 rgba(var(--fg-rgb), 0.3)',
           }}>
             <Icon name="bolt" size={36} color="var(--btb-text)"/>
           </div>
@@ -210,7 +210,7 @@ function AgentMessage({ content }: { content: string }) {
     if (bullet) {
       out.push(
         <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}>
-          <span style={{ color: '#52E3A4', flexShrink: 0 }}>•</span>
+          <span style={{ color: 'var(--btb-green)', flexShrink: 0 }}>•</span>
           <span style={{ flex: 1, minWidth: 0 }}><InlineMd text={bullet[1]}/></span>
         </div>
       );
@@ -220,7 +220,7 @@ function AgentMessage({ content }: { content: string }) {
     if (numbered) {
       out.push(
         <div key={i} style={{ display: 'flex', gap: 8, margin: '3px 0' }}>
-          <span style={{ color: '#52E3A4', fontWeight: 700, flexShrink: 0 }}>{numbered[1]}.</span>
+          <span style={{ color: 'var(--btb-green)', fontWeight: 700, flexShrink: 0 }}>{numbered[1]}.</span>
           <span style={{ flex: 1, minWidth: 0 }}><InlineMd text={numbered[2]}/></span>
         </div>
       );
@@ -316,7 +316,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 42, height: 42, borderRadius: 14, flexShrink: 0,
-          background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(255,179,107,0.18))',
+          background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(var(--amber-rgb), 0.18))',
           border: '1px solid rgba(var(--fg-rgb), 0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
@@ -327,13 +327,13 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
           <div style={{ color: btb.textMuted, fontSize: 12 }}>Sees your balances, LPs, Earn positions, and live pool data</div>
         </div>
         {holder ? (
-          <Badge color="#52E3A4" bg="rgba(82,227,164,0.15)" border="1px solid rgba(82,227,164,0.35)" style={{ gap: 6, flexShrink: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 8px #52E3A4' }}/>
-            <span style={{ color: '#52E3A4', fontSize: 11, fontWeight: 700 }}>{btbBalance} BTB</span>
+          <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)" style={{ gap: 6, flexShrink: 0 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #52E3A4' }}/>
+            <span style={{ color: 'var(--btb-green)', fontSize: 11, fontWeight: 700 }}>{btbBalance} BTB</span>
           </Badge>
         ) : (
-          <Badge color="#FFB36B" bg="rgba(255,179,107,0.15)" border="1px solid rgba(255,179,107,0.35)" style={{ flexShrink: 0 }}>
-            <span style={{ color: '#FFB36B', fontSize: 11, fontWeight: 700 }}>FREE · 5/DAY</span>
+          <Badge color="var(--btb-amber)" bg="rgba(var(--amber-rgb), 0.15)" border="1px solid rgba(var(--amber-rgb), 0.35)" style={{ flexShrink: 0 }}>
+            <span style={{ color: 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>FREE · 5/DAY</span>
           </Badge>
         )}
       </div>
@@ -341,7 +341,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
       {/* upsell for free tier */}
       {!holder && onGetBtb && (
         <Glass padding={12} radius={16} soft style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon name="bolt" size={16} color="#FFB36B"/>
+          <Icon name="bolt" size={16} color="var(--btb-amber)"/>
           <span style={{ flex: 1, color: btb.textMuted, fontSize: 12.5 }}>
             Hold 10M BTB to unlock 50 messages per day.
           </span>
@@ -375,8 +375,8 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
             <div key={m._id} style={{
               alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
               maxWidth: '85%', padding: '10px 14px', borderRadius: 16,
-              background: m.role === 'user' ? 'rgba(82,227,164,0.12)' : 'rgba(var(--fg-rgb), 0.06)',
-              border: m.role === 'user' ? '1px solid rgba(82,227,164,0.25)' : btb.borderSoft,
+              background: m.role === 'user' ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)',
+              border: m.role === 'user' ? '1px solid rgba(var(--green-rgb), 0.25)' : btb.borderSoft,
               color: btb.text, fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word',
               ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' as const } : {}),
             }}>
@@ -386,7 +386,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
           {pending && (
             <div style={{
               alignSelf: 'flex-end', maxWidth: '85%', padding: '10px 14px', borderRadius: 16,
-              background: 'rgba(82,227,164,0.12)', border: '1px solid rgba(82,227,164,0.25)',
+              background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.25)',
               color: btb.text, fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap',
             }}>{pending}</div>
           )}

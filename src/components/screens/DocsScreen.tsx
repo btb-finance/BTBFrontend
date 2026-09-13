@@ -7,8 +7,8 @@ import { btb } from '../design-tokens';
 
 const GUIDES = [
   { icon: 'rocket',  color: 'var(--btb-text)', bg: 'rgba(var(--fg-rgb), 0.1)',  title: 'Getting started',  desc: 'Connect a wallet on Ethereum mainnet and the rest of the app unlocks.' },
-  { icon: 'refresh', color: '#52E3A4', bg: 'rgba(82,227,164,0.15)',  title: 'How swaps work',   desc: 'Routes through KyberSwap for best-price across DEXs — no extra protocol fee on top.' },
-  { icon: 'image',   color: '#FFB36B', bg: 'rgba(255,179,107,0.15)', title: 'BTB Bear NFT',     desc: '100k cap, 0.01 ETH per mint. Stake to earn BTBB from the 1% transfer tax pool.' },
+  { icon: 'refresh', color: 'var(--btb-green)', bg: 'rgba(var(--green-rgb), 0.15)',  title: 'How swaps work',   desc: 'Routes through KyberSwap for best-price across DEXs — no extra protocol fee on top.' },
+  { icon: 'image',   color: 'var(--btb-amber)', bg: 'rgba(var(--amber-rgb), 0.15)', title: 'BTB Bear NFT',     desc: '100k cap, 0.01 ETH per mint. Stake to earn BTBB from the 1% transfer tax pool.' },
   { icon: 'pie',     color: '#94A3B8', bg: 'rgba(148,163,184,0.15)', title: 'Portfolio tracking', desc: 'Every ERC-20 you hold, priced from on-chain pools. Refreshed on demand.' },
 ];
 
@@ -27,7 +27,7 @@ const LINKS: { icon: string; color: string; label: string; sub: string; href: st
   { icon: 'discord', color: '#5865F2', label: 'Discord',       sub: 'Join the community',             href: 'https://discord.gg/bqFEPA56Tc' },
   { icon: 'twitter', color: 'var(--btb-text)',    label: 'X / Twitter',   sub: '@BTB_Finance',                   href: 'https://x.com/BTB_Finance' },
   { icon: 'github',  color: 'var(--btb-text)',    label: 'GitHub',        sub: 'Open source contracts',          href: 'https://github.com/btb-finance' },
-  { icon: 'mail',    color: '#52E3A4', label: 'Support',       sub: 'hello@btb.finance',              href: 'mailto:hello@btb.finance' },
+  { icon: 'mail',    color: 'var(--btb-green)', label: 'Support',       sub: 'hello@btb.finance',              href: 'mailto:hello@btb.finance' },
 ];
 
 export function DocsScreen({ onBack }: { onBack: () => void }) {
@@ -57,10 +57,10 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       <Glass padding={20} radius={22} strong style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 0% 0%, rgba(var(--fg-rgb), 0.15), transparent 55%), radial-gradient(circle at 100% 100%, rgba(255,179,107,0.18), transparent 55%)',
+          background: 'radial-gradient(circle at 0% 0%, rgba(var(--fg-rgb), 0.15), transparent 55%), radial-gradient(circle at 100% 100%, rgba(var(--amber-rgb), 0.18), transparent 55%)',
         }}/>
         <div style={{ position: 'relative' }}>
-          <div style={{ color: '#FFB36B', fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>The pitch</div>
+          <div style={{ color: 'var(--btb-amber)', fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>The pitch</div>
           <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.35, marginBottom: 8 }}>
             BTB Finance wants to be your everything-on-Ethereum app.
           </div>

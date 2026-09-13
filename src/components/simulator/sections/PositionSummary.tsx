@@ -86,7 +86,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
 
   const statusColor = sim.inRange ? (sim.nearEdge ? btb.amber : btb.green) : btb.loss;
   const statusLabel = sim.inRange ? (sim.nearEdge ? 'Near range edge' : 'In range') : 'Out of range';
-  const accent = sim.inRange ? '#52E3A4' : '#FFB36B';
+  const accent = sim.inRange ? 'var(--btb-green)' : 'var(--btb-amber)';
 
   const handle = (kind: 'lo' | 'hi', left: number) => (
     <div
@@ -126,7 +126,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
           </div>
           <span title="Live pool data" style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 800, color: btb.green,
-            background: 'rgba(82,227,164,0.1)', border: '1px solid rgba(82,227,164,0.35)', borderRadius: 999, padding: '4px 9px',
+            background: 'rgba(var(--green-rgb), 0.1)', border: '1px solid rgba(var(--green-rgb), 0.35)', borderRadius: 999, padding: '4px 9px',
           }}>
             <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green, boxShadow: '0 0 6px #52E3A4' }} />
             {isMobile ? null : 'LIVE POOL DATA'}
@@ -181,8 +181,8 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               style={{
                 position: 'absolute', top: 13, height: 14, borderRadius: 999, cursor: 'grab', touchAction: 'none',
                 left: `${bandL}%`, width: `${Math.max(bandR - bandL, 1)}%`,
-                background: sim.inRange ? 'rgba(82,227,164,0.5)' : 'rgba(255,179,107,0.45)',
-                boxShadow: sim.inRange ? '0 0 14px rgba(82,227,164,0.35)' : 'none',
+                background: sim.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.45)',
+                boxShadow: sim.inRange ? '0 0 14px rgba(var(--green-rgb), 0.35)' : 'none',
               }} />
             {/* live price marker */}
             <div style={{ position: 'absolute', left: `${markX}%`, top: 5, transform: 'translateX(-50%)', pointerEvents: 'none' }}>
@@ -209,8 +209,8 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               {[1000, 10000, 50000].map((amount) => (
                 <button key={amount} onClick={() => setDepositStr(String(amount))} style={{
                   flex: 1, height: 30, borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800,
-                  background: depositStr === String(amount) ? 'rgba(82,227,164,0.16)' : 'rgba(var(--fg-rgb), 0.05)',
-                  border: `1px solid ${depositStr === String(amount) ? 'rgba(82,227,164,0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                  background: depositStr === String(amount) ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--fg-rgb), 0.05)',
+                  border: `1px solid ${depositStr === String(amount) ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
                   color: depositStr === String(amount) ? btb.green : btb.textMuted,
                 }}>${amount >= 1000 ? `${amount / 1000}k` : amount}</button>
               ))}
@@ -233,7 +233,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
                   const selected = feeTier === option.fee;
                   return <button key={option.fee} onClick={() => setFeeTier(option.fee)} style={{
                     flex: '1 1 110px', minWidth: 0, textAlign: 'left', padding: '9px 10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-                    background: selected ? 'rgba(82,227,164,0.13)' : 'rgba(var(--fg-rgb), 0.04)', border: `1px solid ${selected ? 'rgba(82,227,164,0.48)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                    background: selected ? 'rgba(var(--green-rgb), 0.13)' : 'rgba(var(--fg-rgb), 0.04)', border: `1px solid ${selected ? 'rgba(var(--green-rgb), 0.48)' : 'rgba(var(--fg-rgb), 0.1)'}`,
                     color: selected ? btb.green : btb.text,
                   }}>
                     <div style={{ fontSize: 12, fontWeight: 800 }}>{fmtFeeTier(option.fee)}</div>
@@ -250,8 +250,8 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
           <div>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6, borderRadius: 999, padding: '5px 12px',
-              background: sim.inRange ? 'rgba(82,227,164,0.12)' : 'rgba(255,107,122,0.12)',
-              border: `1px solid ${sim.inRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,107,122,0.4)'}`,
+              background: sim.inRange ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--loss-rgb), 0.12)',
+              border: `1px solid ${sim.inRange ? 'rgba(var(--green-rgb), 0.4)' : 'rgba(var(--loss-rgb), 0.4)'}`,
               color: statusColor, fontSize: 12.5, fontWeight: 800,
             }}>{statusLabel}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 12 }}>
@@ -269,7 +269,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               ))}
               {setCompound && sim.hasFeeData && (
                 <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 4, cursor: 'pointer', fontSize: 11.5, color: btb.textMuted, userSelect: 'none' }}>
-                  <input type="checkbox" checked={!!compound} onChange={(e) => setCompound(e.target.checked)} style={{ accentColor: '#52E3A4', width: 13, height: 13 }} />
+                  <input type="checkbox" checked={!!compound} onChange={(e) => setCompound(e.target.checked)} style={{ accentColor: 'var(--btb-green)', width: 13, height: 13 }} />
                   Reinvest fees into the position (compound)
                 </label>
               )}

@@ -184,7 +184,7 @@ export function AutomatePositionSheet({ pos, account, onClose, onDone }: {
           {smartDeployment ? (
             <AutomationRules value={rules} onChange={setRules} agent={smartDeployment.agent} slippageBps={slippageBps} onSlippageChange={setSlippageBps} disabled={busy}/>
           ) : (
-            <div style={{ color: btb.amber, fontSize: 12, padding: 12, borderRadius: 12, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.2)' }}>
+            <div style={{ color: btb.amber, fontSize: 12, padding: 12, borderRadius: 12, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.2)' }}>
               Guarded LP automation currently supports Uniswap V3 on Robinhood Chain.
             </div>
           )}
