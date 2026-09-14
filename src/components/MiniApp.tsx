@@ -146,7 +146,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
         />
       )}
       <div style={{
-        flex: 1, minWidth: 0, overflowY: 'auto',
+        flex: 1, minWidth: 0,
         width: '100%', maxWidth: isMobile ? undefined : 1360, margin: isMobile ? undefined : '0 auto',
         padding: isMobile ? '18px 14px calc(86px + env(safe-area-inset-bottom))' : '28px clamp(16px, 3vw, 40px) 60px',
       }}>
