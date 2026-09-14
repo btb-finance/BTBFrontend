@@ -21,6 +21,7 @@ import { mainnet } from "viem/chains";
 import { getChainClient } from "../src/lib/chainClient";
 import { getEarnPools, addRangeAprs, ingestChainExtras, fetchDexLogos, applyLogos, isConcentratedPool, DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
 import { v } from "convex/values";
+import { CHAIN_DATA_NETWORKS } from "../src/lib/chainDataNetworks";
 import { fetchPoolPriceChanges, fetchTokenLogos } from "../src/lib/geckoterminal";
 
 // Multicall3-capable public RPCs — same proven set as balances.ts.
@@ -145,10 +146,15 @@ export const fillTokenLogos = internalAction({
     const row = await ctx.runQuery(internal.discover.getInternal, {});
     if (!row) return;
     const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
-    const networkOf = new Map(DISCOVERY_CHAINS.filter((c) => c.chainId != null).map((c) => [c.chain, { chainId: c.chainId as number, network: c.network }]));
+    // Every EVM chain the snapshot carries, not only the four LP chains.
+    const netFor = (p: EarnPool) => {
+      const id = p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId;
+      const n = id != null ? CHAIN_DATA_NETWORKS[id] : undefined;
+      return id != null && n ? { chainId: id, network: n.gecko } : null;
+    };
     const wanted = new Map<string, { chainId: number; network: string; address: string }>();
     for (const p of snap.pools) {
-      const net = networkOf.get(p.chain);
+      const net = netFor(p);
       if (!net) continue;
       for (const t of p.underlyingTokens ?? []) {
         const a = t.toLowerCase();
@@ -177,7 +183,7 @@ export const fillTokenLogos = internalAction({
     const latest = await ctx.runQuery(internal.discover.getInternal, {});
     const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
     for (const p of current.pools) {
-      const net = networkOf.get(p.chain);
+      const net = netFor(p);
       if (!net) continue;
       const logos = (p.underlyingTokens ?? []).map((t) => all[`${net.chainId}:${t.toLowerCase()}`]);
       if (logos.some(Boolean)) p.tokenLogos = logos.map((l) => l ?? null);
