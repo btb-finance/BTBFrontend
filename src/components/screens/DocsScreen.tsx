@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { Screen } from '../Screen';
@@ -14,6 +14,20 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState('');
   const [active, setActive] = useState<string>(() => (typeof window !== 'undefined' && window.location.hash.slice(1)) || ALL_SECTIONS[0].id);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  // The side navigation scrolls on its own and never hands wheel motion to
+  // the page, so reading the index does not move the section beside it.
+  const navRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      const atTop = el.scrollTop <= 0 && e.deltaY < 0;
+      const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1 && e.deltaY > 0;
+      if (atTop || atBottom || el.scrollHeight <= el.clientHeight) e.preventDefault();
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [isMobile]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -93,7 +107,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
               {DOCS.map(g => <optgroup key={g.title} label={g.title}>{g.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
             </select>
           ) : (
-            <div style={{ position: 'sticky', top: 76 }}>{nav}</div>
+            <div ref={navRef} style={{ position: 'sticky', top: 76, maxHeight: 'calc(100vh - 92px)', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 4 }}>{nav}</div>
           )}
 
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
