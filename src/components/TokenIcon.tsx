@@ -17,7 +17,11 @@ const TOKEN_MAP: Record<string, { bg: string; glyph: string }> = {
   BTB:  { bg: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.2),rgba(var(--fg-rgb), 0.08))', glyph: 'B' },
 };
 
+/** BTB's own token always shows the app logo, whatever a list or indexer carries. */
+const BTB_LOGO = '/btblogo.jpg';
+
 export function TokenIcon({ symbol, size = 36, logoUrl }: { symbol: string; size?: number; logoUrl?: string }) {
+  if (symbol?.toUpperCase() === 'BTB') logoUrl = BTB_LOGO;
   if (logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

@@ -42,6 +42,14 @@ export default defineSchema({
     updatedAt: v.float64(),
   }),
 
+  // Token logo per chain and address, filled from GeckoTerminal after each
+  // Discover refresh so pool rows on every chain carry both token images.
+  tokenLogos: defineTable({
+    key: v.string(),            // `${chainId}:${lowercase address}`
+    logoURI: v.string(),
+    updatedAt: v.float64(),
+  }).index("by_key", ["key"]),
+
   // Robinhood market feed, refreshed once server-side and read by every
   // Dashboard visitor without repeating the explorer/DexScreener scan.
   marketSnapshots: defineTable({

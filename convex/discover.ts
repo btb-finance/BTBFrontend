@@ -48,3 +48,27 @@ export const listScheduled = internalQuery({
     return rows.map((r) => ({ name: r.name, args: r.args, scheduledTime: new Date(r.scheduledTime).toISOString(), state: r.state, completedTime: r.completedTime ? new Date(r.completedTime).toISOString() : null }));
   },
 });
+
+export const tokenLogosFor = internalQuery({
+  args: { keys: v.array(v.string()) },
+  handler: async (ctx, { keys }) => {
+    const out: Record<string, string> = {};
+    for (const key of keys) {
+      const row = await ctx.db.query("tokenLogos").withIndex("by_key", q => q.eq("key", key)).unique();
+      if (row) out[key] = row.logoURI;
+    }
+    return out;
+  },
+});
+
+export const saveTokenLogos = internalMutation({
+  args: { entries: v.array(v.object({ key: v.string(), logoURI: v.string() })) },
+  handler: async (ctx, { entries }) => {
+    const now = Date.now();
+    for (const e of entries) {
+      const row = await ctx.db.query("tokenLogos").withIndex("by_key", q => q.eq("key", e.key)).unique();
+      if (row) await ctx.db.patch(row._id, { logoURI: e.logoURI, updatedAt: now });
+      else await ctx.db.insert("tokenLogos", { ...e, updatedAt: now });
+    }
+  },
+});

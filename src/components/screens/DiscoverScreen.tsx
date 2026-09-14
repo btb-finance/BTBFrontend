@@ -607,8 +607,8 @@ export function DiscoverScreen() {
         const [s0, s1] = splitPair(p);
         const mine = heldSyms(p);
         const [addr0, addr1] = p.underlyingTokens ?? [];
-        const logo0 = addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined;
-        const logo1 = addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined;
+        const logo0 = p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined);
+        const logo1 = p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined);
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ display: 'flex' }}>
@@ -720,8 +720,8 @@ export function DiscoverScreen() {
               <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? openPool(p, false) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ display: 'flex', flexShrink: 0 }}>
-                    <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
-                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined} /></div>
+                    <TokenIcon symbol={s0} size={26} logoUrl={p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined)} />
+                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined)} /></div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>

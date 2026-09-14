@@ -21,7 +21,7 @@ import { mainnet } from "viem/chains";
 import { getChainClient } from "../src/lib/chainClient";
 import { getEarnPools, addRangeAprs, ingestChainExtras, fetchDexLogos, applyLogos, isConcentratedPool, DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
 import { v } from "convex/values";
-import { fetchPoolPriceChanges } from "../src/lib/geckoterminal";
+import { fetchPoolPriceChanges, fetchTokenLogos } from "../src/lib/geckoterminal";
 
 // Multicall3-capable public RPCs — same proven set as balances.ts.
 const MAINNET_RPCS = [
@@ -98,6 +98,8 @@ export const refresh = internalAction({
     for (let index = 0; index < DISCOVERY_CHAINS.length; index++) {
       await ctx.scheduler.runAfter(index * 4 * 60_000, internal.discoverRefresh.coverDexes, { index });
     }
+    // Token logos once the coverage passes have landed.
+    await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 1) * 4 * 60_000, internal.discoverRefresh.fillTokenLogos, {});
   },
 });
 
@@ -128,5 +130,58 @@ export const coverDexes = internalAction({
         json: JSON.stringify({ ...current, pools: merged }),
       });
     }
+  },
+});
+
+/**
+ * Give every pool row both token logos. Known logos come from the tokenLogos
+ * table; the rest are looked up on GeckoTerminal, 30 addresses per call,
+ * paced to the public rate limit and capped so one run stays well inside the
+ * action time limit. Rows without a logo yet are picked up on the next run.
+ */
+export const fillTokenLogos = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.runQuery(internal.discover.getInternal, {});
+    if (!row) return;
+    const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
+    const networkOf = new Map(DISCOVERY_CHAINS.filter((c) => c.chainId != null).map((c) => [c.chain, { chainId: c.chainId as number, network: c.network }]));
+    const wanted = new Map<string, { chainId: number; network: string; address: string }>();
+    for (const p of snap.pools) {
+      const net = networkOf.get(p.chain);
+      if (!net) continue;
+      for (const t of p.underlyingTokens ?? []) {
+        const a = t.toLowerCase();
+        if (!/^0x[0-9a-f]{40}$/.test(a)) continue;
+        wanted.set(`${net.chainId}:${a}`, { chainId: net.chainId, network: net.network, address: a });
+      }
+    }
+    const keys = [...wanted.keys()];
+    const known = await ctx.runQuery(internal.discover.tokenLogosFor, { keys });
+    const missing = keys.filter((k) => !known[k]);
+    const byNetwork = new Map<string, string[]>();
+    for (const k of missing) { const w = wanted.get(k)!; byNetwork.set(w.network, [...(byNetwork.get(w.network) ?? []), w.address]); }
+    const started = Date.now();
+    const found: { key: string; logoURI: string }[] = [];
+    for (const [network, addrs] of byNetwork) {
+      const chainId = [...wanted.values()].find((w) => w.network === network)!.chainId;
+      for (let i = 0; i < addrs.length; i += 30) {
+        if (Date.now() - started > 7 * 60_000) break;
+        const logos = await fetchTokenLogos(network, addrs.slice(i, i + 30)).catch(() => new Map<string, string>());
+        for (const [a, url] of logos) found.push({ key: `${chainId}:${a}`, logoURI: url });
+      }
+    }
+    if (found.length > 0) await ctx.runMutation(internal.discover.saveTokenLogos, { entries: found });
+    const all = { ...known, ...Object.fromEntries(found.map((f) => [f.key, f.logoURI])) };
+    // Re-read before writing so a coverage pass that landed meanwhile is kept.
+    const latest = await ctx.runQuery(internal.discover.getInternal, {});
+    const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
+    for (const p of current.pools) {
+      const net = networkOf.get(p.chain);
+      if (!net) continue;
+      const logos = (p.underlyingTokens ?? []).map((t) => all[`${net.chainId}:${t.toLowerCase()}`]);
+      if (logos.some(Boolean)) p.tokenLogos = logos.map((l) => l ?? null);
+    }
+    await ctx.runMutation(internal.discover.save, { json: JSON.stringify(current) });
   },
 });

@@ -54,6 +54,8 @@ export interface EarnPool {
    *  never has to keep a name-to-asset map in sync. Both may be absent; the
    *  UI falls back to a bundled asset and then to a letter mark. */
   dexLogo?: string;
+  /** Per underlying token, filled by the Convex logo pass; null when unknown. */
+  tokenLogos?: (string | null)[];
   chainLogo?: string;
   volume24hUsd?: number;  // last complete day — indexer pools only
   fees24hUsd?: number;

@@ -86,7 +86,7 @@ const WETH   = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 // direct on-chain balanceOf read so the user's holdings show regardless of what
 // the Convex list/snapshot contains.
 const PROTOCOL_TOKENS = [
-  { address: '0x88888888c90cd71b35830dabfd24743dbc135b51', symbol: 'BTB',  name: 'BTB Finance', decimals: 18 },
+  { address: '0x88888888c90cd71b35830dabfd24743dbc135b51', symbol: 'BTB',  name: 'BTB Finance', decimals: 18, logoURI: '/btblogo.jpg' },
   { address: '0x88888880d5ca13018d2dc11e2e4744bd91a5656f', symbol: 'BTBB', name: 'BTB Bear',    decimals: 18 },
   { address: '0x88888805e7e3d5c7fb002ad98f08250e79c298dc', symbol: 'OPOS', name: 'OPOSSUM',     decimals: 18 },
 ] as const;
@@ -146,6 +146,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     return {
       address: t.address,
       symbol: t.symbol, name: t.name, decimals: t.decimals,
+      ...('logoURI' in t ? { logoURI: t.logoURI } : {}),
       balance: formatUnits(raw, t.decimals),
       balanceRaw: raw.toString(),
       usdPrice: price,
