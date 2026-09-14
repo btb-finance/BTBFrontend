@@ -34,14 +34,25 @@ export const link = action({
   },
 });
 
-/** Unlink needs a signature from the wallet being removed or from any other wallet in the profile. */
+/** Import a wallet by address, view only. One signature from the connected wallet. */
+export const importWallet = action({
+  args: { signer: v.string(), signature: v.string(), issuedAt: v.float64(), address: v.string(), label: v.optional(v.string()) },
+  handler: async (ctx, a) => {
+    if (a.signer.toLowerCase() === a.address.toLowerCase()) throw new Error("That is the connected wallet");
+    await checkSignature(a.signer, a.address, a.issuedAt, a.signature as `0x${string}`);
+    await ctx.runMutation(internal.profiles.insertWatched, { anchor: a.signer, address: a.address, label: a.label });
+    return { ok: true };
+  },
+});
+
+/** Remove a wallet from the signer's profile. One signature from the connected wallet. */
 export const unlink = action({
   args: { signer: v.string(), signature: v.string(), issuedAt: v.float64(), address: v.string() },
   handler: async (ctx, a) => {
     await checkSignature(a.signer, a.address, a.issuedAt, a.signature as `0x${string}`);
     const profile = await ctx.runQuery(internal.profiles.forAddressInternal, { address: a.signer });
     if (!profile.wallets.some(w => w.address === a.address.toLowerCase())) throw new Error("Wallet is not in your profile");
-    await ctx.runMutation(internal.profiles.removeLink, { address: a.address });
+    await ctx.runMutation(internal.profiles.removeFromProfile, { profileId: profile.profileId, address: a.address });
     return { ok: true };
   },
 });

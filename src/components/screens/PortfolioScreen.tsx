@@ -435,7 +435,7 @@ function WalletTabs({ viewAddress, onViewAddress }: { viewAddress?: string; onVi
           </div>
         );
       })}
-      <div onClick={() => setLinking(true)} style={{ ...pill(false), color: btb.green, borderStyle: 'dashed' }}>Link wallet</div>
+      <div onClick={() => setLinking(true)} style={{ ...pill(false), color: btb.green, borderStyle: 'dashed' }}>Add wallet</div>
       {linking && <LinkWalletSheet onClose={() => setLinking(false)}/>}
     </div>
   );

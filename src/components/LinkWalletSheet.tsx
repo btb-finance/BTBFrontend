@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useConnection, useSignMessage } from 'wagmi';
+import { isAddress } from 'viem';
 import { useAction } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { Portal } from './Portal';
@@ -20,6 +21,24 @@ export function LinkWalletSheet({ onClose, onLinked }: { onClose: () => void; on
   const { address } = useConnection();
   const { signMessageAsync } = useSignMessage();
   const link = useAction(api.profilesActions.link);
+  const importWallet = useAction(api.profilesActions.importWallet);
+  const [mode, setMode] = useState<'import' | 'sign'>('import');
+  const [importAddr, setImportAddr] = useState('');
+  const [importLabel, setImportLabel] = useState('');
+
+  async function doImport() {
+    if (!address || !isAddress(importAddr)) return;
+    setBusy(true); setErr(null);
+    try {
+      const issuedAt = Date.now();
+      const signature = await signMessageAsync({ message: linkMessage(address, importAddr, issuedAt) });
+      await importWallet({ signer: address, signature, issuedAt, address: importAddr, label: importLabel || undefined });
+      setDone(importAddr);
+      onLinked?.(importAddr);
+    } catch (e) {
+      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Import failed');
+    } finally { setBusy(false); }
+  }
   const [anchor, setAnchor] = useState<{ address: string; signature: string; issuedAt: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -85,9 +104,45 @@ export function LinkWalletSheet({ onClose, onLinked }: { onClose: () => void; on
       <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', inset: 0, zIndex: 420, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
         <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: btb.bg, border: btb.border, borderRadius: 28, padding: '20px 20px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Link another wallet</div>
+            <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Add a wallet</div>
             {!busy && <div onClick={onClose} style={{ cursor: 'pointer' }}><Icon name="close" size={16} color={btb.textMuted}/></div>}
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', padding: 4, borderRadius: 14, background: btb.surfaceSoft, border: btb.borderSoft, marginBottom: 14 }}>
+            {(['import', 'sign'] as const).map(m => (
+              <button key={m} type="button" onClick={() => { setMode(m); setErr(null); }} disabled={busy} style={{
+                height: 36, borderRadius: 11, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 750,
+                background: mode === m ? btb.surfaceStrong : 'transparent', color: mode === m ? btb.text : btb.textMuted,
+              }}>{m === 'import' ? 'Import by address' : 'Link by signing'}</button>
+            ))}
+          </div>
+
+          {mode === 'import' && (
+            <>
+              <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 14, lineHeight: 1.5 }}>
+                Paste any address. It shows up in your profile view only, no need to sign with it. One signature from your connected wallet saves it.
+              </div>
+              {done ? (
+                <div style={{ color: btb.green, fontSize: 13, fontWeight: 700 }}>Imported {shortAddr(done)}. It is now in your wallet list.</div>
+              ) : (
+                <>
+                  <input value={importAddr} onChange={e => setImportAddr(e.target.value.trim())} placeholder="0x… wallet address" spellCheck={false}
+                    style={{ width: '100%', height: 46, padding: '0 14px', borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, fontFamily: 'monospace', fontSize: 13, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}/>
+                  <input value={importLabel} onChange={e => setImportLabel(e.target.value)} placeholder="Label (optional), e.g. Cold wallet" maxLength={32}
+                    style={{ width: '100%', height: 42, padding: '0 14px', borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontFamily: 'inherit', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}/>
+                  {importAddr && !isAddress(importAddr) && <div style={{ color: btb.amber, fontSize: 12, marginTop: 8 }}>That does not look like an EVM address.</div>}
+                </>
+              )}
+              {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
+              <div style={{ marginTop: 16 }}>
+                {done
+                  ? <Button variant="success" size="md" onClick={onClose}>Done</Button>
+                  : <Button variant="success" size="md" onClick={doImport} disabled={!address || !isAddress(importAddr) || busy} loading={busy}>Sign and import</Button>}
+              </div>
+            </>
+          )}
+
+          {mode === 'sign' && (
+            <>
           <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 16, lineHeight: 1.5 }}>
             Sign with both wallets once. No transaction, no gas. Afterwards, connecting with either wallet shows every wallet in your profile.
           </div>
@@ -117,6 +172,8 @@ export function LinkWalletSheet({ onClose, onLinked }: { onClose: () => void; on
             {step === 3 && !backOnAnchor && <Button variant="ghost" size="md" disabled>Waiting for {anchor ? shortAddr(anchor.address) : 'the first wallet'}…</Button>}
             {step === 4 && <Button variant="success" size="md" onClick={onClose}>Done</Button>}
           </div>
+            </>
+          )}
         </div>
       </div>
     </Portal>

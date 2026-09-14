@@ -2,13 +2,13 @@
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
-export interface ProfileWallet { address: string; label?: string; linkedAt: number }
+export interface ProfileWallet { address: string; label?: string; linkedAt: number; watched?: boolean }
 
 /** Every wallet in the profile that contains `address` (the address itself when unlinked). */
 export function useProfileWallets(address?: string): { profileId?: string; wallets: ProfileWallet[]; loading: boolean } {
   const res = useQuery(api.profiles.forAddress, address ? { address } : 'skip');
   if (!address) return { wallets: [], loading: false };
-  if (!res) return { wallets: [{ address: address.toLowerCase(), linkedAt: 0 }], loading: true };
+  if (!res) return { wallets: [{ address: address.toLowerCase(), linkedAt: 0, watched: false }], loading: true };
   return { profileId: res.profileId, wallets: res.wallets, loading: false };
 }
 

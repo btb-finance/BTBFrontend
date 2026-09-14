@@ -1,9 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { useConnection } from 'wagmi';
+import { useConnection, useSignMessage } from 'wagmi';
+import { useAction } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { btb } from './design-tokens';
 import { LinkWalletSheet } from './LinkWalletSheet';
-import { useProfileWallets, shortAddr } from '../lib/profile';
+import { useProfileWallets, shortAddr, linkMessage } from '../lib/profile';
 
 /**
  * Every wallet in the connected wallet's profile, the one being viewed
@@ -19,6 +21,20 @@ export function WalletSwitcher({ viewAddress, onViewAddress, compact = false, on
   const { address: connected } = useConnection();
   const { wallets } = useProfileWallets(connected);
   const [linking, setLinking] = useState(false);
+  const { signMessageAsync } = useSignMessage();
+  const unlink = useAction(api.profilesActions.unlink);
+  const [removing, setRemoving] = useState<string | null>(null);
+  async function remove(addr: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!connected) return;
+    setRemoving(addr);
+    try {
+      const issuedAt = Date.now();
+      const signature = await signMessageAsync({ message: linkMessage(connected, addr, issuedAt) });
+      await unlink({ signer: connected, signature, issuedAt, address: addr });
+      if ((viewAddress ?? '').toLowerCase() === addr) onViewAddress(undefined);
+    } catch {} finally { setRemoving(null); }
+  }
   if (!connected) return null;
   const current = (viewAddress ?? connected).toLowerCase();
 
@@ -40,12 +56,15 @@ export function WalletSwitcher({ viewAddress, onViewAddress, compact = false, on
               </div>
               {w.label && <div style={{ color: btb.textDim, fontSize: 10.5, fontFamily: 'monospace' }}>{shortAddr(w.address)}</div>}
             </div>
-            <span style={{ color: btb.textDim, fontSize: 10, fontWeight: 700 }}>{isConnected ? 'connected' : active ? 'viewing' : ''}</span>
+            <span style={{ color: btb.textDim, fontSize: 10, fontWeight: 700 }}>{isConnected ? 'connected' : w.watched ? 'imported' : active ? 'viewing' : ''}</span>
+            {!isConnected && (
+              <span onClick={(e) => remove(w.address, e)} title="Remove from profile" style={{ color: btb.textDim, fontSize: 14, lineHeight: 1, padding: '2px 4px', opacity: removing === w.address ? 0.4 : 1 }}>×</span>
+            )}
           </div>
         );
       })}
       <div onClick={() => setLinking(true)} style={{ display: 'flex', alignItems: 'center', height: 36, padding: '0 10px', borderRadius: 10, cursor: 'pointer', color: btb.green, fontSize: 12.5, fontWeight: 700 }}>
-        Link another wallet
+        Add a wallet
       </div>
       {linking && <LinkWalletSheet onClose={() => setLinking(false)}/>}
     </div>

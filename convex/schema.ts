@@ -22,6 +22,9 @@ export default defineSchema({
     profileId: v.string(),      // lowercase anchor address
     label: v.optional(v.string()),
     linkedAt: v.float64(),
+    // Imported by address without a signature from that wallet: view only,
+    // never treated as ownership, so the wallet can still start its own profile.
+    watched: v.optional(v.boolean()),
   }).index("by_address", ["address"]).index("by_profile", ["profileId"]),
 
   // Agent chat history — one row per message, gated to 10M BTB holders.
