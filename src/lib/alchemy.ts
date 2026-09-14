@@ -1,6 +1,9 @@
 // Alchemy Portfolio API — token balances across chains (fallback behind Krystal)
 
-export const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? 'INhvk7-hUrgf5niZBGbae';
+// No built-in default: a key in the bundle is a key for everyone. Without one
+// the Alchemy fallback is skipped and Krystal plus RPC reads carry balances.
+export const ALCHEMY_KEY = process.env.NEXT_PUBLIC_ALCHEMY_KEY ?? '';
+export const hasAlchemyKey = ALCHEMY_KEY.length > 0;
 const BASE = `https://api.g.alchemy.com/data/v1/${ALCHEMY_KEY}`;
 
 // Alchemy network slug → wagmi chainId

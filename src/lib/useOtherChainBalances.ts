@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { formatUnits } from 'viem';
 import {
   ALCHEMY_NETWORKS, ALCHEMY_CHAIN_ID, NATIVE_TOKEN,
-  fetchAlchemyTokenBalances, fetchAlchemyTokenMetadata, fetchAlchemyTokenPrices, fetchAlchemyNativePrices,
+  fetchAlchemyTokenBalances, fetchAlchemyTokenMetadata, fetchAlchemyTokenPrices, fetchAlchemyNativePrices, hasAlchemyKey,
 } from './alchemy';
 import type { Token } from './TokenStore';
 import { fetchRobinhoodBalances } from './robinhoodBalances';
@@ -110,6 +110,13 @@ export function useOtherChainBalances(walletAddress?: string) {
         // Alchemy remains a fallback only when Krystal is unavailable.
       }
 
+      if (!hasAlchemyKey) {
+        // Krystal failed and there is no Alchemy key: keep what the chain reads gave us.
+        if (cancelled) return;
+        setTokens(robinhood);
+        setLoading(false);
+        return;
+      }
       const balances = await fetchAlchemyTokenBalances(walletAddress, OTHER_NETWORKS);
       const held = balances.filter(b => {
         try { return BigInt(b.tokenBalance) >= MIN_RAW_BALANCE; } catch { return false; }

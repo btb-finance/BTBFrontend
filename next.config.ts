@@ -24,6 +24,17 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Baseline hardening for every page. No CSP yet: wallet SDKs inject
+        // inline scripts and iframes, so a strict policy needs its own pass.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+        ],
+      },
+      {
         source: "/chains/:path*",
         headers: [
           {
