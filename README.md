@@ -1,96 +1,83 @@
-# BTB Finance Frontend
+# BTB Finance
 
-The frontend for [BTB Finance](https://github.com/btb-finance/BTBFrontend) — built with [Next.js](https://nextjs.org), React, TypeScript, Tailwind CSS, and wagmi/viem.
+The web app for [BTB Finance](https://btb.finance): one place for the whole liquidity provider loop. Find a pool, simulate a range, add the position, claim, stake, rebalance and remove it, and get paid every Friday for using the app.
 
-## What is BTB Finance?
+Built with Next.js 16, React 19, TypeScript, wagmi and viem, with Convex as the backend.
 
-**BTB is building the everything app for DeFi.** Instead of opening ten different apps to manage your positions, you do it all from one screen.
+## What the app does
 
-Today, DeFi is fragmented: your LPs are on one site, your votes on another, your loans on a third. BTB brings them all together:
+| Tab | What it does |
+|---|---|
+| Dashboard | Daily check-in, XP streak and the weekly BTB payout. |
+| Discover | Pools ranked by APR, TVL and 24h volume across supported chains, with your own holdings first. New DEXes appear automatically from the DexScreener and GeckoTerminal registries. |
+| Simulate | Fee, impermanent loss and range analysis for any pair on any supported chain, with a 30-day backtest and liquidity depth. Cross-chain research compares one pair across chains. |
+| Portfolio | Every token and LP position you hold. Claim, stake, unstake, remove and rebalance from the same card. Several wallets can be linked into one profile. |
+| Swap | Best price across DEXes on 17 chains through KyberSwap, plus bridging through LI.FI. |
 
-- 🌊 **Liquidity providing** — Are you an LPer? Add and manage LP positions across **all projects from the same screen**. No need to open each app separately — Uniswap, Aerodrome, and more, all in one place.
-- 🗳️ **Voting & vote-earn** — Are you a voter? Vote and earn across ve(3,3) DEXs like **Aerodrome, Blackhole, Ramses**, and others — every voting market available from one interface.
-- 🏦 **Lending & borrowing** — Lend and borrow through protocols like **Aave, Morpho**, and more, without leaving BTB.
-- 🌾 **Vaults & yield** — Access auto-compounding vaults and yield strategies like **Beefy** and other aggregators.
-- 🔄 **And everything else** — swaps, perps, options, bridges, liquid staking/restaking, RWAs, launchpads, and insurance — each protocol category lives in its own folder under [`src/protocols/`](./src/protocols/), and the list keeps growing.
+Full LP management (add, manage, rebalance, stake) covers:
 
-One wallet connection, one transaction tracker, one consistent interface — every protocol, one app.
+| Chain | DEXes |
+|---|---|
+| Ethereum | Uniswap V3, Uniswap V4, PancakeSwap V3, SushiSwap V3 |
+| Base | Uniswap V3, Uniswap V4, PancakeSwap V3, Aerodrome Slipstream with gauge staking |
+| BNB Chain | Uniswap V3, Uniswap V4, PancakeSwap V3 |
+| Robinhood Chain | Uniswap V3, Uniswap V4, PancakeSwap V3, SushiSwap V3, Giga V3 with MasterChef staking, Ramses V3, UP with gauge staking |
+
+Other chains are covered by Discover and Simulate only.
+
+The LP tools are free. BTB takes a 1% fee on swaps routed through the app and shares that revenue with users every Friday in proportion to the XP they earned that week. The in-app manual at `/docs` describes every flow.
+
+## Running locally
+
+```bash
+yarn install
+yarn dev
+```
+
+Open http://localhost:3000. The repo uses yarn; `yarn.lock` is the only lockfile and it is what Netlify installs from.
+
+Other useful commands:
+
+```bash
+yarn build             # production build
+npx tsc --noEmit -p .  # typecheck the app
+npx convex dev         # run Convex functions against your dev deployment
+```
+
+## Environment
+
+Copy `.env.example` to `.env.local`. The app runs with an empty file; each variable unlocks one thing.
+
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_CONVEX_URL` | The Convex deployment the app talks to (Discover snapshot, rewards, profiles). |
+| `NEXT_PUBLIC_WC_PROJECT_ID` | WalletConnect project id. A shared default is built in. |
+| `NEXT_PUBLIC_GRAPH_KEY` | Graph API key for Uniswap subgraph history in the simulator. Without it the app uses keyless sources. |
+| `NEXT_PUBLIC_BTB_SWAP_FEE_RECEIVER` | Address that receives the swap fee. |
+| `NEXT_PUBLIC_ROBINHOOD_RPC_URL` | Extra Robinhood Chain RPC added to the failover pool. |
+| `LIFI_INTEGRATOR`, `LIFI_FEE` | LI.FI integrator id and optional bridge fee. |
+
+Convex-side secrets (rewards payout key, agent key, cron switches) are set on the Convex dashboard, not in `.env.local`.
+
+## Project layout
+
+```
+src/app/            Next.js routes: the app shell per tab, /discover/[chain], /vs comparison pages, SEO files
+src/components/     Screens and shared UI (Glass, Button, TopNav, CreatePosition, LpPositions, RebalanceFlow)
+src/lib/            Data: pools and Discover pipeline, market data clients, RPC failover, token store, profile
+src/protocols/      On-chain adapters: Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome, Robinhood forks, staking
+convex/             Backend: Discover refresh and DEX coverage crons, rewards epochs, users and XP, profiles
+```
+
+Shared components are the rule: one button, one glass card, one table. See [CONTRIBUTING.md](./CONTRIBUTING.md) before adding UI.
 
 ## Contributing
 
-We're looking for developers, designers, testers, and AI enthusiasts to help improve BTB Finance. Contributors earn **BTB token rewards** and weekly recognition based on the impact of their work.
+Developers, designers and testers are welcome. Contributors earn BTB rewards and weekly recognition based on the impact of their work. [CONTRIBUTING.md](./CONTRIBUTING.md) covers setup, the project structure and the shared-component rules.
 
-👉 See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for how to get started, the project structure, and our shared-component rules.
+## Links
 
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-### Optional environment variables
-
-Pool discovery on the Earn tab reads Uniswap V3 + V4 pools (TVL, 24h volume, fees, APR) straight from Uniswap's official subgraphs. That needs a free [Graph API key](https://thegraph.com/studio/apikeys/) in `.env.local`:
-
-```bash
-NEXT_PUBLIC_GRAPH_KEY=your-key-here
-```
-
-Without a key the app still works — pools fall back to DeFiLlama's keyless API.
-
-### Automatic LP management
-
-The Portfolio and Uniswap V3 add-liquidity screens support the fixed-owner smart accounts from [BTBSmartAccount](https://github.com/btb-finance/BTBSmartAccount). Configure each deployed chain in `.env.local`:
-
-```bash
-# Ethereum
-NEXT_PUBLIC_BTB_ACCOUNT_FACTORY_1=0x...
-NEXT_PUBLIC_BTB_PRICE_GUARD_1=0x...
-NEXT_PUBLIC_BTB_SWAP_ADAPTER_1=0x...
-NEXT_PUBLIC_BTB_AGENT_1=0x...
-NEXT_PUBLIC_BTB_EARNINGS_PREFERENCES_1=0x...
-
-# Robinhood Chain
-NEXT_PUBLIC_BTB_ACCOUNT_FACTORY_4663=0x...
-NEXT_PUBLIC_BTB_PRICE_GUARD_4663=0x...
-NEXT_PUBLIC_BTB_SWAP_ADAPTER_4663=0x...
-NEXT_PUBLIC_BTB_AGENT_4663=0x...
-NEXT_PUBLIC_BTB_EARNINGS_PREFERENCES_4663=0x...
-NEXT_PUBLIC_BTB_LEGACY_ACCOUNT_FACTORY_4663=0x...
-NEXT_PUBLIC_BTB_LEGACY_SWAP_ADAPTER_4663=0x...
-NEXT_PUBLIC_BTB_LEGACY_AGENT_4663=0x...
-NEXT_PUBLIC_BTB_LEGACY_ACCOUNT_FACTORY_4663_2=0x...
-NEXT_PUBLIC_BTB_LEGACY_SWAP_ADAPTER_4663_2=0x...
-NEXT_PUBLIC_BTB_LEGACY_AGENT_4663_2=0x...
-```
-
-The factory, guard, adapter, and agent values are required for a chain. Earnings preferences and legacy-account discovery are optional; normal LP actions continue to work when they are absent.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- App: https://btb.finance
+- Docs: https://btb.finance/docs
+- X: https://x.com/BTB_Finance
+- Discord: https://discord.gg/bqFEPA56Tc
