@@ -14,7 +14,7 @@ interface SpinnerProps {
  * (as inline divs + per-file `@keyframes spin`) across every screen.
  * The `spin` keyframe lives once in globals.css.
  */
-export function Spinner({ size = 16, color = '#fff', track = 'rgba(255,255,255,0.25)', style }: SpinnerProps) {
+export function Spinner({ size = 16, color = 'var(--btb-text)', track = 'rgba(var(--fg-rgb), 0.25)', style }: SpinnerProps) {
   return (
     <div
       className="spin"

@@ -16,7 +16,7 @@ export function fmtPrice(v: number) {
  * portfolio read as one design. */
 export const lpBox = (isMobile: boolean) => ({
   padding: isMobile ? '10px 12px' : '12px 14px', borderRadius: 14,
-  background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.05)', minWidth: 0,
+  background: 'rgba(var(--fg-rgb), 0.035)', border: '1px solid rgba(var(--fg-rgb), 0.05)', minWidth: 0,
 });
 export const lpBoxLabel = { color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 } as const;
 export const lpBoxValue = (isMobile: boolean) => ({
@@ -55,18 +55,18 @@ export function RangeBar({ p }: { p: RangeBarProps }) {
         <span style={{ color: tone, fontSize: 14, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
       </div>
       <div style={{ position: 'relative', height: 30, marginTop: 8 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(255,255,255,0.05)' }}/>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.05)' }}/>
         <div style={{
           position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, borderRadius: 10,
-          background: p.inRange ? 'rgba(82,227,164,0.16)' : 'rgba(255,179,107,0.14)',
-          border: `1px solid ${p.inRange ? 'rgba(82,227,164,0.3)' : 'rgba(255,179,107,0.3)'}`,
+          background: p.inRange ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--amber-rgb), 0.14)',
+          border: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.3)' : 'rgba(var(--amber-rgb), 0.3)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', boxSizing: 'border-box', overflow: 'hidden',
         }}>
           <span style={{ color: btb.textMuted, fontSize: 11, whiteSpace: 'nowrap' }}>{fullRange ? '0' : fmtPrice(pLow)}</span>
           <span style={{ color: btb.textMuted, fontSize: 11, whiteSpace: 'nowrap' }}>{fullRange ? '∞' : fmtPrice(pHigh)}</span>
         </div>
         <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${mark}% - 1px)`, width: 2, background: tone, borderRadius: 2 }}/>
-        <div style={{ position: 'absolute', top: '50%', left: `calc(${mark}% - 5px)`, width: 10, height: 10, marginTop: -5, borderRadius: 999, background: tone, boxShadow: `0 0 0 3px ${p.inRange ? 'rgba(82,227,164,0.25)' : 'rgba(255,179,107,0.25)'}` }}/>
+        <div style={{ position: 'absolute', top: '50%', left: `calc(${mark}% - 5px)`, width: 10, height: 10, marginTop: -5, borderRadius: 999, background: tone, boxShadow: `0 0 0 3px ${p.inRange ? 'rgba(var(--green-rgb), 0.25)' : 'rgba(var(--amber-rgb), 0.25)'}` }}/>
       </div>
       {!fullRange && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: btb.textDim }}>
@@ -81,10 +81,10 @@ export function RangeBar({ p }: { p: RangeBarProps }) {
 export type LpTone = 'neutral' | 'green' | 'amber' | 'danger';
 
 const LP_TONES: Record<LpTone, { color: string; bg: string; border: string }> = {
-  neutral: { color: btb.text,  bg: 'rgba(255,255,255,0.07)',  border: 'rgba(255,255,255,0.13)' },
-  green:   { color: btb.green, bg: 'rgba(82,227,164,0.12)',   border: 'rgba(82,227,164,0.35)' },
-  amber:   { color: btb.amber, bg: 'rgba(255,179,107,0.14)',  border: 'rgba(255,179,107,0.4)' },
-  danger:  { color: btb.loss,  bg: 'rgba(255,107,122,0.10)',  border: 'rgba(255,107,122,0.3)' },
+  neutral: { color: btb.text,  bg: 'rgba(var(--fg-rgb), 0.07)',  border: 'rgba(var(--fg-rgb), 0.13)' },
+  green:   { color: btb.green, bg: 'rgba(var(--green-rgb), 0.12)',   border: 'rgba(var(--green-rgb), 0.35)' },
+  amber:   { color: btb.amber, bg: 'rgba(var(--amber-rgb), 0.14)',  border: 'rgba(var(--amber-rgb), 0.4)' },
+  danger:  { color: btb.loss,  bg: 'rgba(var(--loss-rgb), 0.10)',  border: 'rgba(var(--loss-rgb), 0.3)' },
 };
 
 /** The one LP action button. Tone says what kind of move it is (green
@@ -104,9 +104,9 @@ export function LpButton({ icon, label, onClick, disabled, tone = 'neutral', sol
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontSize: 12.5, fontWeight: 700,
         minWidth: full ? 0 : undefined, overflow: 'hidden', textOverflow: 'ellipsis',
         cursor: disabled ? 'default' : 'pointer', color,
-        background: disabled ? 'rgba(255,255,255,0.05)' : solid && tone === 'green' ? btb.gradGreen : t.bg,
-        border: `1px solid ${disabled ? 'rgba(255,255,255,0.07)' : solid ? 'transparent' : t.border}`,
-        boxShadow: !disabled && solid ? '0 6px 16px rgba(82,227,164,0.25)' : 'none',
+        background: disabled ? 'rgba(var(--fg-rgb), 0.05)' : solid && tone === 'green' ? btb.gradGreen : t.bg,
+        border: `1px solid ${disabled ? 'rgba(var(--fg-rgb), 0.07)' : solid ? 'transparent' : t.border}`,
+        boxShadow: !disabled && solid ? '0 6px 16px rgba(var(--green-rgb), 0.25)' : 'none',
         transition: 'opacity 0.15s, transform 0.1s',
       }}
     >

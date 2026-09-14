@@ -30,9 +30,9 @@ export function StrategyBuilder(props: {
         {AMOUNT_CHIPS.map((v) => (
           <button key={v} onClick={() => p.setDepositStr(String(v))} style={{
             flex: 1, minWidth: 90, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-            background: p.depositStr === String(v) ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.05)',
-            border: `1px solid ${p.depositStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
-            color: p.depositStr === String(v) ? '#52E3A4' : btb.textMuted,
+            background: p.depositStr === String(v) ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--fg-rgb), 0.05)',
+            border: `1px solid ${p.depositStr === String(v) ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+            color: p.depositStr === String(v) ? 'var(--btb-green)' : btb.textMuted,
           }}>${v.toLocaleString('en-US')}</button>
         ))}
       </div>
@@ -44,7 +44,7 @@ export function StrategyBuilder(props: {
           inputMode="decimal" placeholder="10000"
           style={{
             width: '100%', height: 52, boxSizing: 'border-box', paddingLeft: 34, paddingRight: 14,
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 14,
+            background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.14)', borderRadius: 14,
             color: btb.text, fontSize: 22, fontWeight: 800, fontFamily: 'inherit', outline: 'none', letterSpacing: -0.3,
           }} />
       </div>
@@ -54,7 +54,7 @@ export function StrategyBuilder(props: {
       {/* Fee tier */}
       <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>Fee Tier</div>
       {p.feeLocked ? (
-        <div style={{ color: btb.textMuted, fontSize: 12, background: 'rgba(255,255,255,0.04)', border: btb.borderSoft, borderRadius: 12, padding: '10px 13px' }}>
+        <div style={{ color: btb.textMuted, fontSize: 12, background: 'rgba(var(--fg-rgb), 0.04)', border: btb.borderSoft, borderRadius: 12, padding: '10px 13px' }}>
           {fmtFeeTier(p.feeTier)} · fixed by this V4 pool
         </div>
       ) : (

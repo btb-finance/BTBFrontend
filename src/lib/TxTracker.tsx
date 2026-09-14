@@ -121,14 +121,14 @@ function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: strin
             pointerEvents: 'auto', cursor: 'pointer', width: '100%', maxWidth: 360,
             display: 'flex', alignItems: 'center', gap: 11,
             background: 'rgba(18,18,26,0.86)', backdropFilter: 'blur(20px) saturate(140%)',
-            border: `1px solid ${r.status === 'pending' ? 'rgba(255,255,255,0.16)' : color + '66'}`,
+            border: `1px solid ${r.status === 'pending' ? 'rgba(var(--fg-rgb), 0.16)' : color + '66'}`,
             borderRadius: 14, padding: '10px 14px', boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
           }}>
             {r.status === 'pending'
-              ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.25)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite', flexShrink: 0 }}/>
+              ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(var(--fg-rgb), 0.25)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite', flexShrink: 0 }}/>
               : <div style={{ flexShrink: 0, display: 'flex' }}><Icon name={r.status === 'confirmed' ? 'check' : 'close'} size={16} color={color}/></div>}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: '#fff', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</div>
+              <div style={{ color: 'var(--btb-text)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</div>
               <div style={{ color, fontSize: 11, fontWeight: 600 }}>
                 {r.status === 'pending' ? 'Confirming…' : r.status === 'confirmed' ? 'Confirmed' : (r.error ?? 'Failed')}
               </div>

@@ -295,3 +295,29 @@ async function fetchDexTopPoolsNow(network: string, dexId: string, page = 1): Pr
   }
   return out;
 }
+
+/** Token logos for up to 30 addresses on one network, keyed by lowercase address. Paced. */
+export function fetchTokenLogos(network: string, addresses: string[]): Promise<Map<string, string>> {
+  return paced(() => fetchTokenLogosNow(network, addresses));
+}
+
+async function fetchTokenLogosNow(network: string, addresses: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const batch = addresses.slice(0, 30);
+  if (batch.length === 0) return out;
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch(`${BASE}/networks/${network}/tokens/multi/${batch.join(',')}`, { signal: AbortSignal.timeout(12000) });
+    if (res.status !== 429) break;
+    const retryAfter = Number(res.headers.get('retry-after'));
+    await new Promise(r => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 20) * 1000 : 8_000));
+  }
+  if (!res || !res.ok) return out;
+  const json = await res.json() as { data?: { attributes?: { address?: string; image_url?: string | null } }[] };
+  for (const t of json.data ?? []) {
+    const a = t.attributes?.address?.toLowerCase();
+    const url = t.attributes?.image_url;
+    if (a && url && !/missing/i.test(url)) out.set(a, url);
+  }
+  return out;
+}

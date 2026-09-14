@@ -26,8 +26,8 @@ export function ChainLogo({ chainId, size = 22, src: remote }: { chainId: number
         borderRadius: '50%',
         objectFit: 'cover',
         flexShrink: 0,
-        background: CHAIN_META[chainId]?.color ?? 'rgba(255,255,255,.12)',
-        boxShadow: '0 0 0 1px rgba(255,255,255,.12)',
+        background: CHAIN_META[chainId]?.color ?? 'rgba(var(--fg-rgb), .12)',
+        boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)',
       }}
     />
   );

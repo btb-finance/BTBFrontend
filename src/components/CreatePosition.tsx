@@ -1,9 +1,8 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useConnection, useConfig } from 'wagmi';
-import { useAction } from 'convex/react';
-import { getPublicClient, signTypedData } from 'wagmi/actions';
-import { encodeFunctionData, formatUnits, parseUnits, erc20Abi } from 'viem';
+import { getPublicClient } from 'wagmi/actions';
+import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
@@ -13,7 +12,6 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } from './AutomationRules';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
@@ -33,15 +31,12 @@ import type { V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
 import { stakingSupported, stakeTargetForPool, buildStakeCalls } from '@/protocols/staking';
 import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
+import { SimulatorPage } from './simulator/SimulatorPage';
+import { CHAIN_DATA_NETWORKS } from '../lib/chainDataNetworks';
 import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
-import {
-  createUniversalWalletCall, getUniversalWalletDeployment, readUniversalWallet, upgradeUniversalWalletCalls,
-  tradingSetupDomain,
-} from '../lib/universalWallet';
-import { GUARDED_SETUP_TYPES, prepareUniversalLpSetup, UNIVERSAL_LP_WALLET_ABI } from '../lib/universalLp';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -128,9 +123,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
-  const registerManaged = useAction(api.managedPositionMonitor.register);
-  const executeAgentZap = useAction(api.zapAgent.execute);
-  const configureSignedLp = useAction(api.lpSetup.configure);
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
@@ -181,11 +173,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
   const [slippageBps, setSlippageBps] = useState(lpSlippageBps(chainId, SLIPPAGE_BPS));
-  const [autoManage, setAutoManage] = useState(false);
-  const [automationRules, setAutomationRules] = useState<AutomationRuleValues>({
-    ...DEFAULT_AUTOMATION_RULES,
-    twapSeconds: chainId === 4663 ? 60 : 300,
-  });
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
   const [tab, setTab] = useState<'range' | 'deposit'>('range');
@@ -219,7 +206,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
 
   const isV4 = v4PoolId !== undefined;
-  const universalDeployment = !isV4 && dex === 'uniswap' && chainId === 4663 ? getUniversalWalletDeployment() : null;
   // Auto-orientation: quote the volatile token in the stablecoin
   // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH") — the way people read a
   // pair. Only kicks in when exactly one side is a stablecoin; else pool order.
@@ -659,109 +645,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     } finally { setBusy(false); }
   }
 
-  /**
-   * Create the position inside the user's fixed-owner BTB account and install
-   * the owner-selected rebalance policy in the same account call. Account
-   * creation, optional ETH wrapping and exact ERC-20 approvals are passed to
-   * the shared batch runner, with a receipt-gated fallback for older wallets.
-   */
-  async function mintManaged() {
-    if (!address || !pool || !ticks || !universalDeployment || chainId !== 4663 || isV4 || dex !== 'uniswap') return;
-    if (splitRange && (!splitTicks?.below || !splitTicks?.above || add0 === 0n || add1 === 0n)) {
-      setErr('Auto-managed uneven mode needs both token amounts and room for one range on each side of the live price.');
-      return;
-    }
-    const client = getPublicClient(config, { chainId });
-    if (!client) { setErr('No RPC client'); return; }
-    const owner = address as `0x${string}`;
-    setBusy(true); setStepMsg('Preparing your universal account…'); setErr(null);
-    try {
-      let smart = await readUniversalWallet(client, owner, universalDeployment);
-      if (!smart.deployed) {
-        await runCalls(config, {
-          account: owner, chainId, label: 'Create my universal BTB account', track,
-          calls: [createUniversalWalletCall(universalDeployment, owner)],
-        });
-        smart = await readUniversalWallet(client, owner, universalDeployment);
-      }
-      if (!smart.guardedSetupReady) {
-        await runCalls(config, {
-          account: owner, chainId, label: 'Upgrade my BTB account for guarded LPs', track,
-          calls: upgradeUniversalWalletCalls(smart.account, universalDeployment.implementation, smart.paused),
-        });
-        smart = await readUniversalWallet(client, owner, universalDeployment);
-        if (!smart.guardedSetupReady) throw new Error('The wallet upgrade confirmed, but guarded LP setup is not available yet.');
-      }
-      const specs = splitRange
-        ? [
-            { tickLower: splitTicks!.below!.tickLower, tickUpper: splitTicks!.below!.tickUpper, amount0Desired: 0n, amount1Desired: add1 },
-            { tickLower: splitTicks!.above!.tickLower, tickUpper: splitTicks!.above!.tickUpper, amount0Desired: add0, amount1Desired: 0n },
-          ]
-        : [{ tickLower: ticks.tickLower, tickUpper: ticks.tickUpper, amount0Desired: add0, amount1Desired: add1 }];
-      const before = await fetchV3Positions(client, smart.account, deployment).catch(() => []);
-      const beforeIds = new Set(before.map(position => position.id.toString()));
-      const mintCalls = specs.flatMap(spec => buildMint({
-        token0: pool.token0, token1: pool.token1, fee,
-        tickLower: spec.tickLower, tickUpper: spec.tickUpper,
-        amount0Desired: spec.amount0Desired, amount1Desired: spec.amount1Desired,
-        slippageBps, recipient: smart.account, nativeEthSide: ethMode ? wethSide : null, deployment,
-      }));
-      setStepMsg(splitRange ? 'Creating two LP NFTs in your account…' : 'Creating LP NFT in your account…');
-      await runCalls(config, { account: owner, chainId, calls: mintCalls, label: `Create guarded ${pool.symbol0}/${pool.symbol1} LP`, track });
-
-      const created = (await fetchV3Positions(client, smart.account, deployment)).filter(position => !beforeIds.has(position.id.toString()));
-      if (created.length === 0) throw new Error('The LP confirmed, but its NFT is not visible from this RPC yet. Reopen the portfolio to finish automation.');
-      const allowedPct = automationRules.allowedRangePct !== null && automationRules.allowedRangePct < automationRules.targetRangePct
-        ? automationRules.targetRangePct : automationRules.allowedRangePct;
-      const allowed = rangeTicks(pool.tick, spacing, allowedPct);
-      const target = rangeTicks(pool.tick, spacing, automationRules.targetRangePct);
-      const expiresAt = BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400);
-      const maximumToken0PerRebalance = (add0 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
-      const maximumToken1PerRebalance = (add1 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
-      // Floors the unwind has to clear, set from what is being deposited less
-      // the slippage the owner already accepted. The guard applies each one only
-      // while the position still holds that side.
-      const minimumExitToken0 = (add0 * BigInt(10_000 - slippageBps)) / 10_000n;
-      const minimumExitToken1 = (add1 * BigInt(10_000 - slippageBps)) / 10_000n;
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
-      setStepMsg('Sign once to protect this LP…');
-      const guarded = await prepareUniversalLpSetup({
-        client, account: smart.account, deployment: universalDeployment, positionManager: deployment.positionManager,
-        pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
-        targetTickWidth: target.tickUpper - target.tickLower, maximumSlippageBps: slippageBps,
-        maximumToken0PerRebalance, maximumToken1PerRebalance, minimumExitToken0, minimumExitToken1,
-        minimumTick: Math.min(allowed.tickLower, ticks.tickLower), maximumTick: Math.max(allowed.tickUpper, ticks.tickUpper), expiresAt,
-        nonce: smart.guardedSetupNonce, deadline,
-      });
-      const ownerSignature = await signTypedData(config, {
-        account: owner,
-        domain: tradingSetupDomain(smart.account),
-        types: GUARDED_SETUP_TYPES,
-        primaryType: 'GuardedSetup',
-        message: guarded.setup,
-      });
-      const setupCall = encodeFunctionData({
-        abi: UNIVERSAL_LP_WALLET_ABI,
-        functionName: 'configureGuardedWorkflowBySig',
-        args: [guarded.setup, guarded.callPolicyUpdates, guarded.approvalPolicyUpdates, guarded.guardConfiguration, ownerSignature],
-      });
-      setStepMsg('Installing all LP permissions…');
-      await configureSignedLp({ owner, account: smart.account, deployed: true, setupCall });
-      await Promise.all(created.map(position => registerManaged({
-        chainId, owner, account: smart.account, positionManager: deployment.positionManager,
-        positionId: position.id.toString(), pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
-        tickLower: position.tickLower, tickUpper: position.tickUpper,
-        targetTickWidth: target.tickUpper - target.tickLower,
-        minimumAllowedTick: Math.min(allowed.tickLower, ticks.tickLower), maximumAllowedTick: Math.max(allowed.tickUpper, ticks.tickUpper),
-        maxSlippageBps: slippageBps, maxSwapBps: automationRules.maxSwapPct * 100,
-        twapSeconds: automationRules.twapSeconds, minRebalanceInterval: automationRules.intervalSeconds,
-        expiresAt: Number(expiresAt), source: 'universal-v5',
-      })));
-      onDone?.(); onClose();
-    } catch (e) {
-      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
-    } finally { setBusy(false); setStepMsg(''); }
-  }
 
   /**
    * Balanced smart-fit deposit: swap only the gap (KyberSwap) so a single-token
@@ -841,11 +724,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }
 
   const canSplit = !!splitTicks && ((add0 > 0n && !!splitTicks.above) || (add1 > 0n && !!splitTicks.below));
-  const canManagedSplit = !!splitTicks?.below && !!splitTicks?.above && add0 > 0n && add1 > 0n;
   const canMint = !!pool?.exists && !!ticks && !busy &&
-    (autoManage
-      ? !!universalDeployment && !swapPreview && (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1
-      : splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
+    (splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
   // CTA is hidden for them. The simulated amounts prefill the deposit inputs.
@@ -923,8 +803,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }
 
   const inputStyle = (disabled: boolean): CSSProperties => ({
-    width: '100%', height: 42, background: disabled ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)',
-    border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '0 12px',
+    width: '100%', height: 42, background: disabled ? 'rgba(var(--fg-rgb), 0.03)' : 'rgba(var(--fg-rgb), 0.06)',
+    border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 12, padding: '0 12px',
     color: disabled ? btb.textDim : btb.text, fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
     outline: 'none', boxSizing: 'border-box',
   });
@@ -932,7 +812,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // +/- stepper button for the min/max price inputs.
   const stepBtn: CSSProperties = {
     flex: 1, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800, lineHeight: 1,
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', color: btb.textMuted,
+    background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)', color: btb.textMuted,
     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
   };
 
@@ -945,7 +825,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       return (
         <div style={{ marginBottom: 22 }}>
           <div style={{ color: btb.text, fontSize: 14, fontWeight: 750, marginBottom: 12 }}>Price range</div>
-          <div style={{ height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.12)' }} />
           <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8 }}>Loading current price…</div>
         </div>
       );
@@ -1016,14 +896,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
       <div style={{ marginBottom: 22 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
           <span style={{ color: btb.text, fontSize: 14, fontWeight: 750 }}>Price range</span>
-          <span style={{ color: inRange ? btb.green : '#FFB36B', fontSize: 11, fontWeight: 700 }}>
+          <span style={{ color: inRange ? btb.green : 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>
             {isFull ? 'Full range' : `Range ${fmtDistance(lowerDistance)} / ${fmtDistance(upperDistance)}`}
           </span>
         </div>
         <div
           onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
           style={{ position: 'relative', height: 32, display: 'flex', alignItems: 'center', touchAction: 'none' }}>
-          <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.12)' }} />
           <div onPointerDown={(e) => beginDrag(e, 'band')} title="Drag to move range" style={{ position: 'absolute', left: `${left}%`, width: `${Math.max(1, right - left)}%`, height: 6, borderRadius: 999, background: btb.green, cursor: 'grab' }} />
           <div onPointerDown={(e) => beginDrag(e, 'low')} aria-label="Lower price bound" style={{ position: 'absolute', left: `calc(${left}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
           <div onPointerDown={(e) => beginDrag(e, 'high')} aria-label="Upper price bound" style={{ position: 'absolute', left: `calc(${right}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
@@ -1056,8 +936,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     return (
       <div key={side} style={{
         marginBottom: 8, padding: '9px 12px', borderRadius: 14,
-        background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: disabled ? 'rgba(var(--fg-rgb), 0.02)' : 'rgba(var(--fg-rgb), 0.05)',
+        border: '1px solid rgba(var(--fg-rgb), 0.1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
@@ -1074,7 +954,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <TokenIcon symbol={sym} size={20} />
             {wethSide === side && !isV4 ? (
-              <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(255,255,255,0.08)' }}>
+              <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(var(--fg-rgb), 0.08)' }}>
                 {([['ETH', true], ['WETH', false]] as const).map(([label, active]) => (
                   <button key={label} type="button" onClick={() => setUseEth(active)} style={{
                     height: 24, padding: '0 7px', border: 0, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit',
@@ -1095,7 +975,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <span style={{ color: btb.textMuted, fontSize: 11 }}>
             {fmtAmt(bal, dec)}
             {isShort && !splitRange && (
-              <span onClick={() => applySmartFit()} style={{ color: '#52E3A4', fontWeight: 800, marginLeft: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 6, background: 'rgba(82,227,164,0.13)' }}>FIT RANGE</span>
+              <span onClick={() => applySmartFit()} style={{ color: 'var(--btb-green)', fontWeight: 800, marginLeft: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.13)' }}>FIT RANGE</span>
             )}
             {!disabled && (
               <span onClick={() => splitRange ? setSplitAmt((v) => side === 0 ? { ...v, str0: formatUnits(bal, dec) } : { ...v, str1: formatUnits(bal, dec) }) : setAmt({ side, str: formatUnits(bal, dec) })} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
@@ -1136,7 +1016,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const inSym = need === 'token0' ? sym0 : sym1;   // token deposited now
     const outSym = need === 'token0' ? sym1 : sym0;   // token you end up holding
     return (
-      <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+      <div style={{ color: 'var(--btb-amber)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
         Current price is outside this range — this is a single-sided {inSym} position. It deposits {inSym} only and earns no fees until the price reaches the range. Once it does, your {inSym} is swapped into {outSym} as the price passes through — you&apos;d finish holding {outSym}, not {inSym}. Only place this if you actually want to convert {inSym}→{outSym}.
       </div>
     );
@@ -1150,9 +1030,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const severe = pct >= 5;
     return (
       <div style={{
-        color: severe ? btb.loss : '#FFB36B', fontSize: 12, marginBottom: 10, lineHeight: 1.5,
-        background: severe ? 'rgba(255,107,122,0.08)' : 'rgba(255,179,107,0.08)',
-        border: `1px solid ${severe ? 'rgba(255,107,122,0.3)' : 'rgba(255,179,107,0.3)'}`,
+        color: severe ? btb.loss : 'var(--btb-amber)', fontSize: 12, marginBottom: 10, lineHeight: 1.5,
+        background: severe ? 'rgba(var(--loss-rgb), 0.08)' : 'rgba(var(--amber-rgb), 0.08)',
+        border: `1px solid ${severe ? 'rgba(var(--loss-rgb), 0.3)' : 'rgba(var(--amber-rgb), 0.3)'}`,
         borderRadius: 12, padding: '10px 12px',
       }}>
         This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
@@ -1178,12 +1058,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         </div>
         {total > 0 && (
           <>
-            <div style={{ display: 'flex', height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 8, background: 'rgba(255,255,255,0.06)' }}>
-              <div style={{ width: `${pct0}%`, background: '#52E3A4' }} />
+            <div style={{ display: 'flex', height: 6, borderRadius: 999, overflow: 'hidden', marginTop: 8, background: 'rgba(var(--fg-rgb), 0.06)' }}>
+              <div style={{ width: `${pct0}%`, background: 'var(--btb-green)' }} />
               <div style={{ width: `${pct1}%`, background: '#5B8DEF' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, color: btb.textMuted, fontSize: 11 }}>
-              <span><span style={{ color: '#52E3A4' }}>●</span> {sym0} {pct0.toFixed(1)}%</span>
+              <span><span style={{ color: 'var(--btb-green)' }}>●</span> {sym0} {pct0.toFixed(1)}%</span>
               <span>{sym1} {pct1.toFixed(1)}% <span style={{ color: '#5B8DEF' }}>●</span></span>
             </div>
           </>
@@ -1198,7 +1078,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     const b = backtest;
     const money = (v: number) => `${v < 0 ? '−' : ''}$${Math.abs(v) >= 100 ? Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : Math.abs(v).toFixed(2)}`;
     const cell = (label: string, value: string, color: string) => (
-      <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 10px' }}>
+      <div style={{ flex: 1, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 10, padding: '8px 10px' }}>
         <div style={{ color: btb.textDim, fontSize: 10 }}>{label}</div>
         <div style={{ color, fontSize: 14, fontWeight: 800 }}>{value}</div>
       </div>
@@ -1209,9 +1089,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           <span style={{ color: btb.textMuted, fontSize: 12 }}>Historical daily-snapshot replay · last {b.days} days</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          {cell('Estimated fees', money(b.feesUsd), '#52E3A4')}
-          {cell('LP vs holding', `${b.ilFraction < 0 ? '−' : '+'}${Math.abs(b.ilFraction * 100).toFixed(2)}%`, b.ilFraction < 0 ? '#FFB36B' : btb.text)}
-          {cell('Period fee return', `${((b.feesUsd / Math.max(b.depositUsd, 1)) * 100).toFixed(2)}%`, '#52E3A4')}
+          {cell('Estimated fees', money(b.feesUsd), 'var(--btb-green)')}
+          {cell('LP vs holding', `${b.ilFraction < 0 ? '−' : '+'}${Math.abs(b.ilFraction * 100).toFixed(2)}%`, b.ilFraction < 0 ? 'var(--btb-amber)' : btb.text)}
+          {cell('Period fee return', `${((b.feesUsd / Math.max(b.depositUsd, 1)) * 100).toFixed(2)}%`, 'var(--btb-green)')}
         </div>
         <div style={{ color: btb.textDim, fontSize: 10, marginTop: 8, lineHeight: 1.4 }}>
           Price closed inside your range <b>{b.daysInRange}/{b.days} days</b>. Fees are estimated from historical pool fees and daily liquidity. LP vs holding is the fixed-range price-only comparison, not a realised wallet loss. Period return is not APR.
@@ -1233,20 +1113,20 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Projection-period dropdown */}
             <div style={{ position: 'relative' }}>
               <button onClick={() => setYieldOpen(o => !o)} style={{
-                cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 800, color: '#52E3A4',
-                background: 'rgba(82,227,164,0.14)', border: '1px solid rgba(82,227,164,0.4)', borderRadius: 8, padding: '3px 8px',
+                cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 800, color: 'var(--btb-green)',
+                background: 'rgba(var(--green-rgb), 0.14)', border: '1px solid rgba(var(--green-rgb), 0.4)', borderRadius: 8, padding: '3px 8px',
               }}>{YIELD_PERIODS.find(p => p.d === simDays)?.label ?? '1 month'} ▾</button>
               {yieldOpen && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 10, minWidth: 118,
-                  background: 'rgba(18,18,26,0.98)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10,
+                  background: 'rgba(18,18,26,0.98)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 10,
                   padding: 4, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                 }}>
                   {YIELD_PERIODS.map(p => (
                     <div key={p.d} onClick={() => { setSimDays(p.d); setYieldOpen(false); }} style={{
                       padding: '7px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                      color: simDays === p.d ? '#52E3A4' : btb.text,
-                      background: simDays === p.d ? 'rgba(82,227,164,0.12)' : 'transparent',
+                      color: simDays === p.d ? 'var(--btb-green)' : btb.text,
+                      background: simDays === p.d ? 'rgba(var(--green-rgb), 0.12)' : 'transparent',
                     }}>{p.label}</div>
                   ))}
                 </div>
@@ -1254,7 +1134,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             </div>
           </div>
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-            <span style={{ color: '#52E3A4', fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
+            <span style={{ color: 'var(--btb-green)', fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>
               ${total >= 100 ? total.toLocaleString('en-US', { maximumFractionDigits: 0 }) : total.toFixed(2)}
             </span>
             {sim.apr !== null && (
@@ -1272,17 +1152,63 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     );
   }
 
+  // Sticky deposit bar: full width under the form on mobile, pinned to the
+  // bottom of the form column on desktop.
+  const showActionBar = !simOnly && pool?.exists && !loadingPool && !poolErr;
+  const actionBar =       (
+        <div style={{
+          position: 'sticky', zIndex: 5, pointerEvents: 'none',
+          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
+          display: 'block',
+          padding: isMobile ? '0 0 10px' : '12px 0 0',
+        }}>
+          <div style={{
+            pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
+            background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 14, padding: 8,
+          }}>
+                <div
+                  onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
+                  title="Tap to change liquidity slippage"
+                  style={{
+                    flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                    background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
+                  }}>
+                  <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
+                  <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
+                </div>
+                {canStake && !simOnly && (
+                  <div
+                    onClick={() => setStakeAfterMint((v) => !v)}
+                    title={`Stake the new position to earn ${rewardSymbol}`}
+                    style={{
+                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                      background: stakeAfterMint ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
+                      display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
+                    }}>
+                    <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
+                    <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
+                  </div>
+                )}
+                <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                  {busy ? (stepMsg || 'Confirming…') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
+                </Button>
+          </div>
+        </div>
+      );
+
   return (
     <Portal>
     <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-      <div style={{ width: '100%', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
+      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
         {/* Compact single-row header: back chevron + title, pair/dex as an
             inline subtitle — keeps the tap-to-go-back affordance without the
             tall "Back to Discover" stack eating the top of small screens. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <div onClick={onClose} title="Back to Discover" style={{
             width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-            background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+            background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Icon name="back" size={14} color={btb.textMuted}/>
@@ -1302,11 +1228,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool — {poolErr}</div>
             <button onClick={() => setRetryNonce((n) => n + 1)} style={{
               marginTop: 10, height: 36, padding: '0 18px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-              fontSize: 13, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.16)', color: btb.text,
+              fontSize: 13, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.16)', color: btb.text,
             }}>Retry</button>
           </div>
         ) : !pool?.exists ? (
-          <div style={{ color: '#FFB36B', fontSize: 13, padding: '8px 0' }}>
+          <div style={{ color: 'var(--btb-amber)', fontSize: 13, padding: '8px 0' }}>
             {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
           </div>
         ) : (
@@ -1319,9 +1245,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   {[100, 1000, 10000].map((v) => (
                     <button key={v} onClick={() => setSimUsdStr(String(v))} style={{
                       flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                      background: simUsdStr === String(v) ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
-                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                      color: simUsdStr === String(v) ? '#52E3A4' : btb.textMuted,
+                      background: simUsdStr === String(v) ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.05)',
+                      border: `1px solid ${simUsdStr === String(v) ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                      color: simUsdStr === String(v) ? 'var(--btb-green)' : btb.textMuted,
                     }}>${v.toLocaleString('en-US')}</button>
                   ))}
                 </div>
@@ -1334,16 +1260,54 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     style={{ ...inputStyle(false), paddingLeft: 30 }}/>
                 </div>
                 {!tokenUsd && (
-                  <div style={{ color: '#FFB36B', fontSize: 12, marginBottom: 10 }}>
+                  <div style={{ color: 'var(--btb-amber)', fontSize: 12, marginBottom: 10 }}>
                     No USD price data for this pair yet; try again in a moment.
                   </div>
                 )}
               </>
             )}
 
+            {/* Desktop: results on the left, the form on the right so the
+                estimate updates beside the controls instead of below them. */}
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : 'minmax(0, 1fr) 460px', gap: 18, alignItems: 'start' }}>
+            {!isMobile && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+                {renderDepositSummary()}
+                {pool?.exists && ticks && CHAIN_DATA_NETWORKS[chainId] && (
+                  <SimulatorPage
+                    // The same simulator as /simulate, driven by this form's range,
+                    // tier and amount; dragging on its depth chart moves the range.
+                    tokenA={!isV4 ? tokenA : undefined}
+                    tokenB={!isV4 ? tokenB : undefined}
+                    selected={{
+                      protocol: isV4 ? 'uniswap-v4' : dex === 'pancakeswap' ? 'pancakeswap-v3' : 'uniswap-v3',
+                      feeTier: fee,
+                      address: !isV4 ? (pool.address as `0x${string}`) : undefined,
+                      v4PoolId,
+                      dexLabel: dex === 'uniswap' || dex === 'pancakeswap' ? undefined : dexLabel,
+                      fees24hUsd,
+                    }}
+                    siblings={[]}
+                    chainId={chainId}
+                    chainName={chainLabel}
+                    wrappedNative={wrappedNativeFor(chainId)}
+                    networks={CHAIN_DATA_NETWORKS[chainId]}
+                    onClose={() => {}}
+                    embed={{
+                      ticks,
+                      feeTier: fee,
+                      depositUsd: sim?.depositUsd && sim.depositUsd > 0 ? sim.depositUsd : 10_000,
+                      onRange: (t) => { setRangeMode(t); setSmartNote(null); setSwapPreview(null); },
+                    }}
+                  />
+                )}
+              </div>
+            )}
+            {/* Desktop: the form column scrolls on its own and stays in view while the simulator scrolls. */}
+            <div style={{ minWidth: 0, ...(isMobile ? {} : { position: 'sticky' as const, top: 0, maxHeight: '100vh', overflowY: 'auto' as const, paddingBottom: 12 }) }}>
             <div style={{
-              width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
+              width: '100%', boxSizing: 'border-box', background: 'rgba(var(--fg-rgb), 0.025)',
+              border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
             }}>
             {/* Current price + flip */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
@@ -1352,7 +1316,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </span>
               <button onClick={toggleFlip} title="Flip which token prices are quoted in" style={{
                 flexShrink: 0, height: 26, padding: '0 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 11, fontWeight: 700, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)', color: btb.textMuted,
+                fontSize: 11, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.07)', border: '1px solid rgba(var(--fg-rgb), 0.14)', color: btb.textMuted,
               }}>⇄ {qQuote}/{qBase}</button>
             </div>
             {renderRangeBar()}
@@ -1361,9 +1325,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               {RANGE_PRESETS.map((r) => (
                 <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); setSwapPreview(null); }} style={{
                   flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                  background: rangeMode === r.pct ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.05)',
-                  border: `1px solid ${rangeMode === r.pct ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.1)'}`,
-                  color: rangeMode === r.pct ? '#52E3A4' : btb.textMuted,
+                  background: rangeMode === r.pct ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.05)',
+                  border: `1px solid ${rangeMode === r.pct ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                  color: rangeMode === r.pct ? 'var(--btb-green)' : btb.textMuted,
                 }}>{r.label}</button>
               ))}
             </div>
@@ -1396,7 +1360,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
             {!simOnly && !splitRange && address && (
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: btb.textDim, fontSize: 10 }}>You hold</div>
                   <div style={{ color: btb.text, fontSize: 12, fontWeight: 700, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1406,12 +1370,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
                 {/* Single-token wallets: segmented Balanced / Single-sided choice. */}
                 {((effBal0 <= 0n) !== (effBal1 <= 0n)) && !(!isV4 && ethMode && wethSide === (effBal0 > 0n ? 0 : 1)) && (
-                  <div style={{ display: 'flex', marginTop: 8, background: 'rgba(255,255,255,0.05)', borderRadius: 9, padding: 2 }}>
+                  <div style={{ display: 'flex', marginTop: 8, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 9, padding: 2 }}>
                     {([['balanced', 'Balanced'], ['single', 'Single-sided']] as const).map(([val, title]) => (
                       <button key={val} onClick={() => { setSmartStrategy(val); applySmartFit(val); }} style={{
                         flex: 1, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
-                        background: smartStrategy === val ? 'rgba(82,227,164,0.2)' : 'transparent',
-                        color: smartStrategy === val ? '#52E3A4' : btb.textMuted,
+                        background: smartStrategy === val ? 'rgba(var(--green-rgb), 0.2)' : 'transparent',
+                        color: smartStrategy === val ? 'var(--btb-green)' : btb.textMuted,
                       }}>{title}</button>
                     ))}
                   </div>
@@ -1422,7 +1386,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     <span style={{ color: btb.textDim }}>Swap to balance</span>
                     <span style={{ fontWeight: 700 }}>
                       {fmtAmt(swapPreview.sellRaw, swapPreview.sellSide === 0 ? pool.decimals0 : pool.decimals1)} {swapPreview.sym} to {swapPreview.otherSym}
-                      <span style={{ color: swapPreview.pct <= 60 ? '#52E3A4' : '#FFB36B', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
+                      <span style={{ color: swapPreview.pct <= 60 ? 'var(--btb-green)' : 'var(--btb-amber)', fontWeight: 800, marginLeft: 6 }}>({swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}%)</span>
                     </span>
                   </div>
                 )}
@@ -1437,61 +1401,17 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               <>
                 {!isV4 && (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '0 2px 8px' }}>
-                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.12)'}`, background: splitRange ? 'rgba(82,227,164,0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
-                      <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(255,255,255,0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
+                    <button onClick={toggleUnevenAmounts} aria-pressed={splitRange} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, height: 28, padding: '0 8px 0 4px', cursor: 'pointer', borderRadius: 999, border: `1px solid ${splitRange ? 'rgba(var(--green-rgb), 0.4)' : 'rgba(var(--fg-rgb), 0.12)'}`, background: splitRange ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: splitRange ? btb.green : btb.textMuted, fontFamily: 'inherit', fontSize: 11, fontWeight: 750 }}>
+                      <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(var(--fg-rgb), 0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
                       Use uneven amounts
                     </button>
-                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : '#FFB36B', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
-                  </div>
-                )}
-
-                {!isV4 && dex === 'uniswap' && (
-                  <div style={{ marginBottom: 9 }}>
-                    <button
-                      type="button"
-                      disabled={!universalDeployment}
-                      onClick={() => {
-                        if (!universalDeployment) return;
-                        setAutoManage((enabled) => !enabled);
-                        setSwapPreview(null);
-                      }}
-                      aria-pressed={autoManage}
-                      style={{
-                        width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: universalDeployment ? 'pointer' : 'default',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontFamily: 'inherit', textAlign: 'left',
-                        border: `1px solid ${autoManage ? 'rgba(82,227,164,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                        background: autoManage ? 'rgba(82,227,164,0.09)' : 'rgba(255,255,255,0.035)',
-                        color: universalDeployment ? btb.text : btb.textDim,
-                      }}
-                    >
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 12, fontWeight: 800 }}>Auto-manage this LP</span>
-                        <span style={{ display: 'block', color: btb.textMuted, fontSize: 9.8, marginTop: 2, lineHeight: 1.3 }}>
-                          {universalDeployment ? 'The NFT is created directly in your universal account; only your wallet can withdraw it.' : 'Guarded automation currently supports Robinhood Chain.'}
-                        </span>
-                      </span>
-                      <span style={{ flexShrink: 0, width: 30, height: 17, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: autoManage ? btb.green : 'rgba(255,255,255,0.18)' }}>
-                        <span style={{ display: 'block', width: 13, height: 13, borderRadius: '50%', background: '#fff', transform: `translateX(${autoManage ? 13 : 0}px)`, transition: 'transform 0.18s' }} />
-                      </span>
-                    </button>
+                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : 'var(--btb-amber)', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
                   </div>
                 )}
 
                 {/* Amounts — enter either side, the other is paired automatically */}
                 {renderAmountInput(0)}
                 {renderAmountInput(1)}
-
-                {autoManage && universalDeployment && (
-                  <div style={{ marginBottom: 10 }}>
-                    <AutomationRules
-                      value={automationRules}
-                      onChange={setAutomationRules}
-                      agent={universalDeployment.agent}
-                      slippageBps={slippageBps}
-                      onSlippageChange={setSlippageBps}
-                    />
-                  </div>
-                )}
 
                 {!splitRange && renderNeedWarning()}
                 {(short0 || short1) && (
@@ -1504,9 +1424,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
             {simOnly && renderNeedWarning()}
             {renderPriceDeviationWarning()}
-            {renderDepositSummary()}
-            {!splitRange && renderEarnings()}
-            {!splitRange && renderBacktest()}
+            {isMobile && renderDepositSummary()}
+            {isMobile && !splitRange && renderEarnings()}
+            {isMobile && !splitRange && renderBacktest()}
 
             {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
@@ -1524,61 +1444,20 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </>
             ) : (
               <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
-                {autoManage
-                  ? 'Account creation, exact approvals and LP setup are batched when your wallet supports it. Unused tokens return to your wallet.'
-                  : swapPreview
+                {swapPreview
                   ? `Two transactions: swap ~${swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}% to balance, then add — each slippage-protected (${slippageBps / 100}%).`
                   : <>Slippage-protected ({slippageBps / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}</>}
               </div>
             )}
             </div>
+            {!isMobile && showActionBar && actionBar}
+            </div>
+            </div>
           </>
         )}
       </div>
 
-      {/* Full-width sticky action bar keeps the final deposit action reachable. */}
-      {!simOnly && pool?.exists && !loadingPool && !poolErr && (
-        <div style={{
-          position: 'sticky', zIndex: 5, pointerEvents: 'none',
-          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
-          display: 'block',
-          padding: isMobile ? '0 0 10px' : '0 24px calc(12px + env(safe-area-inset-bottom, 0px))',
-        }}>
-          <div style={{
-            pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
-            background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, padding: 8,
-          }}>
-                <div
-                  onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
-                  title="Tap to change liquidity slippage"
-                  style={{
-                    flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                    display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
-                  }}>
-                  <span style={{ color: btb.textDim, fontSize: 9 }}>Liq. slippage</span>
-                  <span style={{ color: btb.text, fontSize: 12, fontWeight: 800 }}>{slippageBps / 100}%</span>
-                </div>
-                {canStake && !simOnly && (
-                  <div
-                    onClick={() => setStakeAfterMint((v) => !v)}
-                    title={`Stake the new position to earn ${rewardSymbol}`}
-                    style={{
-                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
-                      background: stakeAfterMint ? 'rgba(82,227,164,0.14)' : 'rgba(255,255,255,0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(82,227,164,0.45)' : 'rgba(255,255,255,0.12)'}`,
-                      display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
-                    }}>
-                    <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
-                    <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
-                  </div>
-                )}
-                <Button variant="success" size="sm" onClick={() => (autoManage ? mintManaged() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
-                  {busy ? (stepMsg || 'Confirming…') : autoManage ? (splitRange ? 'Create 2 managed LPs' : 'Create managed LP') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
-                </Button>
-          </div>
-        </div>
-      )}
+      {isMobile && showActionBar && actionBar}
     </div>
     </Portal>
   );

@@ -81,7 +81,7 @@ export function DataTable<T>({
           {loading ? (
             <tr>
               <td colSpan={columns.length} style={{ padding: '40px 16px', textAlign: 'center' }}>
-                <Spinner size={22} color="#fff" track="rgba(255,255,255,0.18)" />
+                <Spinner size={22} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)" />
               </td>
             </tr>
           ) : sortedRows.length === 0 ? (
@@ -99,7 +99,7 @@ export function DataTable<T>({
                   cursor: onRowClick ? 'pointer' : 'default',
                   transition: 'background 0.12s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.03)')}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(var(--fg-rgb), 0.03)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 {columns.map(col => (
@@ -110,7 +110,7 @@ export function DataTable<T>({
                       padding: '12px 16px',
                       fontSize: 13.5,
                       color: btb.text,
-                      borderBottom: '1px solid rgba(255,255,255,0.04)',
+                      borderBottom: '1px solid rgba(var(--fg-rgb), 0.04)',
                     }}
                   >
                     {col.render(row)}

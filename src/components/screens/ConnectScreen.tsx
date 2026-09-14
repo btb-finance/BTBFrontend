@@ -73,7 +73,7 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
       {onClose && (
         <div onClick={onClose} style={{
           position: 'absolute', top: 16, right: 16, width: 34, height: 34, borderRadius: 999, zIndex: 1,
-          background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+          background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
           <Icon name="close" size={15} color={btb.textMuted}/>
@@ -108,16 +108,16 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
               <div style={{
                 width: 44, height: 44, borderRadius: 12, background: w.bg,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: 22, fontWeight: 700,
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)',
+                color: 'var(--btb-text)', fontSize: 22, fontWeight: 700,
+                boxShadow: 'inset 0 1px 0 rgba(var(--fg-rgb), 0.25)',
               }}>{w.glyph}</div>
               <div style={{ flex: 1 }}>
                 <div style={{ color: btb.text, fontSize: 16, fontWeight: 600 }}>{w.name}</div>
                 <div style={{ color: btb.textMuted, fontSize: 12 }}>{w.sub}</div>
               </div>
               {isPending
-                ? <Spinner size={18} color="#FFFFFF" track="rgba(255,255,255,0.3)" />
-                : <Icon name="arrow" size={18} color="rgba(255,255,255,0.5)"/>
+                ? <Spinner size={18} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.3)" />
+                : <Icon name="arrow" size={18} color="rgba(var(--fg-rgb), 0.5)"/>
               }
             </div>
           </Glass>
@@ -126,7 +126,7 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
 
       {error && (
         <div style={{
-          background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)',
+          background: 'rgba(var(--fg-rgb), 0.1)', border: '1px solid rgba(var(--fg-rgb), 0.18)',
           borderRadius: 14, padding: '10px 14px',
           color: btb.pink, fontSize: 13, textAlign: 'center',
         }}>
@@ -151,7 +151,7 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
               autoComplete="off"
               style={{
                 flex: 1, minWidth: 0,
-                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
                 borderRadius: 12, padding: '10px 12px',
                 color: btb.text, fontSize: 13, fontFamily: 'monospace', letterSpacing: 0.2,
                 outline: 'none',
@@ -162,7 +162,7 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
               disabled={!importValid}
               style={{
                 padding: '0 14px', borderRadius: 12, border: 'none', cursor: importValid ? 'pointer' : 'default',
-                background: importValid ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
+                background: importValid ? 'rgba(var(--fg-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
                 color: importValid ? '#fff' : btb.textDim,
                 fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
               }}

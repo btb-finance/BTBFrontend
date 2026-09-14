@@ -33,13 +33,6 @@ if (process.env.DISABLE_CRONS !== "1") {
   // stays bounded — the sweep is batched, so it runs often.
   crons.interval("purge expired cache", { minutes: 30 }, internal.cacheFill.purge);
 
-  // Verify managed LP custody, policy and live range on-chain. This queues
-  // work only; the restricted smart account remains the security boundary.
-  crons.interval("monitor managed LP ranges", { minutes: 1 }, internal.managedPositionMonitor.check);
-  // Process at most one durable job per minute. A broadcast job is always
-  // reconciled before another EOA nonce is used.
-  crons.interval("execute managed LP rebalances", { minutes: 1 }, internal.rebalanceWorker.run);
-
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
   // UTC; this ticks hourly rather than weekly so a failed settlement retries an

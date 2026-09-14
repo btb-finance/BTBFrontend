@@ -20,7 +20,7 @@ interface BadgeProps {
  * (Soon, Stable, fee tiers, version chips, "You hold …"). Pass color/bg/border
  * to recolor without re-declaring the shape.
  */
-export function Badge({ children, color = btb.textDim, bg = 'transparent', border = '1px solid rgba(255,255,255,0.14)', size = 'md', style }: BadgeProps) {
+export function Badge({ children, color = btb.textDim, bg = 'transparent', border = '1px solid rgba(var(--fg-rgb), 0.14)', size = 'md', style }: BadgeProps) {
   const dims = size === 'sm'
     ? { fontSize: 10, padding: '1px 6px' }
     : { fontSize: 11, padding: '3px 10px' };

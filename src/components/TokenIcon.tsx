@@ -14,10 +14,14 @@ const TOKEN_MAP: Record<string, { bg: string; glyph: string }> = {
   LINK: { bg: 'linear-gradient(135deg,#2A5ADA,#1840A8)', glyph: 'L' },
   UNI:  { bg: 'linear-gradient(135deg,#FF007A,#C40060)', glyph: 'U' },
   AAVE: { bg: 'linear-gradient(135deg,#B6509E,#7B3F98)', glyph: 'A' },
-  BTB:  { bg: 'linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08))', glyph: 'B' },
+  BTB:  { bg: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.2),rgba(var(--fg-rgb), 0.08))', glyph: 'B' },
 };
 
+/** BTB's own token always shows the app logo, whatever a list or indexer carries. */
+const BTB_LOGO = '/btblogo.jpg';
+
 export function TokenIcon({ symbol, size = 36, logoUrl }: { symbol: string; size?: number; logoUrl?: string }) {
+  if (symbol?.toUpperCase() === 'BTB') logoUrl = BTB_LOGO;
   if (logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -37,8 +41,8 @@ export function TokenIcon({ symbol, size = 36, logoUrl }: { symbol: string; size
       width: size, height: size, borderRadius: size,
       background: t.bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: '#fff', fontWeight: 700, fontSize: size * 0.46,
-      boxShadow: '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3)',
+      color: 'var(--btb-text)', fontWeight: 700, fontSize: size * 0.46,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(var(--fg-rgb), 0.3)',
       flexShrink: 0,
       letterSpacing: -0.5,
     }}>{t.glyph}</div>

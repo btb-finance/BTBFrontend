@@ -47,10 +47,57 @@ function hexRgb(hex: string): string {
   return `${parseInt(value.slice(0, 2), 16)}, ${parseInt(value.slice(2, 4), 16)}, ${parseInt(value.slice(4, 6), 16)}`;
 }
 
-export function chainThemeCss(theme: ChainTheme): Record<string, string> {
+export type ColorMode = 'dark' | 'light';
+
+/**
+ * Every surface, border and text colour in the app is written against
+ * `--fg-rgb` (the ink) and `--bg-rgb` (the paper), so day and night are one
+ * swap of those two triples plus the handful of absolutes below.
+ */
+export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Record<string, string> {
   const accentRgb = hexRgb(theme.accent);
+  if (mode === 'light') {
+    return {
+      '--color-mode': 'light',
+      '--fg-rgb': '14, 16, 24',
+      '--bg-rgb': '232, 234, 240',
+      '--chain-bg': '#E8EAF0',
+      '--btb-text': '#0E1018',
+      '--btb-text-muted': 'rgba(14,16,24,.68)',
+      '--btb-text-dim': 'rgba(14,16,24,.5)',
+      '--btb-green': '#0E9A66',
+      '--green-rgb': '14, 154, 102',
+      '--btb-amber': '#B8600A',
+      '--amber-rgb': '184, 96, 10',
+      '--btb-loss': '#D23A4E',
+      '--loss-rgb': '210, 58, 78',
+      '--chain-accent': theme.accent,
+      '--chain-accent-2': theme.accent2,
+      '--chain-accent-soft': `rgba(${accentRgb}, .10)`,
+      '--chain-surface': 'rgba(255,255,255,.55)',
+      '--chain-surface-strong': 'rgba(255,255,255,.8)',
+      '--chain-surface-soft': 'rgba(255,255,255,.35)',
+      '--chain-border': '1px solid rgba(14,16,24,.12)',
+      '--chain-border-soft': '1px solid rgba(14,16,24,.07)',
+      '--chain-shadow': '0 8px 28px rgba(20,24,40,.10), 0 1px 0 rgba(255,255,255,.6) inset',
+      '--chain-gradient': 'linear-gradient(135deg, #14161F, #2A2D3A)',
+      '--chain-app-background': 'linear-gradient(180deg, #E3E6EE 0%, #ECEEF4 40%, #E8EAF0 100%)',
+    };
+  }
   return {
+    '--color-mode': 'dark',
+    '--fg-rgb': '255, 255, 255',
+    '--bg-rgb': '10, 10, 15',
     '--chain-bg': '#0A0A0F',
+    '--btb-text': '#FFFFFF',
+    '--btb-text-muted': 'rgba(255,255,255,.55)',
+    '--btb-text-dim': 'rgba(255,255,255,.35)',
+    '--btb-green': '#52E3A4',
+    '--green-rgb': '82, 227, 164',
+    '--btb-amber': '#FFB36B',
+    '--amber-rgb': '255, 179, 107',
+    '--btb-loss': '#FF6B7A',
+    '--loss-rgb': '255, 107, 122',
     '--chain-accent': theme.accent,
     '--chain-accent-2': theme.accent2,
     '--chain-accent-soft': `rgba(${accentRgb}, .08)`,

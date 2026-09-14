@@ -28,9 +28,6 @@ import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBl
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
 import { RebalanceFlow } from './RebalanceFlow';
-import { AutomatePositionSheet } from './AutomatePositionSheet';
-import { SmartAccountPositions } from './SmartAccountPositions';
-import { getUniversalWalletDeployment } from '../lib/universalWallet';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   type KrystalPositionAnalytics,
@@ -61,7 +58,7 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
   'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
-  'up-v3': { label: 'UP', color: '#8B5CF6' },
+  'up-v3': { label: 'UP', color: '#52E3A4' },
   'sushiswap-v3': { label: 'SUSHI V3', color: '#FA52A0' },
 };
 
@@ -169,8 +166,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
-  const [automate, setAutomate] = useState<LiquidityPosition | null>(null);
-  const [automationRefresh, setAutomationRefresh] = useState(0);
   const [usd, setUsd] = useState<Record<string, number>>({});
 
   const [showClosedHistory, setShowClosedHistory] = useState(false);
@@ -455,7 +450,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const hasFees = p.fees0 > 0n || p.fees1 > 0n;
     const hasLiquidity = p.liquidity > 0n;
     const canRebalance = hasLiquidity && canActOn(p);
-    const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
     const busy = busyId === posKey(p);
     const v = valueOf(p);
     const f = feesValueOf(p);
@@ -487,7 +481,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
               <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
-              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
+              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
                 {p.inRange ? 'In range' : 'Out of range'}
               </Badge>
               <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
@@ -498,7 +492,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
             {p.staked && (
               <div style={{ marginTop: v > 0 ? 4 : 0 }}>
-                <Badge size="sm" border="none" bg="rgba(255,179,107,0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
+                <Badge size="sm" border="none" bg="rgba(var(--amber-rgb), 0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
               </div>
             )}
           </div>
@@ -514,17 +508,17 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div>
           </div>
           {p.staked ? (
-            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(255,179,107,0.07)', border: '1px solid rgba(255,179,107,0.22)' }}>
+            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
               <div style={boxLabel}>Rewards</div>
               <div style={{ ...boxValue, color: btb.amber }}>{fmtAmt(p.staked.earned, 18)}</div>
-              <div style={{ color: 'rgba(255,179,107,0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
+              <div style={{ color: 'rgba(var(--amber-rgb), 0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
             </div>
           ) : (
-            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(82,227,164,0.07)' : box.background, border: hasFees ? '1px solid rgba(82,227,164,0.22)' : box.border }}>
+            <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
               <div style={boxLabel}>Unclaimed fees</div>
               <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
               {hasFees && (
-                <div style={{ color: 'rgba(82,227,164,0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
                 </div>
               )}
@@ -542,7 +536,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {line('Current value', money(v > 0 ? v : a.totalDepositValue + a.pnl))}
             {a.totalWithdrawValue > 0 && line('Withdrawn', money(a.totalWithdrawValue))}
             {a.feeApr > 0 && line('Fee APR', `${a.feeApr.toFixed(1)}%`, btb.textMuted)}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', marginTop: 2, paddingTop: 8 }}>
+            <div style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', marginTop: 2, paddingTop: 8 }}>
               {line('P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss, true)}
             </div>
           </div>
@@ -561,7 +555,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               {p.stakeable && hasLiquidity && <LpButton full label={`Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`} onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
             </>
           )}
-          {canAutomate && <LpButton full label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
           {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
           {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
         </div>
@@ -623,7 +616,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       sortValue: item => item.status?.toUpperCase() === 'IN_RANGE' ? 1 : 0,
       render: item => {
         const inRange = item.status?.toUpperCase() === 'IN_RANGE';
-        return <Badge size="sm" border="none" bg={inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>;
+        return <Badge size="sm" border="none" bg={inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>;
       },
     },
     {
@@ -648,8 +641,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
           padding: isMobile ? '12px 14px' : '14px 18px', borderRadius: 16,
-          background: 'linear-gradient(90deg, rgba(82,227,164,0.12), rgba(26,173,119,0.08))',
-          border: '1px solid rgba(82,227,164,0.24)',
+          background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.12), rgba(26,173,119,0.08))',
+          border: '1px solid rgba(var(--green-rgb), 0.24)',
         }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ color: btb.green, fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: -0.3 }}>
@@ -679,7 +672,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         </div>
       )}
 
-      {showEmpty && <SmartAccountPositions address={address as `0x${string}`} canTransact={canTransact} refreshNonce={automationRefresh}/>} 
 
       {krystalStats && (
         <Glass padding={isMobile ? 12 : 16} radius={16} soft>
@@ -694,7 +686,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               { label: 'Vs holding', value: fmtSignedMoney(krystalStats.compareWithHodl), color: krystalStats.compareWithHodl >= 0 ? btb.green : btb.loss },
               { label: 'Positions', value: `${krystalStats.openPositionCount} open · ${krystalStats.closedPositionCount} closed`, color: btb.text },
             ].map((item) => (
-              <div key={item.label} style={{ padding: '9px 10px', borderRadius: 11, background: 'rgba(255,255,255,0.035)', minWidth: 0 }}>
+              <div key={item.label} style={{ padding: '9px 10px', borderRadius: 11, background: 'rgba(var(--fg-rgb), 0.035)', minWidth: 0 }}>
                 <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
                 <div style={{ color: item.color, fontSize: isMobile ? 13 : 14, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
               </div>
@@ -715,7 +707,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 const symbols = [...new Set((item.feePending ?? []).map((amount) => amount.token?.symbol).filter(Boolean))];
                 const closed = item.closedTime ? new Date(item.closedTime * 1000).toLocaleDateString() : 'closed';
                 return (
-                  <div key={`${item.pool?.projectKey}-${item.tokenId}`} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr 0.8fr 0.7fr 0.7fr', gap: 10, alignItems: 'center', padding: '9px 10px', borderRadius: 10, background: 'rgba(255,255,255,0.035)' }}>
+                  <div key={`${item.pool?.projectKey}-${item.tokenId}`} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr 0.8fr 0.7fr 0.7fr', gap: 10, alignItems: 'center', padding: '9px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.035)' }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
                       <div style={{ color: btb.textDim, fontSize: 9.5, marginTop: 2 }}>{item.pool?.project ?? 'LP'} · {closed}</div>
@@ -767,7 +759,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>${item.currentPositionValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-                    <Badge size="sm" border="none" bg={inRange ? 'rgba(82,227,164,0.14)' : 'rgba(255,179,107,0.14)'} color={inRange ? btb.green : btb.amber} style={{ marginTop: 3, whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
+                    <Badge size="sm" border="none" bg={inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={inRange ? btb.green : btb.amber} style={{ marginTop: 3, whiteSpace: 'nowrap' }}>{inRange ? 'In range' : 'Out of range'}</Badge>
                   </div>
                 </div>
 
@@ -778,11 +770,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 )}
                 {pendingFees > 0 && <div style={{ color: btb.green, fontSize: 12, marginTop: 3 }}>Fees: ${pendingFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 9 }}>
-                  <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
+                  <div style={{ background: 'rgba(var(--fg-rgb), 0.035)', borderRadius: 10, padding: '8px 9px' }}>
                     <div style={{ color: btb.textDim, fontSize: 9.5 }}>HISTORICAL PNL</div>
                     <div style={{ color: item.pnl >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>{fmtSignedMoney(item.pnl)} · {fmtSignedPercent(item.returnOnInvestment)}</div>
                   </div>
-                  <div style={{ background: 'rgba(255,255,255,0.035)', borderRadius: 10, padding: '8px 9px' }}>
+                  <div style={{ background: 'rgba(var(--fg-rgb), 0.035)', borderRadius: 10, padding: '8px 9px' }}>
                     <div style={{ color: btb.textDim, fontSize: 9.5 }}>LIFETIME FEES</div>
                     <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 800, marginTop: 2 }}>${lifetimeFees.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
                   </div>
@@ -835,14 +827,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         />
       )}
 
-      {automate && connectedAddress && automate.protocol === 'uniswap-v3' && (
-        <AutomatePositionSheet
-          pos={automate}
-          account={connectedAddress as `0x${string}`}
-          onClose={() => setAutomate(null)}
-          onDone={async () => { setAutomate(null); setAutomationRefresh((value) => value + 1); await load(); }}
-        />
-      )}
     </div>
   );
 }
@@ -851,9 +835,9 @@ function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: (
   return (
     <button onClick={onClick} disabled={disabled} style={{
       height: 32, padding: '0 13px', borderRadius: 10, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap',
-      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(82,227,164,0.4)' : '1px solid rgba(255,255,255,0.14)',
+      border: disabled ? '1px solid transparent' : green ? '1px solid rgba(var(--green-rgb), 0.4)' : '1px solid rgba(var(--fg-rgb), 0.14)',
       cursor: disabled ? 'default' : 'pointer',
-      background: disabled ? 'rgba(255,255,255,0.06)' : green ? 'rgba(82,227,164,0.16)' : 'rgba(255,255,255,0.07)',
+      background: disabled ? 'rgba(var(--fg-rgb), 0.06)' : green ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--fg-rgb), 0.07)',
       color: disabled ? btb.textDim : green ? btb.green : btb.text,
     }}>{label}</button>
   );
@@ -970,7 +954,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
         <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
           {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
         </div>
@@ -982,9 +966,9 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               {[25, 50, 75, 100].map((v) => (
                 <button key={v} onClick={() => setPct(v)} style={{
                   flex: 1, height: 40, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
-                  background: pct === v ? 'rgba(82,227,164,0.18)' : 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${pct === v ? 'rgba(82,227,164,0.5)' : 'rgba(255,255,255,0.12)'}`,
-                  color: pct === v ? '#52E3A4' : btb.textMuted,
+                  background: pct === v ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
+                  border: `1px solid ${pct === v ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.12)'}`,
+                  color: pct === v ? 'var(--btb-green)' : btb.textMuted,
                 }}>{v}%</button>
               ))}
             </div>
@@ -998,9 +982,9 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         ) : (
           <>
             {wethSide !== null && (
-              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px' }}>
+              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 14, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '10px 14px' }}>
                 <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? '#52E3A4' : 'rgba(255,255,255,0.18)', position: 'relative', transition: 'background 0.2s' }}>
+                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? 'var(--btb-green)' : 'rgba(var(--fg-rgb), 0.18)', position: 'relative', transition: 'background 0.2s' }}>
                   <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
                 </div>
               </div>
@@ -1016,7 +1000,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               value={amtStr}
               onChange={(e) => setAmtStr(e.target.value.replace(/[^0-9.]/g, ''))}
               inputMode="decimal" placeholder="0"
-              style={{ width: '100%', height: 52, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '0 16px', color: btb.text, fontSize: 22, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}/>
+              style={{ width: '100%', height: 52, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 14, padding: '0 16px', color: btb.text, fontSize: 22, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}/>
             {(add0 > 0n || add1 > 0n) && (
               <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 10 }}>
                 Deposit: {fmtAmt(add0, pos.decimals0)} {sym0} + {fmtAmt(add1, pos.decimals1)} {sym1}
@@ -1026,7 +1010,7 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
               <div style={{ color: btb.loss, fontSize: 12, marginTop: 8 }}>Insufficient {short0 ? sym0 : sym1} balance</div>
             )}
             {!pos.inRange && (
-              <div style={{ color: '#FFB36B', fontSize: 11, marginTop: 8 }}>Out of range — only {inputSymbol} is needed at the current price.</div>
+              <div style={{ color: 'var(--btb-amber)', fontSize: 11, marginTop: 8 }}>Out of range — only {inputSymbol} is needed at the current price.</div>
             )}
           </>
         )}

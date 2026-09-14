@@ -23,7 +23,7 @@ export function PnlWaterfall({ sim }: { sim: Sim }) {
           const isStart = leg.kind === 'start';
           const color = isFinal ? (roiPct >= 0 ? btb.green : btb.loss) : isStart ? btb.text : leg.usd >= 0 ? chart.fees : chart.neg;
           return (
-            <div key={leg.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: isFinal ? '14px 14px' : '11px 14px', background: isFinal ? 'rgba(82,227,164,0.08)' : i % 2 ? 'rgba(255,255,255,0.025)' : 'transparent', borderTop: i ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+            <div key={leg.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: isFinal ? '14px 14px' : '11px 14px', background: isFinal ? 'rgba(var(--green-rgb), 0.08)' : i % 2 ? 'rgba(var(--fg-rgb), 0.025)' : 'transparent', borderTop: i ? '1px solid rgba(var(--fg-rgb), 0.07)' : 'none' }}>
               <span style={{ width: 7, height: 7, borderRadius: 999, background: color, flexShrink: 0 }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.text, fontSize: isFinal ? 14 : 13, fontWeight: isFinal ? 800 : 700 }}>{leg.label}</div>

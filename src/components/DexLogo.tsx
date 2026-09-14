@@ -74,8 +74,8 @@ export function DexLogo({ name, size = 18, src: remote }: { name: string; size?:
         ...shared,
         display: 'inline-grid',
         placeItems: 'center',
-        background: 'rgba(255,255,255,.09)',
-        color: 'rgba(255,255,255,.7)',
+        background: 'rgba(var(--fg-rgb), .09)',
+        color: 'rgba(var(--fg-rgb), .7)',
         fontSize: Math.max(8, size * .5),
         fontWeight: 800,
       }}>

@@ -14,6 +14,7 @@ export const ROBINHOOD_RPC_UPSTREAMS = [
   'https://rpc-robinhood.blockmachine.io',
   'https://robinhood.api.pocket.network',
   'https://robinhood.rpc.blxrbdn.com',
+  'https://rpc.ordofi.network',
 ] as const;
 
 // Each process starts at a random offset so serverless instances don't all

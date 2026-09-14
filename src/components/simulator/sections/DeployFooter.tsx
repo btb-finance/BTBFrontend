@@ -33,8 +33,8 @@ export function DeployFooter({ sim, onDeploy, canDeploy, isMobile }: {
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14,
-        background: 'rgba(10,10,15,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18, padding: isMobile ? '10px 12px' : '12px 18px',
+        background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+        border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 18, padding: isMobile ? '10px 12px' : '12px 18px',
         boxShadow: '0 -6px 28px rgba(0,0,0,0.45)',
       }}>
         <div style={{ display: 'flex', gap: isMobile ? 10 : 18, flex: 1, minWidth: 0, overflowX: 'auto' }}>

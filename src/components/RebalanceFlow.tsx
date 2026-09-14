@@ -123,7 +123,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   return (
     <Portal>
       <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'rgba(10,10,15,0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: '20px 20px calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, padding: '20px 20px calc(24px + env(safe-area-inset-bottom, 0px))' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Rebalance</div>
             {!busy && <div onClick={onClose} style={{ cursor: 'pointer', color: btb.textMuted }}><Icon name="close" size={16} color={btb.textMuted}/></div>}
@@ -160,8 +160,8 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
 
 function Step({ n, title, active, children }: { n: number; title: string; active?: boolean; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', gap: 12, background: active ? 'rgba(82,227,164,0.06)' : 'rgba(255,255,255,0.04)', border: `1px solid ${active ? 'rgba(82,227,164,0.3)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 14, padding: '12px 14px' }}>
-      <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, background: 'rgba(82,227,164,0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
+    <div style={{ display: 'flex', gap: 12, background: active ? 'rgba(var(--green-rgb), 0.06)' : 'rgba(var(--fg-rgb), 0.04)', border: `1px solid ${active ? 'rgba(var(--green-rgb), 0.3)' : 'rgba(var(--fg-rgb), 0.07)'}`, borderRadius: 14, padding: '12px 14px' }}>
+      <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, background: 'rgba(var(--green-rgb), 0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{n}</span>
       <div style={{ minWidth: 0 }}>
         <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>{title}</div>
         <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5, marginTop: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>{children}</div>

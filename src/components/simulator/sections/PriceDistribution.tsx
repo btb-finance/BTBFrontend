@@ -51,7 +51,7 @@ export function PriceDistribution({ sim }: { sim: Sim }) {
         </div>
       }
     >
-      <div style={{ background: 'rgba(255,255,255,0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
+      <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           style={{ width: '100%', height: 'auto', display: 'block' }}
@@ -63,7 +63,7 @@ export function PriceDistribution({ sim }: { sim: Sim }) {
           onPointerLeave={() => setHover(null)}
         >
           {/* in-range shading */}
-          {zHi > zLo && <path d={bandPath} fill="rgba(82,227,164,0.18)" />}
+          {zHi > zLo && <path d={bandPath} fill="rgba(var(--green-rgb), 0.18)" />}
           {/* distribution curve */}
           <path d={curve} fill="none" stroke={chart.net} strokeWidth={2} strokeLinejoin="round" />
           {/* range edges */}
@@ -83,14 +83,14 @@ export function PriceDistribution({ sim }: { sim: Sim }) {
           {/* hover crosshair */}
           {hover !== null && (
             <g>
-              <line x1={x(hover)} x2={x(hover)} y1={PAD} y2={plotH - PAD} stroke="rgba(255,255,255,0.35)" strokeWidth={1} />
+              <line x1={x(hover)} x2={x(hover)} y1={PAD} y2={plotH - PAD} stroke="rgba(var(--fg-rgb), 0.35)" strokeWidth={1} />
               <circle cx={x(hover)} cy={y(normPdf(hover))} r={4} fill={chart.net} stroke="#0A0A0F" strokeWidth={2} />
             </g>
           )}
         </svg>
         {hover !== null && (
           <div style={{
-            position: 'absolute', top: 8, right: 10, background: 'rgba(12,12,18,0.95)', border: btb.borderSoft,
+            position: 'absolute', top: 8, right: 10, background: 'rgba(var(--bg-rgb), 0.95)', border: btb.borderSoft,
             borderRadius: 10, padding: '7px 10px', fontSize: 11, pointerEvents: 'none',
           }}>
             <div style={{ color: btb.text, fontWeight: 800 }}>{fmtPrice(dispOf(hover))} {sim.dispQuote}</div>

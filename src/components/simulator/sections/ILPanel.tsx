@@ -50,7 +50,7 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
       title="Impermanent Loss"
       subtitle={`IL for YOUR range, not the generic curve: a concentrated range loses faster inside the band, then flattens once the price exits (the position becomes 100% one token). Fees assume a steady move over ${sim.horizonDays} days.`}
     >
-      <div style={{ background: 'rgba(255,255,255,0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
+      <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'none' }}
@@ -62,7 +62,7 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
           onPointerLeave={() => setHoverMove(null)}
         >
           {/* zero line + grid */}
-          <line x1={PADX} x2={W - PADY} y1={y(0)} y2={y(0)} stroke="rgba(255,255,255,0.22)" strokeWidth={1} />
+          <line x1={PADX} x2={W - PADY} y1={y(0)} y2={y(0)} stroke="rgba(var(--fg-rgb), 0.22)" strokeWidth={1} />
           {xTicks.map((m) => (
             <g key={m}>
               <line x1={x(m)} x2={x(m)} y1={PADY} y2={plotH - PADY} stroke={chart.grid} strokeWidth={1} />
@@ -75,7 +75,7 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
           {[sim.dispLower, sim.dispUpper].map((p, i) => {
             const m = (p / sim.dispPrice - 1) * 100;
             if (m < MOVES.min || m > MOVES.max) return null;
-            return <line key={i} x1={x(m)} x2={x(m)} y1={PADY} y2={plotH - PADY} stroke="rgba(82,227,164,0.35)" strokeWidth={1} strokeDasharray="3 3" />;
+            return <line key={i} x1={x(m)} x2={x(m)} y1={PADY} y2={plotH - PADY} stroke="rgba(var(--green-rgb), 0.35)" strokeWidth={1} strokeDasharray="3 3" />;
           })}
           {/* series */}
           <path d={path((s) => s.fees)} fill="none" stroke={chart.fees} strokeWidth={2} strokeLinejoin="round" />
@@ -88,7 +88,7 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
           {/* hover crosshair */}
           {hoverMove !== null && hv && (
             <g>
-              <line x1={x(hoverMove)} x2={x(hoverMove)} y1={PADY} y2={plotH - PADY} stroke="rgba(255,255,255,0.4)" strokeWidth={1} />
+              <line x1={x(hoverMove)} x2={x(hoverMove)} y1={PADY} y2={plotH - PADY} stroke="rgba(var(--fg-rgb), 0.4)" strokeWidth={1} />
               {[[hv.feesPct, chart.fees], [hv.ilPct, chart.il], [hv.netPct, chart.net]].map(([v, c], i) => (
                 <circle key={i} cx={x(hoverMove)} cy={y(v as number)} r={4} fill={c as string} stroke="#0A0A0F" strokeWidth={2} />
               ))}
@@ -98,13 +98,13 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
         {hoverMove !== null && hv && (
           <div style={{
             position: 'absolute', top: 8, left: hoverMove > 0 ? 12 : undefined, right: hoverMove > 0 ? undefined : 12,
-            background: 'rgba(12,12,18,0.95)', border: btb.borderSoft, borderRadius: 10, padding: '8px 11px',
+            background: 'rgba(var(--bg-rgb), 0.95)', border: btb.borderSoft, borderRadius: 10, padding: '8px 11px',
             fontSize: 11.5, pointerEvents: 'none', minWidth: 138,
           }}>
             <div style={{ color: btb.text, fontWeight: 800, marginBottom: 4 }}>Price {fmtSignedPct(hoverMove, 0)}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span style={{ color: chart.il }}>IL</span><b style={{ color: btb.text }}>{fmtSignedPct(hv.ilPct, 2)}</b></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><span style={{ color: chart.fees }}>Fees Earned</span><b style={{ color: btb.text }}>{fmtSignedPct(hv.feesPct, 2)}</b></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 2, paddingTop: 3, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 2, paddingTop: 3, borderTop: '1px solid rgba(var(--fg-rgb), 0.1)' }}>
               <span style={{ color: chart.net }}>Net vs holding</span><b style={{ color: hv.netPct >= 0 ? btb.green : btb.loss }}>{fmtSignedPct(hv.netPct, 2)}</b>
             </div>
           </div>

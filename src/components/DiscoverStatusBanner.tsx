@@ -19,7 +19,7 @@ export function DiscoverStatusBanner({ isMobile = false }: { isMobile?: boolean 
         padding: isMobile ? '11px 13px' : '12px 16px',
         borderRadius: 14,
         border: `1px solid ${ROBINHOOD_GREEN}33`,
-        background: `linear-gradient(100deg, ${ROBINHOOD_GREEN}1f, rgba(255,255,255,0.02) 55%)`,
+        background: `linear-gradient(100deg, ${ROBINHOOD_GREEN}1f, rgba(var(--fg-rgb), 0.02) 55%)`,
       }}
     >
       <style>{`@keyframes btbLivePulse{0%{box-shadow:0 0 0 0 ${ROBINHOOD_GREEN}66}70%{box-shadow:0 0 0 6px ${ROBINHOOD_GREEN}00}100%{box-shadow:0 0 0 0 ${ROBINHOOD_GREEN}00}}`}</style>
@@ -29,7 +29,7 @@ export function DiscoverStatusBanner({ isMobile = false }: { isMobile?: boolean 
         <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 850, letterSpacing: 0.2 }}>Automation live</span>
       </span>
 
-      <span style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.12)', flexShrink: 0, display: isMobile ? 'none' : 'block' }} />
+      <span style={{ width: 1, height: 16, background: 'rgba(var(--fg-rgb), 0.12)', flexShrink: 0, display: isMobile ? 'none' : 'block' }} />
 
       <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
         <span style={{ width: 7, height: 7, borderRadius: 2, background: ROBINHOOD_GREEN, flexShrink: 0 }} />

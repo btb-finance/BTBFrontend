@@ -94,7 +94,7 @@ export function PortfolioChart({ heldTokens }: { heldTokens: Token[] }) {
       <div style={{ position: 'relative', height: H }}>
         {loading ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Spinner size={20} color="#fff" track="rgba(255,255,255,0.18)" />
+            <Spinner size={20} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)" />
           </div>
         ) : error || points.length < 2 ? (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.textDim, fontSize: 12.5 }}>
@@ -111,7 +111,7 @@ export function PortfolioChart({ heldTokens }: { heldTokens: Token[] }) {
           >
             {/* recessive gridlines */}
             {[0.25, 0.5, 0.75].map(f => (
-              <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} stroke="rgba(255,255,255,0.05)" strokeWidth={1} />
+              <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} stroke="rgba(var(--fg-rgb), 0.05)" strokeWidth={1} />
             ))}
 
             <defs>
@@ -126,7 +126,7 @@ export function PortfolioChart({ heldTokens }: { heldTokens: Token[] }) {
 
             {hoverIdx != null && xy[hoverIdx] && (
               <>
-                <line x1={xy[hoverIdx].x} x2={xy[hoverIdx].x} y1={0} y2={H} stroke="rgba(255,255,255,0.18)" strokeWidth={1} />
+                <line x1={xy[hoverIdx].x} x2={xy[hoverIdx].x} y1={0} y2={H} stroke="rgba(var(--fg-rgb), 0.18)" strokeWidth={1} />
                 <circle cx={xy[hoverIdx].x} cy={xy[hoverIdx].y} r={4} fill={trendColor} stroke={btb.bg} strokeWidth={2} />
               </>
             )}

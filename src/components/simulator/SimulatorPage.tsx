@@ -15,6 +15,7 @@ import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
 import { LiquidityDepthChart } from '../LiquidityDepthChart';
 import { useSidebar } from '../../lib/SidebarContext';
+import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
 import { STABLES } from '../../lib/pools';
 import {
   nearestUsableTick, fmtFeeTier, isNativeCurrency, uniswapV3DeploymentForChain,
@@ -63,7 +64,16 @@ export interface SimPoolChoice {
   aprLabel?: string;
 }
 
-export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, chainName, wrappedNative, networks, onClose }: {
+/** Controlled mode for the Add liquidity sheet: the sheet owns the range,
+ * fee tier and deposit; the simulator renders its analytics beside the form. */
+export interface SimulatorEmbed {
+  ticks: { tickLower: number; tickUpper: number };
+  feeTier: number;
+  depositUsd: number;
+  onRange: (ticks: { tickLower: number; tickUpper: number }) => void;
+}
+
+export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, chainName, wrappedNative, networks, onClose, embed }: {
   /** Token addresses for V3-architecture pools ('eth' allowed). Unused for V4. */
   tokenA?: string;
   tokenB?: string;
@@ -75,6 +85,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   wrappedNative: `0x${string}`;
   networks: ChainDataNetwork;
   onClose: () => void;
+  embed?: SimulatorEmbed;
 }) {
   const { width: sidebarWidth, isMobile } = useSidebar();
   const isV4 = selected.protocol === 'uniswap-v4';
@@ -87,7 +98,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const mintTokenA = tokenA?.toLowerCase() === 'eth' ? wrappedNative : tokenA as `0x${string}` | undefined;
   const mintTokenB = tokenB?.toLowerCase() === 'eth' ? wrappedNative : tokenB as `0x${string}` | undefined;
 
-  const [feeTier, setFeeTier] = useState(selected.feeTier);
+  const [feeTierState, setFeeTier] = useState(selected.feeTier);
+  const feeTier = embed ? embed.feeTier : feeTierState;
   const [depositStr, setDepositStr] = useState('10000');
   // While the field is mid-edit (cleared, "0", trailing dot) the model keeps
   // running on the last valid number — otherwise the zero deposit nulls the
@@ -95,7 +107,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const [lastValidDeposit, setLastValidDeposit] = useState(10_000);
   const parsedDeposit = parseFloat(depositStr);
   const depositValid = Number.isFinite(parsedDeposit) && parsedDeposit > 0;
-  const depositUsd = depositValid ? parsedDeposit : lastValidDeposit;
+  const depositUsd = embed ? embed.depositUsd : depositValid ? parsedDeposit : lastValidDeposit;
   useEffect(() => {
     if (depositValid) setLastValidDeposit(parsedDeposit);
   }, [depositValid, parsedDeposit]);
@@ -121,7 +133,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   // If the chosen tier has no pool (or V4 pinned a different fee), jump to the
   // deepest existing one so the page never dead-ends on a valid pair.
   useEffect(() => {
-    if (!pools) return;
+    if (!pools || embed) return;
     if (pools[feeTier]?.exists) return;
     const tiers = Object.keys(pools).map(Number).filter((f) => pools[f]?.exists);
     if (tiers.length > 0) {
@@ -183,6 +195,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   // ── Range ticks: strategy preset (±k·σ over the horizon) or custom drag ─────
   const ticks = useMemo(() => {
     if (!pool) return null;
+    if (embed) return embed.ticks;
     if (customTicks) return customTicks;
     const k = STRATEGY_SIGMA[strategy === 'custom' ? 'balanced' : strategy];
     const half = Math.max(k * sigmaDaily * Math.sqrt(Math.max(horizonDays, 1)), Math.log(1.0001) * spacing);
@@ -191,7 +204,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     let tickUpper = nearestUsableTick(pool.tick + delta, spacing);
     if (tickUpper <= tickLower) tickUpper = tickLower + spacing;
     return { tickLower, tickUpper };
-  }, [pool, customTicks, strategy, sigmaDaily, horizonDays, spacing]);
+  }, [pool, embed, customTicks, strategy, sigmaDaily, horizonDays, spacing]);
 
   const sim = useMemo(() => {
     if (!pool || !ticks) return null;
@@ -227,9 +240,10 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     const tickLower = nearestUsableTick(toTick(pLo), spacing);
     let tickUpper = nearestUsableTick(toTick(pHi), spacing);
     if (tickUpper <= tickLower) tickUpper = tickLower + spacing;
+    if (embed) { embed.onRange({ tickLower, tickUpper }); return; }
     setCustomTicks({ tickLower, tickUpper });
     setStrategy('custom');
-  }, [pool, flip, spacing]);
+  }, [pool, flip, spacing, embed]);
 
   // Aerodrome Slipstream on Base is a V3 fork the app can mint on (see
   // protocols/dexs/aerodrome), so it is the one dexLabel pool that deploys.
@@ -239,7 +253,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
     : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
     : chainId === 4663 && /^up\b/i.test(selected.dexLabel ?? '') ? 'up'
-    : chainId === 4663 && /sushi/i.test(selected.dexLabel ?? '') ? 'sushiswap'
+    : /sushi/i.test(selected.dexLabel ?? '') && sushiV3DeploymentForChain(chainId) ? 'sushiswap'
     : null;
   const deploySupported = !!forkDex || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
   const deployChainId: LpChainId = isLpChain(chainId) ? chainId : 1;
@@ -252,6 +266,64 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
 
   const sectionProps = { isMobile };
 
+  const horizonPicker = (
+    <div style={{ display: 'flex', gap: 4, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 12, padding: 3, flexShrink: 0 }}>
+      {[7, 30, 90, 180].map((d) => (
+        <button key={d} onClick={() => setHorizonDays(d)} style={{
+          height: 28, padding: isMobile ? '0 8px' : '0 11px', borderRadius: 9, border: 'none', cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
+          background: horizonDays === d ? 'rgba(var(--green-rgb), 0.2)' : 'transparent',
+          color: horizonDays === d ? 'var(--btb-green)' : btb.textMuted,
+        }}>{d}d</button>
+      ))}
+    </div>
+  );
+
+  if (embed) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <div>
+            <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Simulation</div>
+            <div style={{ color: btb.textMuted, fontSize: 12 }}>Follows the range and amount you set on the right</div>
+          </div>
+          {horizonPicker}
+        </div>
+        {loading ? (
+          <div style={{ color: btb.textDim, fontSize: 13, padding: '20px 0' }}>Loading pool…</div>
+        ) : error || !pool ? (
+          <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool{error ? ` (${error})` : ''}.</div>
+        ) : !sim ? (
+          <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 14, padding: '12px 14px' }}>
+            Waiting for USD price data for this pair. The analytics appear as soon as prices load.
+          </div>
+        ) : (
+          <>
+            <RealBacktest sim={sim} {...sectionProps} />
+            <PriceDistribution sim={sim} />
+            {dispTickLiq && dispTickLiq.length > 0 && (
+              <Section
+                kicker="Liquidity depth"
+                title="Where the pool's liquidity sits"
+                subtitle="Existing LPs concentrated by price. Drag the range lines on the chart to move your range."
+              >
+                <LiquidityDepthChart points={dispTickLiq} min={sim.dispLower} max={sim.dispUpper} current={sim.dispPrice} onChange={onDispRange} />
+              </Section>
+            )}
+            <FeePanel sim={sim} {...sectionProps} />
+            <ILPanel sim={sim} isMobile={isMobile} />
+            <PnlWaterfall sim={sim} />
+            <ComparisonPanel sim={sim} />
+            <RiskRadar sim={sim} {...sectionProps} />
+            <SensitivityPanel sim={sim} movePct={movePct} setMovePct={setMovePct} {...sectionProps} />
+            <ScenarioCards sim={sim} setMovePct={setMovePct} {...sectionProps} />
+            <Timeline sim={sim} setHorizonDays={setHorizonDays} {...sectionProps} />
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Portal>
       <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
@@ -260,7 +332,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div onClick={onClose} title="Back to pool comparison" style={{
               width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-              background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+              background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Icon name="back" size={14} color={btb.textMuted} />
@@ -271,17 +343,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                 {pool ? `${pool.symbol0} / ${pool.symbol1} · ${fmtFeeTier(feeTier)} · ${dexLabel}` : `${dexLabel} · ${chainName}`}
               </div>
             </div>
-            {/* Horizon quick picker */}
-            <div style={{ display: 'flex', gap: 4, background: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 3, flexShrink: 0 }}>
-              {[7, 30, 90, 180].map((d) => (
-                <button key={d} onClick={() => setHorizonDays(d)} style={{
-                  height: 28, padding: isMobile ? '0 8px' : '0 11px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                  fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
-                  background: horizonDays === d ? 'rgba(82,227,164,0.2)' : 'transparent',
-                  color: horizonDays === d ? '#52E3A4' : btb.textMuted,
-                }}>{d}d</button>
-              ))}
-            </div>
+            {horizonPicker}
           </div>
 
           {loading ? (
@@ -291,7 +353,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
               <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool{error ? ` (${error})` : ''}.</div>
               <button onClick={retry} style={{
                 marginTop: 10, height: 36, padding: '0 18px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 13, fontWeight: 700, background: 'rgba(255,255,255,0.08)', border: btb.border, color: btb.text,
+                fontSize: 13, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.08)', border: btb.border, color: btb.text,
               }}>Retry</button>
             </div>
           ) : (
@@ -319,8 +381,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                         style={{
                           color: risky ? btb.loss : warm ? btb.amber : btb.textMuted,
                           fontSize: 10.5, fontWeight: 700,
-                          background: risky ? 'rgba(255,107,122,.1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(255,255,255,.04)',
-                          border: risky ? '1px solid rgba(255,107,122,.3)' : warm ? '1px solid rgba(255,202,107,.25)' : btb.borderSoft,
+                          background: risky ? 'rgba(var(--loss-rgb), .1)' : warm ? 'rgba(255,202,107,.08)' : 'rgba(var(--fg-rgb), .04)',
+                          border: risky ? '1px solid rgba(var(--loss-rgb), .3)' : warm ? '1px solid rgba(255,202,107,.25)' : btb.borderSoft,
                           borderRadius: 8, padding: '3px 8px',
                         }}
                       >
@@ -347,7 +409,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                 />
               )}
               {!sim && depositUsd > 0 && (
-                <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(255,179,107,0.08)', border: '1px solid rgba(255,179,107,0.3)', borderRadius: 14, padding: '12px 14px' }}>
+                <div style={{ color: btb.amber, fontSize: 12.5, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 14, padding: '12px 14px' }}>
                   Waiting for USD price data for this pair. The builder below works; the analytics appear as soon as prices load.
                 </div>
               )}

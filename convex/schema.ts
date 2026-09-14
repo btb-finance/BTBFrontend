@@ -14,6 +14,19 @@ export default defineSchema({
     source: v.string(),       // "core" | "uniswap" | "coingecko" | "sushiswap" | "gemini"
   }).index("by_address", ["address"]),
 
+  // One row per wallet in a profile. `profileId` is the lowercase address of
+  // the wallet that started the profile; every linked wallet shares it, so a
+  // login with any of them resolves the whole set in one indexed read.
+  profileLinks: defineTable({
+    address: v.string(),        // lowercase 0x…
+    profileId: v.string(),      // lowercase anchor address
+    label: v.optional(v.string()),
+    linkedAt: v.float64(),
+    // Imported by address without a signature from that wallet: view only,
+    // never treated as ownership, so the wallet can still start its own profile.
+    watched: v.optional(v.boolean()),
+  }).index("by_address", ["address"]).index("by_profile", ["profileId"]),
+
   // Agent chat history — one row per message, gated to 10M BTB holders.
   agentMessages: defineTable({
     walletAddress: v.string(),   // lowercase
@@ -28,6 +41,14 @@ export default defineSchema({
     json: v.string(),
     updatedAt: v.float64(),
   }),
+
+  // Token logo per chain and address, filled from GeckoTerminal after each
+  // Discover refresh so pool rows on every chain carry both token images.
+  tokenLogos: defineTable({
+    key: v.string(),            // `${chainId}:${lowercase address}`
+    logoURI: v.string(),
+    updatedAt: v.float64(),
+  }).index("by_key", ["key"]),
 
   // Robinhood market feed, refreshed once server-side and read by every
   // Dashboard visitor without repeating the explorer/DexScreener scan.
@@ -205,44 +226,6 @@ export default defineSchema({
   }).index("by_wallet", ["walletAddress"])
     .index("by_wallet_token", ["walletAddress", "tokenAddress"]),
 
-  // Off-chain index of owner-custodied BTB smart-account LPs. Every row is
-  // re-verified against the chain by the monitor; client writes are never
-  // treated as authorization to rebalance.
-  managedLpPositions: defineTable({
-    key: v.string(),
-    chainId: v.float64(),
-    owner: v.string(),
-    account: v.string(),
-    positionManager: v.string(),
-    positionId: v.string(),
-    pool: v.string(),
-    token0: v.string(),
-    token1: v.string(),
-    fee: v.float64(),
-    tickLower: v.float64(),
-    tickUpper: v.float64(),
-    currentTick: v.optional(v.float64()),
-    targetTickWidth: v.float64(),
-    minimumAllowedTick: v.float64(),
-    maximumAllowedTick: v.float64(),
-    maxSlippageBps: v.float64(),
-    maxSwapBps: v.float64(),
-    twapSeconds: v.float64(),
-    minRebalanceInterval: v.float64(),
-    expiresAt: v.float64(),
-    status: v.string(),
-    enabled: v.boolean(),
-    source: v.string(),
-    registeredAt: v.float64(),
-    updatedAt: v.float64(),
-    nextCheckAt: v.float64(),
-    lastCheckedAt: v.optional(v.float64()),
-    lastRebalanceAt: v.optional(v.float64()),
-    lastError: v.optional(v.string()),
-  }).index("by_key", ["key"])
-    .index("by_owner", ["owner"])
-    .index("by_due", ["nextCheckAt"])
-    .index("by_status", ["status"]),
 
   // Durable audit/worker queue. Only the on-chain monitor creates jobs.
   rebalanceJobs: defineTable({

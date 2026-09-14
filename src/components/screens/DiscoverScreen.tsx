@@ -105,12 +105,12 @@ function ChainMark({ name, chainId, size, src }: { name: string; chainId?: numbe
         height={size}
         loading="lazy"
         decoding="async"
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(255,255,255,.12)' }}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)' }}
       />
     );
   }
   return (
-    <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,.1)', boxShadow: '0 0 0 1px rgba(255,255,255,.12)', flexShrink: 0 }}>
+    <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--fg-rgb), .1)', boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)', flexShrink: 0 }}>
       <Icon name="globe" size={Math.max(10, size - 7)} color={btb.textMuted}/>
     </span>
   );
@@ -198,8 +198,8 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         <Icon name="down" size={13} color={btb.textMuted}/>
       </button>
       {open && (
-        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
-          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(var(--bg-rgb), .98)', border: '1px solid rgba(var(--fg-rgb), .13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
             <input
               autoFocus
@@ -211,7 +211,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
               style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
             />
           </div>
-          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
             <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
               {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
             </span>
@@ -221,7 +221,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
           {filteredChains.map(chain => {
             const active = value === chain.name;
             return (
-              <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(255,255,255,.1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+              <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
                 <ChainMark name={chain.name} chainId={chain.chainId} size={23} src={chain.logo}/>
                 <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
@@ -307,11 +307,11 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
           position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0,
           width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', maxHeight: 360,
           overflowY: 'auto', padding: 7, borderRadius: 16,
-          background: 'rgba(12,12,18,.98)', border: '1px solid rgba(255,255,255,.13)',
+          background: 'rgba(var(--bg-rgb), .98)', border: '1px solid rgba(var(--fg-rgb), .13)',
           boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)',
           WebkitBackdropFilter: 'blur(18px)',
         }}>
-          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,.055)', display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
             <input
               autoFocus
@@ -325,7 +325,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
           </div>
           {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
             width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
-            background: value === 'all' ? 'rgba(255,255,255,.1)' : 'transparent',
+            background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
             color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 9,
           }}>
@@ -338,7 +338,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
             return (
               <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
                 width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
-                background: active ? 'rgba(255,255,255,.1)' : 'transparent',
+                background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
                 color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 9,
               }}>
@@ -607,8 +607,8 @@ export function DiscoverScreen() {
         const [s0, s1] = splitPair(p);
         const mine = heldSyms(p);
         const [addr0, addr1] = p.underlyingTokens ?? [];
-        const logo0 = addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined;
-        const logo1 = addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined;
+        const logo0 = p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined);
+        const logo1 = p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined);
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ display: 'flex' }}>
@@ -626,9 +626,9 @@ export function DiscoverScreen() {
                 </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
+                {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
-                  <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                  <Badge size="sm" color="#7DE3B0" bg="rgba(var(--green-rgb), 0.1)" border="1px solid rgba(var(--green-rgb), 0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
                     {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                   </Badge>
                 )}
@@ -720,8 +720,8 @@ export function DiscoverScreen() {
               <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? openPool(p, false) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ display: 'flex', flexShrink: 0 }}>
-                    <TokenIcon symbol={s0} size={26} logoUrl={addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined} />
-                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined} /></div>
+                    <TokenIcon symbol={s0} size={26} logoUrl={p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined)} />
+                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined)} /></div>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
@@ -734,9 +734,9 @@ export function DiscoverScreen() {
                       </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(82,227,164,0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
+                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (
-                        <Badge size="sm" color="#7DE3B0" bg="rgba(82,227,164,0.1)" border="1px solid rgba(82,227,164,0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                        <Badge size="sm" color="#7DE3B0" bg="rgba(var(--green-rgb), 0.1)" border="1px solid rgba(var(--green-rgb), 0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
                           {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                         </Badge>
                       )}
@@ -814,7 +814,7 @@ export function DiscoverScreen() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {loading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-              <Spinner size={26} color="#fff" track="rgba(255,255,255,0.18)" />
+              <Spinner size={26} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)" />
             </div>
           )}
           {!loading && filtered.length === 0 && (
@@ -851,7 +851,7 @@ export function DiscoverScreen() {
                   </button>
                 )}
               </div>
-              <div style={{ borderRadius: 16, border: '1px solid rgba(82,227,164,0.25)', background: 'rgba(82,227,164,0.04)', overflow: 'hidden' }}>
+              <div style={{ borderRadius: 16, border: '1px solid rgba(var(--green-rgb), 0.25)', background: 'rgba(var(--green-rgb), 0.04)', overflow: 'hidden' }}>
                 <DataTable
                   columns={columns}
                   rows={forYou}
@@ -891,7 +891,7 @@ export function DiscoverScreen() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <span style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>All {marketSymbol} pools across DEXes</span>
-            {marketLoading && <Spinner size={14} color="#fff" track="rgba(255,255,255,0.18)"/>}
+            {marketLoading && <Spinner size={14} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>}
           </div>
           {!marketLoading && (marketPools?.length ?? 0) === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 2px' }}>
@@ -928,7 +928,7 @@ export function DiscoverScreen() {
                       height: 32, padding: '0 14px', borderRadius: 12, border: btb.borderSoft, flexShrink: 0,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                      background: 'rgba(255,255,255,0.06)',
+                      background: 'rgba(var(--fg-rgb), 0.06)',
                     }}>View</a>
                   </div>
                 </Glass>

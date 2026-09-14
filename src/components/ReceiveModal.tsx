@@ -32,7 +32,7 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
         width: '100%', maxWidth: 420, minWidth: 0,
         maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden',
         background: 'rgba(28,4,10,0.95)',
-        border: '1px solid rgba(255,255,255,0.12)',
+        border: '1px solid rgba(var(--fg-rgb), 0.12)',
         borderRadius: 28,
         padding: '24px 24px 32px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20,
@@ -42,10 +42,10 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
           <span style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4 }}>Receive</span>
           <div onClick={onClose} style={{
             width: 34, height: 34, borderRadius: 10,
-            background: 'rgba(255,255,255,0.08)', border: btb.borderSoft,
+            background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
           }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round">
+            <svg width="14" height="14" viewBox="0 0 14 14" stroke="rgba(var(--fg-rgb), 0.7)" strokeWidth="2" strokeLinecap="round">
               <path d="M1 1l12 12M13 1L1 13"/>
             </svg>
           </div>
@@ -56,7 +56,7 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
           background: '#fff',
           borderRadius: 24,
           padding: 20,
-          boxShadow: '0 16px 48px rgba(255,255,255,0.12)',
+          boxShadow: '0 16px 48px rgba(var(--fg-rgb), 0.12)',
           position: 'relative',
         }}>
           <QRCodeSVG
@@ -98,16 +98,16 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '6px 14px', borderRadius: 999,
-          background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)',
+          background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.18)',
         }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#52E3A4', boxShadow: '0 0 6px #52E3A4' }}/>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 6px #52E3A4' }}/>
           <span style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600 }}>Ethereum Mainnet</span>
         </div>
 
         {/* address row */}
         <div style={{
           width: '100%',
-          background: 'rgba(255,255,255,0.05)',
+          background: 'rgba(var(--fg-rgb), 0.05)',
           border: btb.border,
           borderRadius: 16,
           padding: '14px 16px',
@@ -126,17 +126,17 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
             borderRadius: 12,
             border: 'none', cursor: 'pointer',
             background: copied
-              ? 'rgba(82,227,164,0.18)'
-              : 'linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.08))',
-            color: copied ? '#52E3A4' : '#fff',
+              ? 'rgba(var(--green-rgb), 0.18)'
+              : 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.18),rgba(var(--fg-rgb), 0.08))',
+            color: copied ? 'var(--btb-green)' : 'var(--btb-text)',
             fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', gap: 6,
             transition: 'background 0.2s, color 0.2s',
-            boxShadow: copied ? 'none' : '0 4px 16px rgba(255,255,255,0.18)',
+            boxShadow: copied ? 'none' : '0 4px 16px rgba(var(--fg-rgb), 0.18)',
           }}>
             {copied
-              ? <><Icon name="check" size={14} color="#52E3A4"/>Copied</>
-              : <><Icon name="qr" size={14} color="#fff"/>Copy</>
+              ? <><Icon name="check" size={14} color="var(--btb-green)"/>Copied</>
+              : <><Icon name="qr" size={14} color="var(--btb-text)"/>Copy</>
             }
           </button>
         </div>

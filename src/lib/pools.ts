@@ -54,6 +54,8 @@ export interface EarnPool {
    *  never has to keep a name-to-asset map in sync. Both may be absent; the
    *  UI falls back to a bundled asset and then to a letter mark. */
   dexLogo?: string;
+  /** Per underlying token, filled by the Convex logo pass; null when unknown. */
+  tokenLogos?: (string | null)[];
   chainLogo?: string;
   volume24hUsd?: number;  // last complete day — indexer pools only
   fees24hUsd?: number;
@@ -889,6 +891,10 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
     if (/^ramses/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'ramses', chainId: 4663 };
     if (/^up(?:[-_]|$)/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'up', chainId: 4663 };
     if (/^sushi/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'sushiswap', chainId: 4663 };
+  }
+  // Mainnet SushiSwap: only rows that name V3. The bare "sushiswap" project is the V2 AMM.
+  if (chainId === 1 && tokens.length >= 2 && /^sushi/i.test(p.project) && (/v3/i.test(p.project) || /v3/i.test(p.version ?? ''))) {
+    return { tokenA: tokens[0], tokenB: tokens[1], dex: 'sushiswap', chainId: 1 };
   }
   // Registry rows keep the fork's brand in `dex`; a Uniswap-shaped project
   // under another brand (Mdex on BNB) is not the Uniswap deployment.

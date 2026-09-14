@@ -31,12 +31,12 @@ export function ComparisonPanel({ sim }: { sim: Sim }) {
                   {fmtUsd(r.valueUsd)} <span style={{ color: btb.textDim, fontWeight: 600 }}>({fmtSignedPct(roi)})</span>
                 </span>
               </div>
-              <div style={{ height: r.isYou ? 18 : 12, borderRadius: 999, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+              <div style={{ height: r.isYou ? 18 : 12, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.05)', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.max(pct, 1)}%`, height: '100%', borderRadius: 999,
                   background: r.isYou ? chart.fees : chart.alt,
                   opacity: r.isYou ? 1 : 0.55,
-                  boxShadow: r.isYou ? '0 0 12px rgba(82,227,164,0.35)' : 'none',
+                  boxShadow: r.isYou ? '0 0 12px rgba(var(--green-rgb), 0.35)' : 'none',
                 }} />
               </div>
             </div>

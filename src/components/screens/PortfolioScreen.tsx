@@ -9,7 +9,9 @@ import { DataTable, Column } from '../DataTable';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions, LpSummary } from '../LpPositions';
-import { StudioPositions } from '../StudioPositions';
+import { useConnection } from 'wagmi';
+import { useProfileWallets, shortAddr } from '../../lib/profile';
+import { LinkWalletSheet } from '../LinkWalletSheet';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
@@ -50,7 +52,7 @@ function ChangePill({ pct, size = 11 }: { pct?: number; size?: number }) {
   return (
     <span style={{
       display: 'inline-block', padding: '1px 6px', borderRadius: 6, fontSize: size, fontWeight: 700, whiteSpace: 'nowrap',
-      color: up ? btb.green : btb.loss, background: up ? 'rgba(82,227,164,0.12)' : 'rgba(255,107,122,0.12)',
+      color: up ? btb.green : btb.loss, background: up ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--loss-rgb), 0.12)',
     }}>{fmtSignedPct(pct)}</span>
   );
 }
@@ -88,7 +90,7 @@ function isNativeAddress(address: string) {
     || normalized === '0x0000000000000000000000000000000000000000';
 }
 
-export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void } = {}) {
+export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onViewAddress }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void; viewAddress?: string; onViewAddress?: (addr: string | undefined) => void } = {}) {
   const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
   const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
   const [lpToken, setLpToken] = useState<Token | null>(null);
@@ -131,7 +133,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
   const hasChange = trustedTokens.some(t => t.change1d != null);
 
   // Allocation bar: top four holdings, everything else grouped.
-  const COLORS = ['#FFFFFF', '#FFB36B', '#52E3A4', '#94A3B8', 'rgba(255,255,255,0.28)'];
+  const COLORS = ['var(--btb-text)', 'var(--btb-amber)', 'var(--btb-green)', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
   const top4 = trustedTokens.slice(0, 4);
   const restUsd = tokensUsd - top4.reduce((s, t) => s + (t.usdValue ?? 0), 0);
   const allocation = [
@@ -198,13 +200,13 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
       <div style={{ display: 'flex', gap: 6, justifyContent: isMobile ? 'stretch' : 'flex-end' }} onClick={e => e.stopPropagation()}>
         {canSwap && (
           <Button size="sm" fullWidth={isMobile} onClick={() => onSwap?.(t)}
-            style={{ height: h, gap: 5, fontSize: 12, background: 'linear-gradient(135deg,rgba(255,255,255,0.15),rgba(255,255,255,0.07))', color: btb.text, boxShadow: 'none', borderRadius: 10 }}>
+            style={{ height: h, gap: 5, fontSize: 12, background: 'linear-gradient(135deg,rgba(var(--fg-rgb), 0.15),rgba(var(--fg-rgb), 0.07))', color: btb.text, boxShadow: 'none', borderRadius: 10 }}>
             <Icon name="swap" size={12} /> Swap
           </Button>
         )}
         {canSimulate && (
           <Button variant="ghost" size="sm" fullWidth={isMobile} onClick={() => onSimulate?.(t)}
-            style={{ height: h, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text, borderRadius: 10 }}>
+            style={{ height: h, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.07)', color: btb.text, borderRadius: 10 }}>
             <Icon name="chart" size={12} /> Simulate
           </Button>
         )}
@@ -246,6 +248,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {onViewAddress && <WalletTabs viewAddress={viewAddress} onViewAddress={onViewAddress}/>}
       <Glass padding={isMobile ? 16 : 22} radius={20} strong>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -262,7 +265,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
               {([
-                { label: 'Tokens', value: tokensUsd, dot: '#FFFFFF', color: btb.text },
+                { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
                 { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
                 { label: 'Unclaimed fees', value: lp.feesUsd, dot: btb.green, color: btb.green },
               ] as const).map(b => (
@@ -282,7 +285,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {onSend && (
               <Button variant="ghost" size="sm" fullWidth={false} onClick={onSend} title="Send tokens from this wallet"
-                style={{ height: 36, width: isMobile ? 36 : undefined, padding: isMobile ? 0 : undefined, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(255,255,255,0.07)', color: btb.text, borderRadius: 999 }}>
+                style={{ height: 36, width: isMobile ? 36 : undefined, padding: isMobile ? 0 : undefined, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.07)', color: btb.text, borderRadius: 999 }}>
                 <Icon name="send" size={12} />{!isMobile && ' Send'}
               </Button>
             )}
@@ -319,7 +322,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
           <button key={s.label} onClick={() => setTab(s.go)} style={{
             textAlign: 'left', padding: isMobile ? '10px 12px' : '12px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
             background: s.active ? btb.surfaceStrong : btb.surfaceSoft,
-            border: `1px solid ${s.active ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)'}`,
+            border: `1px solid ${s.active ? 'rgba(var(--fg-rgb), 0.22)' : 'rgba(var(--fg-rgb), 0.07)'}`,
           }}>
             <div style={{ color: btb.textMuted, fontSize: isMobile ? 10 : 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
             <div style={{ color: s.color, fontSize: isMobile ? 17 : 20, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</div>
@@ -335,8 +338,8 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
               <button key={t} onClick={() => setTab(t)} style={{
                 height: isMobile ? 30 : 32, padding: isMobile ? '0 12px' : '0 16px', borderRadius: 9,
                 cursor: 'pointer', fontFamily: 'inherit', fontSize: isMobile ? 12.5 : 13, fontWeight: 700, whiteSpace: 'nowrap',
-                background: active ? 'rgba(255,255,255,0.12)' : 'transparent', border: 'none',
-                color: active ? '#fff' : btb.textMuted,
+                background: active ? 'rgba(var(--fg-rgb), 0.12)' : 'transparent', border: 'none',
+                color: active ? btb.text : btb.textMuted,
               }}>{label}</button>
             );
           })}
@@ -350,10 +353,10 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
               onChange={event => setTokenSearch(event.target.value)}
               placeholder="Search token or contract"
               aria-label="Search token or contract"
-              style={{ flex: isMobile ? 1 : undefined, width: isMobile ? undefined : 210, minWidth: 0, height: isMobile ? 34 : 36, boxSizing: 'border-box', borderRadius: 10, border: btb.borderSoft, background: 'rgba(255,255,255,0.055)', color: btb.text, padding: '0 10px', outline: 'none', fontFamily: 'inherit', fontSize: 12 }}
+              style={{ flex: isMobile ? 1 : undefined, width: isMobile ? undefined : 210, minWidth: 0, height: isMobile ? 34 : 36, boxSizing: 'border-box', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.055)', color: btb.text, padding: '0 10px', outline: 'none', fontFamily: 'inherit', fontSize: 12 }}
             />
             {hiddenAssetCount > 0 && (
-              <button onClick={() => setShowHiddenAssets(value => !value)} style={{ height: isMobile ? 34 : 36, padding: '0 11px', borderRadius: 10, border: btb.borderSoft, background: showHiddenAssets ? 'rgba(255,255,255,0.1)' : 'transparent', color: showHiddenAssets ? btb.text : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button onClick={() => setShowHiddenAssets(value => !value)} style={{ height: isMobile ? 34 : 36, padding: '0 11px', borderRadius: 10, border: btb.borderSoft, background: showHiddenAssets ? 'rgba(var(--fg-rgb), 0.1)' : 'transparent', color: showHiddenAssets ? btb.text : btb.textMuted, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 {showHiddenAssets ? 'Hide risky' : `Hidden (${hiddenAssetCount})`}
               </button>
             )}
@@ -364,7 +367,6 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
       {/* The LP tab stays mounted while hidden so its live totals keep
           feeding net worth and the stat tiles without a refetch on switch. */}
       <div style={{ display: tab === 'lps' ? 'flex' : 'none', flexDirection: 'column', gap: 16 }}>
-        <StudioPositions />
         <LpPositions showEmpty onSummary={setLp} />
       </div>
       {tab === 'tokens' && (isMobile ? (
@@ -400,6 +402,39 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
 
       {lpToken && <TokenLpPicker token={lpToken} onClose={() => setLpToken(null)} />}
 
+    </div>
+  );
+}
+
+/**
+ * Wallet tabs above the portfolio: one pill per wallet in the profile, the
+ * one being viewed highlighted, and a pill to link another. Hidden when the
+ * profile has a single wallet and nothing is connected.
+ */
+function WalletTabs({ viewAddress, onViewAddress }: { viewAddress?: string; onViewAddress: (addr: string | undefined) => void }) {
+  const { address: connected } = useConnection();
+  const { wallets } = useProfileWallets(connected);
+  const [linking, setLinking] = useState(false);
+  if (!connected) return null;
+  const current = (viewAddress ?? connected).toLowerCase();
+  const pill = (active: boolean): React.CSSProperties => ({
+    height: 34, padding: '0 14px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+    background: active ? btb.surfaceStrong : btb.surfaceSoft, border: active ? btb.border : btb.borderSoft,
+    color: active ? btb.text : btb.textMuted, fontSize: 12.5, fontWeight: active ? 700 : 500,
+  });
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {wallets.map(w => {
+        const isConnected = w.address === connected.toLowerCase();
+        return (
+          <div key={w.address} onClick={() => onViewAddress(isConnected ? undefined : w.address)} style={pill(w.address === current)} title={w.address}>
+            <span style={{ fontFamily: w.label ? 'inherit' : 'monospace' }}>{w.label ?? shortAddr(w.address)}</span>
+            {isConnected && <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green }}/>}
+          </div>
+        );
+      })}
+      <div onClick={() => setLinking(true)} style={{ ...pill(false), color: btb.green, borderStyle: 'dashed' }}>Add wallet</div>
+      {linking && <LinkWalletSheet onClose={() => setLinking(false)}/>}
     </div>
   );
 }

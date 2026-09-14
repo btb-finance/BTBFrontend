@@ -92,7 +92,7 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
   const lineMin = clampX(x(effMin));
   const lineMax = clampX(x(effMax));
   const inBand = current >= effMin && current <= effMax;
-  const accent = inBand ? '#52E3A4' : '#FFB36B';
+  const accent = inBand ? 'var(--btb-green)' : 'var(--btb-amber)';
   const barW = Math.max(1, plotW / BARS - 1);
 
   const fmtTick = (p: number) => (p >= 1000 ? p.toLocaleString('en-US', { maximumFractionDigits: 0 }) : parseFloat(p.toPrecision(4)).toString());
@@ -111,7 +111,7 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', userSelect: 'none' }}>
         {lineMax > lineMin && (
           <rect x={lineMin} y={PAD} width={lineMax - lineMin} height={chartH - PAD}
-            fill={inBand ? 'rgba(82,227,164,0.12)' : 'rgba(255,179,107,0.10)'} />
+            fill={inBand ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--amber-rgb), 0.10)'} />
         )}
         {/* liquidity-depth bars, growing upward from the baseline */}
         {bins.map((v, i) => {
@@ -122,10 +122,10 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
           const bx = PAD + i * (plotW / BARS);
           return (
             <rect key={i} x={bx} y={chartH - h} width={barW} height={Math.max(1, h)}
-              fill={barInBand ? 'rgba(82,227,164,0.55)' : 'rgba(125,211,252,0.35)'} />
+              fill={barInBand ? 'rgba(var(--green-rgb), 0.55)' : 'rgba(125,211,252,0.35)'} />
           );
         })}
-        <line x1={PAD} x2={W - PAD} y1={chartH} y2={chartH} stroke="rgba(255,255,255,0.12)" strokeWidth={1}/>
+        <line x1={PAD} x2={W - PAD} y1={chartH} y2={chartH} stroke="rgba(var(--fg-rgb), 0.12)" strokeWidth={1}/>
         {/* current price */}
         <line x1={clampX(x(current))} x2={clampX(x(current))} y1={PAD} y2={chartH} stroke={btb.text} strokeWidth={1} strokeDasharray="3 3" opacity={0.6}/>
         {handle('min', lineMin)}
@@ -157,7 +157,7 @@ export function LiquidityDepthChart({ points, min, max, current, onChange }: {
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(12, Math.max(0.3, z * factor))); }}
               style={{
-                width: 24, height: 24, borderRadius: 8, border: '1px solid rgba(255,255,255,0.16)', cursor: 'pointer',
+                width: 24, height: 24, borderRadius: 8, border: '1px solid rgba(var(--fg-rgb), 0.16)', cursor: 'pointer',
                 background: 'rgba(20,20,28,0.85)', color: btb.text, fontSize: 13, lineHeight: 1, fontFamily: 'inherit', padding: 0,
               }}>{label}</button>
           ))}

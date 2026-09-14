@@ -29,14 +29,14 @@ export function RangeRatioBar({ symbol0, symbol1, value0Bps, value1Bps, swapPct,
         <span style={{ color: btb.textDim, fontSize: 9.5 }}>at current price</span>
       </div>
 
-      <div style={{ display: 'flex', height: 9, borderRadius: 999, overflow: 'hidden', background: 'rgba(255,255,255,0.05)' }}>
+      <div style={{ display: 'flex', height: 9, borderRadius: 999, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.05)' }}>
         <div style={{ width: `${pct0}%`, background: btb.gradGreen, transition: 'width .25s ease' }} />
-        <div style={{ width: `${pct1}%`, background: 'rgba(255,255,255,0.28)', transition: 'width .25s ease' }} />
+        <div style={{ width: `${pct1}%`, background: 'rgba(var(--fg-rgb), 0.28)', transition: 'width .25s ease' }} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
         <Legend dot={btb.green} pct={pct0} symbol={symbol0} align="left" />
-        <Legend dot="rgba(255,255,255,0.5)" pct={pct1} symbol={symbol1} align="right" />
+        <Legend dot="rgba(var(--fg-rgb), 0.5)" pct={pct1} symbol={symbol1} align="right" />
       </div>
 
       {(swapPct !== undefined || note) && (

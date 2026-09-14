@@ -15,7 +15,7 @@ export function GeckoTerminalChart({ poolAddress, network = 'eth', height = 'min
   // "/embed" path (that 404s). light_chart=0 keeps the DARK theme (=1 is light).
   const src = `https://www.geckoterminal.com/${network}/pools/${poolAddress.toLowerCase()}?embed=1&info=0&swaps=0&light_chart=0`;
   return (
-    <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', height, minHeight: 360 }}>
+    <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(var(--fg-rgb), 0.08)', height, minHeight: 360 }}>
       <iframe
         src={src}
         title="Pool price chart"
