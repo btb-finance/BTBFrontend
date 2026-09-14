@@ -12,7 +12,6 @@ import { LpPositions, LpSummary } from '../LpPositions';
 import { useConnection } from 'wagmi';
 import { useProfileWallets, shortAddr } from '../../lib/profile';
 import { LinkWalletSheet } from '../LinkWalletSheet';
-import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
@@ -368,7 +367,6 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
       {/* The LP tab stays mounted while hidden so its live totals keep
           feeding net worth and the stat tiles without a refetch on switch. */}
       <div style={{ display: tab === 'lps' ? 'flex' : 'none', flexDirection: 'column', gap: 16 }}>
-        <StudioPositions />
         <LpPositions showEmpty onSummary={setLp} />
       </div>
       {tab === 'tokens' && (isMobile ? (

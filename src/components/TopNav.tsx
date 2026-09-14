@@ -19,7 +19,6 @@ const PRIMARY: { id: Tab; label: string }[] = [
 const MORE: { id: Tab; label: string }[] = [
   { id: 'nft',    label: 'NFT' },
   { id: 'stake',  label: 'Agent' },
-  { id: 'studio', label: 'Agent Studio' },
 ];
 
 export const TOP_NAV_HEIGHT = 60;

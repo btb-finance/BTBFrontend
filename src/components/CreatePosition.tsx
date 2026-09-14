@@ -1,9 +1,8 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { useConnection, useConfig } from 'wagmi';
-import { useAction } from 'convex/react';
-import { getPublicClient, signTypedData } from 'wagmi/actions';
-import { encodeFunctionData, formatUnits, parseUnits, erc20Abi } from 'viem';
+import { getPublicClient } from 'wagmi/actions';
+import { formatUnits, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Icon } from './Icon';
 import { Portal } from './Portal';
@@ -13,7 +12,6 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { AutomationRules, DEFAULT_AUTOMATION_RULES, type AutomationRuleValues } from './AutomationRules';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap } from '../lib/swapGap';
 import { getTokenPricesUsd } from '../lib/defillama';
@@ -39,11 +37,6 @@ import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/a
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
-import {
-  createUniversalWalletCall, getUniversalWalletDeployment, readUniversalWallet, upgradeUniversalWalletCalls,
-  tradingSetupDomain,
-} from '../lib/universalWallet';
-import { GUARDED_SETUP_TYPES, prepareUniversalLpSetup, UNIVERSAL_LP_WALLET_ABI } from '../lib/universalLp';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -130,9 +123,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const { address } = useConnection();
   const config = useConfig();
   const { track } = useTx();
-  const registerManaged = useAction(api.managedPositionMonitor.register);
-  const executeAgentZap = useAction(api.zapAgent.execute);
-  const configureSignedLp = useAction(api.lpSetup.configure);
 
   // V3-architecture deployment (Uniswap vs PancakeSwap fork) — addresses,
   // fee tiers (Pancake has 2500 instead of 3000) and tick spacings.
@@ -183,11 +173,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   // Editable LP slippage (the sticky-footer pill), in bps. Defaults to the
   // shared 0.5%; the transaction builders use THIS, not the constant.
   const [slippageBps, setSlippageBps] = useState(lpSlippageBps(chainId, SLIPPAGE_BPS));
-  const [autoManage, setAutoManage] = useState(false);
-  const [automationRules, setAutomationRules] = useState<AutomationRuleValues>({
-    ...DEFAULT_AUTOMATION_RULES,
-    twapSeconds: chainId === 4663 ? 60 : 300,
-  });
   // Two steps — Range (fee tier + price range) then Deposit (amounts + mint) —
   // so the sheet stays short on mobile instead of one long scroll.
   const [tab, setTab] = useState<'range' | 'deposit'>('range');
@@ -221,7 +206,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
 
   const isV4 = v4PoolId !== undefined;
-  const universalDeployment = !isV4 && dex === 'uniswap' && chainId === 4663 ? getUniversalWalletDeployment() : null;
   // Auto-orientation: quote the volatile token in the stablecoin
   // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH") — the way people read a
   // pair. Only kicks in when exactly one side is a stablecoin; else pool order.
@@ -661,109 +645,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     } finally { setBusy(false); }
   }
 
-  /**
-   * Create the position inside the user's fixed-owner BTB account and install
-   * the owner-selected rebalance policy in the same account call. Account
-   * creation, optional ETH wrapping and exact ERC-20 approvals are passed to
-   * the shared batch runner, with a receipt-gated fallback for older wallets.
-   */
-  async function mintManaged() {
-    if (!address || !pool || !ticks || !universalDeployment || chainId !== 4663 || isV4 || dex !== 'uniswap') return;
-    if (splitRange && (!splitTicks?.below || !splitTicks?.above || add0 === 0n || add1 === 0n)) {
-      setErr('Auto-managed uneven mode needs both token amounts and room for one range on each side of the live price.');
-      return;
-    }
-    const client = getPublicClient(config, { chainId });
-    if (!client) { setErr('No RPC client'); return; }
-    const owner = address as `0x${string}`;
-    setBusy(true); setStepMsg('Preparing your universal account…'); setErr(null);
-    try {
-      let smart = await readUniversalWallet(client, owner, universalDeployment);
-      if (!smart.deployed) {
-        await runCalls(config, {
-          account: owner, chainId, label: 'Create my universal BTB account', track,
-          calls: [createUniversalWalletCall(universalDeployment, owner)],
-        });
-        smart = await readUniversalWallet(client, owner, universalDeployment);
-      }
-      if (!smart.guardedSetupReady) {
-        await runCalls(config, {
-          account: owner, chainId, label: 'Upgrade my BTB account for guarded LPs', track,
-          calls: upgradeUniversalWalletCalls(smart.account, universalDeployment.implementation, smart.paused),
-        });
-        smart = await readUniversalWallet(client, owner, universalDeployment);
-        if (!smart.guardedSetupReady) throw new Error('The wallet upgrade confirmed, but guarded LP setup is not available yet.');
-      }
-      const specs = splitRange
-        ? [
-            { tickLower: splitTicks!.below!.tickLower, tickUpper: splitTicks!.below!.tickUpper, amount0Desired: 0n, amount1Desired: add1 },
-            { tickLower: splitTicks!.above!.tickLower, tickUpper: splitTicks!.above!.tickUpper, amount0Desired: add0, amount1Desired: 0n },
-          ]
-        : [{ tickLower: ticks.tickLower, tickUpper: ticks.tickUpper, amount0Desired: add0, amount1Desired: add1 }];
-      const before = await fetchV3Positions(client, smart.account, deployment).catch(() => []);
-      const beforeIds = new Set(before.map(position => position.id.toString()));
-      const mintCalls = specs.flatMap(spec => buildMint({
-        token0: pool.token0, token1: pool.token1, fee,
-        tickLower: spec.tickLower, tickUpper: spec.tickUpper,
-        amount0Desired: spec.amount0Desired, amount1Desired: spec.amount1Desired,
-        slippageBps, recipient: smart.account, nativeEthSide: ethMode ? wethSide : null, deployment,
-      }));
-      setStepMsg(splitRange ? 'Creating two LP NFTs in your account…' : 'Creating LP NFT in your account…');
-      await runCalls(config, { account: owner, chainId, calls: mintCalls, label: `Create guarded ${pool.symbol0}/${pool.symbol1} LP`, track });
-
-      const created = (await fetchV3Positions(client, smart.account, deployment)).filter(position => !beforeIds.has(position.id.toString()));
-      if (created.length === 0) throw new Error('The LP confirmed, but its NFT is not visible from this RPC yet. Reopen the portfolio to finish automation.');
-      const allowedPct = automationRules.allowedRangePct !== null && automationRules.allowedRangePct < automationRules.targetRangePct
-        ? automationRules.targetRangePct : automationRules.allowedRangePct;
-      const allowed = rangeTicks(pool.tick, spacing, allowedPct);
-      const target = rangeTicks(pool.tick, spacing, automationRules.targetRangePct);
-      const expiresAt = BigInt(Math.floor(Date.now() / 1000) + automationRules.expiryDays * 86_400);
-      const maximumToken0PerRebalance = (add0 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
-      const maximumToken1PerRebalance = (add1 * BigInt(automationRules.maxSwapPct * 100)) / 10_000n;
-      // Floors the unwind has to clear, set from what is being deposited less
-      // the slippage the owner already accepted. The guard applies each one only
-      // while the position still holds that side.
-      const minimumExitToken0 = (add0 * BigInt(10_000 - slippageBps)) / 10_000n;
-      const minimumExitToken1 = (add1 * BigInt(10_000 - slippageBps)) / 10_000n;
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 10 * 60);
-      setStepMsg('Sign once to protect this LP…');
-      const guarded = await prepareUniversalLpSetup({
-        client, account: smart.account, deployment: universalDeployment, positionManager: deployment.positionManager,
-        pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
-        targetTickWidth: target.tickUpper - target.tickLower, maximumSlippageBps: slippageBps,
-        maximumToken0PerRebalance, maximumToken1PerRebalance, minimumExitToken0, minimumExitToken1,
-        minimumTick: Math.min(allowed.tickLower, ticks.tickLower), maximumTick: Math.max(allowed.tickUpper, ticks.tickUpper), expiresAt,
-        nonce: smart.guardedSetupNonce, deadline,
-      });
-      const ownerSignature = await signTypedData(config, {
-        account: owner,
-        domain: tradingSetupDomain(smart.account),
-        types: GUARDED_SETUP_TYPES,
-        primaryType: 'GuardedSetup',
-        message: guarded.setup,
-      });
-      const setupCall = encodeFunctionData({
-        abi: UNIVERSAL_LP_WALLET_ABI,
-        functionName: 'configureGuardedWorkflowBySig',
-        args: [guarded.setup, guarded.callPolicyUpdates, guarded.approvalPolicyUpdates, guarded.guardConfiguration, ownerSignature],
-      });
-      setStepMsg('Installing all LP permissions…');
-      await configureSignedLp({ owner, account: smart.account, deployed: true, setupCall });
-      await Promise.all(created.map(position => registerManaged({
-        chainId, owner, account: smart.account, positionManager: deployment.positionManager,
-        positionId: position.id.toString(), pool: pool.address, token0: pool.token0, token1: pool.token1, fee,
-        tickLower: position.tickLower, tickUpper: position.tickUpper,
-        targetTickWidth: target.tickUpper - target.tickLower,
-        minimumAllowedTick: Math.min(allowed.tickLower, ticks.tickLower), maximumAllowedTick: Math.max(allowed.tickUpper, ticks.tickUpper),
-        maxSlippageBps: slippageBps, maxSwapBps: automationRules.maxSwapPct * 100,
-        twapSeconds: automationRules.twapSeconds, minRebalanceInterval: automationRules.intervalSeconds,
-        expiresAt: Number(expiresAt), source: 'universal-v5',
-      })));
-      onDone?.(); onClose();
-    } catch (e) {
-      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
-    } finally { setBusy(false); setStepMsg(''); }
-  }
 
   /**
    * Balanced smart-fit deposit: swap only the gap (KyberSwap) so a single-token
@@ -843,11 +724,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   }
 
   const canSplit = !!splitTicks && ((add0 > 0n && !!splitTicks.above) || (add1 > 0n && !!splitTicks.below));
-  const canManagedSplit = !!splitTicks?.below && !!splitTicks?.above && add0 > 0n && add1 > 0n;
   const canMint = !!pool?.exists && !!ticks && !busy &&
-    (autoManage
-      ? !!universalDeployment && !swapPreview && (splitRange ? canManagedSplit : add0 > 0n || add1 > 0n) && !short0 && !short1
-      : splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
+    (splitRange ? canSplit && !short0 && !short1 : swapPreview ? true : (add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   // Simulator → real deposit. Hooked V4 pools can't be minted in-app, so the
   // CTA is hidden for them. The simulated amounts prefill the deposit inputs.
@@ -1313,8 +1191,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
                   </div>
                 )}
-                <Button variant="success" size="sm" onClick={() => (autoManage ? mintManaged() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
-                  {busy ? (stepMsg || 'Confirming…') : autoManage ? (splitRange ? 'Create 2 managed LPs' : 'Create managed LP') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
+                <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                  {busy ? (stepMsg || 'Confirming…') : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
                 </Button>
           </div>
         </div>
@@ -1531,53 +1409,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                   </div>
                 )}
 
-                {!isV4 && dex === 'uniswap' && (
-                  <div style={{ marginBottom: 9 }}>
-                    <button
-                      type="button"
-                      disabled={!universalDeployment}
-                      onClick={() => {
-                        if (!universalDeployment) return;
-                        setAutoManage((enabled) => !enabled);
-                        setSwapPreview(null);
-                      }}
-                      aria-pressed={autoManage}
-                      style={{
-                        width: '100%', minHeight: 42, padding: '7px 10px', borderRadius: 12, cursor: universalDeployment ? 'pointer' : 'default',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, fontFamily: 'inherit', textAlign: 'left',
-                        border: `1px solid ${autoManage ? 'rgba(var(--green-rgb), 0.4)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-                        background: autoManage ? 'rgba(var(--green-rgb), 0.09)' : 'rgba(var(--fg-rgb), 0.035)',
-                        color: universalDeployment ? btb.text : btb.textDim,
-                      }}
-                    >
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 12, fontWeight: 800 }}>Auto-manage this LP</span>
-                        <span style={{ display: 'block', color: btb.textMuted, fontSize: 9.8, marginTop: 2, lineHeight: 1.3 }}>
-                          {universalDeployment ? 'The NFT is created directly in your universal account; only your wallet can withdraw it.' : 'Guarded automation currently supports Robinhood Chain.'}
-                        </span>
-                      </span>
-                      <span style={{ flexShrink: 0, width: 30, height: 17, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: autoManage ? btb.green : 'rgba(var(--fg-rgb), 0.18)' }}>
-                        <span style={{ display: 'block', width: 13, height: 13, borderRadius: '50%', background: '#fff', transform: `translateX(${autoManage ? 13 : 0}px)`, transition: 'transform 0.18s' }} />
-                      </span>
-                    </button>
-                  </div>
-                )}
-
                 {/* Amounts — enter either side, the other is paired automatically */}
                 {renderAmountInput(0)}
                 {renderAmountInput(1)}
-
-                {autoManage && universalDeployment && (
-                  <div style={{ marginBottom: 10 }}>
-                    <AutomationRules
-                      value={automationRules}
-                      onChange={setAutomationRules}
-                      agent={universalDeployment.agent}
-                      slippageBps={slippageBps}
-                      onSlippageChange={setSlippageBps}
-                    />
-                  </div>
-                )}
 
                 {!splitRange && renderNeedWarning()}
                 {(short0 || short1) && (
@@ -1610,9 +1444,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               </>
             ) : (
               <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
-                {autoManage
-                  ? 'Account creation, exact approvals and LP setup are batched when your wallet supports it. Unused tokens return to your wallet.'
-                  : swapPreview
+                {swapPreview
                   ? `Two transactions: swap ~${swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}% to balance, then add — each slippage-protected (${slippageBps / 100}%).`
                   : <>Slippage-protected ({slippageBps / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}</>}
               </div>

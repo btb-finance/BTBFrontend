@@ -17,9 +17,6 @@ import type * as crons from "../crons.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
 import type * as globalRefresh from "../globalRefresh.js";
-import type * as lpSetup from "../lpSetup.js";
-import type * as managedPositionMonitor from "../managedPositionMonitor.js";
-import type * as managedPositions from "../managedPositions.js";
 import type * as poolFacts from "../poolFacts.js";
 import type * as prices from "../prices.js";
 import type * as profiles from "../profiles.js";
@@ -27,15 +24,12 @@ import type * as profilesActions from "../profilesActions.js";
 import type * as queries from "../queries.js";
 import type * as questCatalog from "../questCatalog.js";
 import type * as quests from "../quests.js";
-import type * as rebalanceMath from "../rebalanceMath.js";
-import type * as rebalanceWorker from "../rebalanceWorker.js";
 import type * as rewards from "../rewards.js";
 import type * as rewardsActions from "../rewardsActions.js";
 import type * as rpcEndpoints from "../rpcEndpoints.js";
 import type * as snapshots from "../snapshots.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
-import type * as zapAgent from "../zapAgent.js";
 
 import type {
   ApiFromModules,
@@ -53,9 +47,6 @@ declare const fullApi: ApiFromModules<{
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
   globalRefresh: typeof globalRefresh;
-  lpSetup: typeof lpSetup;
-  managedPositionMonitor: typeof managedPositionMonitor;
-  managedPositions: typeof managedPositions;
   poolFacts: typeof poolFacts;
   prices: typeof prices;
   profiles: typeof profiles;
@@ -63,15 +54,12 @@ declare const fullApi: ApiFromModules<{
   queries: typeof queries;
   questCatalog: typeof questCatalog;
   quests: typeof quests;
-  rebalanceMath: typeof rebalanceMath;
-  rebalanceWorker: typeof rebalanceWorker;
   rewards: typeof rewards;
   rewardsActions: typeof rewardsActions;
   rpcEndpoints: typeof rpcEndpoints;
   snapshots: typeof snapshots;
   tokens: typeof tokens;
   users: typeof users;
-  zapAgent: typeof zapAgent;
 }>;
 
 /**

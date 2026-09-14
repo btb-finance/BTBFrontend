@@ -28,9 +28,6 @@ import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBl
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
 import { RebalanceFlow } from './RebalanceFlow';
-import { AutomatePositionSheet } from './AutomatePositionSheet';
-import { SmartAccountPositions } from './SmartAccountPositions';
-import { getUniversalWalletDeployment } from '../lib/universalWallet';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   type KrystalPositionAnalytics,
@@ -169,8 +166,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
-  const [automate, setAutomate] = useState<LiquidityPosition | null>(null);
-  const [automationRefresh, setAutomationRefresh] = useState(0);
   const [usd, setUsd] = useState<Record<string, number>>({});
 
   const [showClosedHistory, setShowClosedHistory] = useState(false);
@@ -455,7 +450,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const hasFees = p.fees0 > 0n || p.fees1 > 0n;
     const hasLiquidity = p.liquidity > 0n;
     const canRebalance = hasLiquidity && canActOn(p);
-    const canAutomate = hasLiquidity && p.protocol === 'uniswap-v3' && p.chainId === 4663 && !!getUniversalWalletDeployment();
     const busy = busyId === posKey(p);
     const v = valueOf(p);
     const f = feesValueOf(p);
@@ -561,7 +555,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               {p.stakeable && hasLiquidity && <LpButton full label={`Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`} onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
             </>
           )}
-          {canAutomate && <LpButton full label="Automate" onClick={() => setAutomate(p)} disabled={busy || !canTransact}/>}
           {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
           {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
         </div>
@@ -679,7 +672,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         </div>
       )}
 
-      {showEmpty && <SmartAccountPositions address={address as `0x${string}`} canTransact={canTransact} refreshNonce={automationRefresh}/>} 
 
       {krystalStats && (
         <Glass padding={isMobile ? 12 : 16} radius={16} soft>
@@ -835,14 +827,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         />
       )}
 
-      {automate && connectedAddress && automate.protocol === 'uniswap-v3' && (
-        <AutomatePositionSheet
-          pos={automate}
-          account={connectedAddress as `0x${string}`}
-          onClose={() => setAutomate(null)}
-          onDone={async () => { setAutomate(null); setAutomationRefresh((value) => value + 1); await load(); }}
-        />
-      )}
     </div>
   );
 }
