@@ -1,169 +1,184 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Glass } from '../Glass';
 import { Icon } from '../Icon';
 import { Screen } from '../Screen';
 import { btb } from '../design-tokens';
+import { useSidebar } from '../../lib/SidebarContext';
+import { DOCS, FAQS, LINKS, type DocBlock, type DocSection } from './docsContent';
 
-const GUIDES = [
-  { icon: 'rocket',  color: 'var(--btb-text)', bg: 'rgba(var(--fg-rgb), 0.1)',  title: 'Getting started',  desc: 'Connect a wallet on Ethereum mainnet and the rest of the app unlocks.' },
-  { icon: 'refresh', color: 'var(--btb-green)', bg: 'rgba(var(--green-rgb), 0.15)',  title: 'How swaps work',   desc: 'Routes through KyberSwap for best-price across DEXs — no extra protocol fee on top.' },
-  { icon: 'image',   color: 'var(--btb-amber)', bg: 'rgba(var(--amber-rgb), 0.15)', title: 'BTB Bear NFT',     desc: '100k cap, 0.01 ETH per mint. Stake to earn BTBB from the 1% transfer tax pool.' },
-  { icon: 'pie',     color: '#94A3B8', bg: 'rgba(148,163,184,0.15)', title: 'Portfolio tracking', desc: 'Every ERC-20 you hold, priced from on-chain pools. Refreshed on demand.' },
-];
-
-const FAQS = [
-  { q: 'What is BTB Finance?',         a: 'A single mini app that tries to be your everything-on-Ethereum: swap, portfolio, NFT mint + staking, protocol explorer, and an AI agent for your wallet (coming soon). Keep one tab open, do the whole stack from there.' },
-  { q: 'What fees does BTB charge?',   a: 'No extra protocol fee on swaps — you pay the underlying KyberSwap routing cost and gas. NFT mint is 0.01 ETH flat. Staking is gas only; rewards come from the BTBB 1% transfer tax, not from your stake.' },
-  { q: 'Which chains are supported?',  a: 'Ethereum mainnet only. The wallet is locked to chain 1 so you cannot accidentally swap or stake on the wrong network.' },
-  { q: 'How does BTB Bear staking work?', a: 'Stake any BTB Bear NFT and earn a proportional share of the BTBB transfer tax. The reward pool is fungible — every staked Bear earns the same rate, and you can unstake any number at any time (no lock, no penalty).' },
-  { q: 'Are NFT royalties enforced?',  a: 'Yes. 5% royalties are set on-chain via ERC-2981 and honored by every major marketplace.' },
-  { q: 'Where does my balance data come from?', a: 'A Convex action fans a multicall across our RPC pool, batches balanceOf for every token in the list, and caches the snapshot per wallet. Prices come from DexScreener (deepest mainnet pool per token), refreshed every 5 minutes.' },
-  { q: 'Is the code open source?',     a: 'Yes — contracts and frontend live at github.com/btb-finance. No audit yet; treat early balances as a beta.' },
-];
-
-const LINKS: { icon: string; color: string; label: string; sub: string; href: string }[] = [
-  { icon: 'doc',     color: 'var(--btb-text)', label: 'Documentation', sub: 'Full protocol docs coming soon', href: 'https://github.com/btb-finance' },
-  { icon: 'discord', color: '#5865F2', label: 'Discord',       sub: 'Join the community',             href: 'https://discord.gg/bqFEPA56Tc' },
-  { icon: 'twitter', color: 'var(--btb-text)',    label: 'X / Twitter',   sub: '@BTB_Finance',                   href: 'https://x.com/BTB_Finance' },
-  { icon: 'github',  color: 'var(--btb-text)',    label: 'GitHub',        sub: 'Open source contracts',          href: 'https://github.com/btb-finance' },
-  { icon: 'mail',    color: 'var(--btb-green)', label: 'Support',       sub: 'hello@btb.finance',              href: 'mailto:hello@btb.finance' },
-];
+const ALL_SECTIONS: DocSection[] = DOCS.flatMap(g => g.sections);
 
 export function DocsScreen({ onBack }: { onBack: () => void }) {
+  const { isMobile } = useSidebar();
   const [search, setSearch] = useState('');
+  const [active, setActive] = useState<string>(() => (typeof window !== 'undefined' && window.location.hash.slice(1)) || ALL_SECTIONS[0].id);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  const filteredFaqs = FAQS.filter(f =>
-    f.q.toLowerCase().includes(search.toLowerCase()) ||
-    f.a.toLowerCase().includes(search.toLowerCase())
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onHash = () => { const id = window.location.hash.slice(1); if (ALL_SECTIONS.some(s => s.id === id)) setActive(id); };
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  const q = search.trim().toLowerCase();
+  const matches = useMemo(() => {
+    if (!q) return null;
+    const hit = (s: DocSection) => [s.title, s.summary, ...s.blocks.flatMap(b => [b.text ?? '', ...(b.items ?? []), ...(b.rows?.flat() ?? [])])].some(t => t.toLowerCase().includes(q));
+    return ALL_SECTIONS.filter(hit);
+  }, [q]);
+  const faqs = q ? FAQS.filter(f => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q)) : FAQS;
+
+  const goto = (id: string) => { setActive(id); setSearch(''); if (typeof window !== 'undefined') history.replaceState(null, '', `#${id}`); };
+  const section = ALL_SECTIONS.find(s => s.id === active) ?? ALL_SECTIONS[0];
+  const idx = ALL_SECTIONS.indexOf(section);
+
+  const nav = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {DOCS.map(g => (
+        <div key={g.title}>
+          <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, padding: '0 10px 6px' }}>{g.title}</div>
+          {g.sections.map(s => {
+            const on = s.id === active && !q;
+            return (
+              <div key={s.id} onClick={() => goto(s.id)} style={{ padding: '8px 10px', borderRadius: 10, cursor: 'pointer', background: on ? btb.surfaceStrong : 'transparent', color: on ? btb.text : btb.textMuted, fontSize: 13, fontWeight: on ? 700 : 500 }}>{s.title}</div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 
   return (
-    <Screen gap={20}>
-      {/* header */}
+    <Screen gap={18} style={{ width: '100%', maxWidth: 1100, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div onClick={onBack} style={{
-          width: 40, height: 40, borderRadius: 12,
-          background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        }}>
+        <div onClick={onBack} style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="back" size={18}/>
         </div>
-        <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Docs & Help</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Docs</div>
+          <div style={{ color: btb.textMuted, fontSize: 12.5 }}>The BTB manual: find, simulate, add, manage, earn.</div>
+        </div>
       </div>
 
-      {/* vision pitch */}
-      <Glass padding={20} radius={22} strong style={{ position: 'relative', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(circle at 0% 0%, rgba(var(--fg-rgb), 0.15), transparent 55%), radial-gradient(circle at 100% 100%, rgba(var(--amber-rgb), 0.18), transparent 55%)',
-        }}/>
-        <div style={{ position: 'relative' }}>
-          <div style={{ color: 'var(--btb-amber)', fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>The pitch</div>
-          <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.3, lineHeight: 1.35, marginBottom: 8 }}>
-            BTB Finance wants to be your everything-on-Ethereum app.
-          </div>
-          <div style={{ color: btb.textMuted, fontSize: 13, lineHeight: 1.55 }}>
-            One mini app: swap any token at best price, see every holding with live USD, mint and stake BTB Bears, browse 60+ protocols, and (soon) hand it all off to an AI agent that watches your portfolio for you. No second wallet, no second tab.
-          </div>
-        </div>
-      </Glass>
-
-      {/* search */}
       <Glass padding={0} radius={18}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
           <Icon name="search" size={18} color={btb.textMuted}/>
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search docs…"
-            style={{
-              flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              color: btb.text, fontSize: 15, fontFamily: 'inherit',
-            }}
-          />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search the docs" style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 14, fontFamily: 'inherit' }}/>
+          {search && <div onClick={() => setSearch('')} style={{ cursor: 'pointer' }}><Icon name="close" size={14} color={btb.textMuted}/></div>}
         </div>
       </Glass>
 
-      {/* guides */}
-      <div>
-        <div style={{ color: btb.text, fontSize: 17, fontWeight: 700, marginBottom: 12, letterSpacing: -0.3 }}>Guides</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
-          {GUIDES.map(g => (
-            <Glass key={g.title} padding={16} radius={20} style={{ cursor: 'pointer' }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 12, background: g.bg,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10,
-              }}>
-                <Icon name={g.icon} size={20} color={g.color}/>
-              </div>
-              <div style={{ color: btb.text, fontSize: 13, fontWeight: 700, marginBottom: 4 }}>{g.title}</div>
-              <div style={{ color: btb.textMuted, fontSize: 11, lineHeight: 1.4 }}>{g.desc}</div>
+      {matches ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {matches.length === 0 && faqs.length === 0 && <div style={{ color: btb.textMuted, fontSize: 13 }}>Nothing matches "{search}".</div>}
+          {matches.map(s => (
+            <Glass key={s.id} padding={16} radius={16} onClick={() => goto(s.id)}>
+              <div style={{ color: btb.text, fontSize: 14.5, fontWeight: 750 }}>{s.title}</div>
+              <div style={{ color: btb.textMuted, fontSize: 12.5, marginTop: 3 }}>{s.summary}</div>
+            </Glass>
+          ))}
+          {faqs.map((f, i) => (
+            <Glass key={f.q} padding={16} radius={16}>
+              <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{f.q}</div>
+              <div style={{ color: btb.textMuted, fontSize: 13, lineHeight: 1.55, marginTop: 6 }}>{f.a}</div>
             </Glass>
           ))}
         </div>
-      </div>
-
-      {/* faq */}
-      <div>
-        <div style={{ color: btb.text, fontSize: 17, fontWeight: 700, marginBottom: 12, letterSpacing: -0.3 }}>FAQ</div>
-        <Glass padding={0} radius={20}>
-          {filteredFaqs.map((f, i) => (
-            <div key={i} style={{ borderBottom: i < filteredFaqs.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none' }}>
-              <div
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', cursor: 'pointer' }}
-              >
-                <span style={{ color: btb.text, fontSize: 14, fontWeight: 600, flex: 1, paddingRight: 10 }}>{f.q}</span>
-                <Icon name={openFaq === i ? 'up' : 'down'} size={16} color={btb.textMuted}/>
-              </div>
-              {openFaq === i && (
-                <div style={{ padding: '0 16px 14px', color: btb.textMuted, fontSize: 13, lineHeight: 1.6 }}>{f.a}</div>
-              )}
-            </div>
-          ))}
-          {filteredFaqs.length === 0 && (
-            <div style={{ padding: 20, color: btb.textMuted, fontSize: 14, textAlign: 'center' }}>No results for &ldquo;{search}&rdquo;</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : '230px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
+          {isMobile ? (
+            <select value={active} onChange={e => goto(e.target.value)} style={{ width: '100%', height: 44, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', fontFamily: 'inherit', fontSize: 14 }}>
+              {DOCS.map(g => <optgroup key={g.title} label={g.title}>{g.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
+            </select>
+          ) : (
+            <div style={{ position: 'sticky', top: 76 }}>{nav}</div>
           )}
-        </Glass>
-      </div>
 
-      {/* contact */}
-      <div>
-        <div style={{ color: btb.text, fontSize: 17, fontWeight: 700, marginBottom: 12, letterSpacing: -0.3 }}>Contact & Community</div>
-        <Glass padding={0} radius={20}>
-          {LINKS.map((l, i) => (
-            <a key={l.label} href={l.href}
-              target={l.href.startsWith('mailto:') ? undefined : '_blank'}
-              rel={l.href.startsWith('mailto:') ? undefined : 'noreferrer'}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                borderBottom: i < LINKS.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.06)' : 'none',
-                cursor: 'pointer', textDecoration: 'none',
-              }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: 'rgba(var(--fg-rgb), 0.06)', border: btb.borderSoft,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <Icon name={l.icon} size={18} color={l.color}/>
+          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <Glass padding={isMobile ? 18 : 26} radius={22} strong>
+              <div style={{ color: btb.green, fontSize: 11, fontWeight: 800, letterSpacing: .5, textTransform: 'uppercase' }}>{DOCS.find(g => g.sections.includes(section))?.title}</div>
+              <h1 style={{ color: btb.text, fontSize: isMobile ? 22 : 26, fontWeight: 800, letterSpacing: -0.5, margin: '6px 0 6px' }}>{section.title}</h1>
+              <div style={{ color: btb.textMuted, fontSize: 14, lineHeight: 1.5, marginBottom: 16 }}>{section.summary}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {section.blocks.map((b, i) => <Block key={i} b={b}/>)}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: btb.text, fontSize: 14, fontWeight: 600 }}>{l.label}</div>
-                <div style={{ color: btb.textMuted, fontSize: 12 }}>{l.sub}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 24, paddingTop: 16, borderTop: btb.borderSoft }}>
+                {idx > 0 ? <NavLink onClick={() => goto(ALL_SECTIONS[idx - 1].id)} label={ALL_SECTIONS[idx - 1].title} dir="prev"/> : <span/>}
+                {idx < ALL_SECTIONS.length - 1 ? <NavLink onClick={() => goto(ALL_SECTIONS[idx + 1].id)} label={ALL_SECTIONS[idx + 1].title} dir="next"/> : <span/>}
               </div>
-              <Icon name="arrow" size={16} color="rgba(var(--fg-rgb), 0.35)"/>
-            </a>
-          ))}
-        </Glass>
-      </div>
+            </Glass>
 
-      {/* footer */}
-      <div style={{ textAlign: 'center', color: btb.textDim, fontSize: 12, lineHeight: 1.8 }}>
-        BTB Finance · Ethereum mainnet<br/>
-        Open source at github.com/btb-finance
-      </div>
+            {section.id === 'fees-security' && (
+              <>
+                <div style={{ color: btb.text, fontSize: 16, fontWeight: 800, marginTop: 6 }}>Questions</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {FAQS.map((f, i) => (
+                    <Glass key={f.q} padding={0} radius={16}>
+                      <div onClick={() => setOpenFaq(openFaq === i ? null : i)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 16px', cursor: 'pointer' }}>
+                        <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{f.q}</div>
+                        <span style={{ display: 'inline-flex', transform: openFaq === i ? 'rotate(90deg)' : 'rotate(-90deg)', transition: 'transform 120ms ease' }}><Icon name="chevrons" size={14} color={btb.textMuted}/></span>
+                      </div>
+                      {openFaq === i && <div style={{ color: btb.textMuted, fontSize: 13, lineHeight: 1.55, padding: '0 16px 14px' }}>{f.a}</div>}
+                    </Glass>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+                  {LINKS.map(l => (
+                    <a key={l.href} href={l.href} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                      <Glass padding={14} radius={16}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <Icon name={l.icon} size={18} color={btb.textMuted}/>
+                          <div><div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700 }}>{l.label}</div><div style={{ color: btb.textMuted, fontSize: 12 }}>{l.sub}</div></div>
+                        </div>
+                      </Glass>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </Screen>
+  );
+}
+
+function NavLink({ onClick, label, dir }: { onClick: () => void; label: string; dir: 'prev' | 'next' }) {
+  return (
+    <div onClick={onClick} style={{ cursor: 'pointer', color: btb.textMuted, fontSize: 12.5, display: 'flex', flexDirection: 'column', alignItems: dir === 'next' ? 'flex-end' : 'flex-start', gap: 2 }}>
+      <span style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: .4 }}>{dir === 'prev' ? 'Previous' : 'Next'}</span>
+      <span style={{ color: btb.text, fontWeight: 700 }}>{label}</span>
+    </div>
+  );
+}
+
+function Block({ b }: { b: DocBlock }) {
+  const p: React.CSSProperties = { color: btb.textMuted, fontSize: 14, lineHeight: 1.6, margin: 0 };
+  if (b.type === 'p') return <p style={p}>{b.text}</p>;
+  if (b.type === 'note') return <div style={{ ...p, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.25)', borderRadius: 12, padding: '10px 14px', color: btb.text, fontSize: 13.5 }}>{b.text}</div>;
+  if (b.type === 'list') return <ul style={{ ...p, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>{b.items!.map((t, i) => <li key={i}>{t}</li>)}</ul>;
+  if (b.type === 'steps') return (
+    <ol style={{ ...p, listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {b.items!.map((t, i) => (
+        <li key={i} style={{ display: 'flex', gap: 12 }}>
+          <span style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, background: 'rgba(var(--green-rgb), 0.16)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
+          <span style={{ paddingTop: 2 }}>{t}</span>
+        </li>
+      ))}
+    </ol>
+  );
+  return (
+    <div style={{ overflowX: 'auto', border: btb.borderSoft, borderRadius: 12 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+        {b.head && <thead><tr>{b.head.map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: btb.textDim, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4, borderBottom: btb.borderSoft }}>{h}</th>)}</tr></thead>}
+        <tbody>
+          {b.rows!.map((r, i) => (
+            <tr key={i}>{r.map((c, j) => <td key={j} style={{ padding: '10px 12px', verticalAlign: 'top', color: j === 0 ? btb.text : btb.textMuted, fontWeight: j === 0 ? 700 : 500, borderBottom: i < b.rows!.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.05)' : undefined, lineHeight: 1.5 }}>{c}</td>)}</tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
