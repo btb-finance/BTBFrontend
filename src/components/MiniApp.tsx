@@ -27,11 +27,12 @@ import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
 
-function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
+function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onViewAddress }: {
   effectiveAddress?: string;
   isReadOnly: boolean;
   onImportAddress: (addr: string) => void;
   onLeave: () => void;
+  onViewAddress: (addr: string | undefined) => void;
 }) {
   // Screen + overlay are seeded from the URL (each tab has a real path, e.g.
   // /discover, /token, /docs) and kept in sync via pushState/popstate below.
@@ -119,7 +120,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
       case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
-      case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate}/>;
+      case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate} viewAddress={effectiveAddress} onViewAddress={onViewAddress}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'studio':    return <AgentStudioScreen/>;
@@ -138,6 +139,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
           setTab={goto}
           address={effectiveAddress}
           isReadOnly={isReadOnly}
+          onViewAddress={onViewAddress}
           onDisconnect={handleLeave}
           onDocs={() => openOverlay('docs')}
           onConnect={() => setShowConnect(true)}
@@ -156,6 +158,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave }: {
           setTab={goto}
           address={effectiveAddress}
           isReadOnly={isReadOnly}
+          onViewAddress={onViewAddress}
           onDocs={() => openOverlay('docs')}
           onConnect={() => setShowConnect(true)}
           onDisconnect={handleLeave}
@@ -181,14 +184,20 @@ export function MiniApp() {
   // Read-only address — set when the user "imports" a wallet without connecting.
   // Falls back to the connected wagmi address when both are present.
   const [readOnlyAddress, setReadOnlyAddress] = useState<string | undefined>();
+  // A linked wallet the user chose to look at while connected with another
+  // one: everything reads as that wallet, transactions stay disabled.
+  const [viewAddress, setViewAddress] = useState<string | undefined>();
   useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { setViewAddress(undefined); }, [address]);
 
-  const effectiveAddress = address ?? readOnlyAddress;
-  const isReadOnly = !address && !!readOnlyAddress;
+  const viewing = viewAddress && address && viewAddress.toLowerCase() !== address.toLowerCase() ? viewAddress : undefined;
+  const effectiveAddress = viewing ?? address ?? readOnlyAddress;
+  const isReadOnly = !!viewing || (!address && !!readOnlyAddress);
 
   const handleLeave = () => {
     if (address) disconnect();
     setReadOnlyAddress(undefined);
+    setViewAddress(undefined);
   };
 
   if (!mounted) return (
@@ -205,6 +214,7 @@ export function MiniApp() {
           isReadOnly={isReadOnly}
           onImportAddress={setReadOnlyAddress}
           onLeave={handleLeave}
+          onViewAddress={setViewAddress}
         />
       </SidebarProvider>
     </TokenStoreProvider>

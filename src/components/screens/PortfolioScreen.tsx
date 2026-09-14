@@ -9,6 +9,9 @@ import { DataTable, Column } from '../DataTable';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { CHAIN_META } from '../../lib/wagmi';
 import { LpPositions, LpSummary } from '../LpPositions';
+import { useConnection } from 'wagmi';
+import { useProfileWallets, shortAddr } from '../../lib/profile';
+import { LinkWalletSheet } from '../LinkWalletSheet';
 import { StudioPositions } from '../StudioPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
@@ -88,7 +91,7 @@ function isNativeAddress(address: string) {
     || normalized === '0x0000000000000000000000000000000000000000';
 }
 
-export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void } = {}) {
+export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onViewAddress }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void; viewAddress?: string; onViewAddress?: (addr: string | undefined) => void } = {}) {
   const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
   const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
   const [lpToken, setLpToken] = useState<Token | null>(null);
@@ -246,6 +249,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {onViewAddress && <WalletTabs viewAddress={viewAddress} onViewAddress={onViewAddress}/>}
       <Glass padding={isMobile ? 16 : 22} radius={20} strong>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -400,6 +404,39 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate }: { onSend?: () =>
 
       {lpToken && <TokenLpPicker token={lpToken} onClose={() => setLpToken(null)} />}
 
+    </div>
+  );
+}
+
+/**
+ * Wallet tabs above the portfolio: one pill per wallet in the profile, the
+ * one being viewed highlighted, and a pill to link another. Hidden when the
+ * profile has a single wallet and nothing is connected.
+ */
+function WalletTabs({ viewAddress, onViewAddress }: { viewAddress?: string; onViewAddress: (addr: string | undefined) => void }) {
+  const { address: connected } = useConnection();
+  const { wallets } = useProfileWallets(connected);
+  const [linking, setLinking] = useState(false);
+  if (!connected) return null;
+  const current = (viewAddress ?? connected).toLowerCase();
+  const pill = (active: boolean): React.CSSProperties => ({
+    height: 34, padding: '0 14px', borderRadius: 999, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap',
+    background: active ? btb.surfaceStrong : btb.surfaceSoft, border: active ? btb.border : btb.borderSoft,
+    color: active ? btb.text : btb.textMuted, fontSize: 12.5, fontWeight: active ? 700 : 500,
+  });
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      {wallets.map(w => {
+        const isConnected = w.address === connected.toLowerCase();
+        return (
+          <div key={w.address} onClick={() => onViewAddress(isConnected ? undefined : w.address)} style={pill(w.address === current)} title={w.address}>
+            <span style={{ fontFamily: w.label ? 'inherit' : 'monospace' }}>{w.label ?? shortAddr(w.address)}</span>
+            {isConnected && <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green }}/>}
+          </div>
+        );
+      })}
+      <div onClick={() => setLinking(true)} style={{ ...pill(false), color: btb.green, borderStyle: 'dashed' }}>Link wallet</div>
+      {linking && <LinkWalletSheet onClose={() => setLinking(false)}/>}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { Tab } from './types';
 import { useChainTheme } from '../lib/ChainThemeContext';
+import { WalletSwitcher } from './WalletSwitcher';
 
 /** The LP journey, in the order a user walks it. */
 const PRIMARY: { id: Tab; label: string }[] = [
@@ -24,12 +25,13 @@ const MORE: { id: Tab; label: string }[] = [
 export const TOP_NAV_HEIGHT = 60;
 
 export function TopNav({
-  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onConnect,
+  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onConnect, onViewAddress,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   address?: string;
   isReadOnly: boolean;
+  onViewAddress: (addr: string | undefined) => void;
   onDisconnect: () => void;
   onDocs: () => void;
   onConnect: () => void;
@@ -152,6 +154,8 @@ export function TopNav({
                 </div>
               </div>
               <div style={{ height: 1, background: 'rgba(var(--fg-rgb), 0.08)', margin: '0 6px 4px' }} />
+              <WalletSwitcher viewAddress={address} onViewAddress={onViewAddress} onPick={() => setUserOpen(false)}/>
+              <div style={{ height: 1, background: 'rgba(var(--fg-rgb), 0.08)', margin: '4px 6px' }} />
               <div onClick={() => { navigator.clipboard?.writeText(address!).catch(() => {}); setUserOpen(false); }} style={itemStyle(false)}><span>Copy address</span></div>
               <div onClick={() => { setTab('portfolio'); setUserOpen(false); }} style={itemStyle(false)}><span>Portfolio</span></div>
               <div onClick={() => { onDocs(); setUserOpen(false); }} style={itemStyle(false)}><span>Docs</span></div>

@@ -22,6 +22,8 @@ import type * as managedPositionMonitor from "../managedPositionMonitor.js";
 import type * as managedPositions from "../managedPositions.js";
 import type * as poolFacts from "../poolFacts.js";
 import type * as prices from "../prices.js";
+import type * as profiles from "../profiles.js";
+import type * as profilesActions from "../profilesActions.js";
 import type * as queries from "../queries.js";
 import type * as questCatalog from "../questCatalog.js";
 import type * as quests from "../quests.js";
@@ -56,6 +58,8 @@ declare const fullApi: ApiFromModules<{
   managedPositions: typeof managedPositions;
   poolFacts: typeof poolFacts;
   prices: typeof prices;
+  profiles: typeof profiles;
+  profilesActions: typeof profilesActions;
   queries: typeof queries;
   questCatalog: typeof questCatalog;
   quests: typeof quests;

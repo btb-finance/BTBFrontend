@@ -5,6 +5,7 @@ import { Button } from './Button';
 import { btb } from './design-tokens';
 import { Tab } from './types';
 import { useChainTheme } from '../lib/ChainThemeContext';
+import { WalletSwitcher } from './WalletSwitcher';
 
 // Bottom navigation shown instead of the sidebar below the mobile breakpoint.
 // Four primary tabs stay visible; everything else (remaining tabs, Docs,
@@ -23,7 +24,7 @@ const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'studio',   label: 'Agent Studio', icon: 'rocket' },
 ];
 
-export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect, onDisconnect }: {
+export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect, onDisconnect, onViewAddress }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   address?: string;
@@ -31,6 +32,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
   onDocs: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
+  onViewAddress: (addr: string | undefined) => void;
 }) {
   const [sheet, setSheet] = useState(false);
   const { mode, toggleMode } = useChainTheme();
@@ -85,6 +87,17 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
             </div>
 
             <Button size="sm" variant="ghost" fullWidth onClick={toggleMode}>{mode === 'dark' ? 'Switch to day' : 'Switch to night'}</Button>
+
+            {address && !isReadOnly && (
+              <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 16, padding: '8px 6px' }}>
+                <WalletSwitcher viewAddress={address} onViewAddress={onViewAddress} onPick={() => setSheet(false)}/>
+              </div>
+            )}
+            {address && isReadOnly && (
+              <div style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 16, padding: '8px 6px' }}>
+                <WalletSwitcher viewAddress={address} onViewAddress={onViewAddress} onPick={() => setSheet(false)}/>
+              </div>
+            )}
 
             {/* wallet */}
             {address ? (

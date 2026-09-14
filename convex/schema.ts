@@ -14,6 +14,16 @@ export default defineSchema({
     source: v.string(),       // "core" | "uniswap" | "coingecko" | "sushiswap" | "gemini"
   }).index("by_address", ["address"]),
 
+  // One row per wallet in a profile. `profileId` is the lowercase address of
+  // the wallet that started the profile; every linked wallet shares it, so a
+  // login with any of them resolves the whole set in one indexed read.
+  profileLinks: defineTable({
+    address: v.string(),        // lowercase 0x…
+    profileId: v.string(),      // lowercase anchor address
+    label: v.optional(v.string()),
+    linkedAt: v.float64(),
+  }).index("by_address", ["address"]).index("by_profile", ["profileId"]),
+
   // Agent chat history — one row per message, gated to 10M BTB holders.
   agentMessages: defineTable({
     walletAddress: v.string(),   // lowercase
