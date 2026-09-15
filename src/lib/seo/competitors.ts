@@ -94,6 +94,14 @@ export const COMPETITORS: Competitor[] = [
   },
 ];
 
+/** Other free tools a reader comparing options will meet, with the honest gap each leaves. */
+export const OTHER_FREE_TOOLS: { name: string; url: string; good: string; gap: string }[] = [
+  { name: 'Revert Finance', url: 'https://revert.finance', good: 'Solid position analytics and backtests for Uniswap V3 and forks.', gap: 'Automation (auto-range, auto-exit) takes 0.15% of the position or 2% of fees per run, and there is no pool discovery across DEX registries.' },
+  { name: 'DefiLlama', url: 'https://defillama.com/yields', good: 'The widest free yield table in DeFi.', gap: 'APR is quoted for the whole pool, not a range, and you cannot simulate a range or add a position from it.' },
+  { name: 'CoinGecko impermanent loss calculator', url: 'https://www.coingecko.com/en/impermanent-loss-calculator', good: 'Quick two-token IL check.', gap: 'No fees, no concentrated ranges, no real pool data.' },
+  { name: 'Poolfish', url: 'https://poolfish.xyz', good: 'Was the free Uniswap V3 calculator most people started with.', gap: 'Acquired by Metrix Finance in August 2026; users are being moved to Metrix plans.' },
+];
+
 export function competitorBySlug(slug: string): Competitor | undefined {
   return COMPETITORS.find((c) => c.slug === slug);
 }

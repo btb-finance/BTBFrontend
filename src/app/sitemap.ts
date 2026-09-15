@@ -12,6 +12,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: s.priority,
     })),
     { url: `${SITE.url}/vs`, lastModified, changeFrequency: 'weekly' as const, priority: 0.8 },
-    ...COMPETITORS.map((c) => ({ url: `${SITE.url}/vs/${c.slug}`, lastModified, changeFrequency: 'weekly' as const, priority: 0.8 })),
+    ...COMPETITORS.map((c) => ({ url: `${SITE.url}/${c.slug}-alternative`, lastModified, changeFrequency: 'weekly' as const, priority: 0.8 })),
   ];
 }

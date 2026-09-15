@@ -9,7 +9,13 @@ const nextConfig: NextConfig = {
       { source: "/token", destination: "/", permanent: false },
       // Trading was retired; the app is about LPs. Old links land on Home.
       { source: "/trade", destination: "/", permanent: false },
+      // The comparison pages live at keyword URLs; the first /vs/<slug> form is kept as a redirect.
+      { source: "/vs/:slug", destination: "/:slug-alternative", permanent: true },
     ];
+  },
+  async rewrites() {
+    // /metrix-finance-alternative is served by the /vs/[slug] route; the URL the reader sees keeps the keyword.
+    return [{ source: "/:slug(metrix-finance|drippy-finance|revert-finance)-alternative", destination: "/vs/:slug" }];
   },
   async headers() {
     return [
