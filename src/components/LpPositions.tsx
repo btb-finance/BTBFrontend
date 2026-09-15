@@ -28,6 +28,7 @@ import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBl
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
 import { RebalanceFlow } from './RebalanceFlow';
+import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   type KrystalPositionAnalytics,
@@ -166,6 +167,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
+  const [share, setShare] = useState<ShareCardData | null>(null);
   const [usd, setUsd] = useState<Record<string, number>>({});
 
   const [showClosedHistory, setShowClosedHistory] = useState(false);
@@ -458,6 +460,23 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const krystalLogo = (symbol: string) => a?.currentAmounts?.find((amt) => amt.token?.symbol?.toUpperCase() === symbol.toUpperCase())?.token?.logo;
     const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0);
     const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? krystalLogo(p.symbol1);
+    const shareData = (): ShareCardData => {
+      const usdOf = (rows?: { quotes?: { usd?: { value?: number } } }[]) => (rows ?? []).reduce((sum, r) => sum + (r.quotes?.usd?.value ?? 0), 0);
+      const claimed = usdOf(a?.feesClaimed);
+      const pending = a ? usdOf(a.feePending) : f;
+      const ageMs = a?.createdTime ? Date.now() - a.createdTime * (a.createdTime < 1e12 ? 1000 : 1) : undefined;
+      const feesEarnedUsd = claimed + pending;
+      return {
+        pair: `${p.symbol0} / ${p.symbol1}`, symbol0: p.symbol0, symbol1: p.symbol1,
+        dexLabel: protocolBadgeLabel(p), chainName: p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum',
+        feeTierLabel: fmtFeeTier(p.fee), inRange: p.inRange,
+        feesEarnedUsd,
+        feesPer30dUsd: ageMs && ageMs > 3_600_000 ? (feesEarnedUsd / ageMs) * 30 * 86_400_000 : undefined,
+        aprPct: a && a.apr > 0 ? a.apr : a && a.feeApr > 0 ? a.feeApr : undefined,
+        pnlUsd: a?.pnl, vsHodlUsd: a?.compareWithHodl, depositUsd: a?.totalDepositValue, ageMs,
+        logo0, logo1,
+      };
+    };
     const box = lpBox(isMobile);
     const boxLabel = lpBoxLabel;
     const boxValue = lpBoxValue(isMobile);
@@ -489,6 +508,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div onClick={() => setShare(shareData())} title="Share this position as an image" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: btb.textMuted, fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, marginBottom: 4 }}>Share</div>
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
             {p.staked && (
               <div style={{ marginTop: v > 0 ? 4 : 0 }}>
@@ -818,6 +838,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         />
       )}
 
+      {share && <SharePositionCard data={share} onClose={() => setShare(null)}/>}
       {rebalance && connectedAddress && canActOn(rebalance) && (
         <RebalanceFlow
           pos={rebalance}
