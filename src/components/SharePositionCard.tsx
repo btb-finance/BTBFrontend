@@ -30,6 +30,12 @@ export interface ShareCardData {
   logo1?: string;
   symbol0: string;
   symbol1: string;
+  /** Chain facts, always available: shown when the analytics provider has nothing for this chain. */
+  holdings?: string;           // "0.42 ETH + 1.2M DEEP"
+  unclaimedFees?: string;      // "0.0072 ETH + 16.3K DEEP"
+  rangeLabel?: string;         // "1.79M to 1.79M DEEP/ETH"
+  priceNow?: string;           // "1.79M DEEP/ETH"
+  positionId?: string;
 }
 
 const W = 1200, H = 630;
@@ -147,14 +153,20 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   }
 
   // Stats grid.
-  // Stats grid: three columns, two rows.
+  // Stats grid: three columns, two rows. Provider analytics first; when they
+  // are missing (chains Krystal does not index) the chain facts fill the grid.
   const stats: { label: string; value: string; color: string }[] = [];
   if (d.depositUsd != null && d.depositUsd > 0) stats.push({ label: 'INVESTED', value: money(d.depositUsd), color: '#fff' });
   if (d.aprPct != null) stats.push({ label: 'APR', value: `${d.aprPct.toFixed(2)}%`, color: green });
   if (d.pnlUsd != null) stats.push({ label: 'PNL', value: signed(d.pnlUsd), color: d.pnlUsd >= 0 ? green : '#FF6B7A' });
   if (d.vsHodlUsd != null) stats.push({ label: 'VS HODL', value: signed(d.vsHodlUsd), color: d.vsHodlUsd >= 0 ? green : '#FF6B7A' });
   if (d.ageMs != null) stats.push({ label: 'AGE', value: age(d.ageMs), color: '#fff' });
-  if (d.valueUsd != null && d.valueUsd > 0) stats.push({ label: 'VALUE NOW', value: money(d.valueUsd), color: '#fff' });
+  if (d.valueUsd != null && d.valueUsd >= 1) stats.push({ label: 'VALUE NOW', value: money(d.valueUsd), color: '#fff' });
+  if (stats.length < 6 && d.holdings) stats.push({ label: 'HOLDINGS', value: d.holdings, color: '#fff' });
+  if (stats.length < 6 && d.unclaimedFees && d.hero) stats.push({ label: 'UNCLAIMED', value: d.unclaimedFees, color: green });
+  if (stats.length < 6 && d.priceNow) stats.push({ label: 'PRICE NOW', value: d.priceNow, color: '#fff' });
+  if (stats.length < 6 && d.rangeLabel) stats.push({ label: 'RANGE', value: d.rangeLabel, color: '#fff' });
+  if (stats.length < 6 && d.positionId) stats.push({ label: 'POSITION', value: `#${d.positionId}`, color: '#fff' });
   stats.slice(0, 6).forEach((s, i) => {
     const x = 62 + (i % 3) * 370; const y = 412 + Math.floor(i / 3) * 74;
     ctx.textBaseline = 'middle';

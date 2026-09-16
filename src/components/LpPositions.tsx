@@ -26,7 +26,9 @@ import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } fr
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { Icon } from './Icon';
-import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
+import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
+import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
+import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -175,6 +177,18 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // read through a ref so balance refreshes don't retrigger the price effect.
   const { tokens: storeTokens, walletAddress } = useTokenStore();
   const logoFor = useTokenLogos();
+  // Token logos the Discover snapshot already carries (filled server-side for
+  // every chain), for tokens the wallet list does not know.
+  const { pools: discoverPools } = useDiscoverPools();
+  const snapshotLogo = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const pool of discoverPools ?? []) {
+      const cid = pool.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === pool.chain)?.chainId;
+      if (!cid || !pool.tokenLogos) continue;
+      (pool.underlyingTokens ?? []).forEach((t, i) => { const l = pool.tokenLogos?.[i]; if (l) m.set(`${cid}:${t.toLowerCase()}`, l); });
+    }
+    return (address: string, chainId: number) => m.get(`${chainId}:${address.toLowerCase()}`);
+  }, [discoverPools]);
   const address = walletAddress ?? connectedAddress;
   // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
   const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
@@ -458,15 +472,27 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const a = analyticsOf(p);
     const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
     const krystalLogo = (symbol: string) => a?.currentAmounts?.find((amt) => amt.token?.symbol?.toUpperCase() === symbol.toUpperCase())?.token?.logo;
-    const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0);
-    const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? krystalLogo(p.symbol1);
+    const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
+    const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? krystalLogo(p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
     const shareData = (): ShareCardData => {
       const usdOf = (rows?: { quotes?: { usd?: { value?: number } } }[]) => (rows ?? []).reduce((sum, r) => sum + (r.quotes?.usd?.value ?? 0), 0);
       const claimed = usdOf(a?.feesClaimed);
       const pending = a ? usdOf(a.feePending) : f;
       const ageMs = a?.createdTime ? Date.now() - a.createdTime * (a.createdTime < 1e12 ? 1000 : 1) : undefined;
       const feesEarnedUsd = claimed + pending;
+      const hasFeeTokens = p.fees0 > 0n || p.fees1 > 0n;
+      const feeTokens = [p.fees0 > 0n ? `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}` : '', p.fees1 > 0n ? `${fmtAmt(p.fees1, p.decimals1)} ${p.symbol1}` : ''].filter(Boolean).join(' + ');
+      const flipQuote = STABLES.has(p.symbol0.toUpperCase()) && !STABLES.has(p.symbol1.toUpperCase());
+      const priceOf = (tick: number) => { const q = tickToPrice(tick, p.decimals0, p.decimals1); return flipQuote && q > 0 ? 1 / q : q; };
+      const quoteLabel = flipQuote ? `${p.symbol0}/${p.symbol1}` : `${p.symbol1}/${p.symbol0}`;
+      const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
+      const lo = priceOf(flipQuote ? p.tickUpper : p.tickLower), hi = priceOf(flipQuote ? p.tickLower : p.tickUpper);
       return {
+        holdings: [p.amount0 > 0n ? `${fmtAmt(p.amount0, p.decimals0)} ${p.symbol0}` : '', p.amount1 > 0n ? `${fmtAmt(p.amount1, p.decimals1)} ${p.symbol1}` : ''].filter(Boolean).join(' + ') || undefined,
+        unclaimedFees: feeTokens || undefined,
+        priceNow: `${fmtPrice(priceOf(p.currentTick))} ${quoteLabel}`,
+        rangeLabel: fullRange ? 'Full range' : `${fmtPrice(lo)} to ${fmtPrice(hi)}`,
+        positionId: p.id.toString(),
         pair: `${p.symbol0} / ${p.symbol1}`, symbol0: p.symbol0, symbol1: p.symbol1,
         dexLabel: protocolBadgeLabel(p), chainName: p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum',
         feeTierLabel: fmtFeeTier(p.fee), inRange: p.inRange,
@@ -479,7 +505,10 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         // fees, so the reward amount is the number worth showing.
         hero: p.staked && feesEarnedUsd <= 0 && p.staked.earned > 0n
           ? { label: `${p.staked.rewardSymbol.toUpperCase()} EARNED`, value: `${fmtAmt(p.staked.earned, 18)} ${p.staked.rewardSymbol}` }
-          : p.staked && feesEarnedUsd <= 0 ? { label: 'STAKED FOR', value: p.staked.rewardSymbol } : undefined,
+          : p.staked && feesEarnedUsd <= 0 ? { label: 'STAKED FOR', value: p.staked.rewardSymbol }
+          // No USD figure (no price for one side, or a chain without analytics): the fee tokens themselves are the story.
+          : feesEarnedUsd < 0.01 && hasFeeTokens ? { label: 'UNCLAIMED FEES', value: feeTokens }
+          : undefined,
       };
     };
     const box = lpBox(isMobile);
