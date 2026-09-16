@@ -11,7 +11,9 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
-import { buildRemove, fetchV3Positions, fetchV4Positions, buildV4Remove, poolIdOf, SLIPPAGE_BPS, type LiquidityPosition, type PoolKey } from '@/protocols/dexs/uniswap';
+import { buildRemove, fetchV3Positions, fetchV4Positions, buildV4Remove, poolIdOf, SLIPPAGE_BPS, swapFreeRange, rebalancePlan, type LiquidityPosition, type PoolKey } from '@/protocols/dexs/uniswap';
+import { tickToPrice } from '@/protocols/dexs/uniswap/shared';
+import { fmtPrice } from './LpCardParts';
 import { v4DeploymentOfPosition } from '@/protocols/lpChains';
 import { NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { buildUnstakeCalls } from '@/protocols/staking';
@@ -61,6 +63,20 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
   const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
   const h0 = pos.amount0 + pos.fees0;
   const h1 = pos.amount1 + pos.fees1;
+
+  // Preview: the swap the old range implies, and a suggested range of the
+  // same width that fits what comes out, so the add step needs no swap.
+  const spacing = pos.tickSpacing ?? deployment.tickSpacings[pos.fee] ?? 60;
+  const width = Math.max(spacing, pos.tickUpper - pos.tickLower);
+  const P = (Number(pos.sqrtPriceX96) / 2 ** 96) ** 2;
+  const totalRaw1 = Number(h0) * P + Number(h1);
+  const holdShare0 = totalRaw1 > 0 ? (Number(h0) * P) / totalRaw1 : 0.5;
+  const suggested = h0 + h1 > 0n ? swapFreeRange(pos.sqrtPriceX96, pos.currentTick, width, spacing, holdShare0) : null;
+  const sameRangePlan = rebalancePlan(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, h0, h1);
+  const [useSuggested, setUseSuggested] = useState(true);
+  const flipQuote = /^(USDC|USDT|DAI|USDG|USDE|FRAX|USDB|USD1|USDS)$/i.test(pos.symbol0) && !/^(USDC|USDT|DAI|USDG|USDE|FRAX|USDB|USD1|USDS)$/i.test(pos.symbol1);
+  const priceOf = (tick: number) => { const q = tickToPrice(tick, pos.decimals0, pos.decimals1); return flipQuote && q > 0 ? 1 / q : q; };
+  const rangeText = (lo: number, hi: number) => `${fmtPrice(priceOf(flipQuote ? hi : lo))} to ${fmtPrice(priceOf(flipQuote ? lo : hi))} ${flipQuote ? pos.symbol0 : pos.symbol1} per ${flipQuote ? pos.symbol1 : pos.symbol0}`;
 
   async function withdraw() {
     setPhase('withdrawing'); setErr(null);
@@ -112,6 +128,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         dex={dex}
         chainId={chainId as LpChainId}
         initialFee={pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' || pos.protocol === 'up-v3' ? pos.tickSpacing : pos.fee}
+        initialTicks={useSuggested && suggested ? { tickLower: suggested.tickLower, tickUpper: suggested.tickUpper } : undefined}
         stakeByDefault={!!pos.staked}
         onClose={async () => { await onDone(); onClose(); }}
         onDone={() => {}}
@@ -137,8 +154,16 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
               {pos.staked && <div>Unstake first (pays out your earned {pos.staked.rewardSymbol}).</div>}
               <div>Remove the position and collect fees: <b style={{ color: btb.text }}>{fmtAmt(h0, pos.decimals0)} {pos.symbol0}</b> + <b style={{ color: btb.text }}>{fmtAmt(h1, pos.decimals1)} {pos.symbol1}</b>.</div>
             </Step>
-            <Step n={2} title="Pick any new range and add">
-              <div>The full Add liquidity sheet opens for this pool: presets or custom bounds, one-token smart fit, split ranges{pos.staked || pos.stakeable ? `, and restake for ${(pos.staked ?? pos.stakeable)?.rewardSymbol ?? 'rewards'}` : ''}.</div>
+            <Step n={2} title="Pick the new range and add">
+              {suggested && (
+                <div onClick={() => setUseSuggested(v => !v)} style={{ cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 10px', borderRadius: 10, background: useSuggested ? 'rgba(var(--green-rgb), 0.08)' : 'rgba(var(--fg-rgb), 0.04)', border: `1px solid ${useSuggested ? 'rgba(var(--green-rgb), 0.3)' : 'rgba(var(--fg-rgb), 0.08)'}`, marginBottom: 6 }}>
+                  <span style={{ width: 16, height: 16, borderRadius: 5, flexShrink: 0, marginTop: 1, background: useSuggested ? btb.green : 'transparent', border: `1px solid ${useSuggested ? btb.green : 'rgba(var(--fg-rgb), 0.3)'}` }}/>
+                  <span>
+                    <b style={{ color: btb.text }}>Same width, no swap</b>: {rangeText(suggested.tickLower, suggested.tickUpper)}. Uses everything that comes out as is{Math.abs(suggested.share0 - holdShare0) > 0.05 ? ' (close, a small swap may remain)' : ''}.
+                  </span>
+                </div>
+              )}
+              <div>{useSuggested && suggested ? 'The Add sheet opens on that range; change it there if you like.' : `The Add sheet opens on this pool. Keeping the old range would need to swap about ${Math.round(sameRangePlan.swapFraction * 100)}% of your ${sameRangePlan.sellSide === 0 ? pos.symbol0 : pos.symbol1}${sameRangePlan.sellSide === null ? '' : ''}.`}{pos.staked || pos.stakeable ? ` Restake for ${(pos.staked ?? pos.stakeable)?.rewardSymbol ?? 'rewards'} is a toggle.` : ''}</div>
             </Step>
           </div>
 

@@ -33,6 +33,8 @@ import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, ALERT_MIN_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
+import { useMutation, useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap } from '../lib/swapGap';
 import { fetchPositionHistory, fetchEmptyPositions, type PositionHistory } from '../lib/positionHistory';
@@ -178,7 +180,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
   const [share, setShare] = useState<ShareCardData | null>(null);
-  const alerts = useAlerts(connectedAddress);
   const [alertNote, setAlertNote] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<string | null>(null);
   async function toggleAlert(p: LiquidityPosition) {
@@ -218,6 +219,48 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     return (address: string, chainId: number) => m.get(`${chainId}:${address.toLowerCase()}`);
   }, [discoverPools]);
   const address = walletAddress ?? connectedAddress;
+
+  const alerts = useAlerts(connectedAddress);
+  // Tags: a short label per position, editable inline, stored per wallet.
+  const tags = useQuery(api.alerts.tagsForAddress, address ? { address } : 'skip') ?? {};
+  const setTagMutation = useMutation(api.alerts.setTag);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [tagDraft, setTagDraft] = useState('');
+  const tagKeyOf = (p: LiquidityPosition) => `${p.chainId ?? 1}:${p.protocol}:${p.id.toString()}`;
+  const commitTag = async (p: LiquidityPosition) => {
+    if (!address) return;
+    await setTagMutation({ address, key: tagKeyOf(p), tag: tagDraft }).catch(() => {});
+    setEditingTag(null);
+  };
+
+  // Gas-aware Collect: estimate the collect call once per position and price it
+  // in USD with the wrapped native token's price, so tiny fees are not
+  // collected at a loss.
+  const [collectGasUsd, setCollectGasUsd] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!connectedAddress || positions.length === 0) return;
+    let live = true;
+    (async () => {
+      const out: Record<string, number> = {};
+      await Promise.all(positions.filter((p) => (p.fees0 > 0n || p.fees1 > 0n) && !p.staked).slice(0, 10).map(async (p) => {
+        const chainId = (p.chainId ?? 1) as number;
+        const client = getPublicClient(config, { chainId });
+        if (!client) return;
+        try {
+          const call = (p.protocol === 'uniswap-v4' ? buildV4Collect(p, connectedAddress as `0x${string}`, v4DeploymentOf(p)) : buildCollect(p.id, connectedAddress as `0x${string}`, v3DeploymentOf(p))).at(-1)!;
+          const [gas, price] = await Promise.all([
+            client.estimateGas({ account: connectedAddress as `0x${string}`, to: call.to, data: call.data, value: call.value }),
+            client.getGasPrice(),
+          ]);
+          const nativeUsd = usd[wrappedNativeFor(chainId).toLowerCase()] ?? 0;
+          if (nativeUsd > 0) out[posKey(p)] = parseFloat(formatUnits(gas * price, 18)) * nativeUsd;
+        } catch { /* unknown gas */ }
+      }));
+      if (live) setCollectGasUsd(out);
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, connectedAddress, usd]);
   // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
   const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
   const krystal = krystalData ?? null;
@@ -792,6 +835,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ color: btb.text, fontWeight: 800, fontSize: 16 }}>{p.symbol0}/{p.symbol1}</span>
+              {editingTag === tagKeyOf(p) ? (
+                <input autoFocus value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} onBlur={() => commitTag(p)} onKeyDown={(e) => { if (e.key === 'Enter') commitTag(p); if (e.key === 'Escape') setEditingTag(null); }} maxLength={24} placeholder="Tag"
+                  style={{ height: 22, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11, fontFamily: 'inherit', outline: 'none', width: 120 }}/>
+              ) : (
+                <span onClick={() => { if (address) { setEditingTag(tagKeyOf(p)); setTagDraft(tags[tagKeyOf(p)] ?? ''); } }} title="Tag this position" style={{ cursor: address ? 'pointer' : 'default', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, border: tags[tagKeyOf(p)] ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft, background: tags[tagKeyOf(p)] ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: tags[tagKeyOf(p)] ? btb.green : btb.textDim }}>
+                  {tags[tagKeyOf(p)] ?? '+ tag'}
+                </span>
+              )}
               <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 11, padding: '2px 7px' }}>{fmtFeeTier(p.fee)}</Badge>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
@@ -840,6 +891,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               {hasFees && (
                 <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
+                </div>
+              )}
+              {hasFees && collectGasUsd[posKey(p)] != null && (
+                <div style={{ color: f > 0 && collectGasUsd[posKey(p)] > f ? btb.amber : btb.textDim, fontSize: 10.5, marginTop: 3 }}>
+                  {f > 0 && collectGasUsd[posKey(p)] > f ? `Gas ~$${collectGasUsd[posKey(p)].toFixed(2)} is more than these fees; let them grow` : `Gas to collect ~$${collectGasUsd[posKey(p)].toFixed(2)}`}
                 </div>
               )}
             </div>
