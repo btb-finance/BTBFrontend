@@ -39,3 +39,19 @@ html, body, button, input, select, textarea {
 /* Shared spinner — used by the <Spinner/> primitive everywhere. */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }
+
+/* Safari 27 and Chrome 135 let a native select take page styling; the docs
+   section picker and any other select keep the native sheet where this is
+   unsupported. */
+@supports (appearance: base-select) {
+  select.btb-select, select.btb-select::picker(select) { appearance: base-select; }
+  select.btb-select::picker(select) {
+    background: var(--chain-bg, #0A0A0F);
+    border: var(--chain-border, 1px solid rgba(255,255,255,0.12));
+    border-radius: 14px;
+    padding: 6px;
+    color: var(--btb-text, #fff);
+  }
+  select.btb-select option { padding: 8px 10px; border-radius: 8px; }
+  select.btb-select option:checked { background: var(--chain-surface-strong, rgba(255,255,255,0.08)); }
+}
