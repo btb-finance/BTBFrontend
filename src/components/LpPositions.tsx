@@ -34,6 +34,10 @@ import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, ALERT_MIN_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
 import { withSafeMulticall } from '@/lib/safeMulticall';
+import { buildSwapGap } from '../lib/swapGap';
+import { rebalancePlan } from '@/protocols/dexs/uniswap/v3/math';
+import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import {
   type KrystalPositionAnalytics,
   type KrystalTokenAmount,
@@ -174,6 +178,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [share, setShare] = useState<ShareCardData | null>(null);
   const alerts = useAlerts(connectedAddress);
   const [alertNote, setAlertNote] = useState<string | null>(null);
+  const [actionNote, setActionNote] = useState<string | null>(null);
   async function toggleAlert(p: LiquidityPosition) {
     setAlertNote(null);
     try {
@@ -413,6 +418,112 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     finally { setBusyId(null); }
   }
 
+  /**
+   * Live fee APR per position: the pool's 24h fees (Discover snapshot) times
+   * this position's share of the pool's in-range liquidity (read on-chain),
+   * annualised over the position's value. Out-of-range positions earn zero.
+   * One liquidity read per position, refreshed with the list.
+   */
+  const [liveApr, setLiveApr] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (positions.length === 0 || !discoverPools?.length) return;
+    let live = true;
+    (async () => {
+      const out: Record<string, number> = {};
+      await Promise.all(positions.map(async (p) => {
+        if (!p.inRange || p.liquidity === 0n) { out[posKey(p)] = 0; return; }
+        const chainId = p.chainId ?? 1;
+        const set = new Set([p.token0.toLowerCase(), p.token1.toLowerCase()]);
+        const row = discoverPools.find((r) => (r.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === r.chain)?.chainId) === chainId
+          && r.feeTier === p.fee && (r.underlyingTokens ?? []).length === 2 && r.underlyingTokens!.every((t) => set.has(t.toLowerCase()))
+          && (p.protocol === 'uniswap-v4' ? /^0x[0-9a-f]{64}$/i.test(r.id) : /^0x[0-9a-f]{40}$/i.test(r.id)));
+        if (!row) return;
+        const fees24h = row.fees24hUsd ?? (row.tvlUsd * (row.apyBase ?? 0)) / 100 / 365;
+        if (!(fees24h > 0)) return;
+        const client = getPublicClient(config, { chainId });
+        if (!client) return;
+        try {
+          const poolL = p.protocol === 'uniswap-v4'
+            ? await client.readContract({ address: v4DeploymentOf(p).stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [row.id as `0x${string}`] }) as bigint
+            : await client.readContract({ address: row.id as `0x${string}`, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
+          const value = valueOf(p);
+          if (poolL === 0n || !(value > 0)) return;
+          const share = Number(p.liquidity) / Number(poolL);
+          out[posKey(p)] = (fees24h * Math.min(share, 1) * 365 / value) * 100;
+        } catch { /* leave unknown */ }
+      }));
+      if (live) setLiveApr(out);
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, discoverPools, usd]);
+
+  /**
+   * Compound: collect the fees, swap only what the range needs so both sides
+   * fit, then increase liquidity on the same NFT. Fees go to the wallet in
+   * step one (V3 has no in-contract compounding), so the increase step is
+   * capped to what the wallet gained. V4 is collected and increased the same
+   * way; native ETH pools keep a gas reserve.
+   */
+  async function compound(pos: LiquidityPosition) {
+    if (!connectedAddress || !canTransact) return;
+    const acct = connectedAddress as `0x${string}`;
+    const chainId = (pos.chainId ?? 1) as number;
+    const client = getPublicClient(config, { chainId });
+    if (!client) return;
+    const isV4 = pos.protocol === 'uniswap-v4';
+    const native0 = isV4 && isNativeCurrency(pos.token0);
+    const slippage = lpSlippageBps(chainId, SLIPPAGE_BPS);
+    const readBals = async (): Promise<[bigint, bigint]> => {
+      const erc = native0 ? [pos.token1] : [pos.token0, pos.token1];
+      const res = await withSafeMulticall(client).multicall({
+        contracts: erc.map((a) => ({ address: a, abi: erc20Abi, functionName: 'balanceOf' as const, args: [acct] as const })),
+        allowFailure: true,
+      });
+      const get = (r: (typeof res)[number] | undefined) => (r && r.status === 'success' ? (r.result as bigint) : 0n);
+      if (native0) return [await client.getBalance({ address: acct }), get(res[0])];
+      return [get(res[0]), get(res[1])];
+    };
+    setBusyId(posKey(pos));
+    try {
+      const [before0, before1] = await readBals();
+      await runCalls(config, {
+        account: acct,
+        calls: isV4 ? buildV4Collect(pos, acct, v4DeploymentOf(pos)) : buildCollect(pos.id, acct, v3DeploymentOf(pos)),
+        label: `Compound · collect ${pos.symbol0}/${pos.symbol1} fees`, track, chainId,
+      });
+      const [after0, after1] = await readBals();
+      // Only what the collect brought in is reinvested, never the rest of the wallet.
+      let budget0 = after0 > before0 ? after0 - before0 : 0n;
+      let budget1 = after1 > before1 ? after1 - before1 : 0n;
+      if (budget0 === 0n && budget1 === 0n) throw new Error('No fees came in to compound');
+      const plan = rebalancePlan(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, budget0, budget1);
+      if (plan.sellSide !== null && plan.swapFraction > 0.02) {
+        const swap = await buildSwapGap({
+          sellSide: plan.sellSide, swapFraction: plan.swapFraction, budget0, budget1,
+          token0: pos.token0, token1: pos.token1, decimals0: pos.decimals0, decimals1: pos.decimals1,
+          native0, account: acct, slippageBps: slippage, chainId,
+        }).catch(() => null);
+        if (swap) {
+          await runCalls(config, { account: acct, calls: swap.calls, label: `Compound · balance ${pos.symbol0}/${pos.symbol1}`, track, chainId });
+          budget0 = swap.budget0; budget1 = swap.budget1;
+        }
+      }
+      const [live0, live1] = await readBals();
+      const a0 = budget0 < live0 ? budget0 : live0;
+      const a1 = budget1 < live1 ? budget1 : live1;
+      const L = liquidityForAmounts(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, a0, a1);
+      if (L === 0n) throw new Error('Fees are too small to add at this range');
+      const calls = isV4
+        ? buildV4Increase(pos, L, maxIn(a0, slippage), maxIn(a1, slippage), acct, v4DeploymentOf(pos))
+        : buildIncrease(pos, a0, a1, slippage, null, v3DeploymentOf(pos));
+      await runCalls(config, { account: acct, calls, label: `Compound · add to ${pos.symbol0}/${pos.symbol1}`, track, chainId });
+      await load();
+    } catch (e) {
+      setActionNote((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Compound failed');
+    } finally { setBusyId(null); }
+  }
+
   const valueOf = (p: LiquidityPosition) => {
     const p0 = usd[p.token0.toLowerCase()] ?? 0;
     const p1 = usd[p.token1.toLowerCase()] ?? 0;
@@ -481,6 +592,29 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0,
   );
 
+  // Out-of-range positions with liquidity first, since they are the ones that
+  // need a decision; then by value.
+  const orderedPositions = [...positions].sort((a, b) => {
+    const na = a.liquidity > 0n && !a.inRange ? 1 : 0, nb = b.liquidity > 0n && !b.inRange ? 1 : 0;
+    return nb - na || valueOf(b) - valueOf(a);
+  });
+  const needsAttention = positions.filter((p) => p.liquidity > 0n && !p.inRange);
+  const idleUsd = needsAttention.reduce((sum, p) => sum + valueOf(p), 0);
+  const attentionBlock = needsAttention.length > 0 && (
+    <div style={{ borderRadius: 16, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.07)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ color: btb.amber, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Needs attention</div>
+        <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, marginTop: 2 }}>
+          {needsAttention.length} position{needsAttention.length === 1 ? '' : 's'} out of range{idleUsd > 0 ? `, ${'$'}${idleUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })} earning nothing` : ''}
+        </div>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>{needsAttention.map((p) => `${p.symbol0}/${p.symbol1}`).join(', ')}. Listed first below.</div>
+      </div>
+      {canTransact && canActOn(needsAttention[0]) && (
+        <LpButton tone="amber" label={`Rebalance ${needsAttention[0].symbol0}/${needsAttention[0].symbol1}`} onClick={() => setRebalance(needsAttention[0])} disabled={busyId != null}/>
+      )}
+    </div>
+  );
+
   /** One position card, same layout on desktop and phone: header, three
    * stat boxes, range bar, history list, equal-width actions. */
   const renderPositionCard = (p: LiquidityPosition) => {
@@ -521,7 +655,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         feeTierLabel: fmtFeeTier(p.fee), inRange: p.inRange,
         feesEarnedUsd,
         feesPer30dUsd: ageMs && ageMs > 3_600_000 ? (feesEarnedUsd / ageMs) * 30 * 86_400_000 : undefined,
-        aprPct: a && a.apr > 0 ? a.apr : a && a.feeApr > 0 ? a.feeApr : undefined,
+        aprPct: a && a.apr > 0 ? a.apr : a && a.feeApr > 0 ? a.feeApr : liveApr[posKey(p)] != null && liveApr[posKey(p)] > 0 ? liveApr[posKey(p)] : undefined,
         pnlUsd: a?.pnl, vsHodlUsd: a?.compareWithHodl, depositUsd: a?.totalDepositValue, valueUsd: v > 0 ? v : a ? a.totalDepositValue + a.pnl : undefined, ageMs,
         logo0, logo1,
         // Staked in a gauge or MasterChef: the gauge pays emissions, not swap
@@ -566,6 +700,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
+            {liveApr[posKey(p)] != null && (
+              <div title="Pool's 24h fees times your share of in-range liquidity, annualised" style={{ color: liveApr[posKey(p)] > 0 ? btb.green : btb.textDim, fontSize: 11.5, fontWeight: 800, marginTop: 2 }}>
+                {liveApr[posKey(p)] > 0 ? `${liveApr[posKey(p)].toFixed(1)}% fee APR` : 'Earning 0% now'}
+              </div>
+            )}
             {p.staked && (
               <div style={{ marginTop: v > 0 ? 4 : 0 }}>
                 <Badge size="sm" border="none" bg="rgba(var(--amber-rgb), 0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
@@ -627,6 +766,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           ) : (
             <>
               <LpButton full tone="green" solid={hasFees} label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact}/>
+              {hasFees && p.inRange && canActOn(p) && <LpButton full tone="green" label="Compound" onClick={() => compound(p)} disabled={busy || !canTransact}/>}
               <LpButton full label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
               {p.stakeable && hasLiquidity && <LpButton full label={`Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`} onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
             </>
@@ -636,6 +776,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           <LpButton full label="Flex" onClick={() => setShare(shareData())}/>
           {hasLiquidity && canTransact && <LpButton full tone={alerts.has(p) ? 'green' : 'neutral'} label={alerts.has(p) ? 'Alert on' : 'Alert me'} onClick={() => toggleAlert(p)} disabled={busy}/>}
         </div>
+        {actionNote && <div style={{ color: btb.amber, fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>{actionNote}</div>}
         {alertNote && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
             <span style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, lineHeight: 1.5, flex: 1, minWidth: 200 }}>{alertNote}</span>
@@ -813,13 +954,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         // Card list — the 5-column table (with a 340px action column) can't
         // fit a phone; each position becomes a card with full-width actions.
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {attentionBlock}
           {loading && positions.length === 0 && (
             <div style={{ color: btb.textDim, fontSize: 13, textAlign: 'center', padding: 28 }}>Loading positions…</div>
           )}
           {!loading && !krystalLoading && positions.length === 0 && otherChainPositions.length === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
           )}
-          {[...positions].sort((a, b) => valueOf(b) - valueOf(a)).map(renderPositionCard)}
+          {orderedPositions.map(renderPositionCard)}
           {otherChainPositions.map((item) => {
             const symbols = krystalSymbols(item);
             const symbol0 = symbols[0] ?? 'LP';
@@ -880,7 +1022,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           {!loading && positions.length === 0 && otherChainPositions.length === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
           )}
-          {[...positions].sort((a, b) => valueOf(b) - valueOf(a)).map(renderPositionCard)}
+          {attentionBlock}
+          {orderedPositions.map(renderPositionCard)}
           {otherChainPositions.length > 0 && (
             <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
             <DataTable
