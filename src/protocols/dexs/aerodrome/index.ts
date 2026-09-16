@@ -98,7 +98,7 @@ export async function fetchAerodromePoolsForMint(
 /** The deployment a position was read from — carried on the position itself. */
 export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {
   const pm = p.positionManager?.toLowerCase();
-  return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm) ?? AERODROME_CL_DEPLOYMENTS[0];
+  return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm) ?? (p.chainId === 5042 ? ARC_AERODROME_DEPLOYMENT : AERODROME_CL_DEPLOYMENTS[2]);
 }
 
 /** Every Slipstream position the wallet holds on Base, across all three managers. */
