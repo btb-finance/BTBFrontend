@@ -6,6 +6,7 @@ import { btb } from './design-tokens';
 import { Tab } from './types';
 import { useChainTheme } from '../lib/ChainThemeContext';
 import { WalletSwitcher } from './WalletSwitcher';
+import { AlertsBell } from './AlertsBell';
 
 // Bottom navigation shown instead of the sidebar below the mobile breakpoint.
 // Four primary tabs stay visible; everything else (remaining tabs, Docs,
@@ -66,6 +67,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
             display: 'flex', flexDirection: 'column', gap: 14,
           }}>
             <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.2)', margin: '0 auto' }}/>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}><AlertsBell compact/></div>
 
             {/* remaining tabs + overlays */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>

@@ -31,6 +31,7 @@ import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
 import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
+import { useAlerts, ALERT_MIN_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   type KrystalPositionAnalytics,
@@ -170,6 +171,22 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
   const [share, setShare] = useState<ShareCardData | null>(null);
+  const alerts = useAlerts(connectedAddress);
+  const [alertNote, setAlertNote] = useState<string | null>(null);
+  async function toggleAlert(p: LiquidityPosition) {
+    setAlertNote(null);
+    try {
+      await alerts.toggle(p, `${p.symbol0} / ${p.symbol1} ${fmtFeeTier(p.fee)} on ${p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum'}`);
+      if (!alerts.has(p)) {
+        setAlertNote(isWalletBrowser()
+          ? 'Alert on. This wallet browser cannot receive push, so alerts show under the bell in the app.'
+          : needsHomeScreen() ? 'Alert on. For push on iPhone, add BTB to your home screen from the Share menu; alerts also show under the bell.'
+          : 'Alert on. You will get a push on this device and a line under the bell when the range changes.');
+      }
+    } catch (e) {
+      setAlertNote((e as Error)?.message ?? 'Could not enable the alert');
+    }
+  }
   const [usd, setUsd] = useState<Record<string, number>>({});
 
   const [showClosedHistory, setShowClosedHistory] = useState(false);
@@ -613,7 +630,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
           {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
           <LpButton full label="Flex" onClick={() => setShare(shareData())}/>
+          {hasLiquidity && canTransact && <LpButton full tone={alerts.has(p) ? 'green' : 'neutral'} label={alerts.has(p) ? 'Alert on' : 'Alert me'} onClick={() => toggleAlert(p)} disabled={busy}/>}
         </div>
+        {alertNote && <div style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>{alertNote}</div>}
       </Glass>
     );
   };
