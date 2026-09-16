@@ -130,18 +130,18 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   // Hero: fees earned.
   const heroLabel = d.hero?.label ?? 'FEES EARNED';
   const heroValue = d.hero?.value ?? money(d.feesEarnedUsd);
-  ctx.fillStyle = dim; ctx.font = font(800, 18); ctx.fillText(heroLabel, 62, 282);
+  ctx.fillStyle = dim; ctx.font = font(800, 18); ctx.fillText(heroLabel, 62, 258);
   ctx.fillStyle = green; ctx.textBaseline = 'alphabetic';
   const has30d = !d.hero && d.feesPer30dUsd != null && d.feesPer30dUsd > 0;
-  fitFont(ctx, heroValue, 900, 112, W - 120 - (has30d ? 260 : 0), 56);
-  ctx.fillText(heroValue, 58, 396);
+  fitFont(ctx, heroValue, 900, 104, W - 120 - (has30d ? 260 : 0), 56);
+  ctx.fillText(heroValue, 58, 362);
   if (has30d) {
     const heroW = ctx.measureText(heroValue).width;
     const t = `${money(d.feesPer30dUsd!, 0)} / 30d`;
     ctx.font = font(800, 24); const tw = ctx.measureText(t).width + 36;
-    roundRect(ctx, 58 + heroW + 26, 346, tw, 48, 24); ctx.fillStyle = 'rgba(82,227,164,0.14)'; ctx.fill();
+    roundRect(ctx, 58 + heroW + 26, 314, tw, 48, 24); ctx.fillStyle = 'rgba(82,227,164,0.14)'; ctx.fill();
     ctx.strokeStyle = 'rgba(82,227,164,0.35)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = green; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.fillText(t, 58 + heroW + 26 + tw / 2, 371);
+    ctx.fillStyle = green; ctx.textBaseline = 'middle'; ctx.textAlign = 'center'; ctx.fillText(t, 58 + heroW + 26 + tw / 2, 339);
     ctx.textAlign = 'left';
   }
 
@@ -153,17 +153,17 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   if (d.ageMs != null) stats.push({ label: 'AGE', value: age(d.ageMs), color: '#fff' });
   if (stats.length < 4 && d.depositUsd != null) stats.push({ label: 'DEPOSITED', value: money(d.depositUsd, 0), color: '#fff' });
   stats.slice(0, 4).forEach((s, i) => {
-    const x = 62 + (i % 2) * 400; const y = 448 + Math.floor(i / 2) * 84;
+    const x = 62 + (i % 2) * 400; const y = 412 + Math.floor(i / 2) * 74;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = dim; ctx.font = font(800, 16); ctx.fillText(s.label, x, y);
-    ctx.fillStyle = s.color; fitFont(ctx, s.value, 900, 42, 360, 24); ctx.fillText(s.value, x, y + 40);
+    ctx.fillStyle = s.color; fitFont(ctx, s.value, 900, 38, 360, 24); ctx.fillText(s.value, x, y + 34);
   });
 
   // Footer.
-  ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(0, H - 70, W, 1);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(0, H - 60, W, 1);
   ctx.textBaseline = 'middle'; ctx.fillStyle = muted; ctx.font = font(700, 20); ctx.textAlign = 'left';
-  ctx.fillText('Free LP simulator, discovery and management. Revenue shared every Friday.', 62, H - 34);
-  ctx.fillStyle = '#fff'; ctx.font = font(800, 24); ctx.textAlign = 'right'; ctx.fillText('btb.finance', W - 60, H - 34);
+  ctx.fillText('Free LP simulator, discovery and management. Revenue shared every Friday.', 62, H - 30);
+  ctx.fillStyle = '#fff'; ctx.font = font(800, 24); ctx.textAlign = 'right'; ctx.fillText('btb.finance', W - 60, H - 30);
   return canvas;
 }
 
