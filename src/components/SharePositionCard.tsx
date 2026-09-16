@@ -24,6 +24,7 @@ export interface ShareCardData {
   pnlUsd?: number;
   vsHodlUsd?: number;
   depositUsd?: number;
+  valueUsd?: number;
   ageMs?: number;
   logo0?: string;
   logo1?: string;
@@ -146,17 +147,19 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   }
 
   // Stats grid.
+  // Stats grid: three columns, two rows.
   const stats: { label: string; value: string; color: string }[] = [];
+  if (d.depositUsd != null && d.depositUsd > 0) stats.push({ label: 'INVESTED', value: money(d.depositUsd), color: '#fff' });
   if (d.aprPct != null) stats.push({ label: 'APR', value: `${d.aprPct.toFixed(2)}%`, color: green });
   if (d.pnlUsd != null) stats.push({ label: 'PNL', value: signed(d.pnlUsd), color: d.pnlUsd >= 0 ? green : '#FF6B7A' });
   if (d.vsHodlUsd != null) stats.push({ label: 'VS HODL', value: signed(d.vsHodlUsd), color: d.vsHodlUsd >= 0 ? green : '#FF6B7A' });
   if (d.ageMs != null) stats.push({ label: 'AGE', value: age(d.ageMs), color: '#fff' });
-  if (stats.length < 4 && d.depositUsd != null) stats.push({ label: 'DEPOSITED', value: money(d.depositUsd, 0), color: '#fff' });
-  stats.slice(0, 4).forEach((s, i) => {
-    const x = 62 + (i % 2) * 400; const y = 412 + Math.floor(i / 2) * 74;
+  if (d.valueUsd != null && d.valueUsd > 0) stats.push({ label: 'VALUE NOW', value: money(d.valueUsd), color: '#fff' });
+  stats.slice(0, 6).forEach((s, i) => {
+    const x = 62 + (i % 3) * 370; const y = 412 + Math.floor(i / 3) * 74;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = dim; ctx.font = font(800, 16); ctx.fillText(s.label, x, y);
-    ctx.fillStyle = s.color; fitFont(ctx, s.value, 900, 38, 360, 24); ctx.fillText(s.value, x, y + 34);
+    ctx.fillStyle = s.color; fitFont(ctx, s.value, 900, 38, 330, 22); ctx.fillText(s.value, x, y + 34);
   });
 
   // Footer.

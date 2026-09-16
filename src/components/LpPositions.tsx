@@ -473,7 +473,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         feesEarnedUsd,
         feesPer30dUsd: ageMs && ageMs > 3_600_000 ? (feesEarnedUsd / ageMs) * 30 * 86_400_000 : undefined,
         aprPct: a && a.apr > 0 ? a.apr : a && a.feeApr > 0 ? a.feeApr : undefined,
-        pnlUsd: a?.pnl, vsHodlUsd: a?.compareWithHodl, depositUsd: a?.totalDepositValue, ageMs,
+        pnlUsd: a?.pnl, vsHodlUsd: a?.compareWithHodl, depositUsd: a?.totalDepositValue, valueUsd: v > 0 ? v : a ? a.totalDepositValue + a.pnl : undefined, ageMs,
         logo0, logo1,
         // Staked in a gauge or MasterChef: the gauge pays emissions, not swap
         // fees, so the reward amount is the number worth showing.
