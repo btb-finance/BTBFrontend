@@ -513,7 +513,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             </div>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div onClick={() => setShare(shareData())} title="Share this position as an image" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer', color: btb.textMuted, fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, marginBottom: 4 }}>Share</div>
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
             {p.staked && (
               <div style={{ marginTop: v > 0 ? 4 : 0 }}>
@@ -582,6 +581,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           )}
           {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
           {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+          <LpButton full label="Flex" onClick={() => setShare(shareData())}/>
         </div>
       </Glass>
     );
