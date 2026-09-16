@@ -17,6 +17,8 @@ export interface ShareCardData {
   feeTierLabel: string;       // "0.05%"
   inRange: boolean;
   feesEarnedUsd: number;      // claimed + pending
+  /** Staked positions: the hero shows the reward token amount instead of a USD figure. */
+  hero?: { label: string; value: string };
   feesPer30dUsd?: number;
   aprPct?: number;
   pnlUsd?: number;
@@ -50,6 +52,15 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = src;
   });
+}
+
+/** Largest font size (down to `min`) at which `text` fits in `maxW`. */
+function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: number, size: number, maxW: number, min: number): number {
+  let px = size;
+  const font = (n: number) => `${weight} ${n}px -apple-system, "SF Pro Display", Inter, system-ui, sans-serif`;
+  ctx.font = font(px);
+  while (px > min && ctx.measureText(text).width > maxW) { px -= 2; ctx.font = font(px); }
+  return px;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -103,7 +114,9 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   // Pair row with token logos.
   drawTokenCircle(ctx, img0, d.symbol0, 92, 172, 30);
   drawTokenCircle(ctx, img1, d.symbol1, 134, 172, 30);
-  ctx.fillStyle = '#fff'; ctx.font = font(800, 56); ctx.textAlign = 'left'; ctx.fillText(d.pair, 186, 170);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+  fitFont(ctx, d.pair, 800, 56, W - 186 - 60 - 200, 30);
+  ctx.fillText(d.pair, 186, 170);
   const pairW = ctx.measureText(d.pair).width;
   // Status pill after the pair.
   const pill = d.inRange ? 'IN RANGE' : 'OUT OF RANGE';
@@ -115,11 +128,16 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   ctx.fillText(`${d.dexLabel}  ·  ${d.feeTierLabel}  ·  ${d.chainName}`, 186, 214);
 
   // Hero: fees earned.
-  ctx.fillStyle = dim; ctx.font = font(800, 18); ctx.fillText('FEES EARNED', 62, 282);
-  ctx.fillStyle = green; ctx.font = font(900, 112); ctx.textBaseline = 'alphabetic'; ctx.fillText(money(d.feesEarnedUsd), 58, 396);
-  if (d.feesPer30dUsd != null && d.feesPer30dUsd > 0) {
-    const heroW = ctx.measureText(money(d.feesEarnedUsd)).width;
-    const t = `${money(d.feesPer30dUsd, 0)} / 30d`;
+  const heroLabel = d.hero?.label ?? 'FEES EARNED';
+  const heroValue = d.hero?.value ?? money(d.feesEarnedUsd);
+  ctx.fillStyle = dim; ctx.font = font(800, 18); ctx.fillText(heroLabel, 62, 282);
+  ctx.fillStyle = green; ctx.textBaseline = 'alphabetic';
+  const has30d = !d.hero && d.feesPer30dUsd != null && d.feesPer30dUsd > 0;
+  fitFont(ctx, heroValue, 900, 112, W - 120 - (has30d ? 260 : 0), 56);
+  ctx.fillText(heroValue, 58, 396);
+  if (has30d) {
+    const heroW = ctx.measureText(heroValue).width;
+    const t = `${money(d.feesPer30dUsd!, 0)} / 30d`;
     ctx.font = font(800, 24); const tw = ctx.measureText(t).width + 36;
     roundRect(ctx, 58 + heroW + 26, 346, tw, 48, 24); ctx.fillStyle = 'rgba(82,227,164,0.14)'; ctx.fill();
     ctx.strokeStyle = 'rgba(82,227,164,0.35)'; ctx.lineWidth = 2; ctx.stroke();
@@ -138,7 +156,7 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
     const x = 62 + (i % 2) * 400; const y = 448 + Math.floor(i / 2) * 84;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = dim; ctx.font = font(800, 16); ctx.fillText(s.label, x, y);
-    ctx.fillStyle = s.color; ctx.font = font(900, 42); ctx.fillText(s.value, x, y + 40);
+    ctx.fillStyle = s.color; fitFont(ctx, s.value, 900, 42, 360, 24); ctx.fillText(s.value, x, y + 40);
   });
 
   // Footer.
@@ -170,7 +188,7 @@ export function SharePositionCard({ data, onClose }: { data: ShareCardData; onCl
       setCopied(true); setTimeout(() => setCopied(false), 1800);
     } catch {}
   }
-  const tweet = `${data.pair} on ${data.dexLabel} (${data.chainName}): ${money(data.feesEarnedUsd)} in fees${data.aprPct != null ? `, ${data.aprPct.toFixed(1)}% APR` : ''}. Managed on @BTB_Finance, free. btb.finance`;
+  const tweet = `${data.pair} on ${data.dexLabel} (${data.chainName}): ${data.hero ? `${data.hero.value} earned` : `${money(data.feesEarnedUsd)} in fees`}${data.aprPct != null ? `, ${data.aprPct.toFixed(1)}% APR` : ''}. Managed on @BTB_Finance, free. btb.finance`;
 
   return (
     <Portal>

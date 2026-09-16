@@ -475,6 +475,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         aprPct: a && a.apr > 0 ? a.apr : a && a.feeApr > 0 ? a.feeApr : undefined,
         pnlUsd: a?.pnl, vsHodlUsd: a?.compareWithHodl, depositUsd: a?.totalDepositValue, ageMs,
         logo0, logo1,
+        // Staked in a gauge or MasterChef: the gauge pays emissions, not swap
+        // fees, so the reward amount is the number worth showing.
+        hero: p.staked && feesEarnedUsd <= 0 && p.staked.earned > 0n
+          ? { label: `${p.staked.rewardSymbol.toUpperCase()} EARNED`, value: `${fmtAmt(p.staked.earned, 18)} ${p.staked.rewardSymbol}` }
+          : p.staked && feesEarnedUsd <= 0 ? { label: 'STAKED FOR', value: p.staked.rewardSymbol } : undefined,
       };
     };
     const box = lpBox(isMobile);
