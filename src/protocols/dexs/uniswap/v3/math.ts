@@ -327,3 +327,25 @@ export function fitRangeToBalances(
   const tickLower = loMin + lt * spacing;
   return { tickLower, tickUpper: tickLower + width, side: 0, single: currentTick < tickLower };
 }
+
+/**
+ * A range of the given width (in ticks) placed so that its token0 value share
+ * matches what the wallet holds, so a rebalance into it needs no swap. The
+ * width slides between fully-below and fully-above the price; the share is
+ * monotonic in that offset, so a bisection finds it.
+ */
+export function swapFreeRange(sqrtPriceX96: bigint, currentTick: number, widthTicks: number, spacing: number, share0: number): { tickLower: number; tickUpper: number; share0: number } {
+  const w = Math.max(spacing, Math.round(widthTicks / spacing) * spacing);
+  // offset = tickLower relative to the current tick; from -w (range entirely below: all token1)
+  // to 0 (range entirely above: all token0). share0 rises with the offset.
+  let lo = -w, hi = 0;
+  const shareAt = (off: number) => rangeValueShare0(sqrtPriceX96, currentTick + off, currentTick + off + w);
+  const target = Math.min(1, Math.max(0, share0));
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (shareAt(mid) < target) lo = mid; else hi = mid;
+  }
+  const tickLower = nearestUsableTick(currentTick + Math.round((lo + hi) / 2), spacing);
+  const tickUpper = tickLower + w;
+  return { tickLower, tickUpper, share0: rangeValueShare0(sqrtPriceX96, tickLower, tickUpper) };
+}

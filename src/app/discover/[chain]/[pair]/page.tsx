@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { AppClientOnly } from '@/components/AppClientOnly';
 import { buildMetadata } from '@/lib/seo/metadata';
 
-const CHAIN_NAMES: Record<string, string> = { robinhoodchain: 'Robinhood Chain', ethereum: 'Ethereum' };
+const CHAIN_NAMES: Record<string, string> = { robinhoodchain: 'Robinhood Chain', ethereum: 'Ethereum', base: 'Base', bnbchain: 'BNB Chain', arc: 'Arc' };
 
 export async function generateMetadata({ params }: { params: Promise<{ chain: string; pair: string }> }): Promise<Metadata> {
   const { chain, pair } = await params;

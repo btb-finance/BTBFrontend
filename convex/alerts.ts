@@ -89,3 +89,25 @@ export const dropSubscription = internalMutation({
     if (row) await ctx.db.delete(row._id);
   },
 });
+
+// ── Position tags ───────────────────────────────────────────────────────────
+
+export const tagsForAddress = query({
+  args: { address: v.string() },
+  handler: async (ctx, { address }) => {
+    const rows = await ctx.db.query("positionTags").withIndex("by_address", q => q.eq("address", address.toLowerCase())).collect();
+    return Object.fromEntries(rows.map(r => [r.key, r.tag]));
+  },
+});
+
+export const setTag = mutation({
+  args: { address: v.string(), key: v.string(), tag: v.string() },
+  handler: async (ctx, { address, key, tag }) => {
+    const a = address.toLowerCase();
+    const clean = tag.trim().slice(0, 24);
+    const row = await ctx.db.query("positionTags").withIndex("by_address_key", q => q.eq("address", a).eq("key", key)).unique();
+    if (!clean) { if (row) await ctx.db.delete(row._id); return; }
+    if (row) await ctx.db.patch(row._id, { tag: clean, updatedAt: Date.now() });
+    else await ctx.db.insert("positionTags", { address: a, key, tag: clean, updatedAt: Date.now() });
+  },
+});

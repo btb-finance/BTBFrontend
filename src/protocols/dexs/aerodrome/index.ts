@@ -30,17 +30,17 @@ export const BASE_WETH = '0x4200000000000000000000000000000000000006' as const;
 /** Slipstream tick spacings; there is no fee tier list, fees live on the pool. */
 const SLIPSTREAM_TICK_SPACINGS = [1, 50, 100, 200, 2000] as const;
 
-function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`, label: string): V3Deployment {
+function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`, label: string, chainId: number = BASE_CHAIN_ID, spacings: readonly number[] = SLIPSTREAM_TICK_SPACINGS): V3Deployment {
   return {
     protocol: 'aerodrome-cl',
     label,
     slipstream: true,
-    chainId: BASE_CHAIN_ID,
+    chainId,
     positionManager,
     factory,
     // Keyed by tickSpacing on Slipstream: a "tier" is its spacing.
-    feeTiers: SLIPSTREAM_TICK_SPACINGS,
-    tickSpacings: Object.fromEntries(SLIPSTREAM_TICK_SPACINGS.map((s) => [s, s])),
+    feeTiers: [...spacings],
+    tickSpacings: Object.fromEntries(spacings.map((s) => [s, s])),
   };
 }
 
@@ -54,6 +54,18 @@ export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
  * pools and gauges are created on. */
 export const AERODROME_MINT_DEPLOYMENT = AERODROME_CL_DEPLOYMENTS[2];
 
+/** Aerodrome Slipstream on Arc: manager and factory read from a live pool
+ * (EURC/USDC); spacings from the factory. No voter yet, so no gauges. */
+export const ARC_AERODROME_DEPLOYMENT: V3Deployment = slipstreamDeployment(
+  '0xc84bB45D43CD25D02b83B4C085eaA4e08da8f473', '0xb89Df768aF2CFE637ceB352c587Fe8edAf491d03', 'Aerodrome', 5042, [1, 10, 50, 100, 200, 2000]);
+
+/** Slipstream deployments to read and mint on, per chain. */
+export function aerodromeDeploymentsFor(chainId: number): readonly V3Deployment[] {
+  if (chainId === BASE_CHAIN_ID) return AERODROME_CL_DEPLOYMENTS;
+  if (chainId === 5042) return [ARC_AERODROME_DEPLOYMENT];
+  return [];
+}
+
 /** Slipstream pools for a pair across all three factories, keyed by tick
  * spacing, plus which deployment owns each spacing (the mint must go through
  * that deployment's position manager). A spacing that exists on more than
@@ -62,8 +74,10 @@ export async function fetchAerodromePoolsForMint(
   client: PublicClient,
   tokenA: `0x${string}`,
   tokenB: `0x${string}`,
+  chainId: number = BASE_CHAIN_ID,
 ): Promise<{ pools: Record<number, MintPool>; deploymentByTier: Record<number, V3Deployment> }> {
-  const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchPoolsForMint(client, tokenA, tokenB, d)));
+  const deployments = aerodromeDeploymentsFor(chainId);
+  const results = await Promise.allSettled(deployments.map((d) => fetchPoolsForMint(client, tokenA, tokenB, d)));
   const pools: Record<number, MintPool> = {};
   const deploymentByTier: Record<number, V3Deployment> = {};
   results.forEach((r, i) => {
@@ -73,7 +87,7 @@ export async function fetchAerodromePoolsForMint(
       const current = pools[key];
       if (!current || (!current.exists && pool.exists) || (pool.exists && pool.liquidity > current.liquidity)) {
         pools[key] = pool;
-        deploymentByTier[key] = AERODROME_CL_DEPLOYMENTS[i];
+        deploymentByTier[key] = deployments[i];
       }
     }
   });
@@ -84,7 +98,7 @@ export async function fetchAerodromePoolsForMint(
 /** The deployment a position was read from — carried on the position itself. */
 export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {
   const pm = p.positionManager?.toLowerCase();
-  return AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm) ?? AERODROME_CL_DEPLOYMENTS[0];
+  return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm) ?? AERODROME_CL_DEPLOYMENTS[0];
 }
 
 /** Every Slipstream position the wallet holds on Base, across all three managers. */
@@ -93,10 +107,14 @@ export async function fetchAerodromePositions(
   owner: `0x${string}`,
   /** Pre-enumerated tokenIds per manager (Blockscout); omit to enumerate on-chain. */
   knownIds?: Map<string, bigint[]>,
+  chainId: number = BASE_CHAIN_ID,
 ): Promise<LiquidityPosition[]> {
-  const results = await Promise.allSettled(AERODROME_CL_DEPLOYMENTS.map((d) => fetchV3Positions(client, owner, d, knownIds?.get(d.positionManager.toLowerCase()))));
+  const deployments = aerodromeDeploymentsFor(chainId);
+  const results = await Promise.allSettled(deployments.map((d) => fetchV3Positions(client, owner, d, knownIds?.get(d.positionManager.toLowerCase()))));
   const ok = results.filter((r): r is PromiseFulfilledResult<LiquidityPosition[]> => r.status === 'fulfilled');
   if (ok.length === 0) throw (results[0] as PromiseRejectedResult).reason;
+  // Gauges exist on Base only so far.
+  if (chainId !== BASE_CHAIN_ID) return ok.flatMap((r) => r.value);
   return withGauges(client, ok.flatMap((r) => r.value)).catch(() => ok.flatMap((r) => r.value));
 }
 

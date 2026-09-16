@@ -406,6 +406,7 @@ export const DISCOVERY_CHAINS: { chainId?: number; network: string; chain: strin
   { chainId: 8453, network: 'base',      chain: 'Base' },
   { chainId: 56,   network: 'bsc',       chain: 'BNB Chain' },
   { chainId: 4663, network: 'robinhood', chain: 'Robinhood Chain' },
+  { chainId: 5042, network: 'arc',       chain: 'Arc' },
 ];
 
 /** Algebra style CLAMMs expose their live fee through globalState(), not fee(). */
@@ -868,7 +869,7 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap'; chainId: 1 | 4663 | 8453 | 56 };
+export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap'; chainId: 1 | 4663 | 8453 | 56 | 5042 };
 
 /** Where "Add LP" can mint in-app: Uniswap V3/V4 and PancakeSwap V3 on
  * Ethereum, Base and BNB Chain, Uniswap V3/V4 on Robinhood Chain, Aerodrome
@@ -876,14 +877,14 @@ export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4Poo
 export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null {
   const chain = p.chain.toLowerCase();
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
-  const chainId = chain === 'ethereum' ? 1 : chain === 'base' ? 8453 : chain === 'bnb chain' || chain === 'bsc' || chain === 'binance' ? 56 : chain === 'robinhood chain' ? 4663 : null;
+  const chainId = chain === 'ethereum' ? 1 : chain === 'base' ? 8453 : chain === 'bnb chain' || chain === 'bsc' || chain === 'binance' ? 56 : chain === 'robinhood chain' ? 4663 : chain === 'arc' ? 5042 : null;
   if (!chainId) return null;
-  if (chainId === 8453) {
+  if (chainId === 8453 || chainId === 5042) {
     // DeFiLlama rows say "aerodrome-slipstream"; DexPaprika rows collapse to
     // the "aerodrome" brand with a CLMM model. Aerodrome V2 (AMM) is not mintable.
     const slipstream = p.project === 'aerodrome-slipstream'
       || (/^aerodrome/i.test(p.project) && (p.liquidityModel === 'CLMM' || /v3|slipstream|cl/i.test(p.version ?? '')));
-    if (slipstream && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'aerodrome', chainId: 8453 };
+    if (slipstream && tokens.length >= 2) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'aerodrome', chainId };
   }
   if (chainId === 4663 && tokens.length >= 2) {
     const cl = p.liquidityModel === 'CLMM' || /v3|cl/i.test(p.version ?? '');

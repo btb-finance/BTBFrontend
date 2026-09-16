@@ -30,4 +30,5 @@ export const CHAIN_DATA_NETWORKS: Record<number, ChainDataNetwork> = {
   // GeckoTerminal's slug is "robinhood" — "robinhood_chain" 404s every
   // endpoint, which silently zeroed out all Gecko data for this chain.
   4663:  { gecko: 'robinhood',        dexScreener: 'robinhood', dexPaprika: 'robinhood', llama: 'robinhood' },
+  5042:  { gecko: 'arc',              dexScreener: 'arc',       dexPaprika: 'arc',       llama: 'arc' },
 };

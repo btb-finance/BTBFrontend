@@ -22,7 +22,7 @@ export { getV4TopPools } from './v4/subgraph';
 // v3
 export { fetchV3Positions } from './v3/positions';
 export { buildCollect, buildRemove, buildIncrease, buildMint } from './v3/actions';
-export { addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, rebalancePlan, heldHeavyRange, rangeValueShare0, TICK_SPACINGS, MIN_TICK, MAX_TICK } from './v3/math';
+export { swapFreeRange, addAmounts, addSide, rangeTicks, nearestUsableTick, liquidityForAmounts, getAmountsForLiquidity, fitRangeToBalances, rebalancePlan, heldHeavyRange, rangeValueShare0, TICK_SPACINGS, MIN_TICK, MAX_TICK } from './v3/math';
 export { SLIPPAGE_BPS, GAS_RESERVE, deadline, minOut, maxIn, tickToPrice } from './shared';
 export { impermanentLossFraction, backtestRange, unitAmounts } from './v3/simulate';
 export type { BacktestResult, BacktestInput } from './v3/simulate';

@@ -38,7 +38,7 @@ function isNativeToken(address: string) {
 
 type ChainOption = { id: number; name: string };
 
-const CHAIN_PRIORITY = [1, 8453, 56, 4663, 42161, 10, 137];
+const CHAIN_PRIORITY = [1, 8453, 56, 4663, 5042, 42161, 10, 137];
 function rank(id: number): number {
   const i = CHAIN_PRIORITY.indexOf(id);
   return i === -1 ? CHAIN_PRIORITY.length : i;

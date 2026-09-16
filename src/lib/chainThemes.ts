@@ -37,6 +37,7 @@ export const CHAIN_THEMES: Record<number, ChainTheme> = {
   324:    { chainId: 324, name: 'zkSync', accent: '#8C8DFC', accent2: '#C1C2FF', background: '#0B0B17', brandSource: 'https://www.zksync.io/' },
   143:    { chainId: 143, name: 'Monad', accent: '#836EF9', accent2: '#C4B9FF', background: '#0D091A', brandSource: 'https://www.monad.xyz/' },
   4326:   { chainId: 4326, name: 'MegaETH', accent: '#F04E45', accent2: '#FFB000', background: '#160807', brandSource: 'https://www.megaeth.com/' },
+  5042:   { chainId: 5042, name: 'Arc', accent: '#2775CA', accent2: '#7FB2F0', background: '#070B14', brandSource: 'https://www.arc.network/' },
   4663:   { chainId: 4663, name: 'Robinhood Chain', accent: '#CCFF00', accent2: '#F0FF99', background: '#080A08', brandSource: 'https://robinhood.com/us/en/newsroom/a-new-visual-identity/' },
 };
 

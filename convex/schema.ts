@@ -64,6 +64,14 @@ export default defineSchema({
     readAt: v.optional(v.float64()),
   }).index("by_address", ["address", "createdAt"]),
 
+  // Free-text label per LP position, shared across the wallet's profile.
+  positionTags: defineTable({
+    address: v.string(),
+    key: v.string(),            // `${chainId}:${protocol}:${tokenId}`
+    tag: v.string(),
+    updatedAt: v.float64(),
+  }).index("by_address", ["address"]).index("by_address_key", ["address", "key"]),
+
   agentMessages: defineTable({
     walletAddress: v.string(),   // lowercase
     role: v.string(),            // "user" | "assistant"

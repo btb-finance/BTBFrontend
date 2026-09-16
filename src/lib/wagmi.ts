@@ -25,6 +25,15 @@ export const robinhoodChain = defineChain({
   },
 });
 
+/** Arc (Circle): USDC is the gas token, 18 decimals at the protocol level. */
+export const arcChain = defineChain({
+  id: 5042, name: 'Arc',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.mainnet.arc.io'] } },
+  blockExplorers: { default: { name: 'Arc Explorer', url: 'https://explorer.arc.io' } },
+  contracts: { multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' } },
+});
+
 export const ROBINHOOD_RPC_URLS = Array.from(new Set([
   // Same-origin reads are the most reliable path on Netlify — the proxy
   // round-robins the verified public pool server-side. Direct RPCs stay
@@ -45,7 +54,7 @@ export function robinhoodTransport() {
 export const SUPPORTED_CHAINS = [
   mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain,
   ronin, unichain, linea, hyperEvm, plasma, etherlink, mantle, scroll, fantom,
-  blast, zkSync, monad, megaeth, robinhoodChain,
+  blast, zkSync, monad, megaeth, robinhoodChain, arcChain,
 ] as const;
 export type SupportedChain = typeof SUPPORTED_CHAINS[number];
 export type SupportedChainId = SupportedChain['id'];
@@ -92,6 +101,7 @@ export function makeConfig() {
       [blast.id]: chainTransport(blast.id), [zkSync.id]: chainTransport(zkSync.id),
       [megaeth.id]: chainTransport(megaeth.id),
       [robinhoodChain.id]: robinhoodTransport(),
+      [arcChain.id]: chainTransport(arcChain.id),
     },
     connectors,
   });
@@ -112,6 +122,7 @@ export const CHAIN_META: Record<number, { name: string; symbol: string; color: s
   8453:   { name: 'Base',      symbol: 'ETH',  color: '#0052FF' },
   43114:  { name: 'Avalanche', symbol: 'AVAX', color: '#E84142' },
   4663:   { name: 'Robinhood Chain', symbol: 'ETH', color: '#00C805' },
+  5042:   { name: 'Arc', symbol: 'USDC', color: '#2775CA' },
   250:    { name: 'Fantom',    symbol: 'FTM',  color: '#1969FF' },
   59144:  { name: 'Linea',     symbol: 'ETH',  color: '#61DFFF' },
   534352: { name: 'Scroll',    symbol: 'ETH',  color: '#FFEEDA' },

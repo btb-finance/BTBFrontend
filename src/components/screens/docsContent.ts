@@ -46,6 +46,7 @@ export const DOCS: DocGroup[] = [
             ['Base', 'Uniswap V3, Uniswap V4, PancakeSwap V3, Aerodrome Slipstream (with gauge staking)'],
             ['BNB Chain', 'Uniswap V3, Uniswap V4, PancakeSwap V3'],
             ['Robinhood Chain', 'Uniswap V3, Uniswap V4, PancakeSwap V3, SushiSwap V3, Giga V3 (MasterChef staking), Ramses V3, UP (gauge staking)'],
+            ['Arc', 'Uniswap V3, Uniswap V4, Aerodrome Slipstream. Gas is USDC.'],
           ] },
           { type: 'p', text: 'Discover and Simulate cover more chains than that (Arbitrum, Optimism, Polygon, Avalanche, Linea, Unichain, Berachain, HyperEVM, Monad, MegaETH, Plasma, Ronin and others). On those, pools are Simulate only and the row says so.' },
           { type: 'p', text: 'Full-range V2 pools (Uniswap V2, Aerodrome AMM, Velodrome AMM) are not listed. BTB is a concentrated liquidity app.' },
@@ -111,13 +112,20 @@ export const DOCS: DocGroup[] = [
       {
         id: 'manage', title: 'Manage positions', summary: 'Claim, stake, unstake, remove and rebalance from Portfolio.',
         blocks: [
-          { type: 'p', text: 'Portfolio lists every position across supported chains, staked or not, using Krystal as the index and the chain as the source of truth for amounts, fees and range.' },
+          { type: 'p', text: 'Portfolio lists every position across supported chains, staked or not, using Krystal as the index and the chain as the source of truth for amounts, fees and range. Out-of-range positions are listed first under a Needs attention line with the value sitting idle. Each in-range card shows a live fee APR: the pool\'s 24h fees times your share of its in-range liquidity, annualised.' },
           { type: 'table', head: ['Action', 'What happens'], rows: [
             ['Claim', 'Collects uncollected swap fees to your wallet. On staked positions it claims the gauge or MasterChef rewards instead.'],
+            ['Compound', 'Collects the fees, swaps only what the range needs, and adds them back to the same position. Two or three confirmations, no new NFT.'],
             ['Stake', 'Approves and deposits the position NFT into the DEX gauge (Aerodrome, UP) or MasterChef (Giga) to earn emissions.'],
             ['Unstake', 'Withdraws the NFT back to your wallet, paying out earned rewards.'],
             ['Remove', 'Burns liquidity and collects fees in one transaction, slippage protected.'],
-            ['Rebalance', 'Unstakes if needed, withdraws everything, then opens the full Add liquidity sheet for the same pool so you pick any new range. Restake is a toggle.'],
+            ['Rebalance', 'Shows what comes out and suggests a range of the same width that fits those tokens with no swap; unstakes if needed, withdraws, then opens the Add liquidity sheet on that range (or any other). Restake is a toggle.'],
+          ] },
+          { type: 'list', items: [
+            'Tags: tap + tag on a card to label a position (Hedge, Farm, Test). Stored per wallet.',
+            'Gas awareness: each card with fees shows the estimated gas to collect and warns when the fees are worth less than the gas.',
+            'History: where no provider indexes the chain (Robinhood), deposits, withdrawals and fees claimed are read from the position manager\'s events, so Invested, PnL, versus HODL and age still show. Figures priced at today\'s rate say so.',
+            'Closed LP history lists finished positions with what was deposited, withdrawn and earned.',
           ] },
           { type: 'note', text: 'Every write is verified after confirmation by re-reading the chain (owner, liquidity, fees). If an RPC lags, the app tells you to retry instead of showing a stale state.' },
         ],
