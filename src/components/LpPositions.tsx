@@ -28,6 +28,7 @@ import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBl
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
+import { CONTRACTS } from '../lib/wagmi';
 import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
@@ -184,7 +185,10 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           : 'Alert on. You will get a push on this device and a line under the bell when the range changes.');
       }
     } catch (e) {
-      setAlertNote((e as Error)?.message ?? 'Could not enable the alert');
+      // Convex wraps thrown errors in its own framing; keep the sentence only.
+      const raw = (e as Error)?.message ?? 'Could not enable the alert';
+      const m = raw.match(/Uncaught Error: ([^\n]+?)(?: at handler|$)/);
+      setAlertNote((m ? m[1] : raw).trim());
     }
   }
   const [usd, setUsd] = useState<Record<string, number>>({});
@@ -632,7 +636,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           <LpButton full label="Flex" onClick={() => setShare(shareData())}/>
           {hasLiquidity && canTransact && <LpButton full tone={alerts.has(p) ? 'green' : 'neutral'} label={alerts.has(p) ? 'Alert on' : 'Alert me'} onClick={() => toggleAlert(p)} disabled={busy}/>}
         </div>
-        {alertNote && <div style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>{alertNote}</div>}
+        {alertNote && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, lineHeight: 1.5, flex: 1, minWidth: 200 }}>{alertNote}</span>
+            {/^Alerts need/.test(alertNote) && (
+              <a href={`/swap?to=${CONTRACTS.BTB}`} style={{ color: btb.green, fontSize: 11.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>Get BTB</a>
+            )}
+          </div>
+        )}
       </Glass>
     );
   };
