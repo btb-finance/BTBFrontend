@@ -191,7 +191,7 @@ export function SharePositionCard({ data, onClose }: { data: ShareCardData; onCl
       setCopied(true); setTimeout(() => setCopied(false), 1800);
     } catch {}
   }
-  const tweet = `${data.pair} on ${data.dexLabel} (${data.chainName}): ${data.hero ? `${data.hero.value} earned` : `${money(data.feesEarnedUsd)} in fees`}${data.aprPct != null ? `, ${data.aprPct.toFixed(1)}% APR` : ''}. Managed on @BTB_Finance, free. btb.finance`;
+  const tweet = `${data.pair} on ${data.dexLabel} (${data.chainName}): ${data.hero ? `${data.hero.value} earned` : `${money(data.feesEarnedUsd)} in fees`}${data.aprPct != null ? `, ${data.aprPct.toFixed(1)}% APR` : ''}. Managed on @BTB_Finance, free. btb.finance/simulate`;
 
   return (
     <Portal>
