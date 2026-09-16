@@ -484,14 +484,16 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       const feeTokens = [p.fees0 > 0n ? `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}` : '', p.fees1 > 0n ? `${fmtAmt(p.fees1, p.decimals1)} ${p.symbol1}` : ''].filter(Boolean).join(' + ');
       const flipQuote = STABLES.has(p.symbol0.toUpperCase()) && !STABLES.has(p.symbol1.toUpperCase());
       const priceOf = (tick: number) => { const q = tickToPrice(tick, p.decimals0, p.decimals1); return flipQuote && q > 0 ? 1 / q : q; };
-      const quoteLabel = flipQuote ? `${p.symbol0}/${p.symbol1}` : `${p.symbol1}/${p.symbol0}`;
+      // Quote as "1 BASE = x QUOTE" so the number reads as an exchange rate.
+      const baseSym = flipQuote ? p.symbol1 : p.symbol0, quoteSym = flipQuote ? p.symbol0 : p.symbol1;
+      const compact = (v: number) => v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : fmtPrice(v);
       const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
       const lo = priceOf(flipQuote ? p.tickUpper : p.tickLower), hi = priceOf(flipQuote ? p.tickLower : p.tickUpper);
       return {
         holdings: [p.amount0 > 0n ? `${fmtAmt(p.amount0, p.decimals0)} ${p.symbol0}` : '', p.amount1 > 0n ? `${fmtAmt(p.amount1, p.decimals1)} ${p.symbol1}` : ''].filter(Boolean).join(' + ') || undefined,
         unclaimedFees: feeTokens || undefined,
-        priceNow: `${fmtPrice(priceOf(p.currentTick))} ${quoteLabel}`,
-        rangeLabel: fullRange ? 'Full range' : `${fmtPrice(lo)} to ${fmtPrice(hi)}`,
+        priceNow: `1 ${baseSym} = ${compact(priceOf(p.currentTick))} ${quoteSym}`,
+        rangeLabel: fullRange ? 'Full range' : `${compact(lo)} to ${compact(hi)} ${quoteSym}`,
         positionId: p.id.toString(),
         pair: `${p.symbol0} / ${p.symbol1}`, symbol0: p.symbol0, symbol1: p.symbol1,
         dexLabel: protocolBadgeLabel(p), chainName: p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum',

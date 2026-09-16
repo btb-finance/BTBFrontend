@@ -164,8 +164,8 @@ export async function renderShareCard(d: ShareCardData): Promise<HTMLCanvasEleme
   if (d.valueUsd != null && d.valueUsd >= 1) stats.push({ label: 'VALUE NOW', value: money(d.valueUsd), color: '#fff' });
   if (stats.length < 6 && d.holdings) stats.push({ label: 'HOLDINGS', value: d.holdings, color: '#fff' });
   if (stats.length < 6 && d.unclaimedFees && d.hero) stats.push({ label: 'UNCLAIMED', value: d.unclaimedFees, color: green });
-  if (stats.length < 6 && d.priceNow) stats.push({ label: 'PRICE NOW', value: d.priceNow, color: '#fff' });
-  if (stats.length < 6 && d.rangeLabel) stats.push({ label: 'RANGE', value: d.rangeLabel, color: '#fff' });
+  if (stats.length < 6 && d.priceNow) stats.push({ label: 'POOL PRICE', value: d.priceNow, color: '#fff' });
+  if (stats.length < 6 && d.rangeLabel) stats.push({ label: 'MY RANGE', value: d.rangeLabel, color: '#fff' });
   if (stats.length < 6 && d.positionId) stats.push({ label: 'POSITION', value: `#${d.positionId}`, color: '#fff' });
   stats.slice(0, 6).forEach((s, i) => {
     const x = 62 + (i % 3) * 370; const y = 412 + Math.floor(i / 3) * 74;
