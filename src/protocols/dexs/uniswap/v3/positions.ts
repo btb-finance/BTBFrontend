@@ -166,7 +166,9 @@ export async function fetchV3Positions(
       symbol0: m0.symbol, symbol1: m1.symbol,
       decimals0: m0.decimals, decimals1: m1.decimals,
       fee: slip ? (st?.fee ?? 0) : r.fee, tickLower: r.tickLower, tickUpper: r.tickUpper,
-      ...(slip ? { tickSpacing: r.fee, positionManager: npm } : {}),
+      // Every position carries its manager so later actions resolve the same deployment on the same chain.
+      positionManager: npm,
+      ...(slip ? { tickSpacing: r.fee } : {}),
       liquidity: r.liquidity,
       sqrtPriceX96: st?.sqrtPriceX96 ?? 0n,
       currentTick: st?.tick ?? 0,

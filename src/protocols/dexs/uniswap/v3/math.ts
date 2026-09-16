@@ -339,8 +339,12 @@ export function swapFreeRange(sqrtPriceX96: bigint, currentTick: number, widthTi
   // offset = tickLower relative to the current tick; from -w (range entirely below: all token1)
   // to 0 (range entirely above: all token0). share0 rises with the offset.
   let lo = -w, hi = 0;
-  const shareAt = (off: number) => rangeValueShare0(sqrtPriceX96, currentTick + off, currentTick + off + w);
+  // Tick math takes integers; the bisection runs on a real offset and probes at the rounded tick.
+  const shareAt = (off: number) => { const o = Math.round(off); return rangeValueShare0(sqrtPriceX96, currentTick + o, currentTick + o + w); };
   const target = Math.min(1, Math.max(0, share0));
+  // All of one token: the range sits entirely on that token's side of the price, no search needed.
+  if (target <= 0.001) { const tickUpper = Math.floor(currentTick / spacing) * spacing; return { tickLower: tickUpper - w, tickUpper, share0: 0 }; }
+  if (target >= 0.999) { const tickLower = (Math.floor(currentTick / spacing) + 1) * spacing; return { tickLower, tickUpper: tickLower + w, share0: 1 }; }
   for (let i = 0; i < 40; i++) {
     const mid = (lo + hi) / 2;
     if (shareAt(mid) < target) lo = mid; else hi = mid;

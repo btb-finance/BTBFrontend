@@ -64,7 +64,8 @@ export function deploymentOfPosition(p: LiquidityPosition): V3Deployment {
   const chainId = p.chainId ?? 1;
   if (p.protocol === 'aerodrome-cl') {
     const pm = p.positionManager?.toLowerCase();
-    return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm) ?? AERODROME_CL_DEPLOYMENTS[0];
+    return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm)
+      ?? (chainId === 5042 ? ARC_AERODROME_DEPLOYMENT : AERODROME_CL_DEPLOYMENTS[2]);
   }
   if (p.protocol === 'pancakeswap-v3') return PANCAKE_V3_DEPLOYMENT;
   if (p.protocol === 'giga-v3') return GIGA_V3_DEPLOYMENT;
