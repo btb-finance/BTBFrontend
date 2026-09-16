@@ -5,6 +5,7 @@ import { btb } from './design-tokens';
 import { Tab } from './types';
 import { useChainTheme } from '../lib/ChainThemeContext';
 import { WalletSwitcher } from './WalletSwitcher';
+import { AlertsBell } from './AlertsBell';
 
 /** The LP journey, in the order a user walks it. */
 const PRIMARY: { id: Tab; label: string }[] = [
@@ -119,6 +120,8 @@ export function TopNav({
         </div>
       </nav>
       </div>
+
+      <AlertsBell/>
 
       {/* Day / night */}
       <button type="button" onClick={toggleMode} title={mode === 'dark' ? 'Switch to day' : 'Switch to night'} aria-label="Toggle colour mode" style={{

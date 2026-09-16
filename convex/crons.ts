@@ -33,6 +33,9 @@ if (process.env.DISABLE_CRONS !== "1") {
   // stays bounded — the sweep is batched, so it runs often.
   crons.interval("purge expired cache", { minutes: 30 }, internal.cacheFill.purge);
 
+  // Range alerts for LP positions of wallets holding 10,000 BTB or more.
+  crons.interval("check LP range alerts", { minutes: 5 }, internal.alertsActions.check);
+
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
   // UTC; this ticks hourly rather than weekly so a failed settlement retries an

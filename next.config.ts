@@ -9,7 +9,13 @@ const nextConfig: NextConfig = {
       { source: "/token", destination: "/", permanent: false },
       // Trading was retired; the app is about LPs. Old links land on Home.
       { source: "/trade", destination: "/", permanent: false },
+      // The comparison pages live at keyword URLs; the first /vs/<slug> form is kept as a redirect.
+      { source: "/vs/:slug", destination: "/:slug-alternative", permanent: true },
     ];
+  },
+  async rewrites() {
+    // /metrix-finance-alternative is served by the /vs/[slug] route; the URL the reader sees keeps the keyword.
+    return [{ source: "/:slug(metrix-finance|drippy-finance|revert-finance)-alternative", destination: "/vs/:slug" }];
   },
   async headers() {
     return [
@@ -21,6 +27,17 @@ const nextConfig: NextConfig = {
           { key: "Access-Control-Allow-Origin", value: "*" },
           { key: "Access-Control-Allow-Methods", value: "GET" },
           { key: "Access-Control-Allow-Headers", value: "X-Requested-With, content-type, Authorization" },
+        ],
+      },
+      {
+        // Baseline hardening for every page. No CSP yet: wallet SDKs inject
+        // inline scripts and iframes, so a strict policy needs its own pass.
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
         ],
       },
       {

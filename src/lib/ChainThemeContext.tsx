@@ -53,6 +53,13 @@ export function ChainThemeProvider({ children }: { children: ReactNode }) {
     root.dataset.chainName = theme.name;
     root.dataset.mode = mode;
     root.style.colorScheme = mode;
+    // Safari tints its toolbar and the home-screen web app frame from the
+    // theme-color meta; keep it in step with the mode the user chose.
+    const paper = mode === 'light' ? '#E8EAF0' : '#0A0A0F';
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+    meta.content = paper;
+    document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"][media]').forEach((m) => { m.content = paper; });
     const variables = chainThemeCss(theme, mode);
     for (const [property, value] of Object.entries(variables)) root.style.setProperty(property, value);
   }, [theme, mode]);

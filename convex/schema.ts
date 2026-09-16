@@ -28,6 +28,42 @@ export default defineSchema({
   }).index("by_address", ["address"]).index("by_profile", ["profileId"]),
 
   // Agent chat history — one row per message, gated to 10M BTB holders.
+  // Range alerts for LP positions. Gated: the wallet must hold ALERT_MIN_BTB,
+  // verified on-chain when subscribing and re-verified by the checker so a
+  // wallet that sold stops costing RPC reads. One row per position.
+  positionAlerts: defineTable({
+    address: v.string(),        // lowercase owner
+    chainId: v.float64(),
+    protocol: v.string(),
+    tokenId: v.string(),
+    label: v.string(),          // "WETH / USDC 0.05% on Base"
+    active: v.boolean(),
+    lastInRange: v.optional(v.boolean()),
+    lastCheckedAt: v.optional(v.float64()),
+    createdAt: v.float64(),
+  }).index("by_address", ["address"]).index("by_active", ["active"]),
+
+  // Web Push subscriptions per wallet (a wallet can have several devices).
+  pushSubscriptions: defineTable({
+    address: v.string(),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    userAgent: v.optional(v.string()),
+    createdAt: v.float64(),
+  }).index("by_address", ["address"]).index("by_endpoint", ["endpoint"]),
+
+  // Alert inbox: what the app shows on open, for browsers without push
+  // (wallet in-app browsers such as Trust Wallet and SafePal).
+  alertEvents: defineTable({
+    address: v.string(),
+    kind: v.string(),           // "out" | "in"
+    label: v.string(),
+    message: v.string(),
+    createdAt: v.float64(),
+    readAt: v.optional(v.float64()),
+  }).index("by_address", ["address", "createdAt"]),
+
   agentMessages: defineTable({
     walletAddress: v.string(),   // lowercase
     role: v.string(),            // "user" | "assistant"

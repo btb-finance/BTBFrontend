@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
@@ -26,8 +26,13 @@ import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } fr
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
 import { Icon } from './Icon';
-import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue } from './LpCardParts';
+import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
+import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
+import { CONTRACTS } from '../lib/wagmi';
+import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
+import { SharePositionCard, type ShareCardData } from './SharePositionCard';
+import { useAlerts, ALERT_MIN_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   type KrystalPositionAnalytics,
@@ -166,6 +171,26 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
+  const [share, setShare] = useState<ShareCardData | null>(null);
+  const alerts = useAlerts(connectedAddress);
+  const [alertNote, setAlertNote] = useState<string | null>(null);
+  async function toggleAlert(p: LiquidityPosition) {
+    setAlertNote(null);
+    try {
+      await alerts.toggle(p, `${p.symbol0} / ${p.symbol1} ${fmtFeeTier(p.fee)} on ${p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum'}`);
+      if (!alerts.has(p)) {
+        setAlertNote(isWalletBrowser()
+          ? 'Alert on. This wallet browser cannot receive push, so alerts show under the bell in the app.'
+          : needsHomeScreen() ? 'Alert on. For push on iPhone, add BTB to your home screen from the Share menu; alerts also show under the bell.'
+          : 'Alert on. You will get a push on this device and a line under the bell when the range changes.');
+      }
+    } catch (e) {
+      // Convex wraps thrown errors in its own framing; keep the sentence only.
+      const raw = (e as Error)?.message ?? 'Could not enable the alert';
+      const m = raw.match(/Uncaught Error: ([^\n]+?)(?: at handler|$)/);
+      setAlertNote((m ? m[1] : raw).trim());
+    }
+  }
   const [usd, setUsd] = useState<Record<string, number>>({});
 
   const [showClosedHistory, setShowClosedHistory] = useState(false);
@@ -173,6 +198,18 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // read through a ref so balance refreshes don't retrigger the price effect.
   const { tokens: storeTokens, walletAddress } = useTokenStore();
   const logoFor = useTokenLogos();
+  // Token logos the Discover snapshot already carries (filled server-side for
+  // every chain), for tokens the wallet list does not know.
+  const { pools: discoverPools } = useDiscoverPools();
+  const snapshotLogo = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const pool of discoverPools ?? []) {
+      const cid = pool.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === pool.chain)?.chainId;
+      if (!cid || !pool.tokenLogos) continue;
+      (pool.underlyingTokens ?? []).forEach((t, i) => { const l = pool.tokenLogos?.[i]; if (l) m.set(`${cid}:${t.toLowerCase()}`, l); });
+    }
+    return (address: string, chainId: number) => m.get(`${chainId}:${address.toLowerCase()}`);
+  }, [discoverPools]);
   const address = walletAddress ?? connectedAddress;
   // Shared Krystal analytics cache — survives tab switches, fetched once app wide.
   const { data: krystalData, isFetching: krystalLoading } = useKrystalLp(address);
@@ -456,8 +493,47 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const a = analyticsOf(p);
     const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
     const krystalLogo = (symbol: string) => a?.currentAmounts?.find((amt) => amt.token?.symbol?.toUpperCase() === symbol.toUpperCase())?.token?.logo;
-    const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0);
-    const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? krystalLogo(p.symbol1);
+    const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
+    const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? krystalLogo(p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
+    const shareData = (): ShareCardData => {
+      const usdOf = (rows?: { quotes?: { usd?: { value?: number } } }[]) => (rows ?? []).reduce((sum, r) => sum + (r.quotes?.usd?.value ?? 0), 0);
+      const claimed = usdOf(a?.feesClaimed);
+      const pending = a ? usdOf(a.feePending) : f;
+      const ageMs = a?.createdTime ? Date.now() - a.createdTime * (a.createdTime < 1e12 ? 1000 : 1) : undefined;
+      const feesEarnedUsd = claimed + pending;
+      const hasFeeTokens = p.fees0 > 0n || p.fees1 > 0n;
+      const feeTokens = [p.fees0 > 0n ? `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}` : '', p.fees1 > 0n ? `${fmtAmt(p.fees1, p.decimals1)} ${p.symbol1}` : ''].filter(Boolean).join(' + ');
+      const flipQuote = STABLES.has(p.symbol0.toUpperCase()) && !STABLES.has(p.symbol1.toUpperCase());
+      const priceOf = (tick: number) => { const q = tickToPrice(tick, p.decimals0, p.decimals1); return flipQuote && q > 0 ? 1 / q : q; };
+      // Quote as "1 BASE = x QUOTE" so the number reads as an exchange rate.
+      const baseSym = flipQuote ? p.symbol1 : p.symbol0, quoteSym = flipQuote ? p.symbol0 : p.symbol1;
+      const compact = (v: number) => v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : fmtPrice(v);
+      const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
+      const lo = priceOf(flipQuote ? p.tickUpper : p.tickLower), hi = priceOf(flipQuote ? p.tickLower : p.tickUpper);
+      return {
+        holdings: [p.amount0 > 0n ? `${fmtAmt(p.amount0, p.decimals0)} ${p.symbol0}` : '', p.amount1 > 0n ? `${fmtAmt(p.amount1, p.decimals1)} ${p.symbol1}` : ''].filter(Boolean).join(' + ') || undefined,
+        unclaimedFees: feeTokens || undefined,
+        priceNow: `1 ${baseSym} = ${compact(priceOf(p.currentTick))} ${quoteSym}`,
+        rangeLabel: fullRange ? 'Full range' : `${compact(lo)} to ${compact(hi)} ${quoteSym}`,
+        positionId: p.id.toString(),
+        pair: `${p.symbol0} / ${p.symbol1}`, symbol0: p.symbol0, symbol1: p.symbol1,
+        dexLabel: protocolBadgeLabel(p), chainName: p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum',
+        feeTierLabel: fmtFeeTier(p.fee), inRange: p.inRange,
+        feesEarnedUsd,
+        feesPer30dUsd: ageMs && ageMs > 3_600_000 ? (feesEarnedUsd / ageMs) * 30 * 86_400_000 : undefined,
+        aprPct: a && a.apr > 0 ? a.apr : a && a.feeApr > 0 ? a.feeApr : undefined,
+        pnlUsd: a?.pnl, vsHodlUsd: a?.compareWithHodl, depositUsd: a?.totalDepositValue, valueUsd: v > 0 ? v : a ? a.totalDepositValue + a.pnl : undefined, ageMs,
+        logo0, logo1,
+        // Staked in a gauge or MasterChef: the gauge pays emissions, not swap
+        // fees, so the reward amount is the number worth showing.
+        hero: p.staked && feesEarnedUsd <= 0 && p.staked.earned > 0n
+          ? { label: `${p.staked.rewardSymbol.toUpperCase()} EARNED`, value: `${fmtAmt(p.staked.earned, 18)} ${p.staked.rewardSymbol}` }
+          : p.staked && feesEarnedUsd <= 0 ? { label: 'STAKED FOR', value: p.staked.rewardSymbol }
+          // No USD figure (no price for one side, or a chain without analytics): the fee tokens themselves are the story.
+          : feesEarnedUsd < 0.01 && hasFeeTokens ? { label: 'UNCLAIMED FEES', value: feeTokens }
+          : undefined,
+      };
+    };
     const box = lpBox(isMobile);
     const boxLabel = lpBoxLabel;
     const boxValue = lpBoxValue(isMobile);
@@ -557,7 +633,17 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           )}
           {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
           {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
+          <LpButton full label="Flex" onClick={() => setShare(shareData())}/>
+          {hasLiquidity && canTransact && <LpButton full tone={alerts.has(p) ? 'green' : 'neutral'} label={alerts.has(p) ? 'Alert on' : 'Alert me'} onClick={() => toggleAlert(p)} disabled={busy}/>}
         </div>
+        {alertNote && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+            <span style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, lineHeight: 1.5, flex: 1, minWidth: 200 }}>{alertNote}</span>
+            {/^Alerts need/.test(alertNote) && (
+              <a href={`/swap?to=${CONTRACTS.BTB}`} style={{ color: btb.green, fontSize: 11.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>Get BTB</a>
+            )}
+          </div>
+        )}
       </Glass>
     );
   };
@@ -818,6 +904,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         />
       )}
 
+      {share && <SharePositionCard data={share} onClose={() => setShare(null)}/>}
       {rebalance && connectedAddress && canActOn(rebalance) && (
         <RebalanceFlow
           pos={rebalance}

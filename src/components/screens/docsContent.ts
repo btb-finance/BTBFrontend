@@ -123,6 +123,18 @@ export const DOCS: DocGroup[] = [
         ],
       },
       {
+        id: 'alerts', title: 'Range alerts', summary: 'A push when a position leaves or re-enters its range. For wallets holding 10,000 BTB.',
+        blocks: [
+          { type: 'p', text: 'Tap Alert me on any LP card. Every five minutes BTB re-reads that position on-chain; when it crosses out of range, or comes back, you get a line under the bell in the app and a push notification on devices that support it.' },
+          { type: 'list', items: [
+            'Requires 10,000 BTB in the connected wallet, checked on-chain when you subscribe and again every hour. Each position is an RPC read every five minutes, so the gate keeps the service sustainable.',
+            'Push works in Safari, Chrome and Firefox on desktop and Android. On iPhone, add BTB to your home screen first (Share, then Add to Home Screen); iOS only delivers push to installed web apps.',
+            'Wallet in-app browsers (Trust Wallet, SafePal, TokenPocket and similar) cannot receive push. Alerts still land under the bell, so open the app to see them.',
+            'Alerts switch off by themselves when the position is closed or the wallet drops below the threshold.',
+          ] },
+        ],
+      },
+      {
         id: 'staking', title: 'Gauge and MasterChef staking', summary: 'Emissions on top of fees, managed in place.',
         blocks: [
           { type: 'list', items: [

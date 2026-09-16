@@ -103,7 +103,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : '230px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
           {isMobile ? (
-            <select value={active} onChange={e => goto(e.target.value)} style={{ width: '100%', height: 44, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', fontFamily: 'inherit', fontSize: 14 }}>
+            <select className="btb-select" value={active} onChange={e => goto(e.target.value)} style={{ width: '100%', height: 44, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', fontFamily: 'inherit', fontSize: 14 }}>
               {DOCS.map(g => <optgroup key={g.title} label={g.title}>{g.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
             </select>
           ) : (

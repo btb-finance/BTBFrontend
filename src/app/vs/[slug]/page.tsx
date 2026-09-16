@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { SITE } from '@/lib/seo/config';
-import { COMPETITORS, competitorBySlug } from '@/lib/seo/competitors';
+import { COMPETITORS, OTHER_FREE_TOOLS, competitorBySlug } from '@/lib/seo/competitors';
 import { VsShell, styles } from '../shell';
 
 export function generateStaticParams() {
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${c.name} alternative: free LP simulator that pays you`;
   const description = `${c.name} charges ${c.pricing.find((p) => p.price !== '$0')?.price ?? 'for its tools'}. BTB Finance gives you the LP simulator, pool discovery and full position management free, and shares its revenue with users every Friday.`;
   return buildMetadata({
-    title, description, path: `/vs/${c.slug}`,
+    title, description, path: `/${c.slug}-alternative`,
     keywords: [`${c.name} alternative`, `${c.name} pricing`, `${c.name} free`, `${c.name} vs BTB Finance`, `free ${c.name}`],
   });
 }
@@ -32,16 +32,20 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
     { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB earns on swaps routed through the app and pays that revenue back to users every Friday.` },
     { q: `How much does ${c.name} cost?`, a: `${c.name} lists ${paid.map((p) => `${p.plan} at ${p.price}`).join(' and ')} (checked ${c.checkedOn}).` },
     { q: `Which DEXes does BTB Finance support for LP management?`, a: `Uniswap V3 and V4, PancakeSwap V3, SushiSwap V3, Aerodrome Slipstream, Giga, Ramses and UP, across Ethereum, Base, BNB Chain and Robinhood Chain, including gauge and MasterChef staking where the DEX offers it.` },
+    { q: `What is the best free alternative to ${c.name}?`, a: `For simulating a concentrated range and then opening it, BTB Finance: it is free, covers Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome and the Robinhood Chain DEXes, and adds the position from the same screen. Revert Finance is a good free choice for analytics on existing Uniswap V3 positions; DefiLlama is the widest free yield table but does not simulate ranges.` },
     { q: `How does the revenue share work?`, a: `Every simulation, check-in, swap and position earns points during the week. On Friday the week's revenue is split across everyone's points and paid out in BTB. There is nothing to buy and nothing to stake.` },
   ];
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
       { '@type': 'FAQPage', mainEntity: faq.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) },
+      { '@type': 'SoftwareApplication', name: 'BTB Finance', applicationCategory: 'FinanceApplication', operatingSystem: 'Web', url: SITE.url,
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD', description: 'LP simulator, pool discovery and position management, free' } },
+      { '@type': 'WebPage', name: `${c.name} alternative: free LP simulator that pays you`, url: `${SITE.url}/${c.slug}-alternative`, dateModified: c.checkedOn, isPartOf: { '@type': 'WebSite', name: SITE.name, url: SITE.url } },
       { '@type': 'BreadcrumbList', itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'BTB Finance', item: SITE.url },
         { '@type': 'ListItem', position: 2, name: 'Compare', item: `${SITE.url}/vs` },
-        { '@type': 'ListItem', position: 3, name: `${c.name} alternative`, item: `${SITE.url}/vs/${c.slug}` },
+        { '@type': 'ListItem', position: 3, name: `${c.name} alternative`, item: `${SITE.url}/${c.slug}-alternative` },
       ] },
     ],
   };
@@ -93,6 +97,20 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
           </p>
         </>
       )}
+
+      <h2 style={styles.h2}>Other free alternatives to {c.name}, and what each leaves out</h2>
+      <p style={styles.body}>You will meet these in the same search. They are good tools; here is where each stops, so you can pick the right one.</p>
+      <div style={styles.tableWrap}>
+        <table style={styles.table}>
+          <thead><tr><th style={styles.th}>Tool</th><th style={styles.th}>Good for</th><th style={styles.th}>Where it stops</th></tr></thead>
+          <tbody>
+            {OTHER_FREE_TOOLS.filter((t) => t.name !== c.name).map((t) => (
+              <tr key={t.name}><td style={styles.td}><a href={t.url} rel="nofollow noopener" target="_blank" style={{ ...styles.link, fontWeight: 700 }}>{t.name}</a></td><td style={styles.tdMuted}>{t.good}</td><td style={styles.tdMuted}>{t.gap}</td></tr>
+            ))}
+            <tr><td style={styles.tdStrong}>BTB Finance</td><td style={styles.tdMuted}>Simulate any range on any supported DEX, then add and manage the position in place.</td><td style={styles.tdMuted}>LP management covers Ethereum, Base, BNB and Robinhood Chain; other chains are simulate only.</td></tr>
+          </tbody>
+        </table>
+      </div>
 
       <h2 style={styles.h2}>How BTB makes money without charging you</h2>
       <p style={styles.body}>

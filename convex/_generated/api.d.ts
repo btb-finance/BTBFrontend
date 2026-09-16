@@ -10,6 +10,8 @@
 
 import type * as agent from "../agent.js";
 import type * as agentChat from "../agentChat.js";
+import type * as alerts from "../alerts.js";
+import type * as alertsActions from "../alertsActions.js";
 import type * as balances from "../balances.js";
 import type * as cache from "../cache.js";
 import type * as cacheFill from "../cacheFill.js";
@@ -40,6 +42,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   agentChat: typeof agentChat;
+  alerts: typeof alerts;
+  alertsActions: typeof alertsActions;
   balances: typeof balances;
   cache: typeof cache;
   cacheFill: typeof cacheFill;

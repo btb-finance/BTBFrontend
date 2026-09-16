@@ -19,12 +19,12 @@ GitHub: https://github.com/btb-finance/BTBFrontend
 
 Every meaningful contribution matters:
 
-- 🐛 **Fixing bugs**
-- 🎨 **Improving UI/UX**
-- ✨ **Adding features**
-- 📝 **Writing documentation**
-- 🧪 **Testing** the app and reporting issues
-- 💡 **Suggesting ideas** via GitHub issues
+- **Fixing bugs**
+- **Improving UI/UX**
+- **Adding features**
+- **Writing documentation**
+- **Testing** the app and reporting issues
+- **Suggesting ideas** via GitHub issues
 
 ## Getting started
 
@@ -58,46 +58,41 @@ Every meaningful contribution matters:
    bun run build
    ```
 
-## Project structure — the most important rule
+## Project structure: the most important rule
 
 **Everything shared lives in ONE place. Each app/protocol gets its OWN folder. Never duplicate code.**
 
-For example: there is one shared button/glass-card style for the whole app. Do **not** write your own button styles inside a screen or protocol file — use (or extend) the shared component so every part of the app stays consistent.
+For example: there is one shared button/glass-card style for the whole app. Do **not** write your own button styles inside a screen or protocol file: use (or extend) the shared component so every part of the app stays consistent.
 
 ```
 src/
-├── app/                  # Next.js App Router (routes, layout, SEO, metadata)
-├── components/           # GLOBAL shared UI — used by everything
-│   ├── Glass.tsx         #   shared glass card / surface primitives
-│   ├── Icon.tsx          #   shared icon system
-│   ├── TokenIcon.tsx     #   shared token icons
-│   ├── design-tokens.ts  #   shared colors, spacing, typography tokens
-│   ├── TabBar.tsx        #   global navigation
-│   ├── SendModal.tsx     #   shared modals
-│   └── screens/          #   one file per app screen (Home, Swap, Earn, Stake…)
-├── protocols/            # Each protocol/app has its OWN folder
-│   ├── dexs/             #   DEX integrations (e.g. Uniswap)
-│   ├── lending/
-│   ├── bridge/
-│   ├── perps/
-│   ├── vaults/
-│   ├── ...               #   options, launchpad, insurance, rwa, cdp,
-│   │                     #   liquid-staking, liquid-restaking
-│   └── types.ts          #   shared protocol types
-├── lib/                  # GLOBAL logic — wallet, RPC, tx tracking, price APIs
-│   ├── wagmi.ts          #   wallet/chain config
-│   ├── txRunner.ts       #   shared transaction runner
-│   ├── TxTracker.tsx     #   global transaction tracker
-│   └── ...               #   API clients (Alchemy, Zapper, DefiLlama, Kyber…)
-└── contracts/            # Shared ABIs and contract addresses
+  app/                 Next.js routes: app shell per tab, /discover/[chain], /vs pages, SEO files
+  components/          Shared UI used by everything
+    Glass.tsx          glass card and surface primitives
+    Button.tsx         the one button
+    Icon.tsx           icon system
+    TokenIcon.tsx      token icons
+    design-tokens.ts   colours, spacing, typography, day and night variables
+    TopNav.tsx         desktop navigation
+    MobileNav.tsx      mobile navigation
+    CreatePosition.tsx add liquidity sheet
+    LpPositions.tsx    position list and actions
+    screens/           one file per app screen (Home, Discover, Simulate, Swap, Portfolio, Docs)
+  protocols/           One folder per protocol; on-chain adapters only
+    dexs/              Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome, Robinhood forks
+    staking.ts         gauge and MasterChef staking
+    lpChains.ts        registry of chains and DEXes the app can mint on
+    types.ts           shared protocol types
+  lib/                 Global logic: wallet config, RPC failover, tx runner, market data, Discover pipeline
+convex/                Backend: crons, Discover refresh, rewards, users, profiles
 ```
 
 ### Rules of thumb
 
 - **Adding a new protocol or app?** Create a new folder under `src/protocols/<your-protocol>/` and keep all of its logic there.
-- **Adding a new screen?** Put it in `src/components/screens/` and wire it into the `TabBar`.
-- **Need a button, card, modal, icon, color, or spacing value?** It already exists — use the shared components in `src/components/` and the values in `design-tokens.ts`. If something is missing, **add it to the shared layer once** so everyone can use it, instead of writing a one-off.
-- **Need wallet, transaction, or price-data logic?** Use the shared hooks and clients in `src/lib/` (e.g. `txRunner.ts` for sending transactions) — don't roll your own.
+- **Adding a new screen?** Put it in `src/components/screens/`, add the tab to `src/components/types.ts` and `src/lib/routes.ts`, and wire it into `TopNav` and `MobileNav`.
+- **Need a button, card, modal, icon, color, or spacing value?** It already exists: use the shared components in `src/components/` and the values in `design-tokens.ts`. If something is missing, **add it to the shared layer once** so everyone can use it, instead of writing a one-off.
+- **Need wallet, transaction, or price-data logic?** Use the shared hooks and clients in `src/lib/` (e.g. `txRunner.ts` for sending transactions): don't roll your own.
 - **Same rule for everything**: if two places need it, it belongs in a shared folder, not copied into both.
 
 Pull requests that duplicate existing shared code (custom buttons, ad-hoc styles, one-off transaction logic) will be asked to refactor before merging.
@@ -112,14 +107,14 @@ Pull requests that duplicate existing shared code (custom buttons, ad-hoc styles
 
 ## Pull request guidelines
 
-- Keep PRs **focused** — one fix or feature per PR.
+- Keep PRs **focused**: one fix or feature per PR.
 - Describe **what** you changed and **why** in the PR description (screenshots for UI changes help a lot).
 - Follow the existing folder structure and shared-component rules above.
 - Make sure `bun run lint` and `bun run build` pass.
-- Be responsive to review feedback — we review regularly and recognize contributors weekly.
+- Be responsive to review feedback: we review regularly and recognize contributors weekly.
 
 ## Questions or ideas?
 
-Open a [GitHub issue](https://github.com/btb-finance/BTBFrontend/issues) or start a discussion. Whether it's a bug report, a design suggestion, or a new protocol idea — all contributions are welcome.
+Open a [GitHub issue](https://github.com/btb-finance/BTBFrontend/issues) or start a discussion. Whether it's a bug report, a design suggestion, or a new protocol idea: all contributions are welcome.
 
 **Fork the repo, submit a pull request, and start building with us.** 
