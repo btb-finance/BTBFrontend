@@ -24,7 +24,7 @@ import {
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
-import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps } from '@/protocols/lpChains';
+import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { Icon } from './Icon';
 import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
@@ -35,6 +35,8 @@ import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, ALERT_MIN_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap } from '../lib/swapGap';
+import { fetchPositionHistory, fetchEmptyPositions, type PositionHistory } from '../lib/positionHistory';
+import { NPM_ABI as V3_NPM_ABI, RAMSES_NPM_ABI, SLIPSTREAM_NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { rebalancePlan } from '@/protocols/dexs/uniswap/v3/math';
 import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
@@ -582,15 +584,118 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     if (!showEmpty) return null;
   }
 
-  const analyticsOf = (p: LiquidityPosition) => krystal?.positions?.find((item) => krystalMatches(p, item));
+  // Chain-read history for positions the provider does not cover (Robinhood
+  // and any V3-style position Krystal misses): deposits, withdrawals and
+  // fees claimed from the manager's events, priced at the time where possible.
+  const [chainHistory, setChainHistory] = useState<Record<string, PositionHistory>>({});
+  useEffect(() => {
+    const todo = positions.filter((p) => p.protocol !== 'uniswap-v4' && p.liquidity >= 0n && !krystal?.positions?.some((item) => krystalMatches(p, item)) && !chainHistory[posKey(p)]);
+    if (todo.length === 0 || krystalLoading) return;
+    let live = true;
+    (async () => {
+      const out: Record<string, PositionHistory> = {};
+      await Promise.all(todo.slice(0, 12).map(async (p) => {
+        const chainId = p.chainId ?? 1;
+        const client = getPublicClient(config, { chainId });
+        if (!client) return;
+        try {
+          const h = await fetchPositionHistory(client, chainId, v3DeploymentOf(p), p.id,
+            { token0: p.token0, token1: p.token1, decimals0: p.decimals0, decimals1: p.decimals1 },
+            { p0: usd[p.token0.toLowerCase()] ?? 0, p1: usd[p.token1.toLowerCase()] ?? 0 });
+          out[posKey(p)] = h;
+        } catch { /* stays unknown */ }
+      }));
+      if (live && Object.keys(out).length > 0) setChainHistory((prev) => ({ ...prev, ...out }));
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, krystal, krystalLoading, usd]);
+
+  // Closed ledger for chains the provider does not index: empty positions
+  // still in the wallet, with their lifetime numbers from chain history.
+  const [chainClosed, setChainClosed] = useState<KrystalPositionAnalytics[]>([]);
+  useEffect(() => {
+    if (!address) return;
+    const chainId = 4663;
+    if (!LP_CHAINS.includes(chainId as LpChainId)) return;
+    const client = getPublicClient(config, { chainId });
+    if (!client) return;
+    let live = true;
+    (async () => {
+      const dexes: LpDex[] = ['uniswap', 'pancakeswap', 'sushiswap', 'giga', 'ramses', 'up'];
+      const rows: KrystalPositionAnalytics[] = [];
+      await Promise.all(dexes.map(async (dex) => {
+        const d = v3DeploymentFor(dex, chainId);
+        if (!d) return;
+        const abi = d.compactPositions ? RAMSES_NPM_ABI : d.slipstream ? SLIPSTREAM_NPM_ABI : V3_NPM_ABI;
+        const empties = await fetchEmptyPositions(client, d, address as `0x${string}`, abi).catch(() => []);
+        await Promise.all(empties.map(async (e) => {
+          try {
+            const meta = await withSafeMulticall(client).multicall({ contracts: [
+              { address: e.token0, abi: erc20Abi, functionName: 'symbol' }, { address: e.token0, abi: erc20Abi, functionName: 'decimals' },
+              { address: e.token1, abi: erc20Abi, functionName: 'symbol' }, { address: e.token1, abi: erc20Abi, functionName: 'decimals' },
+            ], allowFailure: true });
+            const sym0 = meta[0].status === 'success' ? String(meta[0].result) : 'T0', dec0 = meta[1].status === 'success' ? Number(meta[1].result) : 18;
+            const sym1 = meta[2].status === 'success' ? String(meta[2].result) : 'T1', dec1 = meta[3].status === 'success' ? Number(meta[3].result) : 18;
+            const p0 = usd[e.token0.toLowerCase()] ?? 0, p1 = usd[e.token1.toLowerCase()] ?? 0;
+            const h = await fetchPositionHistory(client, chainId, d, e.tokenId, { token0: e.token0, token1: e.token1, decimals0: dec0, decimals1: dec1 }, { p0, p1 });
+            if (h.depositsUsd <= 0 && h.events.length === 0) return;
+            const pnl = h.withdrawalsUsd + h.feesClaimedUsd - h.depositsUsd;
+            const last = h.events[h.events.length - 1]?.timestamp ?? 0;
+            rows.push({
+              chainId, chainName: 'Robinhood Chain', tokenId: e.tokenId.toString(), status: 'CLOSED',
+              pnl, returnOnInvestment: h.depositsUsd > 0 ? (pnl / h.depositsUsd) * 100 : 0, compareWithHodl: 0,
+              apr: 0, feeApr: 0, farmApr: 0, totalDepositValue: h.depositsUsd, totalWithdrawValue: h.withdrawalsUsd, currentPositionValue: 0,
+              createdTime: h.openedAt ?? 0, closedTime: last,
+              feePending: [{ token: { symbol: sym0 } }, { token: { symbol: sym1 } }],
+              feesClaimed: [{ token: { symbol: sym0 }, quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed0, dec0)) * p0 } } }, { token: { symbol: sym1 }, quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed1, dec1)) * p1 } } }],
+              pool: { project: d.label ?? dex },
+            });
+          } catch { /* skip */ }
+        }));
+      }));
+      if (live) setChainClosed(rows.sort((a, b) => b.closedTime - a.closedTime));
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, config, usd]);
+
+  /** Provider analytics, or the same shape synthesised from chain history. */
+  const analyticsOf = (p: LiquidityPosition): KrystalPositionAnalytics | undefined => {
+    const fromKrystal = krystal?.positions?.find((item) => krystalMatches(p, item));
+    if (fromKrystal) return fromKrystal;
+    const h = chainHistory[posKey(p)];
+    if (!h || h.depositsUsd <= 0) return undefined;
+    const p0 = usd[p.token0.toLowerCase()] ?? 0, p1 = usd[p.token1.toLowerCase()] ?? 0;
+    const value = parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
+    const pending = parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
+    const pnl = value + pending + h.withdrawalsUsd + h.feesClaimedUsd - h.depositsUsd;
+    // HODL: the deposited token amounts at today's prices, less what was withdrawn.
+    const hodl = parseFloat(formatUnits(h.deposits0 - h.withdrawals0, p.decimals0)) * p0 + parseFloat(formatUnits(h.deposits1 - h.withdrawals1, p.decimals1)) * p1;
+    const ageDays = h.openedAt ? Math.max((Date.now() / 1000 - h.openedAt) / 86400, 1 / 24) : 0;
+    const feesTotal = h.feesClaimedUsd + pending;
+    const apr = ageDays > 0 && h.depositsUsd > 0 ? (feesTotal / h.depositsUsd) * (365 / ageDays) * 100 : 0;
+    return {
+      chainId: p.chainId ?? 1, chainName: p.chainName ?? '', tokenId: p.id.toString(), status: p.inRange ? 'IN_RANGE' : 'OUT_RANGE',
+      pnl, returnOnInvestment: (pnl / h.depositsUsd) * 100, compareWithHodl: value + pending - hodl,
+      apr, feeApr: apr, farmApr: 0,
+      totalDepositValue: h.depositsUsd, totalWithdrawValue: h.withdrawalsUsd, currentPositionValue: value,
+      createdTime: h.openedAt ?? 0, closedTime: 0,
+      feesClaimed: [{ token: { symbol: p.symbol0, decimals: p.decimals0 }, balance: h.feesClaimed0.toString(), quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed0, p.decimals0)) * p0 } } },
+                    { token: { symbol: p.symbol1, decimals: p.decimals1 }, balance: h.feesClaimed1.toString(), quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed1, p.decimals1)) * p1 } } }],
+      feePending: [{ token: { symbol: p.symbol0 }, quotes: { usd: { value: parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 } } }, { token: { symbol: p.symbol1 }, quotes: { usd: { value: parseFloat(formatUnits(p.fees1, p.decimals1)) * p1 } } }],
+      pool: { project: protocolBadgeLabel(p) },
+    };
+  };
   const krystalStats = krystal?.statsByChain?.all ?? krystal?.statsByChain?.['1'];
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
     item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
     !positions.some((p) => krystalMatches(p, item)),
   );
-  const closedHistory = (krystal?.positions ?? []).filter((item) =>
-    item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0,
-  );
+  const closedHistory = [
+    ...(krystal?.positions ?? []).filter((item) => item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0),
+    ...chainClosed,
+  ];
 
   // Out-of-range positions with liquidity first, since they are the ones that
   // need a decision; then by value.
@@ -751,6 +856,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {line('Current value', money(v > 0 ? v : a.totalDepositValue + a.pnl))}
             {a.totalWithdrawValue > 0 && line('Withdrawn', money(a.totalWithdrawValue))}
             {a.feeApr > 0 && line('Fee APR', `${a.feeApr.toFixed(1)}%`, btb.textMuted)}
+            {chainHistory[posKey(p)] && line('Source', chainHistory[posKey(p)].estimated ? 'chain events, priced at today\'s rates' : 'chain events', btb.textDim)}
             <div style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', marginTop: 2, paddingTop: 8 }}>
               {line('P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss, true)}
             </div>
