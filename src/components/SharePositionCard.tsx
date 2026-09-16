@@ -52,13 +52,19 @@ function age(ms: number): string {
 }
 
 function loadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
+  const attempt = (url: string) => new Promise<HTMLImageElement | null>((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = src;
+    img.src = url;
   });
+  // Remote hosts mostly lack CORS headers, which would taint the canvas; go
+  // through the same-origin proxy first and fall back to a direct load.
+  const remote = /^https?:\/\//.test(src) && !src.startsWith(location.origin);
+  return remote
+    ? attempt(`/api/logo?src=${encodeURIComponent(src)}`).then((img) => img ?? attempt(src))
+    : attempt(src);
 }
 
 /** Largest font size (down to `min`) at which `text` fits in `maxW`. */
