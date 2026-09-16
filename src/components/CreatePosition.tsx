@@ -260,7 +260,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         .finally(() => { if (live) setLoadingPool(false); });
     } else if (tokenA && tokenB) {
       (dex === 'aerodrome'
-        ? fetchAerodromePoolsForMint(client, tokenA, tokenB).then(({ pools, deploymentByTier }) => { if (live) setAeroDeploymentByTier(deploymentByTier); return pools; })
+        ? fetchAerodromePoolsForMint(client, tokenA, tokenB, chainId).then(({ pools, deploymentByTier }) => { if (live) setAeroDeploymentByTier(deploymentByTier); return pools; })
         : fetchPoolsForMint(client, tokenA, tokenB, baseDeployment))
         .then((record) => {
           if (!live) return;

@@ -17,6 +17,7 @@ export const KYBER_CHAINS: Record<number, string> = {
   143:   'monad',
   4326:  'megaeth',
   4663:  'robinhood',
+  5042:  'arc',
 };
 
 export const BTB_SWAP_FEE_BPS = 100;

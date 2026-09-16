@@ -51,6 +51,7 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   4326: ['https://mainnet.megaeth.com/rpc'],
   999: ['https://rpc.hyperliquid.xyz/evm'],
   42793: ['https://etherlink.drpc.org'],
+  5042: ['https://rpc.mainnet.arc.io'],
   // Robinhood Chain intentionally omitted: it routes through its own pooled
   // proxy (see ./robinhoodRpc.ts), and getChainClient falls back to the chain
   // object's default endpoint, which is that same RPC.

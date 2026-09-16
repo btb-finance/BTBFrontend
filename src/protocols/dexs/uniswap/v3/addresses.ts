@@ -54,6 +54,18 @@ export const UNISWAP_V3_DEPLOYMENT: V3Deployment = {
   tickSpacings: { 100: 1, 500: 10, 3000: 60, 10000: 200 },
 };
 
+/** Arc: factory and manager read from a live pool (ARGUS/USDC 1%) and the manager's factory(). */
+export const ARC_UNISWAP_V3_DEPLOYMENT: V3Deployment = {
+  protocol: 'uniswap-v3',
+  chainId: 5042,
+  positionManager: '0x39654A85A4C05127f5Fd6ED22CAeC077A0fB1377',
+  factory: '0xf0db7b58379503491d857dB50AC9ece64c653918',
+  feeTiers: FEE_TIERS,
+  tickSpacings: { 100: 1, 500: 10, 3000: 60, 10000: 200 },
+};
+/** Wrapped USDC on Arc, the manager's WETH9. */
+export const ARC_WUSDC = '0x8bcEaA40B9AcdfAedF85AdF4FF01F5Ad6517937f' as `0x${string}`;
+
 export const ROBINHOOD_UNISWAP_V3_DEPLOYMENT: V3Deployment = {
   protocol: 'uniswap-v3',
   positionManager: '0x73991a25c818bf1f1128deaab1492d45638de0d3',
@@ -108,6 +120,7 @@ export const UNISWAP_V3_DEPLOYMENTS: Record<number, V3Deployment> = {
     positionManager: '0xcdc86e98184e96436f733a8bf31bd4f0214e6d7d',
   },
   4663: ROBINHOOD_UNISWAP_V3_DEPLOYMENT,
+  5042: ARC_UNISWAP_V3_DEPLOYMENT,
 };
 
 export function uniswapV3DeploymentForChain(chainId: number): V3Deployment | null {

@@ -34,6 +34,13 @@ export const ROBINHOOD_UNISWAP_V4: V4Deployment = {
 export const UNISWAP_V4_DEPLOYMENTS: Record<number, V4Deployment> = {
   1: UNISWAP_V4,
   4663: ROBINHOOD_UNISWAP_V4,
+  5042: {
+    poolManager: '0x8366a39CC670B4001A1121B8F6A443A643e40951',
+    positionManager: '0x6049c9a0e26405C0985f9E3685C87d0aE917f82B',
+    stateView: '0xF3334192D15450CdD385c8B70e03f9A6bD9E673b',
+    quoter: '0x8Dc178eFB8111BB0973Dd9d722ebeFF267c98F94',
+    permit2: '0x000000000022D473030F116dDEE9F6B43aC78BA3',
+  },
   8453: {
     poolManager: '0x498581fF718922c3f8e6A244956aF099B2652b2b',
     positionManager: '0x7C5f5A4bBd8fD63184577525326123B519429bDc',
@@ -54,6 +61,7 @@ export const UNISWAP_V4_DEPLOYMENTS: Record<number, V4Deployment> = {
 export const V4_DEPLOY_BLOCKS: Record<number, bigint> = {
   1: 21_680_000n,
   4663: 0n,
+  5042: 0n,
   8453: 25_350_000n,
   56: 45_970_000n,
 };

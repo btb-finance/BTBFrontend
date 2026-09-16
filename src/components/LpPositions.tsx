@@ -22,7 +22,7 @@ import {
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, aerodromeDeploymentsFor } from '@/protocols/dexs/aerodrome';
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { Icon } from './Icon';
@@ -309,7 +309,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const v3 = v3DeploymentFor('uniswap', chainId);
         const v4 = v4DeploymentFor(chainId);
         const cake = v3DeploymentFor('pancakeswap', chainId);
-        const aero = chainId === 8453 ? AERODROME_CL_DEPLOYMENTS : [];
+        const aero = aerodromeDeploymentsFor(chainId);
 
         // Krystal ids for this chain, bucketed by the manager contract they live in.
         const byManager = new Map<string, bigint[]>();

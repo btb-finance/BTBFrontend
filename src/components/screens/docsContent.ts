@@ -46,6 +46,7 @@ export const DOCS: DocGroup[] = [
             ['Base', 'Uniswap V3, Uniswap V4, PancakeSwap V3, Aerodrome Slipstream (with gauge staking)'],
             ['BNB Chain', 'Uniswap V3, Uniswap V4, PancakeSwap V3'],
             ['Robinhood Chain', 'Uniswap V3, Uniswap V4, PancakeSwap V3, SushiSwap V3, Giga V3 (MasterChef staking), Ramses V3, UP (gauge staking)'],
+            ['Arc', 'Uniswap V3, Uniswap V4, Aerodrome Slipstream. Gas is USDC.'],
           ] },
           { type: 'p', text: 'Discover and Simulate cover more chains than that (Arbitrum, Optimism, Polygon, Avalanche, Linea, Unichain, Berachain, HyperEVM, Monad, MegaETH, Plasma, Ronin and others). On those, pools are Simulate only and the row says so.' },
           { type: 'p', text: 'Full-range V2 pools (Uniswap V2, Aerodrome AMM, Velodrome AMM) are not listed. BTB is a concentrated liquidity app.' },

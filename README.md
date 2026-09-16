@@ -22,6 +22,7 @@ Full LP management (add, manage, rebalance, stake) covers:
 | Base | Uniswap V3, Uniswap V4, PancakeSwap V3, Aerodrome Slipstream with gauge staking |
 | BNB Chain | Uniswap V3, Uniswap V4, PancakeSwap V3 |
 | Robinhood Chain | Uniswap V3, Uniswap V4, PancakeSwap V3, SushiSwap V3, Giga V3 with MasterChef staking, Ramses V3, UP with gauge staking |
+| Arc | Uniswap V3, Uniswap V4, Aerodrome Slipstream |
 
 Other chains are covered by Discover and Simulate only.
 
