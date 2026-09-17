@@ -32,10 +32,13 @@ function configurePush(): boolean {
 export const subscribe = action({
   args: { address: v.string(), chainId: v.float64(), protocol: v.string(), tokenId: v.string(), label: v.string(), inRange: v.optional(v.boolean()) },
   handler: async (ctx, a) => {
-    const bal = await btbBalance(a.address as `0x${string}`);
-    if (bal < ALERT_MIN_BTB) throw new Error(`Alerts need ${ALERT_MIN_BTB.toLocaleString("en-US")} BTB; this wallet holds ${Math.floor(bal).toLocaleString("en-US")}.`);
+    // A plain result, not a thrown error: thrown errors reach the client wrapped
+    // in Convex's request framing, which is not something to show a user.
+    const bal = await btbBalance(a.address as `0x${string}`).catch(() => null);
+    if (bal == null) return { ok: false as const, reason: "Could not read your BTB balance right now. Try again in a moment." };
+    if (bal < ALERT_MIN_BTB) return { ok: false as const, reason: `Alerts need ${ALERT_MIN_BTB.toLocaleString("en-US")} BTB; this wallet holds ${Math.floor(bal).toLocaleString("en-US")}.`, balance: bal };
     await ctx.runMutation(internal.alerts.upsert, a);
-    return { ok: true, balance: bal };
+    return { ok: true as const, balance: bal };
   },
 });
 

@@ -185,7 +185,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   async function toggleAlert(p: LiquidityPosition) {
     setAlertNote(null);
     try {
-      await alerts.toggle(p, `${p.symbol0} / ${p.symbol1} ${fmtFeeTier(p.fee)} on ${p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum'}`);
+      const problem = await alerts.toggle(p, `${p.symbol0} / ${p.symbol1} ${fmtFeeTier(p.fee)} on ${p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as keyof typeof LP_CHAIN_NAMES] ?? 'Ethereum'}`);
+      if (problem) { setAlertNote(problem); return; }
       if (!alerts.has(p)) {
         setAlertNote(isWalletBrowser()
           ? 'Alert on. This wallet browser cannot receive push, so alerts show under the bell in the app.'
