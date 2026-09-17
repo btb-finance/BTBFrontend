@@ -182,6 +182,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [share, setShare] = useState<ShareCardData | null>(null);
   const [alertNote, setAlertNote] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState<string | null>(null);
   async function toggleAlert(p: LiquidityPosition) {
     setAlertNote(null);
     try {
@@ -920,25 +921,46 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${isMobile ? 2 : 'auto-fit'}, minmax(${isMobile ? 0 : 130}px, 1fr))`, gap: 8, marginTop: 12 }}>
-          {p.staked ? (
-            <>
-              <LpButton full tone="green" label={busy ? 'Working…' : `Claim ${p.staked.rewardSymbol}`} onClick={() => gaugeAction(p, 'claim')} disabled={p.staked.earned === 0n || busy || !canTransact}/>
-              <LpButton full tone="amber" label="Unstake" onClick={() => gaugeAction(p, 'unstake')} disabled={busy || !canTransact}/>
-            </>
-          ) : (
-            <>
-              <LpButton full tone="green" solid={hasFees} label={busy ? 'Collecting…' : 'Collect fees'} onClick={() => collect(p)} disabled={!hasFees || busy || !canTransact}/>
-              {hasFees && p.inRange && canActOn(p) && <LpButton full tone="green" label="Compound" onClick={() => compound(p)} disabled={busy || !canTransact}/>}
-              <LpButton full label="Add liquidity" onClick={() => setManage({ pos: p, mode: 'add' })} disabled={busy || !canTransact}/>
-              {p.stakeable && hasLiquidity && <LpButton full label={`Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`} onClick={() => gaugeAction(p, 'stake')} disabled={busy || !canTransact}/>}
-            </>
-          )}
-          {canRebalance && <LpButton full tone={p.inRange ? 'neutral' : 'amber'} label={p.inRange ? 'Rebalance' : 'Rebalance now'} onClick={() => setRebalance(p)} disabled={busy || !canTransact}/>}
-          {!p.staked && hasLiquidity && <LpButton full tone="danger" label="Withdraw" onClick={() => setManage({ pos: p, mode: 'withdraw' })} disabled={busy || !canTransact}/>}
-          <LpButton full label="Flex" onClick={() => setShare(shareData())}/>
-          {hasLiquidity && canTransact && <LpButton full tone={alerts.has(p) ? 'green' : 'neutral'} label={alerts.has(p) ? 'Alert on' : 'Alert me'} onClick={() => toggleAlert(p)} disabled={busy}/>}
-        </div>
+        {(() => {
+          // Two actions the position needs right now, then More for the rest.
+          type Act = { key: string; label: string; tone?: 'neutral' | 'green' | 'amber' | 'danger'; solid?: boolean; onClick: () => void; disabled?: boolean };
+          const acts: Act[] = [];
+          if (p.staked) {
+            acts.push({ key: 'claim', label: busy ? 'Working…' : `Claim ${p.staked.rewardSymbol}`, tone: 'green', onClick: () => gaugeAction(p, 'claim'), disabled: p.staked.earned === 0n || busy || !canTransact });
+            acts.push({ key: 'unstake', label: 'Unstake', tone: 'amber', onClick: () => gaugeAction(p, 'unstake'), disabled: busy || !canTransact });
+          } else {
+            if (hasFees && p.inRange && canActOn(p)) acts.push({ key: 'compound', label: 'Compound', tone: 'green', solid: true, onClick: () => compound(p), disabled: busy || !canTransact });
+            acts.push({ key: 'collect', label: busy ? 'Collecting…' : 'Collect fees', tone: 'green', solid: hasFees && !p.inRange, onClick: () => collect(p), disabled: !hasFees || busy || !canTransact });
+            acts.push({ key: 'add', label: 'Add liquidity', onClick: () => setManage({ pos: p, mode: 'add' }), disabled: busy || !canTransact });
+            if (p.stakeable && hasLiquidity) acts.push({ key: 'stake', label: `Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`, onClick: () => gaugeAction(p, 'stake'), disabled: busy || !canTransact });
+          }
+          if (canRebalance) acts.push({ key: 'rebalance', label: p.inRange ? 'Rebalance' : 'Rebalance now', tone: p.inRange ? 'neutral' : 'amber', onClick: () => setRebalance(p), disabled: busy || !canTransact });
+          if (!p.staked && hasLiquidity) acts.push({ key: 'withdraw', label: 'Withdraw', tone: 'danger', onClick: () => setManage({ pos: p, mode: 'withdraw' }), disabled: busy || !canTransact });
+          acts.push({ key: 'flex', label: 'Flex', onClick: () => setShare(shareData()) });
+          if (hasLiquidity && canTransact) acts.push({ key: 'alert', label: alerts.has(p) ? 'Alert on' : 'Alert me', tone: alerts.has(p) ? 'green' : 'neutral', onClick: () => toggleAlert(p), disabled: busy });
+          // What leads depends on the state: out of range wants Rebalance, fees want Compound or Collect, staked wants Claim.
+          const lead: string[] = p.staked ? ['claim', 'unstake'] : !p.inRange && canRebalance ? ['rebalance', 'withdraw'] : hasFees ? ['compound', 'collect', 'add'] : ['add', 'rebalance'];
+          const primary = lead.map((k) => acts.find((a) => a.key === k)).filter((a): a is Act => !!a).slice(0, 2);
+          const rest = acts.filter((a) => !primary.includes(a));
+          const key = posKey(p);
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: rest.length > 0 ? '1fr 1fr auto' : '1fr 1fr', gap: 8, marginTop: 12, position: 'relative' }}>
+              {primary.map((a) => <LpButton key={a.key} full tone={a.tone} solid={a.solid} label={a.label} onClick={a.onClick} disabled={a.disabled}/>)}
+              {rest.length > 0 && (
+                <div style={{ position: 'relative' }}>
+                  <LpButton label="More" onClick={() => setMoreOpen(moreOpen === key ? null : key)}/>
+                  {moreOpen === key && (
+                    <div onMouseLeave={() => setMoreOpen(null)} style={{ position: 'absolute', right: 0, bottom: 'calc(100% + 6px)', minWidth: 190, padding: 6, borderRadius: 14, zIndex: 30, background: btb.glassStrong, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: '0 16px 40px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {rest.map((a) => (
+                        <div key={a.key} onClick={() => { if (a.disabled) return; setMoreOpen(null); a.onClick(); }} style={{ padding: '9px 12px', borderRadius: 10, cursor: a.disabled ? 'default' : 'pointer', opacity: a.disabled ? 0.45 : 1, fontSize: 13, fontWeight: 700, color: a.tone === 'danger' ? btb.loss : a.tone === 'amber' ? btb.amber : a.tone === 'green' ? btb.green : btb.text }}>{a.label}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {actionNote && <div style={{ color: btb.amber, fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>{actionNote}</div>}
         {alertNote && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
