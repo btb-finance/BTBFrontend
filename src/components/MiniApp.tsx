@@ -9,6 +9,7 @@ import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
 import { TopNav } from './TopNav';
 import { MobileNav } from './MobileNav';
+import { AgentDock } from './AgentDock';
 import { Tab } from './types';
 import { ConnectScreen } from './screens/ConnectScreen';
 import { HomeScreen } from './screens/HomeScreen';
@@ -162,6 +163,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
           onDisconnect={handleLeave}
         />
       )}
+      <AgentDock hidden={screen === 'stake' || !!overlay} onConnect={() => setShowConnect(true)} onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>
       {showReceive && <ReceiveModal address={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => setShowReceive(false)}/>}
       {showSend    && <SendModal fromAddress={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => { setShowSend(false); setSendToken(undefined); }} initialToken={sendToken}/>}
       {showConnect && (

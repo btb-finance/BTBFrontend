@@ -23,7 +23,7 @@ import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/p
 
 /** Agent access is gated to committed holders: 10M BTB in the wallet.
  * Mirrored server-side in convex/agentChat.ts — the UI gate is cosmetic. */
-const AGENT_REQUIRED_BTB = 10_000_000;
+export const AGENT_REQUIRED_BTB = 10_000_000;
 
 const SUGGESTIONS = [
   'Where should I LP based on my holdings?',
@@ -261,8 +261,8 @@ function AgentMessage({ content }: { content: string }) {
 
 type LpSummary = { pair: string; protocol: string; amount0: string; amount1: string; inRange: boolean };
 
-function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
-  walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void;
+export function AgentChat({ walletAddress, holder, btbBalance, onGetBtb, compact = false }: {
+  walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void; compact?: boolean;
 }) {
   const config = useConfig();
   const { positions } = useTokenStore();
@@ -345,9 +345,9 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
   const empty = (history?.length ?? 0) === 0 && !pending;
 
   return (
-    <Screen gap={14} style={{ maxWidth: 720, margin: '0 auto' }}>
+    <Screen gap={14} style={compact ? { height: '100%', minHeight: 0 } : { maxWidth: 720, margin: '0 auto' }}>
       {/* header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {!compact && <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 42, height: 42, borderRadius: 14, flexShrink: 0,
           background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(var(--amber-rgb), 0.18))',
@@ -370,7 +370,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
             <span style={{ color: 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>FREE · 5/DAY</span>
           </Badge>
         )}
-      </div>
+      </div>}
 
       {/* upsell for free tier */}
       {!holder && onGetBtb && (
@@ -386,8 +386,8 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
       )}
 
       {/* thread */}
-      <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: 380 }}>
-        <div style={{ flex: 1, overflowY: 'auto', maxHeight: 460, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: compact ? 0 : 380, flex: compact ? 1 : undefined }}>
+        <div style={{ flex: 1, overflowY: 'auto', maxHeight: compact ? undefined : 460, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {empty && (
             <div style={{ margin: 'auto', textAlign: 'center', padding: '30px 16px' }}>
               <div style={{ color: btb.text, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Ask me anything about your portfolio</div>
