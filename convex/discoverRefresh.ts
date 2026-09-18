@@ -23,6 +23,8 @@ import { getEarnPools, addRangeAprs, ingestChainExtras, fetchDexLogos, applyLogo
 import { v } from "convex/values";
 import { CHAIN_DATA_NETWORKS } from "../src/lib/chainDataNetworks";
 import { fetchPoolPriceChanges, fetchTokenLogos } from "../src/lib/geckoterminal";
+import { fetchMerklPoolRewards, MERKL_CHAINS } from "../src/lib/merkl";
+import { packSnapshot, unpackSnapshotNode } from "../src/lib/snapshotCodec";
 
 // Multicall3-capable public RPCs — same proven set as balances.ts.
 const MAINNET_RPCS = [
@@ -84,12 +86,12 @@ export const refresh = internalAction({
     let carried: EarnPool[] = [];
     if (previous) {
       try {
-        const prev = JSON.parse(previous.json) as { pools?: EarnPool[] };
+        const prev = await unpackSnapshotNode<{ pools?: EarnPool[] }>(previous.json);
         carried = (prev.pools ?? []).filter((p) => isConcentratedPool(p) && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
       } catch { /* unreadable previous snapshot: start clean */ }
     }
     await ctx.runMutation(internal.discover.save, {
-      json: JSON.stringify({ version: 2, pools: [...withRange, ...carried], priceChange }),
+      json: await packSnapshot({ version: 2, pools: [...withRange, ...carried], priceChange }),
     });
 
     // DEX coverage runs as independent follow-up actions, one chain each,
@@ -101,6 +103,7 @@ export const refresh = internalAction({
     }
     // Token logos once the coverage passes have landed.
     await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 1) * 4 * 60_000, internal.discoverRefresh.fillTokenLogos, {});
+    await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 1) * 4 * 60_000 + 60_000, internal.discoverRefresh.fillMerkl, {});
   },
 });
 
@@ -113,7 +116,7 @@ export const coverDexes = internalAction({
     if (!target || target.chainId == null) return;
     const row = await ctx.runQuery(internal.discover.getInternal, {});
     if (!row) return;
-    const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
+    const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
     const chainName = target.chain;
     const existing = snap.pools.filter((p) => p.chain === chainName);
     const client = getChainClient(target.chainId);
@@ -123,12 +126,12 @@ export const coverDexes = internalAction({
       applyLogos(extras, await fetchDexLogos().catch(() => new Map<string, string>()));
       // Re-read before writing: the base refresh may have run meanwhile.
       const latest = await ctx.runQuery(internal.discover.getInternal, {});
-      const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
+      const current = latest ? await unpackSnapshotNode<typeof snap>(latest.json) : snap;
       // Fresh rows win over what the snapshot already had for the same pool.
       const fresh = new Set(extras.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
       const merged = [...current.pools.filter((p) => !fresh.has(`${p.chain}:${p.id.toLowerCase()}`)), ...extras];
       await ctx.runMutation(internal.discover.save, {
-        json: JSON.stringify({ ...current, pools: merged }),
+        json: await packSnapshot({ ...current, pools: merged }),
       });
     }
   },
@@ -145,7 +148,7 @@ export const fillTokenLogos = internalAction({
   handler: async (ctx) => {
     const row = await ctx.runQuery(internal.discover.getInternal, {});
     if (!row) return;
-    const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
+    const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
     // Every EVM chain the snapshot carries, not only the four LP chains.
     const netFor = (p: EarnPool) => {
       const id = p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId;
@@ -181,13 +184,35 @@ export const fillTokenLogos = internalAction({
     const all = { ...known, ...Object.fromEntries(found.map((f) => [f.key, f.logoURI])) };
     // Re-read before writing so a coverage pass that landed meanwhile is kept.
     const latest = await ctx.runQuery(internal.discover.getInternal, {});
-    const current = latest ? (JSON.parse(latest.json) as typeof snap) : snap;
+    const current = latest ? await unpackSnapshotNode<typeof snap>(latest.json) : snap;
     for (const p of current.pools) {
       const net = netFor(p);
       if (!net) continue;
       const logos = (p.underlyingTokens ?? []).map((t) => all[`${net.chainId}:${t.toLowerCase()}`]);
       if (logos.some(Boolean)) p.tokenLogos = logos.map((l) => l ?? null);
     }
-    await ctx.runMutation(internal.discover.save, { json: JSON.stringify(current) });
+    await ctx.runMutation(internal.discover.save, { json: await packSnapshot(current) });
+  },
+});
+
+/** Attach Merkl reward APRs to pool rows, matched by pool address or V4 pool id per chain. */
+export const fillMerkl = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.runQuery(internal.discover.getInternal, {});
+    if (!row) return;
+    const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
+    const chainIds = [...new Set(snap.pools.map((p) => p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId).filter((c): c is number => c != null && MERKL_CHAINS.has(c)))];
+    const byChain = new Map<number, Awaited<ReturnType<typeof fetchMerklPoolRewards>>>();
+    for (const c of chainIds) byChain.set(c, await fetchMerklPoolRewards(c).catch(() => new Map()));
+    let hits = 0;
+    for (const p of snap.pools) {
+      const cid = p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId;
+      const m = cid != null ? byChain.get(cid)?.get(p.id.toLowerCase()) : undefined;
+      if (m) { p.merkl = { apr: m.apr, rewardSymbols: m.rewardSymbols, dailyRewardsUsd: m.dailyRewardsUsd, endsAt: m.endsAt }; hits++; }
+      else if (p.merkl) delete p.merkl;
+    }
+    console.log(`merkl: ${hits} pools with live rewards`);
+    await ctx.runMutation(internal.discover.save, { json: await packSnapshot(snap) });
   },
 });

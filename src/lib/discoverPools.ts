@@ -1,4 +1,5 @@
 'use client';
+import { unpackSnapshotBrowser } from './snapshotCodec';
 import { useSyncExternalStore } from 'react';
 import type { PublicClient } from 'viem';
 import { ConvexHttpClient } from 'convex/browser';
@@ -63,7 +64,7 @@ export function prefetchDiscoverPools(client?: PublicClient) {
       const convex = new ConvexHttpClient(CONVEX_URL);
       const row = await convex.query(api.discover.get, {});
       if (row) {
-        const snap = JSON.parse(row.json) as { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
+        const snap = await unpackSnapshotBrowser<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
         if (snap.pools?.length > 0) {
           ts = Date.now();
           // Older snapshots may still carry full-range rows; drop them here too.

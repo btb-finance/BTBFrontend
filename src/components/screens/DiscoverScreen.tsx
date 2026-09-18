@@ -656,6 +656,11 @@ export function DiscoverScreen() {
             {fmtApr(headlineApr(p))}
           </div>
           {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
+          {p.merkl && p.merkl.apr > 0 && (
+            <div title={`Merkl reward campaign paying ${p.merkl.rewardSymbols.join(', ') || 'rewards'} to LPs in this pool, on top of fees. Claim from Portfolio.`} style={{ color: '#C4B5FD', fontSize: 10, fontWeight: 800, marginTop: 2, whiteSpace: 'nowrap' }}>
+              +{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}
+            </div>
+          )}
         </div>
       ),
     },
@@ -744,6 +749,7 @@ export function DiscoverScreen() {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
+                    {p.merkl && p.merkl.apr > 0 && <div style={{ color: '#C4B5FD', fontSize: 10, fontWeight: 800 }}>+{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}</div>}
                     <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
                   </div>
                 </div>

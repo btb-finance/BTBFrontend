@@ -56,6 +56,8 @@ export interface EarnPool {
   dexLogo?: string;
   /** Per underlying token, filled by the Convex logo pass; null when unknown. */
   tokenLogos?: (string | null)[];
+  /** Merkl reward campaign on this pool: extra APR in percent and the reward tokens. */
+  merkl?: { apr: number; rewardSymbols: string[]; dailyRewardsUsd: number; endsAt?: number };
   chainLogo?: string;
   volume24hUsd?: number;  // last complete day — indexer pools only
   fees24hUsd?: number;
