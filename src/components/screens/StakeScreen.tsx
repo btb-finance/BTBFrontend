@@ -146,7 +146,7 @@ function AgentLink({ href }: { href: string }) {
     inApp = /(^|\.)btb\.finance$/i.test(u.hostname) || u.hostname === 'localhost';
     label = u.hostname + u.pathname;
     if (u.pathname.startsWith('/swap')) label = 'Open swap';
-    else if (u.pathname.startsWith('/discover/')) label = `Open ${u.pathname.split('/').slice(2).join(' on ').replace(/-/g, '/')}`;
+    else if (u.pathname.startsWith('/discover/')) { const [chain, pair] = u.pathname.split('/').slice(2); label = pair ? `Open ${pair.replace(/-/g, '/').toUpperCase()} on ${chain}` : `Open ${chain}`; }
     else if (inApp) label = u.pathname;
   } catch { /* leave as text */ }
   const target = inApp ? (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? clean.replace(/^https?:\/\/(www\.)?btb\.finance/, '') : clean) : clean;
