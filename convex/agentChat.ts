@@ -54,13 +54,28 @@ function matchesFamily(sym: string, want: string): boolean {
   return s === w || (w === "USDC" && (s === "USDC" || s === "MUSDC" || s === "USDBC" || s === "USDC.E"));
 }
 
-function buildSystemPrompt(balances: { symbol: string; balanceFormatted: string; valueUsd: number }[]): string {
-  const held = balances
+const CHAIN_NAMES: Record<number, string> = { 1: "Ethereum", 8453: "Base", 56: "BNB Chain", 4663: "Robinhood Chain", 5042: "Arc", 42161: "Arbitrum", 10: "Optimism", 137: "Polygon", 43114: "Avalanche", 59144: "Linea", 130: "Unichain", 143: "Monad", 4326: "MegaETH", 999: "HyperEVM", 2020: "Ronin", 80094: "Berachain", 9745: "Plasma" };
+type Holding = { symbol: string; chainId: number; address?: string; balance: number; usd: number };
+
+/** Holdings as the Portfolio tab shows them (all chains, from the client), else the mainnet snapshot. */
+function holdingsText(balances: { symbol: string; balanceFormatted: string; valueUsd: number }[], extras?: string): string {
+  try {
+    const t = (JSON.parse(extras ?? "{}") as { tokens?: Holding[] }).tokens;
+    if (t && t.length > 0) {
+      const total = t.reduce((s, h) => s + h.usd, 0);
+      return `Total about $${total.toFixed(2)} across ${new Set(t.map((h) => h.chainId)).size} chains.\n` + t.map((h) => `${h.symbol} on ${CHAIN_NAMES[h.chainId] ?? `chain ${h.chainId}`}: ${h.balance} ($${h.usd.toFixed(2)})`).join("\n");
+    }
+  } catch { /* fall through */ }
+  return balances
     .filter((b) => b.valueUsd > 1)
     .sort((a, b) => b.valueUsd - a.valueUsd)
     .slice(0, 25)
-    .map((b) => `${b.symbol}: ${b.balanceFormatted} ($${b.valueUsd.toFixed(2)})`)
+    .map((b) => `${b.symbol} on Ethereum: ${b.balanceFormatted} ($${b.valueUsd.toFixed(2)})`)
     .join("\n");
+}
+
+function buildSystemPrompt(balances: { symbol: string; balanceFormatted: string; valueUsd: number }[], extras?: string): string {
+  const held = holdingsText(balances, extras);
   return [
     "You are the BTB Agent, the assistant inside BTB Finance (btb.finance): a liquidity provider app that finds pools, simulates ranges, adds and manages concentrated liquidity positions on Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome, Giga, Ramses and UP across Ethereum, Base, BNB Chain, Robinhood Chain and Arc, free, with revenue shared to users every Friday.",
     "",
@@ -74,7 +89,7 @@ function buildSystemPrompt(balances: { symbol: string; balanceFormatted: string;
     "",
     "BTB FINANCE FACTS you may state directly: BTB token (Ethereum mainnet) 0x88888888c90CD71B35830daBFD24743DbC135B51, trades on Uniswap V4 (BTB/USDC and BTB/ETH). When someone asks where or how to buy BTB, give this in-app swap link: https://btb.finance/swap?chain=1&from=ETH&to=0x88888888c90cd71b35830dabfd24743dbc135b51 (the swap gets the best price across DEXes). For any other token the user wants to buy or swap, the link is https://btb.finance/swap?chain=<chainId>&from=ETH&to=<token address>. OPOS (OPOSSUM) 0x88888805E7e3d5c7FB002AD98f08250E79c298dC is the BTB wrapper: 1 BTB mints 1,000,000 OPOS and burns back at the same rate, with a 1% transfer tax to the treasury; it has Uniswap V2 pairs against many tokens. BTBB (BTB Bear) 0x88888880d5ca13018d2dc11e2e4744bd91a5656f. Holding 10,000 BTB unlocks LP range alerts; 10,000,000 BTB unlocks 50 agent messages a day. Revenue is shared with users every Friday in BTB. Never quote any other address for these tokens; if search_token returns other 'BTB' tokens on other chains, say they are not BTB Finance.",
     "",
-    "USER TOKEN BALANCES (from the last Portfolio sync):",
+    "USER HOLDINGS (every chain, as the Portfolio tab shows them; a token on one chain is not on another):",
     held || "none on record (ask them to open the Portfolio tab once so balances sync)",
   ].join("\n");
 }
@@ -264,13 +279,13 @@ export const chat = action({
     let pools: Pool[] = [];
     try { if (data.poolsJson) pools = (await unpackSnapshotNode<{ pools: Pool[] }>(data.poolsJson)).pools ?? []; } catch { /* tools answer 'unavailable' */ }
     const portfolio = () => {
-      const held = data.balances.filter((b: { valueUsd: number }) => b.valueUsd > 0.5).sort((x: { valueUsd: number }, y: { valueUsd: number }) => y.valueUsd - x.valueUsd).slice(0, 40)
-        .map((b: { symbol: string; balanceFormatted: string; valueUsd: number }) => `${b.symbol}: ${b.balanceFormatted} ($${b.valueUsd.toFixed(2)})`).join("\n");
-      return `BALANCES:\n${held || "none synced"}\n\nLP POSITIONS (json): ${extras && extras.length > 2 ? extras.slice(0, 8000) : "none"}`;
+      let lps = "none";
+      try { const l = (JSON.parse(extras ?? "{}") as { lps?: unknown[] }).lps; if (l && l.length) lps = JSON.stringify(l).slice(0, 8000); } catch { /* none */ }
+      return `BALANCES (every chain, as shown in Portfolio):\n${holdingsText(data.balances, extras) || "none synced"}\n\nLP POSITIONS (json): ${lps}`;
     };
 
     const messages: ChatMsg[] = [
-      { role: "system", content: buildSystemPrompt(data.balances) },
+      { role: "system", content: buildSystemPrompt(data.balances, extras) },
       ...data.history,
       { role: "user", content: trimmed },
     ];

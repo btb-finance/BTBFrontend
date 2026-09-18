@@ -265,6 +265,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
   walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void;
 }) {
   const config = useConfig();
+  const { positions } = useTokenStore();
   const history = useQuery(api.agent.history, { walletAddress });
   const sendChat = useAction(api.agentChat.chat);
 
@@ -317,7 +318,15 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
     setBusy(true);
     setPending(msg);
     try {
+      // What Portfolio shows: every chain's holdings with USD values, so the
+      // agent sees the same wallet the user sees, not only the mainnet snapshot.
+      const holdings = positions
+        .filter((t) => (t.usdValue ?? 0) >= 0.5)
+        .sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0))
+        .slice(0, 60)
+        .map((t) => ({ symbol: t.symbol, chainId: t.chainId ?? 1, address: t.address, balance: Number(parseFloat(t.balance ?? '0').toPrecision(6)), usd: Math.round((t.usdValue ?? 0) * 100) / 100 }));
       const extras = JSON.stringify({
+        tokens: holdings,
         lps: (lps ?? []).slice(0, 20),
       });
       await sendChat({ walletAddress, message: msg, extras });
