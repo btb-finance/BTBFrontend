@@ -188,6 +188,18 @@ export const DOCS: DocGroup[] = [
         ],
       },
       {
+        id: 'agent', title: 'The BTB Agent', summary: 'Ask in plain words; it reads Discover, your portfolio and the simulator.',
+        blocks: [
+          { type: 'p', text: 'The Agent tab is a chat that can search every pool the app indexes across all supported chains, read your balances and LP positions, and estimate earnings for a deposit and range. Ask things like "best ETH / stablecoin pools across all chains", "where should I put my USDC on Base", or "what would 2,000 USD earn in that pool with a 5% range for 30 days".' },
+          { type: 'list', items: [
+            'It understands token families: ETH covers WETH and staked ETH; stable covers USDC, USDT, USDG, mUSDC, USDe, DAI, USDS, GHO and similar; BTC covers WBTC, cbBTC, tBTC, LBTC, cirBTC.',
+            'Every number comes from the same data Discover and Simulate use. It does not invent pools or APRs.',
+            'Five messages a day for everyone; fifty for wallets holding 10,000,000 BTB.',
+            'It only talks about liquidity providing and the app.',
+          ] },
+        ],
+      },
+      {
         id: 'profiles', title: 'Wallets and profiles', summary: 'All your wallets under one login.',
         blocks: [
           { type: 'p', text: 'A profile is a set of wallets. Connect with any one of them and all of them appear as tabs on Portfolio and in the account menu. Tap one to view its balances and positions; the connected wallet keeps transactions.' },
