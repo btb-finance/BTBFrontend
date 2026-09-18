@@ -136,11 +136,36 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
 // GLM answers in markdown (bold, lists, headings). Render the common subset
 // instead of showing literal ** markers — no dependency needed for chat text.
 
+/** Links the agent hands out: btb.finance paths open inside the app (same tab), anything else opens in a new tab. */
+function AgentLink({ href }: { href: string }) {
+  const clean = href.replace(/[.,;:)\]]+$/, '');
+  const trail = href.slice(clean.length);
+  let label = clean, inApp = false;
+  try {
+    const u = new URL(clean);
+    inApp = /(^|\.)btb\.finance$/i.test(u.hostname) || u.hostname === 'localhost';
+    label = u.hostname + u.pathname;
+    if (u.pathname.startsWith('/swap')) label = 'Open swap';
+    else if (u.pathname.startsWith('/discover/')) label = `Open ${u.pathname.split('/').slice(2).join(' on ').replace(/-/g, '/')}`;
+    else if (inApp) label = u.pathname;
+  } catch { /* leave as text */ }
+  const target = inApp ? (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? clean.replace(/^https?:\/\/(www\.)?btb\.finance/, '') : clean) : clean;
+  return (
+    <>
+      <a href={target} target={inApp ? undefined : '_blank'} rel={inApp ? undefined : 'noopener noreferrer'} style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3, wordBreak: 'break-all' }}>{label}</a>
+      {trail}
+    </>
+  );
+}
+
 function InlineMd({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*)/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*|https?:\/\/[^\s<>"']+|\[[^\]]+\]\(https?:\/\/[^)]+\))/g);
   return (
     <>
       {parts.map((p, i) => {
+        const md = /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/.exec(p);
+        if (md) return <a key={i} href={md[2]} target={/btb\.finance/i.test(md[2]) ? undefined : '_blank'} rel="noopener noreferrer" style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>{md[1]}</a>;
+        if (/^https?:\/\//.test(p)) return <AgentLink key={i} href={p}/>;
         if (p.startsWith('**') && p.endsWith('**')) {
           return <strong key={i} style={{ color: btb.text, fontWeight: 800 }}>{p.slice(2, -2)}</strong>;
         }
