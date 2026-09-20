@@ -6,11 +6,11 @@
  *
  * Reads TREASURY_PRIVATE_KEY from the environment. Nothing else is stored.
  *
- * Pricing: OPOS is redeemable 1,000,000 : 1 for BTB with no tax, so its fair
- * value is BTB / 1e6. BTB is read from its Uniswap V4 pools (StateView slot0,
- * USDC and ETH pools, averaged), cross-checked against the median implied
- * price of the existing OPOS V2 pools; the run aborts if the two disagree by
- * more than MAX_REFERENCE_GAP. Every token price is read on-chain from its
+ * Pricing: new pools open at the median implied OPOS price of the existing
+ * OPOS V2 pools (where bots already keep it balanced). The peg (BTB / 1e6,
+ * since OPOS burns to BTB untaxed; BTB read from its Uniswap V4 pools via
+ * StateView) is the sanity check: the run aborts if the two disagree by more
+ * than MAX_REFERENCE_GAP. Every token price is read on-chain from its
  * deepest Uniswap V3 pool against USDC or WETH, so no API can spoof a seed.
  *
  * Each pair opens at exactly $USD_PER_SIDE of OPOS and $USD_PER_SIDE of the
@@ -35,6 +35,8 @@ const DEADLINE_S = 120;
 const ARB_BAND = 0.013;
 // The three price sources must agree this closely or the token is held back.
 const PRICE_AGREEMENT = ARB_BAND;
+// Our own \$100 buy must not move a thin pool more than this, or the token waits.
+const MAX_IMPACT = 0.005;
 
 const OPOS: Address = '0x88888805E7e3d5c7FB002AD98f08250E79c298dC';
 const BTB: Address = '0x88888888c90CD71B35830daBFD24743DbC135B51';
@@ -216,12 +218,17 @@ async function main() {
   const gap = median / pegOpos - 1;
   console.log(`WETH $${fmt(wethUsd)}  BTB $${btbUsd.toExponential(4)}  peg OPOS ${pegOpos.toExponential(4)}  pool median ${median.toExponential(4)}  gap ${(gap * 100).toFixed(2)}%`);
   if (Math.abs(gap) > MAX_REFERENCE_GAP) throw new Error('peg and pool median disagree; check the BTB pools before seeding');
-  const oposUsd = pegOpos;
+  // Seed where the market already clears OPOS: the median of the existing
+  // pools, which bots keep balanced against each other. The peg is the sanity
+  // check above. At $200 a pool the value a bot can extract from a price gap
+  // d is about V * d^2 / 8, cents even at the full peg-to-market gap, so
+  // consistency with the live pools matters more than the last percent.
+  const oposUsd = median;
   const oposPerSide = parseUnits((USD_PER_SIDE / oposUsd).toFixed(0), 18);
 
   // 2) Per-token plan.
   const decs = await client.multicall({ contracts: TOKENS.map((t) => ({ address: t.address, abi: erc20Abi, functionName: 'decimals' as const })), allowFailure: false });
-  const plan: { t: (typeof TOKENS)[number]; dec: number; usd: number; amount: bigint; pair: Address; v3: boolean }[] = [];
+  const plan: { t: (typeof TOKENS)[number]; dec: number; usd: number; amount: bigint; pair: Address; v3: boolean; spot?: number }[] = [];
   for (let i = 0; i < TOKENS.length; i++) {
     const t = TOKENS[i], dec = Number(decs[i]);
     const v3 = await v3PriceUsdOrNull(t.address, t.via, wethUsd, dec) ?? await v3PriceUsdOrNull(t.address, t.via === 'WETH' ? 'USDC' : 'WETH', wethUsd, dec);
@@ -240,18 +247,27 @@ async function main() {
   const llama = await fetch(`https://coins.llama.fi/prices/current/${plan.map((p) => `ethereum:${p.t.address.toLowerCase()}`).join(',')}`, { headers: { 'user-agent': 'curl/8' } })
     .then((r) => r.json() as Promise<{ coins: Record<string, { price?: number }> }>).catch(() => ({ coins: {} as Record<string, { price?: number }> }));
   const safe: typeof plan = [];
-  console.log('symbol   V3 price       Kyber price    Llama price    max gap   verdict');
+  console.log('symbol   V3 price       market (\$20)   Llama price    max gap  impact  verdict');
   for (const p of plan) {
-    let kyber: number | null = null;
+    // Two quotes: $20 is close to the clean market price; the $100 quote is
+    // what we would actually pay, so the difference is our own price impact.
+    let kyber: number | null = null, spot: number | null = null, impact = 0;
     if (p.t.address.toLowerCase() !== USDC.toLowerCase()) {
       try {
-        const usdcIn = parseUnits(String(USD_PER_SIDE), 6);
-        const q = await getKyberQuote(USDC, p.t.address, usdcIn.toString(), p.dec, 1);
+        const qSmall = await getKyberQuote(USDC, p.t.address, parseUnits('20', 6).toString(), p.dec, 1);
+        const outSmall = BigInt(qSmall.routeSummary.amountOut ?? '0');
+        if (outSmall > 0n) spot = 20 / Number(formatUnits(outSmall, p.dec));
+        await new Promise((r) => setTimeout(r, 250));
+        const q = await getKyberQuote(USDC, p.t.address, parseUnits(String(USD_PER_SIDE), 6).toString(), p.dec, 1);
         const out = BigInt(q.routeSummary.amountOut ?? '0');
         if (out > 0n) kyber = USD_PER_SIDE / Number(formatUnits(out, p.dec));
+        if (spot != null && kyber != null) impact = kyber / spot - 1;
       } catch { /* no quote */ }
       await new Promise((r) => setTimeout(r, 250));
-    } else kyber = 1;
+    } else { kyber = 1; spot = 1; }
+    // The market price we pair against is the clean one, not the one we paid.
+    const market = spot ?? kyber;
+    p.spot = market ?? undefined;
     const ll = llama.coins?.[`ethereum:${p.t.address.toLowerCase()}`]?.price ?? null;
     let note = '';
     const marketAgree = kyber != null && ll != null && Math.abs(kyber / ll - 1) <= PRICE_AGREEMENT;
@@ -259,15 +275,17 @@ async function main() {
       // No usable V3 pool, or a V3 pool that disagrees with a market the two
       // independent sources agree on: price from the live quote instead.
       note = p.v3 ? ' (V3 pool stale, priced from market)' : ' (no V3 pool, priced from market)';
-      p.usd = kyber!; p.amount = parseUnits((USD_PER_SIDE / kyber!).toFixed(Math.min(p.dec, 8)), p.dec); p.v3 = false;
+      p.usd = market!; p.amount = parseUnits((USD_PER_SIDE / market!).toFixed(Math.min(p.dec, 8)), p.dec); p.v3 = false;
     }
-    const prices = [p.v3 ? p.usd : null, kyber, ll].filter((x): x is number => x != null && x > 0);
+    const prices = [p.v3 ? p.usd : null, market, ll].filter((x): x is number => x != null && x > 0);
     const lo = Math.min(...prices), hi = Math.max(...prices);
     const gap = prices.length >= 2 ? hi / lo - 1 : NaN;
     // Kyber's effective price includes the buy's own slippage on a $100 trade;
     // a gap above the band means the buy itself would open the pool off-price.
-    const ok = prices.length >= 2 && gap <= PRICE_AGREEMENT && p.usd > 0 && (kyber == null || Math.abs(kyber / p.usd - 1) < ARB_BAND);
-    console.log(`${p.t.symbol.padEnd(8)} ${(p.v3 ? fmt(p.usd, 6) : 'n/a').padStart(14)} ${(kyber != null ? fmt(kyber, 6) : 'n/a').padStart(14)} ${(ll != null ? fmt(ll, 6) : 'n/a').padStart(14)}  ${Number.isFinite(gap) ? (gap * 100).toFixed(2) + '%' : '  n/a'}   ${ok ? 'seed' : 'HOLD'}${note}`);
+    const tooThin = Math.abs(impact) > MAX_IMPACT;
+    const ok = prices.length >= 2 && gap <= PRICE_AGREEMENT && p.usd > 0 && !tooThin && (market == null || Math.abs(market / p.usd - 1) < ARB_BAND);
+    if (tooThin) note += ` (our \$${USD_PER_SIDE} buy moves it ${(impact * 100).toFixed(2)}%)`;
+    console.log(`${p.t.symbol.padEnd(8)} ${(p.v3 ? fmt(p.usd, 6) : 'n/a').padStart(14)} ${(market != null ? fmt(market, 6) : 'n/a').padStart(14)} ${(ll != null ? fmt(ll, 6) : 'n/a').padStart(14)}  ${Number.isFinite(gap) ? (gap * 100).toFixed(2) + '%' : '  n/a'}  ${(impact * 100).toFixed(2).padStart(5)}%  ${ok ? 'seed' : 'HOLD'}${note}`);
     if (ok) safe.push(p);
   }
   const held = plan.filter((p) => !safe.includes(p)).map((p) => p.t.symbol);
@@ -319,15 +337,21 @@ async function main() {
     await tx(`swap USDC to ${p.t.symbol}`, getAddress(built.to), built.data as `0x${string}`, built.value ? BigInt(built.value) : undefined);
   }
 
-  // 3c) Approvals to the router, then one addLiquidity per pair.
+  // 3c) Approvals to the router, then one addLiquidity per pair. The OPOS side
+  //     is sized from the tokens that actually arrived at the clean market
+  //     price, so a swap that lost a little to slippage opens the pool at the
+  //     market ratio (a touch under $100 a side) rather than off-price.
   await approveIfNeeded(OPOS, V2_ROUTER, totalOpos, 'OPOS to router');
   for (const p of plan) {
     const bal = await client.readContract({ address: p.t.address, abi: erc20Abi, functionName: 'balanceOf', args: [from] });
     const amount = bal < p.amount ? bal : p.amount;
+    const tokenUsd = Number(formatUnits(amount, p.dec)) * (p.spot ?? p.usd);
+    const oposAmount = parseUnits((tokenUsd / oposUsd).toFixed(0), 18);
     await approveIfNeeded(p.t.address, V2_ROUTER, amount, `${p.t.symbol} to router`);
     const min = (v: bigint) => (v * BigInt(10_000 - SLIPPAGE_BPS)) / 10_000n;
     const deadline = BigInt(Math.floor(Date.now() / 1000) + DEADLINE_S);
-    await tx(`addLiquidity OPOS/${p.t.symbol}`, V2_ROUTER, encodeFunctionData({ abi: ROUTER_ABI, functionName: 'addLiquidity', args: [OPOS, p.t.address, oposPerSide, amount, min(oposPerSide), min(amount), LP_RECIPIENT, deadline] }));
+    console.log(`  ${p.t.symbol}: ${formatUnits(amount, p.dec)} ($${tokenUsd.toFixed(2)}) against ${formatUnits(oposAmount, 18)} OPOS`);
+    await tx(`addLiquidity OPOS/${p.t.symbol}`, V2_ROUTER, encodeFunctionData({ abi: ROUTER_ABI, functionName: 'addLiquidity', args: [OPOS, p.t.address, oposAmount, amount, min(oposAmount), min(amount), LP_RECIPIENT, deadline] }));
   }
   console.log('\ndone');
 }
