@@ -21,6 +21,16 @@ const robinhood = defineChain({
   },
 });
 
+const arc = defineChain({
+  id: 5042,
+  name: 'Arc',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.mainnet.arc.io'] } },
+  contracts: {
+    multicall3: { address: '0xcA11bde05977b3631167028862bE2a173976CA11' },
+  },
+});
+
 const CHAINS: Record<number, Chain> = {
   1: mainnet,
   56: bsc,
@@ -45,6 +55,7 @@ const CHAINS: Record<number, Chain> = {
   81457: blast,
   324: zkSync,
   4663: robinhood,
+  5042: arc,
 };
 
 /** Public client with the verified failover transports — server-side only. */

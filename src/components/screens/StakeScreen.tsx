@@ -23,7 +23,7 @@ import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/p
 
 /** Agent access is gated to committed holders: 10M BTB in the wallet.
  * Mirrored server-side in convex/agentChat.ts — the UI gate is cosmetic. */
-const AGENT_REQUIRED_BTB = 10_000_000;
+export const AGENT_REQUIRED_BTB = 10_000_000;
 
 const SUGGESTIONS = [
   'Where should I LP based on my holdings?',
@@ -136,11 +136,36 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
 // GLM answers in markdown (bold, lists, headings). Render the common subset
 // instead of showing literal ** markers — no dependency needed for chat text.
 
+/** Links the agent hands out: btb.finance paths open inside the app (same tab), anything else opens in a new tab. */
+function AgentLink({ href }: { href: string }) {
+  const clean = href.replace(/[.,;:)\]]+$/, '');
+  const trail = href.slice(clean.length);
+  let label = clean, inApp = false;
+  try {
+    const u = new URL(clean);
+    inApp = /(^|\.)btb\.finance$/i.test(u.hostname) || u.hostname === 'localhost';
+    label = u.hostname + u.pathname;
+    if (u.pathname.startsWith('/swap')) label = 'Open swap';
+    else if (u.pathname.startsWith('/discover/')) { const [chain, pair] = u.pathname.split('/').slice(2); label = pair ? `Open ${pair.replace(/-/g, '/').toUpperCase()} on ${chain}` : `Open ${chain}`; }
+    else if (inApp) label = u.pathname;
+  } catch { /* leave as text */ }
+  const target = inApp ? (typeof window !== 'undefined' && window.location.hostname === 'localhost' ? clean.replace(/^https?:\/\/(www\.)?btb\.finance/, '') : clean) : clean;
+  return (
+    <>
+      <a href={target} target={inApp ? undefined : '_blank'} rel={inApp ? undefined : 'noopener noreferrer'} style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3, wordBreak: 'break-all' }}>{label}</a>
+      {trail}
+    </>
+  );
+}
+
 function InlineMd({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*)/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*\n]+\*|https?:\/\/[^\s<>"']+|\[[^\]]+\]\(https?:\/\/[^)]+\))/g);
   return (
     <>
       {parts.map((p, i) => {
+        const md = /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/.exec(p);
+        if (md) return <a key={i} href={md[2]} target={/btb\.finance/i.test(md[2]) ? undefined : '_blank'} rel="noopener noreferrer" style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>{md[1]}</a>;
+        if (/^https?:\/\//.test(p)) return <AgentLink key={i} href={p}/>;
         if (p.startsWith('**') && p.endsWith('**')) {
           return <strong key={i} style={{ color: btb.text, fontWeight: 800 }}>{p.slice(2, -2)}</strong>;
         }
@@ -236,10 +261,11 @@ function AgentMessage({ content }: { content: string }) {
 
 type LpSummary = { pair: string; protocol: string; amount0: string; amount1: string; inRange: boolean };
 
-function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
-  walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void;
+export function AgentChat({ walletAddress, holder, btbBalance, onGetBtb, compact = false }: {
+  walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void; compact?: boolean;
 }) {
   const config = useConfig();
+  const { positions } = useTokenStore();
   const history = useQuery(api.agent.history, { walletAddress });
   const sendChat = useAction(api.agentChat.chat);
 
@@ -292,7 +318,15 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
     setBusy(true);
     setPending(msg);
     try {
+      // What Portfolio shows: every chain's holdings with USD values, so the
+      // agent sees the same wallet the user sees, not only the mainnet snapshot.
+      const holdings = positions
+        .filter((t) => (t.usdValue ?? 0) >= 0.5)
+        .sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0))
+        .slice(0, 60)
+        .map((t) => ({ symbol: t.symbol, chainId: t.chainId ?? 1, address: t.address, balance: Number(parseFloat(t.balance ?? '0').toPrecision(6)), usd: Math.round((t.usdValue ?? 0) * 100) / 100 }));
       const extras = JSON.stringify({
+        tokens: holdings,
         lps: (lps ?? []).slice(0, 20),
       });
       await sendChat({ walletAddress, message: msg, extras });
@@ -311,9 +345,9 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
   const empty = (history?.length ?? 0) === 0 && !pending;
 
   return (
-    <Screen gap={14} style={{ maxWidth: 720, margin: '0 auto' }}>
+    <Screen gap={14} style={compact ? { height: '100%', minHeight: 0 } : { maxWidth: 720, margin: '0 auto' }}>
       {/* header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {!compact && <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 42, height: 42, borderRadius: 14, flexShrink: 0,
           background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(var(--amber-rgb), 0.18))',
@@ -336,7 +370,7 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
             <span style={{ color: 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>FREE · 5/DAY</span>
           </Badge>
         )}
-      </div>
+      </div>}
 
       {/* upsell for free tier */}
       {!holder && onGetBtb && (
@@ -352,8 +386,8 @@ function AgentChat({ walletAddress, holder, btbBalance, onGetBtb }: {
       )}
 
       {/* thread */}
-      <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: 380 }}>
-        <div style={{ flex: 1, overflowY: 'auto', maxHeight: 460, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: compact ? 0 : 380, flex: compact ? 1 : undefined }}>
+        <div style={{ flex: 1, overflowY: 'auto', maxHeight: compact ? undefined : 460, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           {empty && (
             <div style={{ margin: 'auto', textAlign: 'center', padding: '30px 16px' }}>
               <div style={{ color: btb.text, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Ask me anything about your portfolio</div>

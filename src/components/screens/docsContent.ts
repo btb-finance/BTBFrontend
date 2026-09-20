@@ -66,6 +66,7 @@ export const DOCS: DocGroup[] = [
             'Sort by APR, TVL or 24h volume. The headline APR is quoted for a 5% wide range, not full range, so it is comparable across pools.',
             'Filter by chain and by DEX. Uniswap V3 and V4 are separate chips because they are different products.',
             'Add LP appears on every row the app can mint on; Simulate appears on every row with token addresses.',
+            'Rows with a live Merkl campaign show the extra reward APR in purple under the fee APR, with the reward token. Those rewards are claimed from Portfolio.',
             'Every chain and pair has a real URL (for example /discover/base), so pages can be bookmarked and shared.',
           ] },
         ],
@@ -126,6 +127,7 @@ export const DOCS: DocGroup[] = [
             'Gas awareness: each card with fees shows the estimated gas to collect and warns when the fees are worth less than the gas.',
             'History: where no provider indexes the chain (Robinhood), deposits, withdrawals and fees claimed are read from the position manager\'s events, so Invested, PnL, versus HODL and age still show. Figures priced at today\'s rate say so.',
             'Closed LP history lists finished positions with what was deposited, withdrawn and earned.',
+            'Merkl rewards: incentives third parties pay to LPs in campaign pools (Aerodrome stock pairs on Base, Robinhood equity pairs, Arc launch pools). Portfolio lists what your wallet can claim per chain with one Claim button; nothing to stake or register.',
           ] },
           { type: 'note', text: 'Every write is verified after confirmation by re-reading the chain (owner, liquidity, fees). If an RPC lags, the app tells you to retry instead of showing a stale state.' },
         ],
@@ -183,6 +185,18 @@ export const DOCS: DocGroup[] = [
             ['Mint a BTB Bear', '1000 per Bear'],
           ] },
           { type: 'p', text: 'Social and content quests (posts, threads, videos) pay more and are reviewed by hand. Lifetime XP is kept as a counter; only the current week\'s XP is used for the payout.' },
+        ],
+      },
+      {
+        id: 'agent', title: 'The BTB Agent', summary: 'Ask in plain words; it reads Discover, your portfolio and the simulator.',
+        blocks: [
+          { type: 'p', text: 'The Agent tab is a chat that can search every pool the app indexes across all supported chains, read your balances and LP positions, and estimate earnings for a deposit and range. Ask things like "best ETH / stablecoin pools across all chains", "where should I put my USDC on Base", or "what would 2,000 USD earn in that pool with a 5% range for 30 days".' },
+          { type: 'list', items: [
+            'It understands token families: ETH covers WETH and staked ETH; stable covers USDC, USDT, USDG, mUSDC, USDe, DAI, USDS, GHO and similar; BTC covers WBTC, cbBTC, tBTC, LBTC, cirBTC.',
+            'Every number comes from the same data Discover and Simulate use. It does not invent pools or APRs.',
+            'Five messages a day for everyone; fifty for wallets holding 10,000,000 BTB.',
+            'It only talks about liquidity providing and the app.',
+          ] },
         ],
       },
       {

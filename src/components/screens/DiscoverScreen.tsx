@@ -367,7 +367,7 @@ export function DiscoverScreen() {
   const { setThemeChainId } = useChainTheme();
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
-  const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 | 8453 | 56 } | null>(null);
+  const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 | 8453 | 56 | 5042 } | null>(null);
 
   // Open a pool. Minting flows put a shareable URL in the address bar with the
   // token addresses carried in the query, so the link resolves forever even if
@@ -394,8 +394,15 @@ export function DiscoverScreen() {
     if (openedFromUrl.current || sheet || directMint) return;
     const link = parsePoolPath(window.location.pathname);
     if (!link) return;
-    const chainId: 1 | 4663 | 8453 | 56 | null = link.chain === 'ethereum' ? 1 : link.chain === 'robinhoodchain' ? 4663 : link.chain === 'base' ? 8453 : link.chain === 'bnbchain' || link.chain === 'bsc' ? 56 : null;
+    const chainId: 1 | 4663 | 8453 | 56 | 5042 | null = link.chain === 'ethereum' ? 1 : link.chain === 'robinhoodchain' ? 4663 : link.chain === 'base' ? 8453 : link.chain === 'bnbchain' || link.chain === 'bsc' ? 56 : link.chain === 'arc' ? 5042 : null;
     const params = new URLSearchParams(window.location.search);
+    // ?id=<pool address or V4 pool id> pins one exact pool row (the agent and share links use it).
+    const wantId = (params.get('id') ?? '').toLowerCase();
+    if (wantId) {
+      if (pools.length === 0) return;
+      const exact = pools.find(p => p.id.toLowerCase() === wantId && chainSlug(p.chain) === link.chain);
+      if (exact) { openedFromUrl.current = true; setSheet({ pool: exact, simulate: mintTarget(exact) === null }); return; }
+    }
     const pair = (params.get('t') ?? '').split('-');
     const v4 = params.get('p');
     if (chainId && pair.length === 2 && isAddress(pair[0]) && isAddress(pair[1])) {
@@ -656,6 +663,11 @@ export function DiscoverScreen() {
             {fmtApr(headlineApr(p))}
           </div>
           {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
+          {p.merkl && p.merkl.apr > 0 && (
+            <div title={`Merkl reward campaign paying ${p.merkl.rewardSymbols.join(', ') || 'rewards'} to LPs in this pool, on top of fees. Claim from Portfolio.`} style={{ color: '#C4B5FD', fontSize: 10, fontWeight: 800, marginTop: 2, whiteSpace: 'nowrap' }}>
+              +{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}
+            </div>
+          )}
         </div>
       ),
     },
@@ -744,6 +756,7 @@ export function DiscoverScreen() {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
+                    {p.merkl && p.merkl.apr > 0 && <div style={{ color: '#C4B5FD', fontSize: 10, fontWeight: 800 }}>+{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}</div>}
                     <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
                   </div>
                 </div>

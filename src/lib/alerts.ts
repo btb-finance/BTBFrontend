@@ -65,12 +65,15 @@ export function useAlerts(address?: string) {
     return 'on';
   }
 
-  async function toggle(p: LiquidityPosition, label: string) {
-    if (!address) return;
+  /** Returns null on success, otherwise a sentence to show the user. */
+  async function toggle(p: LiquidityPosition, label: string): Promise<string | null> {
+    if (!address) return 'Connect a wallet first';
     const k = positionKey(p);
-    if (has(p)) { await unsubscribe({ address, ...k }); return; }
-    await subscribe({ address, ...k, label, inRange: p.inRange });
+    if (has(p)) { await unsubscribe({ address, ...k }); return null; }
+    const res = await subscribe({ address, ...k, label, inRange: p.inRange });
+    if (!res.ok) return res.reason;
     await enablePush().catch(() => 'unsupported');
+    return null;
   }
 
   return { list, has, toggle, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => address && markRead({ address }) };
