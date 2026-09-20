@@ -28,6 +28,13 @@ const SLIPPAGE_BPS = 50;            // amountMin on addLiquidity
 const SWAP_SLIPPAGE_BPS = 100;      // KyberSwap USDC to token
 const MAX_REFERENCE_GAP = 0.10;     // abort if peg vs pool median differ more than this
 const DEADLINE_S = 120;
+// A bot profits on a fresh $200 pool only when its opening price is off by
+// more than the round trip cost: 1% OPOS tax each way plus 0.3% fee each way
+// plus slippage on a tiny pool. Anything inside this band is safe by
+// construction; the simulation refuses to seed outside it.
+const ARB_BAND = 0.013;
+// The three price sources must agree this closely or the token is held back.
+const PRICE_AGREEMENT = ARB_BAND;
 
 const OPOS: Address = '0x88888805E7e3d5c7FB002AD98f08250E79c298dC';
 const BTB: Address = '0x88888888c90CD71B35830daBFD24743DbC135B51';
@@ -43,33 +50,73 @@ const BTB_V4_POOLS: `0x${string}`[] = [
 ];
 
 /** Tokens to pair with OPOS. `via` is the quote token of the V3 pool the price is read from. */
-const TOKENS: { symbol: string; address: Address; via: 'USDC' | 'WETH' }[] = [
+const TOKENS_RAW: { symbol: string; address: string; via: 'USDC' | 'WETH' }[] = [
+  // Anchors
   { symbol: 'WETH',   address: WETH, via: 'USDC' },
   { symbol: 'USDC',   address: USDC, via: 'USDC' },
+  // Bitcoin
   { symbol: 'WBTC',   address: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', via: 'USDC' },
   { symbol: 'cbBTC',  address: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', via: 'USDC' },
   { symbol: 'LBTC',   address: '0x8236a87084f8B84306f72007F36F2618A5634494', via: 'WETH' },
   { symbol: 'cirBTC', address: '0x72dfB2E44f59C5ad2BaFE84314e5b99A7CD5075E', via: 'WETH' },
-  { symbol: 'stETH',  address: '0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84', via: 'WETH' },
+  // Staked ETH
   { symbol: 'wstETH', address: '0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0', via: 'WETH' },
   { symbol: 'weETH',  address: '0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee', via: 'WETH' },
   { symbol: 'rETH',   address: '0xae78736Cd615f374D3085123A210448E74Fc6393', via: 'WETH' },
+  // Gold
   { symbol: 'PAXG',   address: '0x45804880De22913dAFE09f4980848ECE6EcbAf78', via: 'USDC' },
   { symbol: 'XAUt',   address: '0x68749665FF8D2d112Fa859AA293F07A622782F38', via: 'USDC' },
+  // Revenue earners
   { symbol: 'SKY',    address: '0x56072C95FAA701256059aa122697B133aDEd9279', via: 'WETH' },
+  { symbol: 'ETHFI',  address: '0xFe0c30065B384F05761f15d0CC899D4F9F9Cc0eB', via: 'WETH' },
+  { symbol: 'SYRUP',  address: '0x643C4E15d7d62Ad0aBeC4a9BD4b001aA3Ef52d66', via: 'WETH' },
+  { symbol: 'SPK',    address: '0xc20059e0317DE91738d13af027DfC4a50781b066', via: 'WETH' },
   { symbol: 'MKR',    address: '0x9f8F72aA9304c8B593d555F12eF6589cC3A579A2', via: 'WETH' },
-  { symbol: '1INCH',  address: '0x111111111117dC0aa78b770fA6A738034120C302', via: 'WETH' },
-  { symbol: 'FET',    address: '0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85', via: 'WETH' },
+  { symbol: 'FWA',    address: '0xa0Df17B5aC76ABaBA36E1450E2cbCd18A620C845', via: 'WETH' },
+  // AI season
+  { symbol: 'ZAMA',   address: '0xA12CC123ba206d4031D1c7f6223D1C2Ec249f4f3', via: 'WETH' },
+  { symbol: 'AZTEC',  address: '0xA27EC0006e59f245217Ff08CD52A7E8b169E62D2', via: 'WETH' },
+  // Infrastructure
+  { symbol: 'MNT',    address: '0x3c3a81e81dc49A522A592e7622A7E711c06bf354', via: 'WETH' },
+  { symbol: 'LIT',    address: '0x232ce3BD40fCD6F80f3d55a522d03f25df784Ee2', via: 'WETH' },
+  { symbol: 'LQTY',   address: '0x6DEA81C8171D0bA574754EF6F8b412F2Ed88c54D', via: 'WETH' },
+  { symbol: 'SSV',    address: '0x9D65fF81a3c488d585bBfb0Bfe3c7707c7917f54', via: 'WETH' },
+  { symbol: 'STRK',   address: '0xCa14007Eff0dB1f8135f4C25B34De49AB0d42766', via: 'WETH' },
+  { symbol: 'OHM',    address: '0x64aa3364F17a4D01c6f1751Fd97C2BD3D7e7f1D5', via: 'WETH' },
+  { symbol: 'SAFE',   address: '0x5aFE3855358E112B5647B952709E6165e1c1eEEe', via: 'WETH' },
+  // Protocol tokens
   { symbol: 'ENS',    address: '0xC18360217D8F7Ab5e7c516566761Ea12Ce7F9D72', via: 'WETH' },
+  { symbol: '1INCH',  address: '0x111111111117dC0aa78b770fA6A738034120C302', via: 'WETH' },
+  { symbol: 'EIGEN',  address: '0xec53bF9167f50cDEB3Ae105f56099aaaB9061F83', via: 'WETH' },
+  { symbol: 'FET',    address: '0xaea46A60368A7bD060eec7DF8CBa43b7EF41Ad85', via: 'WETH' },
   { symbol: 'RENDER', address: '0x6De037ef9aD2725EB40118Bb1702EBb27e4Aeb24', via: 'WETH' },
   { symbol: 'INJ',    address: '0xe28b3B32B6c345A34Ff64674606124Dd5Aceca30', via: 'WETH' },
-  { symbol: 'EIGEN',  address: '0xec53bF9167f50cDEB3Ae105f56099aaaB9061F83', via: 'WETH' },
-  { symbol: 'ETHFI',  address: '0xFe0c30065B384F05761f15d0CC899D4F9F9Cc0eB', via: 'WETH' },
   { symbol: 'GRT',    address: '0xc944E90C64B2c07662A292be6244BDf05Cda44a7', via: 'WETH' },
   { symbol: 'GNO',    address: '0x6810e776880C02933D47DB1b9fc05908e5386b96', via: 'WETH' },
   { symbol: 'YFI',    address: '0x0bc529c00C6401aEF6D220BE8C6Ea1667F6Ad93e', via: 'WETH' },
+  { symbol: 'KNC',    address: '0xdeFA4e8a7bcBA345F687a2f1456F5Edd9CE97202', via: 'WETH' },
+  { symbol: 'USUAL',  address: '0xC4441c2BE5d8fA8126822B9929CA0b81Ea0DE38E', via: 'WETH' },
+  { symbol: 'CFG',    address: '0xcccccccccc33D538dBC2EE4FEab0A7A1FF4E8A94', via: 'WETH' },
+  // Privacy and data
+  { symbol: 'RAIL',   address: '0xe76C6c83af64e4C60245D8C7dE953DF673a7A33D', via: 'WETH' },
+  { symbol: 'TRAC',   address: '0xaA7a9CA87d3694B5755f213B5D04094b8d0F0A6F', via: 'WETH' },
+  // Gaming, DEX
+  { symbol: 'ILV',    address: '0x767FE9EDC9E0dF98E07454847909b5E959D7ca0E', via: 'WETH' },
+  { symbol: 'SUSHI',  address: '0x6B3595068778DD592e39A122f4f5a5cF09C90fE2', via: 'WETH' },
+  // Memes with deep pools
+  { symbol: 'SPX',    address: '0xE0f63A424a4439cBE457D80E4f4b51aD25b2c56C', via: 'WETH' },
+  { symbol: 'FLOKI',  address: '0xcf0C122c6b73ff809C693DB761e7BaeBe62b6a2E', via: 'WETH' },
+  { symbol: 'MOG',    address: '0xaaeE1A9723aaDB7afA2810263653A34bA2C21C7a', via: 'WETH' },
+  { symbol: 'SHIB',   address: '0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE', via: 'WETH' },
+  // Old but liquid
+  { symbol: 'ZRX',    address: '0xE41d2489571d322189246DaFA5ebDe1F4699F498', via: 'WETH' },
+  { symbol: 'RSR',    address: '0x320623b8E4fF03373931769A31Fc52A4E78B5d70', via: 'WETH' },
+  { symbol: 'BAT',    address: '0x0D8775F648430679A709E98d2b0Cb6250d2887EF', via: 'WETH' },
+  // Created, never funded
   { symbol: 'CRV',    address: '0xD533a949740bb3306d119CC777fa900bA034cd52', via: 'WETH' },
 ];
+// Addresses above are typed by hand; checksum them once so a casing slip cannot reach a transaction.
+const TOKENS: { symbol: string; address: Address; via: 'USDC' | 'WETH' }[] = TOKENS_RAW.map((t) => ({ ...t, address: getAddress(t.address.toLowerCase()) }));
 
 // ── ABIs ────────────────────────────────────────────────────────────────────
 const FACTORY_ABI = parseAbi(['function getPair(address,address) view returns (address)']);
@@ -92,25 +139,39 @@ function sqrtToPrice(sqrtPriceX96: bigint, dec0: number, dec1: number): number {
 
 /** USD price of `token` from its deepest V3 pool against USDC (6) or WETH. */
 async function v3PriceUsd(token: Address, via: 'USDC' | 'WETH', wethUsd: number, decimals: number): Promise<number> {
+  const p = await v3PriceUsdOrNull(token, via, wethUsd, decimals) ?? (via === 'WETH' ? await v3PriceUsdOrNull(token, 'USDC', wethUsd, decimals) : await v3PriceUsdOrNull(token, 'WETH', wethUsd, decimals));
+  if (p == null) throw new Error(`no V3 pool for ${token}`);
+  return p;
+}
+
+/** Null when the token has no Uniswap V3 pool against the quote (V4-only tokens). */
+async function v3PriceUsdOrNull(token: Address, via: 'USDC' | 'WETH', wethUsd: number, decimals: number): Promise<number | null> {
   if (token.toLowerCase() === USDC.toLowerCase()) return 1;
   const quote = via === 'USDC' ? USDC : WETH;
   const quoteDec = via === 'USDC' ? 6 : 18;
   const pools = await client.multicall({ contracts: [100, 500, 3000, 10000].map((fee) => ({ address: V3_FACTORY, abi: V3_FACTORY_ABI, functionName: 'getPool' as const, args: [token, quote, fee] as const })), allowFailure: true });
   const addrs = pools.map((r) => (r.status === 'success' ? (r.result as Address) : null)).filter((a): a is Address => !!a && a !== '0x0000000000000000000000000000000000000000');
-  if (addrs.length === 0) throw new Error(`no V3 pool for ${token} via ${via}`);
-  const reads = await client.multicall({ contracts: addrs.flatMap((a) => [{ address: a, abi: V3_POOL_ABI, functionName: 'slot0' as const }, { address: a, abi: V3_POOL_ABI, functionName: 'liquidity' as const }]), allowFailure: true });
+  if (addrs.length === 0) return null;
+  // Depth is judged by the quote token actually sitting in the pool, which is
+  // comparable across fee tiers; raw liquidity() is not. Pools with no price
+  // (never initialised) or under $25K of quote are ignored: a stale pool
+  // would seed OPOS at a wrong price and a bot would collect the difference.
+  const reads = await client.multicall({ contracts: addrs.flatMap((a) => [{ address: a, abi: V3_POOL_ABI, functionName: 'slot0' as const }, { address: quote, abi: erc20Abi, functionName: 'balanceOf' as const, args: [a] as const }]), allowFailure: true });
   let best: { liq: bigint; price: number } | undefined;
+  const minQuote = via === 'USDC' ? parseUnits('25000', 6) : parseUnits((25_000 / Math.max(wethUsd, 1)).toFixed(6), 18);
   addrs.forEach((_, i) => {
-    const s0 = reads[i * 2], liq = reads[i * 2 + 1];
-    if (s0.status !== 'success' || liq.status !== 'success') return;
+    const s0 = reads[i * 2], bal = reads[i * 2 + 1];
+    if (s0.status !== 'success' || bal.status !== 'success') return;
     const sqrt = (s0.result as readonly [bigint, number, number, number, number, number, boolean])[0];
+    if (sqrt === 0n) return;
     const token0First = token.toLowerCase() < quote.toLowerCase();
     const p = token0First ? sqrtToPrice(sqrt, decimals, quoteDec) : 1 / sqrtToPrice(sqrt, quoteDec, decimals);
-    const L = liq.result as bigint;
-    if (!best || L > best.liq) best = { liq: L, price: p };
+    const depth = bal.result as bigint;
+    if (depth < minQuote || !(p > 0) || !Number.isFinite(p)) return;
+    if (!best || depth > best.liq) best = { liq: depth, price: p };
   });
   const chosen = best as { liq: bigint; price: number } | undefined;
-  if (!chosen) throw new Error(`unreadable V3 pools for ${token}`);
+  if (!chosen) return null;
   return via === 'USDC' ? chosen.price : chosen.price * wethUsd;
 }
 
@@ -160,16 +221,60 @@ async function main() {
 
   // 2) Per-token plan.
   const decs = await client.multicall({ contracts: TOKENS.map((t) => ({ address: t.address, abi: erc20Abi, functionName: 'decimals' as const })), allowFailure: false });
-  const plan: { t: (typeof TOKENS)[number]; dec: number; usd: number; amount: bigint; pair: Address }[] = [];
+  const plan: { t: (typeof TOKENS)[number]; dec: number; usd: number; amount: bigint; pair: Address; v3: boolean }[] = [];
   for (let i = 0; i < TOKENS.length; i++) {
     const t = TOKENS[i], dec = Number(decs[i]);
-    const usd = await v3PriceUsd(t.address, t.via, wethUsd, dec);
-    const amount = parseUnits((USD_PER_SIDE / usd).toFixed(Math.min(dec, 8)), dec);
+    const v3 = await v3PriceUsdOrNull(t.address, t.via, wethUsd, dec) ?? await v3PriceUsdOrNull(t.address, t.via === 'WETH' ? 'USDC' : 'WETH', wethUsd, dec);
+    // No V3 pool (V4-only tokens): the price comes from the Kyber quote in the simulation, checked against DeFiLlama.
+    const usd = v3 ?? 0;
+    const amount = usd > 0 ? parseUnits((USD_PER_SIDE / usd).toFixed(Math.min(dec, 8)), dec) : 0n;
     const pair = existing[i].status === 'success' ? (existing[i].result as Address) : '0x0000000000000000000000000000000000000000';
-    plan.push({ t, dec, usd, amount, pair });
+    plan.push({ t, dec, usd, amount, pair, v3: v3 != null });
   }
   console.log('\nsymbol   price USD        token amount          OPOS amount            pair');
-  for (const p of plan) console.log(`${p.t.symbol.padEnd(8)} ${fmt(p.usd, 6).padStart(14)}  ${formatUnits(p.amount, p.dec).padStart(20)}  ${formatUnits(oposPerSide, 18).padStart(22)}  ${p.pair === '0x0000000000000000000000000000000000000000' ? '(new)' : p.pair}`);
+  for (const p of plan) console.log(`${p.t.symbol.padEnd(8)} ${(p.v3 ? fmt(p.usd, 6) : 'no V3, see sim').padStart(14)}  ${formatUnits(p.amount, p.dec).padStart(20)}  ${formatUnits(oposPerSide, 18).padStart(22)}  ${p.pair === '0x0000000000000000000000000000000000000000' ? '(new)' : p.pair}`);
+  // 2b) Simulation: an independent price from a live Kyber $100 quote and from
+  //     DeFiLlama, compared with the on-chain V3 price. A token whose sources
+  //     disagree is dropped from the run; nothing is seeded on a doubtful price.
+  console.log('\nSIMULATION: three prices per token, arbitrage band check');
+  const llama = await fetch(`https://coins.llama.fi/prices/current/${plan.map((p) => `ethereum:${p.t.address.toLowerCase()}`).join(',')}`, { headers: { 'user-agent': 'curl/8' } })
+    .then((r) => r.json() as Promise<{ coins: Record<string, { price?: number }> }>).catch(() => ({ coins: {} as Record<string, { price?: number }> }));
+  const safe: typeof plan = [];
+  console.log('symbol   V3 price       Kyber price    Llama price    max gap   verdict');
+  for (const p of plan) {
+    let kyber: number | null = null;
+    if (p.t.address.toLowerCase() !== USDC.toLowerCase()) {
+      try {
+        const usdcIn = parseUnits(String(USD_PER_SIDE), 6);
+        const q = await getKyberQuote(USDC, p.t.address, usdcIn.toString(), p.dec, 1);
+        const out = BigInt(q.routeSummary.amountOut ?? '0');
+        if (out > 0n) kyber = USD_PER_SIDE / Number(formatUnits(out, p.dec));
+      } catch { /* no quote */ }
+      await new Promise((r) => setTimeout(r, 250));
+    } else kyber = 1;
+    const ll = llama.coins?.[`ethereum:${p.t.address.toLowerCase()}`]?.price ?? null;
+    let note = '';
+    const marketAgree = kyber != null && ll != null && Math.abs(kyber / ll - 1) <= PRICE_AGREEMENT;
+    if ((!p.v3 || (marketAgree && Math.abs(p.usd / kyber! - 1) > PRICE_AGREEMENT)) && marketAgree) {
+      // No usable V3 pool, or a V3 pool that disagrees with a market the two
+      // independent sources agree on: price from the live quote instead.
+      note = p.v3 ? ' (V3 pool stale, priced from market)' : ' (no V3 pool, priced from market)';
+      p.usd = kyber!; p.amount = parseUnits((USD_PER_SIDE / kyber!).toFixed(Math.min(p.dec, 8)), p.dec); p.v3 = false;
+    }
+    const prices = [p.v3 ? p.usd : null, kyber, ll].filter((x): x is number => x != null && x > 0);
+    const lo = Math.min(...prices), hi = Math.max(...prices);
+    const gap = prices.length >= 2 ? hi / lo - 1 : NaN;
+    // Kyber's effective price includes the buy's own slippage on a $100 trade;
+    // a gap above the band means the buy itself would open the pool off-price.
+    const ok = prices.length >= 2 && gap <= PRICE_AGREEMENT && p.usd > 0 && (kyber == null || Math.abs(kyber / p.usd - 1) < ARB_BAND);
+    console.log(`${p.t.symbol.padEnd(8)} ${(p.v3 ? fmt(p.usd, 6) : 'n/a').padStart(14)} ${(kyber != null ? fmt(kyber, 6) : 'n/a').padStart(14)} ${(ll != null ? fmt(ll, 6) : 'n/a').padStart(14)}  ${Number.isFinite(gap) ? (gap * 100).toFixed(2) + '%' : '  n/a'}   ${ok ? 'seed' : 'HOLD'}${note}`);
+    if (ok) safe.push(p);
+  }
+  const held = plan.filter((p) => !safe.includes(p)).map((p) => p.t.symbol);
+  console.log(`\n${safe.length} of ${plan.length} pass. ${held.length ? 'Held back: ' + held.join(', ') : 'Nothing held back.'}`);
+  console.log(`Peg vs pool median gap ${(gap * 100).toFixed(2)}% (band ${(ARB_BAND * 100).toFixed(1)}%): ${Math.abs(gap) <= ARB_BAND ? 'inside, existing pools stay unaffected' : 'outside; new pools open at the peg and the old ones will be arbitraged toward it, which is expected'}`);
+  plan.length = 0; plan.push(...safe);
+
   const totalOpos = oposPerSide * BigInt(plan.length);
   const btbToMint = totalOpos / 1_000_000n + 1n;
   console.log(`\nOPOS needed ${formatUnits(totalOpos, 18)}  =  mint from ${formatUnits(btbToMint, 18)} BTB  (${fmt(Number(formatUnits(btbToMint, 18)) * btbUsd)} USD)`);
