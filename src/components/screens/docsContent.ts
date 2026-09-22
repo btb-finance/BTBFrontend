@@ -123,6 +123,7 @@ export const DOCS: DocGroup[] = [
             ['Rebalance', 'Shows what comes out and suggests a range of the same width that fits those tokens with no swap; unstakes if needed, withdraws, then opens the Add liquidity sheet on that range (or any other). Restake is a toggle.'],
           ] },
           { type: 'list', items: [
+            'The range strip on each card shows the pool\'s liquidity depth behind your range (tall bars are where other LPs sit), the live price marker, and under it the last seven days as two-hour blocks, green while the range was earning, read from the pool\'s own swap events. "Earning 62% of 7d" is the share of the week the position actually collected fees.',
             'Tags: tap + tag on a card to label a position (Hedge, Farm, Test). Stored per wallet.',
             'Gas awareness: each card with fees shows the estimated gas to collect and warns when the fees are worth less than the gas.',
             'History: where no provider indexes the chain (Robinhood), deposits, withdrawals and fees claimed are read from the position manager\'s events, so Invested, PnL, versus HODL and age still show. Figures priced at today\'s rate say so.',

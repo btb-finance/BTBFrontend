@@ -26,7 +26,8 @@ import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, aer
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { Icon } from './Icon';
-import { RangeBar, LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
+import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
+import { RangeStrip } from './RangeStrip';
 import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
 import { CONTRACTS } from '../lib/wagmi';
 import { useDiscoverPools } from '../lib/discoverPools';
@@ -905,7 +906,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         </div>
 
         <div style={{ ...box, marginTop: 8 }}>
-          <RangeBar p={p}/>
+          <RangeStrip p={p}/>
         </div>
 
         {a && (

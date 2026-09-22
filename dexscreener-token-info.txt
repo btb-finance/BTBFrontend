@@ -1,0 +1,40 @@
+DEX SCREENER ENHANCED TOKEN INFO: BTB (Ethereum)
+Token address: 0x88888888c90CD71B35830daBFD24743DbC135B51
+
+===== DESCRIPTION (paste as is) =====
+BTB Finance is the liquidity provider app that pays its users. Find pools with real volume across Ethereum, Base, BNB Chain, Robinhood Chain and Arc, simulate any range before you deposit (fees, impermanent loss, 30 day backtest), then add, compound, rebalance and remove positions on Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome, Giga, Ramses and UP from one screen. Everything is free. BTB earns a fee on swaps routed through the app and shares that revenue with users every Friday in BTB.
+
+BTB is the asset of the ecosystem. Holding 10,000 BTB unlocks LP range alerts; 10,000,000 BTB unlocks the full BTB Agent, an assistant that reads your portfolio and finds your next pool. OPOS, the BTB wrapper (1 BTB mints 1,000,000 OPOS, redeemable any time), trades in dozens of Uniswap pairs and pays a 1% tax on every transfer back to the treasury. No emissions, no inflation: the yield is fees.
+
+Contract: verified ERC20 with ERC1363 and ERC20Permit extensions, no mint function, no owner. Security contact: hello@btb.finance
+
+===== LINKS =====
+Website:    https://btb.finance
+Docs:       https://btb.finance/docs
+X:          https://x.com/BTB_Finance
+Telegram:   https://t.me/BTBFinance
+Discord:    https://discord.gg/bqFEPA56Tc
+Farcaster:  https://farcaster.xyz/btbfinance
+TikTok:     (leave empty unless you have an account)
+Instagram:  (leave empty)
+Reddit:     (leave empty)
+
+Additional links:
+GitHub:     https://github.com/btb-finance
+App:        https://btb.finance/discover
+Buy BTB:    https://btb.finance/swap?chain=1&from=ETH&to=0x88888888c90cd71b35830dabfd24743dbc135b51
+Simulator:  https://btb.finance/simulate
+
+===== IMAGES =====
+Icon (1:1, 512x512):     ~/Desktop/dexscreener-icon-512.png
+Header (3:1, 1200x400):  ~/Desktop/dexscreener-header-1200x400.png
+
+===== LOCKED SUPPLY (optional) =====
+Leave empty unless BTB has vesting or treasury addresses you want shown as locked.
+If you add the treasury, use the OPOS treasury address and this description:
+"Treasury holdings that fund the weekly revenue share and OPOS pair liquidity. Not sold on the market."
+
+===== NOTES =====
+- DEX Screener verifies every link against the website and socials, so make sure btb.finance and the X profile both link back to each other before ordering.
+- The description field allows plain text only: no markdown, no links inside the text.
+- Skip the boost packages; they raise a trending score for a day and do nothing for search or the token page.
