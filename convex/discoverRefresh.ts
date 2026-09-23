@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * Server-side Discover pool refresher (hourly cron — see crons.ts).
  *

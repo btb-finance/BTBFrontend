@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * Server-side wallet-balance fetcher.
  *

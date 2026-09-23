@@ -1,10 +1,7 @@
-"use node";
-
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { erc20Abi, formatUnits, parseAbi, parseEventLogs, verifyMessage, isAddress, isHash, BaseError, ContractFunctionRevertedError, type PublicClient } from "viem";
-import webpush from "web-push";
 import { getChainClient } from "../src/lib/chainClient";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { fetchV3Positions, fetchV4Positions } from "../src/protocols/dexs/uniswap";
@@ -30,13 +27,6 @@ async function btbBalance(address: `0x${string}`): Promise<number> {
   const client = mainnetClient();
   const raw = await client.readContract({ address: BTB, abi: erc20Abi, functionName: "balanceOf", args: [address] });
   return parseFloat(formatUnits(raw, 18));
-}
-
-function configurePush(): boolean {
-  const pub = process.env.VAPID_PUBLIC_KEY, priv = process.env.VAPID_PRIVATE_KEY;
-  if (!pub || !priv) return false;
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT ?? "mailto:hello@btb.finance", pub, priv);
-  return true;
 }
 
 /** Subscribe one position. Verifies the BTB balance on-chain first. */
@@ -96,7 +86,6 @@ export const check = internalAction({
     if (process.env.DISABLE_CRONS) return;
     const alerts = await ctx.runQuery(internal.alerts.activeAlerts, {});
     if (alerts.length === 0) return;
-    const push = configurePush();
     const balanceCache = new Map<string, number>();
     // Fast wallets pay per read; track what is left inside this run so a
     // wallet with many positions cannot spend past its balance.
@@ -137,16 +126,9 @@ export const check = internalAction({
       const kind = inRange ? "in" : "out";
       const message = inRange ? `${alert.label} is back in range and earning fees.` : `${alert.label} moved out of range. Rebalance to keep earning.`;
       await ctx.runMutation(internal.alerts.pushEvent, { address: alert.address, kind, label: alert.label, message });
-      if (!push) continue;
-      const subs = await ctx.runQuery(internal.alerts.subscriptionsFor, { address: alert.address });
-      for (const s of subs) {
-        try {
-          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify({ title: inRange ? "Back in range" : "Out of range", body: message, url: "/portfolio" }), { TTL: 3600 });
-        } catch (e) {
-          const code = (e as { statusCode?: number })?.statusCode;
-          if (code === 404 || code === 410) await ctx.runMutation(internal.alerts.dropSubscription, { endpoint: s.endpoint });
-        }
-      }
+      // Sending needs Node (web-push); hand it to the small Node action so
+      // this checker, which runs every five minutes, can stay in the light runtime.
+      await ctx.scheduler.runAfter(0, internal.pushActions.sendPush, { address: alert.address, title: inRange ? "Back in range" : "Out of range", body: message, url: "/portfolio" });
     }
   },
 });

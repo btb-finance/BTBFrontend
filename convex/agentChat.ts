@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * The BTB Agent: GLM 5.3 Flash (z.ai) with tools over Discover, the portfolio and range estimates.
  *
