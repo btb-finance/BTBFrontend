@@ -1,31 +1,45 @@
 /**
- * Agent chat — storage + read side. The GLM call itself lives in
- * `agentChat.ts` (a Node action). Access is gated to 10M BTB holders,
- * enforced server-side in the action against the wallet's balance snapshot.
+ * Agent chat: storage and read side. The model call lives in `agentChat.ts`
+ * (a Node action). Every wallet gets AGENT_FREE_PER_DAY messages a day; each
+ * one after that costs AGENT_MESSAGE_BTB from the wallet's BTB balance. Reads
+ * and writes need a signed session, so nobody can read or spend as another
+ * wallet by typing its address.
  */
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { sessionWallet } from "./sessions";
+import { availableFor, spendCredit } from "./credit";
 
 export const history = query({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }) => {
+  args: { sessionToken: v.optional(v.string()) },
+  handler: async (ctx, { sessionToken }) => {
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return [];
     return await ctx.db
       .query("agentMessages")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress.toLowerCase()))
+      .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet))
       .order("asc")
       .take(200);
   },
 });
 
 export const clear = mutation({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }) => {
+  args: { sessionToken: v.string() },
+  handler: async (ctx, { sessionToken }) => {
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return;
     const rows = await ctx.db
       .query("agentMessages")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress.toLowerCase()))
+      .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet))
       .collect();
     for (const r of rows) await ctx.db.delete(r._id);
   },
+});
+
+/** Take one paid message's BTB. Called by the chat action after a reply. */
+export const chargeMessage = internalMutation({
+  args: { walletAddress: v.string(), amount: v.float64() },
+  handler: async (ctx, { walletAddress, amount }) => ({ ok: await spendCredit(ctx, walletAddress, amount) }),
 });
 
 export const saveMessage = internalMutation({
@@ -40,9 +54,9 @@ export const saveMessage = internalMutation({
   },
 });
 
-/** Everything the chat action needs in one query: balances (for the BTB gate
- * and portfolio context), the Discover pool snapshot, recent history for the
- * model, and today's message count (rate limit). */
+/** Everything the chat action needs in one query: balances (portfolio
+ * context), the Discover pool snapshot, recent history for the model, today's
+ * message count (free allowance) and what the wallet can pay with. */
 export const contextData = internalQuery({
   args: { walletAddress: v.string() },
   handler: async (ctx, { walletAddress }) => {
@@ -63,7 +77,9 @@ export const contextData = internalQuery({
       .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet).gt("createdAt", dayAgo))
       .collect();
     const userMsgsToday = today.filter((m) => m.role === "user").length;
+    const { total: btbAvailable } = await availableFor(ctx, wallet);
     return {
+      btbAvailable,
       balances: balances.map((b) => ({
         symbol: b.symbol,
         tokenAddress: b.tokenAddress,

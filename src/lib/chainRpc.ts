@@ -51,7 +51,9 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   4326: ['https://mainnet.megaeth.com/rpc'],
   999: ['https://rpc.hyperliquid.xyz/evm'],
   42793: ['https://etherlink.drpc.org'],
-  5042: ['https://rpc.mainnet.arc.io'],
+  // Arc's own endpoint first; the partner RPCs behind it each passed a
+  // parallel multicall load test (5 x 20 reads) on 2026-09-23.
+  5042: ['https://rpc.mainnet.arc.io', 'https://rpc.beamrpc.com', 'https://rpc.blockdaemon.mainnet.arc.io', 'https://rpc.quicknode.mainnet.arc.io', 'https://rpc.drpc.mainnet.arc.io'],
   // Robinhood Chain intentionally omitted: it routes through its own pooled
   // proxy (see ./robinhoodRpc.ts), and getChainClient falls back to the chain
   // object's default endpoint, which is that same RPC.

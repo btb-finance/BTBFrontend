@@ -94,7 +94,7 @@ const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
 export function TokenStoreProvider({ children, walletAddress }: { children: ReactNode; walletAddress?: string }) {
   const registerOrGet     = useMutation(api.users.registerOrGet);
-  const checkIn           = useMutation(api.users.checkIn);
+  const checkIn           = useAction(api.checkInActions.checkIn);
   const showXp            = useXpToast();
   const seedIfEmpty       = useAction(api.tokens.seedIfEmpty);
   const seedPricesIfEmpty = useAction(api.prices.seedPricesIfEmpty);
@@ -250,7 +250,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       // the streak still needs one visit per day to survive.
       registerOrGet({ walletAddress })
         .then(() => checkIn({ walletAddress }))
-        .then(r => { if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0), `Day ${r.newStreak} check-in`); })
+        .then(r => { if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
         .catch(() => {}),
       seedIfEmpty().catch(() => {}),
       seedPricesIfEmpty().catch(() => {}),

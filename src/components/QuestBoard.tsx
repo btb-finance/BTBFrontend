@@ -203,7 +203,6 @@ export function QuestBoard({ address, onConnect }: { address?: string; onConnect
   const rewards = useQuery(api.rewards.getStatus, address ? { walletAddress: address } : 'skip');
   const submissions = useQuery(api.quests.listForWallet, { walletAddress: address }) as Submission[] | undefined;
   const submit = useMutation(api.quests.submit);
-  const requestPayout = useMutation(api.rewards.requestPayout);
 
   const rows = useMemo(() => submissions ?? [], [submissions]);
   const pendingXp = useMemo(
@@ -222,18 +221,6 @@ export function QuestBoard({ address, onConnect }: { address?: string; onConnect
       await submit({ walletAddress: address!, questId, proof });
     } finally {
       setBusyQuest(null);
-    }
-  };
-
-  const claim = async () => {
-    setClaimError(null);
-    setClaiming(true);
-    try {
-      await requestPayout({ walletAddress: address! });
-    } catch (e) {
-      setClaimError(readableError(e, 'Could not enter this week'));
-    } finally {
-      setClaiming(false);
     }
   };
 
@@ -265,22 +252,17 @@ export function QuestBoard({ address, onConnect }: { address?: string; onConnect
             )}
           </div>
 
-          {/* An entry needs XP, so below the threshold this is a hint rather
-              than a dead button the user cannot do anything about. */}
+          {/* Every wallet with points is in the Friday split automatically. */}
           {!address ? (
             <Button size="md" variant="successSoft" fullWidth={false} icon="wallet" onClick={onConnect}>Connect</Button>
-          ) : rewards?.hasRequested ? (
+          ) : myPoints > 0 ? (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: btb.green, fontSize: 13.5, fontWeight: 700, flexShrink: 0 }}>
               <Icon name="check" size={15} color={btb.green}/>
-              Entered
+              In this week
             </span>
-          ) : myPoints > 0 ? (
-            <Button size="md" variant="success" fullWidth={false} icon="gift" loading={claiming} onClick={claim}>
-              Enter this week
-            </Button>
           ) : (
             <span style={{ color: btb.textDim, fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
-              Earn XP to enter
+              Earn XP to join
             </span>
           )}
         </div>
@@ -290,7 +272,7 @@ export function QuestBoard({ address, onConnect }: { address?: string; onConnect
           display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, paddingTop: 11,
           borderTop: btb.borderSoft, color: btb.textMuted, fontSize: 13, fontWeight: 600,
         }}>
-          <span>{rewards ? fmt(rewards.requesterCount) : '—'} entered</span>
+          <span>{rewards ? fmt(rewards.requesterCount) : '—'} earning</span>
           {share !== null && (
             <>
               <span style={{ color: btb.textDim }}>·</span>

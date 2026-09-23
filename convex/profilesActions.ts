@@ -56,3 +56,18 @@ export const unlink = action({
     return { ok: true };
   },
 });
+
+/**
+ * A wallet that was imported view-only joins that profile as a full member.
+ * The profile owner already signed to import it; this is the wallet's own
+ * signature, so both sides have agreed, as with link.
+ */
+export const joinProfile = action({
+  args: { address: v.string(), profileId: v.string(), signature: v.string(), issuedAt: v.float64() },
+  handler: async (ctx, a) => {
+    await checkSignature(a.address, a.profileId, a.issuedAt, a.signature as `0x${string}`);
+    if (!(await ctx.runQuery(internal.profiles.isWatchedIn, { address: a.address, profileId: a.profileId }))) throw new Error("This wallet was not added to that profile");
+    await ctx.runMutation(internal.profiles.insertLink, { anchor: a.profileId, address: a.address });
+    return { ok: true };
+  },
+});

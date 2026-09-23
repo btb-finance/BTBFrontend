@@ -33,7 +33,8 @@ if (process.env.DISABLE_CRONS !== "1") {
   // stays bounded — the sweep is batched, so it runs often.
   crons.interval("purge expired cache", { minutes: 30 }, internal.cacheFill.purge);
 
-  // Range alerts for LP positions of wallets holding 10,000 BTB or more.
+  // Range alerts for LP positions of wallets holding 10,000 BTB or more. Each
+  // tick reads only what is due: free alerts hourly, paid fast ones every tick.
   crons.interval("check LP range alerts", { minutes: 5 }, internal.alertsActions.check);
 
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected

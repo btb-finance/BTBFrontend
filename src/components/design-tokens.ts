@@ -19,6 +19,7 @@ export const btb = {
   pink:        'var(--btb-text, #FFFFFF)',
   amber:       'var(--btb-amber, #FFB36B)',
   green:       'var(--btb-green, #52E3A4)',
+  reward:      'var(--btb-reward, #C4B5FD)',
   loss:        'var(--btb-loss, #FF6B7A)',
   shadow:      'var(--chain-shadow, 0 8px 32px rgba(0,0,0,0.35))',
   blur:        'blur(32px) saturate(140%)',

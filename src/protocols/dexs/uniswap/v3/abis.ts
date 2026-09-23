@@ -251,3 +251,26 @@ export const ERC20_META_ABI = [
   { name: 'symbol', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'string' }] },
   { name: 'decimals', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint8' }] },
 ] as const;
+
+/** Global fee growth per unit of liquidity, same on every V3 fork. */
+export const FEE_GROWTH_ABI = [
+  { name: 'feeGrowthGlobal0X128', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'feeGrowthGlobal1X128', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+] as const;
+
+/** Leading fields of ticks(): enough for fee growth outside. All static, so
+ * decoding the head of the longer real struct is safe. */
+export const TICKS_HEAD_ABI = [
+  { name: 'ticks', type: 'function', stateMutability: 'view', inputs: [{ name: 'tick', type: 'int24' }], outputs: [
+    { name: 'liquidityGross', type: 'uint128' }, { name: 'liquidityNet', type: 'int128' },
+    { name: 'feeGrowthOutside0X128', type: 'uint256' }, { name: 'feeGrowthOutside1X128', type: 'uint256' },
+  ] },
+] as const;
+
+/** Slipstream adds stakedLiquidityNet before the fee growth fields. */
+export const SLIPSTREAM_TICKS_HEAD_ABI = [
+  { name: 'ticks', type: 'function', stateMutability: 'view', inputs: [{ name: 'tick', type: 'int24' }], outputs: [
+    { name: 'liquidityGross', type: 'uint128' }, { name: 'liquidityNet', type: 'int128' }, { name: 'stakedLiquidityNet', type: 'int128' },
+    { name: 'feeGrowthOutside0X128', type: 'uint256' }, { name: 'feeGrowthOutside1X128', type: 'uint256' },
+  ] },
+] as const;

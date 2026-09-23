@@ -22,6 +22,7 @@ import { StakeScreen } from './screens/StakeScreen';
 import { ReceiveModal } from './ReceiveModal';
 import { SendModal } from './SendModal';
 import { DocsScreen } from './screens/DocsScreen';
+import { OposSeedScreen } from './screens/OposSeedScreen';
 import { btb } from './design-tokens';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
@@ -128,6 +129,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
 
   const overlayContent = overlay === 'docs'
     ? <DocsScreen onBack={closeOverlay}/>
+    : overlay === 'opos-seed'
+    ? <OposSeedScreen/>
     : null;
 
   return (

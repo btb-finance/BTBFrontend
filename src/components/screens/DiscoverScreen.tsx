@@ -516,7 +516,7 @@ export function DiscoverScreen() {
     const m = new Map<string, number>();
     for (const t of positions) {
       if (parseFloat(t.balance ?? '0') <= 0) continue;
-      for (const a of lpAddressesForToken(t.address)) {
+      for (const a of lpAddressesForToken(t.address, t.chainId ?? 1)) {
         const key = `${t.chainId ?? 1}:${a}`;
         m.set(key, (m.get(key) ?? 0) + (t.usdValue ?? 0));
       }
@@ -635,7 +635,7 @@ export function DiscoverScreen() {
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
-                  <Badge size="sm" color="#7DE3B0" bg="rgba(var(--green-rgb), 0.1)" border="1px solid rgba(var(--green-rgb), 0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                  <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="1px solid rgba(var(--green-rgb), 0.38)" style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>
                     {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                   </Badge>
                 )}
@@ -664,7 +664,7 @@ export function DiscoverScreen() {
           </div>
           {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
           {p.merkl && p.merkl.apr > 0 && (
-            <div title={`Merkl reward campaign paying ${p.merkl.rewardSymbols.join(', ') || 'rewards'} to LPs in this pool, on top of fees. Claim from Portfolio.`} style={{ color: '#C4B5FD', fontSize: 10, fontWeight: 800, marginTop: 2, whiteSpace: 'nowrap' }}>
+            <div title={`Merkl reward campaign paying ${p.merkl.rewardSymbols.join(', ') || 'rewards'} to LPs in this pool, on top of fees. Claim from Portfolio.`} style={{ display: 'inline-block', color: btb.reward, background: 'rgba(var(--reward-rgb, 196, 181, 253), 0.14)', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap' }}>
               +{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}
             </div>
           )}
@@ -748,7 +748,7 @@ export function DiscoverScreen() {
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (
-                        <Badge size="sm" color="#7DE3B0" bg="rgba(var(--green-rgb), 0.1)" border="1px solid rgba(var(--green-rgb), 0.3)" style={{ fontSize: 10, padding: '1px 6px' }}>
+                        <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="1px solid rgba(var(--green-rgb), 0.38)" style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>
                           {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
                         </Badge>
                       )}
@@ -756,7 +756,7 @@ export function DiscoverScreen() {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
-                    {p.merkl && p.merkl.apr > 0 && <div style={{ color: '#C4B5FD', fontSize: 10, fontWeight: 800 }}>+{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}</div>}
+                    {p.merkl && p.merkl.apr > 0 && <div style={{ display: 'inline-block', color: btb.reward, background: 'rgba(var(--reward-rgb, 196, 181, 253), 0.14)', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>+{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}</div>}
                     <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
                   </div>
                 </div>
