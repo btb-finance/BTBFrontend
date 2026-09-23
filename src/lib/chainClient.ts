@@ -1,10 +1,10 @@
-import { createPublicClient, defineChain, http, type Chain, type PublicClient } from 'viem';
+import { createPublicClient, defineChain, type Chain, type PublicClient } from 'viem';
 import {
   arbitrum, avalanche, base, berachain, blast, bsc, etherlink, fantom,
   hyperEvm, linea, mainnet, mantle, megaeth, monad, optimism, plasma,
   polygon, ronin, scroll, sonic, unichain, zkSync,
 } from 'viem/chains';
-import { CHAIN_RPC_URLS } from './chainRpc';
+import { chainTransport } from './chainRpc';
 
 /**
  * Server-side public clients for on-chain enrichment. The Robinhood chain
@@ -64,6 +64,6 @@ export function getChainClient(chainId: number): PublicClient | null {
   if (!chain) return null;
   return createPublicClient({
     chain,
-    transport: http(CHAIN_RPC_URLS[chainId]?.[0], { timeout: 15_000, retryCount: 1 }),
+    transport: chainTransport(chainId),
   });
 }

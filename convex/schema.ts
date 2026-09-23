@@ -40,8 +40,32 @@ export default defineSchema({
     active: v.boolean(),
     lastInRange: v.optional(v.boolean()),
     lastCheckedAt: v.optional(v.float64()),
+    // Consecutive reads that threw. A position the chain keeps refusing is
+    // dropped after MAX_READ_FAILURES so it stops costing RPC reads forever.
+    failures: v.optional(v.float64()),
     createdAt: v.float64(),
   }).index("by_address", ["address"]).index("by_active", ["active"]),
+
+  // Paid fast checks. Free alerts are read hourly; a wallet with `fast` on and
+  // a balance is read every checker tick at FAST_CHECK_BTB per position read.
+  // The balance is bookkeeping only: the BTB itself sits in the treasury.
+  alertCredits: defineTable({
+    address: v.string(),        // lowercase
+    balance: v.float64(),       // BTB
+    fast: v.boolean(),
+    updatedAt: v.float64(),
+  }).index("by_address", ["address"]).index("by_fast", ["fast"]),
+
+  // Every credit ever made. `ref` is the deposit tx hash, or `payout:<id>`
+  // for weekly rewards moved in; the unique lookup is what stops a pasted
+  // transaction from being credited twice.
+  alertDeposits: defineTable({
+    ref: v.string(),
+    address: v.string(),
+    amount: v.float64(),        // BTB
+    source: v.string(),         // "tx" | "rewards"
+    createdAt: v.float64(),
+  }).index("by_ref", ["ref"]).index("by_address", ["address", "createdAt"]),
 
   // Web Push subscriptions per wallet (a wallet can have several devices).
   pushSubscriptions: defineTable({
@@ -229,7 +253,9 @@ export default defineSchema({
     amountRaw: v.string(),             // BTB wei
     // "claimable" — settled and waiting for the user to press Claim. Expires
     // into "expired" when the next epoch settles; its BTB rejoins the pot.
-    state: v.string(),                 // "claimable" | "queued" | "sending" | "submitted" | "confirmed" | "failed" | "expired"
+    // "alerts" — moved into the wallet's alert balance instead of sent; the
+    // BTB stays in the treasury and joins the next pot like an expired share.
+    state: v.string(),                 // "claimable" | "queued" | "sending" | "submitted" | "confirmed" | "failed" | "expired" | "alerts"
     attempts: v.float64(),
     createdAt: v.float64(),
     updatedAt: v.float64(),

@@ -2,6 +2,7 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
+import { addCredit } from "./alerts";
 
 // Epochs run Friday 00:00 UTC → Friday 00:00 UTC. Unix time starts on a
 // Thursday, so the first Friday midnight is exactly one day in — that offset is
@@ -180,6 +181,27 @@ export const claimReward = mutation({
     await ctx.db.patch(payoutId, { state: "queued", updatedAt: now, nextAttemptAt: undefined });
     await ctx.scheduler.runAfter(0, internal.rewardsActions.drain, {});
     return { claimed: true, state: "queued", amountRaw: payout.amountRaw };
+  },
+});
+
+/**
+ * Move a settled share into the wallet's alert balance instead of sending it.
+ * Called by the signed action only: a forged call could otherwise turn
+ * someone's payout into alert credit they never asked for.
+ */
+export const moveToAlerts = internalMutation({
+  args: { payoutId: v.id("rewardPayouts"), walletAddress: v.string() },
+  handler: async (ctx, { payoutId, walletAddress }) => {
+    const payout = await ctx.db.get(payoutId);
+    if (!payout || payout.walletAddress !== walletAddress.toLowerCase()) return { ok: false as const, reason: "That reward is not this wallet's." };
+    if (payout.state !== "claimable") return { ok: false as const, reason: "That reward was already claimed or has expired." };
+    const amount = Number(BigInt(payout.amountRaw) / 10n ** 12n) / 1e6;
+    if (!(amount > 0)) return { ok: false as const, reason: "That reward is empty." };
+    await ctx.db.patch(payoutId, { state: "alerts", updatedAt: Date.now() });
+    await addCredit(ctx, payout.walletAddress, amount, `payout:${payoutId}`, "rewards");
+    // The BTB never leaves the treasury, so the epoch can close like an expired share.
+    await closeEpochIfDrained(ctx, payout.epochId);
+    return { ok: true as const, amount };
   },
 });
 
@@ -403,7 +425,7 @@ export const releasePayout = internalMutation({
 async function closeEpochIfDrained(ctx: MutationCtx, epochId: number) {
   const remaining = await ctx.db
     .query("rewardPayouts").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
-  const done = new Set(["confirmed", "failed", "expired"]);
+  const done = new Set(["confirmed", "failed", "expired", "alerts"]);
   if (remaining.some((row) => !done.has(row.state))) return;
   const epoch = await ctx.db
     .query("rewardEpochs").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).unique();

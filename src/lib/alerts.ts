@@ -1,6 +1,12 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { useSignMessage } from 'wagmi';
 import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
+import { alertAuthMessage, FAST_ON_ACTION, rewardsToAlertsAction } from '../../convex/alertMessages';
+
+export { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS } from '../../convex/alertMessages';
 import { usePolledQuery } from './polledQuery';
 import type { LiquidityPosition } from '@/protocols/types';
 
@@ -76,5 +82,50 @@ export function useAlerts(address?: string) {
     return null;
   }
 
-  return { list, has, toggle, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => address && markRead({ address }) };
+  /** Stop one alert by its key, for rows whose position is not on screen. */
+  const stop = (k: { chainId: number; protocol: string; tokenId: string }) => address ? unsubscribe({ address, ...k }) : Promise.resolve();
+
+  return { list, has, toggle, stop, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => address && markRead({ address }) };
+}
+
+/** The fast-check balance: what is left, whether fast is on, and the three ways to change it. */
+export function useAlertCredit(address?: string, { withTreasury = false } = {}) {
+  const credit = useQuery(api.alerts.creditFor, address ? { address } : 'skip');
+  const rewards = useQuery(api.rewards.getStatus, address ? { walletAddress: address } : 'skip');
+  const deposit = useAction(api.alertsActions.depositFromTx);
+  const enable = useAction(api.alertsActions.enableFast);
+  const moveRewards = useAction(api.alertsActions.rewardsToAlerts);
+  const readTreasury = useAction(api.alertsActions.depositAddress);
+  const turnOff = useMutation(api.alerts.turnFastOff);
+  const { signMessageAsync } = useSignMessage();
+  const [treasury, setTreasury] = useState<string | null>(null);
+  useEffect(() => { if (withTreasury && address && !treasury) readTreasury({}).then(setTreasury).catch(() => {}); }, [withTreasury, address, treasury, readTreasury]);
+
+  async function signed(action: string) {
+    const issuedAt = Date.now();
+    const signature = await signMessageAsync({ message: alertAuthMessage(address!, action, issuedAt) });
+    return { issuedAt, signature };
+  }
+
+  /** Each returns null on success, otherwise a sentence to show. */
+  async function setFast(on: boolean): Promise<string | null> {
+    if (!address) return 'Connect a wallet first';
+    if (!on) { await turnOff({ address }); return null; }
+    const res = await enable({ address, ...(await signed(FAST_ON_ACTION)) });
+    return res.ok ? null : res.reason;
+  }
+  async function depositTx(txHash: string): Promise<string | null> {
+    const res = await deposit({ txHash });
+    return res.ok ? null : res.reason;
+  }
+  async function spendReward(payoutId: string): Promise<string | null> {
+    if (!address) return 'Connect a wallet first';
+    const res = await moveRewards({ address, payoutId: payoutId as Id<'rewardPayouts'>, ...(await signed(rewardsToAlertsAction(payoutId))) });
+    return res.ok ? null : res.reason;
+  }
+
+  return {
+    balance: credit?.balance ?? 0, fast: credit?.fast ?? false, history: credit?.history ?? [], loading: credit === undefined,
+    claimable: rewards?.claimable ?? [], treasury, setFast, depositTx, spendReward,
+  };
 }

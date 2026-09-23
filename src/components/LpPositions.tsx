@@ -28,12 +28,13 @@ import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBl
 import { Icon } from './Icon';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
+import { FastAlertsPanel, fmtBtb } from './FastAlerts';
 import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
 import { CONTRACTS } from '../lib/wagmi';
 import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
-import { useAlerts, ALERT_MIN_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
+import { useAlerts, ALERT_MIN_BTB, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -87,6 +88,13 @@ function fmtAmt(raw: bigint, decimals: number): string {
 }
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
+
+/** "checked 4m ago" for an alert row's last read. */
+function checkedAgo(t: number | null): string {
+  if (!t) return 'not checked yet';
+  const m = Math.round((Date.now() - t) / 60_000);
+  return m < 1 ? 'checked just now' : m < 60 ? `checked ${m}m ago` : `checked ${Math.round(m / 60)}h ago`;
+}
 
 /** Chains Krystal's LP index covers (see api/krystal/lp/route.ts). */
 const KRYSTAL_LP_CHAINS = new Set([1, 10, 56, 130, 137, 2020, 324, 42161, 43114, 59144, 80094, 81457, 8453, 999]);
@@ -183,7 +191,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [share, setShare] = useState<ShareCardData | null>(null);
   const [alertNote, setAlertNote] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<string | null>(null);
-  const [moreOpen, setMoreOpen] = useState<string | null>(null);
   async function toggleAlert(p: LiquidityPosition) {
     setAlertNote(null);
     try {
@@ -193,7 +200,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         setAlertNote(isWalletBrowser()
           ? 'Alert on. This wallet browser cannot receive push, so alerts show under the bell in the app.'
           : needsHomeScreen() ? 'Alert on. For push on iPhone, add BTB to your home screen from the Share menu; alerts also show under the bell.'
-          : 'Alert on. You will get a push on this device and a line under the bell when the range changes.');
+          : 'Alert on. You will get a push on this device and a line under the bell when the range changes. Checked hourly, or every 5 minutes with fast alerts above.');
       }
     } catch (e) {
       // Convex wraps thrown errors in its own framing; keep the sentence only.
@@ -205,6 +212,20 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [usd, setUsd] = useState<Record<string, number>>({});
 
   const [showClosedHistory, setShowClosedHistory] = useState(false);
+  // How the open positions are shown. The view choice survives reloads; the
+  // filters reset, so nobody comes back to a list that looks half empty.
+  const [view, setViewState] = useState<'cards' | 'list'>('cards');
+  // Read after mount: the server render has no storage, and a different first paint would not hydrate.
+  useEffect(() => { try { if (localStorage.getItem('btb.lp.view') === 'list') setViewState('list'); } catch { /* private mode */ } }, []);
+  const setView = (v: 'cards' | 'list') => { setViewState(v); try { localStorage.setItem('btb.lp.view', v); } catch { /* private mode */ } };
+  const [chainFilter, setChainFilter] = useState<number | 'all'>('all');
+  const [protoFilter, setProtoFilter] = useState<string>('all');
+  const [rangeFilter, setRangeFilter] = useState<'all' | 'in' | 'out'>('all');
+  const [sortBy, setSortBy] = useState<'attention' | 'value' | 'fees' | 'apr'>('attention');
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [fastOpen, setFastOpen] = useState(false);
+  const fastRef = useRef<HTMLDivElement>(null);
+  const openFast = () => { setFastOpen(true); setTimeout(() => fastRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50); };
   // TokenStore prices cover tokens DeFiLlama doesn't index (BTB, small caps) —
   // read through a ref so balance refreshes don't retrigger the price effect.
   const { tokens: storeTokens, walletAddress } = useTokenStore();
@@ -224,6 +245,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const address = walletAddress ?? connectedAddress;
 
   const alerts = useAlerts(connectedAddress);
+  const alertCredit = useQuery(api.alerts.creditFor, connectedAddress ? { address: connectedAddress } : 'skip');
+  const fastAlerts = !!alertCredit?.fast && alertCredit.balance >= FAST_CHECK_BTB;
   // Tags: a short label per position, editable inline, stored per wallet.
   const tags = useQuery(api.alerts.tagsForAddress, address ? { address } : 'skip') ?? {};
   const setTagMutation = useMutation(api.alerts.setTag);
@@ -776,6 +799,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const v = valueOf(p);
     const f = feesValueOf(p);
     const a = analyticsOf(p);
+    const alertRow = alerts.list?.find((r) => r.chainId === (p.chainId ?? 1) && r.protocol === p.protocol && r.tokenId === p.id.toString());
     const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
     const krystalLogo = (symbol: string) => a?.currentAmounts?.find((amt) => amt.token?.symbol?.toUpperCase() === symbol.toUpperCase())?.token?.logo;
     const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? krystalLogo(p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
@@ -856,6 +880,13 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
               <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
             </div>
+            {alertRow && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, color: btb.textDim, fontSize: 11 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 999, background: fastAlerts ? btb.green : btb.textMuted }}/>
+                <span>Alert on, {fastAlerts ? `checked every 5 min (${FAST_CHECK_BTB} BTB each)` : 'checked hourly'}, {checkedAgo(alertRow.lastCheckedAt)}</span>
+                {!fastAlerts && canTransact && <button type="button" onClick={openFast} style={{ border: 'none', background: 'transparent', padding: 0, color: btb.green, fontSize: 11, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Check every 5 min</button>}
+              </div>
+            )}
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
@@ -943,23 +974,44 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           const lead: string[] = p.staked ? ['claim', 'unstake'] : !p.inRange && canRebalance ? ['rebalance', 'withdraw'] : hasFees ? ['compound', 'collect', 'add'] : ['add', 'rebalance'];
           const primary = lead.map((k) => acts.find((a) => a.key === k)).filter((a): a is Act => !!a).slice(0, 2);
           const rest = acts.filter((a) => !primary.includes(a));
-          const key = posKey(p);
+          // Everything else stays on screen as small labelled chips, not in a
+          // menu: a hidden More is where features go to be missed.
+          const chipColor = (a: Act) => a.disabled ? btb.textDim : a.tone === 'danger' ? btb.loss : a.tone === 'amber' ? btb.amber : a.tone === 'green' ? btb.green : btb.textMuted;
           return (
-            <div style={{ display: 'grid', gridTemplateColumns: rest.length > 0 ? '1fr 1fr auto' : '1fr 1fr', gap: 8, marginTop: 12, position: 'relative' }}>
-              {primary.map((a) => <LpButton key={a.key} full tone={a.tone} solid={a.solid} label={a.label} onClick={a.onClick} disabled={a.disabled}/>)}
-              {rest.length > 0 && (
-                <div style={{ position: 'relative' }}>
-                  <LpButton label="More" onClick={() => setMoreOpen(moreOpen === key ? null : key)}/>
-                  {moreOpen === key && (
-                    <div onMouseLeave={() => setMoreOpen(null)} style={{ position: 'absolute', right: 0, bottom: 'calc(100% + 6px)', minWidth: 190, padding: 6, borderRadius: 14, zIndex: 30, background: btb.glassStrong, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: '0 16px 40px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {rest.map((a) => (
-                        <div key={a.key} onClick={() => { if (a.disabled) return; setMoreOpen(null); a.onClick(); }} style={{ padding: '9px 12px', borderRadius: 10, cursor: a.disabled ? 'default' : 'pointer', opacity: a.disabled ? 0.45 : 1, fontSize: 13, fontWeight: 700, color: a.tone === 'danger' ? btb.loss : a.tone === 'amber' ? btb.amber : a.tone === 'green' ? btb.green : btb.text }}>{a.label}</div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                {primary.map((a) => {
+                  const color = chipColor(a);
+                  const tint = a.tone === 'danger' ? '255, 76, 107' : a.tone === 'amber' ? 'var(--amber-rgb)' : a.tone === 'green' ? 'var(--green-rgb)' : 'var(--fg-rgb)';
+                  return (
+                    <button key={a.key} type="button" disabled={a.disabled} onClick={a.onClick} style={{
+                      height: 30, padding: '0 11px', borderRadius: 999, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap',
+                      cursor: a.disabled ? 'default' : 'pointer',
+                      color: a.disabled ? btb.textDim : a.solid ? btb.text : color,
+                      background: a.disabled ? 'rgba(var(--fg-rgb), 0.04)' : `rgba(${tint}, ${a.solid ? 0.22 : 0.1})`,
+                      border: a.disabled ? '1px solid rgba(var(--fg-rgb), 0.08)' : `1px solid rgba(${tint}, ${a.solid ? 0.5 : 0.3})`,
+                    }}>{a.label}</button>
+                  );
+                })}
+                  {rest.map((a) => {
+                    const isAlert = a.key === 'alert';
+                    const on = isAlert && a.tone === 'green';
+                    const color = chipColor(a);
+                    return (
+                      <button key={a.key} type="button" disabled={a.disabled} onClick={a.onClick} style={{
+                        height: 30, padding: '0 11px', borderRadius: 999, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap',
+                        display: 'inline-flex', alignItems: 'center', gap: 5, cursor: a.disabled ? 'default' : 'pointer', color,
+                        // The alert chip is the one users most often miss, so it gets a fill.
+                        background: on ? 'rgba(var(--green-rgb), 0.14)' : isAlert ? 'rgba(var(--amber-rgb), 0.1)' : 'rgba(var(--fg-rgb), 0.04)',
+                        border: on ? '1px solid rgba(var(--green-rgb), 0.35)' : isAlert ? '1px solid rgba(var(--amber-rgb), 0.3)' : '1px solid rgba(var(--fg-rgb), 0.08)',
+                        ...(isAlert && !on ? { color: btb.amber } : {}),
+                      }}>
+                        {isAlert && !on ? 'Alert me when out of range' : a.label}
+                      </button>
+                    );
+                  })}
+              </div>
+            </>
           );
         })()}
         {actionNote && <div style={{ color: btb.amber, fontSize: 11.5, marginTop: 8, lineHeight: 1.5 }}>{actionNote}</div>}
@@ -974,6 +1026,151 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       </Glass>
     );
   };
+
+  // ── Filters, sorting and the compact list ─────────────────────────────────
+  const aprOf = (p: LiquidityPosition) => liveApr[posKey(p)] ?? analyticsOf(p)?.feeApr ?? 0;
+  const chainsPresent = [...new Set(positions.map((p) => p.chainId ?? 1))];
+  const protosPresent = [...new Set(positions.map((p) => p.protocol))];
+  const visiblePositions = orderedPositions
+    .filter((p) => chainFilter === 'all' || (p.chainId ?? 1) === chainFilter)
+    .filter((p) => protoFilter === 'all' || p.protocol === protoFilter)
+    .filter((p) => rangeFilter === 'all' || (rangeFilter === 'in' ? p.inRange : !p.inRange))
+    .sort((a, b) => sortBy === 'value' ? valueOf(b) - valueOf(a) : sortBy === 'fees' ? feesValueOf(b) - feesValueOf(a) : sortBy === 'apr' ? aprOf(b) - aprOf(a) : 0);
+  const filtered = chainFilter !== 'all' || protoFilter !== 'all' || rangeFilter !== 'all';
+
+  const chip = (active: boolean, label: React.ReactNode, onClick: () => void, key: string) => (
+    <button key={key} type="button" onClick={onClick} style={{
+      height: 28, padding: '0 11px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      border: active ? '1px solid rgba(var(--green-rgb), 0.4)' : btb.borderSoft,
+      background: active ? 'rgba(var(--green-rgb), 0.1)' : 'transparent',
+      color: active ? btb.green : btb.textMuted,
+    }}>{label}</button>
+  );
+  const toolbar = positions.length > 1 && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
+        {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
+        {chip(rangeFilter === 'out', `Out of range ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
+        <div style={{ flex: 1 }}/>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} aria-label="Sort positions" style={{ height: 28, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}>
+          <option value="attention">Needs attention first</option>
+          <option value="value">Highest value</option>
+          <option value="fees">Most fees to collect</option>
+          <option value="apr">Highest fee APR</option>
+        </select>
+        <div style={{ display: 'inline-flex', borderRadius: 999, border: btb.borderSoft, padding: 2 }}>
+          {(['cards', 'list'] as const).map((v) => (
+            <button key={v} type="button" onClick={() => setView(v)} style={{ height: 24, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, background: view === v ? btb.surfaceSoft : 'transparent', color: view === v ? btb.text : btb.textDim }}>{v === 'cards' ? 'Cards' : 'List'}</button>
+          ))}
+        </div>
+      </div>
+      {(chainsPresent.length > 1 || protosPresent.length > 1) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          {chainsPresent.length > 1 && chip(chainFilter === 'all', 'All chains', () => setChainFilter('all'), 'c-all')}
+          {chainsPresent.length > 1 && chainsPresent.map((c) => chip(chainFilter === c, <><LpChainLogo chainId={c} chainName={LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`}/>{LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`}</>, () => setChainFilter(chainFilter === c ? 'all' : c), `c-${c}`))}
+          {chainsPresent.length > 1 && protosPresent.length > 1 && <span style={{ width: 1, height: 18, background: 'rgba(var(--fg-rgb), 0.12)', margin: '0 2px' }}/>}
+          {protosPresent.length > 1 && protosPresent.map((pr) => chip(protoFilter === pr, PROTOCOL_BADGE[pr].label, () => setProtoFilter(protoFilter === pr ? 'all' : pr), `p-${pr}`))}
+        </div>
+      )}
+    </div>
+  );
+
+  /** One line per position; a click opens the full card in place. */
+  const renderPositionRow = (p: LiquidityPosition) => {
+    const key = posKey(p);
+    if (expanded === key) return (
+      <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <button type="button" onClick={() => setExpanded(null)} style={{ alignSelf: 'flex-end', border: 'none', background: 'transparent', color: btb.textMuted, fontSize: 11.5, fontWeight: 750, cursor: 'pointer', fontFamily: 'inherit' }}>Collapse</button>
+        {renderPositionCard(p)}
+      </div>
+    );
+    const v = valueOf(p), f = feesValueOf(p), apr = aprOf(p);
+    const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
+    const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
+    const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
+    const span = p.tickUpper - p.tickLower;
+    const at = fullRange ? 0.5 : span > 0 ? Math.min(1, Math.max(0, (p.currentTick - p.tickLower) / span)) : 0.5;
+    const watched = alerts.has(p);
+    const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: n >= 1000 ? 0 : 2 })}`;
+    const rangeBar = (
+      <div title={fullRange ? 'Full range' : p.inRange ? 'Price inside your range' : 'Price outside your range'} style={{ position: 'relative', width: isMobile ? 44 : 64, height: 6, borderRadius: 999, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.18)', flexShrink: 0 }}>
+        <span style={{ position: 'absolute', top: -2, left: `calc(${at * 100}% - 5px)`, width: 10, height: 10, borderRadius: 999, background: p.inRange ? btb.green : btb.amber, boxShadow: '0 0 0 2px var(--bg, #0A0A0F)' }}/>
+      </div>
+    );
+    return (
+      <div key={key} role="button" tabIndex={0} onClick={() => setExpanded(key)} onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(key); }}
+        style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : 'minmax(0, 2.2fr) 1fr 0.9fr 0.9fr 0.8fr', alignItems: 'center', gap: isMobile ? 8 : 12, padding: isMobile ? '10px 12px' : '11px 16px', borderRadius: 14, border: btb.borderSoft, background: btb.surfaceSoft, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <div style={{ display: 'flex', flexShrink: 0 }}>
+            <TokenIcon symbol={p.symbol0} size={24} logoUrl={logo0}/>
+            <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={24} logoUrl={logo1}/></div>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.symbol0}/{p.symbol1}</span>
+              <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700 }}>{fmtFeeTier(p.fee)}</span>
+              {tags[tagKeyOf(p)] && <span style={{ color: btb.green, fontSize: 10.5, fontWeight: 700 }}>{tags[tagKeyOf(p)]}</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, flexWrap: 'wrap' }}>
+              <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
+              <span style={{ color: PROTOCOL_BADGE[p.protocol].color, fontSize: 10, fontWeight: 800 }}>{protocolBadgeLabel(p)}</span>
+              {p.staked && <span style={{ color: btb.amber, fontSize: 10, fontWeight: 800 }}>Staked</span>}
+              {watched && <span style={{ color: fastAlerts ? btb.green : btb.textMuted, fontSize: 10, fontWeight: 800 }}>{fastAlerts ? 'Alert, fast' : 'Alert, hourly'}</span>}
+              {isMobile && <span style={{ marginLeft: 2 }}>{rangeBar}</span>}
+            </div>
+          </div>
+        </div>
+        {!isMobile && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {rangeBar}
+            <span style={{ color: p.inRange ? btb.green : btb.amber, fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : 'Out'}</span>
+          </div>
+        )}
+        {!isMobile && <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 12.5, fontWeight: 750, textAlign: 'right' }}>{f > 0 ? money(f) : (p.fees0 > 0n || p.fees1 > 0n) ? 'Fees' : 'None'}<div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}>FEES</div></div>}
+        {!isMobile && <div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 12.5, fontWeight: 750, textAlign: 'right' }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}<div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}>FEE APR</div></div>}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{v > 0 ? money(v) : '...'}</div>
+          {isMobile ? <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 10.5, fontWeight: 700, marginTop: 2 }}>{f > 0 ? `${money(f)} fees` : apr > 0 ? `${apr.toFixed(1)}% APR` : p.inRange ? 'In range' : 'Out of range'}</div>
+            : <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}>VALUE</div>}
+        </div>
+      </div>
+    );
+  };
+
+  const watchedCount = alerts.list?.length ?? 0;
+  const fastStrip = canTransact && connectedAddress && watchedCount > 0 && (
+    <div ref={fastRef} style={{ borderRadius: 16, border: fastAlerts ? '1px solid rgba(var(--green-rgb), 0.3)' : btb.borderSoft, background: fastAlerts ? 'rgba(var(--green-rgb), 0.06)' : btb.surfaceSoft, padding: '10px 12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>
+            Range alerts on {watchedCount} position{watchedCount === 1 ? '' : 's'}, {fastAlerts ? 'checked every 5 minutes' : 'checked hourly'}
+          </div>
+          <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>
+            {fastAlerts
+              ? `Fast checks on. ${fmtBtb(alertCredit?.balance ?? 0)} BTB left at ${FAST_CHECK_BTB} BTB per check.`
+              : `Get told within 5 minutes instead of an hour, for ${FAST_CHECK_BTB} BTB per check. Pay with BTB or your weekly rewards.`}
+          </div>
+        </div>
+        <LpButton tone={fastAlerts ? 'neutral' : 'green'} solid={!fastAlerts} label={fastOpen ? 'Close' : fastAlerts ? 'Manage' : 'Get fast alerts'} onClick={() => setFastOpen((o) => !o)}/>
+      </div>
+      {fastOpen && <div style={{ marginTop: 6, marginInline: -10 }}><FastAlertsPanel address={connectedAddress} watched={watchedCount}/></div>}
+    </div>
+  );
+
+  const positionList = (
+    <>
+      {fastStrip}
+      {toolbar}
+      {filtered && visiblePositions.length === 0 && positions.length > 0 && (
+        <div style={{ color: btb.textMuted, fontSize: 12.5, textAlign: 'center', padding: 18 }}>
+          No positions match. <button type="button" onClick={() => { setChainFilter('all'); setProtoFilter('all'); setRangeFilter('all'); }} style={{ border: 'none', background: 'transparent', color: btb.green, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Clear filters</button>
+        </div>
+      )}
+      {view === 'list' ? visiblePositions.map(renderPositionRow) : visiblePositions.map(renderPositionCard)}
+    </>
+  );
 
   const otherChainColumns: Column<KrystalPositionAnalytics>[] = [
     {
@@ -1147,7 +1344,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           {!loading && !krystalLoading && positions.length === 0 && otherChainPositions.length === 0 && (
             <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
           )}
-          {orderedPositions.map(renderPositionCard)}
+          {positionList}
           {otherChainPositions.map((item) => {
             const symbols = krystalSymbols(item);
             const symbol0 = symbols[0] ?? 'LP';
@@ -1209,7 +1406,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <div style={{ color: btb.textMuted, fontSize: 13.5, textAlign: 'center', padding: 28 }}>No LP positions yet</div>
           )}
           {attentionBlock}
-          {orderedPositions.map(renderPositionCard)}
+          {positionList}
           {otherChainPositions.length > 0 && (
             <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
             <DataTable
