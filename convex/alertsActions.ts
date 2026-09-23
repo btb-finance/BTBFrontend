@@ -3,23 +3,23 @@
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { createPublicClient, http, fallback, erc20Abi, formatUnits, parseAbi, parseEventLogs, verifyMessage, isAddress, isHash, BaseError, ContractFunctionRevertedError } from "viem";
-import { mainnet } from "viem/chains";
+import { erc20Abi, formatUnits, parseAbi, parseEventLogs, verifyMessage, isAddress, isHash, BaseError, ContractFunctionRevertedError, type PublicClient } from "viem";
 import webpush from "web-push";
 import { getChainClient } from "../src/lib/chainClient";
+import { CONTRACTS } from "../src/lib/contractAddresses";
 import { fetchV3Positions, fetchV4Positions } from "../src/protocols/dexs/uniswap";
 import { deploymentOfPosition, v4DeploymentOfPosition } from "../src/protocols/lpChains";
 import type { LiquidityPosition } from "../src/protocols/types";
 import { ALERT_MIN_BTB } from "./alerts";
 import { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS, SIGNATURE_MAX_AGE_MS, alertAuthMessage, FAST_ON_ACTION } from "./alertMessages";
 
-const BTB = "0x88888888c90CD71B35830daBFD24743DbC135B51" as const;
-const OPOS = "0x88888805E7e3d5c7FB002AD98f08250E79c298dC" as const;
+const BTB = CONTRACTS.BTB;
+const OPOS = CONTRACTS.OPOS;
 /** Reads that throw this many times in a row drop the alert (about a day at hourly). */
 const MAX_READ_FAILURES = 24;
-const MAINNET = ["https://eth.api.pocket.network", "https://gateway.tenderly.co/public/mainnet", "https://eth.rpc.blxrbdn.com", "https://ethereum-rpc.publicnode.com", "https://eth.drpc.org"];
 
-const mainnetClient = () => createPublicClient({ chain: mainnet, transport: fallback(MAINNET.map((u) => http(u, { timeout: 10_000 }))) });
+/** Ethereum reads go through the shared failover client (src/lib/chainRpc.ts). */
+const mainnetClient = () => getChainClient(1) as PublicClient;
 
 /** The OPOS treasury, which is also the rewards wallet: alert deposits join the weekly pot. */
 async function readTreasury(): Promise<string> {

@@ -48,6 +48,8 @@ export function readableError(reason: unknown, fallback: string): string {
       || (reason as Error)?.message
       || '';
   if (!raw) return fallback;
+  // The wallet's own "user rejected the request" is a choice, not a failure.
+  if (/user (rejected|denied)|rejected the request|denied (transaction|message) signature/i.test(raw)) return 'Cancelled in your wallet.';
 
   const text = stripEnvelope(raw);
   if (!text) return fallback;

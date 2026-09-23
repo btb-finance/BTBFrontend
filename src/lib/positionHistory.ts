@@ -19,7 +19,6 @@ import { CHAIN_DATA_NETWORKS } from './chainDataNetworks';
 const INCREASE = parseAbiItem('event IncreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)');
 const DECREASE = parseAbiItem('event DecreaseLiquidity(uint256 indexed tokenId, uint128 liquidity, uint256 amount0, uint256 amount1)');
 const COLLECT = parseAbiItem('event Collect(uint256 indexed tokenId, address recipient, uint256 amount0, uint256 amount1)');
-const TRANSFER = parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)');
 
 export interface HistoryEvent {
   kind: 'deposit' | 'withdraw' | 'collect';
@@ -138,22 +137,6 @@ export async function fetchPositionHistory(
   const value: PositionHistory = { tokenId, events, openedAt, depositsUsd, withdrawalsUsd, feesClaimedUsd, feesClaimed0, feesClaimed1, deposits0, deposits1, withdrawals0, withdrawals1, estimated };
   memo.set(key, { at: Date.now(), value });
   return value;
-}
-
-/** Token ids this owner once held on a manager and no longer does (burned or transferred away). */
-export async function fetchPastTokenIds(client: PublicClient, manager: `0x${string}`, owner: `0x${string}`, fromBlock: bigint = 0n): Promise<bigint[]> {
-  const run = async (from: bigint) => {
-    const [received, sent] = await Promise.all([
-      client.getLogs({ address: manager, event: TRANSFER, args: { to: owner }, fromBlock: from, toBlock: 'latest' }),
-      client.getLogs({ address: manager, event: TRANSFER, args: { from: owner }, fromBlock: from, toBlock: 'latest' }),
-    ]);
-    const held = new Set(received.map((l) => l.args.tokenId!.toString()));
-    const gone = new Set(sent.map((l) => l.args.tokenId!.toString()));
-    return [...gone].filter((id) => held.has(id)).map((id) => BigInt(id));
-  };
-  try { return await run(fromBlock); } catch {
-    try { const head = await client.getBlockNumber(); return await run(head > 12_000_000n ? head - 12_000_000n : 0n); } catch { return []; }
-  }
 }
 
 /**

@@ -14,12 +14,10 @@
  * against all of them. Addresses from github.com/aerodrome-finance/slipstream,
  * factories confirmed on-chain via NonfungiblePositionManager.factory().
  */
-import { encodeFunctionData, type PublicClient } from 'viem';
+import type { PublicClient } from 'viem';
 import type { V3Deployment } from '../uniswap/v3/addresses';
 import { fetchV3Positions } from '../uniswap/v3/positions';
 import { fetchPoolsForMint, type MintPool } from '../uniswap/v3/pool';
-import { SLIPSTREAM_FACTORY_ABI } from '../uniswap/v3/abis';
-import type { Call } from '@/lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import type { LiquidityPosition } from '@/protocols/types';
 
@@ -49,10 +47,6 @@ export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
   slipstreamDeployment('0xa990C6a764b73BF43cee5Bb40339c3322FB9D55F', '0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a', 'Aerodrome (old, gauge caps)'),
   slipstreamDeployment('0xe1f8cd9AC4e4A65F54f38a5CdAfCA44f6dD68b53', '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef', 'Aerodrome'),
 ];
-
-/** New positions go to the current (gauges V3) deployment — the one new
- * pools and gauges are created on. */
-export const AERODROME_MINT_DEPLOYMENT = AERODROME_CL_DEPLOYMENTS[2];
 
 /** Aerodrome Slipstream on Arc: manager and factory read from a live pool
  * (EURC/USDC); spacings from the factory. No voter yet, so no gauges. */
@@ -95,29 +89,6 @@ export async function fetchAerodromePoolsForMint(
   return { pools, deploymentByTier };
 }
 
-/** The deployment a position was read from — carried on the position itself. */
-export function aerodromeDeploymentOf(p: LiquidityPosition): V3Deployment {
-  const pm = p.positionManager?.toLowerCase();
-  return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm) ?? (p.chainId === 5042 ? ARC_AERODROME_DEPLOYMENT : AERODROME_CL_DEPLOYMENTS[2]);
-}
-
-/** Every Slipstream position the wallet holds on Base, across all three managers. */
-export async function fetchAerodromePositions(
-  client: PublicClient,
-  owner: `0x${string}`,
-  /** Pre-enumerated tokenIds per manager (Blockscout); omit to enumerate on-chain. */
-  knownIds?: Map<string, bigint[]>,
-  chainId: number = BASE_CHAIN_ID,
-): Promise<LiquidityPosition[]> {
-  const deployments = aerodromeDeploymentsFor(chainId);
-  const results = await Promise.allSettled(deployments.map((d) => fetchV3Positions(client, owner, d, knownIds?.get(d.positionManager.toLowerCase()))));
-  const ok = results.filter((r): r is PromiseFulfilledResult<LiquidityPosition[]> => r.status === 'fulfilled');
-  if (ok.length === 0) throw (results[0] as PromiseRejectedResult).reason;
-  // Gauges exist on Base only so far.
-  if (chainId !== BASE_CHAIN_ID) return ok.flatMap((r) => r.value);
-  return withGauges(client, ok.flatMap((r) => r.value)).catch(() => ok.flatMap((r) => r.value));
-}
-
 // ── Gauge staking ───────────────────────────────────────────────────────────
 // A staked Slipstream position's NFT is held by the pool's CLGauge, so the
 // wallet's NPM balance no longer lists it. The gauge keeps a per-depositor
@@ -137,53 +108,6 @@ export const CL_GAUGE_ABI = [
   { name: 'stakedValues', type: 'function', stateMutability: 'view', inputs: [{ name: 'depositor', type: 'address' }], outputs: [{ name: '', type: 'uint256[]' }] },
   { name: 'rewardToken', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address' }] },
 ] as const;
-
-const VOTER_GAUGES_ABI = [
-  { name: 'gauges', type: 'function', stateMutability: 'view', inputs: [{ name: 'pool', type: 'address' }], outputs: [{ name: '', type: 'address' }] },
-] as const;
-
-const NPM_APPROVE_ABI = [
-  { name: 'approve', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'to', type: 'address' }, { name: 'tokenId', type: 'uint256' }], outputs: [] },
-] as const;
-
-const ZERO = '0x0000000000000000000000000000000000000000';
-
-/** The gauge for each wallet-held position's pool, so the card can offer
- * Stake. Positions whose pool has no gauge come back unchanged. */
-export async function withGauges(client: PublicClient, positions: LiquidityPosition[]): Promise<LiquidityPosition[]> {
-  const live = positions.filter((p) => p.liquidity > 0n && p.tickSpacing != null && p.positionManager);
-  if (live.length === 0) return positions;
-  const pools = await withSafeMulticall(client).multicall({
-    contracts: live.map((p) => ({ address: aerodromeDeploymentOf(p).factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool' as const, args: [p.token0, p.token1, p.tickSpacing!] as const })),
-    allowFailure: true,
-  });
-  const gauges = await withSafeMulticall(client).multicall({
-    contracts: pools.map((r) => ({ address: AERODROME_VOTER, abi: VOTER_GAUGES_ABI, functionName: 'gauges' as const, args: [(r.status === 'success' ? r.result : ZERO) as `0x${string}`] as const })),
-    allowFailure: true,
-  });
-  const gaugeOf = new Map<bigint, `0x${string}`>();
-  live.forEach((p, i) => {
-    const g = gauges[i];
-    if (g.status === 'success' && (g.result as string).toLowerCase() !== ZERO) gaugeOf.set(p.id, g.result as `0x${string}`);
-  });
-  return positions.map((p) => (gaugeOf.has(p.id) ? { ...p, stakeable: { gauge: gaugeOf.get(p.id)! } } : p));
-}
-
-/** Gauge for a pool by key — used to restake a freshly minted position. */
-export async function gaugeForPool(client: PublicClient, d: V3Deployment, token0: `0x${string}`, token1: `0x${string}`, tickSpacing: number): Promise<`0x${string}` | null> {
-  const pool = await client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, tickSpacing] });
-  if (pool.toLowerCase() === ZERO) return null;
-  const gauge = await client.readContract({ address: AERODROME_VOTER, abi: VOTER_GAUGES_ABI, functionName: 'gauges', args: [pool] });
-  return gauge.toLowerCase() === ZERO ? null : gauge;
-}
-
-/** Stake: approve the gauge for this NFT, then deposit it. */
-export function buildGaugeStake(positionManager: `0x${string}`, gauge: `0x${string}`, tokenId: bigint): Call[] {
-  return [
-    { to: positionManager, data: encodeFunctionData({ abi: NPM_APPROVE_ABI, functionName: 'approve', args: [gauge, tokenId] }) },
-    { to: gauge, data: encodeFunctionData({ abi: CL_GAUGE_ABI, functionName: 'deposit', args: [tokenId] }) },
-  ];
-}
 
 /** Staked positions when the gauge is already known (Krystal names it):
  * read the NFT state and the claimable AERO directly, no discovery. */
@@ -216,15 +140,4 @@ export async function fetchAerodromeStakedByIds(
     }
   }));
   return out;
-}
-
-/** Unstake: the gauge returns the NFT to the wallet and pays earned AERO. */
-export function buildGaugeUnstake(pos: LiquidityPosition): Call[] {
-  if (!pos.staked) return [];
-  return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: CL_GAUGE_ABI, functionName: 'withdraw', args: [pos.id] }) }];
-}
-
-export function buildGaugeClaim(pos: LiquidityPosition): Call[] {
-  if (!pos.staked) return [];
-  return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: CL_GAUGE_ABI, functionName: 'getReward', args: [pos.id] }) }];
 }

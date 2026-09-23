@@ -15,7 +15,7 @@ import type { Call } from '@/lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import type { LiquidityPosition } from './types';
 import type { V3Deployment } from './dexs/uniswap/v3/addresses';
-import { SLIPSTREAM_FACTORY_ABI, NPM_ABI } from './dexs/uniswap/v3/abis';
+import { SLIPSTREAM_FACTORY_ABI } from './dexs/uniswap/v3/abis';
 import { fetchV3Positions } from './dexs/uniswap/v3/positions';
 import { CL_GAUGE_ABI, AERODROME_VOTER, AERO_TOKEN } from './dexs/aerodrome';
 import { UP_V3_DEPLOYMENT, UP_VOTER, UP_TOKEN, GIGA_V3_DEPLOYMENT, GIGA_MASTERCHEF, GIGA_TOKEN } from './dexs/robinhood';
@@ -188,4 +188,3 @@ export function stakingDeploymentsFor(chainId: number): V3Deployment[] {
 }
 
 /** Read the NPM ownerOf as a post-unstake check (shared by rebalance flows). */
-export { NPM_ABI as STAKING_NPM_ABI };

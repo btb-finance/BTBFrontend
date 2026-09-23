@@ -16,7 +16,7 @@
  */
 
 import { action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { createPublicClient, http, fallback, erc20Abi } from "viem";
 import { mainnet } from "viem/chains";
@@ -179,7 +179,7 @@ export const refresh = action({
     }
 
     const totalValueUsd = balances.reduce((s, b) => s + b.valueUsd, 0);
-    await ctx.runMutation(api.users.saveBalanceSnapshot, {
+    await ctx.runMutation(internal.users.saveBalanceSnapshot, {
       walletAddress: addr,
       balances,
       totalValueUsd,
@@ -187,38 +187,5 @@ export const refresh = action({
 
     const failedBatches = batchResults.filter((b: BatchResult) => !b.results).length;
     return { count: balances.length, totalValueUsd, totalBatches: batchResults.length, failedBatches };
-  },
-});
-
-/** Diagnostic: probe batch 0 across all RPCs to see which actually respond. */
-export const probeFirstBatch = action({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }) => {
-    const addr = walletAddress.toLowerCase() as `0x${string}`;
-    const tokenListRaw = await ctx.runQuery(api.tokens.listAll);
-    const tokenList = tokenListRaw as TokenRow[];
-    const erc20List = tokenList.filter((t) => t.address !== NATIVE);
-    const batch = erc20List.slice(0, 50);
-
-    const results: Array<{ rpc: string; ok: boolean; count: number; error?: string }> = [];
-    for (const url of MAINNET_RPCS) {
-      const c = createPublicClient({ chain: mainnet, transport: http(url) });
-      try {
-        const r = await c.multicall({
-          contracts: batch.map((t) => ({
-            address: t.address as `0x${string}`,
-            abi: erc20Abi,
-            functionName: "balanceOf" as const,
-            args: [addr],
-          })),
-          allowFailure: true,
-        });
-        const successCount = r.filter((x) => x.status === "success").length;
-        results.push({ rpc: url, ok: true, count: successCount });
-      } catch (e) {
-        results.push({ rpc: url, ok: false, count: 0, error: (e as Error).message?.slice(0, 200) });
-      }
-    }
-    return results;
   },
 });

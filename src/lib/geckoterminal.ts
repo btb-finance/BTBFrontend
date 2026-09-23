@@ -154,28 +154,6 @@ export async function fetchPoolPriceChanges(poolAddresses: string[], network = '
   return result;
 }
 
-/**
- * Recent hourly close-price series for a single pool — used for the small
- * sparkline on hover/expand. One request per pool, so callers should only use
- * this for a handful of rows at a time (e.g. currently visible), not the
- * whole table at once.
- */
-export async function fetchPoolSparkline(poolAddress: string, network = 'eth'): Promise<number[]> {
-  try {
-    const res = await fetch(
-      `${BASE}/networks/${network}/pools/${poolAddress.toLowerCase()}/ohlcv/hour?aggregate=4&limit=24`,
-      { signal: AbortSignal.timeout(10000) },
-    );
-    if (!res.ok) return [];
-    const json = await res.json() as { data?: { attributes?: { ohlcv_list?: number[][] } } };
-    const list = json.data?.attributes?.ohlcv_list ?? [];
-    // [timestamp, open, high, low, close, volume] — oldest last; reverse to chronological.
-    return list.map(row => row[4]).reverse();
-  } catch {
-    return [];
-  }
-}
-
 export interface DailyBar { timestamp: number; open: number; high: number; low: number; close: number; volumeUsd: number; }
 
 /**

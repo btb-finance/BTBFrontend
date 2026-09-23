@@ -15,12 +15,13 @@ import {
 import { mainnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Doc, Id } from "./_generated/dataModel";
+import { CONTRACTS } from "../src/lib/contractAddresses";
 
 // BTB and OPOSSUM both live on Ethereum mainnet — not the Robinhood chain the
 // trading agents in this folder use. Addresses mirror CONTRACTS in
 // src/lib/wagmi.ts; OPOS_TOKEN_ADDRESS can override for a redeploy.
-const BTB = "0x88888888c90CD71B35830daBFD24743DbC135B51" as const;
-const OPOS = "0x88888805E7e3d5c7FB002AD98f08250E79c298dC" as const;
+const BTB = CONTRACTS.BTB;
+const OPOS = CONTRACTS.OPOS;
 
 // OPOSSUM.MINT_RATIO — 1e6 OPOS units redeem exactly 1 BTB unit. burn() also
 // rejects anything below MIN_OPOS_BURN or not divisible by the ratio, so the

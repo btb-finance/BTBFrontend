@@ -2,57 +2,6 @@
 import { useReadContracts } from 'wagmi';
 import { CONTRACTS } from './wagmi';
 import { BEAR_NFT_ABI, BEAR_STAKING_ABI } from '../contracts/abis';
-import { useSnapshot } from './convexCache';
-
-/** Snapshot key — must match convex/globalRefresh.ts. */
-const SNAPSHOT_KEY = 'bear-stats';
-
-type BearStatsWire = {
-  version?: number;
-  totalMinted: string;
-  pricePerNFT: string;
-  remainingSupply: string;
-  stats: {
-    totalStaked: string;
-    totalRewardsDistributed: string;
-    pendingToCollect: string;
-    rewardsLast24h: string;
-    estimatedApr: string;
-  };
-};
-
-export type BearStats = {
-  totalMinted: bigint;
-  pricePerNFT: bigint;
-  remainingSupply: bigint;
-  totalStaked: bigint;
-  totalRewardsDistributed: bigint;
-  pendingToCollect: bigint;
-  rewardsLast24h: bigint;
-  estimatedApr: bigint;
-};
-
-/**
- * Global BearNFT/BearStaking numbers — mint progress and pool stats.
- *
- * These are the same for every visitor, so they come from a Convex snapshot
- * refreshed every 30 minutes (convex/globalRefresh.ts) instead of an RPC batch
- * per session. Returns null until the first snapshot lands.
- */
-export function useBearStats(): BearStats | null {
-  const { data } = useSnapshot<BearStatsWire>(SNAPSHOT_KEY);
-  if (!data?.stats) return null;
-  return {
-    totalMinted: BigInt(data.totalMinted),
-    pricePerNFT: BigInt(data.pricePerNFT),
-    remainingSupply: BigInt(data.remainingSupply),
-    totalStaked: BigInt(data.stats.totalStaked),
-    totalRewardsDistributed: BigInt(data.stats.totalRewardsDistributed),
-    pendingToCollect: BigInt(data.stats.pendingToCollect),
-    rewardsLast24h: BigInt(data.stats.rewardsLast24h),
-    estimatedApr: BigInt(data.stats.estimatedApr),
-  };
-}
 
 /**
  * Warms the wallet-specific BearNFT/BearStaking reads so the NFT/Agent tab

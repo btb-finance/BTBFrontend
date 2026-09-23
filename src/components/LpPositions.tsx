@@ -21,11 +21,9 @@ import {
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
-import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, aerodromeDeploymentsFor } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor } from '@/protocols/dexs/aerodrome';
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
-import { Icon } from './Icon';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
 import { FastAlertsPanel, fmtBtb } from './FastAlerts';
@@ -34,7 +32,8 @@ import { CONTRACTS } from '../lib/wagmi';
 import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
-import { useAlerts, ALERT_MIN_BTB, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
+import { useAlerts, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
+import { readableError } from '../lib/errorText';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -89,12 +88,6 @@ function fmtAmt(raw: bigint, decimals: number): string {
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
 
-/** "checked 4m ago" for an alert row's last read. */
-function checkedAgo(t: number | null): string {
-  if (!t) return 'not checked yet';
-  const m = Math.round((Date.now() - t) / 60_000);
-  return m < 1 ? 'checked just now' : m < 60 ? `checked ${m}m ago` : `checked ${Math.round(m / 60)}h ago`;
-}
 
 /** Chains Krystal's LP index covers (see api/krystal/lp/route.ts). */
 const KRYSTAL_LP_CHAINS = new Set([1, 10, 56, 130, 137, 2020, 324, 42161, 43114, 59144, 80094, 81457, 8453, 999]);
@@ -203,10 +196,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           : 'Alert on. You will get a push on this device and a line under the bell when the range changes. Checked hourly, or every 5 minutes with fast alerts above.');
       }
     } catch (e) {
-      // Convex wraps thrown errors in its own framing; keep the sentence only.
-      const raw = (e as Error)?.message ?? 'Could not enable the alert';
-      const m = raw.match(/Uncaught Error: ([^\n]+?)(?: at handler|$)/);
-      setAlertNote((m ? m[1] : raw).trim());
+      setAlertNote(readableError(e, 'Could not enable the alert.'));
     }
   }
   const [usd, setUsd] = useState<Record<string, number>>({});

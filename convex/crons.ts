@@ -24,10 +24,6 @@ if (process.env.DISABLE_CRONS !== "1") {
   // instead of running the slow multi-API pipeline per visitor
   crons.interval("refresh discover pools", { minutes: 30 }, internal.discoverRefresh.refresh);
 
-  // Global BearNFT/BearStaking numbers. These were polled every 15-20s by the
-  // app shell of every visitor, connected or not; per-wallet reads stay live
-  // on the client.
-  crons.interval("refresh bear stats", { minutes: 30 }, internal.globalRefresh.refreshBearStats);
 
   // Drop expired memo-cache rows (simulator pool/token lookups) so the table
   // stays bounded — the sweep is batched, so it runs often.

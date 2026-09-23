@@ -1,7 +1,6 @@
 'use client';
 import { btb } from './design-tokens';
 import { Icon } from './Icon';
-import { tickToPrice } from '@/protocols/dexs/uniswap';
 
 /** Pool price for LP cards: plain decimals at every magnitude, no exponents. */
 export function fmtPrice(v: number) {
@@ -23,60 +22,6 @@ export const lpBoxValue = (isMobile: boolean) => ({
   color: btb.text, fontSize: isMobile ? 15 : 17, fontWeight: 800, marginTop: 5,
   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const,
 });
-
-/** Price range panel: pair label and current price on top, a track with the
- * position's band and a marker for the current price, distance to each edge
- * below. Full range positions show a full band. */
-export interface RangeBarProps {
-  symbol0: string; symbol1: string; decimals0: number; decimals1: number;
-  tickLower: number; tickUpper: number; currentTick: number; inRange: boolean;
-}
-
-export function RangeBar({ p }: { p: RangeBarProps }) {
-  const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
-  const pLow = tickToPrice(p.tickLower, p.decimals0, p.decimals1);
-  const pHigh = tickToPrice(p.tickUpper, p.decimals0, p.decimals1);
-  const pNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
-  // Window is the range plus a quarter of its width each side; the marker
-  // clamps to the track so a far-out price still shows which side it is on.
-  const span = Math.max(1, p.tickUpper - p.tickLower);
-  const winLo = p.tickLower - span * 0.25;
-  const winHi = p.tickUpper + span * 0.25;
-  const pct = (tick: number) => Math.max(1, Math.min(99, ((tick - winLo) / (winHi - winLo)) * 100));
-  const bandL = fullRange ? 0 : pct(p.tickLower);
-  const bandR = fullRange ? 100 : pct(p.tickUpper);
-  const mark = fullRange ? 50 : pct(p.currentTick);
-  const dist = (target: number) => (pNow > 0 && Number.isFinite(target) ? ((target / pNow) - 1) * 100 : 0);
-  const tone = p.inRange ? btb.green : btb.amber;
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{p.symbol1}/{p.symbol0}{fullRange ? ' · full range' : ''}</span>
-        <span style={{ color: tone, fontSize: 14, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
-      </div>
-      <div style={{ position: 'relative', height: 30, marginTop: 8 }}>
-        <div style={{ position: 'absolute', inset: 0, borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.05)' }}/>
-        <div style={{
-          position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, borderRadius: 10,
-          background: p.inRange ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--amber-rgb), 0.14)',
-          border: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.3)' : 'rgba(var(--amber-rgb), 0.3)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px', boxSizing: 'border-box', overflow: 'hidden',
-        }}>
-          <span style={{ color: btb.textMuted, fontSize: 11, whiteSpace: 'nowrap' }}>{fullRange ? '0' : fmtPrice(pLow)}</span>
-          <span style={{ color: btb.textMuted, fontSize: 11, whiteSpace: 'nowrap' }}>{fullRange ? '∞' : fmtPrice(pHigh)}</span>
-        </div>
-        <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${mark}% - 1px)`, width: 2, background: tone, borderRadius: 2 }}/>
-        <div style={{ position: 'absolute', top: '50%', left: `calc(${mark}% - 5px)`, width: 10, height: 10, marginTop: -5, borderRadius: 999, background: tone, boxShadow: `0 0 0 3px ${p.inRange ? 'rgba(var(--green-rgb), 0.25)' : 'rgba(var(--amber-rgb), 0.25)'}` }}/>
-      </div>
-      {!fullRange && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: btb.textDim }}>
-          <span>{dist(pLow) >= 0 ? '+' : ''}{dist(pLow).toFixed(1)}%</span>
-          <span>{dist(pHigh) >= 0 ? '+' : ''}{dist(pHigh).toFixed(1)}%</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export type LpTone = 'neutral' | 'green' | 'amber' | 'danger';
 

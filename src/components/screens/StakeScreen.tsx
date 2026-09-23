@@ -19,6 +19,7 @@ import {
 } from '@/protocols/dexs/uniswap';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { useWalletSession } from '../../lib/session';
+import { readableError } from '../../lib/errorText';
 import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from '../../lib/alerts';
 import { BtbTopUp, fmtBtb } from '../FastAlerts';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
@@ -330,11 +331,8 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
       const sessionToken = await session.ensure();
       await sendChat({ sessionToken, message: msg, extras });
     } catch (e) {
-      // Convex wraps action errors in "[CONVEX …] [Request ID: …] Server Error
-      // Uncaught Error: <message>\n at …" — show only <message>.
-      const raw = (e as Error)?.message ?? 'Something went wrong';
-      const m = raw.match(/Uncaught Error:\s*([^\n]+)/);
-      const text = /rejected|denied/i.test(raw) ? 'Signature cancelled. The agent needs one signature to keep your chat private.' : (m ? m[1] : raw).trim();
+      const read = readableError(e, 'Something went wrong. Try again.');
+      const text = read === 'Cancelled in your wallet.' ? 'Signature cancelled. The agent needs one signature to keep your chat private.' : read;
       if (/Sign in again/.test(text)) session.forget();
       if (/free messages/.test(text)) setShowTopUp(true);
       setErr(text);

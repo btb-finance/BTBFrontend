@@ -1,8 +1,7 @@
 /**
  * Generic memo cache for data keyed by user input.
  *
- * Snapshots (see `snapshots.ts`) cover datasets small enough to precompute in
- * full. This table covers the rest: pool day history, pool stats, token safety
+ * Data keyed by user input: pool day history, pool stats, token safety
  * — too many possible keys to enumerate, but the answer for a given key is the
  * same for everyone and moves slowly. The first visitor to ask pays the
  * upstream round trip (via `cacheFill.fill`); everyone after reads this row.

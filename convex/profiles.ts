@@ -1,4 +1,4 @@
-import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
+import { query, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -49,22 +49,6 @@ export const insertLink = internalMutation({
     // The new wallet already belongs to another profile: fold that whole profile in.
     const others = await ctx.db.query("profileLinks").withIndex("by_profile", q => q.eq("profileId", existing.profileId)).collect();
     for (const row of others) await ctx.db.patch(row._id, { profileId });
-  },
-});
-
-export const removeLink = internalMutation({
-  args: { address: v.string() },
-  handler: async (ctx, { address }) => {
-    const row = await ctx.db.query("profileLinks").withIndex("by_address", q => q.eq("address", address.toLowerCase())).unique();
-    if (row) await ctx.db.delete(row._id);
-  },
-});
-
-export const setLabel = mutation({
-  args: { address: v.string(), label: v.string() },
-  handler: async (ctx, { address, label }) => {
-    const row = await ctx.db.query("profileLinks").withIndex("by_address", q => q.eq("address", address.toLowerCase())).unique();
-    if (row) await ctx.db.patch(row._id, { label: label.trim().slice(0, 32) || undefined });
   },
 });
 

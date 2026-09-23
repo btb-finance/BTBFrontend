@@ -21,7 +21,6 @@ import type * as credit from "../credit.js";
 import type * as crons from "../crons.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
-import type * as globalRefresh from "../globalRefresh.js";
 import type * as poolFacts from "../poolFacts.js";
 import type * as prices from "../prices.js";
 import type * as profiles from "../profiles.js";
@@ -34,10 +33,10 @@ import type * as rewardsActions from "../rewardsActions.js";
 import type * as rpcEndpoints from "../rpcEndpoints.js";
 import type * as sessionActions from "../sessionActions.js";
 import type * as sessions from "../sessions.js";
-import type * as snapshots from "../snapshots.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
 import type * as xpActions from "../xpActions.js";
+import type * as xpRules from "../xpRules.js";
 
 import type {
   ApiFromModules,
@@ -59,7 +58,6 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
-  globalRefresh: typeof globalRefresh;
   poolFacts: typeof poolFacts;
   prices: typeof prices;
   profiles: typeof profiles;
@@ -72,10 +70,10 @@ declare const fullApi: ApiFromModules<{
   rpcEndpoints: typeof rpcEndpoints;
   sessionActions: typeof sessionActions;
   sessions: typeof sessions;
-  snapshots: typeof snapshots;
   tokens: typeof tokens;
   users: typeof users;
   xpActions: typeof xpActions;
+  xpRules: typeof xpRules;
 }>;
 
 /**

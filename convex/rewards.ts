@@ -3,23 +3,12 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { addCredit, closeEpochIfDrained } from "./credit";
+import { epochIdAt, epochWindow } from "./xpRules";
 import { sessionWallet } from "./sessions";
 
-// Epochs run Friday 00:00 UTC → Friday 00:00 UTC. Unix time starts on a
-// Thursday, so the first Friday midnight is exactly one day in — that offset is
-// the whole anchor, no magic timestamp needed.
-const WEEK_MS = 604_800_000;
-const FIRST_FRIDAY_MS = 86_400_000;
-
-/** Index of the epoch containing `at` (default: now). */
-export function epochIdAt(at: number = Date.now()): number {
-  return Math.floor((at - FIRST_FRIDAY_MS) / WEEK_MS);
-}
-
-export function epochWindow(epochId: number) {
-  const startsAt = FIRST_FRIDAY_MS + epochId * WEEK_MS;
-  return { startsAt, endsAt: startsAt + WEEK_MS };
-}
+// Epoch timing (Friday 00:00 UTC weeks) lives in xpRules.ts so the screens use
+// the same math. Re-exported for the Convex files that import it from here.
+export { epochIdAt, epochWindow } from "./xpRules";
 
 /**
  * Credit XP to the current epoch's ledger. Called alongside every write to
@@ -420,9 +409,4 @@ export const hasUnfinishedPayouts = internalQuery({
     }
     return false;
   },
-});
-
-export const getPayout = internalQuery({
-  args: { payoutId: v.id("rewardPayouts") },
-  handler: (ctx, { payoutId }) => ctx.db.get(payoutId),
 });

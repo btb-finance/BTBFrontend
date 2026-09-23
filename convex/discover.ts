@@ -39,16 +39,6 @@ export const get = query({
   },
 });
 
-/** Operator view: recent scheduled functions and their state (debugging the
- * DEX coverage steps). */
-export const listScheduled = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.system.query("_scheduled_functions").order("desc").take(20);
-    return rows.map((r) => ({ name: r.name, args: r.args, scheduledTime: new Date(r.scheduledTime).toISOString(), state: r.state, completedTime: r.completedTime ? new Date(r.completedTime).toISOString() : null }));
-  },
-});
-
 export const tokenLogosFor = internalQuery({
   args: { keys: v.array(v.string()) },
   handler: async (ctx, { keys }) => {

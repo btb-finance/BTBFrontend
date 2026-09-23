@@ -77,8 +77,6 @@ export function isNativeCurrency(addr: string): boolean {
   return addr.toLowerCase() === NATIVE_CURRENCY;
 }
 
-export const ZERO_HOOKS = NATIVE_CURRENCY;
-
 /**
  * Block just before the V4 mainnet deployment (late Jan 2025) — lower bound for
  * scanning PositionManager Transfer logs when enumerating a wallet's positions.

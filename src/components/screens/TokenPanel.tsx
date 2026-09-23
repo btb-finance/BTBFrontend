@@ -18,8 +18,9 @@ import { useSidebar } from '../../lib/SidebarContext';
 import { useXpToast } from '../../lib/XpToast';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB, FAST_CHECK_BTB } from '../../lib/alerts';
-import { BtbTopUp } from '../FastAlerts';
+import { BtbTopUp, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -27,12 +28,8 @@ const OPOS_TREASURY_ABI = parseAbi(['function treasury() view returns (address)'
 const shortAddr = `${BTB_ADDRESS.slice(0, 6)}…${BTB_ADDRESS.slice(-4)}`;
 
 const MS_PER_DAY = 86_400_000;
-const WEEK_MS = 7 * MS_PER_DAY;
-/** Mirror of epochWindow in convex/rewards.ts — epochs roll over Friday 00:00 UTC. */
-const FIRST_FRIDAY_MS = MS_PER_DAY;
-function nextSettleAt(at: number) {
-  return FIRST_FRIDAY_MS + (Math.floor((at - FIRST_FRIDAY_MS) / WEEK_MS) + 1) * WEEK_MS;
-}
+/** When the current week settles (Friday 00:00 UTC), from the shared schedule. */
+const nextSettleAt = (at: number) => epochWindow(epochIdAt(at)).endsAt;
 
 /** Parse a wei string without letting one malformed row take down the render. */
 function toWei(raw: string | null | undefined): bigint {
@@ -53,12 +50,6 @@ function formatBtb(raw: string | null | undefined) {
   }
 }
 
-/** Mirror of holdBonusXp in convex/users.ts: 1 XP per 100 BTB held since the last check-in, capped. */
-const BTB_PER_BONUS_XP = 100;
-const HOLD_BONUS_CAP = 10_000;
-const holdBonusFor = (previous: number | undefined, current: number) =>
-  previous == null ? 0 : Math.min(HOLD_BONUS_CAP, Math.floor(Math.min(previous, current) / BTB_PER_BONUS_XP));
-const fmtWhole = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: n < 10 ? 2 : 0 });
 
 function countdown(ms: number) {
   if (ms <= 0) return 'settling now';
@@ -70,10 +61,6 @@ function countdown(ms: number) {
   return `${m}m`;
 }
 
-/** Mirror of dailyXpForStreak in convex/users.ts — keep the two in step. */
-function dailyXpFor(streak: number) {
-  return Math.min(10 + (streak - 1) * 2, 50);
-}
 
 function shortDate(ms: number) {
   return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -89,10 +76,10 @@ function shortDate(ms: number) {
 type EarnAction = 'swap' | 'simulate' | 'nft';
 
 const EARN_ROWS: { icon: string; label: string; detail: string; href: string; action: EarnAction; tint: string }[] = [
-  { icon: 'wallet', label: 'Hold BTB', detail: '+1 XP per 100 BTB at every check-in, up to 10,000 a day', href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
-  { icon: 'swap', label: 'Make a swap', detail: '+100 XP per swap, up to 20 a day', href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
-  { icon: 'chart', label: 'Simulate a pool', detail: '+100 XP a day, +100 per chain researched', href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
-  { icon: 'nft', label: 'Mint a BTB Bear', detail: '+1,000 XP per Bear minted', href: '/nft', action: 'nft', tint: 'var(--btb-amber)' },
+  { icon: 'wallet', label: 'Hold BTB', detail: `+1 XP per ${BTB_PER_BONUS_XP} BTB at every check-in, up to ${HOLD_BONUS_CAP.toLocaleString('en-US')} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
+  { icon: 'swap', label: 'Make a swap', detail: `+${SWAP_XP} XP per swap, up to ${TX_XP_DAILY_CAP} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
+  { icon: 'chart', label: 'Simulate a pool', detail: `+${SIMULATE_XP} XP a day, +${SIMULATE_XP} per chain researched`, href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
+  { icon: 'nft', label: 'Mint a BTB Bear', detail: `+${MINT_XP.toLocaleString('en-US')} XP per Bear minted`, href: '/nft', action: 'nft', tint: 'var(--btb-amber)' },
 ];
 
 /** The three-beat story: use → enter → claim. */
@@ -183,7 +170,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       const r = await addToBalance({ payoutId: payoutId as Id<'rewardPayouts'>, sessionToken });
       if (!r.ok) { if (/Sign in again/.test(r.reason)) session.forget(); setError(r.reason); }
     } catch (e) {
-      setError(/rejected|denied/i.test((e as Error)?.message ?? '') ? 'Signature cancelled.' : readableError(e, 'Could not add to your balance; try again'));
+      setError(readableError(e, 'Could not add to your balance; try again'));
     } finally {
       setBusy(null);
     }
@@ -231,9 +218,9 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   // Holder bonus the next check-in should pay: BTB held at the last check-in
   // and still held now. Only while the streak continues (server rule).
   const lastHeld = (user as { btbAtCheckIn?: number } | null | undefined)?.btbAtCheckIn;
-  const holdBonus = holdBonusFor(lastHeld, walletBtb);
-  const todayXp = dailyXpFor(nextStreak) + (nextStreak % 7 === 0 ? (nextStreak / 7) * 50 : 0) + (continues ? holdBonus : 0);
-  const tomorrowXp = dailyXpFor(streak + 1) + ((streak + 1) % 7 === 0 ? ((streak + 1) / 7) * 50 : 0) + holdBonusFor(walletBtb, walletBtb);
+  const holdBonus = holdBonusXp(lastHeld, walletBtb);
+  const todayXp = dailyXpForStreak(nextStreak) + weekMilestoneXp(nextStreak) + (continues ? holdBonus : 0);
+  const tomorrowXp = dailyXpForStreak(streak + 1) + weekMilestoneXp(streak + 1) + holdBonusXp(walletBtb, walletBtb);
 
   // Last week's payout for this wallet — getStatus already returns it, and the
   // screen used to throw it away. It is the most concrete proof on the page.
@@ -264,7 +251,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     const day = cycleBase + i + 1;
     const state: 'done' | 'today' | 'future' =
       day < cycleDay || (day === cycleDay && checkedIn) ? 'done' : day === cycleDay ? 'today' : 'future';
-    const xp = dailyXpFor(day) + (day % 7 === 0 ? (day / 7) * 50 : 0);
+    const xp = dailyXpForStreak(day) + weekMilestoneXp(day);
     const label = WEEKDAY[new Date(now + (day - cycleDay) * MS_PER_DAY).getDay()];
     return { day, state, xp, bonus: day % 7 === 0, label: state === 'today' ? 'Today' : label };
   });
@@ -275,7 +262,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   // BTB (1,000,000 OPOS per BTB) and splits the treasury's whole BTB balance,
   // so today's estimate is: BTB held + OPOS / 1e6 - shares still owed from
   // last week. The epoch row only gets a pot once it settles.
-  const currentEpochId = Math.floor((now - FIRST_FRIDAY_MS) / WEEK_MS);
+  const currentEpochId = epochIdAt(now);
   const currentEpoch = epochs?.find(e => e.epochId === currentEpochId);
   const { data: treasury } = useReadContract({ address: OPOS_ADDRESS, abi: OPOS_TREASURY_ABI, functionName: 'treasury', chainId: 1 });
   const { data: holdings } = useReadContracts({
@@ -342,7 +329,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <StatTile label="Est. Friday payout" value={estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : '—'} color={estPayout != null ? btb.green : undefined} sub={estPayout != null ? `at last week's pot · in ${countdown(endsIn)}` : status ? `in ${countdown(endsIn)}` : undefined}/>
           <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
           <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
-            <StatTile label="BTB balance" value={`${fmtWhole(credit.total)} BTB`} sub={credit.rewards > 0 ? 'rewards included' : 'for agent and alerts'}/>
+            <StatTile label="BTB balance" value={`${fmtBtb(credit.total)} BTB`} sub={credit.rewards > 0 ? 'rewards included' : 'for agent and alerts'}/>
           </div>
         </div>
       )}
@@ -384,7 +371,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 4 }}>
                 {checkedIn
                   ? <>Come back tomorrow for <b style={{ color: btb.green }}>+{tomorrowXp} XP</b>{walletBtb >= BTB_PER_BONUS_XP ? ', holding bonus included' : ''}</>
-                  : <>Check in today for <b style={{ color: btb.green }}>+{todayXp} XP</b>{nextStreak % 7 === 0 ? ' · bonus day' : ` · day ${cycleBase + 7} pays a +${((cycleBase + 7) / 7) * 50} bonus`}</>}
+                  : <>Check in today for <b style={{ color: btb.green }}>+{todayXp} XP</b>{nextStreak % 7 === 0 ? ' · bonus day' : ` · day ${cycleBase + 7} pays a +${weekMilestoneXp(cycleBase + 7)} bonus`}</>}
               </div>
             </div>
             <svg width="52" height="52" viewBox="0 0 52 52" fill="none" strokeWidth="2" style={{ flexShrink: 0 }}>
@@ -459,18 +446,18 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
             <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(var(--fg-rgb), 0.04)' }}>
               <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>In your wallet</div>
-              <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, marginTop: 3 }}>{fmtWhole(walletBtb)}</div>
+              <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, marginTop: 3 }}>{fmtBtb(walletBtb)}</div>
               <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>BTB on Ethereum</div>
             </div>
             <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)' }}>
               <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>Holding bonus</div>
-              <div style={{ color: btb.green, fontSize: 20, fontWeight: 800, marginTop: 3 }}>+{holdBonusFor(walletBtb, walletBtb).toLocaleString('en-US')} XP</div>
+              <div style={{ color: btb.green, fontSize: 20, fontWeight: 800, marginTop: 3 }}>+{holdBonusXp(walletBtb, walletBtb).toLocaleString('en-US')} XP</div>
               <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>a day at check-in, 1 XP per {BTB_PER_BONUS_XP} BTB held{walletBtb >= BTB_PER_BONUS_XP * HOLD_BONUS_CAP ? ' (max)' : ''}</div>
             </div>
             <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(var(--fg-rgb), 0.04)' }}>
               <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>App balance</div>
-              <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, marginTop: 3 }}>{fmtWhole(credit.total)}</div>
-              <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>{credit.rewards > 0 ? `incl. ${fmtWhole(credit.rewards)} unclaimed rewards` : 'BTB for agent and fast alerts'}</div>
+              <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, marginTop: 3 }}>{fmtBtb(credit.total)}</div>
+              <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>{credit.rewards > 0 ? `incl. ${fmtBtb(credit.rewards)} unclaimed rewards` : 'BTB for agent and fast alerts'}</div>
             </div>
           </div>
           <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55 }}>

@@ -4,14 +4,10 @@ import { useConnection } from 'wagmi';
 import { btb } from './design-tokens';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { useAlerts, ALERT_MIN_BTB, FAST_CHECK_BTB, isWalletBrowser } from '../lib/alerts';
-import { FastAlertsPanel, alertErrText } from './FastAlerts';
+import { useAlerts, ALERT_MIN_BTB, FAST_CHECK_BTB, isWalletBrowser, checkedAgo } from '../lib/alerts';
+import { readableError } from '../lib/errorText';
+import { FastAlertsPanel } from './FastAlerts';
 
-const ago = (t: number | null) => {
-  if (!t) return 'not checked yet';
-  const m = Math.round((Date.now() - t) / 60_000);
-  return m < 1 ? 'checked just now' : m < 60 ? `checked ${m}m ago` : `checked ${Math.round(m / 60)}h ago`;
-};
 
 const section: React.CSSProperties = { color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4, padding: '10px 10px 4px' };
 const smallBtn = (tone: string): React.CSSProperties => ({ height: 26, padding: '0 10px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: tone, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' });
@@ -45,7 +41,7 @@ export function AlertsBell({ compact = false }: { compact?: boolean }) {
     try {
       const problem = await fn();
       setNote(problem ? { text: problem, good: false } : { text: success, good: true });
-    } catch (e) { setNote({ text: alertErrText(e), good: false }); }
+    } catch (e) { setNote({ text: readableError(e, 'Something went wrong; try again'), good: false }); }
     finally { setBusy(null); }
   }
 
@@ -71,7 +67,7 @@ export function AlertsBell({ compact = false }: { compact?: boolean }) {
                 <span style={{ width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: a.lastInRange == null ? btb.textDim : a.lastInRange ? btb.green : btb.amber }}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.label} <span style={{ color: btb.textDim, fontWeight: 600 }}>#{a.tokenId}</span></div>
-                  <div style={{ color: btb.textDim, fontSize: 11 }}>{a.lastInRange == null ? 'Range unknown' : a.lastInRange ? 'In range' : 'Out of range'}, {fastLive ? 'every 5 min' : 'hourly'}, {ago(a.lastCheckedAt)}</div>
+                  <div style={{ color: btb.textDim, fontSize: 11 }}>{a.lastInRange == null ? 'Range unknown' : a.lastInRange ? 'In range' : 'Out of range'}, {fastLive ? 'every 5 min' : 'hourly'}, {checkedAgo(a.lastCheckedAt)}</div>
                 </div>
                 <button type="button" disabled={busy === key} onClick={() => run(key, async () => { await stop(a); return null; }, `Stopped watching ${a.label}.`)} style={smallBtn(btb.textMuted)}>{busy === key ? 'Stopping' : 'Stop'}</button>
               </div>

@@ -626,16 +626,6 @@ export async function probePoolsOnChain(
 }
 
 /**
- * Backwards-compatible wrapper — fee + class only, no range upgrade.
- */
-export async function enrichMarketPoolApr(
-  client: PublicClient,
-  pools: MarketPool[],
-): Promise<MarketPool[]> {
-  return probePoolsOnChain(client, pools);
-}
-
-/**
  * Backwards-compatible wrapper — range upgrade for already-classified pools.
  */
 export async function addMarketRangeAprs(

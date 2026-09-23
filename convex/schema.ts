@@ -138,9 +138,9 @@ export default defineSchema({
   // Two generic stores replace the "one bespoke table per dataset" pattern
   // (discoverPools/marketSnapshots above predate them and are left in place).
 
-  // Cron-driven global snapshots — data identical for every visitor, recomputed
-  // on a schedule and read with one query instead of per-visitor API work.
-  // `key` is the dataset name (e.g. "bear-stats").
+  // No longer read or written (the bear-stats refresher and its reader were
+  // removed). Kept only because the table still holds rows; drop it once they
+  // are cleared in the dashboard.
   snapshots: defineTable({
     key: v.string(),
     json: v.string(),

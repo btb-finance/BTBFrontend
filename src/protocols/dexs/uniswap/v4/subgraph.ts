@@ -12,8 +12,6 @@ import { queryTopPools, IndexedPool } from '../graph';
 export const V4_SUBGRAPH_ID = '8B2wKxnkciCTc5HSgsAojF6vhKn6wxQ1nVecYzMge1hA';
 const SUBGRAPH_ID = V4_SUBGRAPH_ID;
 
-export type V4IndexedPool = IndexedPool;
-
 export function getV4TopPools(limit = 30, minTvlUsd = 100_000): Promise<IndexedPool[]> {
   return queryTopPools(SUBGRAPH_ID, 'v4', limit, minTvlUsd);
 }

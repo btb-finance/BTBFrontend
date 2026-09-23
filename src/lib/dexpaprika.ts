@@ -31,12 +31,6 @@ export interface DexPaprikaStats {
   volume24hUsd: number;
 }
 
-export interface DexPaprikaToken {
-  address: string;
-  symbol: string;
-  decimals: number;
-}
-
 /**
  * One pool from the network wide listing.
  *

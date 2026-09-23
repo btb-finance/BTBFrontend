@@ -1,13 +1,10 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { addEpochPoints } from "./rewards";
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_CHAINS_PER_DAY } from "./xpRules";
 
 const MS_PER_DAY = 86_400_000;
 
-/** Daily XP grows with the streak: day 1 = 10, +2 each day, capped at 50. */
-function dailyXpForStreak(streak: number): number {
-  return Math.min(10 + (streak - 1) * 2, 50);
-}
 
 // ── Profile ────────────────────────────────────────────────────────────────
 
@@ -49,23 +46,6 @@ export const getUser = query({
 // ── Daily check-in ─────────────────────────────────────────────────────────
 
 /**
- * Records a daily check-in. Handles streak logic:
- * - Same day → no-op (returns existing record)
- * - Next day → streak +1
- * - Missed day → streak resets to 1
- */
-/** Holder bonus: 1 XP per this many BTB held, on every check-in. */
-export const BTB_PER_BONUS_XP = 100;
-/** Most bonus XP one check-in can pay, so a single large holder cannot take the whole weekly split. */
-export const HOLD_BONUS_CAP = 10_000;
-
-/** Bonus XP for BTB held since the previous check-in (the lower of then and now). */
-export function holdBonusXp(previousBtb: number | undefined, currentBtb: number | undefined): number {
-  if (previousBtb == null || currentBtb == null) return 0;
-  return Math.min(HOLD_BONUS_CAP, Math.floor(Math.min(previousBtb, currentBtb) / BTB_PER_BONUS_XP));
-}
-
-/**
  * Records a daily check-in. Called by convex/checkInActions.ts, which reads
  * the wallet's BTB balance on-chain first; `btbBalance` is undefined when that
  * read failed (no bonus, and the stored balance is left as it was).
@@ -97,9 +77,8 @@ export const recordCheckIn = internalMutation({
 
     // Escalating daily XP: day 1 = 10, +2 per consecutive day, capped at 50.
     const dailyXp = dailyXpForStreak(newStreak);
-    // Weekly milestone: hitting a 7/14/21… day streak pays a growing bonus
-    // (week 1 = +50, week 2 = +100, …). No separate timer — earned by streak.
-    const weekMilestone = newStreak % 7 === 0 ? (newStreak / 7) * 50 : 0;
+    // Weekly milestone: hitting a 7/14/21… day streak pays a growing bonus.
+    const weekMilestone = weekMilestoneXp(newStreak);
     // Holder bonus only across consecutive days: a gap means the balance in
     // between is unknown, so the count starts again from today.
     const holdBonus = isConsecutive ? holdBonusXp(user.btbAtCheckIn, btbBalance) : 0;
@@ -119,9 +98,6 @@ export const recordCheckIn = internalMutation({
     return { alreadyCheckedIn: false as const, dailyXp, weekMilestone, holdBonus, newStreak, newPoints };
   },
 });
-
-/** Swap and bridge XP a wallet can earn per UTC day; each award needs its own verified transaction. */
-export const TX_XP_DAILY_CAP = 20;
 
 /**
  * Credit XP for one on-chain transaction. Written only by
@@ -154,11 +130,9 @@ export const creditTxXp = internalMutation({
   },
 });
 
-/** Simulate rewards: 100 XP the first time a wallet checks a pool each day,
- * and 100 XP per chain used in cross-chain research, each chain once a day. */
-export const SIMULATE_XP = 100;
-/** Distinct chains a wallet can be paid for researching per day. */
-const SIMULATE_CHAINS_PER_DAY = 8;
+/** Simulate rewards: SIMULATE_XP the first time a wallet checks a pool each
+ * day, and SIMULATE_XP per chain used in cross-chain research, each chain once
+ * a day (at most SIMULATE_CHAINS_PER_DAY chains). */
 
 export const awardSimulateXp = mutation({
   args: {
@@ -201,77 +175,15 @@ export const awardSimulateXp = mutation({
   },
 });
 
-// ── DeFi activity ──────────────────────────────────────────────────────────
-
-/**
- * Append a DeFi activity event (swap, supply, stake, etc.)
- * Also awards points based on action type.
- */
-// Internal: nothing in the app calls it, and as a public mutation it was
-// free, unlimited XP for any address.
-export const recordActivity = internalMutation({
-  args: {
-    walletAddress: v.string(),
-    protocol: v.string(),
-    action: v.string(),
-    tokenIn: v.optional(v.string()),
-    tokenOut: v.optional(v.string()),
-    valueUsd: v.optional(v.float64()),
-    txHash: v.optional(v.string()),
-    timestamp: v.optional(v.float64()),
-  },
-  handler: async (ctx, args) => {
-    const addr = args.walletAddress.toLowerCase();
-
-    await ctx.db.insert("userActivity", {
-      walletAddress: addr,
-      protocol: args.protocol,
-      action: args.action,
-      tokenIn: args.tokenIn,
-      tokenOut: args.tokenOut,
-      valueUsd: args.valueUsd,
-      txHash: args.txHash,
-      timestamp: args.timestamp ?? Date.now(),
-    });
-
-    // Award points per action
-    const pts: Record<string, number> = {
-      swap: 5, supply: 8, borrow: 8, stake: 10, transfer: 2,
-    };
-    const earned = pts[args.action] ?? 3;
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", addr))
-      .unique();
-    if (user) {
-      await ctx.db.patch(user._id, { points: user.points + earned });
-      await addEpochPoints(ctx, addr, earned);
-    }
-  },
-});
-
-export const getActivity = query({
-  args: { walletAddress: v.string(), limit: v.optional(v.float64()) },
-  handler: async (ctx, { walletAddress, limit }) => {
-    const items = await ctx.db
-      .query("userActivity")
-      .withIndex("by_wallet_time", (q) =>
-        q.eq("walletAddress", walletAddress.toLowerCase())
-      )
-      .order("desc")
-      .take(limit ?? 50);
-    return items;
-  },
-});
-
 // ── Token balances snapshot ────────────────────────────────────────────────
 
 /**
  * Saves a fresh token balance snapshot for a user.
  * Overwrites any previous entry for the same wallet+token pair.
  */
-export const saveBalanceSnapshot = mutation({
+// Internal: written by balances.refresh after it reads the chain. Public, it
+// let anyone store a made-up balance for any wallet.
+export const saveBalanceSnapshot = internalMutation({
   args: {
     walletAddress: v.string(),
     balances: v.array(v.object({
