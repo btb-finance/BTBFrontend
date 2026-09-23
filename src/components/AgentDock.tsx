@@ -5,8 +5,8 @@ import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTokenStore } from '../lib/TokenStore';
-import { CONTRACTS } from '../lib/wagmi';
-import { AgentChat, AGENT_REQUIRED_BTB } from './screens/StakeScreen';
+import { AgentChat } from './screens/StakeScreen';
+import { AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from '../lib/alerts';
 
 /**
  * The agent, one tap from anywhere: a message bubble in the corner that
@@ -15,12 +15,8 @@ import { AgentChat, AGENT_REQUIRED_BTB } from './screens/StakeScreen';
  */
 export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; onConnect: () => void; onGetBtb?: () => void }) {
   const { isMobile } = useSidebar();
-  const { tokens, walletAddress } = useTokenStore();
+  const { walletAddress } = useTokenStore();
   const [open, setOpen] = useState(false);
-  const btbToken = tokens.find((t) => t.address.toLowerCase() === CONTRACTS.BTB.toLowerCase());
-  const balance = parseFloat(btbToken?.balance ?? '0');
-  const holder = balance >= AGENT_REQUIRED_BTB;
-  const fmtM = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 })}M` : n.toLocaleString('en-US', { maximumFractionDigits: 0 });
 
   useEffect(() => {
     if (!open) return;
@@ -60,13 +56,13 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>BTB Agent</div>
-                <div style={{ color: btb.textMuted, fontSize: 11 }}>{walletAddress ? (holder ? `${fmtM(balance)} BTB · 50 messages a day` : 'Free · 5 messages a day') : 'Connect a wallet to chat'}</div>
+                <div style={{ color: btb.textMuted, fontSize: 11 }}>{walletAddress ? `${AGENT_FREE_PER_DAY} free messages a day, then ${AGENT_MESSAGE_BTB} BTB each` : 'Connect a wallet to chat'}</div>
               </div>
               <div onClick={() => setOpen(false)} style={{ cursor: 'pointer', padding: 6 }}><Icon name="close" size={16} color={btb.textMuted}/></div>
             </div>
             <div style={{ flex: 1, minHeight: 0, padding: 12, display: 'flex', flexDirection: 'column' }}>
               {walletAddress ? (
-                <AgentChat walletAddress={walletAddress} holder={holder} btbBalance={fmtM(balance)} onGetBtb={onGetBtb} compact/>
+                <AgentChat walletAddress={walletAddress} onGetBtb={onGetBtb} compact/>
               ) : (
                 <div style={{ margin: 'auto', textAlign: 'center', color: btb.textMuted, fontSize: 13, lineHeight: 1.6, padding: 20 }}>
                   The agent reads your holdings and positions, so it needs a wallet.

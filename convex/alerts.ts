@@ -1,5 +1,6 @@
-import { query, mutation, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { addCredit, availableFor, creditRow, spendCredit } from "./credit";
 
 /** Wallets below this BTB balance cannot hold alerts: every check is an RPC read. */
 export const ALERT_MIN_BTB = 10_000;
@@ -77,10 +78,7 @@ export const recordCheck = internalMutation({
     if (!row) return;
     await ctx.db.patch(id, { lastCheckedAt: Date.now(), failures: 0, ...(inRange != null ? { lastInRange: inRange } : {}), ...(deactivate ? { active: false } : {}) });
     // A fast read is paid only once it has succeeded, so a flaky RPC never costs BTB.
-    if (charge && charge > 0) {
-      const credit = await creditRow(ctx, row.address);
-      if (credit) await ctx.db.patch(credit._id, { balance: Math.max(0, credit.balance - charge), updatedAt: Date.now() });
-    }
+    if (charge && charge > 0) await spendCredit(ctx, row.address, charge);
   },
 });
 
@@ -97,34 +95,13 @@ export const recordFailure = internalMutation({
 
 // ── Fast-check balance ──────────────────────────────────────────────────────
 
-async function creditRow(ctx: MutationCtx, address: string) {
-  return ctx.db.query("alertCredits").withIndex("by_address", q => q.eq("address", address.toLowerCase())).unique();
-}
-
-/**
- * Credit a wallet once per `ref`. Returns false when the ref was already used,
- * which is the whole guard against a transaction hash pasted twice: the
- * lookup and the insert run in one Convex transaction.
- */
-export async function addCredit(ctx: MutationCtx, address: string, amount: number, ref: string, source: "tx" | "rewards"): Promise<boolean> {
-  const a = address.toLowerCase();
-  const used = await ctx.db.query("alertDeposits").withIndex("by_ref", q => q.eq("ref", ref)).unique();
-  if (used) return false;
-  const now = Date.now();
-  await ctx.db.insert("alertDeposits", { ref, address: a, amount, source, createdAt: now });
-  const credit = await creditRow(ctx, a);
-  if (credit) await ctx.db.patch(credit._id, { balance: credit.balance + amount, updatedAt: now });
-  else await ctx.db.insert("alertCredits", { address: a, balance: amount, fast: false, updatedAt: now });
-  return true;
-}
-
 export const creditFor = query({
   args: { address: v.string() },
   handler: async (ctx, { address }) => {
     const a = address.toLowerCase();
-    const row = await ctx.db.query("alertCredits").withIndex("by_address", q => q.eq("address", a)).unique();
+    const { balance, rewards, total, fast } = await availableFor(ctx, a);
     const history = await ctx.db.query("alertDeposits").withIndex("by_address", q => q.eq("address", a)).order("desc").take(5);
-    return { balance: row?.balance ?? 0, fast: row?.fast ?? false, history: history.map(h => ({ amount: h.amount, source: h.source, createdAt: h.createdAt })) };
+    return { balance, rewards, total, fast, history: history.map(h => ({ amount: h.amount, source: h.source, createdAt: h.createdAt })) };
   },
 });
 
@@ -152,12 +129,17 @@ export const turnFastOff = mutation({
   },
 });
 
-/** Wallets with fast checks on and something to pay with, keyed by address. */
+/** Wallets with fast checks on and something to pay with (balance plus unclaimed rewards). */
 export const fastWallets = internalQuery({
   args: {},
   handler: async (ctx) => {
     const rows = await ctx.db.query("alertCredits").withIndex("by_fast", q => q.eq("fast", true)).collect();
-    return rows.filter(r => r.balance > 0).map(r => ({ address: r.address, balance: r.balance }));
+    const out: { address: string; balance: number }[] = [];
+    for (const r of rows) {
+      const { total } = await availableFor(ctx, r.address);
+      if (total > 0) out.push({ address: r.address, balance: total });
+    }
+    return out;
   },
 });
 

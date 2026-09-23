@@ -12,18 +12,17 @@ import { Button } from '../Button';
 import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { useTokenStore } from '../../lib/TokenStore';
-import { CONTRACTS } from '../../lib/wagmi';
 import { fetchOwnedNftTokenIds } from '../../lib/blockscout';
 import { api } from '../../../convex/_generated/api';
 import {
   fetchV3Positions, fetchV4Positions, UNISWAP_V3_DEPLOYMENT,
 } from '@/protocols/dexs/uniswap';
 import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
+import { useWalletSession } from '../../lib/session';
+import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from '../../lib/alerts';
+import { BtbTopUp, fmtBtb } from '../FastAlerts';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 
-/** Agent access is gated to committed holders: 10M BTB in the wallet.
- * Mirrored server-side in convex/agentChat.ts — the UI gate is cosmetic. */
-export const AGENT_REQUIRED_BTB = 10_000_000;
 
 const SUGGESTIONS = [
   'Where should I LP based on my holdings?',
@@ -39,17 +38,11 @@ const CAPABILITIES = [
 ];
 
 export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
-  const { tokens, walletAddress } = useTokenStore();
-  const btbToken = tokens.find(t => t.address.toLowerCase() === CONTRACTS.BTB.toLowerCase());
-  const balance = parseFloat(btbToken?.balance ?? '0');
-  const hasAccess = balance >= AGENT_REQUIRED_BTB;
-  const progress = Math.min(balance / AGENT_REQUIRED_BTB, 1);
-  const fmtM = (n: number) => n >= 1e6 ? `${(n / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 })}M` : n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  const { walletAddress } = useTokenStore();
 
   if (walletAddress) {
-    return <AgentChat walletAddress={walletAddress} holder={hasAccess} btbBalance={fmtM(balance)} onGetBtb={onGetBtb}/>;
+    return <AgentChat walletAddress={walletAddress} onGetBtb={onGetBtb}/>;
   }
-  void progress;
 
   return (
     <Screen gap={18} style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -61,7 +54,7 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
         </Badge>
       </div>
 
-      {/* connect prompt: everyone chats free, holders get the full quota */}
+      {/* connect prompt: free messages every day, then 1 BTB each */}
       <Glass padding={18} radius={20}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{
@@ -74,7 +67,7 @@ export function StakeScreen({ onGetBtb }: { onGetBtb?: () => void } = {}) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Connect a wallet to start chatting</div>
             <div style={{ color: btb.textMuted, fontSize: 12.5, marginTop: 2 }}>
-              Everyone gets {5} free messages daily. Hold {fmtM(AGENT_REQUIRED_BTB)} BTB for 50 per day.
+              Everyone gets {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB per message.
             </div>
           </div>
         </div>
@@ -261,13 +254,18 @@ function AgentMessage({ content }: { content: string }) {
 
 type LpSummary = { pair: string; protocol: string; amount0: string; amount1: string; inRange: boolean };
 
-export function AgentChat({ walletAddress, holder, btbBalance, onGetBtb, compact = false }: {
-  walletAddress: string; holder: boolean; btbBalance: string; onGetBtb?: () => void; compact?: boolean;
+export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
+  walletAddress: string; onGetBtb?: () => void; compact?: boolean;
 }) {
   const config = useConfig();
   const { positions } = useTokenStore();
-  const history = useQuery(api.agent.history, { walletAddress });
+  // The chat is private to the wallet: history loads only with a signed
+  // session, and the session is asked for on the first send, not on open.
+  const session = useWalletSession(walletAddress);
+  const history = useQuery(api.agent.history, session.token ? { sessionToken: session.token } : 'skip');
   const sendChat = useAction(api.agentChat.chat);
+  const [showTopUp, setShowTopUp] = useState(false);
+  const credit = useAlertCredit(walletAddress, { withTreasury: showTopUp });
 
   const [lps, setLps] = useState<LpSummary[] | null>(null);
   const [input, setInput] = useState('');
@@ -329,13 +327,17 @@ export function AgentChat({ walletAddress, holder, btbBalance, onGetBtb, compact
         tokens: holdings,
         lps: (lps ?? []).slice(0, 20),
       });
-      await sendChat({ walletAddress, message: msg, extras });
+      const sessionToken = await session.ensure();
+      await sendChat({ sessionToken, message: msg, extras });
     } catch (e) {
       // Convex wraps action errors in "[CONVEX …] [Request ID: …] Server Error
       // Uncaught Error: <message>\n at …" — show only <message>.
       const raw = (e as Error)?.message ?? 'Something went wrong';
       const m = raw.match(/Uncaught Error:\s*([^\n]+)/);
-      setErr((m ? m[1] : raw).trim());
+      const text = /rejected|denied/i.test(raw) ? 'Signature cancelled. The agent needs one signature to keep your chat private.' : (m ? m[1] : raw).trim();
+      if (/Sign in again/.test(text)) session.forget();
+      if (/free messages/.test(text)) setShowTopUp(true);
+      setErr(text);
     } finally {
       setBusy(false);
       setPending(null);
@@ -360,30 +362,31 @@ export function AgentChat({ walletAddress, holder, btbBalance, onGetBtb, compact
           <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>BTB Agent</div>
           <div style={{ color: btb.textMuted, fontSize: 12 }}>Sees your balances, LPs, Earn positions, and live pool data</div>
         </div>
-        {holder ? (
-          <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)" style={{ gap: 6, flexShrink: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--btb-green)', boxShadow: '0 0 8px #52E3A4' }}/>
-            <span style={{ color: 'var(--btb-green)', fontSize: 11, fontWeight: 700 }}>{btbBalance} BTB</span>
-          </Badge>
-        ) : (
-          <Badge color="var(--btb-amber)" bg="rgba(var(--amber-rgb), 0.15)" border="1px solid rgba(var(--amber-rgb), 0.35)" style={{ flexShrink: 0 }}>
-            <span style={{ color: 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>FREE · 5/DAY</span>
-          </Badge>
-        )}
+        <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)" style={{ flexShrink: 0 }}>
+          <span style={{ color: 'var(--btb-green)', fontSize: 11, fontWeight: 700 }}>{fmtBtb(credit.total)} BTB</span>
+        </Badge>
       </div>}
 
-      {/* upsell for free tier */}
-      {!holder && onGetBtb && (
-        <Glass padding={12} radius={16} soft style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Icon name="bolt" size={16} color="var(--btb-amber)"/>
-          <span style={{ flex: 1, color: btb.textMuted, fontSize: 12.5 }}>
-            Hold 10M BTB to unlock 50 messages per day.
+      {/* pricing and balance: free messages first, then 1 BTB each */}
+      <Glass padding={12} radius={16} soft>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ flex: 1, minWidth: 180, color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45 }}>
+            {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each from your BTB balance ({fmtBtb(credit.total)} BTB{credit.rewards > 0 ? ', weekly rewards included' : ''}).
           </span>
-          <Button variant="success" size="sm" onClick={onGetBtb} style={{ height: 34, width: 100, flexShrink: 0 }}>
-            Get BTB
-          </Button>
-        </Glass>
-      )}
+          <button type="button" onClick={() => setShowTopUp((o) => !o)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+            {showTopUp ? 'Close' : 'Top up'}
+          </button>
+        </div>
+        {showTopUp && (
+          <div style={{ marginTop: 10 }}>
+            <BtbTopUp credit={credit}/>
+            {onGetBtb && <button type="button" onClick={onGetBtb} style={{ marginTop: 8, border: 'none', background: 'transparent', padding: 0, color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Need BTB? Swap for some</button>}
+          </div>
+        )}
+        {!session.token && (
+          <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 8 }}>Your wallet asks for one signature on your first message. It keeps your chat private and lasts 30 days on this device. No transaction, no gas.</div>
+        )}
+      </Glass>
 
       {/* thread */}
       <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: compact ? 0 : 380, flex: compact ? 1 : undefined }}>
@@ -458,7 +461,7 @@ export function AgentChat({ walletAddress, holder, btbBalance, onGetBtb, compact
       </Glass>
 
       <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', lineHeight: 1.5 }}>
-        The agent gives information, not financial advice. It never holds your keys and cannot move funds. {holder ? 50 : 5} messages per day.
+        The agent gives information, not financial advice. It never holds your keys and cannot move funds. {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each.
       </div>
     </Screen>
   );

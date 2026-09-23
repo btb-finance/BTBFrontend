@@ -2,7 +2,8 @@ import { internalMutation, internalQuery, mutation, query } from "./_generated/s
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
-import { addCredit } from "./alerts";
+import { addCredit, closeEpochIfDrained } from "./credit";
+import { sessionWallet } from "./sessions";
 
 // Epochs run Friday 00:00 UTC → Friday 00:00 UTC. Unix time starts on a
 // Thursday, so the first Friday midnight is exactly one day in — that offset is
@@ -54,46 +55,6 @@ async function ensureEpoch(ctx: MutationCtx, epochId: number) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-/**
- * Opt into this week's split. One request per wallet per epoch — a second call
- * inside the same Friday→Friday window is a no-op, not an error, so a
- * double-clicked button doesn't look like a failure.
- */
-export const requestPayout = mutation({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }) => {
-    const addr = walletAddress.toLowerCase();
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", addr))
-      .unique();
-    if (!user) throw new Error("User not registered");
-
-    const epochId = epochIdAt();
-    await ensureEpoch(ctx, epochId);
-
-    const existing = await ctx.db
-      .query("rewardRequests")
-      .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", addr))
-      .unique();
-    if (existing) return { alreadyRequested: true, epochId, request: existing };
-
-    const points = await ctx.db
-      .query("epochPoints")
-      .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", addr))
-      .unique();
-    // Requesting with zero points would just add a row that settles to nothing.
-    if (!points || points.points <= 0) throw new Error("No points earned this week yet");
-
-    const id = await ctx.db.insert("rewardRequests", {
-      epochId, walletAddress: addr,
-      pointsAtRequest: points.points,
-      requestedAt: Date.now(),
-    });
-    return { alreadyRequested: false, epochId, request: await ctx.db.get(id) };
-  },
-});
-
 /** Everything the weekly-rewards panel needs for one wallet, in one round trip. */
 export const getStatus = query({
   args: { walletAddress: v.string() },
@@ -116,23 +77,22 @@ export const getStatus = query({
       .query("rewardPayouts").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect())
       .filter((row) => row.state === "claimable");
 
-    const openRequests = await ctx.db
-      .query("rewardRequests").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
-    let totalPoints = 0;
-    for (const row of openRequests) {
-      const p = await ctx.db.query("epochPoints")
-        .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", row.walletAddress)).unique();
-      totalPoints += p?.points ?? 0;
-    }
+    // Everyone with points this week shares Friday's pot, so the live
+    // denominator is every earner, not an opt-in list.
+    const earners = (await ctx.db
+      .query("epochPoints").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect())
+      .filter((row) => row.points > 0);
+    const totalPoints = earners.reduce((sum, row) => sum + row.points, 0);
 
     return {
       epochId, startsAt, endsAt,
       myPoints: points?.points ?? 0,
-      hasRequested: request !== null,
+      // Kept for older clients: every earner is in automatically now.
+      hasRequested: (points?.points ?? 0) > 0,
       requestedAt: request?.requestedAt ?? null,
       // Live denominator so the UI can show a running "your share ≈ x%".
       requestedPointsTotal: totalPoints,
-      requesterCount: openRequests.length,
+      requesterCount: earners.length,
       epochState: epoch?.state ?? "open",
       // Settled shares waiting on a Claim press. Usually one row (last week's),
       // but a user returning after a gap sees every share still inside its window.
@@ -185,21 +145,22 @@ export const claimReward = mutation({
 });
 
 /**
- * Move a settled share into the wallet's alert balance instead of sending it.
- * Called by the signed action only: a forged call could otherwise turn
- * someone's payout into alert credit they never asked for.
+ * Move a settled share into the wallet's BTB balance instead of sending it,
+ * to spend on agent messages and fast alerts. Needs the wallet's signed
+ * session: unlike a claim, this makes the BTB app-only, so nobody else may
+ * choose it for them. The BTB stays in the treasury and the share is done.
  */
-export const moveToAlerts = internalMutation({
-  args: { payoutId: v.id("rewardPayouts"), walletAddress: v.string() },
-  handler: async (ctx, { payoutId, walletAddress }) => {
+export const addToBalance = mutation({
+  args: { payoutId: v.id("rewardPayouts"), sessionToken: v.string() },
+  handler: async (ctx, { payoutId, sessionToken }) => {
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return { ok: false as const, reason: "Sign in again." };
     const payout = await ctx.db.get(payoutId);
-    if (!payout || payout.walletAddress !== walletAddress.toLowerCase()) return { ok: false as const, reason: "That reward is not this wallet's." };
+    if (!payout || payout.walletAddress !== wallet) return { ok: false as const, reason: "That reward is not this wallet's." };
     if (payout.state !== "claimable") return { ok: false as const, reason: "That reward was already claimed or has expired." };
     const amount = Number(BigInt(payout.amountRaw) / 10n ** 12n) / 1e6;
-    if (!(amount > 0)) return { ok: false as const, reason: "That reward is empty." };
     await ctx.db.patch(payoutId, { state: "alerts", updatedAt: Date.now() });
-    await addCredit(ctx, payout.walletAddress, amount, `payout:${payoutId}`, "rewards");
-    // The BTB never leaves the treasury, so the epoch can close like an expired share.
+    await addCredit(ctx, wallet, amount, `payout:${payoutId}`, "rewards");
     await closeEpochIfDrained(ctx, payout.epochId);
     return { ok: true as const, amount };
   },
@@ -284,19 +245,18 @@ export const settleEpoch = internalMutation({
     for (const id of touched) await closeEpochIfDrained(ctx, id);
 
     const pot = BigInt(potRaw);
-    const requests = await ctx.db
-      .query("rewardRequests").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
+    // Every wallet that earned points this week is in; nobody has to opt in.
+    // The filter against spam is on the other end: a share nobody claims or
+    // moves into their BTB balance expires into the next pot.
+    const earners = await ctx.db
+      .query("epochPoints").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
 
-    const weighted: { id: (typeof requests)[number]["_id"]; wallet: string; points: bigint; raw: number }[] = [];
+    const weighted: { wallet: string; points: bigint; raw: number }[] = [];
     let totalPoints = 0n;
-    for (const request of requests) {
-      const row = await ctx.db.query("epochPoints")
-        .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", request.walletAddress))
-        .unique();
-      const raw = row?.points ?? 0;
-      const points = BigInt(Math.max(0, Math.round(raw)));
+    for (const row of earners) {
+      const points = BigInt(Math.max(0, Math.round(row.points)));
       if (points === 0n) continue;
-      weighted.push({ id: request._id, wallet: request.walletAddress, points, raw });
+      weighted.push({ wallet: row.walletAddress, points, raw: row.points });
       totalPoints += points;
     }
 
@@ -314,7 +274,12 @@ export const settleEpoch = internalMutation({
     let queued = 0;
     for (const entry of weighted) {
       const amount = (pot * entry.points) / totalPoints;
-      await ctx.db.patch(entry.id, { pointsAtSettle: entry.raw, awardedRaw: amount.toString() });
+      // One rewardRequests row per paid wallet stays the record of what it got
+      // (Home reads it for "last week you were paid").
+      const existing = await ctx.db.query("rewardRequests")
+        .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", entry.wallet)).unique();
+      if (existing) await ctx.db.patch(existing._id, { pointsAtSettle: entry.raw, awardedRaw: amount.toString() });
+      else await ctx.db.insert("rewardRequests", { epochId, walletAddress: entry.wallet, pointsAtRequest: entry.raw, requestedAt: now, pointsAtSettle: entry.raw, awardedRaw: amount.toString() });
       if (amount === 0n) continue;
       distributed += amount;
       queued += 1;
@@ -422,15 +387,6 @@ export const releasePayout = internalMutation({
   },
 });
 
-async function closeEpochIfDrained(ctx: MutationCtx, epochId: number) {
-  const remaining = await ctx.db
-    .query("rewardPayouts").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
-  const done = new Set(["confirmed", "failed", "expired", "alerts"]);
-  if (remaining.some((row) => !done.has(row.state))) return;
-  const epoch = await ctx.db
-    .query("rewardEpochs").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).unique();
-  if (epoch && epoch.state === "paying") await ctx.db.patch(epoch._id, { state: "paid" });
-}
 
 /**
  * True while any payout is still queued or in flight. Settlement must not run

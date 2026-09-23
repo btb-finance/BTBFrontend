@@ -11,7 +11,7 @@ import { fetchV3Positions, fetchV4Positions } from "../src/protocols/dexs/uniswa
 import { deploymentOfPosition, v4DeploymentOfPosition } from "../src/protocols/lpChains";
 import type { LiquidityPosition } from "../src/protocols/types";
 import { ALERT_MIN_BTB } from "./alerts";
-import { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS, SIGNATURE_MAX_AGE_MS, alertAuthMessage, FAST_ON_ACTION, rewardsToAlertsAction } from "./alertMessages";
+import { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS, SIGNATURE_MAX_AGE_MS, alertAuthMessage, FAST_ON_ACTION } from "./alertMessages";
 
 const BTB = "0x88888888c90CD71B35830daBFD24743DbC135B51" as const;
 const OPOS = "0x88888805E7e3d5c7FB002AD98f08250E79c298dC" as const;
@@ -190,16 +190,6 @@ export const depositFromTx = action({
     const { ok } = await ctx.runMutation(internal.alerts.creditDeposit, { txHash: hash, address: from, amount });
     if (!ok) return { ok: false, reason: "That transaction was already credited." };
     return { ok: true, amount };
-  },
-});
-
-/** Move a claimable weekly reward into the alert balance. Signed by the wallet. */
-export const rewardsToAlerts = action({
-  args: { address: v.string(), payoutId: v.id("rewardPayouts"), issuedAt: v.float64(), signature: v.string() },
-  handler: async (ctx, a): Promise<Result> => {
-    const problem = await checkAuth(a.address, rewardsToAlertsAction(a.payoutId), a.issuedAt, a.signature);
-    if (problem) return { ok: false, reason: problem };
-    return ctx.runMutation(internal.rewards.moveToAlerts, { payoutId: a.payoutId, walletAddress: a.address });
   },
 });
 

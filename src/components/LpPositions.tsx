@@ -246,7 +246,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
   const alerts = useAlerts(connectedAddress);
   const alertCredit = useQuery(api.alerts.creditFor, connectedAddress ? { address: connectedAddress } : 'skip');
-  const fastAlerts = !!alertCredit?.fast && alertCredit.balance >= FAST_CHECK_BTB;
+  const fastAlerts = !!alertCredit?.fast && alertCredit.total >= FAST_CHECK_BTB;
   // Tags: a short label per position, editable inline, stored per wallet.
   const tags = useQuery(api.alerts.tagsForAddress, address ? { address } : 'skip') ?? {};
   const setTagMutation = useMutation(api.alerts.setTag);
@@ -1177,7 +1177,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
           <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>
             {fastAlerts
-              ? `Fast checks on. ${fmtBtb(alertCredit?.balance ?? 0)} BTB left at ${FAST_CHECK_BTB} BTB per check.`
+              ? `Fast checks on. ${fmtBtb(alertCredit?.total ?? 0)} BTB available at ${FAST_CHECK_BTB} BTB per check.`
               : `Get told within 5 minutes instead of an hour, for ${FAST_CHECK_BTB} BTB per check. Pay with BTB or your weekly rewards.`}
           </div>
         </div>

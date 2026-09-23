@@ -3,10 +3,9 @@ import { useEffect, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { useSignMessage } from 'wagmi';
 import { api } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
-import { alertAuthMessage, FAST_ON_ACTION, rewardsToAlertsAction } from '../../convex/alertMessages';
+import { alertAuthMessage, FAST_ON_ACTION } from '../../convex/alertMessages';
 
-export { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS } from '../../convex/alertMessages';
+export { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS, AGENT_MESSAGE_BTB, AGENT_FREE_PER_DAY } from '../../convex/alertMessages';
 import { usePolledQuery } from './polledQuery';
 import type { LiquidityPosition } from '@/protocols/types';
 
@@ -88,13 +87,11 @@ export function useAlerts(address?: string) {
   return { list, has, toggle, stop, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => address && markRead({ address }) };
 }
 
-/** The fast-check balance: what is left, whether fast is on, and the three ways to change it. */
+/** The wallet's BTB balance (fast checks and agent messages draw on it), whether fast checks are on, and how to top it up. */
 export function useAlertCredit(address?: string, { withTreasury = false } = {}) {
   const credit = useQuery(api.alerts.creditFor, address ? { address } : 'skip');
-  const rewards = useQuery(api.rewards.getStatus, address ? { walletAddress: address } : 'skip');
   const deposit = useAction(api.alertsActions.depositFromTx);
   const enable = useAction(api.alertsActions.enableFast);
-  const moveRewards = useAction(api.alertsActions.rewardsToAlerts);
   const readTreasury = useAction(api.alertsActions.depositAddress);
   const turnOff = useMutation(api.alerts.turnFastOff);
   const { signMessageAsync } = useSignMessage();
@@ -118,14 +115,10 @@ export function useAlertCredit(address?: string, { withTreasury = false } = {}) 
     const res = await deposit({ txHash });
     return res.ok ? null : res.reason;
   }
-  async function spendReward(payoutId: string): Promise<string | null> {
-    if (!address) return 'Connect a wallet first';
-    const res = await moveRewards({ address, payoutId: payoutId as Id<'rewardPayouts'>, ...(await signed(rewardsToAlertsAction(payoutId))) });
-    return res.ok ? null : res.reason;
-  }
-
   return {
-    balance: credit?.balance ?? 0, fast: credit?.fast ?? false, history: credit?.history ?? [], loading: credit === undefined,
-    claimable: rewards?.claimable ?? [], treasury, setFast, depositTx, spendReward,
+    // `rewards` is unclaimed weekly BTB, pulled in automatically once `balance` runs out; `total` is both.
+    balance: credit?.balance ?? 0, rewards: credit?.rewards ?? 0, total: credit?.total ?? 0,
+    fast: credit?.fast ?? false, history: credit?.history ?? [], loading: credit === undefined,
+    treasury, setFast, depositTx,
   };
 }

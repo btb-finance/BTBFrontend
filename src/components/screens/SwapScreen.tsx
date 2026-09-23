@@ -541,15 +541,23 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
     const urlTo   = resolve(sp.get('to'));
     if (urlFrom) setFromToken(urlFrom);
     if (urlTo)   setToToken(urlTo);
+    // This runs on the first render, often before the token list (with BTB and
+    // the other app tokens) has loaded. A contract address in the link that is
+    // not in the list yet is read from the chain, never swapped for a default.
+    const pending = (q: string | null) => !!q && isAddress(q);
+    const fromPending = !urlFrom && pending(sp.get('from'));
+    const toPending = !urlTo && pending(sp.get('to'));
+    if (fromPending) importToken(sp.get('from')!).then(setFromToken).catch(() => {});
+    if (toPending) importToken(sp.get('to')!).then(setToToken).catch(() => {});
     if (initialFrom && !urlFrom) {
       const live = chainTokens.find(t => t.address === initialFrom.address && t.chainId === initialFrom.chainId);
       if (live) setFromToken(live);
     } else if (!initialFrom) {
-      if (!urlFrom) {
+      if (!urlFrom && !fromPending) {
         const eth = chainTokens.find(t => t.address === 'ETH');
         if (eth) setFromToken(eth);
       }
-      if (!urlTo) {
+      if (!urlTo && !toPending) {
         const usdc = chainTokens.find(t => t.address !== 'ETH');
         if (usdc) setToToken(usdc);
       }

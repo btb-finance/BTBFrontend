@@ -54,9 +54,28 @@ export const getUser = query({
  * - Next day → streak +1
  * - Missed day → streak resets to 1
  */
-export const checkIn = mutation({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }) => {
+/** Holder bonus: 1 XP per this many BTB held, on every check-in. */
+export const BTB_PER_BONUS_XP = 100;
+/** Most bonus XP one check-in can pay, so a single large holder cannot take the whole weekly split. */
+export const HOLD_BONUS_CAP = 10_000;
+
+/** Bonus XP for BTB held since the previous check-in (the lower of then and now). */
+export function holdBonusXp(previousBtb: number | undefined, currentBtb: number | undefined): number {
+  if (previousBtb == null || currentBtb == null) return 0;
+  return Math.min(HOLD_BONUS_CAP, Math.floor(Math.min(previousBtb, currentBtb) / BTB_PER_BONUS_XP));
+}
+
+/**
+ * Records a daily check-in. Called by convex/checkInActions.ts, which reads
+ * the wallet's BTB balance on-chain first; `btbBalance` is undefined when that
+ * read failed (no bonus, and the stored balance is left as it was).
+ * - Same day → no-op
+ * - Next day → streak +1
+ * - Missed day → streak resets to 1, and the holder bonus waits a day
+ */
+export const recordCheckIn = internalMutation({
+  args: { walletAddress: v.string(), btbBalance: v.optional(v.float64()) },
+  handler: async (ctx, { walletAddress, btbBalance }) => {
     const addr = walletAddress.toLowerCase();
     const user = await ctx.db
       .query("users")
@@ -68,7 +87,7 @@ export const checkIn = mutation({
     const todayStart = now - (now % MS_PER_DAY);
 
     if (user.lastCheckIn && user.lastCheckIn >= todayStart) {
-      return { alreadyCheckedIn: true, user };
+      return { alreadyCheckedIn: true as const, user };
     }
 
     const yesterday = todayStart - MS_PER_DAY;
@@ -81,7 +100,11 @@ export const checkIn = mutation({
     // Weekly milestone: hitting a 7/14/21… day streak pays a growing bonus
     // (week 1 = +50, week 2 = +100, …). No separate timer — earned by streak.
     const weekMilestone = newStreak % 7 === 0 ? (newStreak / 7) * 50 : 0;
-    const newPoints = user.points + dailyXp + weekMilestone;
+    // Holder bonus only across consecutive days: a gap means the balance in
+    // between is unknown, so the count starts again from today.
+    const holdBonus = isConsecutive ? holdBonusXp(user.btbAtCheckIn, btbBalance) : 0;
+    const earned = dailyXp + weekMilestone + holdBonus;
+    const newPoints = user.points + earned;
 
     await ctx.db.patch(user._id, {
       lastCheckIn: now,
@@ -89,10 +112,11 @@ export const checkIn = mutation({
       longestStreak: newLongest,
       totalCheckIns: user.totalCheckIns + 1,
       points: newPoints,
+      ...(btbBalance != null ? { btbAtCheckIn: btbBalance } : {}),
     });
-    await addEpochPoints(ctx, addr, dailyXp + weekMilestone);
+    await addEpochPoints(ctx, addr, earned);
 
-    return { alreadyCheckedIn: false, dailyXp, weekMilestone, newStreak, newPoints };
+    return { alreadyCheckedIn: false as const, dailyXp, weekMilestone, holdBonus, newStreak, newPoints };
   },
 });
 

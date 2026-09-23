@@ -56,6 +56,15 @@ export default defineSchema({
     updatedAt: v.float64(),
   }).index("by_address", ["address"]).index("by_fast", ["fast"]),
 
+  // Wallet sessions: one signature opens one, and the random token then
+  // proves the wallet on every agent call without another signature.
+  sessions: defineTable({
+    token: v.string(),          // 32 random bytes, hex
+    address: v.string(),        // lowercase
+    expiresAt: v.float64(),
+    createdAt: v.float64(),
+  }).index("by_token", ["token"]).index("by_address", ["address"]),
+
   // Every credit ever made. `ref` is the deposit tx hash, or `payout:<id>`
   // for weekly rewards moved in; the unique lookup is what stops a pasted
   // transaction from being credited twice.
@@ -169,6 +178,10 @@ export default defineSchema({
     longestStreak: v.float64(),
     totalCheckIns: v.float64(),
     points: v.float64(),               // XP — convertible to BTB later
+    // BTB held at the last check-in, read on-chain. The holder bonus counts
+    // the lower of this and today's balance, so BTB has to stay put from one
+    // check-in to the next to earn: passing it wallet to wallet pays once.
+    btbAtCheckIn: v.optional(v.float64()),
     portfolioValueUsd: v.optional(v.float64()),
     portfolioUpdatedAt: v.optional(v.float64()),
   }).index("by_wallet", ["walletAddress"]),

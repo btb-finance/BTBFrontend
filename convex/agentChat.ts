@@ -15,6 +15,7 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from "./alertMessages";
 import { unpackSnapshotNode } from "../src/lib/snapshotCodec";
 import { mintTarget, type EarnPool } from "../src/lib/pools";
 import { poolPath } from "../src/lib/routes";
@@ -26,11 +27,9 @@ const GLM_URL = "https://api.z.ai/api/coding/paas/v4/chat/completions";
 // GLM 5.3 Flash: fast, tool calling, thinking can be switched off (verified
 // against the coding endpoint: thinking disabled returns content only).
 const GLM_MODEL = "glm-5.3-flash";
-const BTB_ADDRESS = "0x88888888c90cd71b35830dabfd24743dbc135b51";
-const REQUIRED_BTB = 10_000_000;
 // Everyone gets a free daily allowance; 10M BTB holders get the full quota.
-const FREE_DAILY_LIMIT = 5;
-const HOLDER_DAILY_LIMIT = 50;
+/** Hard stop per wallet per day, paid or not, so a runaway script cannot run up the model bill. */
+const MAX_DAILY_MESSAGES = 200;
 
 type Pool = {
   id: string; chain: string; chainId?: number; pair: string; dex: string; project?: string; version?: string; feeTier?: number;
@@ -250,29 +249,30 @@ type ChatMsg = { role: string; content: string; tool_calls?: unknown; tool_call_
 
 export const chat = action({
   args: {
-    walletAddress: v.string(),
+    /** From sessionActions.startSession: proves the wallet, whose balance pays. */
+    sessionToken: v.string(),
     message: v.string(),
     /** Compact JSON from the client: LP positions. */
     extras: v.optional(v.string()),
   },
-  handler: async (ctx, { walletAddress, message, extras }): Promise<string> => {
+  handler: async (ctx, { sessionToken, message, extras }): Promise<string> => {
     const key = process.env.GLM_API_KEY;
     if (!key) throw new Error("Agent is not configured yet (missing GLM_API_KEY)");
     const trimmed = message.trim().slice(0, 2000);
     if (!trimmed) throw new Error("Empty message");
 
+    const walletAddress = await ctx.runQuery(internal.sessions.walletFor, { token: sessionToken });
+    if (!walletAddress) throw new Error("Sign in again to keep chatting.");
     const data = await ctx.runQuery(internal.agent.contextData, { walletAddress });
 
-    // Tiering is decided server-side from the balance snapshot — the client
-    // is never trusted. Free users get 5 messages a day, holders get 50.
-    const btbRow = data.balances.find((b: { tokenAddress?: string }) => b.tokenAddress?.toLowerCase() === BTB_ADDRESS);
-    const btbBalance = parseFloat(btbRow?.balanceFormatted ?? "0");
-    const isHolder = btbBalance >= REQUIRED_BTB;
-    const limit = isHolder ? HOLDER_DAILY_LIMIT : FREE_DAILY_LIMIT;
-    if (data.userMsgsToday >= limit) {
-      throw new Error(isHolder
-        ? `Daily limit of ${HOLDER_DAILY_LIMIT} messages reached. The agent resets tomorrow.`
-        : `You used your ${FREE_DAILY_LIMIT} free messages for today. Hold 10M BTB to unlock ${HOLDER_DAILY_LIMIT} per day.`);
+    // The first AGENT_FREE_PER_DAY messages a day are free; each one after
+    // costs AGENT_MESSAGE_BTB from the BTB balance (unclaimed weekly rewards
+    // are drawn on automatically). Checked here, charged after the reply, so a
+    // failed answer never costs anything.
+    if (data.userMsgsToday >= MAX_DAILY_MESSAGES) throw new Error(`Daily limit of ${MAX_DAILY_MESSAGES} messages reached. The agent resets tomorrow.`);
+    const paid = data.userMsgsToday >= AGENT_FREE_PER_DAY;
+    if (paid && data.btbAvailable < AGENT_MESSAGE_BTB) {
+      throw new Error(`You used your ${AGENT_FREE_PER_DAY} free messages for today. More cost ${AGENT_MESSAGE_BTB} BTB each: top up your BTB balance or earn weekly rewards.`);
     }
 
     // The Discover snapshot is gzip-packed in Convex; unpack once per request.
@@ -343,6 +343,7 @@ export const chat = action({
     // Belt and braces for the style rules: the model still slips dashes in.
     reply = reply.replace(/\s*[\u2014\u2013]\s*/g, ", ").replace(/, ,/g, ",");
 
+    if (paid) await ctx.runMutation(internal.agent.chargeMessage, { walletAddress, amount: AGENT_MESSAGE_BTB });
     await ctx.runMutation(internal.agent.saveMessage, { walletAddress, role: "user", content: trimmed });
     await ctx.runMutation(internal.agent.saveMessage, { walletAddress, role: "assistant", content: reply });
     return reply;

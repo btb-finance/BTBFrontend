@@ -195,7 +195,7 @@ export const DOCS: DocGroup[] = [
           { type: 'list', items: [
             'It understands token families: ETH covers WETH and staked ETH; stable covers USDC, USDT, USDG, mUSDC, USDe, DAI, USDS, GHO and similar; BTC covers WBTC, cbBTC, tBTC, LBTC, cirBTC.',
             'Every number comes from the same data Discover and Simulate use. It does not invent pools or APRs.',
-            'Five messages a day for everyone; fifty for wallets holding 10,000,000 BTB.',
+            'Five free messages a day for everyone, then 1 BTB per message from your BTB balance. Unclaimed weekly rewards are used automatically when the balance runs out.',
             'It only talks about liquidity providing and the app.',
           ] },
         ],

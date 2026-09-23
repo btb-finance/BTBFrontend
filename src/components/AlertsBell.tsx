@@ -38,7 +38,7 @@ export function AlertsBell({ compact = false }: { compact?: boolean }) {
   if (!address || ((list?.length ?? 0) === 0 && (inbox?.length ?? 0) === 0)) return null;
 
   const watched = list ?? [];
-  const fastLive = !!credit?.fast && credit.balance >= FAST_CHECK_BTB;
+  const fastLive = !!credit?.fast && credit.total >= FAST_CHECK_BTB;
 
   async function run(key: string, fn: () => Promise<string | null>, success: string) {
     setBusy(key); setNote(null);
