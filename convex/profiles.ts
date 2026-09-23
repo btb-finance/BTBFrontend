@@ -42,7 +42,7 @@ export const insertLink = internalMutation({
     if (watchedHere) await ctx.db.delete(watchedHere._id);
     const existing = await ownedLink(ctx, b);
     if (!existing) {
-      await ctx.db.insert("profileLinks", { address: b, profileId, linkedAt: now });
+      await ctx.db.insert("profileLinks", { address: b, profileId, linkedAt: now, ...(watchedHere?.label ? { label: watchedHere.label } : {}) });
       return;
     }
     if (existing.profileId === profileId) return;
@@ -101,5 +101,28 @@ export const removeFromProfile = internalMutation({
   handler: async (ctx, { profileId, address }) => {
     const rows = await ctx.db.query("profileLinks").withIndex("by_address", q => q.eq("address", address.toLowerCase())).collect();
     for (const r of rows) if (r.profileId === profileId) await ctx.db.delete(r._id);
+  },
+});
+
+/**
+ * Profiles that imported `address` as view-only, which it can join. A view-only
+ * import never makes the wallet a member on its own (anyone can import any
+ * address); the wallet itself signing to join is what does.
+ */
+export const invitesFor = query({
+  args: { address: v.string() },
+  handler: async (ctx, { address }) => {
+    const me = address.toLowerCase();
+    const rows = await ctx.db.query("profileLinks").withIndex("by_address", q => q.eq("address", me)).collect();
+    const member = rows.find(r => !r.watched)?.profileId;
+    return rows.filter(r => r.watched && r.profileId !== member).map(r => ({ profileId: r.profileId, label: r.label }));
+  },
+});
+
+export const isWatchedIn = internalQuery({
+  args: { address: v.string(), profileId: v.string() },
+  handler: async (ctx, { address, profileId }) => {
+    const rows = await ctx.db.query("profileLinks").withIndex("by_address", q => q.eq("address", address.toLowerCase())).collect();
+    return rows.some(r => r.watched && r.profileId === profileId.toLowerCase());
   },
 });

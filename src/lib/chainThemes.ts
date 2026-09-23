@@ -72,6 +72,9 @@ export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Reco
       '--amber-rgb': '184, 96, 10',
       '--btb-loss': '#D23A4E',
       '--loss-rgb': '210, 58, 78',
+      // Third-party reward campaigns (Merkl): a deep violet that reads on white.
+      '--btb-reward': '#6B3FD4',
+      '--reward-rgb': '107, 63, 212',
       '--chain-accent': theme.accent,
       '--chain-accent-2': theme.accent2,
       '--chain-accent-soft': `rgba(${accentRgb}, .10)`,
@@ -99,6 +102,8 @@ export function chainThemeCss(theme: ChainTheme, mode: ColorMode = 'dark'): Reco
     '--amber-rgb': '255, 179, 107',
     '--btb-loss': '#FF6B7A',
     '--loss-rgb': '255, 107, 122',
+    '--btb-reward': '#C4B5FD',
+    '--reward-rgb': '196, 181, 253',
     '--chain-accent': theme.accent,
     '--chain-accent-2': theme.accent2,
     '--chain-accent-soft': `rgba(${accentRgb}, .08)`,

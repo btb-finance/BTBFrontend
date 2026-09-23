@@ -15,6 +15,7 @@ import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI, POSITION_MANAGER_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { UNISWAP_V4, NATIVE_CURRENCY } from '@/protocols/dexs/uniswap/v4/addresses';
 import { WETH } from '@/protocols/dexs/uniswap/v3/addresses';
+import { wrappedNativeFor } from '@/protocols/lpChains';
 import { fetchNetworkTopPools, fetchNetworkDexes, type DexPaprikaPoolRow, type DexPaprikaDex } from './dexpaprika';
 import { fetchDexScreenerPool } from './dexscreener';
 import { withSafeMulticall } from './safeMulticall';
@@ -915,10 +916,13 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
  * Pool-token addresses a wallet token can appear as. Native ETH trades as
  * WETH in V3 pools and as currency address(0) in V4 pools.
  */
-export function lpAddressesForToken(address: string): string[] {
+export function lpAddressesForToken(address: string, chainId = 1): string[] {
   const a = address.toLowerCase();
-  if (a === 'eth' || a === NATIVE_CURRENCY || a === WETH.toLowerCase()) {
-    return [WETH.toLowerCase(), NATIVE_CURRENCY];
+  // Native gas token: pools hold its wrapped form, which has a different
+  // address per chain (mainnet WETH is not Base WETH), or currency 0 on V4.
+  const wrapped = wrappedNativeFor(chainId).toLowerCase();
+  if (a === 'eth' || a === NATIVE_CURRENCY || a === wrapped || (chainId === 1 && a === WETH.toLowerCase())) {
+    return [wrapped, NATIVE_CURRENCY];
   }
   return [a];
 }

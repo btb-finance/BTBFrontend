@@ -1,16 +1,15 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useConfig } from 'wagmi';
-import { getPublicClient } from 'wagmi/actions';
+import { useEffect, useMemo, useState } from 'react';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Badge } from './Badge';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import {
-  getEarnPools, addRangeAprs, mintTarget, poolsForToken, lpAddressesForToken,
+  mintTarget, poolsForToken, lpAddressesForToken,
   RANGE_APR_PCT, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool,
 } from '../lib/pools';
+import { useDiscoverPools, prefetchDiscoverPools } from '../lib/discoverPools';
 import type { Token } from '../lib/TokenStore';
 import { CreatePosition } from './CreatePosition';
 import type { LpChainId } from '../protocols/lpChains';
@@ -18,42 +17,30 @@ import type { LpChainId } from '../protocols/lpChains';
 const MAX_SUGGESTIONS = 8;
 
 /**
- * "Add LP" from a Portfolio token: finds the best Uniswap V3/V4 and
- * PancakeSwap V3 pools that contain the token (ranked by ±5% range APR,
- * upgraded live from on-chain liquidity), and one tap opens the add-liquidity
+ * "Add LP" from a Portfolio token: the best pools from the Discover list that
+ * contain the token, ranked by range APR, and one tap opens the add-liquidity
  * sheet for the chosen pool. Native ETH matches both WETH and currency-0 pools.
  */
 export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () => void }) {
   const { width: sidebarWidth } = useSidebar();
-  const config = useConfig();
-  const [pools, setPools] = useState<EarnPool[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [sheet, setSheet] = useState<EarnPool | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    const byApr = (a: EarnPool, b: EarnPool) => (b.aprRange ?? b.apy) - (a.aprRange ?? a.apy);
-    getEarnPools()
-      .then((all) => {
-        if (!live) return;
-        // Rank the FULL candidate set before truncating — slicing first would
-        // drop lower-TVL pools that out-earn the big ones on range APR.
-        // Same chain as the token, and only pools the app can mint on
-        // (Uniswap, PancakeSwap, Aerodrome on Base).
-        const chainId = token.chainId ?? 1;
-        const candidates = poolsForToken(all, lpAddressesForToken(token.address))
-          .filter((p) => mintTarget(p)?.chainId === chainId);
-        setPools([...candidates].sort(byApr).slice(0, MAX_SUGGESTIONS));
-        const client = getPublicClient(config, { chainId: chainId as LpChainId });
-        if (client && candidates.length > 0 && chainId === 1) {
-          addRangeAprs(client, candidates)
-            .then((ep) => { if (live) setPools([...ep].sort(byApr).slice(0, MAX_SUGGESTIONS)); })
-            .catch(() => {});
-        }
-      })
-      .catch((e: Error) => { if (live) setError(e.message); });
-    return () => { live = false; };
-  }, [token.address, config]);
+  // Pools come from the Discover store the app shell already loaded (the
+  // same rows Discover shows, range APRs included); nothing is fetched here
+  // unless the store is empty, and then prefetch fills the shared store.
+  const { pools: discover, loading } = useDiscoverPools();
+  useEffect(() => { prefetchDiscoverPools(); }, []);
+  const pools = useMemo(() => {
+    if (discover.length === 0) return loading ? null : [];
+    // Rank the full candidate set before truncating: slicing first would drop
+    // lower-TVL pools that out-earn the big ones on range APR. Same chain as
+    // the token, and only pools the app can mint on.
+    const chainId = token.chainId ?? 1;
+    return poolsForToken(discover, lpAddressesForToken(token.address, token.chainId ?? 1))
+      .filter((p) => mintTarget(p)?.chainId === chainId)
+      .sort((a, b) => (b.aprRange ?? b.apy) - (a.aprRange ?? a.apy))
+      .slice(0, MAX_SUGGESTIONS);
+  }, [discover, loading, token.address, token.chainId]);
 
   if (sheet) {
     const t = mintTarget(sheet)!;
@@ -81,8 +68,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
           Best pools for your {token.symbol} · pick one to add liquidity
         </div>
 
-        {error && <div style={{ color: btb.loss, fontSize: 13, padding: '8px 0' }}>Couldn&apos;t load pools — {error}</div>}
-        {!pools && !error && <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Finding pools…</div>}
+        {!pools && <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Loading pools…</div>}
         {pools && pools.length === 0 && (
           <div style={{ color: btb.textMuted, fontSize: 13, padding: '8px 0' }}>
             No pool the app can mint on was found for {token.symbol} on this chain yet.

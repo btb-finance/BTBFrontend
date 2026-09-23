@@ -214,9 +214,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [showClosedHistory, setShowClosedHistory] = useState(false);
   // How the open positions are shown. The view choice survives reloads; the
   // filters reset, so nobody comes back to a list that looks half empty.
-  const [view, setViewState] = useState<'cards' | 'list'>('cards');
+  const [view, setViewState] = useState<'cards' | 'list'>('list');
   // Read after mount: the server render has no storage, and a different first paint would not hydrate.
-  useEffect(() => { try { if (localStorage.getItem('btb.lp.view') === 'list') setViewState('list'); } catch { /* private mode */ } }, []);
+  useEffect(() => { try { if (localStorage.getItem('btb.lp.view') === 'cards') setViewState('cards'); } catch { /* private mode */ } }, []);
   const setView = (v: 'cards' | 'list') => { setViewState(v); try { localStorage.setItem('btb.lp.view', v); } catch { /* private mode */ } };
   const [chainFilter, setChainFilter] = useState<number | 'all'>('all');
   const [protoFilter, setProtoFilter] = useState<string>('all');
@@ -1078,66 +1078,94 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   );
 
   /** One line per position; a click opens the full card in place. */
-  const renderPositionRow = (p: LiquidityPosition) => {
+  const LIST_COLS = 'minmax(0, 2.5fr) minmax(120px, 1.3fr) 0.9fr 0.8fr 1fr 18px';
+  const renderPositionRow = (p: LiquidityPosition, index: number) => {
     const key = posKey(p);
-    if (expanded === key) return (
-      <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <button type="button" onClick={() => setExpanded(null)} style={{ alignSelf: 'flex-end', border: 'none', background: 'transparent', color: btb.textMuted, fontSize: 11.5, fontWeight: 750, cursor: 'pointer', fontFamily: 'inherit' }}>Collapse</button>
-        {renderPositionCard(p)}
-      </div>
-    );
+    const open = expanded === key;
     const v = valueOf(p), f = feesValueOf(p), apr = aprOf(p);
+    const a = analyticsOf(p);
     const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
     const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
     const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
     const span = p.tickUpper - p.tickLower;
-    const at = fullRange ? 0.5 : span > 0 ? Math.min(1, Math.max(0, (p.currentTick - p.tickLower) / span)) : 0.5;
+    const at = fullRange ? 0.5 : span > 0 ? (p.currentTick - p.tickLower) / span : 0.5;
+    const side = at < 0 ? 'below' : at > 1 ? 'above' : null;
     const watched = alerts.has(p);
+    const tone = p.inRange ? btb.green : btb.amber;
+    const toneRgb = p.inRange ? 'var(--green-rgb)' : 'var(--amber-rgb)';
     const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: n >= 1000 ? 0 : 2 })}`;
-    const rangeBar = (
-      <div title={fullRange ? 'Full range' : p.inRange ? 'Price inside your range' : 'Price outside your range'} style={{ position: 'relative', width: isMobile ? 44 : 64, height: 6, borderRadius: 999, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.18)', flexShrink: 0 }}>
-        <span style={{ position: 'absolute', top: -2, left: `calc(${at * 100}% - 5px)`, width: 10, height: 10, borderRadius: 999, background: p.inRange ? btb.green : btb.amber, boxShadow: '0 0 0 2px var(--bg, #0A0A0F)' }}/>
+    const chainName = p.chainName ?? LP_CHAIN_NAMES[(p.chainId ?? 1) as LpChainId] ?? 'Ethereum';
+    // The band sits in the middle 60% of the track so an out-of-range price still has room to show which side it left from.
+    const marker = fullRange ? 50 : 20 + Math.min(1.25, Math.max(-0.25, at)) * 60;
+    const rangeBar = (w: number | string) => (
+      <div style={{ position: 'relative', width: w, height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.07)', flexShrink: 0 }}>
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: fullRange ? '4%' : '20%', right: fullRange ? '4%' : '20%', borderRadius: 999, background: `rgba(${toneRgb}, 0.28)` }}/>
+        <div style={{ position: 'absolute', top: -3, left: `calc(${marker}% - 1.5px)`, width: 3, height: 14, borderRadius: 2, background: tone, boxShadow: `0 0 8px rgba(${toneRgb}, 0.7)` }}/>
       </div>
     );
+    const label = (t: string) => <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 700, marginTop: 3 }}>{t}</div>;
     return (
-      <div key={key} role="button" tabIndex={0} onClick={() => setExpanded(key)} onKeyDown={(e) => { if (e.key === 'Enter') setExpanded(key); }}
-        style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : 'minmax(0, 2.2fr) 1fr 0.9fr 0.9fr 0.8fr', alignItems: 'center', gap: isMobile ? 8 : 12, padding: isMobile ? '10px 12px' : '11px 16px', borderRadius: 14, border: btb.borderSoft, background: btb.surfaceSoft, cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <div style={{ display: 'flex', flexShrink: 0 }}>
-            <TokenIcon symbol={p.symbol0} size={24} logoUrl={logo0}/>
-            <div style={{ marginLeft: -8 }}><TokenIcon symbol={p.symbol1} size={24} logoUrl={logo1}/></div>
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.symbol0}/{p.symbol1}</span>
-              <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700 }}>{fmtFeeTier(p.fee)}</span>
-              {tags[tagKeyOf(p)] && <span style={{ color: btb.green, fontSize: 10.5, fontWeight: 700 }}>{tags[tagKeyOf(p)]}</span>}
+      <div key={key} style={{ borderTop: index === 0 ? 'none' : '1px solid rgba(var(--fg-rgb), 0.06)' }}>
+        <div role="button" tabIndex={0} className="lp-row" data-open={open || undefined}
+          onClick={() => setExpanded(open ? null : key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(open ? null : key); } }}
+          style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : LIST_COLS, alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '13px 14px' : '14px 18px', cursor: 'pointer', boxShadow: `inset 3px 0 0 rgba(${toneRgb}, ${p.inRange ? 0.55 : 0.8})` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
+              <TokenIcon symbol={p.symbol0} size={isMobile ? 28 : 32} logoUrl={logo0}/>
+              <div style={{ marginLeft: -10, borderRadius: 999, boxShadow: '0 0 0 2px var(--bg, #0A0A0F)' }}><TokenIcon symbol={p.symbol1} size={isMobile ? 28 : 32} logoUrl={logo1}/></div>
+              <div style={{ position: 'absolute', right: -4, bottom: -3, borderRadius: 999, boxShadow: '0 0 0 2px var(--bg, #0A0A0F)', lineHeight: 0 }}><LpChainLogo chainId={p.chainId ?? 1} chainName={chainName}/></div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, flexWrap: 'wrap' }}>
-              <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
-              <span style={{ color: PROTOCOL_BADGE[p.protocol].color, fontSize: 10, fontWeight: 800 }}>{protocolBadgeLabel(p)}</span>
-              {p.staked && <span style={{ color: btb.amber, fontSize: 10, fontWeight: 800 }}>Staked</span>}
-              {watched && <span style={{ color: fastAlerts ? btb.green : btb.textMuted, fontSize: 10, fontWeight: 800 }}>{fastAlerts ? 'Alert, fast' : 'Alert, hourly'}</span>}
-              {isMobile && <span style={{ marginLeft: 2 }}>{rangeBar}</span>}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                <span style={{ color: btb.text, fontSize: 14.5, fontWeight: 800, letterSpacing: -0.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.symbol0} / {p.symbol1}</span>
+                <span style={{ color: btb.textMuted, fontSize: 10.5, fontWeight: 750, padding: '1px 6px', borderRadius: 6, background: 'rgba(var(--fg-rgb), 0.06)' }}>{fmtFeeTier(p.fee)}</span>
+                {tags[tagKeyOf(p)] && <span style={{ color: btb.green, fontSize: 10.5, fontWeight: 750, padding: '1px 6px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.1)', whiteSpace: 'nowrap' }}>{tags[tagKeyOf(p)]}</span>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap', fontSize: 11, fontWeight: 650 }}>
+                <span style={{ color: btb.textDim }}>{chainName}</span>
+                <span style={{ color: 'rgba(var(--fg-rgb), 0.2)' }}>|</span>
+                <span style={{ color: PROTOCOL_BADGE[p.protocol].color }}>{protocolBadgeLabel(p)}</span>
+                {p.staked && <span style={{ color: btb.amber }}>Staked</span>}
+                {watched && <span title={fastAlerts ? 'Range alert, checked every 5 minutes' : 'Range alert, checked hourly'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: fastAlerts ? btb.green : btb.textMuted }}><span style={{ width: 5, height: 5, borderRadius: 999, background: 'currentColor' }}/>{fastAlerts ? 'Fast alert' : 'Alert'}</span>}
+              </div>
+              {isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>{rangeBar(72)}<span style={{ color: tone, fontSize: 10.5, fontWeight: 750 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, ${side}` : ''}`}</span></div>}
             </div>
           </div>
-        </div>
-        {!isMobile && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {rangeBar}
-            <span style={{ color: p.inRange ? btb.green : btb.amber, fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : 'Out'}</span>
+          {!isMobile && (
+            <div>
+              {rangeBar('100%')}
+              <div style={{ color: tone, fontSize: 11, fontWeight: 750, marginTop: 6 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, price ${side}` : ''}`}</div>
+            </div>
+          )}
+          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.fees0 > 0n || p.fees1 > 0n) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
+          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label('fee APR')}</div>}
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ color: btb.text, fontSize: isMobile ? 14.5 : 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
+            {a && a.totalDepositValue > 0
+              ? <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 10.5, fontWeight: 750, marginTop: 3 }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
+              : isMobile ? <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 10.5, fontWeight: 750, marginTop: 3 }}>{f > 0 ? `${money(f)} fees` : apr > 0 ? `${apr.toFixed(1)}% APR` : 'no fees yet'}</div>
+              : label('value')}
           </div>
-        )}
-        {!isMobile && <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 12.5, fontWeight: 750, textAlign: 'right' }}>{f > 0 ? money(f) : (p.fees0 > 0n || p.fees1 > 0n) ? 'Fees' : 'None'}<div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}>FEES</div></div>}
-        {!isMobile && <div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 12.5, fontWeight: 750, textAlign: 'right' }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}<div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}>FEE APR</div></div>}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{v > 0 ? money(v) : '...'}</div>
-          {isMobile ? <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 10.5, fontWeight: 700, marginTop: 2 }}>{f > 0 ? `${money(f)} fees` : apr > 0 ? `${apr.toFixed(1)}% APR` : p.inRange ? 'In range' : 'Out of range'}</div>
-            : <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700 }}>VALUE</div>}
+          {!isMobile && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: btb.textDim, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><path d="M6 9l6 6 6-6"/></svg>
+          )}
         </div>
+        {open && <div style={{ padding: isMobile ? '0 8px 10px' : '0 12px 12px' }}>{renderPositionCard(p)}</div>}
       </div>
     );
   };
+
+  const positionTable = (
+    <div style={{ borderRadius: 18, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
+      <style>{`.lp-row{transition:background .15s}.lp-row:hover,.lp-row[data-open]{background:rgba(var(--fg-rgb),0.035)}.lp-row:focus-visible{outline:2px solid rgba(var(--green-rgb),0.5);outline-offset:-2px}`}</style>
+      {!isMobile && (
+        <div style={{ display: 'grid', gridTemplateColumns: LIST_COLS, gap: 16, padding: '10px 18px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', color: btb.textDim, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <span>Position</span><span>Range</span><span style={{ textAlign: 'right' }}>Fees</span><span style={{ textAlign: 'right' }}>APR</span><span style={{ textAlign: 'right' }}>Value</span><span/>
+        </div>
+      )}
+      {visiblePositions.map(renderPositionRow)}
+    </div>
+  );
 
   const watchedCount = alerts.list?.length ?? 0;
   const fastStrip = canTransact && connectedAddress && watchedCount > 0 && (
@@ -1168,7 +1196,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           No positions match. <button type="button" onClick={() => { setChainFilter('all'); setProtoFilter('all'); setRangeFilter('all'); }} style={{ border: 'none', background: 'transparent', color: btb.green, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Clear filters</button>
         </div>
       )}
-      {view === 'list' ? visiblePositions.map(renderPositionRow) : visiblePositions.map(renderPositionCard)}
+      {view === 'list' ? (visiblePositions.length > 0 && positionTable) : visiblePositions.map(renderPositionCard)}
     </>
   );
 
