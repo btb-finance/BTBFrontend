@@ -12,19 +12,15 @@ import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/proto
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import { poolIdOf } from '@/protocols/dexs/uniswap';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
-import { fetchInRangeTimeline, type HourBucket } from '../lib/rangeHistory';
 
 /**
  * One position on one strip: the pool's liquidity depth as a faint histogram,
- * your range as a band, the live price as a marker, and under it the last
- * seven days as hourly blocks, green while the range was earning. All read
- * lazily per card and cached per pool.
+ * your range as a band, and the live price as a marker. Depth is read lazily
+ * per card.
  */
 export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const config = useConfig();
   const [depth, setDepth] = useState<TickLiquidityPoint[] | null>(null);
-  const [hours, setHours] = useState<HourBucket[] | null>(null);
-  const [failed, setFailed] = useState(false);
   const chainId = p.chainId ?? 1;
   const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
   const isV4 = p.protocol === 'uniswap-v4';
@@ -41,11 +37,8 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           const key = { currency0: p.token0, currency1: p.token1, fee: p.fee, tickSpacing: spacing, hooks: p.hooks ?? '0x0000000000000000000000000000000000000000' as `0x${string}` };
           const id = poolIdOf(key);
           const liq = await client.readContract({ address: d.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [id] }) as bigint;
-          const [dist, tl] = await Promise.all([
-            fetchV4TickLiquidityDistribution(client, id, p.currentTick, liq, spacing, d.stateView).catch(() => []),
-            fetchInRangeTimeline(client, chainId, { v4PoolId: id, poolManager: d.poolManager }).catch(() => null),
-          ]);
-          if (live) { setDepth(dist); setHours(tl); }
+          const dist = await fetchV4TickLiquidityDistribution(client, id, p.currentTick, liq, spacing, d.stateView).catch(() => []);
+          if (live) setDepth(dist);
           return;
         }
         const d = deploymentOfPosition(p);
@@ -54,12 +47,9 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           : await client.readContract({ address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.fee] }) as `0x${string}`;
         if (!pool || /^0x0{40}$/.test(pool)) throw new Error('no pool');
         const liq = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
-        const [dist, tl] = await Promise.all([
-          fetchTickLiquidityDistribution(client, pool, p.currentTick, liq, spacing).catch(() => []),
-          fetchInRangeTimeline(client, chainId, { address: pool, pancake: p.protocol === 'pancakeswap-v3' }).catch(() => null),
-        ]);
-        if (live) { setDepth(dist); setHours(tl); }
-      } catch { if (live) setFailed(true); }
+        const dist = await fetchTickLiquidityDistribution(client, pool, p.currentTick, liq, spacing).catch(() => []);
+        if (live) setDepth(dist);
+      } catch { /* no depth: the band and price still draw */ }
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -85,10 +75,6 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depth, winLo, winHi]);
 
-  const inRangeHours = hours ? hours.filter((h) => h.tick != null && h.tick >= p.tickLower && h.tick < p.tickUpper).length : 0;
-  const knownHours = hours ? hours.filter((h) => h.tick != null).length : 0;
-  const share = knownHours > 0 ? Math.round((inRangeHours / knownHours) * 100) : null;
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
@@ -109,20 +95,6 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
             <span style={{ position: 'absolute', right: `calc(${100 - bandR}% + 6px)`, bottom: 3, color: btb.textMuted, fontSize: 10.5 }}>{fmtPrice(pHigh)}</span>
           </>
         )}
-      </div>
-      {/* last 7 days, one block per 2 hours */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-        <div style={{ display: 'flex', gap: 1, flex: 1, height: 10 }}>
-          {(hours ?? Array.from({ length: 168 }, () => null as HourBucket | null)).reduce<(HourBucket | null)[][]>((acc, h, i) => { if (i % 2 === 0) acc.push([h]); else acc[acc.length - 1].push(h); return acc; }, []).map((pair, i) => {
-            const known = pair.filter((h): h is HourBucket => !!h && h.tick != null);
-            const inR = known.length > 0 && known.every((h) => (h.tick as number) >= p.tickLower && (h.tick as number) < p.tickUpper);
-            const partly = known.length > 0 && !inR && known.some((h) => (h.tick as number) >= p.tickLower && (h.tick as number) < p.tickUpper);
-            return <span key={i} title={pair[0] ? new Date(pair[0].t * 1000).toLocaleString('en-US', { weekday: 'short', hour: 'numeric' }) : ''} style={{ flex: 1, borderRadius: 2, background: known.length === 0 ? 'rgba(var(--fg-rgb), 0.06)' : inR ? 'rgba(var(--green-rgb), 0.75)' : partly ? 'rgba(var(--green-rgb), 0.35)' : 'rgba(var(--fg-rgb), 0.16)' }} />;
-          })}
-        </div>
-        <span style={{ color: share == null ? btb.textDim : share >= 80 ? btb.green : share >= 40 ? btb.text : btb.amber, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', minWidth: 118, textAlign: 'right' }}>
-          {failed ? 'history unavailable' : hours == null ? 'reading 7 days…' : knownHours === 0 ? 'no swaps this week' : `earning ${share}% of 7d`}
-        </span>
       </div>
     </div>
   );
