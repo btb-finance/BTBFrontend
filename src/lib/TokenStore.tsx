@@ -105,7 +105,8 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
   // Polled, not subscribed: the token list refreshes hourly and prices every
   // five minutes by cron, so polling at that cadence is just as fresh and
   // stops every visitor re-reading both tables on every cron write.
-  const convexTokenList = usePolledQuery(api.tokens.listAll, {}, 60 * 60_000) ?? [];
+  // The list is refreshed weekly server-side; a daily poll is plenty (~440 KB each).
+  const convexTokenList = usePolledQuery(api.tokens.listAll, {}, 24 * 60 * 60_000) ?? [];
   const convexPrices    = usePolledQuery(api.queries.listAllPrices, {}, 5 * 60_000) ?? [];
   // Cached wallet holdings — fetched server-side, read here as the single
   // source of truth for `positions`.

@@ -123,7 +123,7 @@ export default defineSchema({
   // Discover refresh so pool rows on every chain carry both token images.
   tokenLogos: defineTable({
     key: v.string(),            // `${chainId}:${lowercase address}`
-    logoURI: v.string(),
+    logoURI: v.string(),        // "" = looked up, no logo; retried after a week
     updatedAt: v.float64(),
   }).index("by_key", ["key"]),
 

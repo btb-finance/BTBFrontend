@@ -290,7 +290,9 @@ async function fetchTokenLogosNow(network: string, addresses: string[]): Promise
     const retryAfter = Number(res.headers.get('retry-after'));
     await new Promise(r => setTimeout(r, Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 20) * 1000 : 8_000));
   }
-  if (!res || !res.ok) return out;
+  // Throw rather than return an empty map: the caller records "no logo" for
+  // addresses a successful answer left out, and a rate limit must not look like that.
+  if (!res || !res.ok) throw new Error(`GeckoTerminal token lookup failed (${res?.status ?? 'no response'})`);
   const json = await res.json() as { data?: { attributes?: { address?: string; image_url?: string | null } }[] };
   for (const t of json.data ?? []) {
     const a = t.attributes?.address?.toLowerCase();

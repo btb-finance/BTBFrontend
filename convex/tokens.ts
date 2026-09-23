@@ -118,15 +118,24 @@ export const fetchTokenLists = internalAction({
       }
     }
 
-    // Replace the table in pages — a single delete-and-reinsert of >4k rows
-    // blows past Convex's 4096-read-per-transaction limit.
+    // Write only the difference. The old delete-everything-and-reinsert cost
+    // thousands of writes per run and let a client loading mid-run see a half
+    // empty list. If every source failed, `tokens` is just the core list:
+    // keep what is stored rather than deleting thousands of good rows.
+    if (tokens.length <= CORE_TOKENS.length) return;
+    const stored = await ctx.runQuery(internal.tokens.listAllInternal, {});
+    const byAddress = new Map(stored.map((t) => [t.address, t]));
+    const same = (a: (typeof tokens)[number], b: (typeof stored)[number]) =>
+      a.symbol === b.symbol && a.name === b.name && a.decimals === b.decimals && (a.logoURI ?? "") === (b.logoURI ?? "") && a.source === b.source;
+    const upserts = tokens.filter((t) => { const s = byAddress.get(t.address); return !s || !same(t, s); });
+    const fresh = new Set(tokens.map((t) => t.address));
+    const removals = stored.filter((t) => !fresh.has(t.address)).map((t) => t._id);
     const BATCH = 500;
-    while (true) {
-      const removed = await ctx.runMutation(internal.tokens.clearTokensBatch, { limit: BATCH });
-      if (removed < BATCH) break;
+    for (let i = 0; i < upserts.length; i += BATCH) {
+      await ctx.runMutation(internal.tokens.upsertTokensBatch, { tokens: upserts.slice(i, i + BATCH) });
     }
-    for (let i = 0; i < tokens.length; i += BATCH) {
-      await ctx.runMutation(internal.tokens.insertTokensBatch, { tokens: tokens.slice(i, i + BATCH) });
+    for (let i = 0; i < removals.length; i += BATCH) {
+      await ctx.runMutation(internal.tokens.deleteTokensBatch, { ids: removals.slice(i, i + BATCH) });
     }
   },
 });
@@ -155,13 +164,28 @@ const TOKEN_VALIDATOR = v.array(v.object({
   source: v.string(),
 }));
 
-/** Deletes up to `limit` rows; returns count so the caller can loop until 0/short. */
-export const clearTokensBatch = internalMutation({
-  args: { limit: v.float64() },
-  handler: async (ctx, { limit }) => {
-    const batch = await ctx.db.query("tokens").take(limit);
-    for (const t of batch) await ctx.db.delete(t._id);
-    return batch.length;
+/** Every stored token with its id, for the weekly diff. */
+export const listAllInternal = internalQuery({
+  handler: async (ctx) => ctx.db.query("tokens").collect(),
+});
+
+/** Insert new tokens and update changed ones, matched by address. */
+export const upsertTokensBatch = internalMutation({
+  args: { tokens: TOKEN_VALIDATOR },
+  handler: async (ctx, { tokens }) => {
+    for (const t of tokens) {
+      const row = await ctx.db.query("tokens").withIndex("by_address", (q) => q.eq("address", t.address)).first();
+      if (row) await ctx.db.replace(row._id, t);
+      else await ctx.db.insert("tokens", t);
+    }
+  },
+});
+
+/** Remove tokens no source lists any more. */
+export const deleteTokensBatch = internalMutation({
+  args: { ids: v.array(v.id("tokens")) },
+  handler: async (ctx, { ids }) => {
+    for (const id of ids) await ctx.db.delete(id);
   },
 });
 

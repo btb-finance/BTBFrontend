@@ -7,8 +7,9 @@ const crons = cronJobs();
 // which double-bills all the background refreshes. Dev has DISABLE_CRONS=1
 // set (`npx convex env set DISABLE_CRONS 1`); prod leaves it unset.
 if (process.env.DISABLE_CRONS !== "1") {
-  // Refresh token list from DEX lists every hour
-  crons.interval("refresh token list", { hours: 1 }, internal.tokens.fetchTokenLists);
+  // Ethereum token list from the public DEX lists. They change slowly and the
+  // refresh only writes what changed, so once a week is plenty.
+  crons.weekly("refresh token list", { dayOfWeek: "monday", hourUTC: 3, minuteUTC: 0 }, internal.tokens.fetchTokenLists);
 
   // Refresh USD prices every 5 minutes via DexScreener
   crons.interval("refresh token prices", { minutes: 5 }, internal.prices.fetchPrices);
@@ -21,8 +22,12 @@ if (process.env.DISABLE_CRONS !== "1") {
   // prices, quotes, receipts, per-wallet balances — is deliberately not here.
 
   // Precompute the Discover pool list — the frontend reads the snapshot
-  // instead of running the slow multi-API pipeline per visitor
-  crons.interval("refresh discover pools", { minutes: 30 }, internal.discoverRefresh.refresh);
+  // instead of running the slow multi-API pipeline per visitor. One run is a
+  // ~26 minute chain of paid action steps (base pass, one DEX coverage pass per
+  // chain, logos, Merkl) and was most of the action compute bill at every 30
+  // minutes. Pool stats are mostly 24h figures, so every 6 hours is plenty;
+  // balances, positions, prices and quotes never come from this snapshot.
+  crons.interval("refresh discover pools", { hours: 6 }, internal.discoverRefresh.refresh);
 
 
   // Drop expired memo-cache rows (simulator pool/token lookups) so the table
