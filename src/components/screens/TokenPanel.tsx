@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
+import { useReadContract, useReadContracts } from 'wagmi';
+import { erc20Abi, parseAbi } from 'viem';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { Glass } from '../Glass';
@@ -20,6 +22,8 @@ import { BtbTopUp } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
+const OPOS_ADDRESS = CONTRACTS.OPOS;
+const OPOS_TREASURY_ABI = parseAbi(['function treasury() view returns (address)']);
 const shortAddr = `${BTB_ADDRESS.slice(0, 6)}…${BTB_ADDRESS.slice(-4)}`;
 
 const MS_PER_DAY = 86_400_000;
@@ -267,14 +271,39 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   // Ring: progress through the cycle, r=22 → circumference ≈ 138.
   const ringOffset = 138 - (138 * (checkedIn ? cycleDay - cycleBase : cycleDay - cycleBase - 1)) / 7;
 
-  // This week's pot so far comes from the epoch row, not getStatus.
+  // This week's pot, live. Friday's settlement burns the treasury's OPOS into
+  // BTB (1,000,000 OPOS per BTB) and splits the treasury's whole BTB balance,
+  // so today's estimate is: BTB held + OPOS / 1e6 - shares still owed from
+  // last week. The epoch row only gets a pot once it settles.
   const currentEpochId = Math.floor((now - FIRST_FRIDAY_MS) / WEEK_MS);
   const currentEpoch = epochs?.find(e => e.epochId === currentEpochId);
-  const currentPot = toWei(currentEpoch?.btbPotRaw);
-  const estPayout = sharePct != null && currentPot > 0n
-    ? (currentPot * BigInt(Math.round(sharePct * 100))) / 10_000n
+  const { data: treasury } = useReadContract({ address: OPOS_ADDRESS, abi: OPOS_TREASURY_ABI, functionName: 'treasury', chainId: 1 });
+  const { data: holdings } = useReadContracts({
+    contracts: treasury ? [
+      { address: BTB_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [treasury], chainId: 1 },
+      { address: OPOS_ADDRESS, abi: erc20Abi, functionName: 'balanceOf', args: [treasury], chainId: 1 },
+    ] : [],
+    query: { enabled: !!treasury, refetchInterval: 5 * 60_000 },
+  });
+  const owed = useQuery(api.rewards.owedRaw, {});
+  const livePot = holdings && holdings[0]?.status === 'success' && holdings[1]?.status === 'success' && owed != null
+    ? (() => { const p = (holdings[0].result as bigint) + (holdings[1].result as bigint) / 1_000_000n - BigInt(owed); return p > 0n ? p : 0n; })()
+    : null;
+  const currentPot = livePot ?? toWei(currentEpoch?.btbPotRaw);
+  // The estimate uses last week's settled pot, not this week's running one:
+  // early in the week the running pot is small and the estimate would look
+  // like nothing. Falls back to the most recent week that had a pot.
+  const lastPot = (() => {
+    const settled = (epochs ?? []).filter(e => e.epochId < currentEpochId && toWei(e.btbPotRaw) > 0n).sort((a, b) => b.epochId - a.epochId);
+    return settled.length > 0 ? toWei(settled[0].btbPotRaw) : 0n;
+  })();
+  const estPayout = sharePct != null && lastPot > 0n
+    ? (lastPot * BigInt(Math.round(sharePct * 100))) / 10_000n
     : null;
   const claimable = status?.claimable ?? [];
+  // Explainers are for people who have not earned yet; regulars get straight to the numbers.
+  const isNew = !address || ((status?.myPoints ?? 0) === 0 && (payouts?.length ?? 0) === 0 && streak <= 1);
+  const [showHistory, setShowHistory] = useState(false);
 
   const heroStyle = {
     position: 'relative' as const,
@@ -304,6 +333,19 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           </span>
         )}
       </div>
+
+      {/* ── the week at a glance: the numbers people come back for, in one row ── */}
+      {address && (
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(5, minmax(0, 1fr))', gap: 8 }}>
+          <StatTile label="Points this week" value={status ? status.myPoints.toLocaleString('en-US') : '—'} color={status && status.myPoints > 0 ? btb.green : undefined} sub={checkedIn ? 'checked in today' : `+${todayXp} on check-in`}/>
+          <StatTile label="Your share" value={sharePct != null ? `≈ ${sharePct.toFixed(1)}%` : '—'} sub={status ? `${status.requesterCount} wallets earning` : undefined}/>
+          <StatTile label="Est. Friday payout" value={estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : '—'} color={estPayout != null ? btb.green : undefined} sub={estPayout != null ? `at last week's pot · in ${countdown(endsIn)}` : status ? `in ${countdown(endsIn)}` : undefined}/>
+          <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
+          <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
+            <StatTile label="BTB balance" value={`${fmtWhole(credit.total)} BTB`} sub={credit.rewards > 0 ? 'rewards included' : 'for agent and alerts'}/>
+          </div>
+        </div>
+      )}
 
       {/* ── ready to claim — only when there is BTB waiting ── */}
       {claimable.map(row => (
@@ -396,7 +438,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
             <StatTile label="This week's pot" value={epochs ? `${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '—'}/>
-            <StatTile label="Entered" value={epochs ? String(currentEpoch?.requesterCount ?? 0) : '—'} sub="wallets"/>
+            <StatTile label="Paid last week" value={epochs ? String(epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0) : '—'} sub="wallets"/>
             <StatTile label="Settles in" value={countdown(nextSettleAt(now) - now)} sub="Friday 00:00 UTC"/>
           </div>
           <Button size="md" variant="success" icon="wallet" onClick={onConnect}>Connect and check in</Button>
@@ -448,26 +490,13 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               : <span style={{ color: btb.textDim, fontSize: 12 }}>{countdown(endsIn)} left</span>}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 9 }}>
-            <div style={CARD_STYLE}>
-              <div style={LABEL_STYLE}>Your points</div>
-              <div style={{ color: status.myPoints > 0 ? btb.green : btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.4, marginTop: 3 }}>{status.myPoints.toLocaleString('en-US')}</div>
-              <div style={{ color: btb.textDim, fontSize: 10, marginTop: 2 }}>{checkedIn ? `${streak}d streak` : `+${todayXp} when you check in`}</div>
-            </div>
-            <div style={CARD_STYLE}>
-              <div style={LABEL_STYLE}>Your share</div>
-              <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.4, marginTop: 3 }}>{sharePct != null ? `≈ ${sharePct.toFixed(1)}%` : '—'}</div>
-              <div style={{ color: btb.textDim, fontSize: 10, marginTop: 2 }}>of {status.requestedPointsTotal.toLocaleString('en-US')} points · {status.requesterCount} wallets</div>
-            </div>
-          </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(100, sharePct ?? 0)}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${btb.green}, rgba(var(--green-rgb), 0.7))`, transition: 'width .4s' }}/>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, color: btb.textDim, fontSize: 10.5, flexWrap: 'wrap' }}>
-              <span>Pot so far: <b style={{ color: btb.text }}>{formatBtb(currentPot.toString())} BTB</b></span>
-              {estPayout != null && <span>Est. payout ≈ <b style={{ color: btb.green }}>{formatBtb(estPayout.toString())} BTB</b></span>}
+              <span title="Treasury BTB plus its OPOS at 1,000,000 OPOS per BTB (burned to BTB on Friday), less shares still owed">Pot so far: <b style={{ color: btb.text }}>{livePot != null ? '≈ ' : ''}{formatBtb(currentPot.toString()).split('.')[0]} BTB</b></span>
+              {estPayout != null && <span title="Your share applied to last week's pot">Est. payout ≈ <b style={{ color: btb.green }}>{formatBtb(estPayout.toString()).split('.')[0]} BTB</b> at last week's pot</span>}
             </div>
           </div>
 
@@ -480,7 +509,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         </div>
       )}
 
-      {/* ── how it works: three beats ── */}
+      {/* ── how it works: only until the wallet has earned something; after that it is noise ── */}
+      {isNew && (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <SectionHeader title="How it works" right="Every Friday"/>
         {/* Three cards across on desktop; on a phone that is three 100px
@@ -497,10 +527,11 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           ))}
         </div>
       </div>
+      )}
 
-      {/* ── earn more points ── */}
+      {/* ── ways to earn ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <SectionHeader title="Earn more points"/>
+        <SectionHeader title={isNew ? 'Ways to earn' : 'Earn more points'}/>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0,1fr))', gap: 8 }}>
           {EARN_ROWS.map(row => (
             <a
@@ -529,11 +560,22 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         </div>
       </div>
 
-      {/* ── payout history — the proof ── */}
-      {address && payouts != null && payouts.length > 0 && (
+      {/* ── history: proof the pot is real, one tap away instead of two long lists ── */}
+      {((address && (payouts?.length ?? 0) > 0) || visibleEpochs.length > 0) && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <SectionHeader title="Your payouts"/>
-          <Glass padding={8} radius={20}>
+          <button type="button" onClick={() => setShowHistory(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 14px', borderRadius: 16, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.04)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+            <span>
+              <span style={{ display: 'block', color: btb.text, fontSize: 14, fontWeight: 800 }}>History</span>
+              <span style={{ display: 'block', color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>
+                {address && (payouts?.length ?? 0) > 0 ? `${payouts!.length} payout${payouts!.length === 1 ? '' : 's'} to you · ` : ''}{visibleEpochs.length} past week{visibleEpochs.length === 1 ? '' : 's'}
+              </span>
+            </span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: btb.textDim, transform: showHistory ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          {showHistory && address && payouts != null && payouts.length > 0 && (
+            <>
+              <div style={{ ...LABEL_STYLE, padding: '0 4px' }}>Your payouts</div>
+              <Glass padding={8} radius={20}>
             {payouts.map(p => (
               <div key={p._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -557,15 +599,12 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               </div>
             ))}
           </Glass>
-        </div>
-      )}
-
-      {/* ── past weeks — public proof the pot is real. Lazily-created empty
-          epochs are hidden: a week shows once it has a pot or a settle. ── */}
-      {visibleEpochs.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <SectionHeader title="Past weeks"/>
-          <Glass padding={8} radius={20}>
+            </>
+          )}
+          {showHistory && visibleEpochs.length > 0 && (
+            <>
+              <div style={{ ...LABEL_STYLE, padding: '0 4px' }}>Past weeks</div>
+              <Glass padding={8} radius={20}>
             {visibleEpochs.map(e => (
               <div key={e._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 10px' }}>
                 <div>
@@ -580,6 +619,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               </div>
             ))}
           </Glass>
+            </>
+          )}
         </div>
       )}
 
@@ -595,9 +636,6 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           style={{ fontFamily: 'monospace', letterSpacing: 0 }}
         >
           {copied ? 'Copied' : shortAddr}
-        </Button>
-        <Button size="sm" variant="successSoft" fullWidth={!isMobile ? false : true} icon="swap" onClick={onSwap}>
-          Get BTB
         </Button>
         <Button size="sm" variant="successSoft" fullWidth={!isMobile ? false : true} icon="launch" href={`https://etherscan.io/token/${BTB_ADDRESS}`} target="_blank">
           Etherscan

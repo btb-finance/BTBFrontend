@@ -104,6 +104,23 @@ export const getStatus = query({
   },
 });
 
+/**
+ * BTB the treasury already owes: settled shares not yet claimed, and claims
+ * still being sent. Home subtracts it from the treasury balance for a live
+ * "pot so far"; a share that expires unclaimed rejoins the pot on Friday.
+ */
+export const owedRaw = query({
+  args: {},
+  handler: async (ctx) => {
+    let owed = 0n;
+    for (const state of ["claimable", "queued", "sending", "submitted"] as const) {
+      const rows = await ctx.db.query("rewardPayouts").withIndex("by_state_created", (q) => q.eq("state", state)).collect();
+      for (const r of rows) owed += BigInt(r.amountRaw);
+    }
+    return owed.toString();
+  },
+});
+
 /** Settled epochs, newest first — for a public "past weeks" table. */
 export const listEpochs = query({
   args: { limit: v.optional(v.float64()) },
