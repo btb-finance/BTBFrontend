@@ -110,7 +110,7 @@ export async function runCalls(
       const res = await done;
       if (res.status !== 'confirmed') throw new Error(res.error ?? 'Batch failed');
       if (verify) await waitForChainState(verify);
-      return {};
+      return { lastHash: res.hash };
     } catch (err) {
       // Only fall back to sequential when the wallet simply doesn't support
       // wallet_sendCalls. A user rejection or an on-chain revert must surface.

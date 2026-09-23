@@ -3,7 +3,7 @@ import { useXpToast } from '../../lib/XpToast';
 import { useState, useEffect, useRef } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { useMutation } from 'convex/react';
+import { useAction } from 'convex/react';
 import { erc20Abi, encodeFunctionData, formatUnits, isAddress, isHex, parseUnits } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
@@ -468,7 +468,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
     initialQueryRef.current = typeof window === 'undefined' ? '' : window.location.search;
   }
 
-  const awardXp = useMutation(api.users.awardXp);
+  const awardTxXp = useAction(api.xpActions.awardTxXp);
   const showXp = useXpToast();
 
   const isNativeFrom = fromToken.address === 'ETH';
@@ -722,7 +722,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       setStep('success');
       setFromAmt(''); setQuote(null);
       setBalanceRefreshNonce(value => value + 1);
-      if (address) awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'swap' }).then(r => showXp(r.awarded ?? 0, 'Swap')).catch(() => {});
+      // The server reads the transaction and decides the XP; no hash, no award.
+      if (address && lastHash) awardTxXp({ walletAddress: address, chainId, txHash: lastHash, kind: 'swap' }).then(r => showXp(r.awarded, 'Swap')).catch(() => {});
     } catch (e: any) {
       setErrMsg(e?.shortMessage ?? e?.message ?? 'Transaction failed');
       setStep('error');
@@ -893,7 +894,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
   const { track } = useTx();
-  const awardXp = useMutation(api.users.awardXp);
+  const awardTxXp = useAction(api.xpActions.awardTxXp);
   const showXp = useXpToast();
   const availableChains = SUPPORTED_CHAINS.filter(chain => KYBER_CHAINS[chain.id]);
   const firstChain = walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
@@ -1061,7 +1062,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
       const { lastHash } = await runCalls(config, { account: address, calls, label: `Bridge ${fromToken.symbol} to ${toToken.symbol}`, track, chainId: fromChainId });
       if (lastHash) setTxHash(lastHash);
       setStep('success');
-      awardXp({ walletAddress: address, amount: SWAP_XP, reason: 'cross-chain swap' }).then(r => showXp(r.awarded ?? 0, 'Cross-chain swap')).catch(() => {});
+      if (lastHash) awardTxXp({ walletAddress: address, chainId: fromChainId, txHash: lastHash, kind: 'bridge' }).then(r => showXp(r.awarded, 'Cross-chain swap')).catch(() => {});
     } catch (error) {
       const rawMessage = (error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed';
       setErrMsg(rawMessage.toLowerCase().includes('return amount is not enough')

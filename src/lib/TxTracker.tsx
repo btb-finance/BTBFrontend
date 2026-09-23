@@ -18,7 +18,7 @@ const DISMISS_MS = 6_000;    // auto-hide settled pills
 
 export type TxStatus = 'pending' | 'confirmed' | 'failed';
 export type TxRecord = { id: string; label: string; status: TxStatus; hash?: `0x${string}`; chainId?: number; error?: string };
-export type Settled = { status: 'confirmed' | 'failed'; error?: string };
+export type Settled = { status: 'confirmed' | 'failed'; error?: string; hash?: `0x${string}` };
 
 type TrackArgs = {
   label: string;
@@ -66,11 +66,12 @@ export function TxProvider({ children }: { children: ReactNode }) {
     const done: Promise<Settled> = (async () => {
       try {
         let ok = false;
+        let settledHash = hash;
         if (callsId) {
           const res = await waitForCallsStatus(config, { id: callsId, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
           ok = res.status === 'success';
           const last = res.receipts?.[res.receipts.length - 1]?.transactionHash;
-          if (last) patch(id, { hash: last });
+          if (last) { patch(id, { hash: last }); settledHash = last; }
         } else if (hash) {
           const receipt = await waitForTransactionReceipt(config, { hash, chainId: chainId as SupportedChainId | undefined, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
           ok = receipt.status === 'success';
@@ -79,7 +80,7 @@ export function TxProvider({ children }: { children: ReactNode }) {
           patch(id, { status: 'confirmed' });
           onConfirmed?.();
           scheduleDismiss(id);
-          return { status: 'confirmed' as const };
+          return { status: 'confirmed' as const, hash: settledHash };
         }
         patch(id, { status: 'failed', error: 'Reverted on-chain' });
         scheduleDismiss(id);

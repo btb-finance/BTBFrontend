@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { addEpochPoints } from "./rewards";
 
@@ -96,33 +96,45 @@ export const checkIn = mutation({
   },
 });
 
+/** Swap and bridge XP a wallet can earn per UTC day; each award needs its own verified transaction. */
+export const TX_XP_DAILY_CAP = 20;
+
 /**
- * Award XP for completing an in-app action (swap, mint, etc). Lightweight —
- * just bumps the points counter on the user row, no activity table insert.
- * Called from the client after a tx confirms.
+ * Credit XP for one on-chain transaction. Written only by
+ * convex/xpActions.ts after it has read the transaction from the chain; the
+ * client never names an amount. `key` is `tx:<chainId>:<hash>`, so a hash is
+ * paid once, ever.
  */
-export const awardXp = mutation({
-  args: { walletAddress: v.string(), amount: v.float64(), reason: v.optional(v.string()) },
-  handler: async (ctx, { walletAddress, amount }) => {
+export const creditTxXp = internalMutation({
+  args: { walletAddress: v.string(), key: v.string(), xp: v.float64(), capped: v.boolean() },
+  handler: async (ctx, { walletAddress, key, xp, capped }) => {
     const addr = walletAddress.toLowerCase();
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", addr))
-      .unique();
-    // Clamp so a bad client can't send absurd values. The largest legitimate
-    // single award is a full 200-NFT mint at 1000 XP each = 200,000, so cap
-    // there (was 5000, which silently truncated any mint of 6+ Bears).
-    const safe = Math.max(0, Math.min(amount, 200_000));
-    if (!user) return { ok: false };
-    await ctx.db.patch(user._id, { points: user.points + safe });
-    await addEpochPoints(ctx, addr, safe);
-    return { ok: true, awarded: safe, newPoints: user.points + safe };
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).unique();
+    if (!user) return { ok: false as const, reason: "not registered", awarded: 0 };
+    const used = await ctx.db.query("dailyAwards")
+      .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", 0).eq("key", key)).unique();
+    if (used) return { ok: false as const, reason: "already awarded", awarded: 0 };
+    const now = Date.now();
+    const day = now - (now % MS_PER_DAY);
+    if (capped) {
+      const today = await ctx.db.query("dailyAwards")
+        .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day)).collect();
+      if (today.filter((r) => r.key.startsWith("swap:")).length >= TX_XP_DAILY_CAP) return { ok: false as const, reason: "daily limit", awarded: 0 };
+    }
+    // day 0 row: the permanent once-per-hash guard. Today's row: the swap count.
+    await ctx.db.insert("dailyAwards", { walletAddress: addr, day: 0, key, xp, createdAt: now });
+    if (capped) await ctx.db.insert("dailyAwards", { walletAddress: addr, day, key: `swap:${key}`, xp, createdAt: now });
+    await ctx.db.patch(user._id, { points: user.points + xp });
+    await addEpochPoints(ctx, addr, xp);
+    return { ok: true as const, awarded: xp };
   },
 });
 
 /** Simulate rewards: 100 XP the first time a wallet checks a pool each day,
  * and 100 XP per chain used in cross-chain research, each chain once a day. */
 export const SIMULATE_XP = 100;
+/** Distinct chains a wallet can be paid for researching per day. */
+const SIMULATE_CHAINS_PER_DAY = 8;
 
 export const awardSimulateXp = mutation({
   args: {
@@ -132,7 +144,7 @@ export const awardSimulateXp = mutation({
   },
   handler: async (ctx, { walletAddress, kind, chainId }) => {
     const addr = walletAddress.toLowerCase();
-    if (kind === "chain" && !Number.isInteger(chainId)) return { ok: false, awarded: 0 };
+    if (kind === "chain" && !(Number.isInteger(chainId) && chainId! > 0 && chainId! < 10_000_000)) return { ok: false, awarded: 0 };
     const key = kind === "pool" ? "simulate:pool" : `simulate:chain:${chainId}`;
     const now = Date.now();
     const day = now - (now % MS_PER_DAY);
@@ -148,6 +160,15 @@ export const awardSimulateXp = mutation({
       .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day).eq("key", key))
       .unique();
     if (already) return { ok: true, awarded: 0 };
+    // Each chain id pays once a day, but any integer is a "chain" to the
+    // server, so cap how many a wallet can collect per day.
+    if (kind === "chain") {
+      const today = await ctx.db
+        .query("dailyAwards")
+        .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day))
+        .collect();
+      if (today.filter((r) => r.key.startsWith("simulate:chain:")).length >= SIMULATE_CHAINS_PER_DAY) return { ok: true, awarded: 0 };
+    }
 
     await ctx.db.insert("dailyAwards", { walletAddress: addr, day, key, xp: SIMULATE_XP, createdAt: now });
     await ctx.db.patch(user._id, { points: user.points + SIMULATE_XP });
@@ -162,7 +183,9 @@ export const awardSimulateXp = mutation({
  * Append a DeFi activity event (swap, supply, stake, etc.)
  * Also awards points based on action type.
  */
-export const recordActivity = mutation({
+// Internal: nothing in the app calls it, and as a public mutation it was
+// free, unlimited XP for any address.
+export const recordActivity = internalMutation({
   args: {
     walletAddress: v.string(),
     protocol: v.string(),

@@ -66,10 +66,12 @@ export interface MerklClaim {
   usd?: number;
 }
 
-/** Everything a wallet can claim on one chain, with proofs. Client-safe. */
+/** Everything a wallet can claim on one chain, with proofs. Works in the browser and on the server. */
 export async function fetchMerklClaims(address: string, chainId: number): Promise<MerklClaim[]> {
   if (!MERKL_CHAINS.has(chainId)) return [];
-  const res = await fetch(`${API}/users/${address}/rewards?chainId=${chainId}`, { signal: AbortSignal.timeout(15_000) });
+  // Through our proxy in the browser (Merkl's CORS skips some origins), direct on the server.
+  const url = typeof window === 'undefined' ? `${API}/users/${address}/rewards?chainId=${chainId}` : `/api/merkl/rewards?address=${address}&chainId=${chainId}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) return [];
   const chains = await res.json() as { chain: { id: number }; rewards: { token: { address: string; symbol: string; decimals: number; price?: number }; amount: string; claimed: string; pending: string; proofs: string[] }[] }[];
   const out: MerklClaim[] = [];

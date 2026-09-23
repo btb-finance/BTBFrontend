@@ -2,7 +2,7 @@
 import { useXpToast } from '../../lib/XpToast';
 import { useState } from 'react';
 import { useConnection, useReadContracts, useWriteContract, useConfig } from 'wagmi';
-import { useMutation } from 'convex/react';
+import { useAction } from 'convex/react';
 import { parseEther, formatUnits, encodeFunctionData } from 'viem';
 import { useTx } from '@/lib/TxTracker';
 import { runCalls, type Call } from '@/lib/txRunner';
@@ -94,7 +94,7 @@ function MintTab({ address }: { address?: string }) {
   const qty         = Math.min(maxQty, Math.max(1, parseInt(qtyStr || '1', 10) || 1));
   const setQty      = (n: number) => setQtyStr(String(Math.min(maxQty, Math.max(1, n))));
 
-  const awardXp = useMutation(api.users.awardXp);
+  const awardTxXp = useAction(api.xpActions.awardTxXp);
   const showXp = useXpToast();
   const { writeContractAsync } = useWriteContract();
   const { track } = useTx();
@@ -119,7 +119,8 @@ function MintTab({ address }: { address?: string }) {
         hash,
         label: `Mint ${n} BTB Bear NFT${n > 1 ? 's' : ''}`,
         onConfirmed: () => {
-          if (address) awardXp({ walletAddress: address, amount: MINT_XP * n, reason: 'mint' }).then(r => showXp(r.awarded ?? 0, `Minted ${n} Bear${n === 1 ? '' : 's'}`)).catch(() => {});
+          // XP is counted server-side from the Bears this transaction minted to the wallet.
+          if (address) awardTxXp({ walletAddress: address, chainId: 1, txHash: hash, kind: 'mint' }).then(r => showXp(r.awarded, `Minted ${n} Bear${n === 1 ? '' : 's'}`)).catch(() => {});
           setMintedQty(n);
           refetch();
         },

@@ -13,10 +13,19 @@ export async function GET(req: NextRequest) {
   let url: URL;
   try { url = new URL(src); } catch { return new Response('bad src', { status: 400 }); }
   if (url.protocol !== 'https:') return new Response('https only', { status: 400 });
+  // Public hostnames only. An IP literal or an internal name would let a
+  // caller point this server at its own network.
+  const host = url.hostname.toLowerCase();
+  if (/^[\d.]+$/.test(host) || host.includes(':') || host.startsWith('[') || host === 'localhost' || /\.(local|internal|localhost|home|lan|corp)$/.test(host) || !host.includes('.')) {
+    return new Response('bad host', { status: 400 });
+  }
+  if (url.username || url.password || (url.port && url.port !== '443')) return new Response('bad src', { status: 400 });
   try {
-    const upstream = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { accept: 'image/*' } });
+    // redirect: 'error' so a public host cannot bounce the fetch somewhere private.
+    const upstream = await fetch(url, { signal: AbortSignal.timeout(8000), headers: { accept: 'image/*' }, redirect: 'error' });
     const type = upstream.headers.get('content-type') ?? '';
     if (!upstream.ok || !type.startsWith('image/')) return new Response('not an image', { status: 415 });
+    if (Number(upstream.headers.get('content-length') ?? 0) > MAX_BYTES) return new Response('too large', { status: 413 });
     const buf = await upstream.arrayBuffer();
     if (buf.byteLength > MAX_BYTES) return new Response('too large', { status: 413 });
     return new Response(buf, {

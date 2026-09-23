@@ -33,6 +33,7 @@ import type * as rpcEndpoints from "../rpcEndpoints.js";
 import type * as snapshots from "../snapshots.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
+import type * as xpActions from "../xpActions.js";
 
 import type {
   ApiFromModules,
@@ -66,6 +67,7 @@ declare const fullApi: ApiFromModules<{
   snapshots: typeof snapshots;
   tokens: typeof tokens;
   users: typeof users;
+  xpActions: typeof xpActions;
 }>;
 
 /**
