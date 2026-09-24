@@ -178,7 +178,12 @@ export function encodeLpConfig(chainId: number): `0x${string}` {
 
 /** The agent stays allowed for a year; renewing is one owner transaction. */
 export const AGENT_TERM_SECONDS = 365 * 24 * 60 * 60;
-export const MAX_ACTIONS_PER_DAY = 48;
+/**
+ * Agent actions a new wallet allows per UTC day. Every wallet call counts, and a staked rebalance is three
+ * (unstake, rebalance, restake), so 150 covers 50 staked rebalances a day while still capping how often a stolen
+ * agent key could trade. The owner can change it (up to 200) at any time.
+ */
+export const MAX_ACTIONS_PER_DAY = 150;
 
 /**
  * The swap adapter's rules: used only to sell staking rewards into the
@@ -256,6 +261,10 @@ export const WALLET_ABI = parseAbi([
   'function setPaused(bool paused)',
   'function upgradeToAndCall(address newImplementation, bytes data) payable',
   'function VERSION() view returns (uint256)',
+  'function actionsToday() view returns (uint16)',
+  'function actionDay() view returns (uint64)',
+  'function maxActionsPerDay() view returns (uint16)',
+  'function setMaxActionsPerDay(uint16 max)',
   'function setAdapter(address adapter, bool enabled, bytes config)',
   'function withdrawNft(address collection, uint256 tokenId)',
   'function withdrawAll(address[] tokens)',

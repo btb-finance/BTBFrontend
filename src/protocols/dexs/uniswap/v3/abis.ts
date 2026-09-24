@@ -88,6 +88,7 @@ export const NPM_ABI = [
   { name: 'multicall', type: 'function', stateMutability: 'payable', inputs: [{ name: 'data', type: 'bytes[]' }], outputs: [{ name: 'results', type: 'bytes[]' }] },
   { name: 'refundETH', type: 'function', stateMutability: 'payable', inputs: [], outputs: [] },
   { name: 'unwrapWETH9', type: 'function', stateMutability: 'payable', inputs: [{ name: 'amountMinimum', type: 'uint256' }, { name: 'recipient', type: 'address' }], outputs: [] },
+  { name: 'sweepToken', type: 'function', stateMutability: 'payable', inputs: [{ name: 'token', type: 'address' }, { name: 'amountMinimum', type: 'uint256' }, { name: 'recipient', type: 'address' }], outputs: [] },
 ] as const;
 
 /** Slipstream NonfungiblePositionManager: positions() carries tickSpacing in

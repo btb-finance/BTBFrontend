@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { useMutation, useQuery } from 'convex/react';
-import type { PublicClient } from 'viem';
+import { encodeFunctionData, parseAbi, type PublicClient } from 'viem';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { btb } from './design-tokens';
@@ -13,7 +13,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useWalletSession } from '../lib/session';
 import { readableError } from '../lib/errorText';
-import { AUTO_CHAIN_NAMES, LATEST_WALLET_VERSION, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
+import { AUTO_CHAIN_NAMES, LATEST_WALLET_VERSION, MAX_ACTIONS_PER_DAY, WALLET_ABI, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
 import type { LiquidityPosition } from '@/protocols/types';
 
 type Job = NonNullable<ReturnType<typeof useAutoJobs>>['jobs'][number];
@@ -38,6 +38,8 @@ function inTime(ms: number | null): string {
   if (s < 3600) return `in ${Math.ceil(s / 60)} min`;
   return `in ${Math.round(s / 3600)} h`;
 }
+
+const OWNER_OF_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
 
 /** One plain sentence and a colour for where the job stands. */
 function statusOf(j: Job): { text: string; tone: string } {
@@ -140,7 +142,7 @@ function WalletUpdates({ address, jobs }: { address: string; jobs: Job[] }) {
 export type AutoJob = Job;
 
 /** The auto box inside an auto-rebalanced position's card: where it stands, what it cost, and the owner's controls. */
-export function AutoJobControls({ job, pos, address, canTransact, onChanged }: { job: Job; pos?: LiquidityPosition; address: string; canTransact: boolean; onChanged?: () => void | Promise<void> }) {
+export function AutoJobControls({ job, pos, address, canTransact, onChanged, onAdd }: { job: Job; pos?: LiquidityPosition; address: string; canTransact: boolean; onChanged?: () => void | Promise<void>; onAdd?: () => void }) {
   const config = useConfig();
   const { track } = useTx();
   const session = useWalletSession(address);
@@ -175,6 +177,32 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30_000); return () => clearInterval(t); }, []);
 
+  // The wallet's cap on agent actions per UTC day, shown once it is getting close.
+  const [limit, setLimit] = useState<{ used: number; max: number } | null>(null);
+  const [limitNonce, setLimitNonce] = useState(0);
+  useEffect(() => {
+    const client = getPublicClient(config, { chainId: job.chainId as never }) as PublicClient | undefined;
+    if (!client) return;
+    const w = job.wallet as `0x${string}`;
+    Promise.all([
+      client.readContract({ address: w, abi: WALLET_ABI, functionName: 'actionsToday' }),
+      client.readContract({ address: w, abi: WALLET_ABI, functionName: 'actionDay' }),
+      client.readContract({ address: w, abi: WALLET_ABI, functionName: 'maxActionsPerDay' }),
+    ]).then(([used, day, max]) => setLimit({ used: Number(day) === Math.floor(Date.now() / 86_400_000) ? Number(used) : 0, max: Number(max) }))
+      .catch(() => {});
+  }, [config, job.chainId, job.wallet, job.lastCheckedAt, limitNonce]);
+
+  async function raiseLimit() {
+    setErr(null); setBusy('Raising the limit');
+    try {
+      await onChain(`Raise daily agent limit to ${MAX_ACTIONS_PER_DAY}`, async () => [{
+        to: job.wallet as `0x${string}`, data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setMaxActionsPerDay', args: [MAX_ACTIONS_PER_DAY] }),
+      }]);
+      setLimitNonce((n) => n + 1);
+    } catch (e) { setErr(readableError(e, 'The limit was not changed.')); }
+    finally { setBusy(null); }
+  }
+
   async function withSession<T extends { ok: boolean; reason?: string }>(label: string, fn: (token: string) => Promise<T>) {
     setErr(null); setBusy(label);
     try {
@@ -195,11 +223,24 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
 
   async function takeOut() {
     setErr(null); setBusy('Withdrawing');
+    let failure: unknown = null;
     try {
       await onChain(`Withdraw ${job.label} from auto wallet`, (c) => buildTakeOutCalls(c, job, address as `0x${string}`));
-      setBusy(null);
-      await withSession('Stopping', (t) => stop({ sessionToken: t, id }));
-      await onChanged?.();
+    } catch (e) { failure = e; }
+    // Stop as soon as the position is back with the owner, even when a later step (the leftover tokens) was
+    // rejected or failed: otherwise the app keeps showing a position that is no longer in the auto wallet.
+    const client = getPublicClient(config, { chainId: job.chainId as never }) as PublicClient | undefined;
+    const holder = await client?.readContract({ address: job.positionManager as `0x${string}`, abi: OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(job.tokenId)] }).catch(() => null);
+    const out = !failure || holder?.toLowerCase() === address.toLowerCase();
+    try {
+      if (out) {
+        setBusy(null);
+        await withSession('Stopping', (t) => stop({ sessionToken: t, id }));
+        await onChanged?.();
+      }
+      if (failure) setErr(out
+        ? 'The position is back in your wallet. The leftover tokens were not sent; they stay in your auto wallet until you withdraw them.'
+        : readableError(failure, 'Could not take the position out.'));
     } catch (e) { setErr(readableError(e, 'Could not take the position out.')); }
     finally { setBusy(null); }
   }
@@ -252,6 +293,11 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
         </div>
       </div>
       <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 6 }}>
+        {limit && limit.used >= limit.max * 0.75 && (
+          <span style={{ color: limit.used >= limit.max ? btb.amber : btb.textDim }}>
+            Agent actions today: {limit.used} of {limit.max} (a staked rebalance uses 3; resets at midnight UTC).{' '}
+          </span>
+        )}
         {job.rebalances} rebalance{job.rebalances === 1 ? '' : 's'}{job.lastRebalancedAt ? ` (last ${ago(job.lastRebalancedAt)})` : ''}{job.compounds > 0 ? `, ${job.compounds} compound${job.compounds === 1 ? '' : 's'}` : ''}, {fmtBtb(job.spentBtb)} BTB used so far, {fmtBtb(job.rebalanceBtb)} BTB per rebalance or compound on {AUTO_CHAIN_NAMES[job.chainId]}
       </div>
       <div style={{ color: job.compound && !isStaked ? btb.green : btb.textDim, fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
@@ -281,6 +327,8 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
         {pos?.staked && pos.staked.earned > 0n && chip(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
         {(pos?.staked || (job.gauge && !pos?.stakeable)) && chip('Unstake', () => gauge('unstake'), btb.amber)}
         {(!isStaked || rewardsOk) && chip(`Auto-compound${isStaked ? ` ${rewardSym}` : ''}: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
+        {limit && limit.max < MAX_ACTIONS_PER_DAY && limit.used >= limit.max * 0.75 && chip(`Raise daily limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
+        {onAdd && pos && chip('Increase liquidity', onAdd, btb.green)}
         {chip('Withdraw leftover tokens', sweep)}
         {chip('Withdraw LP and stop auto', takeOut, btb.loss)}
         {busy && <span style={{ color: btb.textMuted, fontSize: 11.5, alignSelf: 'center' }}>{busy}</span>}

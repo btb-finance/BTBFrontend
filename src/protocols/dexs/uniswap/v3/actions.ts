@@ -4,6 +4,9 @@ import { MAX_UINT128, UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './address
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
 import { deadline, minOut } from '../shared';
+import { addMinimums, removeMinimums } from './math';
+
+const mins = ([amount0Min, amount1Min]: [bigint, bigint]) => ({ amount0Min, amount1Min });
 
 /**
  * If a deposit is paid in native ETH (one side is WETH), wrap the action in
@@ -30,15 +33,36 @@ function withEth(
  * Collect (claim) all fees owed on a V3 position to the owner.
  * Safe: only transfers fees already owed — can't touch principal.
  */
-export function buildCollect(tokenId: bigint, recipient: `0x${string}`, d: V3Deployment = UNISWAP_V3_DEPLOYMENT): Call[] {
-  return [{
-    to: d.positionManager,
-    data: encodeFunctionData({
-      abi: NPM_ABI,
-      functionName: 'collect',
-      args: [{ tokenId, recipient, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }],
-    }),
-  }];
+export function buildCollect(tokenId: bigint, recipient: `0x${string}`, d: V3Deployment = UNISWAP_V3_DEPLOYMENT, eth?: NativeOut): Call[] {
+  const collectData = encodeFunctionData({
+    abi: NPM_ABI,
+    functionName: 'collect',
+    args: [{ tokenId, recipient: eth ? d.positionManager : recipient, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }],
+  });
+  if (!eth) return [{ to: d.positionManager, data: collectData }];
+  return [{ to: d.positionManager, data: encodeFunctionData({ abi: NPM_ABI, functionName: 'multicall', args: [[collectData, ...nativeOutData(eth, recipient)]] }) }];
+}
+
+/**
+ * Paid out as native ETH instead of WETH: the tokens are collected into the position manager itself, then its
+ * own unwrapWETH9 sends the WETH as ETH and sweepToken sends the other token, all inside one multicall.
+ */
+export type NativeOut = { weth: `0x${string}`; other: `0x${string}` };
+
+/** The NativeOut for a position when one side is the chain's wrapped native token, else undefined. */
+export function nativeOutFor(pos: Pick<LiquidityPosition, 'token0' | 'token1'>, wrappedNative: `0x${string}` | null): NativeOut | undefined {
+  if (!wrappedNative) return undefined;
+  const w = wrappedNative.toLowerCase();
+  if (pos.token0.toLowerCase() === w) return { weth: pos.token0, other: pos.token1 };
+  if (pos.token1.toLowerCase() === w) return { weth: pos.token1, other: pos.token0 };
+  return undefined;
+}
+
+function nativeOutData(eth: NativeOut, recipient: `0x${string}`): `0x${string}`[] {
+  return [
+    encodeFunctionData({ abi: NPM_ABI, functionName: 'unwrapWETH9', args: [0n, recipient] }),
+    encodeFunctionData({ abi: NPM_ABI, functionName: 'sweepToken', args: [eth.other, 0n, recipient] }),
+  ];
 }
 
 /**
@@ -55,26 +79,26 @@ export function buildRemove(
   slippageBps: number,
   recipient: `0x${string}`,
   d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
+  eth?: NativeOut,
 ): Call[] {
   const liquidity = (pos.liquidity * BigInt(pctBps)) / 10_000n;
-  const expected0 = (pos.amount0 * BigInt(pctBps)) / 10_000n;
-  const expected1 = (pos.amount1 * BigInt(pctBps)) / 10_000n;
+  const [amount0Min, amount1Min] = removeMinimums(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, liquidity, slippageBps);
   const dl = deadline();
 
   const decreaseData = encodeFunctionData({
     abi: NPM_ABI,
     functionName: 'decreaseLiquidity',
-    args: [{ tokenId: pos.id, liquidity, amount0Min: minOut(expected0, slippageBps), amount1Min: minOut(expected1, slippageBps), deadline: dl }],
+    args: [{ tokenId: pos.id, liquidity, amount0Min, amount1Min, deadline: dl }],
   });
   const collectData = encodeFunctionData({
     abi: NPM_ABI,
     functionName: 'collect',
-    args: [{ tokenId: pos.id, recipient, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }],
+    args: [{ tokenId: pos.id, recipient: eth ? d.positionManager : recipient, amount0Max: MAX_UINT128, amount1Max: MAX_UINT128 }],
   });
 
   return [{
     to: d.positionManager,
-    data: encodeFunctionData({ abi: NPM_ABI, functionName: 'multicall', args: [[decreaseData, collectData]] }),
+    data: encodeFunctionData({ abi: NPM_ABI, functionName: 'multicall', args: [[decreaseData, collectData, ...(eth ? nativeOutData(eth, recipient) : [])]] }),
   }];
 }
 
@@ -106,8 +130,7 @@ export function buildIncrease(
     args: [{
       tokenId: pos.id,
       amount0Desired, amount1Desired,
-      amount0Min: minOut(amount0Desired, slippageBps),
-      amount1Min: minOut(amount1Desired, slippageBps),
+      ...mins(addMinimums(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, amount0Desired, amount1Desired, slippageBps)),
       deadline: deadline(),
     }],
   });
@@ -131,8 +154,13 @@ export function buildMint(args: {
   deployment?: V3Deployment;
   /** Slipstream: the pool's tickSpacing (its mint key; `fee` is ignored). */
   tickSpacing?: number;
+  /** The pool's current price: sets minimums that hold on a close range. Without it, each amount less slippage. */
+  sqrtPriceX96?: bigint;
 }): Call[] {
   const { token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, slippageBps, recipient } = args;
+  const minimums = mins(args.sqrtPriceX96 && args.sqrtPriceX96 > 0n
+    ? addMinimums(args.sqrtPriceX96, tickLower, tickUpper, amount0Desired, amount1Desired, slippageBps)
+    : [minOut(amount0Desired, slippageBps), minOut(amount1Desired, slippageBps)]);
   const nativeEthSide = args.nativeEthSide ?? null;
   const d = args.deployment ?? UNISWAP_V3_DEPLOYMENT;
   const calls: Call[] = [];
@@ -149,8 +177,7 @@ export function buildMint(args: {
         args: [{
           token0, token1, tickSpacing: args.tickSpacing ?? d.tickSpacings[fee] ?? fee, tickLower, tickUpper,
           amount0Desired, amount1Desired,
-          amount0Min: minOut(amount0Desired, slippageBps),
-          amount1Min: minOut(amount1Desired, slippageBps),
+          ...minimums,
           recipient,
           deadline: deadline(),
         }],
@@ -162,8 +189,7 @@ export function buildMint(args: {
         args: [{
           token0, token1, tickSpacing: args.tickSpacing ?? d.tickSpacings[fee] ?? fee, tickLower, tickUpper,
           amount0Desired, amount1Desired,
-          amount0Min: minOut(amount0Desired, slippageBps),
-          amount1Min: minOut(amount1Desired, slippageBps),
+          ...minimums,
           recipient,
           deadline: deadline(),
           // Only consulted when the pool does not exist yet; ours always does.
@@ -176,8 +202,7 @@ export function buildMint(args: {
         args: [{
           token0, token1, fee, tickLower, tickUpper,
           amount0Desired, amount1Desired,
-          amount0Min: minOut(amount0Desired, slippageBps),
-          amount1Min: minOut(amount1Desired, slippageBps),
+          ...minimums,
           recipient,
           deadline: deadline(),
         }],

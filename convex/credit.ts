@@ -31,7 +31,7 @@ export async function availableFor(ctx: QueryCtx | MutationCtx, address: string)
  * which is the whole guard against a transaction hash pasted twice: the
  * lookup and the insert run in one Convex transaction.
  */
-export async function addCredit(ctx: MutationCtx, address: string, amount: number, ref: string, source: "tx" | "rewards"): Promise<boolean> {
+export async function addCredit(ctx: MutationCtx, address: string, amount: number, ref: string, source: "tx" | "rewards" | "payment"): Promise<boolean> {
   const a = address.toLowerCase();
   const used = await ctx.db.query("alertDeposits").withIndex("by_ref", (q) => q.eq("ref", ref)).unique();
   if (used) return false;

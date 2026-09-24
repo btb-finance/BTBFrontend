@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
-  BaseError, ContractFunctionRevertedError, RawContractError, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
+  BaseError, ContractFunctionRevertedError, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
   parseEventLogs, type Chain, type PublicClient,
 } from "viem";
 import { base } from "viem/chains";
@@ -102,11 +102,21 @@ const WAIT_REASONS: Record<string, string> = {
 type Sent = { ok: true; logs: import("viem").Log[] } | { ok: false; name: string | null; message: string };
 
 
-/** The error name inside a plain eth_call revert, which a batch bubbles up unchanged from the wallet. */
+/**
+ * The error name inside a plain eth_call revert, which a batch bubbles up
+ * unchanged from the wallet. viem puts the revert data on a different layer
+ * depending on the RPC (a RawContractError, or the RPC error itself), so every
+ * layer is searched for it.
+ */
 function rawRevertName(e: unknown): string | null {
   if (!(e instanceof BaseError)) return null;
-  const raw = e.walk((x) => x instanceof RawContractError) as RawContractError | null;
-  const data = typeof raw?.data === "string" ? raw.data : raw?.data?.data;
+  let data: string | null = null;
+  e.walk((x) => {
+    const d = (x as { data?: unknown }).data;
+    const hex = typeof d === "string" ? d : typeof (d as { data?: unknown })?.data === "string" ? (d as { data: string }).data : null;
+    if (hex && /^0x[0-9a-fA-F]{8}/.test(hex)) { data = hex; return true; }
+    return false;
+  });
   if (!data) return revertName(e);
   try { return decodeErrorResult({ abi: RUN_ABI, data }).errorName; } catch { return null; }
 }
@@ -653,6 +663,15 @@ export const check = internalAction({
     }
     if (result.wait) {
       await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note: result.wait, nextInMs: Math.min(intervalMs, 15 * 60_000) });
+      return;
+    }
+    if (result.error === "DailyLimitReached") {
+      // The wallet's own cap on agent actions per day (UTC). Checking again before it resets would only cost
+      // checks, so the next one is just after midnight UTC.
+      const untilReset = 86_400_000 - (Date.now() % 86_400_000) + 60_000;
+      const note = "Out of range, but the agent used today's action limit in your auto wallet. It continues after midnight UTC, or raise the limit below.";
+      if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Daily agent limit reached", `${job.label}: ${note}`);
+      await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: untilReset });
       return;
     }
     const why = result.error ?? "unknown";

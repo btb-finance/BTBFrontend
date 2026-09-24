@@ -3,7 +3,8 @@ import { POSITION_MANAGER_ABI, PERMIT2_ABI, POOL_KEY_COMPONENTS } from './abis';
 import { UNISWAP_V4, isNativeCurrency, type PoolKey, type V4Deployment } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
-import { deadline, minOut } from '../shared';
+import { deadline } from '../shared';
+import { removeMinimums } from '../v3/math';
 
 /**
  * Uniswap V4 liquidity actions. Unlike V3's direct NPM calls, every V4
@@ -150,12 +151,11 @@ export function buildV4Remove(
 ): Call[] {
   const dl = deadline();
   const liquidity = (pos.liquidity * BigInt(pctBps)) / 10_000n;
-  const expected0 = (pos.amount0 * BigInt(pctBps)) / 10_000n;
-  const expected1 = (pos.amount1 * BigInt(pctBps)) / 10_000n;
+  const [amount0Min, amount1Min] = removeMinimums(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, liquidity, slippageBps);
 
   const decParams = encodeAbiParameters(
     [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint128' }, { type: 'uint128' }, { type: 'bytes' }],
-    [pos.id, liquidity, minOut(expected0, slippageBps), minOut(expected1, slippageBps), '0x'],
+    [pos.id, liquidity, amount0Min, amount1Min, '0x'],
   );
   const takeParams = encodeAbiParameters(
     [{ type: 'address' }, { type: 'address' }, { type: 'address' }],

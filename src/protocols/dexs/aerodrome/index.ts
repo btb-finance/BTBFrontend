@@ -25,8 +25,12 @@ export const PROTOCOL = 'aerodrome-cl';
 export const BASE_CHAIN_ID = 8453;
 export const BASE_WETH = '0x4200000000000000000000000000000000000006' as const;
 
-/** Slipstream tick spacings; there is no fee tier list, fees live on the pool. */
-const SLIPSTREAM_TICK_SPACINGS = [1, 50, 100, 200, 2000] as const;
+/**
+ * Slipstream tick spacings; there is no fee tier list, fees live on the pool. Each factory enables its own set
+ * (read from factory.tickSpacings()); a spacing missing here is a pool the app never finds, so the lists follow
+ * the factories exactly.
+ */
+const SLIPSTREAM_TICK_SPACINGS = [1, 10, 50, 100, 200, 2000] as const;
 
 function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`, label: string, chainId: number = BASE_CHAIN_ID, spacings: readonly number[] = SLIPSTREAM_TICK_SPACINGS): V3Deployment {
   return {
@@ -44,8 +48,8 @@ function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${stri
 
 export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
   slipstreamDeployment('0x827922686190790b37229fd06084350E74485b72', '0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A', 'Aerodrome (old)'),
-  slipstreamDeployment('0xa990C6a764b73BF43cee5Bb40339c3322FB9D55F', '0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a', 'Aerodrome (old, gauge caps)'),
-  slipstreamDeployment('0xe1f8cd9AC4e4A65F54f38a5CdAfCA44f6dD68b53', '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef', 'Aerodrome'),
+  slipstreamDeployment('0xa990C6a764b73BF43cee5Bb40339c3322FB9D55F', '0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a', 'Aerodrome (old, gauge caps)', BASE_CHAIN_ID, [1, 10, 50, 100, 200, 500, 2000]),
+  slipstreamDeployment('0xe1f8cd9AC4e4A65F54f38a5CdAfCA44f6dD68b53', '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef', 'Aerodrome', BASE_CHAIN_ID, [1, 10, 50, 80, 100, 150, 200, 500, 2000]),
 ];
 
 /** Aerodrome Slipstream on Arc: manager and factory read from a live pool

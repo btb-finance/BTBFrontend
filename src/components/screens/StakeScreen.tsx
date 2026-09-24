@@ -21,7 +21,7 @@ import { UNISWAP_V4 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { useWalletSession } from '../../lib/session';
 import { readableError } from '../../lib/errorText';
 import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from '../../lib/alerts';
-import { BtbTopUp, fmtBtb } from '../FastAlerts';
+import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 
 
@@ -371,16 +371,13 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
           <span style={{ flex: 1, minWidth: 180, color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45 }}>
             {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each from your BTB balance ({fmtBtb(credit.total)} BTB{credit.rewards > 0 ? ', weekly rewards included' : ''}).
           </span>
-          <button type="button" onClick={() => setShowTopUp((o) => !o)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-            {showTopUp ? 'Close' : 'Top up'}
+          <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+            Top up
           </button>
+          {onGetBtb && <button type="button" onClick={onGetBtb} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Get BTB</button>}
         </div>
-        {showTopUp && (
-          <div style={{ marginTop: 10 }}>
-            <BtbTopUp credit={credit}/>
-            {onGetBtb && <button type="button" onClick={onGetBtb} style={{ marginTop: 8, border: 'none', background: 'transparent', padding: 0, color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Need BTB? Swap for some</button>}
-          </div>
-        )}
+        {/* Opens in front of the chat, also on its own when the free messages run out. */}
+        {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
         {!session.token && (
           <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 8 }}>Your wallet asks for one signature on your first message. It keeps your chat private and lasts 30 days on this device. No transaction, no gas.</div>
         )}

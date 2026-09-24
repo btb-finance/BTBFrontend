@@ -177,6 +177,33 @@ export function getAmountsForLiquidity(
 }
 
 /**
+ * Minimum amounts for taking `liquidity` out, safe against a price move of up to `slippageBps` either way: each
+ * token's minimum is what it pays out at the edge of that band that is worst for it (more of the price moving up
+ * means less token0, down means less token1). Not "each shown amount less slippage", which a narrow range breaks
+ * on a tiny move because its mix swings much faster than its value.
+ */
+export function removeMinimums(sqrtPriceX96: bigint, tickLower: number, tickUpper: number, liquidity: bigint, slippageBps: number): [bigint, bigint] {
+  const SCALE = 1_000_000_000n;
+  const f = (x: number) => BigInt(Math.floor(Math.sqrt(x) * 1e9));
+  const up = (sqrtPriceX96 * f(1 + slippageBps / 10_000)) / SCALE;
+  const down = (sqrtPriceX96 * f(1 - slippageBps / 10_000)) / SCALE;
+  return [getAmountsForLiquidity(up, tickLower, tickUpper, liquidity)[0], getAmountsForLiquidity(down, tickLower, tickUpper, liquidity)[1]];
+}
+
+/**
+ * Minimum amounts for adding `amount0`/`amount1` at this price, safe against a price move of up to `slippageBps`:
+ * the liquidity those amounts create, and for each token what that liquidity needs at the edge of the band that
+ * is worst for it (Uniswap's own mintAmountsWithSlippage). "Each amount less slippage" fails on a close range,
+ * where a few ticks change the mix far more than the value.
+ */
+export function addMinimums(sqrtPriceX96: bigint, tickLower: number, tickUpper: number, amount0: bigint, amount1: bigint, slippageBps: number): [bigint, bigint] {
+  const liquidity = liquidityForAmounts(sqrtPriceX96, tickLower, tickUpper, amount0, amount1);
+  const [m0, m1] = removeMinimums(sqrtPriceX96, tickLower, tickUpper, liquidity, slippageBps);
+  // Never ask for more than is offered.
+  return [m0 > amount0 ? amount0 : m0, m1 > amount1 ? amount1 : m1];
+}
+
+/**
  * "Smart fit" — place a range of the requested width so the wallet's actual
  * balances deposit cleanly, instead of making the user discover on the amount
  * step that their token ratio doesn't match the range they picked.

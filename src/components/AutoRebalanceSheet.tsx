@@ -9,7 +9,7 @@ import { Portal } from './Portal';
 import { Button } from './Button';
 import { Icon } from './Icon';
 import { btb } from './design-tokens';
-import { BtbBalanceLine, BtbTopUp, fmtBtb } from './FastAlerts';
+import { BtbBalanceLine, TopUpButton, fmtBtb } from './FastAlerts';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
@@ -63,7 +63,6 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
   const [interval, setIntervalMin] = useState<number>(DEFAULT_INTERVAL);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [topUp, setTopUp] = useState(false);
   const [compound, setCompound] = useState(false);
 
   const support = autoSupport(pos);
@@ -156,8 +155,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
 
               <div style={{ ...box, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: 180 }}><BtbBalanceLine credit={credit}/></div>
-                <button type="button" onClick={() => setTopUp((t) => !t)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{topUp ? 'Close' : 'Top up'}</button>
-                {topUp && <div style={{ width: '100%' }}><BtbTopUp credit={credit}/></div>}
+                <TopUpButton credit={credit}/>
                 {!credit.loading && freeActions === 0 && credit.total < perRebalance && (
                   <div style={{ width: '100%', color: btb.amber, fontSize: 11.5 }}>A rebalance needs {fmtBtb(perRebalance)} BTB. Checks still run, and it rebalances once you top up.</div>
                 )}

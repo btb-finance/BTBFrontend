@@ -72,7 +72,7 @@ export default defineSchema({
     ref: v.string(),
     address: v.string(),
     amount: v.float64(),        // BTB
-    source: v.string(),         // "tx" | "rewards"
+    source: v.string(),         // "tx" | "rewards" | "payment"
     createdAt: v.float64(),
   }).index("by_ref", ["ref"]).index("by_address", ["address", "createdAt"]),
 
@@ -134,6 +134,19 @@ export default defineSchema({
     createdAt: v.float64(),
     updatedAt: v.float64(),
   }).index("by_address", ["address"]).index("by_active_next", ["active", "nextCheckAt"]),
+
+  // App BTB balance top-ups paid in ETH or a stablecoin on any supported chain (convex/topUp.ts).
+  topUpPayments: defineTable({
+    chainId: v.float64(),
+    txHash: v.string(),
+    payer: v.string(),          // lowercase, the wallet credited
+    paid: v.string(),           // e.g. "25 USDC" or "0.01 ETH"
+    usd: v.float64(),
+    btbPrice: v.float64(),      // USD per BTB it was credited at
+    btb: v.float64(),           // BTB credited
+    bought: v.boolean(),        // the treasury has bought this BTB on Ethereum
+    createdAt: v.float64(),
+  }).index("by_bought", ["bought"]).index("by_payer", ["payer", "createdAt"]),
 
   // Free-trial rebalances and compounds each owner has used (FREE_ACTIONS in total).
   autoTrials: defineTable({

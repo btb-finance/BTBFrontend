@@ -2,13 +2,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseAbi, parseUnits, erc20Abi } from 'viem';
+import { encodeFunctionData, formatUnits, parseAbi, parseUnits, erc20Abi } from 'viem';
+import type { Call } from '../lib/txRunner';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { DataTable, Column } from './DataTable';
 import { TokenIcon } from './TokenIcon';
+import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -17,7 +19,7 @@ import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { dexTokenPrices } from '../lib/robinhoodBalances';
 import {
-  fetchV3Positions, buildCollect, buildRemove, buildIncrease,
+  fetchV3Positions, buildCollect, buildRemove, buildIncrease, nativeOutFor, type NativeOut,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
@@ -34,7 +36,19 @@ import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutoRebalanceSheet } from './AutoRebalanceSheet';
 import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
-import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, REWARD_TOKEN, isFarmManager, unpackPosition } from '../lib/autoRebalance';
+import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, REWARD_TOKEN, isFarmManager, unpackPosition, adapterFor, stakeAdapterFor, gaugeParams, compoundParams, Action, WALLET_ABI } from '../lib/autoRebalance';
+
+const WETH_DEPOSIT_ABI = parseAbi(['function deposit() payable']);
+
+/**
+ * Fees and withdrawals come out as native ETH, not WETH, wherever the position manager can unwrap it (every
+ * Uniswap V3 style one the app uses; not Ramses, and not Arc, whose native token is USDC).
+ */
+function ethOut(pos: LiquidityPosition): NativeOut | undefined {
+  const chainId = pos.chainId ?? 1;
+  if (pos.protocol === 'ramses-v3' || pos.protocol === 'uniswap-v4' || chainId === 5042) return undefined;
+  return nativeOutFor(pos, wrappedNativeFor(chainId));
+}
 import { GIGA_TOKEN } from '@/protocols/dexs/robinhood';
 
 /** An auto job's position as its last check saw it, ready to draw before the live read lands. */
@@ -57,6 +71,7 @@ function snapshotPosition(j: AutoJob): LiquidityPosition | null {
 const FEE_GROWTH_GLOBAL_ABI = parseAbi(['function feeGrowthGlobal0X128() view returns (uint256)', 'function feeGrowthGlobal1X128() view returns (uint256)']);
 const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
 const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
+const AUTO_OWNER_OF_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
 const AUTO_FARM_ABI = parseAbi([
   'function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)',
   'function pendingReward(uint256 tokenId) view returns (uint256)',
@@ -67,7 +82,7 @@ import { readableError } from '../lib/errorText';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
-import { buildSwapGap } from '../lib/swapGap';
+import { buildSwapGap, planSwapToFit } from '../lib/swapGap';
 import { fetchPositionHistory, fetchEmptyPositions, type PositionHistory } from '../lib/positionHistory';
 import { NPM_ABI as V3_NPM_ABI, RAMSES_NPM_ABI, SLIPSTREAM_NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { rebalancePlan } from '@/protocols/dexs/uniswap/v3/math';
@@ -209,7 +224,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [ownPositions, setPositions] = useState<LiquidityPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
+  const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw'; auto?: AutoJob } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
   const [autoPos, setAutoPos] = useState<LiquidityPosition | null>(null);
   const [share, setShare] = useState<ShareCardData | null>(null);
@@ -269,6 +284,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // same list as every other position, with auto controls instead of actions.
   const autoJobs = useAutoJobs(connectedAddress)?.jobs;
   const [autoPositions, setAutoPositions] = useState<LiquidityPosition[]>([]);
+  /** Auto jobs whose position is no longer in the auto wallet (taken out, waiting for the checker to notice). */
+  const [autoLeft, setAutoLeft] = useState<Set<string>>(new Set());
   // Anything that changes what the position looks like on-chain re-reads it:
   // a rebalance (new id), a stake or unstake (gauge), or an explicit refresh.
   const [autoNonce, setAutoNonce] = useState(0);
@@ -297,6 +314,13 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const client = getPublicClient(config, { chainId: j.chainId as never });
         if (!found || !client) return;
         try {
+          // Only while the auto wallet still holds it, directly or staked in its gauge or farm; a position the owner
+          // took out shows as their own again, not as a stale auto row.
+          const holder = (await client.readContract({ address: j.positionManager as `0x${string}`, abi: AUTO_OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(j.tokenId)] }).catch(() => null))?.toLowerCase();
+          if (holder && holder !== j.wallet.toLowerCase() && holder !== j.gauge?.toLowerCase()) {
+            if (live) { setAutoLeft((prev) => new Set(prev).add(keyOf(j))); setAutoPositions((prev) => prev.filter((x) => posKey(x) !== keyOf(j))); }
+            return;
+          }
           const [p] = await fetchV3Positions(client as never, j.wallet as `0x${string}`, found.deployment, [BigInt(j.tokenId)]);
           if (!p) return;
           const pos: LiquidityPosition = { ...p, protocol: found.protocol, chainId: j.chainId, chainName: AUTO_CHAIN_NAMES[j.chainId], positionManager: j.positionManager as `0x${string}` };
@@ -332,14 +356,15 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const m = new Map<string, AutoJob>();
     for (const j of autoJobs ?? []) {
       const found = autoDeployment(j.chainId, j.positionManager);
-      if (found) m.set(`${j.chainId}-${found.protocol}-${j.tokenId}`, j);
+      const k = `${j.chainId}-${found?.protocol}-${j.tokenId}`;
+      if (found && !autoLeft.has(k)) m.set(k, j);
     }
     return m;
-  }, [autoJobs]);
+  }, [autoJobs, autoLeft]);
   const positions = useMemo(() => {
     const own = ownPositions.filter((p) => !autoByKey.has(posKey(p)));
-    return [...own, ...autoPositions];
-  }, [ownPositions, autoPositions, autoByKey]);
+    return [...own, ...autoPositions.filter((p) => !autoLeft.has(posKey(p)))];
+  }, [ownPositions, autoPositions, autoByKey, autoLeft]);
 
   const alerts = useAlerts(connectedAddress);
   const alertCredit = useQuery(api.alerts.creditFor, connectedAddress ? { address: connectedAddress } : 'skip');
@@ -580,7 +605,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         account: connectedAddress as `0x${string}`,
         calls: pos.protocol === 'uniswap-v4'
           ? buildV4Collect(pos, connectedAddress as `0x${string}`, v4DeploymentOf(pos))
-          : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos)),
+          : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos), ethOut(pos)),
         label: `Collect ${pos.symbol0}/${pos.symbol1} fees`,
         track, chainId: (pos.chainId ?? 1) as number,
       });
@@ -751,7 +776,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           account: connectedAddress as `0x${string}`,
           calls: list.flatMap((pos) => pos.protocol === 'uniswap-v4'
             ? buildV4Collect(pos, connectedAddress as `0x${string}`, v4DeploymentOf(pos))
-            : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos))),
+            : buildCollect(pos.id, connectedAddress as `0x${string}`, v3DeploymentOf(pos), ethOut(pos))),
           label: `Collect fees from ${list.length} position${list.length === 1 ? '' : 's'}`,
           track, chainId,
         });
@@ -1080,7 +1105,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         )}
 
         {autoByKey.has(posKey(p)) && connectedAddress ? (
-          <AutoJobControls job={autoByKey.get(posKey(p))!} pos={p} address={connectedAddress} canTransact={canTransact} onChanged={async () => { setAutoNonce((n) => n + 1); await load(); }}/>
+          <AutoJobControls job={autoByKey.get(posKey(p))!} pos={p} address={connectedAddress} canTransact={canTransact} onChanged={async () => { setAutoNonce((n) => n + 1); await load(); }}
+            onAdd={() => setManage({ pos: p, mode: 'add', auto: autoByKey.get(posKey(p))! })}/>
         ) : (() => {
           // Two actions the position needs right now, then More for the rest.
           type Act = { key: string; label: string; tone?: 'neutral' | 'green' | 'amber' | 'danger'; solid?: boolean; onClick: () => void; disabled?: boolean };
@@ -1091,7 +1117,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           } else {
             if (hasFees && p.inRange && canActOn(p)) acts.push({ key: 'compound', label: 'Compound', tone: 'green', solid: true, onClick: () => compound(p), disabled: busy || !canTransact });
             acts.push({ key: 'collect', label: busy ? 'Collecting…' : 'Collect fees', tone: 'green', solid: hasFees && !p.inRange, onClick: () => collect(p), disabled: !hasFees || busy || !canTransact });
-            acts.push({ key: 'add', label: 'Add liquidity', onClick: () => setManage({ pos: p, mode: 'add' }), disabled: busy || !canTransact });
+            acts.push({ key: 'add', label: 'Increase liquidity', onClick: () => setManage({ pos: p, mode: 'add' }), disabled: busy || !canTransact });
             if (p.stakeable && hasLiquidity) acts.push({ key: 'stake', label: `Stake for ${p.stakeable.rewardSymbol ?? 'rewards'}`, onClick: () => gaugeAction(p, 'stake'), disabled: busy || !canTransact });
           }
           if (canRebalance) acts.push({ key: 'rebalance', label: p.inRange ? 'Rebalance' : 'Rebalance now', tone: p.inRange ? 'neutral' : 'amber', onClick: () => setRebalance(p), disabled: busy || !canTransact });
@@ -1149,7 +1175,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
             <span style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, lineHeight: 1.5, flex: 1, minWidth: 200 }}>{alertNote}</span>
             {/^Alerts need/.test(alertNote) && (
-              <a href={`/swap?to=${CONTRACTS.BTB}`} style={{ color: btb.green, fontSize: 11.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>Get BTB</a>
+              <a href={`/swap?chain=1&from=ETH&to=${CONTRACTS.BTB}`} style={{ color: btb.green, fontSize: 11.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>Get BTB</a>
             )}
           </div>
         )}
@@ -1564,9 +1590,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <ManageSheet
           pos={manage.pos}
           mode={manage.mode}
+          auto={manage.auto}
+          prices={usd}
           account={connectedAddress as `0x${string}`}
           onClose={() => setManage(null)}
-          onDone={async () => { setManage(null); await load(); }}
+          onDone={async () => { setManage(null); if (manage.auto) setAutoNonce((n) => n + 1); await load(); }}
         />
       )}
 
@@ -1604,8 +1632,12 @@ function ActBtn({ label, onClick, disabled, green }: { label: string; onClick: (
   );
 }
 
-function ManageSheet({ pos, mode, account, onClose, onDone }: {
+function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }: {
   pos: LiquidityPosition; mode: 'add' | 'withdraw'; account: `0x${string}`;
+  /** USD per token (lowercase address), for the dollar values in the sheet. */
+  prices?: Record<string, number>;
+  /** An auto-rebalanced position: it sits in the owner's auto wallet, which adds the tokens itself. */
+  auto?: AutoJob;
   onClose: () => void; onDone: () => void | Promise<void>;
 }) {
   const { width: sidebarWidth } = useSidebar();
@@ -1618,7 +1650,10 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const [pct, setPct] = useState(100);
   // add state
   const side = addSide(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper); // 'both' | 'token0' | 'token1'
-  const inputSide: 0 | 1 = side === 'token1' ? 1 : 0;
+  const onlySide: 0 | 1 | null = side === 'token0' ? 0 : side === 'token1' ? 1 : null;
+  // Which row the user typed in; the other row follows it at the range's ratio.
+  const [edited, setEdited] = useState<0 | 1>(onlySide ?? 0);
+  const inputSide: 0 | 1 = onlySide ?? edited;
   const [amtStr, setAmtStr] = useState('');
   const [useEth, setUseEth] = useState(true);
 
@@ -1634,7 +1669,6 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const sym1 = ethMode && nativeSide === 1 ? 'ETH' : pos.symbol1;
 
   const inputDecimals = inputSide === 0 ? pos.decimals0 : pos.decimals1;
-  const inputSymbol = inputSide === 0 ? sym0 : sym1;
 
   let add0 = 0n, add1 = 0n;
   try {
@@ -1678,15 +1712,120 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
   const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
   const short0 = add0 > effBal0;
   const short1 = add1 > effBal1;
-  const inputBal = inputSide === 0 ? effBal0 : effBal1;
+  // ETH paid in keeps a little back for gas.
+  const gasReserve = (i: 0 | 1) => (ethMode && nativeSide === i ? ((pos.chainId ?? 1) === 1 ? 5n * 10n ** 15n : 5n * 10n ** 14n) : 0n);
+  const spendable = (i: 0 | 1) => { const b = (i === 0 ? effBal0 : effBal1) - gasReserve(i); return b > 0n ? b : 0n; };
+  // Swap to fit: the user puts in whatever they hold, one token or both, and part of it is swapped (KyberSwap, with
+  // the BTB fee) so all of it fits the range in the right ratio.
+  const [swapFit, setSwapFit] = useState(false);
+  const [fitStr, setFitStr] = useState<[string, string]>(['', '']);
+  const [step, setStep] = useState<string | null>(null);
+  const fitNative = (i: 0 | 1) => (isV4 ? i === 0 && isNativeCurrency(pos.token0) : ethMode && wethSide === i);
+  const toRaw = (str: string, dec: number) => { try { return str && parseFloat(str) > 0 ? parseUnits(str, dec) : 0n; } catch { return 0n; } };
+  const fitBudget: [bigint, bigint] = [toRaw(fitStr[0], pos.decimals0), toRaw(fitStr[1], pos.decimals1)];
+  const fitShort: [boolean, boolean] = [fitBudget[0] > effBal0, fitBudget[1] > effBal1];
+  const fitArgs = () => ({
+    sqrtPriceX96: pos.sqrtPriceX96, tickLower: pos.tickLower, tickUpper: pos.tickUpper,
+    budget0: fitBudget[0], budget1: fitBudget[1], token0: pos.token0, token1: pos.token1,
+    decimals0: pos.decimals0, decimals1: pos.decimals1, native0: fitNative(0), native1: fitNative(1),
+    account, slippageBps: actionSlippageBps, chainId: (pos.chainId ?? 1) as number,
+  });
+  const [fitPlan, setFitPlan] = useState<Awaited<ReturnType<typeof planSwapToFit>> | null>(null);
+  const [fitErr, setFitErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!swapFit || (fitBudget[0] === 0n && fitBudget[1] === 0n)) { setFitPlan(null); setFitErr(null); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      planSwapToFit(fitArgs()).then((p) => { if (live) { setFitPlan(p); setFitErr(null); } })
+        .catch(() => { if (live) { setFitPlan(null); setFitErr('Could not get a swap price right now. Try again in a moment.'); } });
+    }, 600);
+    return () => { live = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapFit, fitStr[0], fitStr[1], useEth]);
+
+  /** The most the wallet can add: all of one token, as long as the other one covers its share. */
+  function maxBoth() {
+    const order: (0 | 1)[] = onlySide != null ? [onlySide] : [0, 1];
+    for (const i of order) {
+      const bal = spendable(i);
+      if (bal <= 0n) continue;
+      const r = addAmounts(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, i, bal);
+      const other = i === 0 ? r.amount1 : r.amount0;
+      if (onlySide != null || other <= spendable(i === 0 ? 1 : 0)) { setEdited(i); setAmtStr(formatUnits(bal, i === 0 ? pos.decimals0 : pos.decimals1)); return; }
+    }
+  }
 
   const out0 = (pos.amount0 * BigInt(pct)) / 100n;
   const out1 = (pos.amount1 * BigInt(pct)) / 100n;
 
+  /**
+   * Add to a position in the auto wallet: the owner sends the tokens in (wrapping ETH first if paying in ETH), and
+   * the wallet adds them through its own adapter, which lets the owner add any amount. A staked position is
+   * unstaked around it and staked again. One confirmation where the wallet batches.
+   */
+  function autoAddCalls(job: AutoJob, add0: bigint, add1: bigint): Call[] {
+    const w = job.wallet as `0x${string}`;
+    const calls: Call[] = [];
+    const tokens: [`0x${string}`, bigint][] = [[pos.token0, add0], [pos.token1, add1]];
+    tokens.forEach(([token, amount], i) => {
+      if (amount <= 0n) return;
+      if (ethMode && wethSide === i) calls.push({ to: token, value: amount, label: 'Wrap ETH', data: encodeFunctionData({ abi: WETH_DEPOSIT_ABI, functionName: 'deposit' }) });
+      calls.push({ to: token, label: `Send ${i === 0 ? pos.symbol0 : pos.symbol1} to your auto wallet`, data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [w, amount] }) });
+    });
+    const adapter = adapterFor(job.chainId, job.positionManager);
+    if (!adapter) throw new Error('This position cannot be added to from here.');
+    const staked = !!pos.staked && !!job.gauge;
+    const stakeAdapter = stakeAdapterFor(job.chainId, job.positionManager);
+    const run = (a: `0x${string}`, params: `0x${string}`, label: string): Call => ({ to: w, label, data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [a, params] }) });
+    const id = BigInt(job.tokenId);
+    if (staked) calls.push(run(stakeAdapter, gaugeParams(Action.Unstake, job.gauge as `0x${string}`, id), 'Unstake'));
+    calls.push(run(adapter, compoundParams(job.positionManager as `0x${string}`, id, add0, add1, BigInt(Math.floor(Date.now() / 1000) + 20 * 60)), 'Add to the position'));
+    if (staked) calls.push(run(stakeAdapter, gaugeParams(Action.Stake, job.gauge as `0x${string}`, id), 'Stake again'));
+    return calls;
+  }
+
+  /** The add itself, for any amounts: straight into the position, or through the auto wallet. */
+  function increaseCalls(a0: bigint, a1: bigint): Call[] {
+    if (auto) return autoAddCalls(auto, a0, a1);
+    return isV4
+      ? buildV4Increase(pos, liquidityForAmounts(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, a0, a1), maxIn(a0, actionSlippageBps), maxIn(a1, actionSlippageBps), account, v4DeploymentOf(pos))
+      : buildIncrease(pos, a0, a1, actionSlippageBps, ethMode ? wethSide : null, v3DeploymentOf(pos));
+  }
+
+  /** Balances as the add will spend them: native ETH on the ETH side, the token otherwise. */
+  async function freshBalances(): Promise<[bigint, bigint]> {
+    const client = getPublicClient(config, { chainId: (pos.chainId ?? 1) as number });
+    if (!client) return [0n, 0n];
+    const read = (i: 0 | 1) => fitNative(i)
+      ? client.getBalance({ address: account })
+      : client.readContract({ address: i === 0 ? pos.token0 : pos.token1, abi: erc20Abi, functionName: 'balanceOf', args: [account] });
+    return Promise.all([read(0), read(1)]) as Promise<[bigint, bigint]>;
+  }
+
   async function run() {
     setBusy(true); setErr(null);
     try {
-      const calls = isV4
+      if (mode === 'add' && swapFit) {
+        // Plan again at confirm time (prices move), swap, then add exactly what the swap left in the right ratio.
+        setStep('Swapping to fit the range');
+        const plan = await planSwapToFit({ ...fitArgs(), build: true });
+        let [a0, a1] = [plan.final0, plan.final1];
+        if (plan.sellSide !== null) {
+          const before = await freshBalances();
+          await runCalls(config, { account, calls: plan.calls, label: `Swap to fit ${pos.symbol0}/${pos.symbol1}`, track, chainId: (pos.chainId ?? 1) as number });
+          const after = await freshBalances();
+          // What the swap actually returned, not what it quoted. On a native ETH side the balance also paid gas, so the
+          // quote less slippage stands in for it.
+          const bought = plan.sellSide === 0 ? 1 : 0;
+          const got = fitNative(bought) ? (plan.out * BigInt(10_000 - actionSlippageBps)) / 10_000n : after[bought] - before[bought];
+          if (bought === 1) a1 = fitBudget[1] + (got > 0n ? got : 0n); else a0 = fitBudget[0] + (got > 0n ? got : 0n);
+        }
+        setStep('Adding to the position');
+        await runCalls(config, { account, calls: increaseCalls(a0, a1), label: `Increase liquidity ${pos.symbol0}/${pos.symbol1}`, track, chainId: (pos.chainId ?? 1) as number });
+        await onDone();
+        return;
+      }
+      const calls = auto && mode === 'add' ? autoAddCalls(auto, add0, add1) : isV4
         ? (mode === 'withdraw'
             ? buildV4Remove(pos, pct * 100, actionSlippageBps, account, v4DeploymentOf(pos))
             : buildV4Increase(
@@ -1696,82 +1835,197 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
                 account, v4DeploymentOf(pos),
               ))
         : (mode === 'withdraw'
-            ? buildRemove(pos, pct * 100, actionSlippageBps, account, v3DeploymentOf(pos))
+            ? buildRemove(pos, pct * 100, actionSlippageBps, account, v3DeploymentOf(pos), ethOut(pos))
             : buildIncrease(pos, add0, add1, actionSlippageBps, ethMode ? wethSide : null, v3DeploymentOf(pos)));
       await runCalls(config, {
         account,
         calls,
-        label: `${mode === 'withdraw' ? 'Withdraw' : 'Add'} ${pos.symbol0}/${pos.symbol1}`,
+        label: `${mode === 'withdraw' ? 'Withdraw' : 'Increase liquidity'} ${pos.symbol0}/${pos.symbol1}`,
         track, chainId: (pos.chainId ?? 1) as number,
       });
       await onDone();
     } catch (e) {
-      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
-    } finally { setBusy(false); }
+      setErr(readableError(e, mode === 'withdraw' ? 'The withdrawal did not go through. Nothing was taken out.' : 'Liquidity was not added.'));
+    } finally { setBusy(false); setStep(null); }
   }
 
-  const canRun = mode === 'withdraw' ? pct > 0 : ((add0 > 0n || add1 > 0n) && !short0 && !short1);
+  const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+  // Withdrawals pay the wrapped native token out as ETH (or BNB on BNB Chain).
+  const payout = ethOut(pos);
+  const outSym = (i: 0 | 1) => {
+    const token = i === 0 ? pos.token0 : pos.token1;
+    if (payout && token.toLowerCase() === payout.weth.toLowerCase()) return (pos.chainId ?? 1) === 56 ? 'BNB' : 'ETH';
+    return i === 0 ? pos.symbol0 : pos.symbol1;
+  };
+  const usdOf = (raw: bigint, token: string, decimals: number) => Number(formatUnits(raw, decimals)) * (prices[token.toLowerCase()] ?? 0);
+  // Withdrawing also collects the unclaimed fees, so what arrives is the share of principal plus all the fees.
+  const fees0 = pos.staked ? 0n : pos.fees0, fees1 = pos.staked ? 0n : pos.fees1;
+  const get0 = out0 + fees0, get1 = out1 + fees1;
+  const getUsd = usdOf(get0, pos.token0, pos.decimals0) + usdOf(get1, pos.token1, pos.decimals1);
+  const feesUsd = usdOf(fees0, pos.token0, pos.decimals0) + usdOf(fees1, pos.token1, pos.decimals1);
+
+  const addUsd = usdOf(add0, pos.token0, pos.decimals0) + usdOf(add1, pos.token1, pos.decimals1);
+  const canRun = mode === 'withdraw' ? pct > 0
+    : swapFit ? (fitBudget[0] > 0n || fitBudget[1] > 0n) && !fitShort[0] && !fitShort[1] && !!fitPlan
+    : ((add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 480, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, padding: '12px 20px calc(32px + env(safe-area-inset-bottom, 0px))' }}>
-        <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, marginBottom: 4 }}>
-          {mode === 'withdraw' ? 'Withdraw liquidity' : 'Add liquidity'}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, paddingTop: 6 }}>
+          <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>{mode === 'withdraw' ? 'Withdraw liquidity' : 'Increase liquidity'}</div>
+          {!busy && <div onClick={onClose} style={{ cursor: 'pointer', padding: 4 }}><Icon name="close" size={16} color={btb.textMuted}/></div>}
         </div>
         <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 18 }}>{pos.symbol0} / {pos.symbol1} · {fmtFeeTier(pos.fee)} · {protocolBadgeLabel(pos)}</div>
 
         {mode === 'withdraw' ? (
           <>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ color: btb.textMuted, fontSize: 12.5, fontWeight: 700 }}>How much</span>
+              <span style={{ color: btb.text, fontSize: 30, fontWeight: 800, letterSpacing: -0.8 }}>{pct}%</span>
+            </div>
+            <input type="range" min={1} max={100} value={pct} onChange={(e) => setPct(Number(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--btb-green)', marginBottom: 10 }}/>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               {[25, 50, 75, 100].map((v) => (
                 <button key={v} onClick={() => setPct(v)} style={{
-                  flex: 1, height: 40, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 700,
+                  flex: 1, height: 34, borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
                   background: pct === v ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.06)',
                   border: `1px solid ${pct === v ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                   color: pct === v ? 'var(--btb-green)' : btb.textMuted,
-                }}>{v}%</button>
+                }}>{v === 100 ? 'All' : `${v}%`}</button>
               ))}
             </div>
-            <Glass padding={14} radius={14} soft>
-              <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 6 }}>You receive (min, after {actionSlippageBps / 100}% slippage)</div>
-              <div style={{ color: btb.text, fontSize: 15, fontWeight: 700 }}>
-                ≈ {fmtAmt(out0, pos.decimals0)} {pos.symbol0} + {fmtAmt(out1, pos.decimals1)} {pos.symbol1}
+            <Glass padding={14} radius={16} soft>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+                <span style={{ color: btb.textMuted, fontSize: 12.5, fontWeight: 700 }}>You receive</span>
+                {getUsd > 0 && <span style={{ color: btb.text, fontSize: 16, fontWeight: 800 }}>{money(getUsd)}</span>}
               </div>
+              {([[get0, outSym(0), pos.token0, pos.decimals0], [get1, outSym(1), pos.token1, pos.decimals1]] as const).map(([amt, sym, token, dec]) => (
+                <div key={sym} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
+                  <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{fmtAmt(amt, dec)} {sym}</span>
+                  <span style={{ color: btb.textMuted, fontSize: 12.5 }}>{usdOf(amt, token, dec) > 0 ? money(usdOf(amt, token, dec)) : ''}</span>
+                </div>
+              ))}
+              {(fees0 > 0n || fees1 > 0n) && (
+                <div style={{ color: btb.green, fontSize: 11.5, marginTop: 6 }}>Includes {feesUsd > 0 ? `${money(feesUsd)} of ` : ''}unclaimed fees.</div>
+              )}
             </Glass>
+            {pct === 100 && <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 10 }}>The position stays in your wallet, empty, so you can add to it again later.</div>}
           </>
         ) : (
           <>
-            {wethSide !== null && (
-              <div onClick={() => setUseEth((v) => !v)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: 14, background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '10px 14px' }}>
-                <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>Pay with ETH <span style={{ color: btb.textDim, fontWeight: 400 }}>(instead of WETH)</span></span>
-                <div style={{ width: 42, height: 24, borderRadius: 999, background: useEth ? 'var(--btb-green)' : 'rgba(var(--fg-rgb), 0.18)', position: 'relative', transition: 'background 0.2s' }}>
-                  <div style={{ position: 'absolute', top: 2, left: useEth ? 20 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }}/>
-                </div>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ color: btb.textMuted, fontSize: 12 }}>Amount of {inputSymbol}{side === 'both' ? ' (paired auto)' : ''}</span>
-              <span style={{ color: btb.textMuted, fontSize: 12 }}>
-                Balance: {fmtAmt(inputBal, inputDecimals)}
-                <span onClick={() => setAmtStr(formatUnits(inputBal, inputDecimals))} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
-              </span>
+            <div style={{ display: 'flex', background: 'rgba(var(--fg-rgb), 0.06)', borderRadius: 999, padding: 3, marginBottom: 12 }}>
+              {([[false, 'Exact amounts'], [true, 'Swap to fit']] as const).map(([v, label]) => (
+                <button key={label} type="button" onClick={() => setSwapFit(v)} style={{ flex: 1, height: 32, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, background: swapFit === v ? btb.text : 'transparent', color: swapFit === v ? 'rgba(var(--bg-rgb), 1)' : btb.textMuted }}>{label}</button>
+              ))}
             </div>
-            <input
-              value={amtStr}
-              onChange={(e) => setAmtStr(e.target.value.replace(/[^0-9.]/g, ''))}
-              inputMode="decimal" placeholder="0"
-              style={{ width: '100%', height: 52, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 14, padding: '0 16px', color: btb.text, fontSize: 22, fontWeight: 700, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}/>
+            {swapFit ? (
+              <>
+                {([0, 1] as const).map((k) => {
+                  const sym = k === 0 ? sym0 : sym1;
+                  const dec = k === 0 ? pos.decimals0 : pos.decimals1;
+                  const b = fitBudget[k];
+                  return (
+                    <div key={k} style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${fitShort[k] ? 'rgba(var(--loss-rgb, 239,68,68), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}`, borderRadius: 16, padding: '12px 14px', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input value={fitStr[k]} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ''); setFitStr((f) => (k === 0 ? [v, f[1]] : [f[0], v])); }} inputMode="decimal" placeholder="0"
+                          style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: btb.text, fontSize: 24, fontWeight: 700, fontFamily: 'inherit', outline: 'none', padding: 0 }}/>
+                        {wethSide === k && !isV4 ? (
+                          <div style={{ display: 'flex', background: 'rgba(var(--fg-rgb), 0.08)', borderRadius: 999, padding: 2 }}>
+                            {(['ETH', 'WETH'] as const).map((t) => {
+                              const on = (t === 'ETH') === useEth;
+                              return <button key={t} type="button" onClick={() => setUseEth(t === 'ETH')} style={{ height: 28, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, background: on ? btb.text : 'transparent', color: on ? 'rgba(var(--bg-rgb), 1)' : btb.textMuted }}>{t}</button>;
+                            })}
+                          </div>
+                        ) : <span style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>{sym}</span>}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
+                        <span style={{ color: btb.textDim }}>{b > 0n ? money(usdOf(b, k === 0 ? pos.token0 : pos.token1, dec)) : ''}</span>
+                        <span style={{ color: fitShort[k] ? btb.loss : btb.textMuted }}>
+                          Balance {fmtAmt(k === 0 ? effBal0 : effBal1, dec)}
+                          <span onClick={() => { const v = spendable(k); if (v > 0n) setFitStr((f) => (k === 0 ? [formatUnits(v, dec), f[1]] : [f[0], formatUnits(v, dec)])); }} style={{ color: btb.green, fontWeight: 800, marginLeft: 8, cursor: 'pointer' }}>MAX</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>Put in either token, or both. Part of it is swapped so all of it fits the range, nothing left over.</div>
+                {fitPlan && (
+                  <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 14, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {fitPlan.sellSide !== null ? (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
+                        <span style={{ color: btb.textMuted }}>Swap</span>
+                        <span style={{ color: btb.text, fontWeight: 700, textAlign: 'right' }}>
+                          {fmtAmt(fitPlan.sellRaw, fitPlan.sellSide === 0 ? pos.decimals0 : pos.decimals1)} {fitPlan.sellSide === 0 ? sym0 : sym1} for ~{fmtAmt(fitPlan.out, fitPlan.sellSide === 0 ? pos.decimals1 : pos.decimals0)} {fitPlan.sellSide === 0 ? sym1 : sym0}
+                        </span>
+                      </div>
+                    ) : <div style={{ color: btb.textMuted, fontSize: 12.5 }}>Already in the right ratio: no swap needed.</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: btb.textMuted }}>Then adds</span>
+                      <span style={{ color: btb.text, fontWeight: 800, textAlign: 'right' }}>
+                        {fmtAmt(fitPlan.final0, pos.decimals0)} {sym0} + {fmtAmt(fitPlan.final1, pos.decimals1)} {sym1}
+                        {usdOf(fitPlan.final0, pos.token0, pos.decimals0) + usdOf(fitPlan.final1, pos.token1, pos.decimals1) > 0 ? ` (${money(usdOf(fitPlan.final0, pos.token0, pos.decimals0) + usdOf(fitPlan.final1, pos.token1, pos.decimals1))})` : ''}
+                      </span>
+                    </div>
+                    {fitPlan.sellSide !== null && <div style={{ color: btb.textDim, fontSize: 11 }}>Via KyberSwap{fitPlan.route ? ` (${fitPlan.route})` : ''}, 1% BTB fee included{fitPlan.priceImpact > 0.5 ? `, price impact ${fitPlan.priceImpact.toFixed(2)}%` : ''}. Two confirmations: the swap, then the add.</div>}
+                  </div>
+                )}
+                {fitErr && <div style={{ color: btb.amber, fontSize: 12, marginTop: 8 }}>{fitErr}</div>}
+              </>
+            ) : (
+              <>
+            {([0, 1] as const).filter((k) => onlySide == null || onlySide === k).map((k) => {
+              const sym = k === 0 ? sym0 : sym1;
+              const dec = k === 0 ? pos.decimals0 : pos.decimals1;
+              const amt = k === 0 ? add0 : add1;
+              const short = k === 0 ? short0 : short1;
+              const shown = inputSide === k ? amtStr : amt > 0n ? String(Number(Number(formatUnits(amt, dec)).toPrecision(6))) : '';
+              const value = amt > 0n ? usdOf(amt, k === 0 ? pos.token0 : pos.token1, dec) : 0;
+              return (
+                <div key={k} style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${short ? 'rgba(var(--loss-rgb, 239,68,68), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}`, borderRadius: 16, padding: '12px 14px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <input value={shown} onChange={(e) => { setEdited(k); setAmtStr(e.target.value.replace(/[^0-9.]/g, '')); }} inputMode="decimal" placeholder="0"
+                      style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: btb.text, fontSize: 24, fontWeight: 700, fontFamily: 'inherit', outline: 'none', padding: 0 }}/>
+                    {wethSide === k && !isV4 ? (
+                      <div style={{ display: 'flex', background: 'rgba(var(--fg-rgb), 0.08)', borderRadius: 999, padding: 2 }}>
+                        {(['ETH', 'WETH'] as const).map((t) => {
+                          const on = (t === 'ETH') === useEth;
+                          return <button key={t} type="button" onClick={() => setUseEth(t === 'ETH')} style={{ height: 28, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, background: on ? btb.text : 'transparent', color: on ? 'rgba(var(--bg-rgb), 1)' : btb.textMuted }}>{t}</button>;
+                        })}
+                      </div>
+                    ) : (
+                      <span style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>{sym}</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
+                    <span style={{ color: btb.textDim }}>{value > 0 ? money(value) : ''}</span>
+                    <span style={{ color: short ? btb.loss : btb.textMuted }}>
+                      Balance {fmtAmt(k === 0 ? effBal0 : effBal1, dec)}
+                      <span onClick={() => { const b = spendable(k); if (b > 0n) { setEdited(k); setAmtStr(formatUnits(b, dec)); } }} style={{ color: btb.green, fontWeight: 800, marginLeft: 8, cursor: 'pointer' }}>MAX</span>
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+              <span style={{ color: btb.textMuted, fontSize: 12 }}>
+                {onlySide != null
+                  ? `The price is outside the range, so only ${onlySide === 0 ? sym0 : sym1} goes in.`
+                  : short0 || short1
+                    ? <>Not enough {short0 ? sym0 : sym1}. <span onClick={() => { setFitStr([add0 > 0n && !short0 ? formatUnits(add0, pos.decimals0) : formatUnits(spendable(0), pos.decimals0), add1 > 0n && !short1 ? formatUnits(add1, pos.decimals1) : formatUnits(spendable(1), pos.decimals1)]); setSwapFit(true); }} style={{ color: btb.green, fontWeight: 800, cursor: 'pointer' }}>Swap to fit instead</span></>
+                    : 'Type in either one; the other follows the range.'}
+              </span>
+              <button type="button" onClick={maxBoth} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.1)', color: btb.green, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Use max</button>
+            </div>
             {(add0 > 0n || add1 > 0n) && (
-              <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 10 }}>
-                Deposit: {fmtAmt(add0, pos.decimals0)} {sym0} + {fmtAmt(add1, pos.decimals1)} {sym1}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, padding: '10px 14px', borderRadius: 14, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)' }}>
+                <span style={{ color: btb.textMuted, fontSize: 12.5, fontWeight: 700 }}>Adding</span>
+                <span style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>{addUsd > 0 ? money(addUsd) : `${fmtAmt(add0, pos.decimals0)} ${sym0} + ${fmtAmt(add1, pos.decimals1)} ${sym1}`}</span>
               </div>
             )}
-            {(short0 || short1) && (
-              <div style={{ color: btb.loss, fontSize: 12, marginTop: 8 }}>Insufficient {short0 ? sym0 : sym1} balance</div>
-            )}
-            {!pos.inRange && (
-              <div style={{ color: 'var(--btb-amber)', fontSize: 11, marginTop: 8 }}>Out of range — only {inputSymbol} is needed at the current price.</div>
+              </>
             )}
           </>
         )}
@@ -1779,10 +2033,17 @@ function ManageSheet({ pos, mode, account, onClose, onDone }: {
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
         <Button variant="success" size="md" onClick={() => { if (!busy) run(); }} disabled={!canRun} style={{ marginTop: 18, fontWeight: 800 }}>
-          {busy ? 'Confirming…' : mode === 'withdraw' ? `Withdraw ${pct}%` : 'Add liquidity'}
+          {busy ? (step ?? 'Confirm in your wallet') : mode === 'withdraw' ? (pct === 100 ? 'Withdraw all' : `Withdraw ${pct}%`)
+            : swapFit
+              ? fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : fitBudget[0] > 0n || fitBudget[1] > 0n ? (fitPlan ? (fitPlan.sellSide !== null ? 'Swap and increase liquidity' : 'Increase liquidity') : 'Getting a price') : 'Enter an amount'
+              : short0 || short1 ? `Not enough ${short0 ? sym0 : sym1}` : add0 > 0n || add1 > 0n ? 'Increase liquidity' : 'Enter an amount'}
         </Button>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10 }}>
-          Slippage-protected ({actionSlippageBps / 100}%). {mode === 'add' ? 'Token approvals are included automatically.' : 'Withdraws principal + fees to your wallet.'}
+          {auto && mode === 'add'
+            ? `Your tokens go into your auto wallet, which adds them to this position${pos.staked ? ', unstaking it and staking it again' : ''}. Auto-rebalance keeps running. Anything that does not fit the range stays in the auto wallet: use Withdraw leftover tokens.`
+            : mode === 'withdraw'
+              ? `Goes straight to your wallet. Amounts can shift slightly if the price moves before it confirms; it will not go through if the price moves more than ${actionSlippageBps / 100}%.`
+              : <>Slippage-protected ({actionSlippageBps / 100}%). Token approvals are included automatically.</>}
         </div>
       </div>
     </div>
