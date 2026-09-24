@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
-  BaseError, ContractFunctionRevertedError, createWalletClient, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
+  BaseError, ContractFunctionRevertedError, RawContractError, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
   parseEventLogs, type Chain, type PublicClient,
 } from "viem";
 import { base } from "viem/chains";
@@ -12,13 +12,13 @@ import { getChainClient } from "../src/lib/chainClient";
 import { chainTransport } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
 import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
-import { GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
+import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
 import { uniswapV3DeploymentForChain, type V3Deployment } from "../src/protocols/dexs/uniswap/v3/addresses";
 import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  isFarmManager, rebalanceBtb, rebalanceParams, stakeAdapterFor,
+  AGENT_BATCH_ABI, encodeAgentBatch, hasPriceHistory, isFarmManager, type AgentStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -101,6 +101,58 @@ const WAIT_REASONS: Record<string, string> = {
 
 type Sent = { ok: true; logs: import("viem").Log[] } | { ok: false; name: string | null; message: string };
 
+
+/** The error name inside a plain eth_call revert, which a batch bubbles up unchanged from the wallet. */
+function rawRevertName(e: unknown): string | null {
+  if (!(e instanceof BaseError)) return null;
+  const raw = e.walk((x) => x instanceof RawContractError) as RawContractError | null;
+  const data = typeof raw?.data === "string" ? raw.data : raw?.data?.data;
+  if (!data) return revertName(e);
+  try { return decodeErrorResult({ abi: RUN_ABI, data }).errorName; } catch { return null; }
+}
+
+/** Whether the agent's batch code is deployed on this chain; until it is, every step is its own transaction. */
+async function batchReady(client: PublicClient): Promise<boolean> {
+  const code = await client.getCode({ address: V6.agentBatch }).catch(() => undefined);
+  return !!code && code !== "0x";
+}
+
+
+/**
+ * Several wallet calls in one agent transaction, all or nothing (BTBAgentBatch
+ * via EIP-7702). The wallet checks every call exactly as it checks a single
+ * one. The first batch on a chain also points the agent address at the batch
+ * code. Simulated first, so a refused batch costs no gas.
+ */
+function batchSender(client: PublicClient, chainId: number, wallet: `0x${string}`) {
+  const account = agentAccount();
+  const chain = CHAINS[chainId];
+  const walletClient = createWalletClient({ account, chain, transport: SEND_TRANSPORT[chainId] });
+  return async (steps: AgentStep[]): Promise<Sent> => {
+    const data = encodeAgentBatch(wallet, steps);
+    const code = await client.getCode({ address: account.address });
+    if (code?.toLowerCase() !== `0xef0100${V6.agentBatch.slice(2).toLowerCase()}`) {
+      const authorization = await walletClient.signAuthorization({ account, contractAddress: V6.agentBatch, executor: "self" });
+      const hash = await walletClient.sendTransaction({
+        account, chain, to: account.address, authorizationList: [authorization], gas: 150_000n,
+        data: encodeFunctionData({ abi: AGENT_BATCH_ABI, functionName: "execute", args: [[]] }),
+      });
+      const r = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+      if (r.status !== "success") return { ok: false, name: null, message: `agent delegation ${hash} reverted` };
+    }
+    try {
+      await client.call({ account, to: account.address, data });
+    } catch (e) {
+      return { ok: false, name: rawRevertName(e), message: e instanceof Error ? e.message.slice(0, 160) : "simulation failed" };
+    }
+    const estimate = await client.estimateGas({ account, to: account.address, data });
+    const hash = await walletClient.sendTransaction({ account, chain, to: account.address, data, gas: (estimate * 13n) / 10n });
+    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    if (receipt.status !== "success") return { ok: false, name: null, message: `transaction ${hash} reverted` };
+    return { ok: true, logs: receipt.logs };
+  };
+}
+
 /**
  * The agent's part of a rebalance, through the owner's wallet: unstake if the
  * position is staked, rebalance, and restake the new position when the owner
@@ -143,6 +195,28 @@ async function execute(
     error: r.name ?? r.message,
   });
 
+  if (await batchReady(client)) {
+    // One transaction: unstake, rebalance, restake the new position. If the
+    // farm or gauge refuses the restake, rebalance anyway and leave the new
+    // position in the wallet; any other refusal changes nothing at all.
+    const sendBatch = batchSender(client, o.chainId, o.wallet);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
+    const steps: AgentStep[] = [];
+    if (o.stakedNow && o.gauge) steps.push({ adapter: stakeAdapter, params: gaugeParams(Action.Unstake, o.gauge, o.tokenId) });
+    steps.push({ adapter: o.adapter, params: rebalanceParams(o.pm, o.tokenId, deadline) });
+    let staked = !!o.gauge;
+    let r = await sendBatch(o.gauge ? [...steps, { adapter: stakeAdapter, params: gaugeParams(Action.Stake, o.gauge, 0n), newestOf: o.pm }] : steps);
+    if (!r.ok && o.gauge && !(r.name && WAIT_REASONS[r.name])) {
+      const plain = await sendBatch(steps);
+      if (plain.ok) { r = plain; staked = false; }
+    }
+    if (!r.ok) return stop(r);
+    const minted = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: r.logs }).find((l) =>
+      l.address.toLowerCase() === o.pm.toLowerCase() && /^0x0{40}$/.test(l.args.from) && l.args.to.toLowerCase() === o.wallet.toLowerCase());
+    if (!minted) return { newTokenId: null, staked: false, wait: null, error: "rebalance landed but no new position was found" };
+    return { newTokenId: minted.args.tokenId, staked, wait: null, error: null };
+  }
+
   let unstaked = false;
   if (o.stakedNow && o.gauge) {
     const r = await send(stakeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
@@ -165,7 +239,7 @@ async function execute(
 }
 
 const ERC20_ABI = parseAbi(["function balanceOf(address) view returns (uint256)"]);
-const REGISTRY_ABI = parseAbi(["function isListedPool(address) view returns (bool)"]);
+const REGISTRY_ABI = parseAbi(["function isListedPool(address) view returns (bool)", "function oracleFor(address, address) view returns (address)"]);
 const SLIP_FACTORY_ABI = parseAbi(["function getPool(address,address,int24) view returns (address)"]);
 const UNI_FACTORY_ABI = parseAbi(["function getPool(address,address,uint24) view returns (address)"]);
 
@@ -225,6 +299,7 @@ async function compoundFees(client: PublicClient, d: V3Deployment, o: { chainId:
 }
 
 const GAUGE_EARNED_ABI = parseAbi(["function earned(address account, uint256 tokenId) view returns (uint256)"]);
+const FARM_PENDING_ABI = parseAbi(["function pendingReward(uint256 tokenId) view returns (uint256)"]);
 
 /** USD price from DefiLlama, cached for 10 minutes per key. */
 const llamaCache = new Map<string, { at: number; usd: number }>();
@@ -250,22 +325,25 @@ const DECIMALS_ABI = parseAbi(["function decimals() view returns (uint8)"]);
  * DefiLlama does not cover (Robinhood Chain). Uses the pool's live tick.
  */
 async function usdViaOracle(client: PublicClient, chainId: number, token: string): Promise<number | null> {
-  const weth = AUTO_WETH[chainId];
-  const pool = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: ORACLE_ABI, functionName: "oracleFor", args: [token as `0x${string}`, weth as `0x${string}`] }).catch(() => null);
-  if (!pool || /^0x0{40}$/.test(pool)) return null;
-  const [t0, slot, decT, decW, eth] = await Promise.all([
-    client.readContract({ address: pool, abi: POOL_HEAD_ABI, functionName: "token0" }),
-    client.readContract({ address: pool, abi: POOL_HEAD_ABI, functionName: "slot0" }),
-    client.readContract({ address: token as `0x${string}`, abi: DECIMALS_ABI, functionName: "decimals" }),
-    client.readContract({ address: weth as `0x${string}`, abi: DECIMALS_ABI, functionName: "decimals" }),
-    ethUsd(),
-  ]);
-  if (eth == null) return null;
-  // Pool price is token1 per token0 in raw units.
-  const raw = Math.pow(1.0001, Number(slot[1]));
-  const tokenIs0 = t0.toLowerCase() === token.toLowerCase();
-  const wethPerToken = tokenIs0 ? raw * 10 ** (decT - decW) : (1 / raw) * 10 ** (decT - decW);
-  return wethPerToken * eth;
+  // The registry's oracle pool against WETH, else against a stablecoin (GIGA only trades against USDG).
+  for (const quote of [AUTO_WETH[chainId], ...(AUTO_STABLES[chainId] ?? [])]) {
+    const pool = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: ORACLE_ABI, functionName: "oracleFor", args: [token as `0x${string}`, quote as `0x${string}`] }).catch(() => null);
+    if (!pool || /^0x0{40}$/.test(pool)) continue;
+    const [t0, slot, decT, decQ, quoteUsd] = await Promise.all([
+      client.readContract({ address: pool, abi: POOL_HEAD_ABI, functionName: "token0" }),
+      client.readContract({ address: pool, abi: POOL_HEAD_ABI, functionName: "slot0" }),
+      client.readContract({ address: token as `0x${string}`, abi: DECIMALS_ABI, functionName: "decimals" }),
+      client.readContract({ address: quote as `0x${string}`, abi: DECIMALS_ABI, functionName: "decimals" }),
+      quote === AUTO_WETH[chainId] ? ethUsd() : Promise.resolve(1),
+    ]);
+    if (quoteUsd == null) return null;
+    // Pool price is token1 per token0 in raw units.
+    const raw = Math.pow(1.0001, Number(slot[1]));
+    const tokenIs0 = t0.toLowerCase() === token.toLowerCase();
+    const quotePerToken = tokenIs0 ? raw * 10 ** (decT - decQ) : (1 / raw) * 10 ** (decT - decQ);
+    return quotePerToken * quoteUsd;
+  }
+  return null;
 }
 
 async function usdOf(chainId: number, token: string, client?: PublicClient): Promise<number | null> {
@@ -300,55 +378,82 @@ async function kyberSwap(chainId: number, wallet: string, tokenIn: string, token
   );
 }
 
+/** The reward a staked position earns: Giga's farm pays GIGA, gauges pay the chain's reward token. */
+function rewardFor(chainId: number, pm: string): { address: string; symbol: string } | null {
+  return isFarmManager(chainId, pm) ? { address: GIGA_TOKEN.toLowerCase(), symbol: "GIGA" } : REWARD_TOKEN[chainId] ?? null;
+}
+
+/**
+ * The token rewards are sold into first: the reward itself when the pair holds
+ * it, else a pair token or WETH or a stablecoin the registry prices the reward
+ * against. Every onward swap from the hub into a pair token also needs an
+ * oracle, so a compound that could not finish is never started.
+ */
+async function rewardHub(client: PublicClient, chainId: number, reward: string, pair: string[]): Promise<string | null> {
+  if (pair.includes(reward)) return reward;
+  const oracle = (a: string, b: string) => client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: REGISTRY_ABI, functionName: "oracleFor", args: [a as `0x${string}`, b as `0x${string}`] })
+    .then((o) => !/^0x0{40}$/i.test(o)).catch(() => false);
+  const candidates = [...new Set([...pair, AUTO_WETH[chainId], ...(AUTO_STABLES[chainId] ?? [])].map((t) => t.toLowerCase()))];
+  for (const hub of candidates) {
+    if (!(await oracle(reward, hub))) continue;
+    const onward = await Promise.all(pair.filter((t) => t !== hub).map((t) => oracle(hub, t)));
+    if (onward.every(Boolean)) return hub;
+  }
+  return null;
+}
+
 /**
  * Compound a staked position's rewards: unstake (which pays the rewards into
  * the wallet), sell them for the position's two tokens in its current mix, add
  * those to the position, and stake it again. The restake always runs, so a
  * failure half way leaves the position staked and the rest as spare tokens.
+ * Works for gauges (AERO, UP) and Giga's farm (GIGA, sold through USDG).
  */
 async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
   chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; p: LiquidityPosition; gauge: `0x${string}`; stakedNow: boolean;
 }): Promise<{ ok: boolean; wait?: string | null; note?: string }> {
   const send = sender(client, o.chainId, o.wallet);
+  const stakeAdapter = stakeAdapterFor(o.chainId, o.pm);
   const t0 = o.p.token0.toLowerCase(), t1 = o.p.token1.toLowerCase();
-  const weth = AUTO_WETH[o.chainId], aero = REWARD_TOKEN[o.chainId]?.address;
-  if (!aero) return { ok: false, note: "No reward token here." };
-  const hub = [t0, t1].includes(aero) ? aero : [t0, t1].includes(weth) ? weth : null;
-  if (!hub) return { ok: false, note: "Reward compounding needs WETH or the reward token in the pair." };
+  const reward = rewardFor(o.chainId, o.pm)?.address.toLowerCase();
+  if (!reward) return { ok: false, note: "No reward token here." };
   const pool = d.slipstream
     ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.tickSpacing ?? o.p.fee] })
     : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.fee] });
   if (!(await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: REGISTRY_ABI, functionName: "isListedPool", args: [pool] }))) {
     return { ok: false, note: "Reward compounding works on pools BTB lists." };
   }
-  // The other token's share of the position by value, which is how much of the hub to swap into it.
-  const other = hub === t0 ? t1 : t0;
+  const hub = await rewardHub(client, o.chainId, reward, [t0, t1]);
+  if (!hub) return { ok: false, note: "BTB has no price feed to sell this reward into this pair yet." };
+  // Each pair token's share of the position by value: how much of the hub goes into it.
   const [usd0, usd1] = await Promise.all([usdOf(o.chainId, t0, client), usdOf(o.chainId, t1, client)]);
   if (usd0 == null || usd1 == null) return { ok: false, note: "Could not price the pair." };
   const v0 = Number(o.p.amount0) / 10 ** o.p.decimals0 * usd0, v1 = Number(o.p.amount1) / 10 ** o.p.decimals1 * usd1;
-  const otherShare = (other === t0 ? v0 : v1) / Math.max(v0 + v1, 1e-12);
+  const share = { [t0]: v0 / Math.max(v0 + v1, 1e-12), [t1]: v1 / Math.max(v0 + v1, 1e-12) };
 
   const bal = (t: string) => client.readContract({ address: t as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [o.wallet] });
   if (o.stakedNow) {
-    const r = await send(V6.aerodromeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
+    const r = await send(stakeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
     if (!r.ok) return { ok: false, wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null, note: r.name ?? r.message };
   }
   try {
     const before0 = await bal(t0), before1 = await bal(t1);
+    const hubBefore = hub === t0 ? before0 : hub === t1 ? before1 : await bal(hub);
     const swap = async (tokenIn: string, tokenOut: string, amountIn: bigint) => {
       if (amountIn <= 0n) return true;
       const params = await kyberSwap(o.chainId, o.wallet, tokenIn, tokenOut, amountIn);
       return !!params && (await send(V6.swapAdapter, params)).ok;
     };
-    // 1. All rewards into the hub token (unless the rewards are the hub).
-    if (hub !== aero) {
-      const rewards = await bal(aero);
-      if (!(await swap(aero, hub, rewards))) return { ok: false, note: "The reward swap was refused; it is retried later." };
+    // 1. All rewards into the hub (unless the rewards are the hub).
+    if (hub !== reward && !(await swap(reward, hub, await bal(reward)))) {
+      return { ok: false, note: "The reward swap was refused; it is retried later." };
     }
-    // 2. The other token's share of what the rewards brought in.
-    const hubGain = (await bal(hub)) - (hub === t0 ? before0 : before1);
-    if (!(await swap(hub, other, (hubGain * BigInt(Math.round(otherShare * 10_000))) / 10_000n))) {
-      return { ok: false, note: "The second swap was refused; it is retried later." };
+    // 2. From what the rewards brought in, each pair token that is not the hub gets its share.
+    const hubGain = (await bal(hub)) - hubBefore;
+    for (const t of [t0, t1].filter((x) => x !== hub)) {
+      if (!(await swap(hub, t, (hubGain * BigInt(Math.round(share[t] * 10_000))) / 10_000n))) {
+        return { ok: false, note: "A swap into the pair was refused; it is retried later." };
+      }
     }
     // 3. Add exactly what the rewards became.
     const a0 = (await bal(t0)) - before0, a1 = (await bal(t1)) - before1;
@@ -356,8 +461,14 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
     const added = await send(o.adapter, compoundParams(o.pm, o.tokenId, a0 > 0n ? a0 : 0n, a1 > 0n ? a1 : 0n, deadline));
     return added.ok ? { ok: true } : { ok: false, note: added.name ?? added.message };
   } finally {
-    await send(V6.aerodromeAdapter, gaugeParams(Action.Stake, o.gauge, o.tokenId)).catch(() => null);
+    await send(stakeAdapter, gaugeParams(Action.Stake, o.gauge, o.tokenId)).catch(() => null);
   }
+}
+
+/** What an action cost, for its alert: a free trial action, or BTB. */
+function paidText(paid: { btb: number; freeLeft: number } | null, cost: number): string {
+  if (paid && paid.btb === 0) return `Free (${paid.freeLeft} free action${paid.freeLeft === 1 ? "" : "s"} left).`;
+  return `${(paid?.btb ?? cost).toLocaleString("en-US")} BTB used.`;
 }
 
 async function push(ctx: ActionCtx, address: string, label: string, kind: string, title: string, message: string) {
@@ -425,7 +536,7 @@ export const check = internalAction({
     }
 
     // Paid only now that the read succeeded, and never twice for one check.
-    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry });
+    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry, snapshot: packPosition(position), staked });
     if (!charged.ok) {
       if (charged.broke) await push(ctx, job.address, job.label, "auto", "Auto-rebalance paused", `${job.label}: auto-rebalance paused, your BTB balance ran out.`);
       return;
@@ -434,26 +545,29 @@ export const check = internalAction({
       // Auto-compound: an in-range, unstaked position whose fees are worth
       // several times the compound price. Staked positions earn gauge
       // rewards, not fees, so there is nothing to put back.
-      const rewardsDue = job.compound && !!job.gauge && !isFarmManager(job.chainId, pm) && position && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId)
+      const reward = rewardFor(job.chainId, pm);
+      const farm = isFarmManager(job.chainId, pm);
+      const rewardsDue = job.compound && !!job.gauge && !!reward && position && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId)
         && Date.now() - (job.lastCompoundedAt ?? 0) >= COMPOUND_COOLDOWN_MS;
-      if (rewardsDue && position) {
-        // Staked: value the rewards waiting in the gauge plus any already in the wallet.
+      if (rewardsDue && position && reward) {
+        // Staked: value the rewards waiting in the gauge or farm plus any already in the wallet.
         const cost = compoundBtb(job.chainId);
-        const reward = REWARD_TOKEN[job.chainId];
         const [earned, held, aeroUsd] = await Promise.all([
-          staked ? client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_EARNED_ABI, functionName: "earned", args: [wallet, tokenId] }).catch(() => 0n) : Promise.resolve(0n),
+          !staked ? Promise.resolve(0n)
+            : farm ? client.readContract({ address: job.gauge as `0x${string}`, abi: FARM_PENDING_ABI, functionName: "pendingReward", args: [tokenId] }).catch(() => 0n)
+            : client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_EARNED_ABI, functionName: "earned", args: [wallet, tokenId] }).catch(() => 0n),
           client.readContract({ address: reward.address as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [wallet] }).catch(() => 0n),
           usdOf(job.chainId, reward.address, client),
         ]);
         const value = aeroUsd == null ? null : Number(earned + held) / 1e18 * aeroUsd;
         if (value != null && value >= compoundMinUsd(job.chainId)
-          && (await ctx.runQuery(internal.autoRebalance.available, { address: job.address })) >= cost
+          && (await ctx.runQuery(internal.autoRebalance.canPay, { address: job.address, cost }))
           && (await ctx.runMutation(internal.autoRebalance.acquireLock, { chainId: job.chainId, ms: 8 * 60_000 }))) {
           try {
             const done = await compoundRewards(client, d, { chainId: job.chainId, wallet, pm, adapter, tokenId, p: position, gauge: job.gauge as `0x${string}`, stakedNow: staked });
             if (done.ok) {
-              await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
-              await push(ctx, job.address, job.label, "auto", "Rewards compounded", `${job.label}: about $${value.toFixed(2)} of ${reward.symbol} was sold into the position and it is staked again. ${cost.toLocaleString("en-US")} BTB used.`);
+              const paid = await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
+              await push(ctx, job.address, job.label, "auto", "Rewards compounded", `${job.label}: about $${value.toFixed(2)} of ${reward.symbol} was sold into the position and it is staked again. ${paidText(paid, cost)}`);
             }
           } catch { /* retried at a later check; nothing is charged */ }
           finally { await ctx.runMutation(internal.autoRebalance.releaseLock, { chainId: job.chainId }); }
@@ -462,13 +576,13 @@ export const check = internalAction({
         const value = await feesUsd(job.chainId, position).catch(() => null);
         const cost = compoundBtb(job.chainId);
         if (value != null && value >= compoundMinUsd(job.chainId)
-          && (await ctx.runQuery(internal.autoRebalance.available, { address: job.address })) >= cost
+          && (await ctx.runQuery(internal.autoRebalance.canPay, { address: job.address, cost }))
           && (await ctx.runMutation(internal.autoRebalance.acquireLock, { chainId: job.chainId, ms: 5 * 60_000 }))) {
           try {
             const done = await compoundFees(client, d, { chainId: job.chainId, wallet, pm, adapter, tokenId, p: position });
             if (done.ok) {
-              await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
-              await push(ctx, job.address, job.label, "auto", "Fees compounded", `${job.label}: about $${value.toFixed(2)} of fees went back into the position. ${cost.toLocaleString("en-US")} BTB used.`);
+              const paid = await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
+              await push(ctx, job.address, job.label, "auto", "Fees compounded", `${job.label}: about $${value.toFixed(2)} of fees went back into the position. ${paidText(paid, cost)}`);
             }
           } catch { /* retried at a later check; nothing is charged */ }
           finally { await ctx.runMutation(internal.autoRebalance.releaseLock, { chainId: job.chainId }); }
@@ -485,10 +599,24 @@ export const check = internalAction({
       return;
     }
 
-    // Out of range. Only rebalance when the balance can pay for it.
+    // Out of range. The rebalance checks the pool's average price over the
+    // TWAP window; a pool without that history would fail it after the unstake,
+    // so check first and leave the position staked and untouched.
+    if (position) {
+      const pool = d.slipstream
+        ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [position.token0, position.token1, position.tickSpacing ?? position.fee] })
+        : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [position.token0, position.token1, position.fee] });
+      if (!(await hasPriceHistory(client, pool, lpConfig(job.chainId).twapWindow))) {
+        const note = "Out of range. This pool does not record enough price history to rebalance safely, so it is left as it is.";
+        if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Cannot rebalance this pool", `${job.label}: ${note}`);
+        await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: intervalMs });
+        return;
+      }
+    }
+
+    // Only rebalance when the balance can pay for it.
     const cost = rebalanceBtb(job.chainId);
-    const available = await ctx.runQuery(internal.autoRebalance.available, { address: job.address });
-    if (available < cost) {
+    if (!(await ctx.runQuery(internal.autoRebalance.canPay, { address: job.address, cost }))) {
       const note = `Out of range. A rebalance needs ${cost.toLocaleString("en-US")} BTB; top up to let it run.`;
       if (job.status !== "short") await push(ctx, job.address, job.label, "auto", "Top up to rebalance", `${job.label} is out of range. ${note}`);
       await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "short", note, nextInMs: intervalMs });
@@ -516,9 +644,9 @@ export const check = internalAction({
     }
 
     if (result.newTokenId != null) {
-      await ctx.runMutation(internal.autoRebalance.recordRebalance, { id, newTokenId: result.newTokenId.toString(), staked: result.staked });
+      const paid = await ctx.runMutation(internal.autoRebalance.recordRebalance, { id, newTokenId: result.newTokenId.toString(), staked: result.staked });
       const tail = job.gauge && !result.staked ? " It is not staked right now; the gauge refused it." : "";
-      await push(ctx, job.address, job.label, "auto", "Rebalanced", `${job.label} was out of range and has been moved next to the price. ${cost.toLocaleString("en-US")} BTB used.${tail}`);
+      await push(ctx, job.address, job.label, "auto", "Rebalanced", `${job.label} was out of range and has been moved next to the price. ${paidText(paid, cost)}${tail}`);
       const after = await ctx.runQuery(internal.autoRebalance.get, { id });
       if (after?.active) await ctx.runMutation(internal.autoRebalance.settle, { id, gen: after.gen, status: "watching", nextInMs: intervalMs });
       return;

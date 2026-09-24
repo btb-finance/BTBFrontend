@@ -34,8 +34,27 @@ import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutoRebalanceSheet } from './AutoRebalanceSheet';
 import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
-import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, isFarmManager } from '../lib/autoRebalance';
+import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, REWARD_TOKEN, isFarmManager, unpackPosition } from '../lib/autoRebalance';
+import { GIGA_TOKEN } from '@/protocols/dexs/robinhood';
 
+/** An auto job's position as its last check saw it, ready to draw before the live read lands. */
+function snapshotPosition(j: AutoJob): LiquidityPosition | null {
+  const found = autoDeployment(j.chainId, j.positionManager);
+  if (!j.snapshot || !found) return null;
+  try {
+    const p = unpackPosition<LiquidityPosition>(j.snapshot);
+    if (p.id.toString() !== j.tokenId) return null; // rebalanced since: wait for the live read
+    const pos: LiquidityPosition = { ...p, protocol: found.protocol, chainId: j.chainId, chainName: AUTO_CHAIN_NAMES[j.chainId], positionManager: j.positionManager as `0x${string}` };
+    if (j.gauge && j.snapshotStaked) {
+      const farm = isFarmManager(j.chainId, j.positionManager);
+      const reward = farm ? { address: GIGA_TOKEN, symbol: 'GIGA' } : REWARD_TOKEN[j.chainId];
+      if (reward) pos.staked = { kind: farm ? 'masterchef' : 'gauge', gauge: j.gauge as `0x${string}`, earned: 0n, rewardToken: reward.address as `0x${string}`, rewardSymbol: reward.symbol };
+    }
+    return pos;
+  } catch { return null; }
+}
+
+const FEE_GROWTH_GLOBAL_ABI = parseAbi(['function feeGrowthGlobal0X128() view returns (uint256)', 'function feeGrowthGlobal1X128() view returns (uint256)']);
 const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
 const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
 const AUTO_FARM_ABI = parseAbi([
@@ -257,8 +276,22 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   useEffect(() => {
     let live = true;
     if (!autoJobs?.length) { setAutoPositions([]); return; }
+    // Draw every job at once: what is already shown, else the last check's
+    // snapshot from Convex. Each live read below replaces its row as it lands.
+    const keyOf = (j: AutoJob) => `${j.chainId}-${autoDeployment(j.chainId, j.positionManager)?.protocol}-${j.tokenId}`;
+    const order = autoJobs.map(keyOf);
+    const place = (rows: Map<string, LiquidityPosition>) => order.flatMap((k) => rows.get(k) ?? []);
+    setAutoPositions((prev) => {
+      const rows = new Map(prev.map((p) => [posKey(p), p]));
+      for (const j of autoJobs) {
+        const k = keyOf(j);
+        if (rows.has(k)) continue;
+        const snap = snapshotPosition(j);
+        if (snap) rows.set(k, snap);
+      }
+      return place(rows);
+    });
     (async () => {
-      const out: LiquidityPosition[] = [];
       await Promise.all(autoJobs.map(async (j) => {
         const found = autoDeployment(j.chainId, j.positionManager);
         const client = getPublicClient(config, { chainId: j.chainId as never });
@@ -288,10 +321,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               else pos.stakeable = { kind: 'masterchef', gauge: target.contract, rewardSymbol: target.rewardSymbol };
             }
           }
-          out.push(pos);
-        } catch { /* the next job refresh retries */ }
+          if (live) setAutoPositions((prev) => place(new Map([...prev.map((p) => [posKey(p), p] as const), [posKey(pos), pos]])));
+        } catch { /* the snapshot stays; the next job refresh retries */ }
       }));
-      if (live) setAutoPositions(out);
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -505,10 +537,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     if (Object.keys(fromStore).length > 0) setUsd((u) => ({ ...fromStore, ...u }));
     // DeFiLlama keys prices by chain: price each token on the chain it lives on.
     // Robinhood Chain is not on DeFiLlama; its tokens are priced from DexScreener pools.
+    // Staked positions also need their reward token (AERO, UP, GIGA) priced, for the rewards waiting.
     const byChain = new Map<string, string[]>();
     for (const p of positions) {
       const chain = p.chainId === BASE_CHAIN_ID ? 'base' : p.chainId === 4663 ? 'robinhood' : 'ethereum';
-      byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1]);
+      byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1, ...(p.staked ? [p.staked.rewardToken] : [])]);
     }
     Promise.all([...byChain].map(([chain, list]) => (chain === 'robinhood'
       ? dexTokenPrices([...new Set(list.map((a) => a.toLowerCase()))])
@@ -570,6 +603,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       const out: Record<string, number> = {};
       await Promise.all(positions.map(async (p) => {
         if (!p.inRange || p.liquidity === 0n) { out[posKey(p)] = 0; return; }
+        // In an Aerodrome-style gauge the trading fees go to voters; the position earns the reward token instead.
+        if (p.staked?.kind === 'gauge') { out[posKey(p)] = 0; return; }
         const chainId = p.chainId ?? 1;
         const client = getPublicClient(config, { chainId });
         if (!client) return;
@@ -598,6 +633,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             : await client.readContract({ address: row.id as `0x${string}`, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
           const value = valueOf(p);
           if (poolL === 0n || !(value > 0)) return;
+          // A pool that sends every fee to the protocol (some Giga pools) never grows LP fees: nothing to earn.
+          if (p.protocol !== 'uniswap-v4') {
+            const [g0, g1] = await Promise.all([
+              client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal0X128' }),
+              client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal1X128' }),
+            ]).catch(() => [1n, 1n]);
+            if (g0 === 0n && g1 === 0n) { out[posKey(p)] = 0; return; }
+          }
           const share = Number(p.liquidity) / Number(poolL);
           out[posKey(p)] = (fees24h * Math.min(share, 1) * 365 / value) * 100;
         } catch { /* leave unknown */ }
@@ -680,10 +723,15 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     return parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
   };
   const feesValueOf = (p: LiquidityPosition) => {
+    // Staked in an Aerodrome-style gauge, the trading fees go to voters: the position cannot collect them.
+    if (p.staked?.kind === 'gauge') return 0;
     const p0 = usd[p.token0.toLowerCase()] ?? 0;
     const p1 = usd[p.token1.toLowerCase()] ?? 0;
     return parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
   };
+  /** Staking rewards waiting (AERO, UP and GIGA all have 18 decimals). */
+  const rewardsValueOf = (p: LiquidityPosition) =>
+    p.staked && p.staked.earned > 0n ? parseFloat(formatUnits(p.staked.earned, 18)) * (usd[p.staked.rewardToken.toLowerCase()] ?? 0) : 0;
   const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
   const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
@@ -835,7 +883,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       pool: { project: protocolBadgeLabel(p) },
     };
   };
-  const krystalStats = krystal?.statsByChain?.all ?? krystal?.statsByChain?.['1'];
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
     item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
     !positions.some((p) => krystalMatches(p, item)),
@@ -1165,7 +1212,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const renderPositionRow = (p: LiquidityPosition, index: number) => {
     const key = posKey(p);
     const open = expanded === key;
-    const v = valueOf(p), f = feesValueOf(p), apr = aprOf(p);
+    // "To collect" is everything waiting: trading fees plus, when staked, the rewards.
+    const v = valueOf(p), f = feesValueOf(p) + rewardsValueOf(p), apr = aprOf(p);
     const a = analyticsOf(p);
     const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
     const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
@@ -1221,7 +1269,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               <div style={{ color: tone, fontSize: 11, fontWeight: 750, marginTop: 6 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, price ${side}` : ''}`}</div>
             </div>
           )}
-          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.fees0 > 0n || p.fees1 > 0n) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
+          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.staked?.kind !== 'gauge' && (p.fees0 > 0n || p.fees1 > 0n)) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
           {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label('fee APR')}</div>}
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: btb.text, fontSize: isMobile ? 14.5 : 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
@@ -1396,27 +1444,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       )}
 
 
-      {krystalStats && (
-        <Glass padding={isMobile ? 12 : 16} radius={16} soft>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, marginBottom: 10 }}>
-            <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>LP history</div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)', gap: 8 }}>
-            {[
-              { label: 'Historical PnL', value: fmtSignedMoney(krystalStats.pnl), color: krystalStats.pnl >= 0 ? btb.green : btb.loss },
-              { label: 'ROI', value: fmtSignedPercent(krystalStats.returnOnInvestment), color: krystalStats.returnOnInvestment >= 0 ? btb.green : btb.loss },
-              { label: 'Lifetime fees', value: `$${krystalStats.totalFeeEarned.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, color: btb.green },
-              { label: 'Vs holding', value: fmtSignedMoney(krystalStats.compareWithHodl), color: krystalStats.compareWithHodl >= 0 ? btb.green : btb.loss },
-              { label: 'Positions', value: `${krystalStats.openPositionCount} open · ${krystalStats.closedPositionCount} closed`, color: btb.text },
-            ].map((item) => (
-              <div key={item.label} style={{ padding: '9px 10px', borderRadius: 11, background: 'rgba(var(--fg-rgb), 0.035)', minWidth: 0 }}>
-                <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.35, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</div>
-                <div style={{ color: item.color, fontSize: isMobile ? 13 : 14, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.value}</div>
-              </div>
-            ))}
-          </div>
-        </Glass>
-      )}
 
       {closedHistory.length > 0 && (
         <Glass padding={12} radius={14} soft>

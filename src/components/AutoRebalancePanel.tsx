@@ -13,7 +13,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useWalletSession } from '../lib/session';
 import { readableError } from '../lib/errorText';
-import { AUTO_CHAIN_NAMES, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
+import { AUTO_CHAIN_NAMES, LATEST_WALLET_VERSION, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
 import type { LiquidityPosition } from '@/protocols/types';
 
 type Job = NonNullable<ReturnType<typeof useAutoJobs>>['jobs'][number];
@@ -66,23 +66,27 @@ export function AutoRebalancePanel({ address }: { address?: string }) {
       <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>
         Auto-rebalance on {data.jobs.length} position{data.jobs.length === 1 ? '' : 's'}{paused ? `, ${paused} paused` : ''}
       </div>
-      <div style={{ color: btb.textMuted, fontSize: 11.5 }}>{fmtBtb(data.balance)} BTB available</div>
+      <div style={{ color: btb.textMuted, fontSize: 11.5 }}>
+        {data.freeActions > 0 ? <span style={{ color: btb.green, fontWeight: 750 }}>{data.freeActions} free action{data.freeActions === 1 ? '' : 's'} left, </span> : null}
+        {fmtBtb(data.balance)} BTB available
+      </div>
     </div>
     </div>
   );
 }
 
-/** What the latest auto wallet version adds, in plain words. */
-const WALLET_V2_CHANGES = [
-  'Giga farm staking: Giga positions can be staked for GIGA inside the auto wallet and stay staked through every rebalance.',
-  'Nothing else changes: same address, same positions, same settings. Only you can upgrade, and only to versions BTB has approved.',
+/** What each auto wallet version adds, in plain words; an update shows everything newer than the wallet. */
+const WALLET_CHANGES: { version: number; text: string }[] = [
+  { version: 2, text: 'Giga farm staking: Giga positions can be staked for GIGA inside the auto wallet and stay staked through every rebalance.' },
+  { version: 3, text: 'Withdraw everything in one confirmation: every leftover token and any ETH come out together, and a broken or spam token is skipped instead of blocking the rest.' },
 ];
+const WALLET_SAME = 'Nothing else changes: same address, same positions, same settings. Only you can upgrade, and only to versions BTB has approved.';
 
 /** An update box for each auto wallet still on an older version, with a one-confirmation upgrade. */
 function WalletUpdates({ address, jobs }: { address: string; jobs: Job[] }) {
   const config = useConfig();
   const { track } = useTx();
-  const [old, setOld] = useState<{ chainId: number; wallet: string }[]>([]);
+  const [old, setOld] = useState<{ chainId: number; wallet: string; version: number }[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -91,11 +95,12 @@ function WalletUpdates({ address, jobs }: { address: string; jobs: Job[] }) {
   useEffect(() => {
     let live = true;
     (async () => {
-      const found: { chainId: number; wallet: string }[] = [];
+      const found: { chainId: number; wallet: string; version: number }[] = [];
       await Promise.all(walletsKey.split(',').filter(Boolean).map(async (k) => {
         const [c, wallet] = k.split(':');
         const client = getPublicClient(config, { chainId: Number(c) as never }) as PublicClient | undefined;
-        if (client && (await walletVersion(client, wallet)) < 2) found.push({ chainId: Number(c), wallet });
+        const version = client ? await walletVersion(client, wallet) : LATEST_WALLET_VERSION;
+        if (version < LATEST_WALLET_VERSION) found.push({ chainId: Number(c), wallet, version });
       }));
       if (live) setOld(found.sort((a, b) => a.chainId - b.chainId));
     })();
@@ -116,8 +121,9 @@ function WalletUpdates({ address, jobs }: { address: string; jobs: Job[] }) {
   if (old.length === 0) return null;
   return (
     <div style={{ borderRadius: 16, border: '1px solid rgba(var(--fg-rgb), 0.14)', background: 'rgba(var(--fg-rgb), 0.04)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>Auto wallet update available (version 2)</div>
-      {WALLET_V2_CHANGES.map((c) => <div key={c} style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5 }}>{c}</div>)}
+      <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>Auto wallet update available (version {LATEST_WALLET_VERSION})</div>
+      {WALLET_CHANGES.filter((c) => c.version > Math.min(...old.map((o) => o.version))).map((c) => <div key={c.text} style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5 }}>{c.text}</div>)}
+      <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5 }}>{WALLET_SAME}</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {old.map((o) => (
           <button key={o.chainId} disabled={busy != null} onClick={() => upgrade(o.chainId, o.wallet)}
@@ -144,9 +150,9 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
   const setGauge = useMutation(api.autoRebalance.setGauge);
   const setCompound = useMutation(api.autoRebalance.setCompound);
   const isStaked = !!pos?.staked || !!job.gauge;
-  // Giga's farm pays GIGA, which is not compounded yet; the chain's reward token is for gauge DEXs only.
+  // Giga's farm pays GIGA (sold through USDG); gauges pay the chain's reward token.
   const farm = isFarmManager(job.chainId, job.positionManager);
-  const rewardsOk = !farm && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId);
+  const rewardsOk = (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId);
   const rewardSym = pos?.staked?.rewardSymbol ?? (farm ? 'GIGA' : REWARD_TOKEN[job.chainId]?.symbol ?? 'rewards');
 
   /** Auto-compound on or off. Staked on Base: first make sure the wallet may sell rewards (one confirmation, once). */
@@ -190,7 +196,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
   async function takeOut() {
     setErr(null); setBusy('Withdrawing');
     try {
-      await onChain(`Withdraw ${job.label} from auto wallet`, (c) => buildTakeOutCalls(c, job));
+      await onChain(`Withdraw ${job.label} from auto wallet`, (c) => buildTakeOutCalls(c, job, address as `0x${string}`));
       setBusy(null);
       await withSession('Stopping', (t) => stop({ sessionToken: t, id }));
       await onChanged?.();
@@ -219,7 +225,8 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
 
   async function sweep() {
     setErr(null); setBusy('Sending');
-    try { await onChain('Withdraw leftover tokens', (c) => buildSweepCalls(c, job)); await onChanged?.(); }
+    // Only loose tokens move: no position changes, so there is nothing to reload.
+    try { await onChain('Withdraw leftover tokens', (c) => buildSweepCalls(c, job, false, address as `0x${string}`)); }
     catch (e) { setErr(readableError(e, 'Could not withdraw the leftover tokens.')); }
     finally { setBusy(null); }
   }
@@ -248,13 +255,11 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
         {job.rebalances} rebalance{job.rebalances === 1 ? '' : 's'}{job.lastRebalancedAt ? ` (last ${ago(job.lastRebalancedAt)})` : ''}{job.compounds > 0 ? `, ${job.compounds} compound${job.compounds === 1 ? '' : 's'}` : ''}, {fmtBtb(job.spentBtb)} BTB used so far, {fmtBtb(job.rebalanceBtb)} BTB per rebalance or compound on {AUTO_CHAIN_NAMES[job.chainId]}
       </div>
       <div style={{ color: job.compound && !isStaked ? btb.green : btb.textDim, fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
-        {isStaked && farm
-          ? `${rewardSym} rewards go to your auto wallet each time it rebalances, or when you claim. Compounding ${rewardSym} is not available yet.`
-          : isStaked && !rewardsOk
+        {isStaked && !rewardsOk
           ? 'Compounding staking rewards is not available on this chain yet.'
           : isStaked
             ? job.compound
-              ? `Auto-compound ${rewardSym} on: once the ${rewardSym} is worth $${compoundMinUsd(job.chainId).toFixed(2)}, it is unstaked, the ${rewardSym} is sold for this pair at no worse than the market average less 1%, added to the position, and staked again. At most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
+              ? `Auto-compound ${rewardSym} on: once the ${rewardSym} is worth $${compoundMinUsd(job.chainId).toFixed(2)}, it is unstaked, the ${rewardSym} is sold for this pair at no worse than the market average less ${job.chainId === 4663 ? 3 : 1}%, added to the position, and staked again. At most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
               : `Auto-compound ${rewardSym} off: ${rewardSym} collects in your auto wallet.`
           : job.compound
             ? `Auto-compound on: fees go back into the position once they are worth $${compoundMinUsd(job.chainId).toFixed(2)} (5 times the compound price), at most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`

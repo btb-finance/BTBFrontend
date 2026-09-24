@@ -93,7 +93,7 @@ function isNativeAddress(address: string) {
 
 export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onViewAddress }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void; viewAddress?: string; onViewAddress?: (addr: string | undefined) => void } = {}) {
   const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
-  const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
+  const [tab, setTab] = useState<'tokens' | 'lps'>('lps');
   const [lpToken, setLpToken] = useState<Token | null>(null);
   const [showHiddenAssets, setShowHiddenAssets] = useState(false);
   const [tokenSearch, setTokenSearch] = useState('');
@@ -240,13 +240,6 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
     { key: 'actions', label: '', align: 'right', width: '250px', render: t => <Actions t={t}/> },
   ];
 
-  const statTiles = [
-    { label: 'Tokens', value: String(allTokensWithBalance.length), color: btb.text, go: 'tokens' as const, active: tab === 'tokens' },
-    { label: 'LP positions', value: lp.loading && lp.count === 0 ? '…' : String(lp.count), color: btb.text, go: 'lps' as const, active: tab === 'lps' },
-    { label: 'In range', value: lp.count > 0 ? `${lp.inRange} / ${lp.count}` : '0', color: lp.count > 0 && lp.inRange < lp.count ? btb.amber : btb.text, go: 'lps' as const, active: false },
-    { label: 'Unclaimed fees', value: fmtCompactUsd(lp.feesUsd), color: lp.feesUsd > 0 ? btb.green : btb.text, go: 'lps' as const, active: false },
-  ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {onViewAddress && <WalletTabs viewAddress={viewAddress} onViewAddress={onViewAddress}/>}
@@ -318,22 +311,9 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
         )}
       </Glass>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: isMobile ? 8 : 10 }}>
-        {statTiles.map(s => (
-          <button key={s.label} onClick={() => setTab(s.go)} style={{
-            textAlign: 'left', padding: isMobile ? '10px 12px' : '12px 14px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', minWidth: 0,
-            background: s.active ? btb.surfaceStrong : btb.surfaceSoft,
-            border: `1px solid ${s.active ? 'rgba(var(--fg-rgb), 0.22)' : 'rgba(var(--fg-rgb), 0.07)'}`,
-          }}>
-            <div style={{ color: btb.textMuted, fontSize: isMobile ? 10 : 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
-            <div style={{ color: s.color, fontSize: isMobile ? 17 : 20, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</div>
-          </button>
-        ))}
-      </div>
-
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 12, background: btb.surfaceSoft, border: btb.borderSoft }}>
-          {([['tokens', 'Tokens'], ['lps', isMobile ? 'LPs' : 'LP Positions']] as const).map(([t, label]) => {
+          {([['lps', isMobile ? 'LPs' : 'LP Positions'], ['tokens', 'Tokens']] as const).map(([t, label]) => {
             const active = tab === t;
             return (
               <button key={t} onClick={() => setTab(t)} style={{

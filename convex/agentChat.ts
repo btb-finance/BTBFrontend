@@ -14,6 +14,7 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from "./alertMessages";
+import { FREE_ACTIONS } from "./autoRebalanceConfig";
 import { unpackSnapshotNode } from "../src/lib/snapshotCodec";
 import { mintTarget, type EarnPool } from "../src/lib/pools";
 import { poolPath } from "../src/lib/routes";
@@ -71,7 +72,32 @@ function holdingsText(balances: { symbol: string; balanceFormatted: string; valu
     .join("\n");
 }
 
-function buildSystemPrompt(balances: { symbol: string; balanceFormatted: string; valueUsd: number }[], extras?: string): string {
+type Account = { btbAvailable: number; btbBalance: number; btbRewards: number; auto: { freeActions: number; lines: string[] } };
+
+/** The user's BTB balance and auto-rebalance positions, as the app shows them. */
+function accountText(a: Account): string {
+  return [
+    `BTB balance in the app: ${Math.floor(a.btbBalance).toLocaleString("en-US")} BTB, plus ${Math.floor(a.btbRewards).toLocaleString("en-US")} BTB of unclaimed weekly rewards (spent after the balance). ${Math.floor(a.btbAvailable).toLocaleString("en-US")} BTB available in total.`,
+    `Auto-rebalance free actions left: ${a.auto.freeActions} of ${FREE_ACTIONS}.`,
+    a.auto.lines.length ? `Auto-rebalance positions (${a.auto.lines.length}):\n${a.auto.lines.join("\n")}` : "Auto-rebalance: none turned on yet.",
+  ].join("\n");
+}
+
+const AUTO_FACTS = [
+  "AUTO-REBALANCE, how it works (state these directly; never invent more):",
+  "What: the user moves an LP position into their own auto wallet (a smart wallet only they own, at the same address on every chain). The BTB agent checks it on the interval the user picks (5 min, 15 min, 30 min, 1 h, 4 h or 1 day) and, when the price leaves the range, moves the same range width right next to the price, one-sided, with no swap. It keeps the position staked across rebalances when it was staked.",
+  "Where: Base (Aerodrome Slipstream, all versions, and Uniswap V3) and Robinhood Chain (UP, Giga and Uniswap V3). Turn it on from an LP's card ('Auto-rebalance') or with the auto toggle in Add liquidity.",
+  "Cost: 1 BTB per check. Each rebalance or compound costs about $0.10 in BTB on Base and $0.50 on Robinhood Chain (BTB is priced at $0.00003, so 3,333 BTB on Base and 16,667 BTB on Robinhood), only when it happens, the same whatever the position size. Paid from the app BTB balance, then unclaimed weekly rewards. A check or rebalance that fails costs nothing. When the balance runs out it pauses and tells the user.",
+  `Free trial: every user's first ${FREE_ACTIONS} rebalances or compounds are free (across chains), and checks are free while any are left, so no BTB is needed to try it.`,
+  "Auto-compound (optional per position): unstaked positions put their trading fees back once they are worth 5 times the compound price. Staked positions sell their rewards (AERO on Base, UP or GIGA on Robinhood Chain) for the pair in its current mix and add them back, then restake. At most every 6 hours. Reward compounding works on pools BTB lists.",
+  "Safety: the auto wallet can only do what listed adapters allow. The agent can never withdraw, can never send tokens or positions anywhere but back to the owner, and every swap must be no worse than the pool's 10 minute average price less the slippage limit (1% on Base, 3% on Robinhood Chain). Before each rebalance the price must also be stable against that average. A pool that does not record price history cannot be rebalanced safely and is left alone. The agent is capped at 48 wallet actions a day per wallet (the owner can change it). Only the owner can withdraw, pause, change settings or upgrade, and only to versions BTB approved. Not audited yet.",
+  "Buttons on an auto position: Change interval; Pause; Stake or Unstake; Claim rewards; Auto-compound on or off; 'Withdraw leftover tokens' sends every spare token and any ETH in the auto wallet back to the user (spam tokens with no market price are left behind) while the position keeps running; 'Withdraw LP and stop auto' unstakes, sends the position and all leftovers back to the user's own wallet and stops auto-rebalance. Nothing is sold or closed.",
+  "Auto wallet versions: 2 added Giga farm staking, 3 added withdrawing everything in one confirmation. The app shows an 'Auto wallet update available' box with an Update button when a wallet is on an older version; updating keeps the same address, positions and settings.",
+  "Why it may not rebalance: the price is right next to the range (a one-sided position waiting to be filled), the price is moving too fast, the cooldown after the last rebalance (10 minutes), the farm's 2 minute minimum stake time on Giga, the pool has no price history, or the BTB balance is too low after the free actions are used. The status line on each auto position says which.",
+  "Fees versus rewards: in an Aerodrome or UP gauge the trading fees go to voters and the position earns AERO or UP instead. Some Giga pools send all trading fees to the protocol and pay LPs only in GIGA from the farm.",
+].join(" ");
+
+function buildSystemPrompt(balances: { symbol: string; balanceFormatted: string; valueUsd: number }[], extras: string | undefined, account: Account): string {
   const held = holdingsText(balances, extras);
   return [
     "You are the BTB Agent, the assistant inside BTB Finance (btb.finance): a liquidity provider app that finds pools, simulates ranges, adds and manages concentrated liquidity positions on Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome, Giga, Ramses and UP across Ethereum, Base, BNB Chain, Robinhood Chain and Arc, free, with revenue shared to users every Friday.",
@@ -86,8 +112,13 @@ function buildSystemPrompt(balances: { symbol: string; balanceFormatted: string;
     "",
     "BTB FINANCE FACTS you may state directly: BTB token (Ethereum mainnet) 0x88888888c90CD71B35830daBFD24743DbC135B51, trades on Uniswap V4 (BTB/USDC and BTB/ETH). When someone asks where or how to buy BTB, give this in-app swap link: https://btb.finance/swap?chain=1&from=ETH&to=0x88888888c90cd71b35830dabfd24743dbc135b51 (the swap gets the best price across DEXes). For any other token the user wants to buy or swap, the link is https://btb.finance/swap?chain=<chainId>&from=ETH&to=<token address>. OPOS (OPOSSUM) 0x88888805E7e3d5c7FB002AD98f08250E79c298dC is the BTB wrapper: 1 BTB mints 1,000,000 OPOS and burns back at the same rate, with a 1% transfer tax to the treasury; it has Uniswap V2 pairs against many tokens. BTBB (BTB Bear) 0x88888880d5ca13018d2dc11e2e4744bd91a5656f. Holding 10,000 BTB unlocks LP range alerts (checked hourly free, or every 5 minutes for 1 BTB per check). The agent gives 5 free messages a day, then each message costs 1 BTB from the user's BTB balance in the app; unclaimed weekly rewards are used automatically. Checking in daily earns XP, plus 1 XP per 100 BTB held (up to 10,000 XP a day). Revenue is shared every Friday in BTB with everyone who earned points that week, automatically; a share must be claimed or added to the BTB balance before the next Friday or it returns to the pot. Never quote any other address for these tokens; if search_token returns other 'BTB' tokens on other chains, say they are not BTB Finance.",
     "",
+    AUTO_FACTS,
+    "",
     "USER HOLDINGS (every chain, as the Portfolio tab shows them; a token on one chain is not on another):",
     held || "none on record (ask them to open the Portfolio tab once so balances sync)",
+    "",
+    "USER ACCOUNT (live from the app):",
+    accountText(account),
   ].join("\n");
 }
 
@@ -118,7 +149,7 @@ const TOOLS = [
     type: "function" as const,
     function: {
       name: "get_portfolio",
-      description: "The user's token balances (with USD values) and their open LP positions with pair, chain, DEX, value, unclaimed fees and whether each is in range.",
+      description: "The user's token balances (with USD values), their open LP positions with pair, DEX, amounts and whether each is in range, their BTB balance in the app, free auto-rebalance actions left, and every auto-rebalance position with its status, interval, rebalances, compounds and BTB spent.",
       parameters: { type: "object", properties: {} },
     },
   },
@@ -279,11 +310,11 @@ export const chat = action({
     const portfolio = () => {
       let lps = "none";
       try { const l = (JSON.parse(extras ?? "{}") as { lps?: unknown[] }).lps; if (l && l.length) lps = JSON.stringify(l).slice(0, 8000); } catch { /* none */ }
-      return `BALANCES (every chain, as shown in Portfolio):\n${holdingsText(data.balances, extras) || "none synced"}\n\nLP POSITIONS (json): ${lps}`;
+      return `BALANCES (every chain, as shown in Portfolio):\n${holdingsText(data.balances, extras) || "none synced"}\n\nLP POSITIONS (json): ${lps}\n\n${accountText(data)}`;
     };
 
     const messages: ChatMsg[] = [
-      { role: "system", content: buildSystemPrompt(data.balances, extras) },
+      { role: "system", content: buildSystemPrompt(data.balances, extras, data) },
       ...data.history,
       { role: "user", content: trimmed },
     ];

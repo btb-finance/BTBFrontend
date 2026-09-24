@@ -37,7 +37,7 @@ import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/a
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
-import { useAction } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import { useWalletSession } from '../lib/session';
 import { IntervalPills } from './AutoRebalanceSheet';
 import { AUTO_CHAIN_NAMES, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, isFarmManager, rebalanceBtb } from '../lib/autoRebalance';
@@ -233,6 +233,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const [autoInterval, setAutoInterval] = useState<number>(DEFAULT_INTERVAL);
   const session = useWalletSession(address);
   const enableAuto = useAction(api.autoRebalanceActions.enable);
+  const autoFree = useQuery(api.autoRebalance.listForAddress, address ? { address } : 'skip')?.freeActions ?? 0;
   const wantsAuto = autoOn && !!autoAdapter && !splitRange;
 
   /** After a mint: hand the newest position to auto-rebalance, or stake it as before. */
@@ -1207,7 +1208,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Auto-rebalance: check every</div>
               <IntervalPills value={autoInterval} onChange={setAutoInterval} disabled={busy}/>
               <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-                1 BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
+                {autoFree > 0 ? `Free to try: your next ${autoFree} rebalance${autoFree === 1 ? '' : 's'} or compound${autoFree === 1 ? '' : 's'} cost nothing, and checks are free until they are used. After that, 1` : '1'} BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
               </div>
             </div>
           )}

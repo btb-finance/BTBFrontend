@@ -9,6 +9,7 @@ import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { sessionWallet } from "./sessions";
 import { availableFor, spendCredit } from "./credit";
+import { autoSummaryFor } from "./autoRebalance";
 
 export const history = query({
   args: { sessionToken: v.optional(v.string()) },
@@ -64,9 +65,13 @@ export const contextData = internalQuery({
       .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet).gt("createdAt", dayAgo))
       .collect();
     const userMsgsToday = today.filter((m) => m.role === "user").length;
-    const { total: btbAvailable } = await availableFor(ctx, wallet);
+    const { total: btbAvailable, balance: btbBalance, rewards: btbRewards } = await availableFor(ctx, wallet);
+    const auto = await autoSummaryFor(ctx, wallet);
     return {
       btbAvailable,
+      btbBalance,
+      btbRewards,
+      auto,
       balances: balances.map((b) => ({
         symbol: b.symbol,
         tokenAddress: b.tokenAddress,
