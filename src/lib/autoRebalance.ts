@@ -13,7 +13,7 @@ import { uniswapV3DeploymentForChain, type V3Deployment } from '@/protocols/dexs
 import { deploymentOfPosition } from '@/protocols/lpChains';
 import {
   AUTO_CHAINS, AUTO_CHAIN_NAMES, Action, FACTORY_ABI, REBALANCE_AGENT, V6, WALLET_ABI, adapterFor, encodeLpConfig,
-  gaugeParams, walletSetup,
+  encodeSwapConfig, gaugeParams, walletSetup,
 } from '../../convex/autoRebalanceConfig';
 
 export * from '../../convex/autoRebalanceConfig';
@@ -83,6 +83,7 @@ export async function buildEnableCalls(client: PublicClient, owner: `0x${string}
     if (/^0x0{64}$/.test(adapterHash)) {
       calls.push({ to: wallet, label: 'Turn on this DEX', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [s.adapter, true, encodeLpConfig(s.chainId)] }) });
     }
+    calls.push(...await swapAdapterCalls(client, wallet, s.chainId));
   }
   calls.push(...unstake.map((c) => ({ ...c, label: 'Unstake' })));
   calls.push({
@@ -110,6 +111,17 @@ export async function enableWhenVisible<R extends { ok: boolean; reason?: string
     res = await start();
   }
   return res;
+}
+
+/**
+ * Turn on the swap adapter in a wallet created before it was part of the setup.
+ * It only ever sells staking rewards into a position's tokens, at no worse than
+ * the time-weighted price less 1%.
+ */
+export async function swapAdapterCalls(client: PublicClient, wallet: string, chainId: number): Promise<Call[]> {
+  const hash = await client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: 'adapterCodeHash', args: [V6.swapAdapter] }).catch(() => null);
+  if (hash && !/^0x0{64}$/.test(hash)) return [];
+  return [{ to: wallet as `0x${string}`, label: 'Allow selling rewards', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.swapAdapter, true, encodeSwapConfig(chainId)] }) }];
 }
 
 /** One owner call that runs a gauge action for a position held in the auto wallet. */

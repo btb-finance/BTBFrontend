@@ -47,6 +47,7 @@ export const listForAddress = query({
         note: r.note ?? null, lastInRange: r.lastInRange ?? null, lastCheckedAt: r.lastCheckedAt ?? null,
         lastRebalancedAt: r.lastRebalancedAt ?? null, nextCheckAt: r.active ? r.nextCheckAt : null,
         checks: r.checks, rebalances: r.rebalances, spentBtb: r.spentBtb, rebalanceBtb: rebalanceBtb(r.chainId),
+        compound: r.compound ?? false, compounds: r.compounds ?? 0, lastCompoundedAt: r.lastCompoundedAt ?? null,
       })),
     };
   },
@@ -98,6 +99,33 @@ export const setGauge = mutation({
   },
 });
 
+/** Turn auto-compound on or off for a position. */
+export const setCompound = mutation({
+  args: { sessionToken: v.string(), id: v.id("autoRebalances"), on: v.boolean() },
+  handler: async (ctx, a) => {
+    const r = await ownedRow(ctx, a.sessionToken, a.id);
+    if ("error" in r) return { ok: false as const, reason: r.error };
+    await ctx.db.patch(r.row._id, { compound: a.on, updatedAt: Date.now() });
+    return { ok: true as const };
+  },
+});
+
+/** A compound landed on-chain: charge for it. */
+export const recordCompound = internalMutation({
+  args: { id: v.id("autoRebalances") },
+  handler: async (ctx, { id }) => {
+    const row = await ctx.db.get(id);
+    if (!row) return;
+    const cost = rebalanceBtb(row.chainId);
+    const paid = await spendCredit(ctx, row.address, cost);
+    await ctx.db.patch(row._id, {
+      lastCompoundedAt: Date.now(), compounds: (row.compounds ?? 0) + 1,
+      spentBtb: row.spentBtb + (paid ? cost : 0), updatedAt: Date.now(),
+      ...(paid ? {} : { active: false, status: "paused", note: "Your BTB balance ran out. Top up to resume.", gen: row.gen + 1 }),
+    });
+  },
+});
+
 /** The owner took the position out of the wallet: stop for good. */
 export const stop = mutation({
   args: { sessionToken: v.string(), id: v.id("autoRebalances") },
@@ -114,7 +142,7 @@ export const stop = mutation({
 export const upsertVerified = internalMutation({
   args: {
     address: v.string(), wallet: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
-    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(),
+    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
   },
   handler: async (ctx, a) => {
     const address = a.address.toLowerCase();
@@ -125,6 +153,7 @@ export const upsertVerified = internalMutation({
     const fields = {
       wallet: a.wallet.toLowerCase(), label: a.label, gauge: a.gauge?.toLowerCase(), intervalMin: a.intervalMin,
       active: true, status: "watching", note: undefined, failures: 0,
+      ...(a.compound != null ? { compound: a.compound } : {}),
     };
     if (existing) { await schedule(ctx, existing, now + 5_000, fields); return existing._id; }
     const id = await ctx.db.insert("autoRebalances", {

@@ -19,7 +19,7 @@ import { readableError } from '../lib/errorText';
 import type { LiquidityPosition } from '@/protocols/types';
 import { buildUnstakeCalls } from '@/protocols/staking';
 import {
-  CHECK_BTB, CHECK_INTERVALS, DEFAULT_INTERVAL, REBALANCE_USD, autoLabel, autoSupport, buildEnableCalls, dailyCheckBtb, enableWhenVisible,
+  CHECK_BTB, CHECK_INTERVALS, DEFAULT_INTERVAL, REBALANCE_USD, autoLabel, autoSupport, buildEnableCalls, compoundMinUsd, dailyCheckBtb, enableWhenVisible,
   intervalLabel, rebalanceBtb,
 } from '../lib/autoRebalance';
 
@@ -63,6 +63,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [topUp, setTopUp] = useState(false);
+  const [compound, setCompound] = useState(false);
 
   const support = autoSupport(pos);
   const chainId = pos.chainId ?? 1;
@@ -84,7 +85,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
       setBusy('Starting');
       const res = await enableWhenVisible(() => enable({
         sessionToken, chainId, positionManager: support.positionManager, tokenId: pos.id.toString(), label,
-        gauge: support.gauge, intervalMin: interval,
+        gauge: support.gauge, intervalMin: interval, compound: !pos.staked && compound,
       }));
       if (!res.ok) { if (/sign-in expired/i.test(res.reason)) session.forget(); throw new Error(res.reason); }
       await onDone();
@@ -127,11 +128,21 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
                 <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 6 }}>Tight ranges go out of range often, so check them more often. It is your choice.</div>
               </div>
 
+              {!pos.staked && (
+                <div onClick={() => !busy && setCompound((c) => !c)} style={{ ...box, cursor: busy ? 'default' : 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', borderColor: compound ? 'rgba(var(--green-rgb), 0.35)' : undefined }}>
+                  <span style={{ width: 18, height: 18, borderRadius: 6, flexShrink: 0, marginTop: 1, background: compound ? btb.green : 'transparent', border: `1px solid ${compound ? btb.green : 'rgba(var(--fg-rgb), 0.3)'}` }}/>
+                  <div>
+                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>Also auto-compound fees</div>
+                    {line(`Put the fees back into the position once they are worth $${compoundMinUsd(chainId).toFixed(2)} (5 times the compound price), at most every 6 hours. Same price as a rebalance, only when it happens.`)}
+                  </div>
+                </div>
+              )}
+
               <div style={{ ...box, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>What it costs</div>
                 <CostRow label="Each check" value={`${CHECK_BTB} BTB`}/>
                 <CostRow label={`Checks every ${intervalLabel(interval)}`} value={`about ${fmtBtb(perDay)} BTB a day`}/>
-                <CostRow label="Each rebalance, only when it happens" value={`${fmtBtb(perRebalance)} BTB (about $${(REBALANCE_USD[chainId] ?? 0).toFixed(2)})`}/>
+                <CostRow label={compound && !pos.staked ? 'Each rebalance or compound, only when it happens' : 'Each rebalance, only when it happens'} value={`${fmtBtb(perRebalance)} BTB (about $${(REBALANCE_USD[chainId] ?? 0).toFixed(2)})`}/>
                 <div style={{ color: btb.textDim, fontSize: 11, lineHeight: 1.5 }}>Paid from your BTB balance, then your unclaimed weekly rewards. A check or rebalance that fails is not charged. When the balance runs out, auto-rebalance pauses and tells you.</div>
               </div>
 

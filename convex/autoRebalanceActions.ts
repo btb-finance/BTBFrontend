@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
-  BaseError, ContractFunctionRevertedError, createWalletClient, defineChain, fallback, http, isAddress, parseAbi,
+  BaseError, ContractFunctionRevertedError, createWalletClient, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
   parseEventLogs, type Chain, type PublicClient,
 } from "viem";
 import { base } from "viem/chains";
@@ -14,8 +14,10 @@ import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
 import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
 import { UP_V3_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
 import { uniswapV3DeploymentForChain, type V3Deployment } from "../src/protocols/dexs/uniswap/v3/addresses";
+import type { LiquidityPosition } from "../src/protocols/types";
 import {
-  ADAPTER_ERRORS_ABI, Action, CHECK_INTERVALS, FACTORY_ABI, REBALANCE_AGENT, V6, WALLET_ABI, adapterFor, gaugeParams,
+  ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
+  V6, V6_REGISTRY, WALLET_ABI, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
   rebalanceBtb, rebalanceParams,
 } from "./autoRebalanceConfig";
 
@@ -92,13 +94,12 @@ type Sent = { ok: true; logs: import("viem").Log[] } | { ok: false; name: string
  * gas. If the rebalance has to wait after an unstake, the old position is put
  * straight back in its gauge.
  */
-async function execute(
-  client: PublicClient,
-  o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; gauge?: `0x${string}`; stakedNow: boolean },
-) {
+/** Simulate, then send, one `run` through the owner's wallet as the agent. */
+function sender(client: PublicClient, chainId: number, wallet: `0x${string}`) {
   const account = agentAccount();
-  const walletClient = createWalletClient({ account, chain: CHAINS[o.chainId], transport: SEND_TRANSPORT[o.chainId] });
-  const send = async (adapter: `0x${string}`, params: `0x${string}`): Promise<Sent> => {
+  const walletClient = createWalletClient({ account, chain: CHAINS[chainId], transport: SEND_TRANSPORT[chainId] });
+  const o = { wallet };
+  return async (adapter: `0x${string}`, params: `0x${string}`): Promise<Sent> => {
     let request;
     try {
       ({ request } = await client.simulateContract({ account, address: o.wallet, abi: RUN_ABI, functionName: "run", args: [adapter, params] }));
@@ -114,6 +115,13 @@ async function execute(
     if (receipt.status !== "success") return { ok: false, name: null, message: `transaction ${hash} reverted` };
     return { ok: true, logs: receipt.logs };
   };
+}
+
+async function execute(
+  client: PublicClient,
+  o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; gauge?: `0x${string}`; stakedNow: boolean },
+) {
+  const send = sender(client, o.chainId, o.wallet);
   const stop = (r: Extract<Sent, { ok: false }>) => ({
     newTokenId: null, staked: false,
     wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null,
@@ -139,6 +147,202 @@ async function execute(
   // A refused restake leaves the new position safe in the wallet, unstaked.
   const staked = o.gauge ? (await send(V6.aerodromeAdapter, gaugeParams(Action.Stake, o.gauge, newTokenId)).catch(() => null))?.ok === true : false;
   return { newTokenId, staked, wait: null, error: null };
+}
+
+const ERC20_ABI = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+const REGISTRY_ABI = parseAbi(["function isListedPool(address) view returns (bool)"]);
+const SLIP_FACTORY_ABI = parseAbi(["function getPool(address,address,int24) view returns (address)"]);
+const UNI_FACTORY_ABI = parseAbi(["function getPool(address,address,uint24) view returns (address)"]);
+
+let ethUsdCache: { at: number; usd: number } | null = null;
+/** ETH in USD from DefiLlama, cached for 10 minutes. */
+async function ethUsd(): Promise<number | null> {
+  if (ethUsdCache && Date.now() - ethUsdCache.at < 10 * 60_000) return ethUsdCache.usd;
+  try {
+    const res = await fetch("https://coins.llama.fi/prices/current/coingecko:ethereum");
+    const usd = (await res.json())?.coins?.["coingecko:ethereum"]?.price;
+    if (typeof usd === "number" && usd > 0) { ethUsdCache = { at: Date.now(), usd }; return usd; }
+  } catch { /* unpriced */ }
+  return null;
+}
+
+/**
+ * The USD value of a position's uncollected fees, from the pool's own price
+ * and one side priced as a stablecoin or as ETH. Null when neither side can be
+ * priced, in which case nothing is compounded.
+ */
+async function feesUsd(chainId: number, p: LiquidityPosition): Promise<number | null> {
+  const known = async (token: string): Promise<number | null> => {
+    const t = token.toLowerCase();
+    if ((AUTO_STABLES[chainId] ?? []).includes(t)) return 1;
+    if (AUTO_WETH[chainId] === t) return ethUsd();
+    return null;
+  };
+  // Price of one whole token0 in token1.
+  const price01 = Math.pow(1.0001, p.currentTick) * Math.pow(10, p.decimals0 - p.decimals1);
+  let usd0 = await known(p.token0);
+  let usd1 = await known(p.token1);
+  if (usd0 == null && usd1 != null) usd0 = usd1 * price01;
+  if (usd1 == null && usd0 != null && price01 > 0) usd1 = usd0 / price01;
+  if (usd0 == null || usd1 == null) return null;
+  return Number(p.fees0) / 10 ** p.decimals0 * usd0 + Number(p.fees1) / 10 ** p.decimals1 * usd1;
+}
+
+/**
+ * Put a position's fees back into it through the owner's wallet. On a pool the
+ * admin listed the agent collects first and then adds exactly what came out;
+ * anywhere else the adapter itself limits the agent to the fees it collects.
+ */
+async function compoundFees(client: PublicClient, d: V3Deployment, o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; p: LiquidityPosition }) {
+  const send = sender(client, o.chainId, o.wallet);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
+  const pool = d.slipstream
+    ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.tickSpacing ?? o.p.fee] })
+    : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.fee] });
+  const listed = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: REGISTRY_ABI, functionName: "isListedPool", args: [pool] });
+  if (!listed) return send(o.adapter, compoundParams(o.pm, o.tokenId, 0n, 0n, deadline));
+  const bal = () => Promise.all([o.p.token0, o.p.token1].map((t) => client.readContract({ address: t, abi: ERC20_ABI, functionName: "balanceOf", args: [o.wallet] })));
+  const before = await bal();
+  const collected = await send(o.adapter, collectParams(o.pm, o.tokenId));
+  if (!collected.ok) return collected;
+  const after = await bal();
+  return send(o.adapter, compoundParams(o.pm, o.tokenId, after[0] - before[0], after[1] - before[1], deadline));
+}
+
+const GAUGE_EARNED_ABI = parseAbi(["function earned(address account, uint256 tokenId) view returns (uint256)"]);
+
+/** USD price from DefiLlama, cached for 10 minutes per key. */
+const llamaCache = new Map<string, { at: number; usd: number }>();
+async function llamaUsd(key: string): Promise<number | null> {
+  const hit = llamaCache.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.usd;
+  try {
+    const usd = (await (await fetch(`https://coins.llama.fi/prices/current/${key}`)).json())?.coins?.[key]?.price;
+    if (typeof usd === "number" && usd > 0) { llamaCache.set(key, { at: Date.now(), usd }); return usd; }
+  } catch { /* unpriced */ }
+  return null;
+}
+
+const ORACLE_ABI = parseAbi(["function oracleFor(address,address) view returns (address)"]);
+const POOL_HEAD_ABI = parseAbi([
+  "function token0() view returns (address)",
+  "function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16, uint16, uint16, bool)",
+]);
+const DECIMALS_ABI = parseAbi(["function decimals() view returns (uint8)"]);
+
+/**
+ * A token's USD price from its BTB oracle pool against WETH, for tokens
+ * DefiLlama does not cover (Robinhood Chain). Uses the pool's live tick.
+ */
+async function usdViaOracle(client: PublicClient, chainId: number, token: string): Promise<number | null> {
+  const weth = AUTO_WETH[chainId];
+  const pool = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: ORACLE_ABI, functionName: "oracleFor", args: [token as `0x${string}`, weth as `0x${string}`] }).catch(() => null);
+  if (!pool || /^0x0{40}$/.test(pool)) return null;
+  const [t0, slot, decT, decW, eth] = await Promise.all([
+    client.readContract({ address: pool, abi: POOL_HEAD_ABI, functionName: "token0" }),
+    client.readContract({ address: pool, abi: POOL_HEAD_ABI, functionName: "slot0" }),
+    client.readContract({ address: token as `0x${string}`, abi: DECIMALS_ABI, functionName: "decimals" }),
+    client.readContract({ address: weth as `0x${string}`, abi: DECIMALS_ABI, functionName: "decimals" }),
+    ethUsd(),
+  ]);
+  if (eth == null) return null;
+  // Pool price is token1 per token0 in raw units.
+  const raw = Math.pow(1.0001, Number(slot[1]));
+  const tokenIs0 = t0.toLowerCase() === token.toLowerCase();
+  const wethPerToken = tokenIs0 ? raw * 10 ** (decT - decW) : (1 / raw) * 10 ** (decT - decW);
+  return wethPerToken * eth;
+}
+
+async function usdOf(chainId: number, token: string, client?: PublicClient): Promise<number | null> {
+  const t = token.toLowerCase();
+  if ((AUTO_STABLES[chainId] ?? []).includes(t)) return 1;
+  if (AUTO_WETH[chainId] === t) return ethUsd();
+  if (chainId === 8453) return llamaUsd(`base:${t}`);
+  return client ? usdViaOracle(client, chainId, t).catch(() => null) : null;
+}
+
+/**
+ * Swap-adapter params for selling `amountIn` of `tokenIn` for `tokenOut` through
+ * KyberSwap, output to the wallet. The route is only a suggestion: the wallet
+ * still refuses anything below the time-weighted price less its slippage limit.
+ */
+async function kyberSwap(chainId: number, wallet: string, tokenIn: string, tokenOut: string, amountIn: bigint): Promise<`0x${string}` | null> {
+  const chain = KYBER_CHAIN[chainId];
+  if (!chain) return null;
+  const base = `https://aggregator-api.kyberswap.com/${chain.slug}/api/v1`;
+  const headers = { "x-client-id": "btb-finance", "content-type": "application/json" };
+  const route = await (await fetch(`${base}/routes?tokenIn=${tokenIn}&tokenOut=${tokenOut}&amountIn=${amountIn}`, { headers })).json();
+  if (route?.code !== 0 || !route.data?.routeSummary) return null;
+  const built = await (await fetch(`${base}/route/build`, {
+    method: "POST", headers,
+    body: JSON.stringify({ routeSummary: route.data.routeSummary, sender: wallet, recipient: wallet, slippageTolerance: chain.slippageBps }),
+  })).json();
+  const data = built?.data?.data as `0x${string}` | undefined;
+  if (built?.code !== 0 || !data || (built.data.routerAddress as string).toLowerCase() !== KYBER_ROUTER.toLowerCase()) return null;
+  return encodeAbiParameters(
+    [{ type: "address" }, { type: "address" }, { type: "address" }, { type: "uint256" }, { type: "bytes" }],
+    [KYBER_ROUTER as `0x${string}`, tokenIn as `0x${string}`, tokenOut as `0x${string}`, amountIn, data],
+  );
+}
+
+/**
+ * Compound a staked position's rewards: unstake (which pays the rewards into
+ * the wallet), sell them for the position's two tokens in its current mix, add
+ * those to the position, and stake it again. The restake always runs, so a
+ * failure half way leaves the position staked and the rest as spare tokens.
+ */
+async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
+  chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; p: LiquidityPosition; gauge: `0x${string}`; stakedNow: boolean;
+}): Promise<{ ok: boolean; wait?: string | null; note?: string }> {
+  const send = sender(client, o.chainId, o.wallet);
+  const t0 = o.p.token0.toLowerCase(), t1 = o.p.token1.toLowerCase();
+  const weth = AUTO_WETH[o.chainId], aero = REWARD_TOKEN[o.chainId]?.address;
+  if (!aero) return { ok: false, note: "No reward token here." };
+  const hub = [t0, t1].includes(aero) ? aero : [t0, t1].includes(weth) ? weth : null;
+  if (!hub) return { ok: false, note: "Reward compounding needs WETH or the reward token in the pair." };
+  const pool = d.slipstream
+    ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.tickSpacing ?? o.p.fee] })
+    : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.fee] });
+  if (!(await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: REGISTRY_ABI, functionName: "isListedPool", args: [pool] }))) {
+    return { ok: false, note: "Reward compounding works on pools BTB lists." };
+  }
+  // The other token's share of the position by value, which is how much of the hub to swap into it.
+  const other = hub === t0 ? t1 : t0;
+  const [usd0, usd1] = await Promise.all([usdOf(o.chainId, t0, client), usdOf(o.chainId, t1, client)]);
+  if (usd0 == null || usd1 == null) return { ok: false, note: "Could not price the pair." };
+  const v0 = Number(o.p.amount0) / 10 ** o.p.decimals0 * usd0, v1 = Number(o.p.amount1) / 10 ** o.p.decimals1 * usd1;
+  const otherShare = (other === t0 ? v0 : v1) / Math.max(v0 + v1, 1e-12);
+
+  const bal = (t: string) => client.readContract({ address: t as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [o.wallet] });
+  if (o.stakedNow) {
+    const r = await send(V6.aerodromeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
+    if (!r.ok) return { ok: false, wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null, note: r.name ?? r.message };
+  }
+  try {
+    const before0 = await bal(t0), before1 = await bal(t1);
+    const swap = async (tokenIn: string, tokenOut: string, amountIn: bigint) => {
+      if (amountIn <= 0n) return true;
+      const params = await kyberSwap(o.chainId, o.wallet, tokenIn, tokenOut, amountIn);
+      return !!params && (await send(V6.swapAdapter, params)).ok;
+    };
+    // 1. All rewards into the hub token (unless the rewards are the hub).
+    if (hub !== aero) {
+      const rewards = await bal(aero);
+      if (!(await swap(aero, hub, rewards))) return { ok: false, note: "The reward swap was refused; it is retried later." };
+    }
+    // 2. The other token's share of what the rewards brought in.
+    const hubGain = (await bal(hub)) - (hub === t0 ? before0 : before1);
+    if (!(await swap(hub, other, (hubGain * BigInt(Math.round(otherShare * 10_000))) / 10_000n))) {
+      return { ok: false, note: "The second swap was refused; it is retried later." };
+    }
+    // 3. Add exactly what the rewards became.
+    const a0 = (await bal(t0)) - before0, a1 = (await bal(t1)) - before1;
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
+    const added = await send(o.adapter, compoundParams(o.pm, o.tokenId, a0 > 0n ? a0 : 0n, a1 > 0n ? a1 : 0n, deadline));
+    return added.ok ? { ok: true } : { ok: false, note: added.name ?? added.message };
+  } finally {
+    await send(V6.aerodromeAdapter, gaugeParams(Action.Stake, o.gauge, o.tokenId)).catch(() => null);
+  }
 }
 
 async function push(ctx: ActionCtx, address: string, label: string, kind: string, title: string, message: string) {
@@ -186,10 +390,12 @@ export const check = internalAction({
 
     let inRange: boolean;
     let besidePrice = false;
+    let position: LiquidityPosition | null = null;
     try {
       const [pos] = await fetchV3Positions(client, wallet, d, [tokenId]);
       if (!pos) { await ctx.runMutation(internal.autoRebalance.markGone, { id, note: "The position is empty." }); return; }
       inRange = pos.inRange;
+      position = pos;
       // A one-sided position already right beside the price (a single-sided
       // add waiting to be filled) would be re-minted in the same place: moving
       // it would cost a rebalance and change nothing.
@@ -211,7 +417,51 @@ export const check = internalAction({
       return;
     }
     if (inRange) {
-      await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "watching", nextInMs: intervalMs });
+      // Auto-compound: an in-range, unstaked position whose fees are worth
+      // several times the compound price. Staked positions earn gauge
+      // rewards, not fees, so there is nothing to put back.
+      const rewardsDue = job.compound && !!job.gauge && position && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId)
+        && Date.now() - (job.lastCompoundedAt ?? 0) >= COMPOUND_COOLDOWN_MS;
+      if (rewardsDue && position) {
+        // Staked: value the rewards waiting in the gauge plus any already in the wallet.
+        const cost = compoundBtb(job.chainId);
+        const reward = REWARD_TOKEN[job.chainId];
+        const [earned, held, aeroUsd] = await Promise.all([
+          staked ? client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_EARNED_ABI, functionName: "earned", args: [wallet, tokenId] }).catch(() => 0n) : Promise.resolve(0n),
+          client.readContract({ address: reward.address as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [wallet] }).catch(() => 0n),
+          usdOf(job.chainId, reward.address, client),
+        ]);
+        const value = aeroUsd == null ? null : Number(earned + held) / 1e18 * aeroUsd;
+        if (value != null && value >= compoundMinUsd(job.chainId)
+          && (await ctx.runQuery(internal.autoRebalance.available, { address: job.address })) >= cost
+          && (await ctx.runMutation(internal.autoRebalance.acquireLock, { chainId: job.chainId, ms: 8 * 60_000 }))) {
+          try {
+            const done = await compoundRewards(client, d, { chainId: job.chainId, wallet, pm, adapter, tokenId, p: position, gauge: job.gauge as `0x${string}`, stakedNow: staked });
+            if (done.ok) {
+              await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
+              await push(ctx, job.address, job.label, "auto", "Rewards compounded", `${job.label}: about $${value.toFixed(2)} of ${reward.symbol} was sold into the position and it is staked again. ${cost.toLocaleString("en-US")} BTB used.`);
+            }
+          } catch { /* retried at a later check; nothing is charged */ }
+          finally { await ctx.runMutation(internal.autoRebalance.releaseLock, { chainId: job.chainId }); }
+        }
+      } else if (job.compound && !staked && position && Date.now() - (job.lastCompoundedAt ?? 0) >= COMPOUND_COOLDOWN_MS) {
+        const value = await feesUsd(job.chainId, position).catch(() => null);
+        const cost = compoundBtb(job.chainId);
+        if (value != null && value >= compoundMinUsd(job.chainId)
+          && (await ctx.runQuery(internal.autoRebalance.available, { address: job.address })) >= cost
+          && (await ctx.runMutation(internal.autoRebalance.acquireLock, { chainId: job.chainId, ms: 5 * 60_000 }))) {
+          try {
+            const done = await compoundFees(client, d, { chainId: job.chainId, wallet, pm, adapter, tokenId, p: position });
+            if (done.ok) {
+              await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
+              await push(ctx, job.address, job.label, "auto", "Fees compounded", `${job.label}: about $${value.toFixed(2)} of fees went back into the position. ${cost.toLocaleString("en-US")} BTB used.`);
+            }
+          } catch { /* retried at a later check; nothing is charged */ }
+          finally { await ctx.runMutation(internal.autoRebalance.releaseLock, { chainId: job.chainId }); }
+        }
+      }
+      const after = await ctx.runQuery(internal.autoRebalance.get, { id });
+      if (after?.active) await ctx.runMutation(internal.autoRebalance.settle, { id, gen: after.gen, status: "watching", nextInMs: intervalMs });
       return;
     }
     if (besidePrice) {
@@ -282,7 +532,7 @@ type Result = { ok: true; id: Id<"autoRebalances"> } | { ok: false; reason: stri
 export const enable = action({
   args: {
     sessionToken: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
-    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(),
+    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
   },
   handler: async (ctx, a): Promise<Result> => {
     const owner = await ctx.runQuery(internal.sessions.walletFor, { token: a.sessionToken });
@@ -311,7 +561,7 @@ export const enable = action({
 
     const id = await ctx.runMutation(internal.autoRebalance.upsertVerified, {
       address: owner, wallet, chainId: a.chainId, positionManager: pm, tokenId: a.tokenId,
-      label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin,
+      label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin, compound: a.compound,
     });
     return { ok: true, id };
   },

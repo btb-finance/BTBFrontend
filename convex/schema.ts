@@ -121,6 +121,10 @@ export default defineSchema({
     gen: v.float64(),
     checks: v.float64(),
     rebalances: v.float64(),
+    // Auto-compound: collect the position's fees and add them back to it.
+    compound: v.optional(v.boolean()),
+    lastCompoundedAt: v.optional(v.float64()),
+    compounds: v.optional(v.float64()),
     spentBtb: v.float64(),
     failures: v.float64(),
     createdAt: v.float64(),
