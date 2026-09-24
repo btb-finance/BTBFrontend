@@ -79,7 +79,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
       const sessionToken = await session.ensure();
       setBusy('Preparing');
       const client = getPublicClient(config, { chainId: chainId as never }) as PublicClient;
-      const { calls } = await buildEnableCalls(client, account, pos.id, support, buildUnstakeCalls(pos));
+      const { calls } = await buildEnableCalls(client, account, pos.id, support, buildUnstakeCalls(pos, account));
       setBusy('Confirm in your wallet');
       await runCalls(config, { account, calls, label: `Auto-rebalance ${pos.symbol0}/${pos.symbol1}`, track, chainId });
       setBusy('Starting');
@@ -118,7 +118,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ ...box, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>How it works</div>
-                {line('Your position moves into your own auto wallet. Only you can take it out, and it can only go back to you.')}
+                {line('Your position moves into your own auto wallet. Only you can withdraw it, and it can only go back to you.')}
                 {line('We check it as often as you choose. When the price leaves your range, we move it right next to the price with the same width. No swap, so nothing is sold.')}
                 {line('A short spike does not count: the price has to stay outside for about 10 minutes first.')}
                 {pos.staked && line(`It stays staked and keeps earning ${pos.staked.rewardSymbol} inside the auto wallet.`)}

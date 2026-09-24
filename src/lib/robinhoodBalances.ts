@@ -14,7 +14,8 @@ type BlockscoutBalance = {
 const client = createPublicClient({ chain: robinhoodChain, transport: robinhoodTransport() });
 const WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73';
 
-async function dexTokenPrices(addresses: string[]): Promise<Record<string, number>> {
+/** USD prices for Robinhood Chain tokens from DexScreener pools with at least $10K liquidity, keyed by lowercase address. */
+export async function dexTokenPrices(addresses: string[]): Promise<Record<string, number>> {
   const best: Record<string, { price: number; liquidity: number }> = {};
   for (let i = 0; i < addresses.length; i += 30) {
     try {

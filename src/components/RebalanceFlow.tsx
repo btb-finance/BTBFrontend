@@ -86,7 +86,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
       if (pos.staked) {
         setStepMsg(`Unstaking (pays out your ${pos.staked.rewardSymbol})…`);
         await runCalls(config, {
-          account, calls: buildUnstakeCalls(pos), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+          account, calls: buildUnstakeCalls(pos, account), label: `Rebalance · unstake ${pos.symbol0}/${pos.symbol1}`, track, chainId,
           verify: {
             test: async () => (await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'ownerOf', args: [pos.id] })).toLowerCase() === account.toLowerCase(),
             error: 'Unstake confirmed, but the RPC still shows the NFT in the gauge. Retry in a moment.',
