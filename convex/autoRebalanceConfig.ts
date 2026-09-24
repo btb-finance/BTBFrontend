@@ -14,6 +14,10 @@ export const CHECK_BTB = 1;
  * all chains, and checks are free while any are left. No BTB needed to try it.
  */
 export const FREE_ACTIONS = 10;
+/** The wallet version new wallets are moved to, and the one the app offers as an update. */
+export const LATEST_WALLET_VERSION = 3;
+/** Tokens one withdrawAll takes (MAX_WITHDRAW_TOKENS in the wallet). */
+export const MAX_WITHDRAW_TOKENS = 20;
 /** What one rebalance costs, in USD, per chain. Charged only when it happens. */
 export const REBALANCE_USD: Record<number, number> = { 8453: 0.1, 4663: 0.5 };
 
@@ -60,6 +64,8 @@ export const V6 = {
   swapAdapter: '0x5A72E43960F4dA336a6459391CDEeD680D4084c8',
   /** Wallet version 2: position NFTs may be staked into registry-approved farms by transfer. */
   walletV2: '0x884f4e5dE91e8Ca9148E852F55F082bE533Da53c',
+  /** Wallet version 3: withdrawAll, every spare token and ETH to the owner in one call. The latest. */
+  walletV3: '0x270E91e52E1A6A860E56C9497e7A8942080CfaC8',
   /** Stake, unstake and claim on MasterChef V3 farms (Giga). */
   farmAdapter: '0x0993a62835e7c1534C2f3525828Ec9f3e60781AB',
   /** EIP-7702 code for the agent address: unstake, rebalance and restake in one transaction. */
@@ -252,6 +258,7 @@ export const WALLET_ABI = parseAbi([
   'function VERSION() view returns (uint256)',
   'function setAdapter(address adapter, bool enabled, bytes config)',
   'function withdrawNft(address collection, uint256 tokenId)',
+  'function withdrawAll(address[] tokens)',
   'error NotAllowed(address target)',
   'error NotOperator()',
   'error Paused()',

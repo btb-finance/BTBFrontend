@@ -15,7 +15,7 @@ import { BLOCKSCOUT_HOSTS } from './blockscout';
 import { getTokenPricesUsd } from './defillama';
 import { dexTokenPrices } from './robinhoodBalances';
 import {
-  AUTO_CHAINS, AUTO_CHAIN_NAMES, AUTO_STABLES, AUTO_WETH, Action, FACTORY_ABI, GIGA_FARM, REBALANCE_AGENT, REWARD_TOKEN, V6, WALLET_ABI, adapterFor, encodeLpConfig,
+  AUTO_CHAINS, AUTO_CHAIN_NAMES, AUTO_STABLES, LATEST_WALLET_VERSION, MAX_WITHDRAW_TOKENS, AUTO_WETH, Action, FACTORY_ABI, GIGA_FARM, REBALANCE_AGENT, REWARD_TOKEN, V6, WALLET_ABI, adapterFor, encodeLpConfig,
   encodeSwapConfig, gaugeParams, isFarmManager, stakeAdapterFor, walletSetup,
 } from '../../convex/autoRebalanceConfig';
 
@@ -132,26 +132,26 @@ export async function swapAdapterCalls(client: PublicClient, wallet: string, cha
 }
 
 /**
- * Move a wallet to version 2 (farm staking) and turn on the farm adapter. Only the owner can, and only while the
+ * Move a wallet to the latest version and turn on the farm adapter. Only the owner can, and only while the
  * wallet is paused, so it is paused around the upgrade (left paused if it already was).
  */
 function upgradeCallsFor(wallet: string, alreadyPaused: boolean, needsFarmAdapter: boolean): Call[] {
   const w = wallet as `0x${string}`;
   const calls: Call[] = [];
   if (!alreadyPaused) calls.push({ to: w, label: 'Pause for the upgrade', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setPaused', args: [true] }) });
-  calls.push({ to: w, label: 'Upgrade your auto wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'upgradeToAndCall', args: [V6.walletV2, '0x'] }) });
+  calls.push({ to: w, label: 'Upgrade your auto wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'upgradeToAndCall', args: [V6.walletV3, '0x'] }) });
   if (!alreadyPaused) calls.push({ to: w, label: 'Resume', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setPaused', args: [false] }) });
   if (needsFarmAdapter) calls.push({ to: w, label: 'Allow farm staking', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.farmAdapter, true, '0x'] }) });
   return calls;
 }
 
-/** Whether a wallet is on version 2 yet. The first version has no VERSION(). */
+/** The wallet's version. The first version has no VERSION(). */
 export async function walletVersion(client: PublicClient, wallet: string): Promise<number> {
   const v = await client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: 'VERSION' }).catch(() => 1n);
   return Number(v);
 }
 
-/** The calls, if any, that bring an existing wallet to version 2 with the farm adapter on. */
+/** The calls, if any, that bring an existing wallet to the latest version with the farm adapter on. */
 export async function upgradeCalls(client: PublicClient, wallet: string): Promise<Call[]> {
   const w = wallet as `0x${string}`;
   const [version, paused, farmHash] = await Promise.all([
@@ -160,7 +160,7 @@ export async function upgradeCalls(client: PublicClient, wallet: string): Promis
     client.readContract({ address: w, abi: WALLET_ABI, functionName: 'adapterCodeHash', args: [V6.farmAdapter] }).catch(() => null),
   ]);
   const needsFarm = !farmHash || /^0x0{64}$/.test(farmHash);
-  if (version >= 2) return needsFarm ? upgradeCallsFor(w, true, true).filter((c) => c.label === 'Allow farm staking') : [];
+  if (version >= LATEST_WALLET_VERSION) return needsFarm ? upgradeCallsFor(w, true, true).filter((c) => c.label === 'Allow farm staking') : [];
   return upgradeCallsFor(w, paused, needsFarm);
 }
 
@@ -223,7 +223,8 @@ async function marketPrices(chainId: number, tokens: string[]): Promise<Record<s
 
 /**
  * Send everything spare in the auto wallet to the owner: every token it holds
- * and any ETH, not just this position's pair. Known tokens (the pair, reward
+ * and any ETH, not just this position's pair. On version 3 this is one
+ * withdrawAll call; older wallets get one withdraw per token. Known tokens (the pair, reward
  * tokens, WETH, stables) always go; any other token only when a market prices
  * it and the indexer does not flag it, so airdropped spam stays behind. With
  * the owner given, each withdrawal is simulated first and a token that cannot
@@ -259,6 +260,21 @@ export async function buildSweepCalls(
 
   const indexed = await indexedTokens(chainId, wallet);
   const candidates = [...new Set([...known, ...indexed.filter((t) => !t.scam).map((t) => t.address)])];
+
+  // Version 3: one withdrawAll per 20 tokens. The wallet reads each balance itself when it runs (so rewards an
+  // unstake earlier in the batch pays are included), sends all ETH too, and skips any token it cannot move. No
+  // balance reads or simulations here; unknown tokens still need a market price, so spam is left behind.
+  if ((await walletVersion(client, wallet)) >= 3) {
+    const unknown = candidates.filter((t) => !known.has(t));
+    const prices = await marketPrices(chainId, unknown);
+    const tokens = candidates.filter((t) => known.has(t) || prices[t] > 0) as `0x${string}`[];
+    const calls: Call[] = [];
+    for (let i = 0; i < Math.max(tokens.length, 1); i += MAX_WITHDRAW_TOKENS) {
+      calls.push({ to: wallet, label: 'Withdraw leftover tokens', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'withdrawAll', args: [tokens.slice(i, i + MAX_WITHDRAW_TOKENS)] }) });
+    }
+    return calls;
+  }
+
   const balances = await Promise.all(candidates.map((t) =>
     client.readContract({ address: t as `0x${string}`, abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [wallet] }).catch(() => 0n)));
   const unknownHeld = candidates.filter((t, i) => !known.has(t) && balances[i] > 0n);
