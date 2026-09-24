@@ -1,4 +1,4 @@
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { QUEST_BY_ID } from "./questCatalog";
 import { addEpochPoints, epochIdAt } from "./rewards";
@@ -127,7 +127,9 @@ export const review = internalMutation({
 });
 
 /** The review queue, oldest first. */
-export const pending = query({
+// Internal: an admin list (npx convex run quests:pending). Public, it showed
+// every user's pending proofs to anyone.
+export const pending = internalQuery({
   args: { limit: v.optional(v.float64()) },
   handler: async (ctx, { limit }) =>
     ctx.db

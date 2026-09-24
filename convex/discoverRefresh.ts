@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * Server-side Discover pool refresher (hourly cron — see crons.ts).
  *
@@ -80,7 +78,7 @@ export const refresh = internalAction({
     // Keep the DEX coverage rows from the previous cycle rather than wiping
     // them: the coverage steps below take up to a quarter of an hour, and
     // without this the extra DEXes vanished from Discover for that long every
-    // half hour. The steps then replace each chain's rows with fresh numbers.
+    // refresh. The steps then replace each chain's rows with fresh numbers.
     const previous = await ctx.runQuery(internal.discover.getInternal, {});
     const baseKeys = new Set(withRange.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
     let carried: EarnPool[] = [];
@@ -141,7 +139,8 @@ export const coverDexes = internalAction({
  * Give every pool row both token logos. Known logos come from the tokenLogos
  * table; the rest are looked up on GeckoTerminal, 30 addresses per call,
  * paced to the public rate limit and capped so one run stays well inside the
- * action time limit. Rows without a logo yet are picked up on the next run.
+ * action time limit. A token GeckoTerminal has no image for is remembered and
+ * asked about again only after a week; a failed request is retried next run.
  */
 export const fillTokenLogos = internalAction({
   args: {},
@@ -166,8 +165,9 @@ export const fillTokenLogos = internalAction({
       }
     }
     const keys = [...wanted.keys()];
-    const known = await ctx.runQuery(internal.discover.tokenLogosFor, { keys });
-    const missing = keys.filter((k) => !known[k]);
+    const { known, noLogo } = await ctx.runQuery(internal.discover.tokenLogosFor, { keys });
+    const skip = new Set(noLogo);
+    const missing = keys.filter((k) => !known[k] && !skip.has(k));
     const byNetwork = new Map<string, string[]>();
     for (const k of missing) { const w = wanted.get(k)!; byNetwork.set(w.network, [...(byNetwork.get(w.network) ?? []), w.address]); }
     const started = Date.now();
@@ -176,12 +176,16 @@ export const fillTokenLogos = internalAction({
       const chainId = [...wanted.values()].find((w) => w.network === network)!.chainId;
       for (let i = 0; i < addrs.length; i += 30) {
         if (Date.now() - started > 7 * 60_000) break;
-        const logos = await fetchTokenLogos(network, addrs.slice(i, i + 30)).catch(() => new Map<string, string>());
-        for (const [a, url] of logos) found.push({ key: `${chainId}:${a}`, logoURI: url });
+        const batch = addrs.slice(i, i + 30);
+        // A failed request is simply retried next run; only a real answer
+        // that leaves an address out records it as having no logo.
+        const logos = await fetchTokenLogos(network, batch).catch(() => null);
+        if (!logos) continue;
+        for (const a of batch) found.push({ key: `${chainId}:${a}`, logoURI: logos.get(a) ?? '' });
       }
     }
     if (found.length > 0) await ctx.runMutation(internal.discover.saveTokenLogos, { entries: found });
-    const all = { ...known, ...Object.fromEntries(found.map((f) => [f.key, f.logoURI])) };
+    const all: Record<string, string> = { ...known, ...Object.fromEntries(found.filter((f) => f.logoURI).map((f) => [f.key, f.logoURI])) };
     // Re-read before writing so a coverage pass that landed meanwhile is kept.
     const latest = await ctx.runQuery(internal.discover.getInternal, {});
     const current = latest ? await unpackSnapshotNode<typeof snap>(latest.json) : snap;

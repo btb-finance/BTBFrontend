@@ -7,8 +7,9 @@ const crons = cronJobs();
 // which double-bills all the background refreshes. Dev has DISABLE_CRONS=1
 // set (`npx convex env set DISABLE_CRONS 1`); prod leaves it unset.
 if (process.env.DISABLE_CRONS !== "1") {
-  // Refresh token list from DEX lists every hour
-  crons.interval("refresh token list", { hours: 1 }, internal.tokens.fetchTokenLists);
+  // Ethereum token list from the public DEX lists. They change slowly and the
+  // refresh only writes what changed, so once a week is plenty.
+  crons.weekly("refresh token list", { dayOfWeek: "monday", hourUTC: 3, minuteUTC: 0 }, internal.tokens.fetchTokenLists);
 
   // Refresh USD prices every 5 minutes via DexScreener
   crons.interval("refresh token prices", { minutes: 5 }, internal.prices.fetchPrices);
@@ -21,13 +22,13 @@ if (process.env.DISABLE_CRONS !== "1") {
   // prices, quotes, receipts, per-wallet balances — is deliberately not here.
 
   // Precompute the Discover pool list — the frontend reads the snapshot
-  // instead of running the slow multi-API pipeline per visitor
-  crons.interval("refresh discover pools", { minutes: 30 }, internal.discoverRefresh.refresh);
+  // instead of running the slow multi-API pipeline per visitor. One run is a
+  // ~26 minute chain of paid action steps (base pass, one DEX coverage pass per
+  // chain, logos, Merkl) and was most of the action compute bill at every 30
+  // minutes. Pool stats are mostly 24h figures, so every 6 hours is plenty;
+  // balances, positions, prices and quotes never come from this snapshot.
+  crons.interval("refresh discover pools", { hours: 6 }, internal.discoverRefresh.refresh);
 
-  // Global BearNFT/BearStaking numbers. These were polled every 15-20s by the
-  // app shell of every visitor, connected or not; per-wallet reads stay live
-  // on the client.
-  crons.interval("refresh bear stats", { minutes: 30 }, internal.globalRefresh.refreshBearStats);
 
   // Drop expired memo-cache rows (simulator pool/token lookups) so the table
   // stays bounded — the sweep is batched, so it runs often.
@@ -36,6 +37,10 @@ if (process.env.DISABLE_CRONS !== "1") {
   // Range alerts for LP positions of wallets holding 10,000 BTB or more. Each
   // tick reads only what is due: free alerts hourly, paid fast ones every tick.
   crons.interval("check LP range alerts", { minutes: 5 }, internal.alertsActions.check);
+
+  // Auto-rebalance schedules each position's next check itself; this only
+  // picks up a row whose scheduled check was lost (a restart), so it is cheap.
+  crons.interval("sweep auto-rebalance schedules", { minutes: 30 }, internal.autoRebalance.sweep);
 
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00

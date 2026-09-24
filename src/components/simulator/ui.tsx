@@ -68,38 +68,6 @@ export function Stat({ label, value, color, sub, style }: {
   );
 }
 
-/** Selectable option card (fee tier, strategy, amounts). */
-export function OptionCard({ selected, onClick, title, sub, badge, flex = 1 }: {
-  selected: boolean; onClick: () => void; title: string; sub?: string; badge?: string; flex?: number;
-}) {
-  return (
-    <button onClick={onClick} style={{
-      flex, minWidth: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-      background: selected ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.04)',
-      border: `1px solid ${selected ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-      borderRadius: 14, padding: '11px 13px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ color: selected ? 'var(--btb-green)' : btb.text, fontSize: 14, fontWeight: 800, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</span>
-        {badge && <span style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, flexShrink: 0 }}>{badge}</span>}
-      </div>
-      {sub && <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 3, lineHeight: 1.4 }}>{sub}</div>}
-    </button>
-  );
-}
-
-/** The "+" connector between strategy builder steps. */
-export function PlusDivider() {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
-      <div style={{
-        width: 26, height: 26, borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, color: btb.textMuted, fontSize: 14, fontWeight: 800,
-      }}>+</div>
-    </div>
-  );
-}
-
 /** Chart color assignments — fixed, never cycled (dataviz rule). All series
  * are also direct-labeled so identity never rides on color alone. */
 export const chart = {

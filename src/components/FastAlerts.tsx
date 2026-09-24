@@ -2,14 +2,9 @@
 import { useState } from 'react';
 import { btb } from './design-tokens';
 import { useAlertCredit, FAST_CHECK_BTB } from '../lib/alerts';
+import { readableError } from '../lib/errorText';
 
 export const fmtBtb = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: n < 10 ? 2 : 0 });
-export const alertErrText = (e: unknown) => {
-  const raw = (e as Error)?.message ?? 'Something went wrong';
-  if (/rejected|denied/i.test(raw)) return 'Signature cancelled.';
-  const m = raw.match(/Uncaught Error: ([^\n]+?)(?: at handler|$)/);
-  return (m ? m[1] : raw.split('\n')[0]).trim();
-};
 const smallBtn = (tone: string): React.CSSProperties => ({ height: 26, padding: '0 10px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: tone, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' });
 
 type Credit = ReturnType<typeof useAlertCredit>;
@@ -43,7 +38,7 @@ export function BtbTopUp({ credit }: { credit: Credit }) {
       const problem = await credit.depositTx(txHash);
       if (!problem) setTxHash('');
       setNote(problem ? { text: problem, good: false } : { text: 'Deposit credited to the sending wallet.', good: true });
-    } catch (e) { setNote({ text: alertErrText(e), good: false }); }
+    } catch (e) { setNote({ text: readableError(e, 'Something went wrong; try again'), good: false }); }
     finally { setBusy(false); }
   }
 
@@ -85,7 +80,7 @@ export function FastAlertsPanel({ address, watched, active = true }: { address: 
     try {
       const problem = await credit.setFast(!credit.fast);
       setNote(problem ? { text: problem, good: false } : { text: credit.fast ? 'Fast checks off. Back to hourly.' : 'Fast checks on.', good: true });
-    } catch (e) { setNote({ text: alertErrText(e), good: false }); }
+    } catch (e) { setNote({ text: readableError(e, 'Something went wrong; try again'), good: false }); }
     finally { setBusy(false); }
   }
 

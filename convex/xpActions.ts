@@ -1,14 +1,12 @@
-"use node";
-
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { erc20Abi, erc721Abi, isAddress, isHash, parseEventLogs } from "viem";
 import { getChainClient } from "../src/lib/chainClient";
+import { CONTRACTS } from "../src/lib/contractAddresses";
+import { SWAP_XP, MINT_XP } from "./xpRules";
 
-const BEAR_NFT = "0x88888888aBa934ceA0b4f0000FeA62F1397D02A0";
-const SWAP_XP = 100;
-const MINT_XP = 1000;
+const BEAR_NFT = CONTRACTS.BEAR_NFT;
 /** A transaction older than this earns nothing; the app asks right after it confirms. */
 const MAX_AGE_MS = 2 * 60 * 60_000;
 

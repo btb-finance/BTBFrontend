@@ -97,6 +97,46 @@ export default defineSchema({
     readAt: v.optional(v.float64()),
   }).index("by_address", ["address", "createdAt"]),
 
+  // Auto-rebalance: one row per position moved into the owner's V6 wallet.
+  // Each check is scheduled on its own at nextCheckAt; `gen` makes any older
+  // scheduled check for the row a no-op once the row is rescheduled.
+  autoRebalances: defineTable({
+    address: v.string(),        // lowercase owner
+    wallet: v.string(),         // lowercase V6 wallet holding the position
+    chainId: v.float64(),
+    positionManager: v.string(), // lowercase
+    tokenId: v.string(),        // changes on every rebalance
+    label: v.string(),          // "WETH / USDC on Base"
+    gauge: v.optional(v.string()), // kept staked here across rebalances
+    intervalMin: v.float64(),
+    active: v.boolean(),
+    // "watching" | "waiting" (out of range, waiting for the price to settle)
+    // | "short" (out of range, balance too low to rebalance) | "paused" | "stopped"
+    status: v.string(),
+    note: v.optional(v.string()),
+    lastInRange: v.optional(v.boolean()),
+    lastCheckedAt: v.optional(v.float64()),
+    lastRebalancedAt: v.optional(v.float64()),
+    nextCheckAt: v.float64(),
+    gen: v.float64(),
+    checks: v.float64(),
+    rebalances: v.float64(),
+    // Auto-compound: collect the position's fees and add them back to it.
+    compound: v.optional(v.boolean()),
+    lastCompoundedAt: v.optional(v.float64()),
+    compounds: v.optional(v.float64()),
+    spentBtb: v.float64(),
+    failures: v.float64(),
+    createdAt: v.float64(),
+    updatedAt: v.float64(),
+  }).index("by_address", ["address"]).index("by_active_next", ["active", "nextCheckAt"]),
+
+  // One agent transaction in flight per chain, so two rebalances never race for a nonce.
+  rebalanceLocks: defineTable({
+    chainId: v.float64(),
+    until: v.float64(),
+  }).index("by_chain", ["chainId"]),
+
   // Free-text label per LP position, shared across the wallet's profile.
   positionTags: defineTable({
     address: v.string(),
@@ -123,7 +163,7 @@ export default defineSchema({
   // Discover refresh so pool rows on every chain carry both token images.
   tokenLogos: defineTable({
     key: v.string(),            // `${chainId}:${lowercase address}`
-    logoURI: v.string(),
+    logoURI: v.string(),        // "" = looked up, no logo; retried after a week
     updatedAt: v.float64(),
   }).index("by_key", ["key"]),
 
@@ -138,9 +178,9 @@ export default defineSchema({
   // Two generic stores replace the "one bespoke table per dataset" pattern
   // (discoverPools/marketSnapshots above predate them and are left in place).
 
-  // Cron-driven global snapshots — data identical for every visitor, recomputed
-  // on a schedule and read with one query instead of per-visitor API work.
-  // `key` is the dataset name (e.g. "bear-stats").
+  // No longer read or written (the bear-stats refresher and its reader were
+  // removed). Kept only because the table still holds rows; drop it once they
+  // are cleared in the dashboard.
   snapshots: defineTable({
     key: v.string(),
     json: v.string(),

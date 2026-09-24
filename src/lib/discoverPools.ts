@@ -19,9 +19,10 @@ const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyste
 // per pool (no batch endpoint exists), rarely loaded fully, and ate a table
 // column. The 24h % change (one batched call) covers the trend signal.
 
-// Matches the Convex cron cadence — re-reading the snapshot faster than it is
-// written buys nothing. See convex/crons.ts.
-const TTL = 30 * 60_000;
+// The snapshot is rebuilt every 6 hours (convex/crons.ts). Re-checking hourly
+// is one small read and means a tab opened just before a rebuild picks up the
+// new list within the hour instead of up to 6 hours later.
+const TTL = 60 * 60_000;
 
 export type DiscoverData = {
   pools: EarnPool[];
@@ -57,7 +58,7 @@ export function prefetchDiscoverPools(client?: PublicClient) {
   (async () => {
     // The Convex snapshot is the source of truth: one query instead of the
     // whole multi-API pipeline (DeFiLlama + DexPaprika + DexScreener + on-chain
-    // fee/range-APR multicalls). A cron refreshes it every 30 minutes, so age
+    // fee/range-APR multicalls). A cron refreshes it every 6 hours, so age
     // is the cron's problem — the browser never recomputes just because the row
     // got old, it only falls back when there is no row at all.
     try {

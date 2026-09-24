@@ -13,7 +13,7 @@
 import type { PublicClient } from 'viem';
 import type { V3Deployment } from '../uniswap/v3/addresses';
 import { fetchV3Positions } from '../uniswap/v3/positions';
-import { queryTopPools, getPoolHistory, type IndexedPool, type PoolDay } from '../uniswap/graph';
+import { queryTopPools, type IndexedPool } from '../uniswap/graph';
 import type { LiquidityPosition } from '@/protocols/types';
 
 export const PANCAKE_V3_DEPLOYMENT: V3Deployment = {
@@ -34,11 +34,6 @@ export const PANCAKE_V3_SUBGRAPH_ID = '9psTWtnVVQwSHUVRtCuR8985UfzotdtdZwVt8K9kJ
 /** Top PancakeSwap V3 mainnet pools — same V3 subgraph schema as Uniswap's. */
 export function getPancakeTopPools(limit = 20, minTvlUsd = 100_000): Promise<IndexedPool[]> {
   return queryTopPools(PANCAKE_V3_SUBGRAPH_ID, 'v3', limit, minTvlUsd);
-}
-
-/** 30-day daily history for one pool (price/volume/fees) — chart + earnings sim. */
-export function getPancakePoolHistory(poolAddress: string, days = 30): Promise<PoolDay[]> {
-  return getPoolHistory(PANCAKE_V3_SUBGRAPH_ID, poolAddress, days);
 }
 
 /** The wallet's PancakeSwap V3 positions — on-chain NPM enumeration, keyless.

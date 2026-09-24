@@ -1,5 +1,3 @@
-"use node";
-
 /**
  * Fills the memo cache (`cache.ts`) on demand.
  *

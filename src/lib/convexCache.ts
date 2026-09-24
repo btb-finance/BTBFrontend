@@ -1,32 +1,17 @@
 'use client';
 /**
- * Client read side for the two shared Convex caches.
- *
- * `useSnapshot` reads a cron-refreshed global dataset (one row, identical for
- * everyone). `useCachedJson` reads the on-demand memo cache and asks Convex to
- * fill the key on a miss. Both are Convex live queries, so when a cron tick or
+ * Client read side for the shared Convex memo cache. `useCachedJson` reads a
+ * key and asks Convex to fill it on a miss. It is a live query, so when
  * another visitor's fill lands, every open tab updates without polling.
  *
- * Write sides: `convex/globalRefresh.ts` and `convex/cacheFill.ts`.
+ * Write side: `convex/cacheFill.ts`.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAction, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { cacheKey, type CacheArgs } from './cacheKeys';
-import { usePolledQuery } from './polledQuery';
 
 export type Cached<T> = { data: T | null; loading: boolean };
-
-/** A cron-refreshed global snapshot, parsed. `null` before the first tick. */
-export function useSnapshot<T>(key: string): Cached<T> {
-  // Snapshots are rewritten by 30-minute crons; poll at that cadence.
-  const row = usePolledQuery(api.snapshots.get, { key }, 30 * 60_000);
-  const data = useMemo(() => {
-    if (!row) return null;
-    try { return JSON.parse(row.json) as T; } catch { return null; }
-  }, [row]);
-  return { data, loading: row === undefined };
-}
 
 /**
  * Shared third-party data for one key, fetched server-side on first request.

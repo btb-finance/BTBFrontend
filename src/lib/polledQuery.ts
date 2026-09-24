@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useConvex } from 'convex/react';
-import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from 'convex/server';
+import { getFunctionName, type FunctionReference, type FunctionReturnType, type OptionalRestArgs } from 'convex/server';
 
 /**
  * A Convex query fetched once and re-fetched on a timer, instead of a live
@@ -27,6 +27,14 @@ export function usePolledQuery<Q extends FunctionReference<'query'>>(
   const argsKey = args === 'skip' ? 'skip' : JSON.stringify(args ?? {});
   const argsRef = useRef(args);
   argsRef.current = args;
+  // `api.x.y` is a Proxy that hands back a new object on every read, so the
+  // reference itself changes every render. Keying the effect on it restarted
+  // the fetch on every render, and each result caused the next render: every
+  // open tab re-downloaded the token list and prices about once a second. The
+  // function name is the stable identity.
+  const name = getFunctionName(query);
+  const queryRef = useRef(query);
+  queryRef.current = query;
 
   useEffect(() => {
     if (args === 'skip') { setData(undefined); return; }
@@ -34,16 +42,17 @@ export function usePolledQuery<Q extends FunctionReference<'query'>>(
     let timer: ReturnType<typeof setTimeout> | undefined;
     const tick = async () => {
       try {
-        const result = await convex.query(query, (argsRef.current === 'skip' ? {} : argsRef.current ?? {}) as OptionalRestArgs<Q>[0]);
+        const result = await convex.query(queryRef.current, (argsRef.current === 'skip' ? {} : argsRef.current ?? {}) as OptionalRestArgs<Q>[0]);
         if (live) setData(result);
       } catch { /* keep the last good value; the next tick retries */ }
       if (live) timer = setTimeout(tick, document.visibilityState === 'hidden' ? intervalMs * 3 : intervalMs);
     };
     void tick();
     return () => { live = false; if (timer) clearTimeout(timer); };
-  // argsKey stands in for args so a new object with the same content does not restart the loop.
+  // name and argsKey stand in for query and args: same function and same
+  // arguments must not restart the loop.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [convex, query, argsKey, intervalMs]);
+  }, [convex, name, argsKey, intervalMs]);
 
   return data;
 }

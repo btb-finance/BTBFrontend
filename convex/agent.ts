@@ -5,7 +5,7 @@
  * and writes need a signed session, so nobody can read or spend as another
  * wallet by typing its address.
  */
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { sessionWallet } from "./sessions";
 import { availableFor, spendCredit } from "./credit";
@@ -20,19 +20,6 @@ export const history = query({
       .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet))
       .order("asc")
       .take(200);
-  },
-});
-
-export const clear = mutation({
-  args: { sessionToken: v.string() },
-  handler: async (ctx, { sessionToken }) => {
-    const wallet = await sessionWallet(ctx, sessionToken);
-    if (!wallet) return;
-    const rows = await ctx.db
-      .query("agentMessages")
-      .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet))
-      .collect();
-    for (const r of rows) await ctx.db.delete(r._id);
   },
 });
 

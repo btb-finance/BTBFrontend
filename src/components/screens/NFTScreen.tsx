@@ -15,9 +15,9 @@ import { Badge } from '../Badge';
 import { CONTRACTS } from '../../lib/wagmi';
 import { BEAR_NFT_ABI, BEAR_STAKING_ABI } from '../../contracts/abis';
 import { api } from '../../../convex/_generated/api';
+import { MINT_XP } from '../../../convex/xpRules';
 
 const ZERO = '0x0000000000000000000000000000000000000000' as `0x${string}`;
-const MINT_XP = 1000; // per NFT minted
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -308,7 +308,6 @@ function StakeTab({ address }: { address?: string }) {
   const isApproved   = (data?.[4]?.result as boolean | undefined) ?? false;
 
   const totalStaked      = Number(stats?.[0] ?? 0);
-  const totalRewardsBig  = stats?.[1] ?? BigInt(0);
   const rewards24hBig    = stats?.[3] ?? BigInt(0);
   // Contract's estimatedAPR = (annualRewards_wei * 1e4) / totalStaked.
   // Divide by 1e22 (1e18 token decimals × 1e4 bps scale) → BTBB per NFT per year.
@@ -316,7 +315,6 @@ function StakeTab({ address }: { address?: string }) {
   const myStaked         = Number(userInfo?.[0] ?? 0);
 
   const pendingBtbb       = parseFloat(formatUnits(pendingRaw, 18));
-  const totalRewardsBtbb  = parseFloat(formatUnits(totalRewardsBig, 18));
   const rewards24hBtbb    = parseFloat(formatUnits(rewards24hBig, 18));
   const annualBtbbPerNft  = totalStaked > 0 && aprRawBig > 0n ? parseFloat(formatUnits(aprRawBig, 22)) : 0;
   const cappedUnstake     = Math.min(unstakeCount, myStaked);

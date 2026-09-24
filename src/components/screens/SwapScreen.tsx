@@ -15,15 +15,14 @@ import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
 import { Screen } from '../Screen';
-import { Badge } from '../Badge';
 import { ChainLogo } from '../ChainLogo';
 import { useTokenStore, Token } from '../../lib/TokenStore';
 import { BTB_SWAP_FEE_PERCENT, buildKyberTx, getKyberQuote, KYBER_CHAINS, type KyberQuote } from '../../lib/kyberswap';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { api } from '../../../convex/_generated/api';
 import { useChainTheme } from '../../lib/ChainThemeContext';
+import { SWAP_XP } from '../../../convex/xpRules';
 
-const SWAP_XP = 100;
 const NATIVE_ADDRESSES = new Set([
   'eth',
   '0x0000000000000000000000000000000000000000',
@@ -662,9 +661,6 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
     setFromAmt(''); setQuote(null);
   }
 
-  function reset() {
-    setStep('form'); setFromAmt(''); setQuote(null); setTxHash(undefined); setErrMsg('');
-  }
 
   async function executeSwap() {
     if (!address || !quote) return;

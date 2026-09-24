@@ -49,11 +49,11 @@ export const AGENT_MESSAGE_BTB = 1;
 export const AGENT_FREE_PER_DAY = 5;
 /** Text signed once to open an agent session. */
 export const SESSION_ACTION = [
-  'Sign in to the BTB Agent',
+  'Sign in to BTB Finance',
   '',
-  'You get 5 free messages every day. After that, each message uses 1 BTB from your BTB balance in the app.',
+  'The BTB Agent gives you 5 free messages every day; after that each message uses 1 BTB. Auto-rebalance uses 1 BTB per check and a set price per rebalance. All of it comes from your BTB balance in the app.',
   '',
-  'This keeps your chat private to your wallet and lasts 30 days on this device.',
+  'This keeps your chat and settings private to your wallet and lasts 30 days on this device.',
 ].join('\n');
 /** How long an agent session lasts. */
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60_000;

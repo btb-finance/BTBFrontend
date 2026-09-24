@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
     const res = await fetch(`${UPSTREAM}/${path}${qsStr ? `?${qsStr}` : ''}`, {
       // Pool data changes constantly — don't let Next.js cache a stale response.
       cache: 'no-store',
+      // Our free key: anonymous use is capped per IP, and hosting IPs are shared.
+      ...(process.env.DEXPAPRIKA_API_KEY ? { headers: { Authorization: process.env.DEXPAPRIKA_API_KEY } } : {}),
     });
     const body = await res.text();
     return new Response(body, {

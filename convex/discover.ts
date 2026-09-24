@@ -39,28 +39,32 @@ export const get = query({
   },
 });
 
-/** Operator view: recent scheduled functions and their state (debugging the
- * DEX coverage steps). */
-export const listScheduled = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.system.query("_scheduled_functions").order("desc").take(20);
-    return rows.map((r) => ({ name: r.name, args: r.args, scheduledTime: new Date(r.scheduledTime).toISOString(), state: r.state, completedTime: r.completedTime ? new Date(r.completedTime).toISOString() : null }));
-  },
-});
+/** A token GeckoTerminal had no image for is asked about again after this long. */
+const NO_LOGO_RETRY_MS = 7 * 24 * 60 * 60_000;
 
+/**
+ * Logos already stored for `keys`, plus the keys checked recently and found to
+ * have no logo (stored as an empty logoURI). Both are skipped by the next
+ * lookup, so a token without an image costs one request a week, not one every
+ * refresh.
+ */
 export const tokenLogosFor = internalQuery({
   args: { keys: v.array(v.string()) },
   handler: async (ctx, { keys }) => {
-    const out: Record<string, string> = {};
+    const known: Record<string, string> = {};
+    const noLogo: string[] = [];
+    const now = Date.now();
     for (const key of keys) {
       const row = await ctx.db.query("tokenLogos").withIndex("by_key", q => q.eq("key", key)).unique();
-      if (row) out[key] = row.logoURI;
+      if (!row) continue;
+      if (row.logoURI) known[key] = row.logoURI;
+      else if (now - row.updatedAt < NO_LOGO_RETRY_MS) noLogo.push(key);
     }
-    return out;
+    return { known, noLogo };
   },
 });
 
+/** An empty logoURI records "checked, no logo" (see tokenLogosFor). */
 export const saveTokenLogos = internalMutation({
   args: { entries: v.array(v.object({ key: v.string(), logoURI: v.string() })) },
   handler: async (ctx, { entries }) => {

@@ -196,29 +196,6 @@ export async function getTopPools(limit = 80, minTvlUsd = 50_000, projects?: str
   return selected.sort((a, b) => b.tvlUsd - a.tvlUsd);
 }
 
-export interface PoolChartPoint { timestamp: number; tvlUsd: number; apy: number; }
-
-interface RawChartPoint { timestamp: string; tvlUsd: number | null; apy: number | null; }
-
-/**
- * Historical TVL/APY for a single DeFiLlama-sourced pool — free, keyless.
- * Used for the Discover table's trend sparkline + day-over-day APY change
- * when a pool has no on-chain address to query elsewhere (see geckoterminal.ts
- * for the indexer-sourced-pool equivalent).
- */
-export async function fetchPoolChart(poolId: string): Promise<PoolChartPoint[]> {
-  try {
-    const res = await fetch(`https://yields.llama.fi/chart/${poolId}`, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return [];
-    const json = await res.json() as { data?: RawChartPoint[] };
-    return (json.data ?? [])
-      .filter((r): r is RawChartPoint & { tvlUsd: number; apy: number } => r.tvlUsd != null && r.apy != null)
-      .map(r => ({ timestamp: new Date(r.timestamp).getTime(), tvlUsd: r.tvlUsd, apy: r.apy }));
-  } catch {
-    return [];
-  }
-}
-
 /**
  * Current USD prices for Ethereum mainnet tokens via DeFiLlama's keyless
  * coins API. Returns a map keyed by lowercase address; missing tokens omitted.

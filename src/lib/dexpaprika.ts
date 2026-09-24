@@ -15,6 +15,19 @@
 const BASE = '/api/dexpaprika';
 const DIRECT_BASE = 'https://api.dexpaprika.com';
 
+/**
+ * Server side calls carry our free API key (DEXPAPRIKA_API_KEY, set in Convex
+ * and in the hosting env). Anonymous use is limited per IP, and Convex and
+ * Netlify share IPs with other customers, so without it requests start
+ * failing once someone else on the same IP spends the allowance. Browser
+ * calls go through /api/dexpaprika, which adds the key itself; it is never
+ * sent to the browser.
+ */
+function dpFetch(url: string): Promise<Response> {
+  const key = typeof window === 'undefined' ? process.env.DEXPAPRIKA_API_KEY : undefined;
+  return fetch(url, key ? { headers: { Authorization: key } } : undefined);
+}
+
 function proxied(path: string, params: Record<string, string | number>): string {
   const flat = Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)]));
   // Server side (Convex discover cron, Next server) there's no CORS and a
@@ -29,12 +42,6 @@ function proxied(path: string, params: Record<string, string | number>): string 
 export interface DexPaprikaStats {
   tvlUsd: number;
   volume24hUsd: number;
-}
-
-export interface DexPaprikaToken {
-  address: string;
-  symbol: string;
-  decimals: number;
 }
 
 /**
@@ -99,7 +106,7 @@ export async function fetchNetworkTopPools(network: string, limit = 100): Promis
     if (cursor) params.cursor = cursor;
     let body: { results?: SearchRow[]; has_next_page?: boolean; next_cursor?: string };
     try {
-      const res = await fetch(proxied(`networks/${network}/pools/search`, params));
+      const res = await dpFetch(proxied(`networks/${network}/pools/search`, params));
       if (!res.ok) break;
       body = await res.json();
     } catch { break; }
@@ -148,7 +155,7 @@ export interface DexPaprikaDex {
 
 export async function fetchNetworkDexes(network: string): Promise<DexPaprikaDex[]> {
   try {
-    const res = await fetch(proxied(`networks/${network}/dexes`, { limit: 100 }));
+    const res = await dpFetch(proxied(`networks/${network}/dexes`, { limit: 100 }));
     if (!res.ok) return [];
     const body = await res.json();
     const rows = body?.dexes ?? body?.results ?? (Array.isArray(body) ? body : []);
@@ -166,7 +173,7 @@ export async function fetchNetworkDexes(network: string): Promise<DexPaprikaDex[
 /** Uniswap V4 pools are keyed by the same poolId hash we compute on-chain — no separate address. */
 export async function fetchDexPaprikaPool(id: string, network = 'ethereum'): Promise<DexPaprikaStats | null> {
   try {
-    const res = await fetch(proxied(`networks/${network}/pools/${id.toLowerCase()}`, {}));
+    const res = await dpFetch(proxied(`networks/${network}/pools/${id.toLowerCase()}`, {}));
     if (!res.ok) return null;
     const d = await res.json();
     const tvlUsd = typeof d.liquidity_usd === 'number' ? d.liquidity_usd : undefined;

@@ -197,18 +197,6 @@ export const SLOT0_HEAD_ABI = [
   ] },
 ] as const;
 
-/** Slipstream CLPool.slot0 has no feeProtocol field (six outputs, not seven). */
-export const SLIPSTREAM_POOL_ABI = [
-  { name: 'slot0', type: 'function', stateMutability: 'view', inputs: [], outputs: [
-    { name: 'sqrtPriceX96', type: 'uint160' },
-    { name: 'tick', type: 'int24' },
-    { name: 'observationIndex', type: 'uint16' },
-    { name: 'observationCardinality', type: 'uint16' },
-    { name: 'observationCardinalityNext', type: 'uint16' },
-    { name: 'unlocked', type: 'bool' },
-  ] },
-] as const;
-
 export const FACTORY_ABI = [
   { name: 'getPool', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenA', type: 'address' }, { name: 'tokenB', type: 'address' }, { name: 'fee', type: 'uint24' }], outputs: [{ name: 'pool', type: 'address' }] },
 ] as const;

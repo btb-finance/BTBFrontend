@@ -5,8 +5,6 @@
  */
 import { queryTopPools, V3_SUBGRAPH_ID as SUBGRAPH_ID, IndexedPool } from '../graph';
 
-export type V3IndexedPool = IndexedPool;
-
 export function getV3TopPools(limit = 50, minTvlUsd = 100_000): Promise<IndexedPool[]> {
   return queryTopPools(SUBGRAPH_ID, 'v3', limit, minTvlUsd);
 }

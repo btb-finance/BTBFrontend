@@ -38,6 +38,13 @@ function toKey(base64: string): Uint8Array {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 }
 
+/** "checked 4m ago" for an alert's last read. Shared by the bell and the position cards. */
+export function checkedAgo(t: number | null): string {
+  if (!t) return 'not checked yet';
+  const m = Math.round((Date.now() - t) / 60_000);
+  return m < 1 ? 'checked just now' : m < 60 ? `checked ${m}m ago` : `checked ${Math.round(m / 60)}h ago`;
+}
+
 export function positionKey(p: LiquidityPosition) {
   return { chainId: p.chainId ?? 1, protocol: p.protocol, tokenId: p.id.toString() };
 }

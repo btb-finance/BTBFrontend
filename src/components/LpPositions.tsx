@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseUnits, erc20Abi } from 'viem';
+import { formatUnits, parseAbi, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
@@ -21,11 +21,9 @@ import {
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
-import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
-import { fetchAerodromeStakedByIds, AERODROME_CL_DEPLOYMENTS, BASE_CHAIN_ID, aerodromeDeploymentsFor } from '@/protocols/dexs/aerodrome';
-import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
+import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
+import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
-import { Icon } from './Icon';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
 import { FastAlertsPanel, fmtBtb } from './FastAlerts';
@@ -33,8 +31,17 @@ import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
 import { CONTRACTS } from '../lib/wagmi';
 import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
+import { AutoRebalanceSheet } from './AutoRebalanceSheet';
+import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
+import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, isFarmManager } from '../lib/autoRebalance';
+
+const AUTO_FARM_ABI = parseAbi([
+  'function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)',
+  'function pendingReward(uint256 tokenId) view returns (uint256)',
+]);
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
-import { useAlerts, ALERT_MIN_BTB, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser } from '../lib/alerts';
+import { useAlerts, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
+import { readableError } from '../lib/errorText';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -89,12 +96,6 @@ function fmtAmt(raw: bigint, decimals: number): string {
 
 const posKey = (p: LiquidityPosition) => `${p.chainId ?? 1}-${p.protocol}-${p.id.toString()}`;
 
-/** "checked 4m ago" for an alert row's last read. */
-function checkedAgo(t: number | null): string {
-  if (!t) return 'not checked yet';
-  const m = Math.round((Date.now() - t) / 60_000);
-  return m < 1 ? 'checked just now' : m < 60 ? `checked ${m}m ago` : `checked ${Math.round(m / 60)}h ago`;
-}
 
 /** Chains Krystal's LP index covers (see api/krystal/lp/route.ts). */
 const KRYSTAL_LP_CHAINS = new Set([1, 10, 56, 130, 137, 2020, 324, 42161, 43114, 59144, 80094, 81457, 8453, 999]);
@@ -183,11 +184,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const { address: connectedAddress } = useConnection();
   const config = useConfig();
   const { track } = useTx();
-  const [positions, setPositions] = useState<LiquidityPosition[]>([]);
+  const [ownPositions, setPositions] = useState<LiquidityPosition[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [manage, setManage] = useState<{ pos: LiquidityPosition; mode: 'add' | 'withdraw' } | null>(null);
   const [rebalance, setRebalance] = useState<LiquidityPosition | null>(null);
+  const [autoPos, setAutoPos] = useState<LiquidityPosition | null>(null);
   const [share, setShare] = useState<ShareCardData | null>(null);
   const [alertNote, setAlertNote] = useState<string | null>(null);
   const [actionNote, setActionNote] = useState<string | null>(null);
@@ -203,10 +205,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           : 'Alert on. You will get a push on this device and a line under the bell when the range changes. Checked hourly, or every 5 minutes with fast alerts above.');
       }
     } catch (e) {
-      // Convex wraps thrown errors in its own framing; keep the sentence only.
-      const raw = (e as Error)?.message ?? 'Could not enable the alert';
-      const m = raw.match(/Uncaught Error: ([^\n]+?)(?: at handler|$)/);
-      setAlertNote((m ? m[1] : raw).trim());
+      setAlertNote(readableError(e, 'Could not enable the alert.'));
     }
   }
   const [usd, setUsd] = useState<Record<string, number>>({});
@@ -244,6 +243,69 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   }, [discoverPools]);
   const address = walletAddress ?? connectedAddress;
 
+  // Positions in the owner's V6 auto wallet: read from the wallet, shown in the
+  // same list as every other position, with auto controls instead of actions.
+  const autoJobs = useAutoJobs(connectedAddress)?.jobs;
+  const [autoPositions, setAutoPositions] = useState<LiquidityPosition[]>([]);
+  // Anything that changes what the position looks like on-chain re-reads it:
+  // a rebalance (new id), a stake or unstake (gauge), or an explicit refresh.
+  const [autoNonce, setAutoNonce] = useState(0);
+  const autoJobsKey = (autoJobs ?? []).map((j) => `${j.chainId}:${j.positionManager}:${j.tokenId}:${j.wallet}:${j.gauge ?? ''}:${j.lastRebalancedAt ?? ''}`).join(',') + `#${autoNonce}`;
+  useEffect(() => {
+    let live = true;
+    if (!autoJobs?.length) { setAutoPositions([]); return; }
+    (async () => {
+      const out: LiquidityPosition[] = [];
+      await Promise.all(autoJobs.map(async (j) => {
+        const found = autoDeployment(j.chainId, j.positionManager);
+        const client = getPublicClient(config, { chainId: j.chainId as never });
+        if (!found || !client) return;
+        try {
+          const [p] = await fetchV3Positions(client as never, j.wallet as `0x${string}`, found.deployment, [BigInt(j.tokenId)]);
+          if (!p) return;
+          const pos: LiquidityPosition = { ...p, protocol: found.protocol, chainId: j.chainId, chainName: AUTO_CHAIN_NAMES[j.chainId], positionManager: j.positionManager as `0x${string}` };
+          // Staked from the wallet, or stakeable in its pool's gauge: the same
+          // fields the rest of the list uses, so badges and rewards just show.
+          if (stakingSupported(found.deployment)) {
+            const target = await stakeTargetForPool(client as never, found.deployment, p.token0, p.token1, p.tickSpacing ?? p.fee).catch(() => null);
+            if (target && target.kind === 'gauge') {
+              const [staked, earned] = await Promise.all([
+                client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false),
+                client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => 0n),
+              ]);
+              if (staked) pos.staked = { kind: 'gauge', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
+              else pos.stakeable = { kind: 'gauge', gauge: target.contract, rewardSymbol: target.rewardSymbol };
+            } else if (target && target.kind === 'masterchef' && isFarmManager(j.chainId, j.positionManager)) {
+              // Giga's farm: the wallet is the staker when the farm records it as the position's user.
+              const [info, earned] = await Promise.all([
+                client.readContract({ address: target.contract, abi: AUTO_FARM_ABI, functionName: 'userPositionInfos', args: [BigInt(j.tokenId)] }).catch(() => null),
+                client.readContract({ address: target.contract, abi: AUTO_FARM_ABI, functionName: 'pendingReward', args: [BigInt(j.tokenId)] }).catch(() => 0n),
+              ]);
+              if (info && info[5].toLowerCase() === j.wallet.toLowerCase()) pos.staked = { kind: 'masterchef', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
+              else pos.stakeable = { kind: 'masterchef', gauge: target.contract, rewardSymbol: target.rewardSymbol };
+            }
+          }
+          out.push(pos);
+        } catch { /* the next job refresh retries */ }
+      }));
+      if (live) setAutoPositions(out);
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoJobsKey, config]);
+  const autoByKey = useMemo(() => {
+    const m = new Map<string, AutoJob>();
+    for (const j of autoJobs ?? []) {
+      const found = autoDeployment(j.chainId, j.positionManager);
+      if (found) m.set(`${j.chainId}-${found.protocol}-${j.tokenId}`, j);
+    }
+    return m;
+  }, [autoJobs]);
+  const positions = useMemo(() => {
+    const own = ownPositions.filter((p) => !autoByKey.has(posKey(p)));
+    return [...own, ...autoPositions];
+  }, [ownPositions, autoPositions, autoByKey]);
+
   const alerts = useAlerts(connectedAddress);
   const alertCredit = useQuery(api.alerts.creditFor, connectedAddress ? { address: connectedAddress } : 'skip');
   const fastAlerts = !!alertCredit?.fast && alertCredit.total >= FAST_CHECK_BTB;
@@ -268,7 +330,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     let live = true;
     (async () => {
       const out: Record<string, number> = {};
-      await Promise.all(positions.filter((p) => (p.fees0 > 0n || p.fees1 > 0n) && !p.staked).slice(0, 10).map(async (p) => {
+      await Promise.all(positions.filter((p) => (p.fees0 > 0n || p.fees1 > 0n) && !p.staked && !autoByKey.has(posKey(p))).slice(0, 10).map(async (p) => {
         const chainId = (p.chainId ?? 1) as number;
         const client = getPublicClient(config, { chainId });
         if (!client) return;
@@ -772,7 +834,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const na = a.liquidity > 0n && !a.inRange ? 1 : 0, nb = b.liquidity > 0n && !b.inRange ? 1 : 0;
     return nb - na || valueOf(b) - valueOf(a);
   });
-  const needsAttention = positions.filter((p) => p.liquidity > 0n && !p.inRange);
+  const needsAttention = positions.filter((p) => p.liquidity > 0n && !p.inRange && !autoByKey.has(posKey(p)));
   const idleUsd = needsAttention.reduce((sum, p) => sum + valueOf(p), 0);
   const attentionBlock = needsAttention.length > 0 && (
     <div style={{ borderRadius: 16, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.07)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -953,7 +1015,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
         )}
 
-        {(() => {
+        {autoByKey.has(posKey(p)) && connectedAddress ? (
+          <AutoJobControls job={autoByKey.get(posKey(p))!} pos={p} address={connectedAddress} canTransact={canTransact} onChanged={async () => { setAutoNonce((n) => n + 1); await load(); }}/>
+        ) : (() => {
           // Two actions the position needs right now, then More for the rest.
           type Act = { key: string; label: string; tone?: 'neutral' | 'green' | 'amber' | 'danger'; solid?: boolean; onClick: () => void; disabled?: boolean };
           const acts: Act[] = [];
@@ -969,6 +1033,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           if (canRebalance) acts.push({ key: 'rebalance', label: p.inRange ? 'Rebalance' : 'Rebalance now', tone: p.inRange ? 'neutral' : 'amber', onClick: () => setRebalance(p), disabled: busy || !canTransact });
           if (!p.staked && hasLiquidity) acts.push({ key: 'withdraw', label: 'Withdraw', tone: 'danger', onClick: () => setManage({ pos: p, mode: 'withdraw' }), disabled: busy || !canTransact });
           acts.push({ key: 'flex', label: 'Flex', onClick: () => setShare(shareData()) });
+          if (canTransact && autoSupport(p)) acts.push({ key: 'auto', label: 'Auto-rebalance', tone: 'green', onClick: () => setAutoPos(p), disabled: busy });
           if (hasLiquidity && canTransact) acts.push({ key: 'alert', label: alerts.has(p) ? 'Alert on' : 'Alert me', tone: alerts.has(p) ? 'green' : 'neutral', onClick: () => toggleAlert(p), disabled: busy });
           // What leads depends on the state: out of range wants Rebalance, fees want Compound or Collect, staked wants Claim.
           const lead: string[] = p.staked ? ['claim', 'unstake'] : !p.inRange && canRebalance ? ['rebalance', 'withdraw'] : hasFees ? ['compound', 'collect', 'add'] : ['add', 'rebalance'];
@@ -995,7 +1060,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 })}
                   {rest.map((a) => {
                     const isAlert = a.key === 'alert';
-                    const on = isAlert && a.tone === 'green';
+                    const isAuto = a.key === 'auto';
+                    const on = (isAlert && a.tone === 'green') || isAuto;
                     const color = chipColor(a);
                     return (
                       <button key={a.key} type="button" disabled={a.disabled} onClick={a.onClick} style={{
@@ -1126,6 +1192,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 <span style={{ color: 'rgba(var(--fg-rgb), 0.2)' }}>|</span>
                 <span style={{ color: PROTOCOL_BADGE[p.protocol].color }}>{protocolBadgeLabel(p)}</span>
                 {p.staked && <span style={{ color: btb.amber }}>Staked</span>}
+                {autoByKey.has(key) && <span style={{ color: btb.green, fontWeight: 800 }}>Auto-rebalance{autoByKey.get(key)!.active ? '' : ', paused'}</span>}
                 {watched && <span title={fastAlerts ? 'Range alert, checked every 5 minutes' : 'Range alert, checked hourly'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: fastAlerts ? btb.green : btb.textMuted }}><span style={{ width: 5, height: 5, borderRadius: 999, background: 'currentColor' }}/>{fastAlerts ? 'Fast alert' : 'Alert'}</span>}
               </div>
               {isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>{rangeBar(72)}<span style={{ color: tone, fontSize: 10.5, fontWeight: 750 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, ${side}` : ''}`}</span></div>}
@@ -1189,6 +1256,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
   const positionList = (
     <>
+      <AutoRebalancePanel address={connectedAddress}/>
       {fastStrip}
       {toolbar}
       {filtered && visiblePositions.length === 0 && positions.length > 0 && (
@@ -1459,6 +1527,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       )}
 
       {share && <SharePositionCard data={share} onClose={() => setShare(null)}/>}
+      {autoPos && connectedAddress && (
+        <AutoRebalanceSheet
+          pos={autoPos}
+          account={connectedAddress as `0x${string}`}
+          onClose={() => setAutoPos(null)}
+          onDone={async () => { await load(); }}
+        />
+      )}
       {rebalance && connectedAddress && canActOn(rebalance) && (
         <RebalanceFlow
           pos={rebalance}

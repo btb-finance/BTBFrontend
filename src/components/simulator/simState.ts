@@ -34,11 +34,6 @@ export const STRATEGY_SIGMA: Record<Exclude<Strategy, 'custom'>, number> = {
   conservative: 2, balanced: 1, aggressive: 0.5,
 };
 
-export const HORIZONS = [
-  { d: 7, label: '1 week' }, { d: 30, label: '1 month' },
-  { d: 90, label: '3 months' }, { d: 180, label: '6 months' },
-];
-
 export interface SimInputs {
   pool: MintPool;
   feeTier: number;
