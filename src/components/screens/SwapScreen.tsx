@@ -16,7 +16,7 @@ import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
 import { Screen } from '../Screen';
 import { ChainLogo } from '../ChainLogo';
-import { useTokenStore, Token } from '../../lib/TokenStore';
+import { useTokenStore, Token, PROTOCOL_TOKENS } from '../../lib/TokenStore';
 import { BTB_SWAP_FEE_PERCENT, buildKyberTx, getKyberQuote, KYBER_CHAINS, type KyberQuote } from '../../lib/kyberswap';
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { api } from '../../../convex/_generated/api';
@@ -411,9 +411,15 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
   const { track } = useTx();
-  const urlChain = typeof window !== 'undefined' ? Number(new URLSearchParams(window.location.search).get('chain')) : 0;
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const urlChain = Number(urlParams.get('chain'));
+  // BTB and the other app tokens only exist on Ethereum: a link to one opens there, whatever chain the wallet is on.
+  const urlAppToken = (q: string | null) => q ? PROTOCOL_TOKENS.find((t) => t.address === q.toLowerCase() || t.symbol.toLowerCase() === q.toLowerCase()) : undefined;
+  const linkedTo = urlAppToken(urlParams.get('to'));
+  const linkedFrom = urlAppToken(urlParams.get('from'));
   const initialChain = Number.isFinite(urlChain) && KYBER_CHAINS[urlChain]
     ? urlChain
+    : linkedTo || linkedFrom ? 1
     : initialFrom?.chainId && KYBER_CHAINS[initialFrom.chainId]
       ? initialFrom.chainId
       : walletChainId && KYBER_CHAINS[walletChainId] ? walletChainId : 1;
@@ -425,9 +431,11 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const [loadingTokenList, setLoadingTokenList] = useState(false);
   const [balanceRefreshNonce, setBalanceRefreshNonce] = useState(0);
 
-  const [fromToken, setFromToken] = useState<Token>(initialFrom ?? ETH_DEFAULT);
+  // A linked app token is known up front, so the screen opens on it instead of waiting for the token list.
+  const [fromToken, setFromToken] = useState<Token>(initialFrom ?? (linkedFrom && initialChain === 1 ? { ...linkedFrom, chainId: 1 } : ETH_DEFAULT));
   const [toToken,   setToToken]   = useState<Token>(
-    initialFrom ? DEFAULT_QUOTES[initialFrom.chainId ?? 1] ?? nativeEthForChain(initialFrom.chainId ?? 1) : USDC_DEFAULT
+    linkedTo && initialChain === 1 ? { ...linkedTo, chainId: 1 }
+      : initialFrom ? DEFAULT_QUOTES[initialFrom.chainId ?? 1] ?? nativeEthForChain(initialFrom.chainId ?? 1) : USDC_DEFAULT
   );
   const [fromAmt,   setFromAmt]   = useState('');
   const [picker,    setPicker]    = useState<'from' | 'to' | null>(null);
@@ -561,7 +569,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         if (usdc) setToToken(usdc);
       }
     }
-  }, [chainId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Runs again once the token list has loaded: on a first render it is often still empty.
+  }, [chainId, chainTokens.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the URL carrying the full pair so the current swap is always
   // shareable. replaceState (not push) — token picking shouldn't pile up

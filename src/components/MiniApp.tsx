@@ -45,6 +45,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   const [showConnect, setShowConnect] = useState(false);
   const [sendToken, setSendToken]     = useState<Token | undefined>();
   const [swapToken, setSwapToken]     = useState<Token | undefined>();
+  const [swapKey, setSwapKey]         = useState(0);
 
   // Warm the BearNFT/BearStaking reads while the user is anywhere in the app so
   // the NFT/Agent tab is instant when they open it.
@@ -97,6 +98,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   // (/swap?from=…&to=…), so the destination is fully linkable.
   const openSwap = (opts?: { from?: Token; toAddress?: string }) => {
     setSwapToken(opts?.from);
+    // A fresh swap screen reads the new pair from the URL, even when the swap tab is already open.
+    setSwapKey((k) => k + 1);
     setOverlay(null);
     setScreen('swap');
     const q = new URLSearchParams();
@@ -120,7 +123,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
                           onBuyBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
-      case 'swap':      return <SwapScreen initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
+      case 'swap':      return <SwapScreen key={swapKey} initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
       case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate} viewAddress={effectiveAddress} onViewAddress={onViewAddress}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;

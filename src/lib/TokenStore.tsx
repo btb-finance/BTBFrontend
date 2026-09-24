@@ -85,7 +85,7 @@ const WETH   = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 // so they'd never appear in the swap picker. We always inject them with a
 // direct on-chain balanceOf read so the user's holdings show regardless of what
 // the Convex list/snapshot contains.
-const PROTOCOL_TOKENS = [
+export const PROTOCOL_TOKENS = [
   { address: '0x88888888c90cd71b35830dabfd24743dbc135b51', symbol: 'BTB',  name: 'BTB Finance', decimals: 18, logoURI: '/btblogo.jpg' },
   { address: '0x88888880d5ca13018d2dc11e2e4744bd91a5656f', symbol: 'BTBB', name: 'BTB Bear',    decimals: 18 },
   { address: '0x88888805e7e3d5c7fb002ad98f08250e79c298dc', symbol: 'OPOS', name: 'OPOSSUM',     decimals: 18 },

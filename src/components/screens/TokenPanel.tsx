@@ -18,7 +18,7 @@ import { useSidebar } from '../../lib/SidebarContext';
 import { useXpToast } from '../../lib/XpToast';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB, FAST_CHECK_BTB } from '../../lib/alerts';
-import { BtbTopUp, fmtBtb } from '../FastAlerts';
+import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
@@ -439,7 +439,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
             <div style={LABEL_STYLE}>Your BTB</div>
             <div style={{ display: 'flex', gap: 6 }}>
-              <button type="button" onClick={() => setShowTopUp(o => !o)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{showTopUp ? 'Close' : 'Top up balance'}</button>
+              <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Top up balance</button>
               <button type="button" onClick={onSwap} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.14)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Get BTB</button>
             </div>
           </div>
@@ -463,7 +463,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55 }}>
             Your app balance pays for extras: agent messages past the {AGENT_FREE_PER_DAY} free ones ({AGENT_MESSAGE_BTB} BTB each) and fast range alerts ({FAST_CHECK_BTB} BTB per check). Unclaimed weekly rewards are used automatically when it runs low. The holding bonus counts BTB kept in your wallet from one check-in to the next.
           </div>
-          {showTopUp && <BtbTopUp credit={credit}/>}
+          {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
         </div>
       )}
 
