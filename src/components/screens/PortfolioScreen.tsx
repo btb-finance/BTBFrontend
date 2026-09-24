@@ -93,7 +93,7 @@ function isNativeAddress(address: string) {
 
 export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onViewAddress }: { onSend?: () => void; onSwap?: (token: Token) => void; onSimulate?: (token: Token) => void; viewAddress?: string; onViewAddress?: (addr: string | undefined) => void } = {}) {
   const { walletAddress, positions, loadingBalances, loadingList, error, refetchBalances, loadingOtherChains } = useTokenStore();
-  const [tab, setTab] = useState<'tokens' | 'lps'>('tokens');
+  const [tab, setTab] = useState<'tokens' | 'lps'>('lps');
   const [lpToken, setLpToken] = useState<Token | null>(null);
   const [showHiddenAssets, setShowHiddenAssets] = useState(false);
   const [tokenSearch, setTokenSearch] = useState('');
@@ -313,7 +313,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 12, background: btb.surfaceSoft, border: btb.borderSoft }}>
-          {([['tokens', 'Tokens'], ['lps', isMobile ? 'LPs' : 'LP Positions']] as const).map(([t, label]) => {
+          {([['lps', isMobile ? 'LPs' : 'LP Positions'], ['tokens', 'Tokens']] as const).map(([t, label]) => {
             const active = tab === t;
             return (
               <button key={t} onClick={() => setTab(t)} style={{
