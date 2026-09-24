@@ -665,6 +665,15 @@ export const check = internalAction({
       await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note: result.wait, nextInMs: Math.min(intervalMs, 15 * 60_000) });
       return;
     }
+    if (result.error === "DailyLimitReached") {
+      // The wallet's own cap on agent actions per day (UTC). Checking again before it resets would only cost
+      // checks, so the next one is just after midnight UTC.
+      const untilReset = 86_400_000 - (Date.now() % 86_400_000) + 60_000;
+      const note = "Out of range, but the agent used today's action limit in your auto wallet. It continues after midnight UTC, or raise the limit below.";
+      if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Daily agent limit reached", `${job.label}: ${note}`);
+      await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: untilReset });
+      return;
+    }
     const why = result.error ?? "unknown";
     const failed = await ctx.runMutation(internal.autoRebalance.recordFailure, { id, gen, note: `Rebalance refused (${why}); retrying.`, max: MAX_FAILURES, nextInMs: RETRY_MS });
     if (failed.paused) await push(ctx, job.address, job.label, "auto", "Auto-rebalance paused", `${job.label}: auto-rebalance paused after repeated failures. Nothing was charged for them.`);

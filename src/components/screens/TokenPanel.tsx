@@ -17,7 +17,7 @@ import { readableError } from '../../lib/errorText';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useXpToast } from '../../lib/XpToast';
 import { useTokenStore } from '../../lib/TokenStore';
-import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB, FAST_CHECK_BTB } from '../../lib/alerts';
+import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, epochIdAt, epochWindow } from '../../../convex/xpRules';
@@ -295,11 +295,11 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   const heroStyle = {
     position: 'relative' as const,
     overflow: 'hidden' as const,
-    borderRadius: 24,
-    padding: isMobile ? 18 : 24,
+    borderRadius: 20,
+    padding: isMobile ? 14 : 16,
     border: '1px solid rgba(var(--green-rgb), 0.25)',
     background: 'radial-gradient(120% 150% at 88% -30%, rgba(var(--green-rgb), 0.20), transparent 55%), radial-gradient(90% 120% at 0% 115%, rgba(125,211,252,0.10), transparent 55%), linear-gradient(165deg, rgba(var(--fg-rgb), 0.06), rgba(var(--fg-rgb), 0.015))',
-    display: 'flex', flexDirection: 'column' as const, gap: 16,
+    display: 'flex', flexDirection: 'column' as const, gap: 12,
   };
   const panelStyle = { borderRadius: 24, padding: isMobile ? 18 : 24, border: btb.border, background: 'rgba(var(--fg-rgb), 0.05)', display: 'flex', flexDirection: 'column' as const, gap: 14 };
 
@@ -321,16 +321,31 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         )}
       </div>
 
+      {/* ── BTB balance and top up, first thing on the page ── */}
+      {address && (
+        <div style={{ borderRadius: 18, padding: '12px 14px', border: '1px solid rgba(var(--green-rgb), 0.25)', background: 'rgba(var(--green-rgb), 0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <div style={LABEL_STYLE}>BTB balance</div>
+            <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4, marginTop: 2 }}>{fmtBtb(credit.total)} BTB</div>
+            <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 1 }}>
+              {credit.rewards > 0 ? `incl. ${fmtBtb(credit.rewards)} unclaimed rewards · ` : ''}pays for auto-rebalance, alerts and the agent · {fmtBtb(walletBtb)} BTB in your wallet
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 32, padding: '0 14px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.5)', background: btb.green, color: '#000', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Top up</button>
+            <button type="button" onClick={onSwap} style={{ height: 32, padding: '0 14px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Get BTB</button>
+          </div>
+          {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
+        </div>
+      )}
+
       {/* ── the week at a glance: the numbers people come back for, in one row ── */}
       {address && (
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(5, minmax(0, 1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
           <StatTile label="Points this week" value={status ? status.myPoints.toLocaleString('en-US') : '—'} color={status && status.myPoints > 0 ? btb.green : undefined} sub={checkedIn ? 'checked in today' : `+${todayXp} on check-in`}/>
           <StatTile label="Your share" value={sharePct != null ? `≈ ${sharePct.toFixed(1)}%` : '—'} sub={status ? `${status.requesterCount} wallets earning` : undefined}/>
           <StatTile label="Est. Friday payout" value={estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : '—'} color={estPayout != null ? btb.green : undefined} sub={estPayout != null ? `at last week's pot · in ${countdown(endsIn)}` : status ? `in ${countdown(endsIn)}` : undefined}/>
           <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
-          <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
-            <StatTile label="BTB balance" value={`${fmtBtb(credit.total)} BTB`} sub={credit.rewards > 0 ? 'rewards included' : 'for agent and alerts'}/>
-          </div>
         </div>
       )}
 
@@ -365,16 +380,16 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
               <div style={LABEL_STYLE}>Daily check-in</div>
-              <div style={{ color: btb.text, fontSize: 26, fontWeight: 800, letterSpacing: -0.6, lineHeight: 1.1, marginTop: 4 }}>
+              <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.15, marginTop: 3 }}>
                 {checkedIn ? `Day ${streak} done` : streak > 0 && continues ? `Day ${streak} streak` : 'Start a streak'}
               </div>
-              <div style={{ color: btb.textMuted, fontSize: 13, marginTop: 4 }}>
+              <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 3 }}>
                 {checkedIn
                   ? <>Come back tomorrow for <b style={{ color: btb.green }}>+{tomorrowXp} XP</b>{walletBtb >= BTB_PER_BONUS_XP ? ', holding bonus included' : ''}</>
                   : <>Check in today for <b style={{ color: btb.green }}>+{todayXp} XP</b>{nextStreak % 7 === 0 ? ' · bonus day' : ` · day ${cycleBase + 7} pays a +${weekMilestoneXp(cycleBase + 7)} bonus`}</>}
               </div>
             </div>
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" strokeWidth="2" style={{ flexShrink: 0 }}>
+            <svg width="40" height="40" viewBox="0 0 52 52" fill="none" strokeWidth="2" style={{ flexShrink: 0 }}>
               <circle cx="26" cy="26" r="22" stroke="rgba(var(--fg-rgb), 0.10)"/>
               <circle cx="26" cy="26" r="22" stroke={btb.green} strokeDasharray="138" strokeDashoffset={ringOffset} strokeLinecap="round" transform="rotate(-90 26 26)"/>
               {checkedIn
@@ -393,8 +408,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                     ? { background: 'rgba(var(--amber-rgb), 0.10)', border: '1px solid rgba(var(--amber-rgb), 0.4)', color: btb.amber }
                     : { background: 'rgba(var(--fg-rgb), 0.04)', border: btb.borderSoft, color: btb.textDim };
               return (
-                <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <div style={{ ...box, width: '100%', height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800 }}>
+                <div key={d.day} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                  <div style={{ ...box, width: '100%', height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 800 }}>
                     {d.state === 'done' ? <Icon name="check" size={14} color={btb.green}/> : `+${d.xp}`}
                   </div>
                   <span style={{ fontSize: 10, fontWeight: 800, color: d.state === 'today' ? btb.text : d.bonus && d.state === 'future' ? btb.amber : btb.textDim }}>
@@ -406,11 +421,11 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           </div>
 
           {checkedIn ? (
-            <div style={{ height: 56, borderRadius: 18, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.4)', color: btb.green, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <Icon name="check" size={18} color={btb.green}/> Checked in · next in {countdown(todayStart + MS_PER_DAY - now)}
+            <div style={{ height: 38, borderRadius: 12, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.4)', color: btb.green, fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Icon name="check" size={15} color={btb.green}/> Checked in · next in {countdown(todayStart + MS_PER_DAY - now)}
             </div>
           ) : (
-            <Button size="md" variant="success" icon="fire" loading={busy === 'checkin'} disabled={busy != null || !user} onClick={doCheckIn}>
+            <Button size="sm" variant="success" icon="fire" loading={busy === 'checkin'} disabled={busy != null || !user} onClick={doCheckIn}>
               Check in · +{todayXp} XP
             </Button>
           )}
@@ -430,40 +445,6 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           </div>
           <Button size="md" variant="success" icon="wallet" onClick={onConnect}>Connect and check in</Button>
           <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center' }}>Your first check-in is worth +10 XP the moment you connect.</div>
-        </div>
-      )}
-
-      {/* ── your BTB: wallet holdings earn a check-in bonus; the in-app balance pays for extras ── */}
-      {address && (
-        <div style={panelStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={LABEL_STYLE}>Your BTB</div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Top up balance</button>
-              <button type="button" onClick={onSwap} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.14)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Get BTB</button>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
-            <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(var(--fg-rgb), 0.04)' }}>
-              <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>In your wallet</div>
-              <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, marginTop: 3 }}>{fmtBtb(walletBtb)}</div>
-              <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>BTB on Ethereum</div>
-            </div>
-            <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)' }}>
-              <div style={{ color: btb.green, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>Holding bonus</div>
-              <div style={{ color: btb.green, fontSize: 20, fontWeight: 800, marginTop: 3 }}>+{holdBonusXp(walletBtb, walletBtb).toLocaleString('en-US')} XP</div>
-              <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>a day at check-in, 1 XP per {BTB_PER_BONUS_XP} BTB held{walletBtb >= BTB_PER_BONUS_XP * HOLD_BONUS_CAP ? ' (max)' : ''}</div>
-            </div>
-            <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(var(--fg-rgb), 0.04)' }}>
-              <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4 }}>App balance</div>
-              <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, marginTop: 3 }}>{fmtBtb(credit.total)}</div>
-              <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>{credit.rewards > 0 ? `incl. ${fmtBtb(credit.rewards)} unclaimed rewards` : 'BTB for agent and fast alerts'}</div>
-            </div>
-          </div>
-          <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.55 }}>
-            Your app balance pays for extras: agent messages past the {AGENT_FREE_PER_DAY} free ones ({AGENT_MESSAGE_BTB} BTB each) and fast range alerts ({FAST_CHECK_BTB} BTB per check). Unclaimed weekly rewards are used automatically when it runs low. The holding bonus counts BTB kept in your wallet from one check-in to the next.
-          </div>
-          {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
         </div>
       )}
 
