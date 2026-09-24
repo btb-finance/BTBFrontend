@@ -82,7 +82,7 @@ import { readableError } from '../lib/errorText';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
-import { buildSwapGap } from '../lib/swapGap';
+import { buildSwapGap, planSwapToFit } from '../lib/swapGap';
 import { fetchPositionHistory, fetchEmptyPositions, type PositionHistory } from '../lib/positionHistory';
 import { NPM_ABI as V3_NPM_ABI, RAMSES_NPM_ABI, SLIPSTREAM_NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { rebalancePlan } from '@/protocols/dexs/uniswap/v3/math';
@@ -1715,6 +1715,34 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
   // ETH paid in keeps a little back for gas.
   const gasReserve = (i: 0 | 1) => (ethMode && nativeSide === i ? ((pos.chainId ?? 1) === 1 ? 5n * 10n ** 15n : 5n * 10n ** 14n) : 0n);
   const spendable = (i: 0 | 1) => { const b = (i === 0 ? effBal0 : effBal1) - gasReserve(i); return b > 0n ? b : 0n; };
+  // Swap to fit: the user puts in whatever they hold, one token or both, and part of it is swapped (KyberSwap, with
+  // the BTB fee) so all of it fits the range in the right ratio.
+  const [swapFit, setSwapFit] = useState(false);
+  const [fitStr, setFitStr] = useState<[string, string]>(['', '']);
+  const [step, setStep] = useState<string | null>(null);
+  const fitNative = (i: 0 | 1) => (isV4 ? i === 0 && isNativeCurrency(pos.token0) : ethMode && wethSide === i);
+  const toRaw = (str: string, dec: number) => { try { return str && parseFloat(str) > 0 ? parseUnits(str, dec) : 0n; } catch { return 0n; } };
+  const fitBudget: [bigint, bigint] = [toRaw(fitStr[0], pos.decimals0), toRaw(fitStr[1], pos.decimals1)];
+  const fitShort: [boolean, boolean] = [fitBudget[0] > effBal0, fitBudget[1] > effBal1];
+  const fitArgs = () => ({
+    sqrtPriceX96: pos.sqrtPriceX96, tickLower: pos.tickLower, tickUpper: pos.tickUpper,
+    budget0: fitBudget[0], budget1: fitBudget[1], token0: pos.token0, token1: pos.token1,
+    decimals0: pos.decimals0, decimals1: pos.decimals1, native0: fitNative(0), native1: fitNative(1),
+    account, slippageBps: actionSlippageBps, chainId: (pos.chainId ?? 1) as number,
+  });
+  const [fitPlan, setFitPlan] = useState<Awaited<ReturnType<typeof planSwapToFit>> | null>(null);
+  const [fitErr, setFitErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!swapFit || (fitBudget[0] === 0n && fitBudget[1] === 0n)) { setFitPlan(null); setFitErr(null); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      planSwapToFit(fitArgs()).then((p) => { if (live) { setFitPlan(p); setFitErr(null); } })
+        .catch(() => { if (live) { setFitPlan(null); setFitErr('Could not get a swap price right now. Try again in a moment.'); } });
+    }, 600);
+    return () => { live = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapFit, fitStr[0], fitStr[1], useEth]);
+
   /** The most the wallet can add: all of one token, as long as the other one covers its share. */
   function maxBoth() {
     const order: (0 | 1)[] = onlySide != null ? [onlySide] : [0, 1];
@@ -1735,7 +1763,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
    * the wallet adds them through its own adapter, which lets the owner add any amount. A staked position is
    * unstaked around it and staked again. One confirmation where the wallet batches.
    */
-  function autoAddCalls(job: AutoJob): Call[] {
+  function autoAddCalls(job: AutoJob, add0: bigint, add1: bigint): Call[] {
     const w = job.wallet as `0x${string}`;
     const calls: Call[] = [];
     const tokens: [`0x${string}`, bigint][] = [[pos.token0, add0], [pos.token1, add1]];
@@ -1756,10 +1784,48 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
     return calls;
   }
 
+  /** The add itself, for any amounts: straight into the position, or through the auto wallet. */
+  function increaseCalls(a0: bigint, a1: bigint): Call[] {
+    if (auto) return autoAddCalls(auto, a0, a1);
+    return isV4
+      ? buildV4Increase(pos, liquidityForAmounts(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, a0, a1), maxIn(a0, actionSlippageBps), maxIn(a1, actionSlippageBps), account, v4DeploymentOf(pos))
+      : buildIncrease(pos, a0, a1, actionSlippageBps, ethMode ? wethSide : null, v3DeploymentOf(pos));
+  }
+
+  /** Balances as the add will spend them: native ETH on the ETH side, the token otherwise. */
+  async function freshBalances(): Promise<[bigint, bigint]> {
+    const client = getPublicClient(config, { chainId: (pos.chainId ?? 1) as number });
+    if (!client) return [0n, 0n];
+    const read = (i: 0 | 1) => fitNative(i)
+      ? client.getBalance({ address: account })
+      : client.readContract({ address: i === 0 ? pos.token0 : pos.token1, abi: erc20Abi, functionName: 'balanceOf', args: [account] });
+    return Promise.all([read(0), read(1)]) as Promise<[bigint, bigint]>;
+  }
+
   async function run() {
     setBusy(true); setErr(null);
     try {
-      const calls = auto && mode === 'add' ? autoAddCalls(auto) : isV4
+      if (mode === 'add' && swapFit) {
+        // Plan again at confirm time (prices move), swap, then add exactly what the swap left in the right ratio.
+        setStep('Swapping to fit the range');
+        const plan = await planSwapToFit({ ...fitArgs(), build: true });
+        let [a0, a1] = [plan.final0, plan.final1];
+        if (plan.sellSide !== null) {
+          const before = await freshBalances();
+          await runCalls(config, { account, calls: plan.calls, label: `Swap to fit ${pos.symbol0}/${pos.symbol1}`, track, chainId: (pos.chainId ?? 1) as number });
+          const after = await freshBalances();
+          // What the swap actually returned, not what it quoted. On a native ETH side the balance also paid gas, so the
+          // quote less slippage stands in for it.
+          const bought = plan.sellSide === 0 ? 1 : 0;
+          const got = fitNative(bought) ? (plan.out * BigInt(10_000 - actionSlippageBps)) / 10_000n : after[bought] - before[bought];
+          if (bought === 1) a1 = fitBudget[1] + (got > 0n ? got : 0n); else a0 = fitBudget[0] + (got > 0n ? got : 0n);
+        }
+        setStep('Adding to the position');
+        await runCalls(config, { account, calls: increaseCalls(a0, a1), label: `Increase liquidity ${pos.symbol0}/${pos.symbol1}`, track, chainId: (pos.chainId ?? 1) as number });
+        await onDone();
+        return;
+      }
+      const calls = auto && mode === 'add' ? autoAddCalls(auto, add0, add1) : isV4
         ? (mode === 'withdraw'
             ? buildV4Remove(pos, pct * 100, actionSlippageBps, account, v4DeploymentOf(pos))
             : buildV4Increase(
@@ -1780,7 +1846,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
       await onDone();
     } catch (e) {
       setErr(readableError(e, mode === 'withdraw' ? 'The withdrawal did not go through. Nothing was taken out.' : 'Liquidity was not added.'));
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setStep(null); }
   }
 
   const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
@@ -1799,7 +1865,9 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
   const feesUsd = usdOf(fees0, pos.token0, pos.decimals0) + usdOf(fees1, pos.token1, pos.decimals1);
 
   const addUsd = usdOf(add0, pos.token0, pos.decimals0) + usdOf(add1, pos.token1, pos.decimals1);
-  const canRun = mode === 'withdraw' ? pct > 0 : ((add0 > 0n || add1 > 0n) && !short0 && !short1);
+  const canRun = mode === 'withdraw' ? pct > 0
+    : swapFit ? (fitBudget[0] > 0n || fitBudget[1] > 0n) && !fitShort[0] && !fitShort[1] && !!fitPlan
+    : ((add0 > 0n || add1 > 0n) && !short0 && !short1);
 
   return (
     <Portal>
@@ -1848,6 +1916,66 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
           </>
         ) : (
           <>
+            <div style={{ display: 'flex', background: 'rgba(var(--fg-rgb), 0.06)', borderRadius: 999, padding: 3, marginBottom: 12 }}>
+              {([[false, 'Exact amounts'], [true, 'Swap to fit']] as const).map(([v, label]) => (
+                <button key={label} type="button" onClick={() => setSwapFit(v)} style={{ flex: 1, height: 32, borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, background: swapFit === v ? btb.text : 'transparent', color: swapFit === v ? 'rgba(var(--bg-rgb), 1)' : btb.textMuted }}>{label}</button>
+              ))}
+            </div>
+            {swapFit ? (
+              <>
+                {([0, 1] as const).map((k) => {
+                  const sym = k === 0 ? sym0 : sym1;
+                  const dec = k === 0 ? pos.decimals0 : pos.decimals1;
+                  const b = fitBudget[k];
+                  return (
+                    <div key={k} style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${fitShort[k] ? 'rgba(var(--loss-rgb, 239,68,68), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}`, borderRadius: 16, padding: '12px 14px', marginBottom: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input value={fitStr[k]} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ''); setFitStr((f) => (k === 0 ? [v, f[1]] : [f[0], v])); }} inputMode="decimal" placeholder="0"
+                          style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: btb.text, fontSize: 24, fontWeight: 700, fontFamily: 'inherit', outline: 'none', padding: 0 }}/>
+                        {wethSide === k && !isV4 ? (
+                          <div style={{ display: 'flex', background: 'rgba(var(--fg-rgb), 0.08)', borderRadius: 999, padding: 2 }}>
+                            {(['ETH', 'WETH'] as const).map((t) => {
+                              const on = (t === 'ETH') === useEth;
+                              return <button key={t} type="button" onClick={() => setUseEth(t === 'ETH')} style={{ height: 28, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, background: on ? btb.text : 'transparent', color: on ? 'rgba(var(--bg-rgb), 1)' : btb.textMuted }}>{t}</button>;
+                            })}
+                          </div>
+                        ) : <span style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>{sym}</span>}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
+                        <span style={{ color: btb.textDim }}>{b > 0n ? money(usdOf(b, k === 0 ? pos.token0 : pos.token1, dec)) : ''}</span>
+                        <span style={{ color: fitShort[k] ? btb.loss : btb.textMuted }}>
+                          Balance {fmtAmt(k === 0 ? effBal0 : effBal1, dec)}
+                          <span onClick={() => { const v = spendable(k); if (v > 0n) setFitStr((f) => (k === 0 ? [formatUnits(v, dec), f[1]] : [f[0], formatUnits(v, dec)])); }} style={{ color: btb.green, fontWeight: 800, marginLeft: 8, cursor: 'pointer' }}>MAX</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>Put in either token, or both. Part of it is swapped so all of it fits the range, nothing left over.</div>
+                {fitPlan && (
+                  <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 14, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {fitPlan.sellSide !== null ? (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
+                        <span style={{ color: btb.textMuted }}>Swap</span>
+                        <span style={{ color: btb.text, fontWeight: 700, textAlign: 'right' }}>
+                          {fmtAmt(fitPlan.sellRaw, fitPlan.sellSide === 0 ? pos.decimals0 : pos.decimals1)} {fitPlan.sellSide === 0 ? sym0 : sym1} for ~{fmtAmt(fitPlan.out, fitPlan.sellSide === 0 ? pos.decimals1 : pos.decimals0)} {fitPlan.sellSide === 0 ? sym1 : sym0}
+                        </span>
+                      </div>
+                    ) : <div style={{ color: btb.textMuted, fontSize: 12.5 }}>Already in the right ratio: no swap needed.</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5 }}>
+                      <span style={{ color: btb.textMuted }}>Then adds</span>
+                      <span style={{ color: btb.text, fontWeight: 800, textAlign: 'right' }}>
+                        {fmtAmt(fitPlan.final0, pos.decimals0)} {sym0} + {fmtAmt(fitPlan.final1, pos.decimals1)} {sym1}
+                        {usdOf(fitPlan.final0, pos.token0, pos.decimals0) + usdOf(fitPlan.final1, pos.token1, pos.decimals1) > 0 ? ` (${money(usdOf(fitPlan.final0, pos.token0, pos.decimals0) + usdOf(fitPlan.final1, pos.token1, pos.decimals1))})` : ''}
+                      </span>
+                    </div>
+                    {fitPlan.sellSide !== null && <div style={{ color: btb.textDim, fontSize: 11 }}>Via KyberSwap{fitPlan.route ? ` (${fitPlan.route})` : ''}, 1% BTB fee included{fitPlan.priceImpact > 0.5 ? `, price impact ${fitPlan.priceImpact.toFixed(2)}%` : ''}. Two confirmations: the swap, then the add.</div>}
+                  </div>
+                )}
+                {fitErr && <div style={{ color: btb.amber, fontSize: 12, marginTop: 8 }}>{fitErr}</div>}
+              </>
+            ) : (
+              <>
             {([0, 1] as const).filter((k) => onlySide == null || onlySide === k).map((k) => {
               const sym = k === 0 ? sym0 : sym1;
               const dec = k === 0 ? pos.decimals0 : pos.decimals1;
@@ -1885,7 +2013,9 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
               <span style={{ color: btb.textMuted, fontSize: 12 }}>
                 {onlySide != null
                   ? `The price is outside the range, so only ${onlySide === 0 ? sym0 : sym1} goes in.`
-                  : 'Type in either one; the other follows the range.'}
+                  : short0 || short1
+                    ? <>Not enough {short0 ? sym0 : sym1}. <span onClick={() => { setFitStr([add0 > 0n && !short0 ? formatUnits(add0, pos.decimals0) : formatUnits(spendable(0), pos.decimals0), add1 > 0n && !short1 ? formatUnits(add1, pos.decimals1) : formatUnits(spendable(1), pos.decimals1)]); setSwapFit(true); }} style={{ color: btb.green, fontWeight: 800, cursor: 'pointer' }}>Swap to fit instead</span></>
+                    : 'Type in either one; the other follows the range.'}
               </span>
               <button type="button" onClick={maxBoth} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.1)', color: btb.green, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>Use max</button>
             </div>
@@ -1895,14 +2025,18 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
                 <span style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>{addUsd > 0 ? money(addUsd) : `${fmtAmt(add0, pos.decimals0)} ${sym0} + ${fmtAmt(add1, pos.decimals1)} ${sym1}`}</span>
               </div>
             )}
+              </>
+            )}
           </>
         )}
 
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
         <Button variant="success" size="md" onClick={() => { if (!busy) run(); }} disabled={!canRun} style={{ marginTop: 18, fontWeight: 800 }}>
-          {busy ? 'Confirm in your wallet' : mode === 'withdraw' ? (pct === 100 ? 'Withdraw all' : `Withdraw ${pct}%`)
-            : short0 || short1 ? `Not enough ${short0 ? sym0 : sym1}` : add0 > 0n || add1 > 0n ? 'Increase liquidity' : 'Enter an amount'}
+          {busy ? (step ?? 'Confirm in your wallet') : mode === 'withdraw' ? (pct === 100 ? 'Withdraw all' : `Withdraw ${pct}%`)
+            : swapFit
+              ? fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : fitBudget[0] > 0n || fitBudget[1] > 0n ? (fitPlan ? (fitPlan.sellSide !== null ? 'Swap and increase liquidity' : 'Increase liquidity') : 'Getting a price') : 'Enter an amount'
+              : short0 || short1 ? `Not enough ${short0 ? sym0 : sym1}` : add0 > 0n || add1 > 0n ? 'Increase liquidity' : 'Enter an amount'}
         </Button>
         <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10 }}>
           {auto && mode === 'add'
