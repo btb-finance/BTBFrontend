@@ -4,12 +4,38 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { availableFor, spendCredit } from "./credit";
 import { sessionWallet } from "./sessions";
-import { CHECK_INTERVALS, CHECK_BTB, FREE_ACTIONS, rebalanceBtb } from "./autoRebalanceConfig";
+import { AUTO_CHAIN_NAMES, CHECK_INTERVALS, CHECK_BTB, FREE_ACTIONS, isFarmManager, rebalanceBtb, unpackPosition } from "./autoRebalanceConfig";
 
 /** Free-trial rebalances and compounds the owner has left. */
 async function freeLeft(ctx: QueryCtx | MutationCtx, address: string): Promise<number> {
   const row = await ctx.db.query("autoTrials").withIndex("by_address", (q) => q.eq("address", address.toLowerCase())).unique();
   return Math.max(0, FREE_ACTIONS - (row?.used ?? 0));
+}
+
+/**
+ * The owner's auto-rebalance state in plain lines, for the BTB Agent: every
+ * position it looks after (from the last check's snapshot), what it has done
+ * and cost, and the free actions left.
+ */
+export async function autoSummaryFor(ctx: QueryCtx, address: string): Promise<{ freeActions: number; lines: string[] }> {
+  const a = address.toLowerCase();
+  const rows = (await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", a)).collect()).filter((r) => r.status !== "stopped");
+  const lines = rows.map((r) => {
+    let amounts = "";
+    try {
+      if (r.snapshot) {
+        const p = unpackPosition<{ id: bigint; symbol0: string; symbol1: string; amount0: bigint; amount1: bigint; decimals0: number; decimals1: number; inRange: boolean; fee: number }>(r.snapshot);
+        if (p.id.toString() === r.tokenId) {
+          const f = (v: bigint, d: number) => Number((Number(v) / 10 ** d).toPrecision(5));
+          amounts = `, holds ${f(p.amount0, p.decimals0)} ${p.symbol0} + ${f(p.amount1, p.decimals1)} ${p.symbol1}, ${p.inRange ? "in range" : "out of range"} at the last check`;
+        }
+      }
+    } catch { /* no snapshot detail */ }
+    const staking = !r.gauge ? "not staked" : isFarmManager(r.chainId, r.positionManager) ? "staked in Giga's farm for GIGA" : "staked in its gauge";
+    const ago = (t?: number) => (t ? `${Math.max(1, Math.round((Date.now() - t) / 60_000))} min ago` : "never");
+    return `${r.label} (position #${r.tokenId}, ${AUTO_CHAIN_NAMES[r.chainId] ?? r.chainId}, ${staking}): ${r.active ? "active" : "paused"}, status ${r.status}${r.note ? ` (${r.note})` : ""}, checked every ${r.intervalMin} min, last check ${ago(r.lastCheckedAt)}, ${r.rebalances} rebalance${r.rebalances === 1 ? "" : "s"}${r.rebalances ? ` (last ${ago(r.lastRebalancedAt)})` : ""}, ${r.compounds ?? 0} compound${r.compounds === 1 ? "" : "s"}, auto-compound ${r.compound ? "on" : "off"}, ${r.spentBtb} BTB spent so far${amounts}.`;
+  });
+  return { freeActions: await freeLeft(ctx, a), lines };
 }
 
 /** Use one free action if any are left. */

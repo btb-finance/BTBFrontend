@@ -54,6 +54,7 @@ function snapshotPosition(j: AutoJob): LiquidityPosition | null {
   } catch { return null; }
 }
 
+const FEE_GROWTH_GLOBAL_ABI = parseAbi(['function feeGrowthGlobal0X128() view returns (uint256)', 'function feeGrowthGlobal1X128() view returns (uint256)']);
 const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
 const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
 const AUTO_FARM_ABI = parseAbi([
@@ -536,10 +537,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     if (Object.keys(fromStore).length > 0) setUsd((u) => ({ ...fromStore, ...u }));
     // DeFiLlama keys prices by chain: price each token on the chain it lives on.
     // Robinhood Chain is not on DeFiLlama; its tokens are priced from DexScreener pools.
+    // Staked positions also need their reward token (AERO, UP, GIGA) priced, for the rewards waiting.
     const byChain = new Map<string, string[]>();
     for (const p of positions) {
       const chain = p.chainId === BASE_CHAIN_ID ? 'base' : p.chainId === 4663 ? 'robinhood' : 'ethereum';
-      byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1]);
+      byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1, ...(p.staked ? [p.staked.rewardToken] : [])]);
     }
     Promise.all([...byChain].map(([chain, list]) => (chain === 'robinhood'
       ? dexTokenPrices([...new Set(list.map((a) => a.toLowerCase()))])
@@ -601,6 +603,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       const out: Record<string, number> = {};
       await Promise.all(positions.map(async (p) => {
         if (!p.inRange || p.liquidity === 0n) { out[posKey(p)] = 0; return; }
+        // In an Aerodrome-style gauge the trading fees go to voters; the position earns the reward token instead.
+        if (p.staked?.kind === 'gauge') { out[posKey(p)] = 0; return; }
         const chainId = p.chainId ?? 1;
         const client = getPublicClient(config, { chainId });
         if (!client) return;
@@ -629,6 +633,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             : await client.readContract({ address: row.id as `0x${string}`, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
           const value = valueOf(p);
           if (poolL === 0n || !(value > 0)) return;
+          // A pool that sends every fee to the protocol (some Giga pools) never grows LP fees: nothing to earn.
+          if (p.protocol !== 'uniswap-v4') {
+            const [g0, g1] = await Promise.all([
+              client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal0X128' }),
+              client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal1X128' }),
+            ]).catch(() => [1n, 1n]);
+            if (g0 === 0n && g1 === 0n) { out[posKey(p)] = 0; return; }
+          }
           const share = Number(p.liquidity) / Number(poolL);
           out[posKey(p)] = (fees24h * Math.min(share, 1) * 365 / value) * 100;
         } catch { /* leave unknown */ }
@@ -711,10 +723,15 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     return parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
   };
   const feesValueOf = (p: LiquidityPosition) => {
+    // Staked in an Aerodrome-style gauge, the trading fees go to voters: the position cannot collect them.
+    if (p.staked?.kind === 'gauge') return 0;
     const p0 = usd[p.token0.toLowerCase()] ?? 0;
     const p1 = usd[p.token1.toLowerCase()] ?? 0;
     return parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
   };
+  /** Staking rewards waiting (AERO, UP and GIGA all have 18 decimals). */
+  const rewardsValueOf = (p: LiquidityPosition) =>
+    p.staked && p.staked.earned > 0n ? parseFloat(formatUnits(p.staked.earned, 18)) * (usd[p.staked.rewardToken.toLowerCase()] ?? 0) : 0;
   const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
   const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
@@ -1195,7 +1212,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const renderPositionRow = (p: LiquidityPosition, index: number) => {
     const key = posKey(p);
     const open = expanded === key;
-    const v = valueOf(p), f = feesValueOf(p), apr = aprOf(p);
+    // "To collect" is everything waiting: trading fees plus, when staked, the rewards.
+    const v = valueOf(p), f = feesValueOf(p) + rewardsValueOf(p), apr = aprOf(p);
     const a = analyticsOf(p);
     const logo0 = logoFor(p.token0, p.chainId ?? 1, p.symbol0) ?? snapshotLogo(p.token0, p.chainId ?? 1);
     const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
@@ -1251,7 +1269,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               <div style={{ color: tone, fontSize: 11, fontWeight: 750, marginTop: 6 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, price ${side}` : ''}`}</div>
             </div>
           )}
-          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.fees0 > 0n || p.fees1 > 0n) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
+          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.staked?.kind !== 'gauge' && (p.fees0 > 0n || p.fees1 > 0n)) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
           {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label('fee APR')}</div>}
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: btb.text, fontSize: isMobile ? 14.5 : 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
