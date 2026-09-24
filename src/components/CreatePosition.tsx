@@ -669,7 +669,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             amount0Desired: m0, amount1Desired: m1,
             slippageBps: slippageBps, recipient: address as `0x${string}`,
             nativeEthSide: ethMode ? wethSide : null,
-            deployment, tickSpacing: isSlipstream ? fee : undefined,
+            deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: fresh.sqrtPriceX96,
           });
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       await afterMint(address as `0x${string}`, sessionToken);
@@ -696,13 +696,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           token0: pool.token0, token1: pool.token1, fee,
           tickLower: hasBelow.tickLower, tickUpper: hasBelow.tickUpper,
           amount0Desired: 0n, amount1Desired: add1, slippageBps,
-          recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined,
+          recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: pool.sqrtPriceX96,
         }) : []),
         ...(hasAbove ? buildMint({
           token0: pool.token0, token1: pool.token1, fee,
           tickLower: hasAbove.tickLower, tickUpper: hasAbove.tickUpper,
           amount0Desired: add0, amount1Desired: 0n, slippageBps,
-          recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined,
+          recipient: address as `0x${string}`, nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: pool.sqrtPriceX96,
         }) : []),
       ];
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add split ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
@@ -772,7 +772,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee, tickLower: tl, tickUpper: tu,
             amount0Desired: a0, amount1Desired: a1, slippageBps, recipient: acct,
-            nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined,
+            nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: fresh.sqrtPriceX96,
           });
       await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       await afterMint(acct, sessionToken);
@@ -850,7 +850,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
         : buildMint({
             token0: pool.token0, token1: pool.token1, fee, tickLower: tl, tickUpper: tu,
             amount0Desired: a0, amount1Desired: a1, slippageBps: slippageBps, recipient: acct,
-            nativeEthSide: null, deployment, tickSpacing: isSlipstream ? fee : undefined,
+            nativeEthSide: null, deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: pool.sqrtPriceX96,
           });
       await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
       await afterMint(acct, sessionToken);

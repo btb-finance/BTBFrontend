@@ -191,6 +191,19 @@ export function removeMinimums(sqrtPriceX96: bigint, tickLower: number, tickUppe
 }
 
 /**
+ * Minimum amounts for adding `amount0`/`amount1` at this price, safe against a price move of up to `slippageBps`:
+ * the liquidity those amounts create, and for each token what that liquidity needs at the edge of the band that
+ * is worst for it (Uniswap's own mintAmountsWithSlippage). "Each amount less slippage" fails on a close range,
+ * where a few ticks change the mix far more than the value.
+ */
+export function addMinimums(sqrtPriceX96: bigint, tickLower: number, tickUpper: number, amount0: bigint, amount1: bigint, slippageBps: number): [bigint, bigint] {
+  const liquidity = liquidityForAmounts(sqrtPriceX96, tickLower, tickUpper, amount0, amount1);
+  const [m0, m1] = removeMinimums(sqrtPriceX96, tickLower, tickUpper, liquidity, slippageBps);
+  // Never ask for more than is offered.
+  return [m0 > amount0 ? amount0 : m0, m1 > amount1 ? amount1 : m1];
+}
+
+/**
  * "Smart fit" — place a range of the requested width so the wallet's actual
  * balances deposit cleanly, instead of making the user discover on the amount
  * step that their token ratio doesn't match the range they picked.

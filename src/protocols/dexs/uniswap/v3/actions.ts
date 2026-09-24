@@ -4,7 +4,9 @@ import { MAX_UINT128, UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './address
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
 import { deadline, minOut } from '../shared';
-import { removeMinimums } from './math';
+import { addMinimums, removeMinimums } from './math';
+
+const mins = ([amount0Min, amount1Min]: [bigint, bigint]) => ({ amount0Min, amount1Min });
 
 /**
  * If a deposit is paid in native ETH (one side is WETH), wrap the action in
@@ -128,8 +130,7 @@ export function buildIncrease(
     args: [{
       tokenId: pos.id,
       amount0Desired, amount1Desired,
-      amount0Min: minOut(amount0Desired, slippageBps),
-      amount1Min: minOut(amount1Desired, slippageBps),
+      ...mins(addMinimums(pos.sqrtPriceX96, pos.tickLower, pos.tickUpper, amount0Desired, amount1Desired, slippageBps)),
       deadline: deadline(),
     }],
   });
@@ -153,8 +154,13 @@ export function buildMint(args: {
   deployment?: V3Deployment;
   /** Slipstream: the pool's tickSpacing (its mint key; `fee` is ignored). */
   tickSpacing?: number;
+  /** The pool's current price: sets minimums that hold on a close range. Without it, each amount less slippage. */
+  sqrtPriceX96?: bigint;
 }): Call[] {
   const { token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, slippageBps, recipient } = args;
+  const minimums = mins(args.sqrtPriceX96 && args.sqrtPriceX96 > 0n
+    ? addMinimums(args.sqrtPriceX96, tickLower, tickUpper, amount0Desired, amount1Desired, slippageBps)
+    : [minOut(amount0Desired, slippageBps), minOut(amount1Desired, slippageBps)]);
   const nativeEthSide = args.nativeEthSide ?? null;
   const d = args.deployment ?? UNISWAP_V3_DEPLOYMENT;
   const calls: Call[] = [];
@@ -171,8 +177,7 @@ export function buildMint(args: {
         args: [{
           token0, token1, tickSpacing: args.tickSpacing ?? d.tickSpacings[fee] ?? fee, tickLower, tickUpper,
           amount0Desired, amount1Desired,
-          amount0Min: minOut(amount0Desired, slippageBps),
-          amount1Min: minOut(amount1Desired, slippageBps),
+          ...minimums,
           recipient,
           deadline: deadline(),
         }],
@@ -184,8 +189,7 @@ export function buildMint(args: {
         args: [{
           token0, token1, tickSpacing: args.tickSpacing ?? d.tickSpacings[fee] ?? fee, tickLower, tickUpper,
           amount0Desired, amount1Desired,
-          amount0Min: minOut(amount0Desired, slippageBps),
-          amount1Min: minOut(amount1Desired, slippageBps),
+          ...minimums,
           recipient,
           deadline: deadline(),
           // Only consulted when the pool does not exist yet; ours always does.
@@ -198,8 +202,7 @@ export function buildMint(args: {
         args: [{
           token0, token1, fee, tickLower, tickUpper,
           amount0Desired, amount1Desired,
-          amount0Min: minOut(amount0Desired, slippageBps),
-          amount1Min: minOut(amount1Desired, slippageBps),
+          ...minimums,
           recipient,
           deadline: deadline(),
         }],
