@@ -1,7 +1,7 @@
 // Auto-rebalance: shared by the Convex actions and the browser, so prices,
 // addresses and the encoded wallet setup are identical on both sides.
 // No Convex functions live here.
-import { encodeAbiParameters, parseAbi } from 'viem';
+import { encodeAbiParameters, encodeFunctionData, parseAbi } from 'viem';
 
 // ── Prices ──────────────────────────────────────────────────────────────────
 
@@ -57,6 +57,8 @@ export const V6 = {
   walletV2: '0x884f4e5dE91e8Ca9148E852F55F082bE533Da53c',
   /** Stake, unstake and claim on MasterChef V3 farms (Giga). */
   farmAdapter: '0x0993a62835e7c1534C2f3525828Ec9f3e60781AB',
+  /** EIP-7702 code for the agent address: unstake, rebalance and restake in one transaction. */
+  agentBatch: '0xC1962EfeC30e3Bd876dc3bB81f1Bd42FcD746CEC',
 } as const;
 
 /** Giga's MasterChef V3 farm on Robinhood Chain. */
@@ -287,3 +289,23 @@ export async function hasPriceHistory(client: { readContract: (a: never) => Prom
   } catch { return false; }
 }
 const OBSERVE_ABI = parseAbi(['function observe(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)']);
+
+export const AGENT_BATCH_ABI = parseAbi([
+  'struct Call { address target; bytes data; address idSource; address idOwner; uint256 idAt; }',
+  'function execute(Call[] calls)',
+]);
+
+/** One agent step: a wallet run, or a stake of the wallet's newest position of `newestOf` (id filled on-chain). */
+export type AgentStep = { adapter: `0x${string}`; params: `0x${string}`; newestOf?: `0x${string}` };
+
+/** Calldata for BTBAgentBatch.execute: each step as wallet.run, sent by the agent address to itself. */
+export function encodeAgentBatch(wallet: `0x${string}`, steps: AgentStep[]): `0x${string}` {
+  const zero = '0x0000000000000000000000000000000000000000' as const;
+  const calls = steps.map((s) => {
+    const data = encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [s.adapter, s.params] });
+    // A stake's position id is the last word of its params, which end the calldata.
+    const idAt = s.newestOf ? BigInt((data.length - 2) / 2 - 32) : 0n;
+    return { target: wallet, data, idSource: s.newestOf ?? zero, idOwner: s.newestOf ? wallet : zero, idAt };
+  });
+  return encodeFunctionData({ abi: AGENT_BATCH_ABI, functionName: 'execute', args: [calls] });
+}

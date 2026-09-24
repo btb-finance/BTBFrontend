@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
-  BaseError, ContractFunctionRevertedError, createWalletClient, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
+  BaseError, ContractFunctionRevertedError, RawContractError, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
   parseEventLogs, type Chain, type PublicClient,
 } from "viem";
 import { base } from "viem/chains";
@@ -18,7 +18,7 @@ import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  hasPriceHistory, isFarmManager, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
+  AGENT_BATCH_ABI, encodeAgentBatch, hasPriceHistory, isFarmManager, type AgentStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -101,6 +101,58 @@ const WAIT_REASONS: Record<string, string> = {
 
 type Sent = { ok: true; logs: import("viem").Log[] } | { ok: false; name: string | null; message: string };
 
+
+/** The error name inside a plain eth_call revert, which a batch bubbles up unchanged from the wallet. */
+function rawRevertName(e: unknown): string | null {
+  if (!(e instanceof BaseError)) return null;
+  const raw = e.walk((x) => x instanceof RawContractError) as RawContractError | null;
+  const data = typeof raw?.data === "string" ? raw.data : raw?.data?.data;
+  if (!data) return revertName(e);
+  try { return decodeErrorResult({ abi: RUN_ABI, data }).errorName; } catch { return null; }
+}
+
+/** Whether the agent's batch code is deployed on this chain; until it is, every step is its own transaction. */
+async function batchReady(client: PublicClient): Promise<boolean> {
+  const code = await client.getCode({ address: V6.agentBatch }).catch(() => undefined);
+  return !!code && code !== "0x";
+}
+
+
+/**
+ * Several wallet calls in one agent transaction, all or nothing (BTBAgentBatch
+ * via EIP-7702). The wallet checks every call exactly as it checks a single
+ * one. The first batch on a chain also points the agent address at the batch
+ * code. Simulated first, so a refused batch costs no gas.
+ */
+function batchSender(client: PublicClient, chainId: number, wallet: `0x${string}`) {
+  const account = agentAccount();
+  const chain = CHAINS[chainId];
+  const walletClient = createWalletClient({ account, chain, transport: SEND_TRANSPORT[chainId] });
+  return async (steps: AgentStep[]): Promise<Sent> => {
+    const data = encodeAgentBatch(wallet, steps);
+    const code = await client.getCode({ address: account.address });
+    if (code?.toLowerCase() !== `0xef0100${V6.agentBatch.slice(2).toLowerCase()}`) {
+      const authorization = await walletClient.signAuthorization({ account, contractAddress: V6.agentBatch, executor: "self" });
+      const hash = await walletClient.sendTransaction({
+        account, chain, to: account.address, authorizationList: [authorization], gas: 150_000n,
+        data: encodeFunctionData({ abi: AGENT_BATCH_ABI, functionName: "execute", args: [[]] }),
+      });
+      const r = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+      if (r.status !== "success") return { ok: false, name: null, message: `agent delegation ${hash} reverted` };
+    }
+    try {
+      await client.call({ account, to: account.address, data });
+    } catch (e) {
+      return { ok: false, name: rawRevertName(e), message: e instanceof Error ? e.message.slice(0, 160) : "simulation failed" };
+    }
+    const estimate = await client.estimateGas({ account, to: account.address, data });
+    const hash = await walletClient.sendTransaction({ account, chain, to: account.address, data, gas: (estimate * 13n) / 10n });
+    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    if (receipt.status !== "success") return { ok: false, name: null, message: `transaction ${hash} reverted` };
+    return { ok: true, logs: receipt.logs };
+  };
+}
+
 /**
  * The agent's part of a rebalance, through the owner's wallet: unstake if the
  * position is staked, rebalance, and restake the new position when the owner
@@ -142,6 +194,28 @@ async function execute(
     wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null,
     error: r.name ?? r.message,
   });
+
+  if (await batchReady(client)) {
+    // One transaction: unstake, rebalance, restake the new position. If the
+    // farm or gauge refuses the restake, rebalance anyway and leave the new
+    // position in the wallet; any other refusal changes nothing at all.
+    const sendBatch = batchSender(client, o.chainId, o.wallet);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
+    const steps: AgentStep[] = [];
+    if (o.stakedNow && o.gauge) steps.push({ adapter: stakeAdapter, params: gaugeParams(Action.Unstake, o.gauge, o.tokenId) });
+    steps.push({ adapter: o.adapter, params: rebalanceParams(o.pm, o.tokenId, deadline) });
+    let staked = !!o.gauge;
+    let r = await sendBatch(o.gauge ? [...steps, { adapter: stakeAdapter, params: gaugeParams(Action.Stake, o.gauge, 0n), newestOf: o.pm }] : steps);
+    if (!r.ok && o.gauge && !(r.name && WAIT_REASONS[r.name])) {
+      const plain = await sendBatch(steps);
+      if (plain.ok) { r = plain; staked = false; }
+    }
+    if (!r.ok) return stop(r);
+    const minted = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: r.logs }).find((l) =>
+      l.address.toLowerCase() === o.pm.toLowerCase() && /^0x0{40}$/.test(l.args.from) && l.args.to.toLowerCase() === o.wallet.toLowerCase());
+    if (!minted) return { newTokenId: null, staked: false, wait: null, error: "rebalance landed but no new position was found" };
+    return { newTokenId: minted.args.tokenId, staked, wait: null, error: null };
+  }
 
   let unstaked = false;
   if (o.stakedNow && o.gauge) {
