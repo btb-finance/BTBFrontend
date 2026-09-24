@@ -40,7 +40,7 @@ import { api } from '../../convex/_generated/api';
 import { useAction } from 'convex/react';
 import { useWalletSession } from '../lib/session';
 import { IntervalPills } from './AutoRebalanceSheet';
-import { AUTO_CHAIN_NAMES, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, rebalanceBtb } from '../lib/autoRebalance';
+import { AUTO_CHAIN_NAMES, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, isFarmManager, rebalanceBtb } from '../lib/autoRebalance';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -244,7 +244,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     if (count === 0n) return;
     const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [acct, count - 1n] });
     const target = canStake && stakeAfterMint ? await stakeTargetForPool(client, deployment, pool.token0, pool.token1, fee).catch(() => null) : null;
-    const gauge = target && target.kind === 'gauge' ? target.contract : undefined;
+    const gauge = target && (target.kind === 'gauge' || isFarmManager(chainId, deployment.positionManager)) ? target.contract : undefined;
     setStepMsg('Moving it into your auto wallet…');
     const support = { chainId, positionManager: deployment.positionManager, adapter: autoAdapter, gauge };
     const { calls } = await buildEnableCalls(client as never, acct, newId, support);
@@ -1207,7 +1207,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Auto-rebalance: check every</div>
               <IntervalPills value={autoInterval} onChange={setAutoInterval} disabled={busy}/>
               <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-                1 BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake && dex !== 'giga' ? ` and stakes it there for ${rewardSymbol}` : ''}.{stakeAfterMint && dex === 'giga' ? ' Giga farm staking is not available in the auto wallet yet, so it earns trading fees instead of GIGA.' : ''}
+                1 BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
               </div>
             </div>
           )}

@@ -18,7 +18,7 @@ import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  rebalanceBtb, rebalanceParams,
+  isFarmManager, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -43,6 +43,19 @@ const CHAINS: Record<number, Chain> = { 8453: base, 4663: robinhood };
 const GAUGE_ABI = parseAbi([
   "function stakedContains(address depositor, uint256 tokenId) view returns (bool)",
 ]);
+const FARM_ABI = parseAbi([
+  "function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)",
+]);
+
+/** Whether the wallet has this position staked in `stake`: an Aerodrome-style gauge, or Giga's farm. */
+async function stakedIn(client: PublicClient, chainId: number, pm: string, stake: string, holder: string, wallet: string, tokenId: bigint) {
+  if (holder.toLowerCase() !== stake.toLowerCase()) return false;
+  if (isFarmManager(chainId, pm)) {
+    const info = await client.readContract({ address: stake as `0x${string}`, abi: FARM_ABI, functionName: "userPositionInfos", args: [tokenId] });
+    return info[5].toLowerCase() === wallet.toLowerCase();
+  }
+  return client.readContract({ address: stake as `0x${string}`, abi: GAUGE_ABI, functionName: "stakedContains", args: [wallet as `0x${string}`, tokenId] });
+}
 const NFT_ABI = parseAbi([
   "function ownerOf(uint256 tokenId) view returns (address)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
@@ -82,7 +95,7 @@ const WAIT_REASONS: Record<string, string> = {
   PositionInRange: "Out of range, waiting for the price to settle outside the range.",
   PriceUnstable: "Out of range, waiting while the price moves fast.",
   CooldownActive: "Out of range, waiting for the cooldown since the last rebalance.",
-  StakeTooRecent: "Out of range, waiting for the gauge's minimum stake time.",
+  StakeTooRecent: "Out of range, waiting for the minimum stake time before it can be unstaked.",
   OracleUnavailable: "Out of range, waiting for enough price history.",
 };
 
@@ -123,6 +136,7 @@ async function execute(
   o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; gauge?: `0x${string}`; stakedNow: boolean },
 ) {
   const send = sender(client, o.chainId, o.wallet);
+  const stakeAdapter = stakeAdapterFor(o.chainId, o.pm);
   const stop = (r: Extract<Sent, { ok: false }>) => ({
     newTokenId: null, staked: false,
     wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null,
@@ -131,14 +145,14 @@ async function execute(
 
   let unstaked = false;
   if (o.stakedNow && o.gauge) {
-    const r = await send(V6.aerodromeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
+    const r = await send(stakeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
     if (!r.ok) return stop(r);
     unstaked = true;
   }
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
   const r = await send(o.adapter, rebalanceParams(o.pm, o.tokenId, deadline));
   if (!r.ok) {
-    if (unstaked && o.gauge) await send(V6.aerodromeAdapter, gaugeParams(Action.Stake, o.gauge, o.tokenId)).catch(() => null);
+    if (unstaked && o.gauge) await send(stakeAdapter, gaugeParams(Action.Stake, o.gauge, o.tokenId)).catch(() => null);
     return stop(r);
   }
   const minted = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: r.logs }).find((l) =>
@@ -146,7 +160,7 @@ async function execute(
   if (!minted) return { newTokenId: null, staked: false, wait: null, error: "rebalance landed but no new position was found" };
   const newTokenId = minted.args.tokenId;
   // A refused restake leaves the new position safe in the wallet, unstaked.
-  const staked = o.gauge ? (await send(V6.aerodromeAdapter, gaugeParams(Action.Stake, o.gauge, newTokenId)).catch(() => null))?.ok === true : false;
+  const staked = o.gauge ? (await send(stakeAdapter, gaugeParams(Action.Stake, o.gauge, newTokenId)).catch(() => null))?.ok === true : false;
   return { newTokenId, staked, wait: null, error: null };
 }
 
@@ -376,8 +390,7 @@ export const check = internalAction({
     try {
       const holder = (await client.readContract({ address: pm, abi: NFT_ABI, functionName: "ownerOf", args: [tokenId] })).toLowerCase();
       if (holder !== wallet.toLowerCase()) {
-        staked = !!job.gauge && holder === job.gauge
-          && await client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_ABI, functionName: "stakedContains", args: [wallet, tokenId] });
+        staked = !!job.gauge && await stakedIn(client, job.chainId, pm, job.gauge, holder, wallet, tokenId);
         if (!staked) { await ctx.runMutation(internal.autoRebalance.markGone, { id, note: "The position left the auto wallet." }); return; }
       }
     } catch (e) {
@@ -421,7 +434,7 @@ export const check = internalAction({
       // Auto-compound: an in-range, unstaked position whose fees are worth
       // several times the compound price. Staked positions earn gauge
       // rewards, not fees, so there is nothing to put back.
-      const rewardsDue = job.compound && !!job.gauge && position && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId)
+      const rewardsDue = job.compound && !!job.gauge && !isFarmManager(job.chainId, pm) && position && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId)
         && Date.now() - (job.lastCompoundedAt ?? 0) >= COMPOUND_COOLDOWN_MS;
       if (rewardsDue && position) {
         // Staked: value the rewards waiting in the gauge plus any already in the wallet.
@@ -556,8 +569,7 @@ export const enable = action({
     if (Number(agentUntil) * 1000 < Date.now() + 24 * 60 * 60_000) return { ok: false, reason: "The BTB agent is not allowed in your auto wallet." };
     if (/^0x0{64}$/.test(adapterHash)) return { ok: false, reason: "This DEX is not turned on in your auto wallet." };
     const held = holder?.toLowerCase() === wallet;
-    const stakedHere = !!a.gauge && holder?.toLowerCase() === a.gauge.toLowerCase()
-      && await client.readContract({ address: a.gauge as `0x${string}`, abi: GAUGE_ABI, functionName: "stakedContains", args: [wallet as `0x${string}`, tokenId] });
+    const stakedHere = !!a.gauge && !!holder && await stakedIn(client, a.chainId, pm, a.gauge, holder, wallet, tokenId).catch(() => false);
     if (!held && !stakedHere) return { ok: false, reason: "The position is not in your auto wallet yet." };
 
     const id = await ctx.runMutation(internal.autoRebalance.upsertVerified, {

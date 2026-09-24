@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { formatUnits, parseUnits, erc20Abi } from 'viem';
+import { formatUnits, parseAbi, parseUnits, erc20Abi } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
 import { Button } from './Button';
@@ -33,7 +33,12 @@ import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutoRebalanceSheet } from './AutoRebalanceSheet';
 import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
-import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES } from '../lib/autoRebalance';
+import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, isFarmManager } from '../lib/autoRebalance';
+
+const AUTO_FARM_ABI = parseAbi([
+  'function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)',
+  'function pendingReward(uint256 tokenId) view returns (uint256)',
+]);
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
 import { readableError } from '../lib/errorText';
@@ -270,6 +275,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               ]);
               if (staked) pos.staked = { kind: 'gauge', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
               else pos.stakeable = { kind: 'gauge', gauge: target.contract, rewardSymbol: target.rewardSymbol };
+            } else if (target && target.kind === 'masterchef' && isFarmManager(j.chainId, j.positionManager)) {
+              // Giga's farm: the wallet is the staker when the farm records it as the position's user.
+              const [info, earned] = await Promise.all([
+                client.readContract({ address: target.contract, abi: AUTO_FARM_ABI, functionName: 'userPositionInfos', args: [BigInt(j.tokenId)] }).catch(() => null),
+                client.readContract({ address: target.contract, abi: AUTO_FARM_ABI, functionName: 'pendingReward', args: [BigInt(j.tokenId)] }).catch(() => 0n),
+              ]);
+              if (info && info[5].toLowerCase() === j.wallet.toLowerCase()) pos.staked = { kind: 'masterchef', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
+              else pos.stakeable = { kind: 'masterchef', gauge: target.contract, rewardSymbol: target.rewardSymbol };
             }
           }
           out.push(pos);

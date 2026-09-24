@@ -53,7 +53,23 @@ export const V6 = {
   aerodromeAdapter: '0x9275baf6E1ea3033AD132956e4347D4d25e96BB6',
   uniswapV3Adapter: '0x3801B52d9011901A7fAEf1FDb34C9E2ebdECa715',
   swapAdapter: '0x5A72E43960F4dA336a6459391CDEeD680D4084c8',
+  /** Wallet version 2: position NFTs may be staked into registry-approved farms by transfer. */
+  walletV2: '0x884f4e5dE91e8Ca9148E852F55F082bE533Da53c',
+  /** Stake, unstake and claim on MasterChef V3 farms (Giga). */
+  farmAdapter: '0x0993a62835e7c1534C2f3525828Ec9f3e60781AB',
 } as const;
+
+/** Giga's MasterChef V3 farm on Robinhood Chain. */
+export const GIGA_FARM = '0x60380925a8b1007f70f60a6a42bffe391374b09a';
+const GIGA_MANAGER = '0xa79f5775b0b49e51202c48ddf03f380faa96f641';
+
+/** The adapter that stakes, unstakes and claims for a position: Giga's farm, or an Aerodrome-style gauge. */
+export function stakeAdapterFor(chainId: number, positionManager: string): `0x${string}` {
+  return chainId === 4663 && positionManager.toLowerCase() === GIGA_MANAGER ? V6.farmAdapter : V6.aerodromeAdapter;
+}
+export function isFarmManager(chainId: number, positionManager: string): boolean {
+  return stakeAdapterFor(chainId, positionManager) === V6.farmAdapter;
+}
 
 /** KyberSwap's router: the same on every chain, and listed in the V6 registry with its swap function. */
 export const KYBER_ROUTER = '0x6131B5fae19EA4f9D964eAc0408E4408b66337b5';
@@ -224,6 +240,9 @@ export const WALLET_ABI = parseAbi([
   'function agentExpiry(address agent) view returns (uint64)',
   'function adapterCodeHash(address adapter) view returns (bytes32)',
   'function setAgent(address agent, uint64 expiresAt)',
+  'function setPaused(bool paused)',
+  'function upgradeToAndCall(address newImplementation, bytes data) payable',
+  'function VERSION() view returns (uint256)',
   'function setAdapter(address adapter, bool enabled, bytes config)',
   'function withdrawNft(address collection, uint256 tokenId)',
   'error NotAllowed(address target)',

@@ -5,7 +5,7 @@ import { btb } from './design-tokens';
 const ROBINHOOD_GREEN = '#00C805';
 
 /**
- * Top-of-Discover status strip: signals that BTB's agent automation is live on Robinhood Chain.
+ * Top-of-Discover status strip: signals that BTB's agent automation is live on Base and Robinhood Chain.
  * Purely presentational — a confidence cue, not a data source.
  */
 export function DiscoverStatusBanner({ isMobile = false }: { isMobile?: boolean }) {
@@ -33,11 +33,11 @@ export function DiscoverStatusBanner({ isMobile = false }: { isMobile?: boolean 
 
       <span style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
         <span style={{ width: 7, height: 7, borderRadius: 2, background: ROBINHOOD_GREEN, flexShrink: 0 }} />
-        <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 750 }}>Robinhood Chain</span>
+        <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 750 }}>Base and Robinhood Chain</span>
       </span>
 
       <span style={{ color: btb.textMuted, fontSize: 11, lineHeight: 1.35, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
-        Agent-managed rebalancing, compounding and one-click zaps run non-custodially on Robinhood Chain.
+        Auto-rebalance your LPs on Aerodrome, UP, Giga and Uniswap V3. They stay in your own wallet, stay staked, and compound what they earn.
       </span>
     </div>
   );

@@ -13,7 +13,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useWalletSession } from '../lib/session';
 import { readableError } from '../lib/errorText';
-import { AUTO_CHAIN_NAMES, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, swapAdapterCalls, walletGaugeCall } from '../lib/autoRebalance';
+import { AUTO_CHAIN_NAMES, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall } from '../lib/autoRebalance';
 import type { LiquidityPosition } from '@/protocols/types';
 
 type Job = NonNullable<ReturnType<typeof useAutoJobs>>['jobs'][number];
@@ -141,7 +141,11 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
     setErr(null); setBusy(kind === 'stake' ? 'Staking' : kind === 'unstake' ? 'Unstaking' : 'Claiming');
     try {
       await onChain(kind === 'claim' ? `Claim ${pos?.staked?.rewardSymbol ?? 'rewards'}` : `${kind === 'stake' ? 'Stake' : 'Unstake'} ${job.label}`,
-        async () => [walletGaugeCall(job.wallet, kind, target, job.tokenId)]);
+        async (c) => [
+          // Farm staking needs wallet version 2; an older wallet is upgraded in the same confirmation.
+          ...(kind === 'stake' && pos?.stakeable?.kind === 'masterchef' ? await upgradeCalls(c, job.wallet) : []),
+          walletGaugeCall(job.wallet, kind, target, job.tokenId, stakeAdapterFor(job.chainId, job.positionManager)),
+        ]);
       setBusy(null);
       if (kind !== 'claim') await withSession('Saving', (t) => setGauge({ sessionToken: t, id, gauge: kind === 'stake' ? target : null }));
       await onChanged?.();

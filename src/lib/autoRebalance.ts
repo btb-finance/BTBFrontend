@@ -12,8 +12,8 @@ import { GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood
 import { uniswapV3DeploymentForChain, type V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { deploymentOfPosition } from '@/protocols/lpChains';
 import {
-  AUTO_CHAINS, AUTO_CHAIN_NAMES, Action, FACTORY_ABI, REBALANCE_AGENT, V6, WALLET_ABI, adapterFor, encodeLpConfig,
-  encodeSwapConfig, gaugeParams, walletSetup,
+  AUTO_CHAINS, AUTO_CHAIN_NAMES, Action, FACTORY_ABI, GIGA_FARM, REBALANCE_AGENT, V6, WALLET_ABI, adapterFor, encodeLpConfig,
+  encodeSwapConfig, gaugeParams, isFarmManager, stakeAdapterFor, walletSetup,
 } from '../../convex/autoRebalanceConfig';
 
 export * from '../../convex/autoRebalanceConfig';
@@ -26,11 +26,11 @@ export type AutoSupport = { chainId: number; positionManager: `0x${string}`; ada
 export function autoSupport(p: LiquidityPosition): AutoSupport | null {
   const chainId = p.chainId ?? 1;
   if (!(AUTO_CHAINS as readonly number[]).includes(chainId) || p.liquidity === 0n) return null;
-  // MasterChef-style farms (Giga) are not supported inside the auto wallet.
-  if (p.staked && p.staked.kind === 'masterchef') return null;
   const positionManager = (p.positionManager ?? deploymentOfPosition(p).positionManager) as `0x${string}`;
   const adapter = adapterFor(chainId, positionManager);
   if (!adapter) return null;
+  // A farm stake is supported only for the Giga farm, through the farm adapter.
+  if (p.staked?.kind === 'masterchef' && (!isFarmManager(chainId, positionManager) || p.staked.gauge.toLowerCase() !== GIGA_FARM)) return null;
   return { chainId, positionManager, adapter, gauge: p.staked?.gauge };
 }
 
@@ -72,7 +72,10 @@ export async function buildEnableCalls(client: PublicClient, owner: `0x${string}
       to: V6.factory, label: 'Create your auto wallet',
       data: encodeFunctionData({ abi: FACTORY_ABI, functionName: 'createAccount', args: [walletSetup(s.chainId, Math.floor(Date.now() / 1000))] }),
     });
+    // A new wallet starts on the first version; move it to the latest in the same confirmation.
+    calls.push(...upgradeCallsFor(wallet, false, true));
   } else {
+    calls.push(...await upgradeCalls(client, wallet));
     const [agentUntil, adapterHash] = await Promise.all([
       client.readContract({ address: wallet, abi: WALLET_ABI, functionName: 'agentExpiry', args: [REBALANCE_AGENT as `0x${string}`] }),
       client.readContract({ address: wallet, abi: WALLET_ABI, functionName: 'adapterCodeHash', args: [s.adapter] }),
@@ -94,7 +97,7 @@ export async function buildEnableCalls(client: PublicClient, owner: `0x${string}
   if (s.gauge) {
     calls.push({
       to: wallet, label: 'Stake it inside your auto wallet',
-      data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [V6.aerodromeAdapter, gaugeParams(Action.Stake, s.gauge, tokenId)] }),
+      data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [stakeAdapterFor(s.chainId, s.positionManager), gaugeParams(Action.Stake, s.gauge, tokenId)] }),
     });
   }
   return { wallet, created, calls };
@@ -125,13 +128,46 @@ export async function swapAdapterCalls(client: PublicClient, wallet: string, cha
   return [{ to: wallet as `0x${string}`, label: 'Allow selling rewards', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.swapAdapter, true, encodeSwapConfig(chainId)] }) }];
 }
 
-/** One owner call that runs a gauge action for a position held in the auto wallet. */
-export function walletGaugeCall(wallet: string, kind: 'stake' | 'unstake' | 'claim', gauge: string, tokenId: string | bigint): Call {
+/**
+ * Move a wallet to version 2 (farm staking) and turn on the farm adapter. Only the owner can, and only while the
+ * wallet is paused, so it is paused around the upgrade (left paused if it already was).
+ */
+function upgradeCallsFor(wallet: string, alreadyPaused: boolean, needsFarmAdapter: boolean): Call[] {
+  const w = wallet as `0x${string}`;
+  const calls: Call[] = [];
+  if (!alreadyPaused) calls.push({ to: w, label: 'Pause for the upgrade', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setPaused', args: [true] }) });
+  calls.push({ to: w, label: 'Upgrade your auto wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'upgradeToAndCall', args: [V6.walletV2, '0x'] }) });
+  if (!alreadyPaused) calls.push({ to: w, label: 'Resume', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setPaused', args: [false] }) });
+  if (needsFarmAdapter) calls.push({ to: w, label: 'Allow farm staking', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.farmAdapter, true, '0x'] }) });
+  return calls;
+}
+
+/** Whether a wallet is on version 2 yet. The first version has no VERSION(). */
+export async function walletVersion(client: PublicClient, wallet: string): Promise<number> {
+  const v = await client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: 'VERSION' }).catch(() => 1n);
+  return Number(v);
+}
+
+/** The calls, if any, that bring an existing wallet to version 2 with the farm adapter on. */
+export async function upgradeCalls(client: PublicClient, wallet: string): Promise<Call[]> {
+  const w = wallet as `0x${string}`;
+  const [version, paused, farmHash] = await Promise.all([
+    walletVersion(client, w),
+    client.readContract({ address: w, abi: WALLET_ABI, functionName: 'paused' }).catch(() => false),
+    client.readContract({ address: w, abi: WALLET_ABI, functionName: 'adapterCodeHash', args: [V6.farmAdapter] }).catch(() => null),
+  ]);
+  const needsFarm = !farmHash || /^0x0{64}$/.test(farmHash);
+  if (version >= 2) return needsFarm ? upgradeCallsFor(w, true, true).filter((c) => c.label === 'Allow farm staking') : [];
+  return upgradeCallsFor(w, paused, needsFarm);
+}
+
+/** One owner call that runs a gauge or farm action for a position held in the auto wallet. */
+export function walletGaugeCall(wallet: string, kind: 'stake' | 'unstake' | 'claim', gauge: string, tokenId: string | bigint, adapter: `0x${string}` = V6.aerodromeAdapter): Call {
   const action = kind === 'stake' ? Action.Stake : kind === 'unstake' ? Action.Unstake : Action.Claim;
   return {
     to: wallet as `0x${string}`,
     label: kind === 'stake' ? 'Stake inside your auto wallet' : kind === 'unstake' ? 'Unstake inside your auto wallet' : 'Claim rewards into your auto wallet',
-    data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [V6.aerodromeAdapter, gaugeParams(action, gauge as `0x${string}`, BigInt(tokenId))] }),
+    data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [adapter, gaugeParams(action, gauge as `0x${string}`, BigInt(tokenId))] }),
   };
 }
 
@@ -144,14 +180,14 @@ const GAUGE_REWARD_ABI = parseAbi(['function rewardToken() view returns (address
  * the NFT to the owner, and send any spare tokens (fees on the other side,
  * gauge rewards) along with it. Everything only ever goes to the owner.
  */
-export async function buildTakeOutCalls(client: PublicClient, job: { wallet: string; positionManager: string; tokenId: string; gauge: string | null }) {
+export async function buildTakeOutCalls(client: PublicClient, job: { wallet: string; positionManager: string; tokenId: string; gauge: string | null; chainId?: number }) {
   const wallet = job.wallet as `0x${string}`;
   const pm = job.positionManager as `0x${string}`;
   const tokenId = BigInt(job.tokenId);
   const calls: Call[] = [];
   const holder = await client.readContract({ address: pm, abi: parseAbi(['function ownerOf(uint256) view returns (address)']), functionName: 'ownerOf', args: [tokenId] }).catch(() => null);
   if (job.gauge && holder?.toLowerCase() === job.gauge.toLowerCase()) {
-    calls.push({ to: wallet, label: 'Unstake', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [V6.aerodromeAdapter, gaugeParams(Action.Unstake, job.gauge as `0x${string}`, tokenId)] }) });
+    calls.push({ to: wallet, label: 'Unstake', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [stakeAdapterFor(Number(job.chainId ?? 0), job.positionManager), gaugeParams(Action.Unstake, job.gauge as `0x${string}`, tokenId)] }) });
   }
   if (holder) calls.push({ to: wallet, label: 'Send the position to your wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'withdrawNft', args: [pm, tokenId] }) });
   const staked = !!job.gauge && holder?.toLowerCase() === job.gauge.toLowerCase();
