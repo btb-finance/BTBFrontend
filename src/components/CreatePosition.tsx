@@ -37,6 +37,10 @@ import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/a
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
+import { useAction } from 'convex/react';
+import { useWalletSession } from '../lib/session';
+import { IntervalPills } from './AutoRebalanceSheet';
+import { AUTO_CHAIN_NAMES, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, rebalanceBtb } from '../lib/autoRebalance';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -221,6 +225,36 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
   const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
+
+  // Auto-rebalance straight from Add LP: after the mint, the new position moves
+  // into the owner's auto wallet (staked there when staking is on).
+  const autoAdapter = !isV4 && !simOnly ? adapterFor(chainId, deployment.positionManager) : null;
+  const [autoOn, setAutoOn] = useState(false);
+  const [autoInterval, setAutoInterval] = useState<number>(DEFAULT_INTERVAL);
+  const session = useWalletSession(address);
+  const enableAuto = useAction(api.autoRebalanceActions.enable);
+  const wantsAuto = autoOn && !!autoAdapter && !splitRange;
+
+  /** After a mint: hand the newest position to auto-rebalance, or stake it as before. */
+  async function afterMint(acct: `0x${string}`, sessionToken: string | null) {
+    if (!wantsAuto || !sessionToken || !pool || !autoAdapter) { await stakeNewest(acct); return; }
+    const client = getPublicClient(config, { chainId });
+    if (!client) return;
+    const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [acct] });
+    if (count === 0n) return;
+    const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [acct, count - 1n] });
+    const target = canStake && stakeAfterMint ? await stakeTargetForPool(client, deployment, pool.token0, pool.token1, fee).catch(() => null) : null;
+    const gauge = target && target.kind === 'gauge' ? target.contract : undefined;
+    setStepMsg('Moving it into your auto wallet…');
+    const support = { chainId, positionManager: deployment.positionManager, adapter: autoAdapter, gauge };
+    const { calls } = await buildEnableCalls(client as never, acct, newId, support);
+    await runCalls(config, { account: acct, calls, label: `Auto-rebalance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
+    const res = await enableWhenVisible(() => enableAuto({
+      sessionToken, chainId, positionManager: deployment.positionManager, tokenId: newId.toString(),
+      label: `${pool.symbol0} / ${pool.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, gauge, intervalMin: autoInterval,
+    }));
+    if (!res.ok) { if (/sign-in expired/i.test(res.reason)) session.forget(); throw new Error(`Liquidity added, but auto-rebalance did not start: ${res.reason}`); }
+  }
   const feeSwitchProtocol: FeeSwitchProtocol = dex === 'pancakeswap' ? 'pancakeswap-v3' : isV4 ? 'uniswap-v4' : 'uniswap-v3';
   const feeSplit = getFeeSplit(feeSwitchProtocol, fee);
 
@@ -577,6 +611,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
     if (!address || !pool || !ticks) return;
     setBusy(true); setErr(null);
     try {
+      // Sign in first, so nothing is minted when the user declines it.
+      const sessionToken = wantsAuto ? await session.ensure() : null;
       // Amounts at the tick the chain reports now, not the one from when the
       // sheet opened. The user's typed side is kept; the other side is repaired.
       const fresh = (await refreshPool()) ?? pool;
@@ -604,7 +640,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             deployment, tickSpacing: isSlipstream ? fee : undefined,
           });
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
-      await stakeNewest(address as `0x${string}`);
+      await afterMint(address as `0x${string}`, sessionToken);
       onDone?.();
       onClose();
     } catch (e) {
@@ -672,6 +708,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
 
     setBusy(true); setErr(null);
     try {
+      const sessionToken = wantsAuto ? await session.ensure() : null;
       const tl = ticks.tickLower, tu = ticks.tickUpper;
       const [live0, live1] = await readBals();
       // Deposit the whole balance; keep a gas reserve on the native side.
@@ -715,7 +752,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
             nativeEthSide: null, deployment, tickSpacing: isSlipstream ? fee : undefined,
           });
       await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
-      await stakeNewest(acct);
+      await afterMint(acct, sessionToken);
       onDone?.();
       onClose();
     } catch (e) {
@@ -1162,6 +1199,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
           display: 'block',
           padding: isMobile ? '0 0 10px' : '12px 0 0',
         }}>
+          {wantsAuto && (
+            <div style={{
+              pointerEvents: 'auto', marginBottom: 6, background: 'rgba(var(--bg-rgb), 0.96)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(var(--green-rgb), 0.3)', borderRadius: 14, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8,
+            }}>
+              <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Auto-rebalance: check every</div>
+              <IntervalPills value={autoInterval} onChange={setAutoInterval} disabled={busy}/>
+              <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
+                1 BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
+              </div>
+            </div>
+          )}
           <div style={{
             pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
             background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
@@ -1189,6 +1238,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
                     }}>
                     <span style={{ color: btb.textDim, fontSize: 9 }}>Stake</span>
                     <span style={{ color: stakeAfterMint ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{stakeAfterMint ? `${rewardSymbol} on` : 'off'}</span>
+                  </div>
+                )}
+                {autoAdapter && !splitRange && (
+                  <div
+                    onClick={() => setAutoOn((v) => !v)}
+                    title="Rebalance this position automatically when the price leaves the range"
+                    style={{
+                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                      background: autoOn ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${autoOn ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
+                      display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
+                    }}>
+                    <span style={{ color: btb.textDim, fontSize: 9 }}>Auto-rebalance</span>
+                    <span style={{ color: autoOn ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{autoOn ? intervalLabel(autoInterval) : 'off'}</span>
                   </div>
                 )}
                 <Button variant="success" size="sm" onClick={() => (swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>

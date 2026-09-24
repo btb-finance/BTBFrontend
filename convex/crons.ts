@@ -38,6 +38,10 @@ if (process.env.DISABLE_CRONS !== "1") {
   // tick reads only what is due: free alerts hourly, paid fast ones every tick.
   crons.interval("check LP range alerts", { minutes: 5 }, internal.alertsActions.check);
 
+  // Auto-rebalance schedules each position's next check itself; this only
+  // picks up a row whose scheduled check was lost (a restart), so it is cheap.
+  crons.interval("sweep auto-rebalance schedules", { minutes: 30 }, internal.autoRebalance.sweep);
+
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
   // UTC; this ticks hourly rather than weekly so a failed settlement retries an
