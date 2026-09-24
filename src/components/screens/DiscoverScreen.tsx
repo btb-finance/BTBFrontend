@@ -960,6 +960,7 @@ export function DiscoverScreen() {
           // Slipstream keys pools by tick spacing, which the list does not carry;
           // the sheet then opens on the deepest spacing for the pair.
           initialFee={sheetProps.dex === 'aerodrome' ? undefined : sheet.pool.feeTier}
+          initialPool={/^0x[0-9a-fA-F]{40}$/.test(sheet.pool.id) ? sheet.pool.id : undefined}
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
           tokenPricesUsd={sheet.pool.tokenPricesUsd}
           simulate={sheet.simulate}

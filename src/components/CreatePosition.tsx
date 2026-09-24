@@ -102,13 +102,15 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, stakeByDefault = true, onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, stakeByDefault = true, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
   dex?: LpDex;
   /** Fee tier of the pool the user clicked — preselected when valid (V3). */
   initialFee?: number;
+  /** The exact pool the user clicked (its address): opened directly, whatever its tier or tick spacing. */
+  initialPool?: string;
   /** Exact starting range (e.g. handed over from the simulator page). */
   initialTicks?: { tickLower: number; tickUpper: number };
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
@@ -323,11 +325,17 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
         .then((record) => {
           if (!live) return;
           setPools(record);
-          // If the preselected tier has no pool, jump to the deepest existing one.
+          // Open the pool the user clicked. Otherwise keep the preselected tier only if its pool has liquidity,
+          // else take the deepest live one: a pool created at an absurd price with nothing in it (tick at the
+          // edge, zero liquidity) must never be the default, its price is meaningless.
+          const tiers = Object.keys(record).map(Number);
+          const clicked = initialPool ? tiers.find((t) => record[t]?.address?.toLowerCase() === initialPool.toLowerCase()) : undefined;
+          const hasLiquidity = (t: number) => !!record[t]?.exists && record[t].liquidity > 0n;
           setFee((f) => {
-            if (record[f]?.exists) return f;
-            const best = deployment.feeTiers.filter((t) => record[t]?.exists)
-              .sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0];
+            if (clicked !== undefined) return clicked;
+            if (hasLiquidity(f)) return f;
+            const best = tiers.filter(hasLiquidity).sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0]
+              ?? tiers.filter((t) => record[t]?.exists).sort((a, b) => (record[b].liquidity > record[a].liquidity ? 1 : -1))[0];
             return best ?? f;
           });
         })
