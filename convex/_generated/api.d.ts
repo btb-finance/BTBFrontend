@@ -34,7 +34,6 @@ import type * as questCatalog from "../questCatalog.js";
 import type * as quests from "../quests.js";
 import type * as rewards from "../rewards.js";
 import type * as rewardsActions from "../rewardsActions.js";
-import type * as rpcEndpoints from "../rpcEndpoints.js";
 import type * as sessionActions from "../sessionActions.js";
 import type * as sessions from "../sessions.js";
 import type * as tokens from "../tokens.js";
@@ -78,7 +77,6 @@ declare const fullApi: ApiFromModules<{
   quests: typeof quests;
   rewards: typeof rewards;
   rewardsActions: typeof rewardsActions;
-  rpcEndpoints: typeof rpcEndpoints;
   sessionActions: typeof sessionActions;
   sessions: typeof sessions;
   tokens: typeof tokens;
