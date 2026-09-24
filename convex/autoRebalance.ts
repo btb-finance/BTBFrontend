@@ -48,6 +48,7 @@ export const listForAddress = query({
         lastRebalancedAt: r.lastRebalancedAt ?? null, nextCheckAt: r.active ? r.nextCheckAt : null,
         checks: r.checks, rebalances: r.rebalances, spentBtb: r.spentBtb, rebalanceBtb: rebalanceBtb(r.chainId),
         compound: r.compound ?? false, compounds: r.compounds ?? 0, lastCompoundedAt: r.lastCompoundedAt ?? null,
+        snapshot: r.snapshot ?? null, snapshotStaked: r.snapshotStaked ?? false,
       })),
     };
   },
@@ -184,7 +185,7 @@ export const available = internalQuery({
  * cannot pay for the check.
  */
 export const recordCheck = internalMutation({
-  args: { id: v.id("autoRebalances"), gen: v.float64(), inRange: v.boolean(), charge: v.boolean() },
+  args: { id: v.id("autoRebalances"), gen: v.float64(), inRange: v.boolean(), charge: v.boolean(), snapshot: v.optional(v.string()), staked: v.optional(v.boolean()) },
   handler: async (ctx, a) => {
     const row = await ctx.db.get(a.id);
     if (!row || row.gen !== a.gen || !row.active) return { ok: false, stale: true };
@@ -194,6 +195,7 @@ export const recordCheck = internalMutation({
     }
     await ctx.db.patch(row._id, {
       lastInRange: a.inRange, lastCheckedAt: Date.now(), failures: 0, updatedAt: Date.now(),
+      ...(a.snapshot ? { snapshot: a.snapshot, snapshotStaked: a.staked } : {}),
       ...(a.charge ? { checks: row.checks + 1, spentBtb: row.spentBtb + CHECK_BTB } : {}),
     });
     return { ok: true, stale: false };

@@ -265,3 +265,25 @@ export const ADAPTER_ERRORS_ABI = parseAbi([
   'error StakeTooRecent(uint256 tokenId)',
   'error OracleUnavailable()',
 ]);
+
+/** A position as JSON, bigints kept as {"$b": "..."}, for the snapshot a check stores. */
+export function packPosition(p: unknown): string {
+  return JSON.stringify(p, (_k, v) => (typeof v === 'bigint' ? { $b: v.toString() } : v));
+}
+export function unpackPosition<T>(json: string): T {
+  return JSON.parse(json, (_k, v) => (v && typeof v === 'object' && typeof v.$b === 'string' && Object.keys(v).length === 1 ? BigInt(v.$b) : v)) as T;
+}
+
+/**
+ * Whether a pool can answer the price-history check every rebalance makes: its
+ * average price over the wallet's TWAP window. A pool that stores one price
+ * point (observation cardinality 1) never can, however long it waits, until
+ * someone pays to raise it with increaseObservationCardinalityNext.
+ */
+export async function hasPriceHistory(client: { readContract: (a: never) => Promise<unknown> }, pool: `0x${string}`, window = lpConfig(0).twapWindow): Promise<boolean> {
+  try {
+    await client.readContract({ address: pool, abi: OBSERVE_ABI, functionName: 'observe', args: [[window, 0]] } as never);
+    return true;
+  } catch { return false; }
+}
+const OBSERVE_ABI = parseAbi(['function observe(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)']);

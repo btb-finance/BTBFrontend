@@ -18,7 +18,7 @@ import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  isFarmManager, rebalanceBtb, rebalanceParams, stakeAdapterFor,
+  hasPriceHistory, isFarmManager, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -425,7 +425,7 @@ export const check = internalAction({
     }
 
     // Paid only now that the read succeeded, and never twice for one check.
-    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry });
+    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry, snapshot: packPosition(position), staked });
     if (!charged.ok) {
       if (charged.broke) await push(ctx, job.address, job.label, "auto", "Auto-rebalance paused", `${job.label}: auto-rebalance paused, your BTB balance ran out.`);
       return;
@@ -485,7 +485,22 @@ export const check = internalAction({
       return;
     }
 
-    // Out of range. Only rebalance when the balance can pay for it.
+    // Out of range. The rebalance checks the pool's average price over the
+    // TWAP window; a pool without that history would fail it after the unstake,
+    // so check first and leave the position staked and untouched.
+    if (position) {
+      const pool = d.slipstream
+        ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [position.token0, position.token1, position.tickSpacing ?? position.fee] })
+        : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [position.token0, position.token1, position.fee] });
+      if (!(await hasPriceHistory(client, pool, lpConfig(job.chainId).twapWindow))) {
+        const note = "Out of range. This pool does not record enough price history to rebalance safely, so it is left as it is.";
+        if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Cannot rebalance this pool", `${job.label}: ${note}`);
+        await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: intervalMs });
+        return;
+      }
+    }
+
+    // Only rebalance when the balance can pay for it.
     const cost = rebalanceBtb(job.chainId);
     const available = await ctx.runQuery(internal.autoRebalance.available, { address: job.address });
     if (available < cost) {

@@ -127,6 +127,10 @@ export default defineSchema({
     compounds: v.optional(v.float64()),
     spentBtb: v.float64(),
     failures: v.float64(),
+    // The position as the last check read it (packPosition), so the app can
+    // draw it at once and refresh the live figures behind it.
+    snapshot: v.optional(v.string()),
+    snapshotStaked: v.optional(v.boolean()),
     createdAt: v.float64(),
     updatedAt: v.float64(),
   }).index("by_address", ["address"]).index("by_active_next", ["active", "nextCheckAt"]),

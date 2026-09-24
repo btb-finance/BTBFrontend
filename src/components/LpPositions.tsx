@@ -34,7 +34,25 @@ import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutoRebalanceSheet } from './AutoRebalanceSheet';
 import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
-import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, isFarmManager } from '../lib/autoRebalance';
+import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, REWARD_TOKEN, isFarmManager, unpackPosition } from '../lib/autoRebalance';
+import { GIGA_TOKEN } from '@/protocols/dexs/robinhood';
+
+/** An auto job's position as its last check saw it, ready to draw before the live read lands. */
+function snapshotPosition(j: AutoJob): LiquidityPosition | null {
+  const found = autoDeployment(j.chainId, j.positionManager);
+  if (!j.snapshot || !found) return null;
+  try {
+    const p = unpackPosition<LiquidityPosition>(j.snapshot);
+    if (p.id.toString() !== j.tokenId) return null; // rebalanced since: wait for the live read
+    const pos: LiquidityPosition = { ...p, protocol: found.protocol, chainId: j.chainId, chainName: AUTO_CHAIN_NAMES[j.chainId], positionManager: j.positionManager as `0x${string}` };
+    if (j.gauge && j.snapshotStaked) {
+      const farm = isFarmManager(j.chainId, j.positionManager);
+      const reward = farm ? { address: GIGA_TOKEN, symbol: 'GIGA' } : REWARD_TOKEN[j.chainId];
+      if (reward) pos.staked = { kind: farm ? 'masterchef' : 'gauge', gauge: j.gauge as `0x${string}`, earned: 0n, rewardToken: reward.address as `0x${string}`, rewardSymbol: reward.symbol };
+    }
+    return pos;
+  } catch { return null; }
+}
 
 const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
 const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
@@ -257,8 +275,22 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   useEffect(() => {
     let live = true;
     if (!autoJobs?.length) { setAutoPositions([]); return; }
+    // Draw every job at once: what is already shown, else the last check's
+    // snapshot from Convex. Each live read below replaces its row as it lands.
+    const keyOf = (j: AutoJob) => `${j.chainId}-${autoDeployment(j.chainId, j.positionManager)?.protocol}-${j.tokenId}`;
+    const order = autoJobs.map(keyOf);
+    const place = (rows: Map<string, LiquidityPosition>) => order.flatMap((k) => rows.get(k) ?? []);
+    setAutoPositions((prev) => {
+      const rows = new Map(prev.map((p) => [posKey(p), p]));
+      for (const j of autoJobs) {
+        const k = keyOf(j);
+        if (rows.has(k)) continue;
+        const snap = snapshotPosition(j);
+        if (snap) rows.set(k, snap);
+      }
+      return place(rows);
+    });
     (async () => {
-      const out: LiquidityPosition[] = [];
       await Promise.all(autoJobs.map(async (j) => {
         const found = autoDeployment(j.chainId, j.positionManager);
         const client = getPublicClient(config, { chainId: j.chainId as never });
@@ -288,10 +320,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               else pos.stakeable = { kind: 'masterchef', gauge: target.contract, rewardSymbol: target.rewardSymbol };
             }
           }
-          out.push(pos);
-        } catch { /* the next job refresh retries */ }
+          if (live) setAutoPositions((prev) => place(new Map([...prev.map((p) => [posKey(p), p] as const), [posKey(pos), pos]])));
+        } catch { /* the snapshot stays; the next job refresh retries */ }
       }));
-      if (live) setAutoPositions(out);
     })();
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
