@@ -37,7 +37,7 @@ export const MASTERCHEF_V3_ABI = [
   { name: 'pendingReward', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'v3PoolAddressPid', type: 'function', stateMutability: 'view', inputs: [{ name: 'pool', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
   { name: 'harvest', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }, { name: 'to', type: 'address' }], outputs: [{ name: 'reward', type: 'uint256' }] },
-  { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }], outputs: [] },
+  { name: 'withdraw', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'tokenId', type: 'uint256' }, { name: 'to', type: 'address' }], outputs: [{ name: 'reward', type: 'uint256' }] },
 ] as const;
 
 const NPM_TRANSFER_ABI = [
@@ -169,9 +169,10 @@ export function buildStakeCalls(kind: StakeKind, contract: `0x${string}`, positi
   ];
 }
 
-export function buildUnstakeCalls(pos: LiquidityPosition): Call[] {
+/** `owner` receives the NFT and rewards back from a MasterChef farm, which has only withdraw(tokenId, to). */
+export function buildUnstakeCalls(pos: LiquidityPosition, owner: `0x${string}`): Call[] {
   if (!pos.staked) return [];
-  if (pos.staked.kind === 'masterchef') return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: MASTERCHEF_V3_ABI, functionName: 'withdraw', args: [pos.id] }) }];
+  if (pos.staked.kind === 'masterchef') return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: MASTERCHEF_V3_ABI, functionName: 'withdraw', args: [pos.id, owner] }) }];
   return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: CL_GAUGE_ABI, functionName: 'withdraw', args: [pos.id] }) }];
 }
 

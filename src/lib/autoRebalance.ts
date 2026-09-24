@@ -8,7 +8,7 @@ import { encodeFunctionData, parseAbi, zeroAddress, type PublicClient } from 'vi
 import type { Call } from './txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
-import { GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { uniswapV3DeploymentForChain, type V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { deploymentOfPosition } from '@/protocols/lpChains';
 import {
@@ -174,6 +174,7 @@ export function walletGaugeCall(wallet: string, kind: 'stake' | 'unstake' | 'cla
 const ERC20_BALANCE_ABI = parseAbi(['function balanceOf(address) view returns (uint256)']);
 const POSITIONS_HEAD_ABI = parseAbi(['function positions(uint256) view returns (uint96, address, address token0, address token1)']);
 const GAUGE_REWARD_ABI = parseAbi(['function rewardToken() view returns (address)', 'function earned(address account, uint256 tokenId) view returns (uint256)']);
+const FARM_PENDING_ABI = parseAbi(['function pendingReward(uint256 tokenId) view returns (uint256)']);
 
 /**
  * Take a position back out: unstake it inside the wallet if it is staked, send
@@ -207,7 +208,11 @@ export async function buildSweepCalls(client: PublicClient, job: { wallet: strin
   let pending = 0n;
   const head = await client.readContract({ address: job.positionManager as `0x${string}`, abi: POSITIONS_HEAD_ABI, functionName: 'positions', args: [BigInt(job.tokenId)] }).catch(() => null);
   if (head) { tokens.add(head[2].toLowerCase()); tokens.add(head[3].toLowerCase()); }
-  if (job.gauge) {
+  if (job.gauge && job.gauge.toLowerCase() === GIGA_FARM) {
+    // Giga's farm pays GIGA and reads pending rewards by position alone.
+    rewardToken = GIGA_TOKEN.toLowerCase(); tokens.add(rewardToken);
+    if (includeUnclaimed) pending = await client.readContract({ address: job.gauge as `0x${string}`, abi: FARM_PENDING_ABI, functionName: 'pendingReward', args: [BigInt(job.tokenId)] }).catch(() => 0n);
+  } else if (job.gauge) {
     const reward = await client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_REWARD_ABI, functionName: 'rewardToken' }).catch(() => null);
     if (reward) { rewardToken = reward.toLowerCase(); tokens.add(rewardToken); }
     // Rewards the unstake earlier in this batch pays into the wallet. A little
@@ -218,7 +223,7 @@ export async function buildSweepCalls(client: PublicClient, job: { wallet: strin
   for (const token of tokens) {
     const held = await client.readContract({ address: token as `0x${string}`, abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [wallet] }).catch(() => 0n);
     const bal = held + (token === rewardToken ? pending : 0n);
-    if (bal > 0n) calls.push({ to: wallet, label: 'Send spare tokens to your wallet', data: encodeFunctionData({ abi: parseAbi(['function withdraw(address token, uint256 amount)']), functionName: 'withdraw', args: [token as `0x${string}`, bal] }) });
+    if (bal > 0n) calls.push({ to: wallet, label: 'Withdraw leftover tokens', data: encodeFunctionData({ abi: parseAbi(['function withdraw(address token, uint256 amount)']), functionName: 'withdraw', args: [token as `0x${string}`, bal] }) });
   }
   return calls;
 }

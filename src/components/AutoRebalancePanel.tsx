@@ -13,7 +13,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useWalletSession } from '../lib/session';
 import { readableError } from '../lib/errorText';
-import { AUTO_CHAIN_NAMES, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
+import { AUTO_CHAIN_NAMES, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
 import type { LiquidityPosition } from '@/protocols/types';
 
 type Job = NonNullable<ReturnType<typeof useAutoJobs>>['jobs'][number];
@@ -144,8 +144,10 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
   const setGauge = useMutation(api.autoRebalance.setGauge);
   const setCompound = useMutation(api.autoRebalance.setCompound);
   const isStaked = !!pos?.staked || !!job.gauge;
-  const rewardsOk = (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId);
-  const rewardSym = REWARD_TOKEN[job.chainId]?.symbol ?? 'rewards';
+  // Giga's farm pays GIGA, which is not compounded yet; the chain's reward token is for gauge DEXs only.
+  const farm = isFarmManager(job.chainId, job.positionManager);
+  const rewardsOk = !farm && (REWARD_COMPOUND_CHAINS as readonly number[]).includes(job.chainId);
+  const rewardSym = pos?.staked?.rewardSymbol ?? (farm ? 'GIGA' : REWARD_TOKEN[job.chainId]?.symbol ?? 'rewards');
 
   /** Auto-compound on or off. Staked on Base: first make sure the wallet may sell rewards (one confirmation, once). */
   async function toggleCompound() {
@@ -186,9 +188,9 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
   }
 
   async function takeOut() {
-    setErr(null); setBusy('Taking it out');
+    setErr(null); setBusy('Withdrawing');
     try {
-      await onChain(`Take out ${job.label}`, (c) => buildTakeOutCalls(c, job));
+      await onChain(`Withdraw ${job.label} from auto wallet`, (c) => buildTakeOutCalls(c, job));
       setBusy(null);
       await withSession('Stopping', (t) => stop({ sessionToken: t, id }));
       await onChanged?.();
@@ -217,8 +219,8 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
 
   async function sweep() {
     setErr(null); setBusy('Sending');
-    try { await onChain('Send spare tokens', (c) => buildSweepCalls(c, job)); await onChanged?.(); }
-    catch (e) { setErr(readableError(e, 'Could not send the spare tokens.')); }
+    try { await onChain('Withdraw leftover tokens', (c) => buildSweepCalls(c, job)); await onChanged?.(); }
+    catch (e) { setErr(readableError(e, 'Could not withdraw the leftover tokens.')); }
     finally { setBusy(null); }
   }
 
@@ -246,7 +248,9 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
         {job.rebalances} rebalance{job.rebalances === 1 ? '' : 's'}{job.lastRebalancedAt ? ` (last ${ago(job.lastRebalancedAt)})` : ''}{job.compounds > 0 ? `, ${job.compounds} compound${job.compounds === 1 ? '' : 's'}` : ''}, {fmtBtb(job.spentBtb)} BTB used so far, {fmtBtb(job.rebalanceBtb)} BTB per rebalance or compound on {AUTO_CHAIN_NAMES[job.chainId]}
       </div>
       <div style={{ color: job.compound && !isStaked ? btb.green : btb.textDim, fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
-        {isStaked && !rewardsOk
+        {isStaked && farm
+          ? `${rewardSym} rewards go to your auto wallet each time it rebalances, or when you claim. Compounding ${rewardSym} is not available yet.`
+          : isStaked && !rewardsOk
           ? 'Compounding staking rewards is not available on this chain yet.'
           : isStaked
             ? job.compound
@@ -272,8 +276,8 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
         {pos?.staked && pos.staked.earned > 0n && chip(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
         {(pos?.staked || (job.gauge && !pos?.stakeable)) && chip('Unstake', () => gauge('unstake'), btb.amber)}
         {(!isStaked || rewardsOk) && chip(`Auto-compound${isStaked ? ` ${rewardSym}` : ''}: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
-        {chip('Send spare tokens to me', sweep)}
-        {chip('Take out', takeOut, btb.loss)}
+        {chip('Withdraw leftover tokens', sweep)}
+        {chip('Withdraw LP and stop auto', takeOut, btb.loss)}
         {busy && <span style={{ color: btb.textMuted, fontSize: 11.5, alignSelf: 'center' }}>{busy}</span>}
       </div>
       {err && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 6 }}>{err}</div>}

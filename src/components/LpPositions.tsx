@@ -15,6 +15,7 @@ import { useTx } from '../lib/TxTracker';
 import { useTokenStore, useTokenLogos } from '../lib/TokenStore';
 import { runCalls } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
+import { dexTokenPrices } from '../lib/robinhoodBalances';
 import {
   fetchV3Positions, buildCollect, buildRemove, buildIncrease,
   fetchV4Positions, buildV4Collect, buildV4Remove, buildV4Increase,
@@ -35,6 +36,8 @@ import { AutoRebalanceSheet } from './AutoRebalanceSheet';
 import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
 import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, isFarmManager } from '../lib/autoRebalance';
 
+const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
+const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
 const AUTO_FARM_ABI = parseAbi([
   'function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)',
   'function pendingReward(uint256 tokenId) view returns (uint256)',
@@ -501,13 +504,15 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     }
     if (Object.keys(fromStore).length > 0) setUsd((u) => ({ ...fromStore, ...u }));
     // DeFiLlama keys prices by chain: price each token on the chain it lives on.
+    // Robinhood Chain is not on DeFiLlama; its tokens are priced from DexScreener pools.
     const byChain = new Map<string, string[]>();
     for (const p of positions) {
-      const chain = p.chainId === BASE_CHAIN_ID ? 'base' : p.chainId === 4663 ? null : 'ethereum';
-      if (!chain) continue;
+      const chain = p.chainId === BASE_CHAIN_ID ? 'base' : p.chainId === 4663 ? 'robinhood' : 'ethereum';
       byChain.set(chain, [...(byChain.get(chain) ?? []), p.token0, p.token1]);
     }
-    Promise.all([...byChain].map(([chain, list]) => getTokenPricesUsd([...new Set(list)], chain).catch(() => ({}))))
+    Promise.all([...byChain].map(([chain, list]) => (chain === 'robinhood'
+      ? dexTokenPrices([...new Set(list.map((a) => a.toLowerCase()))])
+      : getTokenPricesUsd([...new Set(list)], chain)).catch(() => ({}))))
       .then((parts) => setUsd({ ...fromStore, ...Object.assign({}, ...parts) }))
       .catch(() => {});
   }, [positions]);
@@ -524,7 +529,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         calls: action === 'claim'
           ? buildClaimCalls(pos, connectedAddress as `0x${string}`)
           : action === 'unstake'
-            ? buildUnstakeCalls(pos)
+            ? buildUnstakeCalls(pos, connectedAddress as `0x${string}`)
             : buildStakeCalls(pos.stakeable!.kind ?? 'gauge', pos.stakeable!.gauge, pos.positionManager!, pos.id, connectedAddress as `0x${string}`),
         label: `${action === 'claim' ? `Claim ${pos.staked?.rewardSymbol ?? 'rewards'}` : action === 'unstake' ? 'Unstake' : 'Stake'} ${pos.symbol0}/${pos.symbol1}`,
         track, chainId: pos.chainId ?? 1,
@@ -566,16 +571,28 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       await Promise.all(positions.map(async (p) => {
         if (!p.inRange || p.liquidity === 0n) { out[posKey(p)] = 0; return; }
         const chainId = p.chainId ?? 1;
-        const set = new Set([p.token0.toLowerCase(), p.token1.toLowerCase()]);
-        const row = discoverPools.find((r) => (r.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === r.chain)?.chainId) === chainId
-          && r.feeTier === p.fee && (r.underlyingTokens ?? []).length === 2 && r.underlyingTokens!.every((t) => set.has(t.toLowerCase()))
-          && (p.protocol === 'uniswap-v4' ? /^0x[0-9a-f]{64}$/i.test(r.id) : /^0x[0-9a-f]{40}$/i.test(r.id)));
-        if (!row) return;
-        const fees24h = row.fees24hUsd ?? (row.tvlUsd * (row.apyBase ?? 0)) / 100 / 365;
-        if (!(fees24h > 0)) return;
         const client = getPublicClient(config, { chainId });
         if (!client) return;
+        const set = new Set([p.token0.toLowerCase(), p.token1.toLowerCase()]);
         try {
+          // V3 style pools are matched by their own address: the same pair and fee
+          // tier can exist on several DEXs (Uniswap, Giga, Ramses), and Aerodrome's
+          // snapshot tier is its dynamic fee, not the tick spacing a position keeps.
+          let row: (typeof discoverPools)[number] | undefined;
+          if (p.protocol === 'uniswap-v4') {
+            row = discoverPools.find((r) => (r.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === r.chain)?.chainId) === chainId
+              && r.feeTier === p.fee && (r.underlyingTokens ?? []).length === 2 && r.underlyingTokens!.every((t) => set.has(t.toLowerCase()))
+              && /^0x[0-9a-f]{64}$/i.test(r.id));
+          } else {
+            const d = v3DeploymentOf(p);
+            const pool = (d.slipstream
+              ? await client.readContract({ address: d.factory, abi: SLIP_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.tickSpacing ?? p.fee] })
+              : await client.readContract({ address: d.factory, abi: V3_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.fee] })).toLowerCase();
+            row = discoverPools.find((r) => r.id.toLowerCase() === pool);
+          }
+          if (!row) return;
+          const fees24h = row.fees24hUsd ?? (row.tvlUsd * (row.apyBase ?? 0)) / 100 / 365;
+          if (!(fees24h > 0)) return;
           const poolL = p.protocol === 'uniswap-v4'
             ? await client.readContract({ address: v4DeploymentOf(p).stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [row.id as `0x${string}`] }) as bigint
             : await client.readContract({ address: row.id as `0x${string}`, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
