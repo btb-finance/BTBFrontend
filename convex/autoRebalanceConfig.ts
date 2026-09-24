@@ -104,6 +104,7 @@ export const AUTO_MANAGERS: Record<number, Record<string, `0x${string}`>> = {
   4663: {
     '0x07f44c47743a2f36414a82b9f558ecfcf0eedcef': V6.aerodromeAdapter, // UP
     '0x73991a25c818bf1f1128deaab1492d45638de0d3': V6.uniswapV3Adapter, // Uniswap V3
+    '0xa79f5775b0b49e51202c48ddf03f380faa96f641': V6.uniswapV3Adapter, // Giga V3 (a PancakeSwap V3 fork, same position format)
   },
 };
 

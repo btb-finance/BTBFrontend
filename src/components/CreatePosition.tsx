@@ -1207,7 +1207,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialTicks, fees2
               <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Auto-rebalance: check every</div>
               <IntervalPills value={autoInterval} onChange={setAutoInterval} disabled={busy}/>
               <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-                1 BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
+                1 BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake && dex !== 'giga' ? ` and stakes it there for ${rewardSymbol}` : ''}.{stakeAfterMint && dex === 'giga' ? ' Giga farm staking is not available in the auto wallet yet, so it earns trading fees instead of GIGA.' : ''}
               </div>
             </div>
           )}

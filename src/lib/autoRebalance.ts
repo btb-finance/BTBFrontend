@@ -8,7 +8,7 @@ import { encodeFunctionData, parseAbi, zeroAddress, type PublicClient } from 'vi
 import type { Call } from './txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
 import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
-import { UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { uniswapV3DeploymentForChain, type V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { deploymentOfPosition } from '@/protocols/lpChains';
 import {
@@ -40,6 +40,7 @@ export function autoDeployment(chainId: number, positionManager: string): { depl
   const aero = chainId === 8453 ? AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm) : undefined;
   if (aero) return { deployment: aero, protocol: 'aerodrome-cl' };
   if (chainId === 4663 && UP_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return { deployment: UP_V3_DEPLOYMENT, protocol: 'up-v3' };
+  if (chainId === 4663 && GIGA_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return { deployment: GIGA_V3_DEPLOYMENT, protocol: 'giga-v3' };
   const uni = uniswapV3DeploymentForChain(chainId);
   return uni && uni.positionManager.toLowerCase() === pm ? { deployment: uni, protocol: 'uniswap-v3' } : null;
 }

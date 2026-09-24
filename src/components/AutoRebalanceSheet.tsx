@@ -111,7 +111,9 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
           <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 14 }}>{label}{pos.staked ? `, staked for ${pos.staked.rewardSymbol}` : ''}</div>
 
           {!support ? (
-            line('Auto-rebalance works for Aerodrome and Uniswap V3 positions on Base, and UP and Uniswap V3 positions on Robinhood Chain.')
+            line(pos.staked?.kind === 'masterchef'
+              ? 'This position is staked in a farm. Unstake it first: farm staking is not available in the auto wallet yet.'
+              : 'Auto-rebalance works for Aerodrome and Uniswap V3 positions on Base, and UP, Giga and Uniswap V3 positions on Robinhood Chain.')
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ ...box, display: 'flex', flexDirection: 'column', gap: 6 }}>

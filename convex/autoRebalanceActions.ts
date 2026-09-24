@@ -12,7 +12,7 @@ import { getChainClient } from "../src/lib/chainClient";
 import { chainTransport } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
 import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
-import { UP_V3_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
+import { GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
 import { uniswapV3DeploymentForChain, type V3Deployment } from "../src/protocols/dexs/uniswap/v3/addresses";
 import type { LiquidityPosition } from "../src/protocols/types";
 import {
@@ -57,6 +57,7 @@ function deploymentFor(chainId: number, positionManager: string): V3Deployment |
     if (aero) return aero;
   }
   if (chainId === 4663 && UP_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return UP_V3_DEPLOYMENT;
+  if (chainId === 4663 && GIGA_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return GIGA_V3_DEPLOYMENT;
   const uni = uniswapV3DeploymentForChain(chainId);
   return uni && uni.positionManager.toLowerCase() === pm ? uni : null;
 }
