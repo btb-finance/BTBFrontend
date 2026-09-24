@@ -135,6 +135,12 @@ export default defineSchema({
     updatedAt: v.float64(),
   }).index("by_address", ["address"]).index("by_active_next", ["active", "nextCheckAt"]),
 
+  // Free-trial rebalances and compounds each owner has used (FREE_ACTIONS in total).
+  autoTrials: defineTable({
+    address: v.string(),        // lowercase owner
+    used: v.float64(),
+  }).index("by_address", ["address"]),
+
   // One agent transaction in flight per chain, so two rebalances never race for a nonce.
   rebalanceLocks: defineTable({
     chainId: v.float64(),

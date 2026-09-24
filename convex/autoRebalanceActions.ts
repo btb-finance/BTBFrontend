@@ -434,6 +434,12 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
   }
 }
 
+/** What an action cost, for its alert: a free trial action, or BTB. */
+function paidText(paid: { btb: number; freeLeft: number } | null, cost: number): string {
+  if (paid && paid.btb === 0) return `Free (${paid.freeLeft} free action${paid.freeLeft === 1 ? "" : "s"} left).`;
+  return `${(paid?.btb ?? cost).toLocaleString("en-US")} BTB used.`;
+}
+
 async function push(ctx: ActionCtx, address: string, label: string, kind: string, title: string, message: string) {
   await ctx.runMutation(internal.alerts.pushEvent, { address, kind, label, message });
   await ctx.scheduler.runAfter(0, internal.pushActions.sendPush, { address, title, body: message, url: "/portfolio" });
@@ -521,13 +527,13 @@ export const check = internalAction({
         ]);
         const value = aeroUsd == null ? null : Number(earned + held) / 1e18 * aeroUsd;
         if (value != null && value >= compoundMinUsd(job.chainId)
-          && (await ctx.runQuery(internal.autoRebalance.available, { address: job.address })) >= cost
+          && (await ctx.runQuery(internal.autoRebalance.canPay, { address: job.address, cost }))
           && (await ctx.runMutation(internal.autoRebalance.acquireLock, { chainId: job.chainId, ms: 8 * 60_000 }))) {
           try {
             const done = await compoundRewards(client, d, { chainId: job.chainId, wallet, pm, adapter, tokenId, p: position, gauge: job.gauge as `0x${string}`, stakedNow: staked });
             if (done.ok) {
-              await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
-              await push(ctx, job.address, job.label, "auto", "Rewards compounded", `${job.label}: about $${value.toFixed(2)} of ${reward.symbol} was sold into the position and it is staked again. ${cost.toLocaleString("en-US")} BTB used.`);
+              const paid = await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
+              await push(ctx, job.address, job.label, "auto", "Rewards compounded", `${job.label}: about $${value.toFixed(2)} of ${reward.symbol} was sold into the position and it is staked again. ${paidText(paid, cost)}`);
             }
           } catch { /* retried at a later check; nothing is charged */ }
           finally { await ctx.runMutation(internal.autoRebalance.releaseLock, { chainId: job.chainId }); }
@@ -536,13 +542,13 @@ export const check = internalAction({
         const value = await feesUsd(job.chainId, position).catch(() => null);
         const cost = compoundBtb(job.chainId);
         if (value != null && value >= compoundMinUsd(job.chainId)
-          && (await ctx.runQuery(internal.autoRebalance.available, { address: job.address })) >= cost
+          && (await ctx.runQuery(internal.autoRebalance.canPay, { address: job.address, cost }))
           && (await ctx.runMutation(internal.autoRebalance.acquireLock, { chainId: job.chainId, ms: 5 * 60_000 }))) {
           try {
             const done = await compoundFees(client, d, { chainId: job.chainId, wallet, pm, adapter, tokenId, p: position });
             if (done.ok) {
-              await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
-              await push(ctx, job.address, job.label, "auto", "Fees compounded", `${job.label}: about $${value.toFixed(2)} of fees went back into the position. ${cost.toLocaleString("en-US")} BTB used.`);
+              const paid = await ctx.runMutation(internal.autoRebalance.recordCompound, { id });
+              await push(ctx, job.address, job.label, "auto", "Fees compounded", `${job.label}: about $${value.toFixed(2)} of fees went back into the position. ${paidText(paid, cost)}`);
             }
           } catch { /* retried at a later check; nothing is charged */ }
           finally { await ctx.runMutation(internal.autoRebalance.releaseLock, { chainId: job.chainId }); }
@@ -576,8 +582,7 @@ export const check = internalAction({
 
     // Only rebalance when the balance can pay for it.
     const cost = rebalanceBtb(job.chainId);
-    const available = await ctx.runQuery(internal.autoRebalance.available, { address: job.address });
-    if (available < cost) {
+    if (!(await ctx.runQuery(internal.autoRebalance.canPay, { address: job.address, cost }))) {
       const note = `Out of range. A rebalance needs ${cost.toLocaleString("en-US")} BTB; top up to let it run.`;
       if (job.status !== "short") await push(ctx, job.address, job.label, "auto", "Top up to rebalance", `${job.label} is out of range. ${note}`);
       await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "short", note, nextInMs: intervalMs });
@@ -605,9 +610,9 @@ export const check = internalAction({
     }
 
     if (result.newTokenId != null) {
-      await ctx.runMutation(internal.autoRebalance.recordRebalance, { id, newTokenId: result.newTokenId.toString(), staked: result.staked });
+      const paid = await ctx.runMutation(internal.autoRebalance.recordRebalance, { id, newTokenId: result.newTokenId.toString(), staked: result.staked });
       const tail = job.gauge && !result.staked ? " It is not staked right now; the gauge refused it." : "";
-      await push(ctx, job.address, job.label, "auto", "Rebalanced", `${job.label} was out of range and has been moved next to the price. ${cost.toLocaleString("en-US")} BTB used.${tail}`);
+      await push(ctx, job.address, job.label, "auto", "Rebalanced", `${job.label} was out of range and has been moved next to the price. ${paidText(paid, cost)}${tail}`);
       const after = await ctx.runQuery(internal.autoRebalance.get, { id });
       if (after?.active) await ctx.runMutation(internal.autoRebalance.settle, { id, gen: after.gen, status: "watching", nextInMs: intervalMs });
       return;

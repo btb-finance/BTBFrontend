@@ -11,8 +11,11 @@ import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
 import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { uniswapV3DeploymentForChain, type V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { deploymentOfPosition } from '@/protocols/lpChains';
+import { BLOCKSCOUT_HOSTS } from './blockscout';
+import { getTokenPricesUsd } from './defillama';
+import { dexTokenPrices } from './robinhoodBalances';
 import {
-  AUTO_CHAINS, AUTO_CHAIN_NAMES, Action, FACTORY_ABI, GIGA_FARM, REBALANCE_AGENT, V6, WALLET_ABI, adapterFor, encodeLpConfig,
+  AUTO_CHAINS, AUTO_CHAIN_NAMES, AUTO_STABLES, AUTO_WETH, Action, FACTORY_ABI, GIGA_FARM, REBALANCE_AGENT, REWARD_TOKEN, V6, WALLET_ABI, adapterFor, encodeLpConfig,
   encodeSwapConfig, gaugeParams, isFarmManager, stakeAdapterFor, walletSetup,
 } from '../../convex/autoRebalanceConfig';
 
@@ -181,7 +184,7 @@ const FARM_PENDING_ABI = parseAbi(['function pendingReward(uint256 tokenId) view
  * the NFT to the owner, and send any spare tokens (fees on the other side,
  * gauge rewards) along with it. Everything only ever goes to the owner.
  */
-export async function buildTakeOutCalls(client: PublicClient, job: { wallet: string; positionManager: string; tokenId: string; gauge: string | null; chainId?: number }) {
+export async function buildTakeOutCalls(client: PublicClient, job: { wallet: string; positionManager: string; tokenId: string; gauge: string | null; chainId?: number }, owner?: `0x${string}`) {
   const wallet = job.wallet as `0x${string}`;
   const pm = job.positionManager as `0x${string}`;
   const tokenId = BigInt(job.tokenId);
@@ -192,38 +195,89 @@ export async function buildTakeOutCalls(client: PublicClient, job: { wallet: str
   }
   if (holder) calls.push({ to: wallet, label: 'Send the position to your wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'withdrawNft', args: [pm, tokenId] }) });
   const staked = !!job.gauge && holder?.toLowerCase() === job.gauge.toLowerCase();
-  calls.push(...await buildSweepCalls(client, job, staked));
+  calls.push(...await buildSweepCalls(client, job, staked, owner));
   return calls;
 }
 
+const WITHDRAW_ABI = parseAbi(['function withdraw(address token, uint256 amount)', 'function withdrawNative(uint256 amount)']);
+
+/** ERC-20s the wallet holds, as the chain's Blockscout indexes them, with its spam flag. */
+async function indexedTokens(chainId: number, wallet: string): Promise<{ address: string; scam: boolean }[]> {
+  const host = BLOCKSCOUT_HOSTS[chainId];
+  if (!host) return [];
+  try {
+    const res = await fetch(`${host}/api/v2/addresses/${wallet}/token-balances`, { cache: 'no-store', signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return [];
+    const rows = await res.json() as { token?: { address_hash?: string; type?: string; reputation?: string | null } }[];
+    return rows.filter((r) => r.token?.type === 'ERC-20' && /^0x[0-9a-fA-F]{40}$/.test(r.token.address_hash ?? ''))
+      .map((r) => ({ address: r.token!.address_hash!.toLowerCase(), scam: r.token!.reputation === 'scam' }));
+  } catch { return []; }
+}
+
+/** USD prices for tokens outside the known list; a token no market prices is treated as spam. */
+async function marketPrices(chainId: number, tokens: string[]): Promise<Record<string, number>> {
+  if (tokens.length === 0) return {};
+  if (chainId === 4663) return dexTokenPrices(tokens).catch(() => ({}));
+  return getTokenPricesUsd(tokens, chainId === 8453 ? 'base' : 'ethereum').catch(() => ({}));
+}
+
 /**
- * Send the wallet's spare tokens to the owner: the pool's two tokens and, with
- * a gauge, its reward token. `includeUnclaimed` adds the rewards an unstake in
- * the same batch will pay out, which are not in the wallet yet.
+ * Send everything spare in the auto wallet to the owner: every token it holds
+ * and any ETH, not just this position's pair. Known tokens (the pair, reward
+ * tokens, WETH, stables) always go; any other token only when a market prices
+ * it and the indexer does not flag it, so airdropped spam stays behind. With
+ * the owner given, each withdrawal is simulated first and a token that cannot
+ * be transferred is skipped instead of failing the whole batch.
+ * `includeUnclaimed` adds the rewards an unstake earlier in the same batch
+ * pays out, which are not in the wallet yet.
  */
-export async function buildSweepCalls(client: PublicClient, job: { wallet: string; positionManager: string; tokenId: string; gauge: string | null }, includeUnclaimed = false) {
+export async function buildSweepCalls(
+  client: PublicClient,
+  job: { wallet: string; positionManager: string; tokenId: string; gauge: string | null; chainId?: number },
+  includeUnclaimed = false,
+  owner?: `0x${string}`,
+) {
   const wallet = job.wallet as `0x${string}`;
-  const tokens = new Set<string>();
+  const chainId = Number(job.chainId ?? client.chain?.id ?? 0);
+  const known = new Set<string>([AUTO_WETH[chainId], ...(AUTO_STABLES[chainId] ?? []), REWARD_TOKEN[chainId]?.address].filter(Boolean).map((t) => t!.toLowerCase()));
+  if (chainId === 4663) known.add(GIGA_TOKEN.toLowerCase());
   let rewardToken: string | null = null;
   let pending = 0n;
   const head = await client.readContract({ address: job.positionManager as `0x${string}`, abi: POSITIONS_HEAD_ABI, functionName: 'positions', args: [BigInt(job.tokenId)] }).catch(() => null);
-  if (head) { tokens.add(head[2].toLowerCase()); tokens.add(head[3].toLowerCase()); }
+  if (head) { known.add(head[2].toLowerCase()); known.add(head[3].toLowerCase()); }
   if (job.gauge && job.gauge.toLowerCase() === GIGA_FARM) {
     // Giga's farm pays GIGA and reads pending rewards by position alone.
-    rewardToken = GIGA_TOKEN.toLowerCase(); tokens.add(rewardToken);
+    rewardToken = GIGA_TOKEN.toLowerCase(); known.add(rewardToken);
     if (includeUnclaimed) pending = await client.readContract({ address: job.gauge as `0x${string}`, abi: FARM_PENDING_ABI, functionName: 'pendingReward', args: [BigInt(job.tokenId)] }).catch(() => 0n);
   } else if (job.gauge) {
     const reward = await client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_REWARD_ABI, functionName: 'rewardToken' }).catch(() => null);
-    if (reward) { rewardToken = reward.toLowerCase(); tokens.add(rewardToken); }
+    if (reward) { rewardToken = reward.toLowerCase(); known.add(rewardToken); }
     // Rewards the unstake earlier in this batch pays into the wallet. A little
     // more accrues by the time it lands; that dust can be swept later.
     if (includeUnclaimed) pending = await client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_REWARD_ABI, functionName: 'earned', args: [wallet, BigInt(job.tokenId)] }).catch(() => 0n);
   }
+
+  const indexed = await indexedTokens(chainId, wallet);
+  const candidates = [...new Set([...known, ...indexed.filter((t) => !t.scam).map((t) => t.address)])];
+  const balances = await Promise.all(candidates.map((t) =>
+    client.readContract({ address: t as `0x${string}`, abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [wallet] }).catch(() => 0n)));
+  const unknownHeld = candidates.filter((t, i) => !known.has(t) && balances[i] > 0n);
+  const prices = await marketPrices(chainId, unknownHeld);
+
   const calls: Call[] = [];
-  for (const token of tokens) {
-    const held = await client.readContract({ address: token as `0x${string}`, abi: ERC20_BALANCE_ABI, functionName: 'balanceOf', args: [wallet] }).catch(() => 0n);
-    const bal = held + (token === rewardToken ? pending : 0n);
-    if (bal > 0n) calls.push({ to: wallet, label: 'Withdraw leftover tokens', data: encodeFunctionData({ abi: parseAbi(['function withdraw(address token, uint256 amount)']), functionName: 'withdraw', args: [token as `0x${string}`, bal] }) });
-  }
+  await Promise.all(candidates.map(async (token, i) => {
+    const bal = balances[i] + (token === rewardToken ? pending : 0n);
+    if (bal <= 0n) return;
+    if (!known.has(token) && !(prices[token] > 0)) return; // unpriced: most likely an airdropped spam token
+    const data = encodeFunctionData({ abi: WITHDRAW_ABI, functionName: 'withdraw', args: [token as `0x${string}`, bal] });
+    // The simulation cannot see rewards the unstake will pay, so only what is already there is tried.
+    if (owner && token !== rewardToken) {
+      const ok = await client.call({ account: owner, to: wallet, data }).then(() => true, () => false);
+      if (!ok) return;
+    }
+    calls.push({ to: wallet, label: 'Withdraw leftover tokens', data });
+  }));
+  const eth = await client.getBalance({ address: wallet }).catch(() => 0n);
+  if (eth > 0n) calls.push({ to: wallet, label: 'Withdraw leftover ETH', data: encodeFunctionData({ abi: WITHDRAW_ABI, functionName: 'withdrawNative', args: [eth] }) });
   return calls;
 }

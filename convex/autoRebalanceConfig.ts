@@ -9,6 +9,11 @@ import { encodeAbiParameters, encodeFunctionData, parseAbi } from 'viem';
 export const BTB_USD = 0.00003;
 /** One position check, in BTB. */
 export const CHECK_BTB = 1;
+/**
+ * Free trial: each owner's first rebalances and compounds cost nothing, across
+ * all chains, and checks are free while any are left. No BTB needed to try it.
+ */
+export const FREE_ACTIONS = 10;
 /** What one rebalance costs, in USD, per chain. Charged only when it happens. */
 export const REBALANCE_USD: Record<number, number> = { 8453: 0.1, 4663: 0.5 };
 

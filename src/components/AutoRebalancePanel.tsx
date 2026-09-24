@@ -66,7 +66,10 @@ export function AutoRebalancePanel({ address }: { address?: string }) {
       <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>
         Auto-rebalance on {data.jobs.length} position{data.jobs.length === 1 ? '' : 's'}{paused ? `, ${paused} paused` : ''}
       </div>
-      <div style={{ color: btb.textMuted, fontSize: 11.5 }}>{fmtBtb(data.balance)} BTB available</div>
+      <div style={{ color: btb.textMuted, fontSize: 11.5 }}>
+        {data.freeActions > 0 ? <span style={{ color: btb.green, fontWeight: 750 }}>{data.freeActions} free action{data.freeActions === 1 ? '' : 's'} left, </span> : null}
+        {fmtBtb(data.balance)} BTB available
+      </div>
     </div>
     </div>
   );
@@ -190,7 +193,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
   async function takeOut() {
     setErr(null); setBusy('Withdrawing');
     try {
-      await onChain(`Withdraw ${job.label} from auto wallet`, (c) => buildTakeOutCalls(c, job));
+      await onChain(`Withdraw ${job.label} from auto wallet`, (c) => buildTakeOutCalls(c, job, address as `0x${string}`));
       setBusy(null);
       await withSession('Stopping', (t) => stop({ sessionToken: t, id }));
       await onChanged?.();
@@ -219,7 +222,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged }: {
 
   async function sweep() {
     setErr(null); setBusy('Sending');
-    try { await onChain('Withdraw leftover tokens', (c) => buildSweepCalls(c, job)); await onChanged?.(); }
+    try { await onChain('Withdraw leftover tokens', (c) => buildSweepCalls(c, job, false, address as `0x${string}`)); await onChanged?.(); }
     catch (e) { setErr(readableError(e, 'Could not withdraw the leftover tokens.')); }
     finally { setBusy(null); }
   }

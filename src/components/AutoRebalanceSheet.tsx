@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { useAction } from 'convex/react';
+import { useAction, useQuery } from 'convex/react';
 import type { PublicClient } from 'viem';
 import { api } from '../../convex/_generated/api';
 import { Portal } from './Portal';
@@ -58,6 +58,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
   const { track } = useTx();
   const session = useWalletSession(account);
   const credit = useAlertCredit(account, { withTreasury: true });
+  const freeActions = useQuery(api.autoRebalance.listForAddress, { address: account })?.freeActions ?? 0;
   const enable = useAction(api.autoRebalanceActions.enable);
   const [interval, setIntervalMin] = useState<number>(DEFAULT_INTERVAL);
   const [busy, setBusy] = useState<string | null>(null);
@@ -142,6 +143,11 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
 
               <div style={{ ...box, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>What it costs</div>
+                {freeActions > 0 && (
+                  <div style={{ color: btb.green, fontSize: 12.5, fontWeight: 750, lineHeight: 1.5 }}>
+                    Try it free: your next {freeActions} rebalance{freeActions === 1 ? '' : 's'} or compound{freeActions === 1 ? '' : 's'} cost nothing, and checks are free until they are used. No BTB needed to start.
+                  </div>
+                )}
                 <CostRow label="Each check" value={`${CHECK_BTB} BTB`}/>
                 <CostRow label={`Checks every ${intervalLabel(interval)}`} value={`about ${fmtBtb(perDay)} BTB a day`}/>
                 <CostRow label={compound && !pos.staked ? 'Each rebalance or compound, only when it happens' : 'Each rebalance, only when it happens'} value={`${fmtBtb(perRebalance)} BTB (about $${(REBALANCE_USD[chainId] ?? 0).toFixed(2)})`}/>
@@ -152,7 +158,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
                 <div style={{ flex: 1, minWidth: 180 }}><BtbBalanceLine credit={credit}/></div>
                 <button type="button" onClick={() => setTopUp((t) => !t)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{topUp ? 'Close' : 'Top up'}</button>
                 {topUp && <div style={{ width: '100%' }}><BtbTopUp credit={credit}/></div>}
-                {!credit.loading && credit.total < perRebalance && (
+                {!credit.loading && freeActions === 0 && credit.total < perRebalance && (
                   <div style={{ width: '100%', color: btb.amber, fontSize: 11.5 }}>A rebalance needs {fmtBtb(perRebalance)} BTB. Checks still run, and it rebalances once you top up.</div>
                 )}
               </div>
