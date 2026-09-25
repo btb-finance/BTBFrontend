@@ -11,7 +11,7 @@ import { TokenIcon } from './TokenIcon';
 import { btb, MOBILE_GUTTER } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls } from '../lib/txRunner';
+import { runCalls, supportsAtomicBatch, type Call } from '../lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap, planSwapToFit, type FitPlan } from '../lib/swapGap';
 import { readableError } from '../lib/errorText';
@@ -42,9 +42,7 @@ import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
 import { useAction, useQuery } from 'convex/react';
-import { useWalletSession } from '../lib/session';
-import { IntervalPills } from './AutoRebalanceSheet';
-import { AUTO_CHAIN_NAMES, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, isFarmManager, rebalanceBtb } from '../lib/autoRebalance';
+import { AUTO_CHAIN_NAMES, CHECK_INTERVALS, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, isFarmManager, rebalanceBtb } from '../lib/autoRebalance';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
@@ -254,15 +252,16 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   // into the owner's auto wallet (staked there when staking is on).
   const autoAdapter = !isV4 && !simOnly ? adapterFor(chainId, deployment.positionManager) : null;
   const [autoOn, setAutoOn] = useState(false);
+  const [autoInfo, setAutoInfo] = useState(false);
   const [autoInterval, setAutoInterval] = useState<number>(DEFAULT_INTERVAL);
-  const session = useWalletSession(address);
-  const enableAuto = useAction(api.autoRebalanceActions.enable);
+  // No sign-in needed: the move into the auto wallet is the owner's own transaction, and the server checks it on chain.
+  const enableAuto = useAction(api.autoRebalanceActions.enableNew);
   const autoFree = useQuery(api.autoRebalance.listForAddress, address ? { address } : 'skip')?.freeActions ?? 0;
   const wantsAuto = autoOn && !!autoAdapter && !splitRange;
 
   /** After a mint: hand the newest position to auto-rebalance, or stake it as before. */
-  async function afterMint(acct: `0x${string}`, sessionToken: string | null) {
-    if (!wantsAuto || !sessionToken || !pool || !autoAdapter) { await stakeNewest(acct); return; }
+  async function afterMint(acct: `0x${string}`) {
+    if (!wantsAuto || !pool || !autoAdapter) { await stakeNewest(acct); return; }
     const client = getPublicClient(config, { chainId });
     if (!client) return;
     const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [acct] });
@@ -275,10 +274,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     const { calls } = await buildEnableCalls(client as never, acct, newId, support);
     await runCalls(config, { account: acct, calls, label: `Auto-rebalance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
     const res = await enableWhenVisible(() => enableAuto({
-      sessionToken, chainId, positionManager: deployment.positionManager, tokenId: newId.toString(),
+      owner: acct, chainId, positionManager: deployment.positionManager, tokenId: newId.toString(),
       label: `${pool.symbol0} / ${pool.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, gauge, intervalMin: autoInterval,
     }));
-    if (!res.ok) { if (/sign-in expired/i.test(res.reason)) session.forget(); throw new Error(`Liquidity added, but auto-rebalance did not start: ${res.reason}`); }
+    if (!res.ok) { throw new Error(`Liquidity added, but auto-rebalance did not start: ${res.reason}`); }
   }
   const feeSwitchProtocol: FeeSwitchProtocol = dex === 'pancakeswap' ? 'pancakeswap-v3' : isV4 ? 'uniswap-v4' : 'uniswap-v3';
   const feeSplit = getFeeSplit(feeSwitchProtocol, fee);
@@ -672,7 +671,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     setBusy(true); setErr(null);
     try {
       // Sign in first, so nothing is minted when the user declines it.
-      const sessionToken = wantsAuto ? await session.ensure() : null;
       // Amounts at the tick the chain reports now, not the one from when the
       // sheet opened. The user's typed side is kept; the other side is repaired.
       const fresh = (await refreshPool()) ?? pool;
@@ -700,7 +698,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: fresh.sqrtPriceX96,
           });
       await runCalls(config, { account: address as `0x${string}`, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
-      await afterMint(address as `0x${string}`, sessionToken);
+      await afterMint(address as `0x${string}`);
       onDone?.();
       onClose();
     } catch (e) {
@@ -774,11 +772,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
       : client.readContract({ address: i === 0 ? pool.token0 : pool.token1, abi: erc20Abi, functionName: 'balanceOf', args: [acct] });
     setBusy(true); setErr(null);
     try {
-      const sessionToken = wantsAuto ? await session.ensure() : null;
       const fresh = (await refreshPool()) ?? pool;
       const plan = await planSwapToFit({ ...fitArgs(fresh.sqrtPriceX96), build: true });
       let [a0, a1] = [plan.final0, plan.final1];
-      if (plan.sellSide !== null) {
+      // Safe and other smart wallets: swap and deposit in ONE bundle. The deposit counts only on the swap's
+      // guaranteed minimum (quote less slippage), so it can never ask for more than the swap delivers; the
+      // small extra the swap usually returns stays in the wallet.
+      const oneBundle = plan.sellSide !== null && await supportsAtomicBatch(config, acct, chainId);
+      if (oneBundle) {
+        const bought: 0 | 1 = plan.sellSide === 0 ? 1 : 0;
+        const minOut = (plan.out * BigInt(10_000 - slippageBps)) / 10_000n;
+        if (bought === 1) a1 = fitBudget[1] + minOut; else a0 = fitBudget[0] + minOut;
+      } else if (plan.sellSide !== null) {
         setStepMsg('Swapping to fit the range…');
         const bought: 0 | 1 = plan.sellSide === 0 ? 1 : 0;
         const before = await read(bought);
@@ -802,8 +807,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             amount0Desired: a0, amount1Desired: a1, slippageBps, recipient: acct,
             nativeEthSide: ethMode ? wethSide : null, deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: fresh.sqrtPriceX96,
           });
-      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
-      await afterMint(acct, sessionToken);
+      await runCalls(config, { account: acct, calls: oneBundle ? [...plan.calls, ...calls] : calls, label: oneBundle ? `Swap and add ${pool.symbol0}/${pool.symbol1} liquidity` : `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
+      await afterMint(acct);
       onDone?.();
       onClose();
     } catch (e) {
@@ -837,12 +842,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
 
     setBusy(true); setErr(null);
     try {
-      const sessionToken = wantsAuto ? await session.ensure() : null;
       const tl = ticks.tickLower, tu = ticks.tickUpper;
       const [live0, live1] = await readBals();
       // Deposit the whole balance; keep a gas reserve on the native side.
       let budget0 = native0 ? (live0 > GAS_RESERVE ? live0 - GAS_RESERVE : 0n) : live0;
       let budget1 = live1;
+      let bundleSwap: Call[] | null = null;
 
       const plan = rebalancePlan(pool.sqrtPriceX96, tl, tu, budget0, budget1);
       if (plan.sellSide !== null) {
@@ -853,17 +858,26 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           native0, account: acct, slippageBps: slippageBps, chainId,
         });
         if (swap) {
-          setStepMsg('Swapping only what the range needs…');
-          await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
-          budget0 = swap.budget0;
-          budget1 = swap.budget1;
+          if (await supportsAtomicBatch(config, acct, chainId)) {
+            // One bundle (see mintFit): count the bought side less slippage, so the deposit fits what the swap guarantees.
+            bundleSwap = swap.calls;
+            const cut = (x: bigint) => (x * BigInt(10_000 - slippageBps)) / 10_000n;
+            budget0 = plan.sellSide === 1 ? cut(swap.budget0) : swap.budget0;
+            budget1 = plan.sellSide === 0 ? cut(swap.budget1) : swap.budget1;
+          } else {
+            setStepMsg('Swapping only what the range needs…');
+            await runCalls(config, { account: acct, calls: swap.calls, label: `Balance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
+            budget0 = swap.budget0;
+            budget1 = swap.budget1;
+          }
         }
       }
 
       // Mint with the rebalanced budget, capped to the live wallet balance so an
       // optimistic swap quote can't over-deposit.
       setStepMsg('Adding your liquidity…');
-      const [bal0, bal1] = await readBals();
+      // Bundled: the swap has not run yet, so the wallet balance cannot cap the budget; the slippage cut above does.
+      const [bal0, bal1] = bundleSwap ? [budget0 + (native0 ? GAS_RESERVE * 2n : 0n), budget1] : await readBals();
       const cap0 = native0 ? (bal0 > GAS_RESERVE ? ((bal0 - GAS_RESERVE) * 9950n) / 10_000n : 0n) : bal0;
       const eff0 = budget0 < cap0 ? budget0 : cap0;
       const eff1 = budget1 < bal1 ? budget1 : bal1;
@@ -880,8 +894,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             amount0Desired: a0, amount1Desired: a1, slippageBps: slippageBps, recipient: acct,
             nativeEthSide: null, deployment, tickSpacing: isSlipstream ? fee : undefined, sqrtPriceX96: pool.sqrtPriceX96,
           });
-      await runCalls(config, { account: acct, calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
-      await afterMint(acct, sessionToken);
+      await runCalls(config, { account: acct, calls: bundleSwap ? [...bundleSwap, ...calls] : calls, label: `Add ${pool.symbol0}/${pool.symbol1} liquidity`, track, chainId });
+      await afterMint(acct);
       onDone?.();
       onClose();
     } catch (e) {
@@ -1276,13 +1290,27 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           {wantsAuto && (
             <div style={{
               pointerEvents: 'auto', marginBottom: 6, background: 'rgba(var(--bg-rgb), 0.96)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(var(--green-rgb), 0.3)', borderRadius: 14, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8,
+              border: '1px solid rgba(var(--green-rgb), 0.3)', borderRadius: 14, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4,
             }}>
-              <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Auto-rebalance: check every</div>
-              <IntervalPills value={autoInterval} onChange={setAutoInterval} disabled={busy}/>
-              <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-                {autoFree > 0 ? `Free to try: your next ${autoFree} rebalance${autoFree === 1 ? '' : 's'} or compound${autoFree === 1 ? '' : 's'} cost nothing, and checks are free until they are used. After that, 1` : '1'} BTB per check (about {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day), {rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance, only when it happens. From your BTB balance. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
+              {/* Kept to two short lines: this sits in the sticky bar, over the form. The full cost is one tap away. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800, flex: 1, minWidth: 0 }}>Auto-rebalance, check every</span>
+                <select value={autoInterval} disabled={busy} onChange={(e) => setAutoInterval(Number(e.target.value))} aria-label="Check interval"
+                  style={{ height: 30, borderRadius: 9, border: '1px solid rgba(var(--green-rgb), 0.35)', background: 'rgba(var(--green-rgb), 0.1)', color: btb.green, fontFamily: 'inherit', fontSize: 16, fontWeight: 800, padding: '0 6px' }}>
+                  {CHECK_INTERVALS.map((m) => <option key={m} value={m}>{intervalLabel(m)}</option>)}
+                </select>
               </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, color: btb.textMuted, fontSize: 11.5 }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  {autoFree > 0 ? `Next ${autoFree} free, then ` : ''}1 BTB per check, {rebalanceBtb(chainId).toLocaleString('en-US')} per rebalance
+                </span>
+                <button type="button" onClick={() => setAutoInfo((v) => !v)} style={{ flexShrink: 0, padding: 0, border: 'none', background: 'transparent', color: btb.green, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{autoInfo ? 'Less' : 'More'}</button>
+              </div>
+              {autoInfo && (
+                <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
+                  About {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day at this interval. A rebalance is only charged when it happens, from your BTB balance{autoFree > 0 ? `; your next ${autoFree} rebalances or compounds and their checks are free` : ''}. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
+                </div>
+              )}
             </div>
           )}
           <div style={{

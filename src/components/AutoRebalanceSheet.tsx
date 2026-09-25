@@ -62,6 +62,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
   const credit = useAlertCredit(account, { withTreasury: true });
   const freeActions = useQuery(api.autoRebalance.listForAddress, { address: account })?.freeActions ?? 0;
   const enable = useAction(api.autoRebalanceActions.enable);
+  const enableNew = useAction(api.autoRebalanceActions.enableNew);
   const [interval, setIntervalMin] = useState<number>(DEFAULT_INTERVAL);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -77,19 +78,23 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
     if (!support) return;
     setErr(null);
     try {
-      setBusy('Signing in');
-      const sessionToken = await session.ensure();
       setBusy('Preparing');
       const client = getPublicClient(config, { chainId: chainId as never }) as PublicClient;
       const { calls } = await buildEnableCalls(client, account, pos.id, support, buildUnstakeCalls(pos, account));
       setBusy('Confirm in your wallet');
       await runCalls(config, { account, calls, label: `Auto-rebalance ${pos.symbol0}/${pos.symbol1}`, track, chainId });
       setBusy('Starting');
-      const res = await enableWhenVisible(() => enable({
-        sessionToken, chainId, positionManager: support.positionManager, tokenId: pos.id.toString(), label,
-        gauge: support.gauge, intervalMin: interval, compound: !pos.staked && compound,
-      }));
-      if (!res.ok) { if (/sign-in expired/i.test(res.reason)) session.forget(); throw new Error(res.reason); }
+      const job = { chainId, positionManager: support.positionManager, tokenId: pos.id.toString(), label, gauge: support.gauge, intervalMin: interval, compound: !pos.staked && compound };
+      // No signature for a first-time job: the move above was the owner's own transaction and the server checks
+      // it on chain. Only a position that had a job before (restarting it) needs the signed session.
+      let res = await enableWhenVisible(() => enableNew({ owner: account, ...job }));
+      if (!res.ok && /already set up/i.test(res.reason)) {
+        setBusy('Signing in');
+        const sessionToken = await session.ensure();
+        res = await enableWhenVisible(() => enable({ sessionToken, ...job }));
+        if (!res.ok && /sign-in expired/i.test(res.reason)) session.forget();
+      }
+      if (!res.ok) throw new Error(res.reason);
       await onDone();
       onClose();
     } catch (e) {

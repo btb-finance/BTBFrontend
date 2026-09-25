@@ -326,20 +326,24 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
           }}/>
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 10 }}>
-        {onAdd && pos && btn('Increase liquidity', onAdd, btb.green)}
-        {btn(editing ? 'Done' : 'Change interval', () => setEditing((e) => !e))}
-        {job.active
-          ? btn('Pause', () => withSession('Pausing', (t) => setActive({ sessionToken: t, id, active: false })), btb.amber)
-          : btn('Resume', () => withSession('Resuming', (t) => setActive({ sessionToken: t, id, active: true })), btb.green)}
-        {(!isStaked || rewardsOk) && btn(`Compound: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
-        {pos?.stakeable && !pos.staked && btn(`Stake for ${pos.stakeable.rewardSymbol ?? 'rewards'}`, () => gauge('stake'), btb.green)}
-        {pos?.staked && pos.staked.earned > 0n && btn(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
-        {(pos?.staked || (job.gauge && !pos?.stakeable)) && btn('Unstake', () => gauge('unstake'), btb.amber)}
-        {limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning && btn(`Raise daily limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
-        {btn('Withdraw leftover', sweep, btb.textMuted, oddButtons)}
-        {btn('Withdraw LP and stop auto', takeOut, btb.loss, true)}
-      </div>
+      {/* Viewing someone else's wallet: no controls at all. The server refuses them anyway (signed owner only). */}
+      {!canTransact && <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 8 }}>Viewing only. Only the owner's wallet can change this.</div>}
+      {canTransact && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 10 }}>
+          {onAdd && pos && btn('Increase liquidity', onAdd, btb.green)}
+          {btn(editing ? 'Done' : 'Change interval', () => setEditing((e) => !e))}
+          {job.active
+            ? btn('Pause', () => withSession('Pausing', (t) => setActive({ sessionToken: t, id, active: false })), btb.amber)
+            : btn('Resume', () => withSession('Resuming', (t) => setActive({ sessionToken: t, id, active: true })), btb.green)}
+          {(!isStaked || rewardsOk) && btn(`Compound: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
+          {pos?.stakeable && !pos.staked && btn(`Stake for ${pos.stakeable.rewardSymbol ?? 'rewards'}`, () => gauge('stake'), btb.green)}
+          {pos?.staked && pos.staked.earned > 0n && btn(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
+          {(pos?.staked || (job.gauge && !pos?.stakeable)) && btn('Unstake', () => gauge('unstake'), btb.amber)}
+          {limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning && btn(`Raise daily limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
+          {btn('Withdraw leftover', sweep, btb.textMuted, oddButtons)}
+          {btn('Withdraw LP and stop auto', takeOut, btb.loss, true)}
+        </div>
+      )}
       {busy && <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 6 }}>{busy}</div>}
       {err && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 6 }}>{err}</div>}
     </div>

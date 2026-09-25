@@ -1,5 +1,5 @@
 import type { Config } from 'wagmi';
-import { getAccount, getPublicClient, sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
+import { getAccount, getCapabilities, getPublicClient, sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
 import { decodeFunctionData, erc20Abi } from 'viem';
 import type { TrackFn } from './TxTracker';
 import type { SupportedChainId } from './wagmi';
@@ -181,4 +181,22 @@ function isMethodUnsupported(err: unknown): boolean {
     msg.includes('invalid parameter') ||
     msg.includes('method not')
   );
+}
+
+/**
+ * Whether the connected wallet runs a bundle of calls atomically, all or nothing, as one confirmation (a Safe,
+ * a smart wallet, an EIP-7702 account). Then steps that depend on each other, like a swap and the deposit of
+ * its output, can go in one bundle: one signature, and for a multi-owner Safe one proposal instead of two.
+ */
+export async function supportsAtomicBatch(config: Config, account: `0x${string}`, chainId?: number): Promise<boolean> {
+  if (getAccount(config).connector?.id === 'safe') return true;
+  try {
+    const caps = await getCapabilities(config, { account, chainId: chainId as SupportedChainId | undefined }) as Record<string, unknown>;
+    // Either the chain's own capabilities, or a map keyed by chain id, depending on the wallet.
+    const c = (chainId != null && (caps[chainId] ?? caps[`0x${chainId.toString(16)}`])) || caps;
+    const atomic = (c as { atomic?: { status?: string }; atomicBatch?: { supported?: boolean } });
+    return atomic.atomic?.status === 'supported' || atomic.atomic?.status === 'ready' || atomic.atomicBatch?.supported === true;
+  } catch {
+    return false;
+  }
 }

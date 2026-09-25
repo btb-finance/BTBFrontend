@@ -16,7 +16,7 @@ import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { useTokenStore, useTokenLogos } from '../lib/TokenStore';
-import { runCalls } from '../lib/txRunner';
+import { runCalls, supportsAtomicBatch } from '../lib/txRunner';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { dexTokenPrices } from '../lib/robinhoodBalances';
 import {
@@ -1885,6 +1885,17 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
         setStep('Swapping to fit the range');
         const plan = await planSwapToFit({ ...fitArgs(), build: true });
         let [a0, a1] = [plan.final0, plan.final1];
+        const cid = (pos.chainId ?? 1) as number;
+        // Safe and other smart wallets: swap and add in one bundle, counting the swap's guaranteed minimum.
+        if (plan.sellSide !== null && await supportsAtomicBatch(config, account, cid)) {
+          const bought = plan.sellSide === 0 ? 1 : 0;
+          const minOut = (plan.out * BigInt(10_000 - actionSlippageBps)) / 10_000n;
+          if (bought === 1) a1 = fitBudget[1] + minOut; else a0 = fitBudget[0] + minOut;
+          setStep('Swapping and adding in one transaction');
+          await runCalls(config, { account, calls: [...plan.calls, ...increaseCalls(a0, a1)], label: `Swap and increase liquidity ${pos.symbol0}/${pos.symbol1}`, track, chainId: cid });
+          await onDone();
+          return;
+        }
         if (plan.sellSide !== null) {
           const before = await freshBalances();
           await runCalls(config, { account, calls: plan.calls, label: `Swap to fit ${pos.symbol0}/${pos.symbol1}`, track, chainId: (pos.chainId ?? 1) as number });
