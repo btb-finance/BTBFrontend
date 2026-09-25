@@ -752,6 +752,10 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const bestOutFormatted = quote?.amountOutFormatted ?? '0';
   const toUsd = quote?.amountOutUsd ?? null;
   const dispRate = quote?.rate ?? 0;
+  // Small rates keep their significant digits: 0.00000188, never a bare 0.
+  const rateText = dispRate > 0 && dispRate < 1 ? dispRate.toLocaleString('en-US', { maximumSignificantDigits: 4 }) : dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 });
+  // What you get back is worth clearly less than what you put in: thin liquidity, a token tax or a stale price.
+  const valueLossPct = fromUsd != null && toUsd != null && fromUsd > 1 ? (1 - toUsd / fromUsd) * 100 : 0;
   const dispGasUsd = quote?.gasUsd ?? null;
   const canSwap = !!quote && !!address && !quoting && !insufficientBalance;
   const chainExplorer = SUPPORTED_CHAINS.find(chain => chain.id === chainId)?.blockExplorers?.default.url ?? 'https://etherscan.io';
@@ -815,13 +819,13 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
             </div>
             <TokenPill token={toToken} onClick={() => setPicker('to')}/>
           </div>
-          {toUsd != null && <div style={{ color: btb.textDim, fontSize: 13, marginTop: 4 }}>≈ ${toUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+          {toUsd != null && <div style={{ color: valueLossPct >= 5 ? btb.red : btb.textDim, fontSize: 13, marginTop: 4 }}>≈ ${toUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}{valueLossPct >= 5 ? ` (${valueLossPct.toFixed(1)}% less than you pay)` : ''}</div>}
         </Glass>
       </div>
 
       {quote && !quoting && (
-        <QuoteDetails summary={<>1 {fromToken.symbol} = {dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} {toToken.symbol}<span style={{ color: btb.textMuted, fontWeight: 500 }}>{dispGasUsd != null && dispGasUsd > 0 ? ` · fee ~$${dispGasUsd.toFixed(2)}` : ''}{quote.priceImpact > 2 ? ` · impact ${quote.priceImpact.toFixed(2)}%` : ''}</span></>}>
-          <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${dispRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} ${toToken.symbol}`}/>
+        <QuoteDetails summary={<>1 {fromToken.symbol} = {rateText} {toToken.symbol}<span style={{ color: btb.textMuted, fontWeight: 500 }}>{dispGasUsd != null && dispGasUsd > 0 ? ` · fee ~$${dispGasUsd.toFixed(2)}` : ''}{quote.priceImpact > 2 ? ` · impact ${quote.priceImpact.toFixed(2)}%` : ''}</span></>}>
+          <InfoRow label="Rate"         value={`1 ${fromToken.symbol} = ${rateText} ${toToken.symbol}`}/>
           <InfoRow label="Network fee"  value={dispGasUsd != null && dispGasUsd > 0 ? `~ $${dispGasUsd.toFixed(2)}` : '—'}/>
           <InfoRow label="BTB fee" value={`${BTB_SWAP_FEE_PERCENT}% · received token`}/>
           <InfoRow label="Price impact" value={<span style={{ color: quote.priceImpact > 2 ? btb.red : 'var(--btb-green)' }}>{quote.priceImpact > 0 ? `${quote.priceImpact.toFixed(2)}%` : '< 0.01%'}</span>}/>

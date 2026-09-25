@@ -10,7 +10,7 @@ import { CreatePosition } from './CreatePosition';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls } from '../lib/txRunner';
+import { runCalls, supportsAtomicBatch } from '../lib/txRunner';
 import { buildRemove, fetchV3Positions, fetchV4Positions, buildV4Remove, poolIdOf, SLIPPAGE_BPS, swapFreeRange, rebalancePlan, type LiquidityPosition, type PoolKey } from '@/protocols/dexs/uniswap';
 import { tickToPrice } from '@/protocols/dexs/uniswap/shared';
 import { fmtPrice } from './LpCardParts';
@@ -83,6 +83,18 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
     try {
       const client = getPublicClient(config, { chainId });
       if (!client) throw new Error('No RPC client');
+      // Safe and other smart wallets: unstake and withdraw in ONE bundle, one signature (one Safe proposal).
+      // The removal uses the position as last read; its minimums still protect against the price moving.
+      if (pos.staked && pos.liquidity > 0n && await supportsAtomicBatch(config, account, chainId)) {
+        setStepMsg('Unstaking and withdrawing in one transaction…');
+        await runCalls(config, {
+          account,
+          calls: [...buildUnstakeCalls(pos, account), ...(isV4 ? buildV4Remove(pos, 10_000, slippage, account, v4) : buildRemove(pos, 10_000, slippage, account, deployment))],
+          label: `Rebalance · unstake and withdraw ${pos.symbol0}/${pos.symbol1}`, track, chainId,
+        });
+        setPhase('add');
+        return;
+      }
       if (pos.staked) {
         setStepMsg(`Unstaking (pays out your ${pos.staked.rewardSymbol})…`);
         await runCalls(config, {
@@ -175,7 +187,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
             </Button>
           </div>
           <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>
-            {pos.staked ? 'Two' : 'One'} wallet confirmation{pos.staked ? 's' : ''} now, then the add step has its own. Withdrawal is slippage-protected at {slippage / 100}%.
+            {pos.staked ? 'Two wallet confirmations now (one on a Safe or smart wallet)' : 'One wallet confirmation now'}, then the add step has its own. Withdrawal is slippage-protected at {slippage / 100}%.
           </div>
         </div>
       </div>

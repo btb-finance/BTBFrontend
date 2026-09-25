@@ -40,14 +40,16 @@ export const ROBINHOOD_RPC_URLS = Array.from(new Set([
   // available as fallbacks and are also used outside a browser origin;
   // only CORS-enabled endpoints work from a page, the rest cost one
   // failed hop when the proxy is down.
-  typeof window !== 'undefined' ? '/api/robinhood-rpc' : undefined,
+  // Absolute, not '/api/...': WalletConnect hands every chain's first RPC URL to its own provider, which
+  // rejects a relative path ("Provided URL is not compatible with HTTP connection") and the connect fails.
+  typeof window !== 'undefined' ? `${window.location.origin}/api/robinhood-rpc` : undefined,
   ...ROBINHOOD_RPC_UPSTREAMS,
   process.env.NEXT_PUBLIC_ROBINHOOD_RPC_URL,
 ].filter((url): url is string => Boolean(url))));
 
 export function robinhoodTransport() {
   return fallback(ROBINHOOD_RPC_URLS.map(url => http(url, {
-    retryCount: url.startsWith('/') ? 1 : 0,
+    retryCount: url.includes('/api/robinhood-rpc') ? 1 : 0,
     timeout: 20_000,
   })));
 }

@@ -4,6 +4,10 @@
  * check-in XP (convex/users.ts), Simulate XP (SIMULATE_XP), swap fee
  * (BTB_SWAP_FEE_BPS), supported chains and DEXes (protocols/lpChains.ts).
  */
+import { CONTRACTS } from '../../lib/contractAddresses';
+import { V6, V6_REGISTRY, REBALANCE_AGENT } from '../../../convex/autoRebalanceConfig';
+import { TOP_UP_TREASURY } from '../../../convex/topUpConfig';
+
 export interface DocBlock { type: 'p' | 'steps' | 'list' | 'table' | 'note'; text?: string; items?: string[]; rows?: string[][]; head?: string[] }
 export interface DocSection { id: string; title: string; summary: string; blocks: DocBlock[] }
 export interface DocGroup { title: string; sections: DocSection[] }
@@ -227,6 +231,39 @@ export const DOCS: DocGroup[] = [
             'BTB holds no funds and no keys. Positions stay in your wallet or the DEX gauge; the app only builds transactions you sign.',
             'The frontend and contracts are open source at github.com/btb-finance. No third-party audit of the frontend yet.',
           ] },
+        ],
+      },
+      {
+        // Read from the same constants the app uses, so this list can never drift from what the app calls.
+        id: 'contracts', title: 'Contract addresses', summary: 'Every BTB contract and wallet, to verify on a block explorer.',
+        blocks: [
+          { type: 'p', text: 'Tokens and products on Ethereum mainnet.' },
+          { type: 'table', head: ['Contract', 'Address'], rows: [
+            ['BTB token', CONTRACTS.BTB],
+            ['BTBB (BTB Bear)', CONTRACTS.BTBB],
+            ['Bear NFT', CONTRACTS.BEAR_NFT],
+            ['Bear NFT staking', CONTRACTS.BEAR_STAKING],
+            ['OPOS', CONTRACTS.OPOS],
+            ['Flip', CONTRACTS.FLIP],
+          ] },
+          { type: 'p', text: 'Auto-rebalance (V6). The same addresses on Base and Robinhood Chain.' },
+          { type: 'table', head: ['Contract', 'Address'], rows: [
+            ['Registry', V6_REGISTRY],
+            ['Wallet factory', V6.factory],
+            ['Wallet (current, v3)', V6.walletV3],
+            ['Wallet (v2)', V6.walletV2],
+            ['Uniswap V3 adapter', V6.uniswapV3Adapter],
+            ['Aerodrome adapter', V6.aerodromeAdapter],
+            ['MasterChef V3 farm adapter', V6.farmAdapter],
+            ['Swap adapter', V6.swapAdapter],
+            ['Agent batch (EIP-7702)', V6.agentBatch],
+            ['Rebalance agent', REBALANCE_AGENT],
+          ] },
+          { type: 'p', text: 'Treasury. The BTB Safe, at the same address on Ethereum, Base and Robinhood Chain. Top ups are paid here.' },
+          { type: 'table', head: ['Contract', 'Address'], rows: [
+            ['BTB Safe (treasury)', TOP_UP_TREASURY],
+          ] },
+          { type: 'note', text: 'Only trust these addresses. BTB never asks you to approve or send to any other contract.' },
         ],
       },
     ],

@@ -690,14 +690,11 @@ type Result = { ok: true; id: Id<"autoRebalances"> } | { ok: false; reason: stri
  * is the owner's, the BTB agent is allowed in it, the adapter is enabled, and
  * the position sits in the wallet or in the wallet's gauge stake.
  */
-export const enable = action({
-  args: {
-    sessionToken: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
-    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
-  },
-  handler: async (ctx, a): Promise<Result> => {
-    const owner = await ctx.runQuery(internal.sessions.walletFor, { token: a.sessionToken });
-    if (!owner) return { ok: false, reason: "Your sign-in expired. Sign in again." };
+type EnableArgs = { chainId: number; positionManager: string; tokenId: string; gauge?: string; intervalMin: number };
+
+/** Everything that must be true on chain before a job runs: the owner's auto wallet holds (or has staked) the
+ * position, the agent is allowed, and the DEX adapter is on. Returns the wallet, or why not. */
+async function verifyOnChain(owner: string, a: EnableArgs): Promise<{ ok: true; wallet: string } | { ok: false; reason: string }> {
     if (!(CHECK_INTERVALS as readonly number[]).includes(a.intervalMin)) return { ok: false, reason: "Pick one of the listed intervals." };
     const adapter = adapterFor(a.chainId, a.positionManager);
     const client = getChainClient(a.chainId);
@@ -719,10 +716,46 @@ export const enable = action({
     const stakedHere = !!a.gauge && !!holder && await stakedIn(client, a.chainId, pm, a.gauge, holder, wallet, tokenId).catch(() => false);
     if (!held && !stakedHere) return { ok: false, reason: "The position is not in your auto wallet yet." };
 
+    return { ok: true, wallet };
+}
+
+export const enable = action({
+  args: {
+    sessionToken: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
+    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
+  },
+  handler: async (ctx, a): Promise<Result> => {
+    const owner = await ctx.runQuery(internal.sessions.walletFor, { token: a.sessionToken });
+    if (!owner) return { ok: false, reason: "Your sign-in expired. Sign in again." };
+    const v = await verifyOnChain(owner, a);
+    if (!v.ok) return v;
     const id = await ctx.runMutation(internal.autoRebalance.upsertVerified, {
-      address: owner, wallet, chainId: a.chainId, positionManager: pm, tokenId: a.tokenId,
+      address: owner, wallet: v.wallet, chainId: a.chainId, positionManager: a.positionManager as `0x${string}`, tokenId: a.tokenId,
       label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin, compound: a.compound,
     });
+    return { ok: true, id };
+  },
+});
+
+/**
+ * Start auto-rebalance on a position just moved into its auto wallet, with no signature. The move itself was
+ * the owner's signed transaction, and every fact is read from chain here, so the owner's address alone is
+ * enough. Create only: an existing job (paused, a different interval) can only be changed with a session.
+ */
+export const enableNew = action({
+  args: {
+    owner: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
+    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
+  },
+  handler: async (ctx, a): Promise<Result> => {
+    if (!isAddress(a.owner)) return { ok: false, reason: "Invalid wallet address." };
+    const v = await verifyOnChain(a.owner.toLowerCase(), a);
+    if (!v.ok) return v;
+    const id = await ctx.runMutation(internal.autoRebalance.createIfNew, {
+      address: a.owner, wallet: v.wallet, chainId: a.chainId, positionManager: a.positionManager, tokenId: a.tokenId,
+      label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin, compound: a.compound,
+    });
+    if (!id) return { ok: false, reason: "Auto-rebalance is already set up for this position. Manage it from Portfolio." };
     return { ok: true, id };
   },
 });

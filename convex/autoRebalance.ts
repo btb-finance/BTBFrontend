@@ -216,6 +216,34 @@ export const upsertVerified = internalMutation({
   },
 });
 
+/**
+ * Create only: the job for a position that has never had one. Used without a signed session (every fact is
+ * checked on chain first), so it must never touch an existing job: someone else cannot re-enable a job the
+ * owner paused or change its interval. Null when a job already exists.
+ */
+export const createIfNew = internalMutation({
+  args: {
+    address: v.string(), wallet: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
+    label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
+  },
+  handler: async (ctx, a) => {
+    const pm = a.positionManager.toLowerCase();
+    const same = await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", a.address.toLowerCase())).collect();
+    if (same.some((r) => r.chainId === a.chainId && r.positionManager === pm && r.tokenId === a.tokenId)) return null;
+    const now = Date.now();
+    const id = await ctx.db.insert("autoRebalances", {
+      address: a.address.toLowerCase(), chainId: a.chainId, positionManager: pm, tokenId: a.tokenId,
+      wallet: a.wallet.toLowerCase(), label: a.label, gauge: a.gauge?.toLowerCase(), intervalMin: a.intervalMin,
+      active: true, status: "watching", note: undefined, failures: 0,
+      ...(a.compound != null ? { compound: a.compound } : {}),
+      nextCheckAt: now + 5_000, gen: 0, checks: 0, rebalances: 0, spentBtb: 0, createdAt: now, updatedAt: now,
+    });
+    const row = (await ctx.db.get(id))!;
+    await schedule(ctx, row, now + 5_000);
+    return id;
+  },
+});
+
 // ── Checker plumbing ────────────────────────────────────────────────────────
 
 export const get = internalQuery({
