@@ -54,6 +54,9 @@ export const baseMetadata: Metadata = {
 export const baseViewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // iPhones zoom into any input under 16px when it is tapped and stay zoomed; this stops that. Pinch zoom still
+  // works on current iOS.
+  maximumScale: 1,
   viewportFit: 'cover',
   themeColor: SITE.themeColor,
 };

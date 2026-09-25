@@ -14,10 +14,11 @@ interface GlassProps {
 
 export function Glass({ children, style, padding = 16, radius = 22, strong = false, soft = false, onClick }: GlassProps) {
   return (
-    <div onClick={onClick} style={{
+    <div onClick={onClick} className="btb-glass" style={{
       position: 'relative',
       borderRadius: radius,
       padding,
+      ['--glass-pad' as string]: `${padding}px`,
       background: soft ? btb.glassSoft : strong ? btb.glassStrong : btb.glass,
       border: soft ? btb.borderSoft : btb.border,
       backdropFilter: btb.blur,

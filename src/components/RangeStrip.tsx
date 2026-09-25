@@ -81,7 +81,7 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
         <span style={{ color: btb.textDim, fontSize: 11.5 }}>{p.symbol1}/{p.symbol0}{fullRange ? ' · full range' : ''}</span>
         <span style={{ color: tone, fontSize: 14, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
       </div>
-      <div style={{ position: 'relative', height: 44, marginTop: 8, borderRadius: 10, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
+      <div style={{ position: 'relative', height: 36, marginTop: 8, borderRadius: 10, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
         {/* liquidity depth: where the other LPs sit */}
         <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
           {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.16)" />)}
@@ -89,13 +89,14 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--amber-rgb), 0.14)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--amber-rgb), 0.45)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--amber-rgb), 0.45)'}` }} />
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
         <div style={{ position: 'absolute', top: 4, left: `calc(${mark}% - 5px)`, width: 10, height: 10, borderRadius: 999, background: tone, boxShadow: `0 0 0 3px ${p.inRange ? 'rgba(var(--green-rgb), 0.25)' : 'rgba(var(--amber-rgb), 0.25)'}` }} />
-        {!fullRange && (
-          <>
-            <span style={{ position: 'absolute', left: `calc(${bandL}% + 6px)`, bottom: 3, color: btb.textMuted, fontSize: 10.5 }}>{fmtPrice(pLow)}</span>
-            <span style={{ position: 'absolute', right: `calc(${100 - bandR}% + 6px)`, bottom: 3, color: btb.textMuted, fontSize: 10.5 }}>{fmtPrice(pHigh)}</span>
-          </>
-        )}
       </div>
+      {/* Min and max sit under the bar, where the price marker can never cover them. */}
+      {!fullRange && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 5, color: btb.textMuted, fontSize: 10.5 }}>
+          <span>Min {fmtPrice(pLow)}</span>
+          <span>Max {fmtPrice(pHigh)}</span>
+        </div>
+      )}
     </div>
   );
 }

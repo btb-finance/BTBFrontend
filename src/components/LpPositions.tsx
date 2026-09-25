@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useScrollLock } from '../lib/useScrollLock';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeFunctionData, formatUnits, parseAbi, parseUnits, erc20Abi } from 'viem';
@@ -217,7 +218,8 @@ export interface LpSummary {
 }
 
 export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: boolean; onSummary?: (s: LpSummary) => void } = {}) {
-  const { isMobile } = useSidebar();
+  // `tablet`: iPad portrait and half-screen windows, desktop layout with less width to spare.
+  const { isMobile, forceCollapsed: tablet } = useSidebar();
   const { address: connectedAddress } = useConnection();
   const config = useConfig();
   const { track } = useTx();
@@ -926,16 +928,16 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const needsAttention = positions.filter((p) => p.liquidity > 0n && !p.inRange && !autoByKey.has(posKey(p)));
   const idleUsd = needsAttention.reduce((sum, p) => sum + valueOf(p), 0);
   const attentionBlock = needsAttention.length > 0 && (
-    <div style={{ borderRadius: 16, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.07)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      <div style={{ flex: 1, minWidth: 220 }}>
+    <div style={{ borderRadius: 16, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.07)', padding: isMobile ? '10px 12px' : '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
+      <div style={{ flex: 1, minWidth: isMobile ? 0 : 220 }}>
         <div style={{ color: btb.amber, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Needs attention</div>
-        <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, marginTop: 2 }}>
-          {needsAttention.length} position{needsAttention.length === 1 ? '' : 's'} out of range{idleUsd > 0 ? `, ${'$'}${idleUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })} earning nothing` : ''}
+        <div style={{ color: btb.text, fontSize: isMobile ? 12.5 : 13.5, fontWeight: 700, marginTop: 2 }}>
+          {needsAttention.length} {isMobile ? '' : `position${needsAttention.length === 1 ? '' : 's'} `}out of range{idleUsd > 0 ? `, ${'$'}${idleUsd.toLocaleString('en-US', { maximumFractionDigits: 0 })} ${isMobile ? 'idle' : 'earning nothing'}` : ''}
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>{needsAttention.map((p) => `${p.symbol0}/${p.symbol1}`).join(', ')}. Listed first below.</div>
+        <div style={{ color: btb.textMuted, fontSize: isMobile ? 11.5 : 12, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: isMobile ? 'nowrap' : undefined }}>{needsAttention.map((p) => `${p.symbol0}/${p.symbol1}`).join(', ')}{isMobile ? '' : '. Listed first below.'}</div>
       </div>
       {canTransact && canActOn(needsAttention[0]) && (
-        <LpButton tone="amber" label={`Rebalance ${needsAttention[0].symbol0}/${needsAttention[0].symbol1}`} onClick={() => setRebalance(needsAttention[0])} disabled={busyId != null}/>
+        <LpButton tone="amber" label={isMobile ? 'Rebalance' : `Rebalance ${needsAttention[0].symbol0}/${needsAttention[0].symbol1}`} onClick={() => setRebalance(needsAttention[0])} disabled={busyId != null}/>
       )}
     </div>
   );
@@ -1003,34 +1005,45 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <span style={{ color, fontWeight: bold ? 800 : 600 }}>{value}</span>
       </div>
     );
+    // On a phone the fee, status, chain, protocol, Staked and tag share one line under the pair.
+    const tagEl = (
+      editingTag === tagKeyOf(p) ? (
+        <input autoFocus value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} onBlur={() => commitTag(p)} onKeyDown={(e) => { if (e.key === 'Enter') commitTag(p); if (e.key === 'Escape') setEditingTag(null); }} maxLength={24} placeholder="Tag"
+          style={{ height: 22, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11, fontFamily: 'inherit', outline: 'none', width: 120 }}/>
+      ) : (
+        <span onClick={() => { if (address) { setEditingTag(tagKeyOf(p)); setTagDraft(tags[tagKeyOf(p)] ?? ''); } }} title="Tag this position" style={{ cursor: address ? 'pointer' : 'default', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, border: tags[tagKeyOf(p)] ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft, background: tags[tagKeyOf(p)] ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: tags[tagKeyOf(p)] ? btb.green : btb.textDim }}>
+          {tags[tagKeyOf(p)] ?? '+ tag'}
+        </span>
+      )
+    );
+    const feeEl = <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 11, padding: '2px 7px' }}>{fmtFeeTier(p.fee)}</Badge>;
+    const stakedEl = <Badge size="sm" border="none" bg="rgba(var(--amber-rgb), 0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: isMobile ? '2px 7px' : '3px 9px' }}>Staked</Badge>;
+    const metaEl = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: isMobile ? 8 : 4, flexWrap: 'wrap' }}>
+      {isMobile ? feeEl : <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>}
+      <Badge size="sm" border="none" bg={p.inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
+        {p.inRange ? 'In range' : 'Out of range'}
+      </Badge>
+      <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
+      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
+      {isMobile && p.staked && stakedEl}
+      {isMobile && tagEl}
+    </div>
+    );
     return (
-      <Glass key={posKey(p)} padding={isMobile ? 14 : 18} radius={20}>
+      <Glass key={posKey(p)} padding={isMobile ? 12 : 18} radius={isMobile ? 16 : 20}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <div style={{ display: 'flex', flexShrink: 0 }}>
-            <TokenIcon symbol={p.symbol0} size={32} logoUrl={logo0} />
-            <div style={{ marginLeft: -10 }}><TokenIcon symbol={p.symbol1} size={32} logoUrl={logo1} /></div>
+            <TokenIcon symbol={p.symbol0} size={isMobile ? 26 : 32} logoUrl={logo0} />
+            <div style={{ marginLeft: -10 }}><TokenIcon symbol={p.symbol1} size={isMobile ? 26 : 32} logoUrl={logo1} /></div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ color: btb.text, fontWeight: 800, fontSize: 16 }}>{p.symbol0}/{p.symbol1}</span>
-              {editingTag === tagKeyOf(p) ? (
-                <input autoFocus value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} onBlur={() => commitTag(p)} onKeyDown={(e) => { if (e.key === 'Enter') commitTag(p); if (e.key === 'Escape') setEditingTag(null); }} maxLength={24} placeholder="Tag"
-                  style={{ height: 22, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11, fontFamily: 'inherit', outline: 'none', width: 120 }}/>
-              ) : (
-                <span onClick={() => { if (address) { setEditingTag(tagKeyOf(p)); setTagDraft(tags[tagKeyOf(p)] ?? ''); } }} title="Tag this position" style={{ cursor: address ? 'pointer' : 'default', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, border: tags[tagKeyOf(p)] ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft, background: tags[tagKeyOf(p)] ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: tags[tagKeyOf(p)] ? btb.green : btb.textDim }}>
-                  {tags[tagKeyOf(p)] ?? '+ tag'}
-                </span>
-              )}
-              <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 11, padding: '2px 7px' }}>{fmtFeeTier(p.fee)}</Badge>
+              <span style={{ color: btb.text, fontWeight: 800, fontSize: isMobile ? 15 : 16, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.symbol0}/{p.symbol1}</span>
+              {!isMobile && tagEl}
+              {!isMobile && feeEl}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-              <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>
-              <Badge size="sm" border="none" bg={p.inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
-                {p.inRange ? 'In range' : 'Out of range'}
-              </Badge>
-              <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
-              <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
-            </div>
+            {!isMobile && metaEl}
             {alertRow && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, color: btb.textDim, fontSize: 11 }}>
                 <span style={{ width: 6, height: 6, borderRadius: 999, background: fastAlerts ? btb.green : btb.textMuted }}/>
@@ -1046,13 +1059,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 {liveApr[posKey(p)] > 0 ? `${liveApr[posKey(p)].toFixed(1)}% fee APR` : 'Earning 0% now'}
               </div>
             )}
-            {p.staked && (
-              <div style={{ marginTop: v > 0 ? 4 : 0 }}>
-                <Badge size="sm" border="none" bg="rgba(var(--amber-rgb), 0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: '3px 9px' }}>Staked</Badge>
-              </div>
-            )}
+            {p.staked && !isMobile && <div style={{ marginTop: v > 0 ? 4 : 0 }}>{stakedEl}</div>}
           </div>
         </div>
+        {/* Phone: the badges get the full card width, under the pair and value. */}
+        {isMobile && metaEl}
 
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 14 }}>
           <div style={box}>
@@ -1063,7 +1074,30 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <div style={boxLabel}><TokenIcon symbol={p.symbol1} size={16} logoUrl={logo1}/>{p.symbol1}</div>
             <div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div>
           </div>
-          {p.staked ? (
+          {p.staked && isMobile ? (
+            <div style={{ ...box, gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 12px', background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
+              <span style={{ color: btb.textMuted, fontSize: 12 }}>Rewards to claim</span>
+              <span style={{ color: btb.amber, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{fmtAmt(p.staked.earned, 18)} {p.staked.rewardSymbol}</span>
+            </div>
+          ) : isMobile ? (
+            // Phone: fees as one slim row, the same shape as the rewards row.
+            <div style={{ ...box, gridColumn: '1 / -1', padding: '9px 12px', background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ color: btb.textMuted, fontSize: 12 }}>Unclaimed fees</span>
+                <span style={{ color: hasFees ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</span>
+              </div>
+              {hasFees && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 3, fontSize: 10.5 }}>
+                  <span style={{ color: 'rgba(var(--green-rgb), 0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}</span>
+                  {collectGasUsd[posKey(p)] != null && (
+                    <span style={{ color: f > 0 && collectGasUsd[posKey(p)] > f ? btb.amber : btb.textDim, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      {f > 0 && collectGasUsd[posKey(p)] > f ? `gas ~$${collectGasUsd[posKey(p)].toFixed(2)}, let grow` : `gas ~$${collectGasUsd[posKey(p)].toFixed(2)}`}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : p.staked ? (
             <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
               <div style={boxLabel}>Rewards</div>
               <div style={{ ...boxValue, color: btb.amber }}>{fmtAmt(p.staked.earned, 18)}</div>
@@ -1091,7 +1125,23 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           <RangeStrip p={p}/>
         </div>
 
-        {a && (
+        {a && isMobile && (
+          <div style={{ ...box, marginTop: 8, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 12px' }}>
+            {([
+              ['Invested', money(a.totalDepositValue), btb.text],
+              ['Value', money(v > 0 ? v : a.totalDepositValue + a.pnl), btb.text],
+              ['P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss],
+              ['Fee APR', a.feeApr > 0 ? `${a.feeApr.toFixed(1)}%` : '0%', btb.textMuted],
+              ...(a.totalWithdrawValue > 0 ? [['Withdrawn', money(a.totalWithdrawValue), btb.text]] : []),
+            ] as [string, string, string][]).map(([l, val, c]) => (
+              <div key={l} style={{ minWidth: 0 }}>
+                <div style={{ color: btb.textDim, fontSize: 10.5 }}>{l}</div>
+                <div style={{ color: c, fontSize: 13, fontWeight: 800, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {a && !isMobile && (
           <div style={{ ...box, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7 }}>
             {line('Invested', money(a.totalDepositValue))}
             {line('Current value', money(v > 0 ? v : a.totalDepositValue + a.pnl))}
@@ -1134,14 +1184,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           const chipColor = (a: Act) => a.disabled ? btb.textDim : a.tone === 'danger' ? btb.loss : a.tone === 'amber' ? btb.amber : a.tone === 'green' ? btb.green : btb.textMuted;
           return (
             <>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+              <div style={isMobile ? { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 } : { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
                 {primary.map((a) => {
                   const color = chipColor(a);
                   const tint = a.tone === 'danger' ? '255, 76, 107' : a.tone === 'amber' ? 'var(--amber-rgb)' : a.tone === 'green' ? 'var(--green-rgb)' : 'var(--fg-rgb)';
                   return (
                     <button key={a.key} type="button" disabled={a.disabled} onClick={a.onClick} style={{
-                      height: 30, padding: '0 11px', borderRadius: 999, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap',
-                      cursor: a.disabled ? 'default' : 'pointer',
+                      height: isMobile ? 38 : 30, padding: '0 11px', borderRadius: isMobile ? 12 : 999, fontFamily: 'inherit', fontSize: isMobile ? 12.5 : 11.5, fontWeight: 800, whiteSpace: 'nowrap',
+                      overflow: 'hidden', textOverflow: 'ellipsis', cursor: a.disabled ? 'default' : 'pointer',
                       color: a.disabled ? btb.textDim : a.solid ? btb.text : color,
                       background: a.disabled ? 'rgba(var(--fg-rgb), 0.04)' : `rgba(${tint}, ${a.solid ? 0.22 : 0.1})`,
                       border: a.disabled ? '1px solid rgba(var(--fg-rgb), 0.08)' : `1px solid rgba(${tint}, ${a.solid ? 0.5 : 0.3})`,
@@ -1155,14 +1205,16 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                     const color = chipColor(a);
                     return (
                       <button key={a.key} type="button" disabled={a.disabled} onClick={a.onClick} style={{
-                        height: 30, padding: '0 11px', borderRadius: 999, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap',
-                        display: 'inline-flex', alignItems: 'center', gap: 5, cursor: a.disabled ? 'default' : 'pointer', color,
+                        height: isMobile ? 38 : 30, padding: '0 11px', borderRadius: isMobile ? 12 : 999, fontFamily: 'inherit', fontSize: isMobile ? 12.5 : 11.5, fontWeight: 750, whiteSpace: 'nowrap',
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5, overflow: 'hidden',
+                        // Odd one out on a phone takes the whole last row instead of leaving a gap.
+                        gridColumn: isMobile && a === rest[rest.length - 1] && (primary.length + rest.length) % 2 === 1 ? '1 / -1' : undefined, cursor: a.disabled ? 'default' : 'pointer', color,
                         // The alert chip is the one users most often miss, so it gets a fill.
                         background: on ? 'rgba(var(--green-rgb), 0.14)' : isAlert ? 'rgba(var(--amber-rgb), 0.1)' : 'rgba(var(--fg-rgb), 0.04)',
                         border: on ? '1px solid rgba(var(--green-rgb), 0.35)' : isAlert ? '1px solid rgba(var(--amber-rgb), 0.3)' : '1px solid rgba(var(--fg-rgb), 0.08)',
                         ...(isAlert && !on ? { color: btb.amber } : {}),
                       }}>
-                        {isAlert && !on ? 'Alert me when out of range' : a.label}
+                        {isAlert && !on ? (isMobile ? 'Alert when out of range' : 'Alert me when out of range') : a.label}
                       </button>
                     );
                   })}
@@ -1203,14 +1255,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       color: active ? btb.green : btb.textMuted,
     }}>{label}</button>
   );
-  const toolbar = positions.length > 1 && (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
-        {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
-        {chip(rangeFilter === 'out', `Out of range ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
-        <div style={{ flex: 1 }}/>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} aria-label="Sort positions" style={{ height: 28, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}>
+  const sortAndView = (
+    <>
+        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} aria-label="Sort positions" style={{ flex: isMobile ? 1 : undefined, minWidth: 0, height: 28, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}>
           <option value="attention">Needs attention first</option>
           <option value="value">Highest value</option>
           <option value="fees">Most fees to collect</option>
@@ -1221,6 +1268,31 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <button key={v} type="button" onClick={() => setView(v)} style={{ height: 24, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, background: view === v ? btb.surfaceSoft : 'transparent', color: view === v ? btb.text : btb.textDim }}>{v === 'cards' ? 'Cards' : 'List'}</button>
           ))}
         </div>
+    </>
+  );
+  const divider = (k: string) => <span key={k} style={{ width: 1, height: 18, background: 'rgba(var(--fg-rgb), 0.12)', margin: '0 2px', flexShrink: 0 }}/>;
+  // Phone: every filter in one sideways-scrolling strip (chains as logos, tap again to clear), then sort and view on one line.
+  const toolbar = positions.length > 1 && (isMobile ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px' }}>
+        {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
+        {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
+        {chip(rangeFilter === 'out', `Out ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
+        {chainsPresent.length > 1 && divider('d-c')}
+        {chainsPresent.length > 1 && chainsPresent.map((c) => chip(chainFilter === c, <LpChainLogo chainId={c} chainName={LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`}/>, () => setChainFilter(chainFilter === c ? 'all' : c), `c-${c}`))}
+        {protosPresent.length > 1 && divider('d-p')}
+        {protosPresent.length > 1 && protosPresent.map((pr) => chip(protoFilter === pr, PROTOCOL_BADGE[pr].label, () => setProtoFilter(protoFilter === pr ? 'all' : pr), `p-${pr}`))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{sortAndView}</div>
+    </div>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
+        {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
+        {chip(rangeFilter === 'out', `Out of range ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
+        <div style={{ flex: 1 }}/>
+        {sortAndView}
       </div>
       {(chainsPresent.length > 1 || protosPresent.length > 1) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1231,10 +1303,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         </div>
       )}
     </div>
-  );
+  ));
 
   /** One line per position; a click opens the full card in place. */
-  const LIST_COLS = 'minmax(0, 2.5fr) minmax(120px, 1.3fr) 0.9fr 0.8fr 1fr 18px';
+  // Tablet drops the APR column (the expanded card still shows it) so the rest keeps one line each.
+  const LIST_COLS = tablet ? 'minmax(0, 2.3fr) minmax(100px, 1.1fr) 0.8fr 1.1fr 18px' : 'minmax(0, 2.5fr) minmax(120px, 1.3fr) 0.9fr 0.8fr 1fr 18px';
   const renderPositionRow = (p: LiquidityPosition, index: number) => {
     const key = posKey(p);
     const open = expanded === key;
@@ -1286,21 +1359,21 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 {autoByKey.has(key) && <span style={{ color: btb.green, fontWeight: 800 }}>Auto-rebalance{autoByKey.get(key)!.active ? '' : ', paused'}</span>}
                 {watched && <span title={fastAlerts ? 'Range alert, checked every 5 minutes' : 'Range alert, checked hourly'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: fastAlerts ? btb.green : btb.textMuted }}><span style={{ width: 5, height: 5, borderRadius: 999, background: 'currentColor' }}/>{fastAlerts ? 'Fast alert' : 'Alert'}</span>}
               </div>
-              {isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>{rangeBar(72)}<span style={{ color: tone, fontSize: 10.5, fontWeight: 750 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, ${side}` : ''}`}</span></div>}
+              {isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>{rangeBar(64)}<span style={{ color: tone, fontSize: 10.5, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : 'Out of range'}</span></div>}
             </div>
           </div>
           {!isMobile && (
             <div>
               {rangeBar('100%')}
-              <div style={{ color: tone, fontSize: 11, fontWeight: 750, marginTop: 6 }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, price ${side}` : ''}`}</div>
+              <div style={{ color: tone, fontSize: 11, fontWeight: 750, marginTop: 6, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side && !tablet ? `, price ${side}` : ''}`}</div>
             </div>
           )}
           {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.staked?.kind !== 'gauge' && (p.fees0 > 0n || p.fees1 > 0n)) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
-          {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label('fee APR')}</div>}
+          {!isMobile && !tablet && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label('fee APR')}</div>}
           <div style={{ textAlign: 'right' }}>
             <div style={{ color: btb.text, fontSize: isMobile ? 14.5 : 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
             {a && a.totalDepositValue > 0
-              ? <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 10.5, fontWeight: 750, marginTop: 3 }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
+              ? <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 10.5, fontWeight: 750, marginTop: 3, whiteSpace: 'nowrap' }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
               : isMobile ? <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 10.5, fontWeight: 750, marginTop: 3 }}>{f > 0 ? `${money(f)} fees` : apr > 0 ? `${apr.toFixed(1)}% APR` : 'no fees yet'}</div>
               : label('value')}
           </div>
@@ -1308,7 +1381,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: btb.textDim, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><path d="M6 9l6 6 6-6"/></svg>
           )}
         </div>
-        {open && <div style={{ padding: isMobile ? '0 8px 10px' : '0 12px 12px' }}>{renderPositionCard(p)}</div>}
+        {open && <div style={{ padding: isMobile ? '0 4px 8px' : '0 12px 12px' }}>{renderPositionCard(p)}</div>}
       </div>
     );
   };
@@ -1318,7 +1391,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       <style>{`.lp-row{transition:background .15s}.lp-row:hover,.lp-row[data-open]{background:rgba(var(--fg-rgb),0.035)}.lp-row:focus-visible{outline:2px solid rgba(var(--green-rgb),0.5);outline-offset:-2px}`}</style>
       {!isMobile && (
         <div style={{ display: 'grid', gridTemplateColumns: LIST_COLS, gap: 16, padding: '10px 18px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)', color: btb.textDim, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          <span>Position</span><span>Range</span><span style={{ textAlign: 'right' }}>Fees</span><span style={{ textAlign: 'right' }}>APR</span><span style={{ textAlign: 'right' }}>Value</span><span/>
+          <span>Position</span><span>Range</span><span style={{ textAlign: 'right' }}>Fees</span>{!tablet && <span style={{ textAlign: 'right' }}>APR</span>}<span style={{ textAlign: 'right' }}>Value</span><span/>
         </div>
       )}
       {visiblePositions.map(renderPositionRow)}
@@ -1436,17 +1509,17 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
       {feePositions.length > 0 && (
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-          padding: isMobile ? '12px 14px' : '14px 18px', borderRadius: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: isMobile ? 'nowrap' : 'wrap',
+          padding: isMobile ? '10px 12px' : '14px 18px', borderRadius: isMobile ? 14 : 16,
           background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.12), rgba(26,173,119,0.08))',
           border: '1px solid rgba(var(--green-rgb), 0.24)',
         }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ color: btb.green, fontSize: isMobile ? 16 : 18, fontWeight: 800, letterSpacing: -0.3 }}>
-              ${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} in fees to collect
+            <div style={{ color: btb.green, fontSize: isMobile ? 15 : 18, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
+              ${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} {isMobile ? 'in fees' : 'in fees to collect'}
             </div>
-            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
-              from {feePositions.length} position{feePositions.length === 1 ? '' : 's'}{feePositions.length > 1 ? ', one confirmation per chain' : ''}
+            <div style={{ color: btb.textMuted, fontSize: isMobile ? 11.5 : 12, marginTop: 2 }}>
+              from {feePositions.length} position{feePositions.length === 1 ? '' : 's'}{feePositions.length > 1 && !isMobile ? ', one confirmation per chain' : ''}
             </div>
           </div>
           <LpButton tone="green" solid icon="gift" label={collectingAll ? 'Collecting…' : feePositions.length === 1 ? 'Collect fees' : 'Collect all'} onClick={collectAll} disabled={collectingAll || !!busyId || !canTransact} />
@@ -1471,33 +1544,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
 
 
-      {closedHistory.length > 0 && (
-        <Glass padding={12} radius={14} soft>
-          <button onClick={() => setShowClosedHistory((open) => !open)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
-            <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Closed LP history ({closedHistory.length})</span>
-            <span style={{ color: btb.textMuted, fontSize: 11 }}>{showClosedHistory ? 'Hide' : 'Show'}</span>
-          </button>
-          {showClosedHistory && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
-              {closedHistory.slice(0, 20).map((item) => {
-                const symbols = [...new Set((item.feePending ?? []).map((amount) => amount.token?.symbol).filter(Boolean))];
-                const closed = item.closedTime ? new Date(item.closedTime * 1000).toLocaleDateString() : 'closed';
-                return (
-                  <div key={`${item.pool?.projectKey}-${item.tokenId}`} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr 0.8fr 0.7fr 0.7fr', gap: 10, alignItems: 'center', padding: '9px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.035)' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
-                      <div style={{ color: btb.textDim, fontSize: 9.5, marginTop: 2 }}>{item.pool?.project ?? 'LP'} · {closed}</div>
-                    </div>
-                    {!isMobile && <div style={{ color: btb.textMuted, fontSize: 11 }}>Deposited ${item.totalDepositValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
-                    {!isMobile && <div style={{ color: btb.textMuted, fontSize: 11 }}>Withdrew ${item.totalWithdrawValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
-                    <div style={{ textAlign: 'right', color: item.pnl >= 0 ? btb.green : btb.loss, fontSize: 12, fontWeight: 800 }}>{fmtSignedMoney(item.pnl)}<div style={{ fontSize: 9.5, marginTop: 1 }}>{fmtSignedPercent(item.returnOnInvestment)}</div></div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Glass>
-      )}
 
       {isMobile ? (
         // Card list — the 5-column table (with a 340px action column) can't
@@ -1586,6 +1632,34 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         </div>
       )}
 
+      {closedHistory.length > 0 && (
+        <Glass padding={12} radius={14} soft>
+          <button onClick={() => setShowClosedHistory((open) => !open)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: 'none', background: 'transparent', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+            <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Closed LP history ({closedHistory.length})</span>
+            <span style={{ color: btb.textMuted, fontSize: 11 }}>{showClosedHistory ? 'Hide' : 'Show'}</span>
+          </button>
+          {showClosedHistory && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+              {closedHistory.slice(0, 20).map((item) => {
+                const symbols = [...new Set((item.feePending ?? []).map((amount) => amount.token?.symbol).filter(Boolean))];
+                const closed = item.closedTime ? new Date(item.closedTime * 1000).toLocaleDateString() : 'closed';
+                return (
+                  <div key={`${item.pool?.projectKey}-${item.tokenId}`} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr auto' : '1.2fr 0.8fr 0.7fr 0.7fr', gap: 10, alignItems: 'center', padding: '9px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.035)' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ color: btb.text, fontSize: 12, fontWeight: 750, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{symbols.length ? symbols.join(' / ') : `Position #${item.tokenId}`}</div>
+                      <div style={{ color: btb.textDim, fontSize: 9.5, marginTop: 2 }}>{item.pool?.project ?? 'LP'} · {closed}</div>
+                    </div>
+                    {!isMobile && <div style={{ color: btb.textMuted, fontSize: 11 }}>Deposited ${item.totalDepositValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+                    {!isMobile && <div style={{ color: btb.textMuted, fontSize: 11 }}>Withdrew ${item.totalWithdrawValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>}
+                    <div style={{ textAlign: 'right', color: item.pnl >= 0 ? btb.green : btb.loss, fontSize: 12, fontWeight: 800 }}>{fmtSignedMoney(item.pnl)}<div style={{ fontSize: 9.5, marginTop: 1 }}>{fmtSignedPercent(item.returnOnInvestment)}</div></div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Glass>
+      )}
+
       {manage && connectedAddress && (
         <ManageSheet
           pos={manage.pos}
@@ -1640,6 +1714,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
   auto?: AutoJob;
   onClose: () => void; onDone: () => void | Promise<void>;
 }) {
+  useScrollLock(true);
   const { width: sidebarWidth } = useSidebar();
   const { track } = useTx();
   const config = useConfig();

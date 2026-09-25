@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { formatUnits, parseUnits, erc20Abi } from 'viem';
@@ -8,7 +8,7 @@ import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { TokenIcon } from './TokenIcon';
-import { btb } from './design-tokens';
+import { btb, MOBILE_GUTTER } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
@@ -33,6 +33,9 @@ import { fetchAerodromePoolsForMint } from '@/protocols/dexs/aerodrome';
 import { stakingSupported, stakeTargetForPool, buildStakeCalls } from '@/protocols/staking';
 import { v3DeploymentFor, v4DeploymentFor, wrappedNativeFor, lpSlippageBps, LP_CHAIN_NAMES, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SimulatorPage } from './simulator/SimulatorPage';
+import { RangePicker } from './RangePicker';
+import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
+import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import { CHAIN_DATA_NETWORKS } from '../lib/chainDataNetworks';
 import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
@@ -221,10 +224,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const [smartStrategy, setSmartStrategy] = useState<'balanced' | 'single'>('balanced');
   // The bar's scale is frozen for a drag gesture so the handles do not jump
   // while changing a bound causes the display domain to recalculate.
-  const rangeDrag = useRef<{
-    pointerId: number; target: 'low' | 'high' | 'band'; startX: number;
-    domainLow: number; domainHigh: number; low: number; high: number;
-  } | null>(null);
   // Pending balanced-fit swap (set by applySmartFit, executed by mintBalanced).
   const [swapPreview, setSwapPreview] = useState<
     { sellSide: 0 | 1; sellRaw: bigint; sym: string; otherSym: string; pct: number } | null
@@ -593,6 +592,35 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     });
   }, [pool, ticks, add0, add1, history, tokenUsd]);
 
+  // Liquidity depth for the range picker's histogram: read once per pool.
+  const [depth, setDepth] = useState<TickLiquidityPoint[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    setDepth(null);
+    const client = getPublicClient(config, { chainId });
+    if (!client || !pool || !pool.exists) return;
+    const read = isV4 && v4PoolId
+      ? fetchV4TickLiquidityDistribution(client, v4PoolId as `0x${string}`, pool.tick, pool.liquidity, spacing, v4Deployment.stateView)
+      : 'address' in pool && pool.address ? fetchTickLiquidityDistribution(client, pool.address as `0x${string}`, pool.tick, pool.liquidity, spacing) : null;
+    read?.then((d) => { if (live) setDepth(d); }).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pool?.exists, pool?.tick !== undefined && Math.round((pool?.tick ?? 0) / 50), chainId, spacing, v4PoolId]);
+  const depthDisplay = useMemo(() => {
+    if (!depth || !pool) return null;
+    return depth.map((d) => ({ price: dispPrice(tickToPrice(d.tick, pool.decimals0, pool.decimals1)), liquidity: d.liquidity }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depth, pool?.decimals0, pool?.decimals1, flip]);
+
+  // How many of the recent days the price sat inside the chosen range.
+  const inRangePct = useMemo(() => {
+    if (!pool || !pool.exists || !ticks || !history || history.length < 2) return null;
+    const lo = tickToPrice(ticks.tickLower, pool.decimals0, pool.decimals1), hi = tickToPrice(ticks.tickUpper, pool.decimals0, pool.decimals1);
+    const days = history.filter((d) => d.price0 > 0);
+    if (days.length === 0) return null;
+    return (days.filter((d) => d.price0 >= lo && d.price0 <= hi).length / days.length) * 100;
+  }, [pool, ticks, history]);
+
   // wallet balances of both tokens (+ native ETH)
   useEffect(() => {
     let live = true;
@@ -937,113 +965,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     outline: 'none', boxSizing: 'border-box',
   });
 
-  // +/- stepper button for the min/max price inputs.
-  const stepBtn: CSSProperties = {
-    flex: 1, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontSize: 15, fontWeight: 800, lineHeight: 1,
-    background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)', color: btb.textMuted,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
-  };
 
-  /** A compact, chart-free view of the selected price band and live price. */
-  function renderRangeBar() {
-    const low = parseFloat(minStr);
-    const high = parseFloat(maxStr);
-    const current = dispPrice(price);
-    if (!(current > 0)) {
-      return (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ color: btb.text, fontSize: 14, fontWeight: 750, marginBottom: 12 }}>Price range</div>
-          <div style={{ height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.12)' }} />
-          <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8 }}>Loading current price…</div>
-        </div>
-      );
-    }
-
-    // Preserve the broad scale for normal ranges, but zoom only when a tight
-    // selection would make the two handles difficult to grab.
-    const isFull = rangeMode === null;
-    const safeLow = isFull ? current / 100 : (isFinite(low) && low > 0 ? low : current / 100);
-    const safeHigh = isFull ? current * 100 : (isFinite(high) && high > safeLow ? high : current * 100);
-    const rangeLogWidth = Math.log(safeHigh / safeLow);
-    const contentLow = Math.min(Math.log(safeLow), Math.log(current));
-    const contentHigh = Math.max(Math.log(safeHigh), Math.log(current));
-    const normalPadding = Math.log(1.15);
-    const normalSpan = contentHigh - contentLow + normalPadding * 2;
-    const normalRangeShare = rangeLogWidth / normalSpan;
-    // Keep a tight selected band at ~28% of the track; ordinary ranges retain
-    // the original 15% context on each side.
-    const edgePadding = !isFull && normalRangeShare < 0.12
-      ? Math.max(0.001, (rangeLogWidth / 0.28 - (contentHigh - contentLow)) / 2)
-      : normalPadding;
-    const domainLow = Math.exp(contentLow - edgePadding);
-    const domainHigh = Math.exp(contentHigh + edgePadding);
-    const logSpan = Math.log(domainHigh / domainLow) || 1;
-    const pct = (value: number) => Math.max(0, Math.min(100, ((Math.log(value / domainLow) / logSpan) * 100)));
-    const left = pct(safeLow);
-    const right = pct(safeHigh);
-    const currentPct = pct(current);
-    const inRange = isFull || (current >= safeLow && current <= safeHigh);
-    const lowerDistance = (safeLow / current - 1) * 100;
-    const upperDistance = (safeHigh / current - 1) * 100;
-    const fmtDistance = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(value >= -1 && value <= 1 ? 2 : 1)}%`;
-    const setCustomRange = (nextLow: number, nextHigh: number) => {
-      setRangeMode('custom'); setSmartNote(null); setSwapPreview(null);
-      setMinStr(fmtPrice(nextLow)); setMaxStr(fmtPrice(nextHigh));
-    };
-    const beginDrag = (e: ReactPointerEvent<HTMLDivElement>, target: 'low' | 'high' | 'band') => {
-      e.preventDefault(); e.stopPropagation();
-      rangeDrag.current = {
-        pointerId: e.pointerId, target, startX: e.clientX,
-        domainLow, domainHigh, low: safeLow, high: safeHigh,
-      };
-      e.currentTarget.setPointerCapture(e.pointerId);
-    };
-    const moveDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
-      const drag = rangeDrag.current;
-      if (!drag || drag.pointerId !== e.pointerId) return;
-      const width = e.currentTarget.getBoundingClientRect().width;
-      if (width <= 0) return;
-      const logDomainLow = Math.log(drag.domainLow);
-      const logSpan = Math.log(drag.domainHigh / drag.domainLow);
-      const xToPrice = (x: number) => Math.exp(logDomainLow + Math.max(0, Math.min(1, x / width)) * logSpan);
-      const pointerPrice = xToPrice(e.clientX - e.currentTarget.getBoundingClientRect().left);
-      if (drag.target === 'low') {
-        setCustomRange(Math.min(pointerPrice, drag.high / 1.001), drag.high);
-      } else if (drag.target === 'high') {
-        setCustomRange(drag.low, Math.max(pointerPrice, drag.low * 1.001));
-      } else {
-        const shift = (e.clientX - drag.startX) / width * logSpan;
-        setCustomRange(Math.exp(Math.log(drag.low) + shift), Math.exp(Math.log(drag.high) + shift));
-      }
-    };
-    const endDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (rangeDrag.current?.pointerId === e.pointerId) rangeDrag.current = null;
-    };
-
-    return (
-      <div style={{ marginBottom: 22 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-          <span style={{ color: btb.text, fontSize: 14, fontWeight: 750 }}>Price range</span>
-          <span style={{ color: inRange ? btb.green : 'var(--btb-amber)', fontSize: 11, fontWeight: 700 }}>
-            {isFull ? 'Full range' : `Range ${fmtDistance(lowerDistance)} / ${fmtDistance(upperDistance)}`}
-          </span>
-        </div>
-        <div
-          onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}
-          style={{ position: 'relative', height: 32, display: 'flex', alignItems: 'center', touchAction: 'none' }}>
-          <div style={{ position: 'absolute', left: 0, right: 0, height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.12)' }} />
-          <div onPointerDown={(e) => beginDrag(e, 'band')} title="Drag to move range" style={{ position: 'absolute', left: `${left}%`, width: `${Math.max(1, right - left)}%`, height: 6, borderRadius: 999, background: btb.green, cursor: 'grab' }} />
-          <div onPointerDown={(e) => beginDrag(e, 'low')} aria-label="Lower price bound" style={{ position: 'absolute', left: `calc(${left}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
-          <div onPointerDown={(e) => beginDrag(e, 'high')} aria-label="Upper price bound" style={{ position: 'absolute', left: `calc(${right}% - 8px)`, width: 16, height: 16, borderRadius: 999, background: btb.bg, border: `2px solid ${btb.green}`, boxSizing: 'border-box', cursor: 'ew-resize' }} />
-          <div title="Current price" style={{ pointerEvents: 'none', position: 'absolute', left: `calc(${currentPct}% - 1px)`, top: 2, width: 2, height: 28, borderRadius: 2, background: btb.text }} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 6, color: btb.textMuted, fontSize: 12, fontWeight: 650 }}>
-          <span>{isFull ? '0' : `${fmtPrice(safeLow)} (${fmtDistance(lowerDistance)})`}</span>
-          <span>{isFull ? '∞' : `${fmtPrice(safeHigh)} (${fmtDistance(upperDistance)})`}</span>
-        </div>
-      </div>
-    );
-  }
 
   /** Swap to fit: one free input per token (either or both), then the swap and the deposit it leads to. */
   function renderFitInputs() {
@@ -1417,7 +1339,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   return (
     <Portal>
     <div onScroll={fitFormCol} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
+      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? `12px ${MOBILE_GUTTER}px 96px` : '16px 24px 88px' }}>
         {/* Compact single-row header: back chevron + title, pair/dex as an
             inline subtitle — keeps the tap-to-go-back affordance without the
             tall "Back to Discover" stack eating the top of small screens. */}
@@ -1522,57 +1444,30 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             {/* Desktop: the form column scrolls on its own and stays in view while the simulator scrolls. */}
             <div ref={formColRef} style={{ minWidth: 0, ...(isMobile ? {} : { position: 'sticky' as const, top: 0, maxHeight: formColMax, overflowY: 'auto' as const, paddingBottom: 12 }) }}>
             <div style={{
-              width: '100%', boxSizing: 'border-box', background: 'rgba(var(--fg-rgb), 0.025)',
-              border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
+              // Phone: no outer card, so the inputs and boxes get the whole screen width.
+              width: '100%', boxSizing: 'border-box', background: isMobile ? 'transparent' : 'rgba(var(--fg-rgb), 0.025)',
+              border: isMobile ? 'none' : '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 18, padding: isMobile ? '2px 0' : 22,
             }}>
-            {/* Current price + flip */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-              <span style={{ color: btb.textMuted, fontSize: 12 }}>
-                1 {qBase} = {dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })} {qQuote}
-              </span>
-              <button onClick={toggleFlip} title="Flip which token prices are quoted in" style={{
-                flexShrink: 0, height: 26, padding: '0 8px', borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 11, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.07)', border: '1px solid rgba(var(--fg-rgb), 0.14)', color: btb.textMuted,
-              }}>⇄ {qQuote}/{qBase}</button>
-            </div>
-            {renderRangeBar()}
-
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              {RANGE_PRESETS.map((r) => (
-                <button key={r.label} onClick={() => { setRangeMode(r.pct); setSmartNote(null); setSwapPreview(null); }} style={{
-                  flex: 1, height: 38, borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
-                  background: rangeMode === r.pct ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--fg-rgb), 0.05)',
-                  border: `1px solid ${rangeMode === r.pct ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
-                  color: rangeMode === r.pct ? 'var(--btb-green)' : btb.textMuted,
-                }}>{r.label}</button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 6 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Min price ({qQuote} per {qBase})</div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
-                  <input value={minStr} inputMode="decimal" placeholder="0"
-                    onChange={(e) => { setMinStr(e.target.value); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
-                    style={{ ...inputStyle(false), height: 44, fontSize: 15, flex: 1, minWidth: 0 }}/>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 30, flexShrink: 0 }}>
-                    <button onClick={() => nudgePrice('min', 1)} style={stepBtn}>+</button>
-                    <button onClick={() => nudgePrice('min', -1)} style={stepBtn}>−</button>
-                  </div>
-                </div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Max price ({qQuote} per {qBase})</div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
-                  <input value={maxStr} inputMode="decimal" placeholder="∞"
-                    onChange={(e) => { setMaxStr(e.target.value); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
-                    style={{ ...inputStyle(false), height: 44, fontSize: 15, flex: 1, minWidth: 0 }}/>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: 30, flexShrink: 0 }}>
-                    <button onClick={() => nudgePrice('max', 1)} style={stepBtn}>+</button>
-                    <button onClick={() => nudgePrice('max', -1)} style={stepBtn}>−</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <RangePicker
+              current={dispPrice(price)}
+              low={parseFloat(minStr)}
+              high={parseFloat(maxStr)}
+              isFull={rangeMode === null}
+              activePreset={typeof rangeMode === 'number' ? (RANGE_PRESETS.find((r) => r.pct === rangeMode)?.label ?? 'Custom') : rangeMode === null ? 'Full' : 'Custom'}
+              presets={RANGE_PRESETS}
+              onPreset={(pct) => { setRangeMode(pct); setSmartNote(null); setSwapPreview(null); }}
+              onRange={(lo, hi) => { setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); setMinStr(fmtPrice(lo)); setMaxStr(fmtPrice(hi)); }}
+              minStr={minStr}
+              maxStr={maxStr}
+              onMinStr={(v) => { setMinStr(v); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
+              onMaxStr={(v) => { setMaxStr(v); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
+              onNudge={nudgePrice}
+              depth={depthDisplay}
+              inRangePct={inRangePct}
+              inRangeDays={history?.length}
+              priceLabel={`1 ${qBase} = ${dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${qQuote}`}
+              onFlip={toggleFlip}
+            />
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
             {!simOnly && !splitRange && address && (

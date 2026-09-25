@@ -17,6 +17,7 @@ import { DexLogo } from '../DexLogo';
 import { Badge } from '../Badge';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
+import { PickerSheet } from '../PickerSheet';
 import { DiscoverStatusBanner } from '../DiscoverStatusBanner';
 import { ChainLogo } from '../ChainLogo';
 import { Glass } from '../Glass';
@@ -142,7 +143,8 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
   const filteredChains = chains.filter(chain => chain.name.toLowerCase().includes(query.trim().toLowerCase()));
 
   useEffect(() => {
-    if (!open) return;
+    // The phone sheet lives in a portal and closes itself; an outside-click check would eat taps on its options.
+    if (!open || mobile) return;
     const closeOutside = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -155,7 +157,32 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
       document.removeEventListener('mousedown', closeOutside);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [open]);
+  }, [open, mobile]);
+
+  const options = (
+    <>
+    {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: mobile ? 50 : 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+      <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
+        {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
+      </span>
+      <span style={{ flex: 1, textAlign: 'left', fontSize: mobile ? 14 : 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All chains</span>
+      {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
+    </button>}
+    {filteredChains.map(chain => {
+      const active = value === chain.name;
+      return (
+        <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: mobile ? 50 : 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <ChainMark name={chain.name} chainId={chain.chainId} size={23} src={chain.logo}/>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: mobile ? 14 : 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
+          {active && <Icon name="check" size={15} color={btb.green}/>}
+        </button>
+      );
+    })}
+    {filteredChains.length === 0 && (
+      <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No chains found</div>
+    )}
+    </>
+  );
 
   return (
     <div ref={rootRef} style={{ position: 'relative', flex: mobile ? 1 : '0 0 170px', minWidth: 0 }}>
@@ -197,7 +224,12 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left', fontSize: 12.5, fontWeight: 750 }}>{selected?.name ?? 'All chains'}</span>
         <Icon name="down" size={13} color={btb.textMuted}/>
       </button>
-      {open && (
+      {open && mobile && (
+        <PickerSheet title="Choose chain" query={query} onQuery={setQuery} placeholder="Search chains" onClose={() => setOpen(false)}>
+          {options}
+        </PickerSheet>
+      )}
+      {open && !mobile && (
         <div role="listbox" aria-label="Filter pools by chain" style={{ position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0, width: 230, maxWidth: 'min(230px, calc(100vw - 40px))', maxHeight: 380, overflowY: 'auto', padding: 7, borderRadius: 16, background: 'rgba(var(--bg-rgb), .98)', border: '1px solid rgba(var(--fg-rgb), .13)', boxShadow: '0 18px 50px rgba(0,0,0,.5)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
           <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
@@ -211,26 +243,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
               style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
             />
           </div>
-          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ width: 25, height: 23, position: 'relative', flexShrink: 0 }}>
-              {logoChains.map((chain, index) => <span key={chain.name} style={{ position: 'absolute', left: index * 8, top: 1 }}><ChainLogo chainId={chain.chainId} size={21}/></span>)}
-            </span>
-            <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All chains</span>
-            {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
-          </button>}
-          {filteredChains.map(chain => {
-            const active = value === chain.name;
-            return (
-              <button key={chain.name} type="button" role="option" aria-selected={active} onClick={() => { onChange(chain.name); setOpen(false); }} style={{ width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11, background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent', color: btb.text, fontFamily: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 9 }}>
-                <ChainMark name={chain.name} chainId={chain.chainId} size={23} src={chain.logo}/>
-                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
-                {active && <Icon name="check" size={15} color={btb.green}/>}
-              </button>
-            );
-          })}
-          {filteredChains.length === 0 && (
-            <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No chains found</div>
-          )}
+          {options}
         </div>
       )}
     </div>
@@ -253,7 +266,8 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
   const filteredDexes = dexes.filter(dex => dex.toLowerCase().includes(query.trim().toLowerCase()));
 
   useEffect(() => {
-    if (!open) return;
+    // The phone sheet lives in a portal and closes itself; an outside-click check would eat taps on its options.
+    if (!open || mobile) return;
     const closeOutside = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -266,7 +280,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
       document.removeEventListener('mousedown', closeOutside);
       document.removeEventListener('keydown', closeOnEscape);
     };
-  }, [open]);
+  }, [open, mobile]);
 
   const allLogos = (
     <span style={{ width: 37, height: 23, position: 'relative', flexShrink: 0 }}>
@@ -276,6 +290,39 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
         </span>
       ))}
     </span>
+  );
+
+  const options = (
+    <>
+    {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
+      width: '100%', height: mobile ? 50 : 42, padding: '0 9px', border: 'none', borderRadius: 11,
+      background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
+      color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
+      display: 'flex', alignItems: 'center', gap: 9,
+    }}>
+      {allLogos}
+      <span style={{ flex: 1, textAlign: 'left', fontSize: mobile ? 14 : 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All DEXs</span>
+      {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
+    </button>}
+    {filteredDexes.map(dex => {
+      const active = value === dex;
+      return (
+        <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
+          width: '100%', height: mobile ? 50 : 42, padding: '0 9px', border: 'none', borderRadius: 11,
+          background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
+          color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 9,
+        }}>
+          <DexLogo name={dex} size={23} src={logos.get(dex)}/>
+          <span style={{ flex: 1, textAlign: 'left', fontSize: mobile ? 14 : 12.5, fontWeight: active ? 800 : 650 }}>{dex}</span>
+          {active && <Icon name="check" size={15} color={btb.green}/>}
+        </button>
+      );
+    })}
+    {filteredDexes.length === 0 && (
+      <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No DEXs found</div>
+    )}
+    </>
   );
 
   return (
@@ -302,7 +349,12 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
         </span>
         <Icon name="down" size={13} color={btb.textMuted}/>
       </button>
-      {open && (
+      {open && mobile && (
+        <PickerSheet title="Choose DEX" query={query} onQuery={setQuery} placeholder="Search DEXs" onClose={() => setOpen(false)}>
+          {options}
+        </PickerSheet>
+      )}
+      {open && !mobile && (
         <div role="listbox" aria-label="Filter pools by DEX" style={{
           position: 'absolute', zIndex: 80, top: 'calc(100% + 8px)', right: 0,
           width: 210, maxWidth: 'min(210px, calc(100vw - 40px))', maxHeight: 360,
@@ -323,34 +375,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
               style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, font: 'inherit', fontSize: 12.5 }}
             />
           </div>
-          {!query && <button type="button" role="option" aria-selected={value === 'all'} onClick={() => { onChange('all'); setOpen(false); }} style={{
-            width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
-            background: value === 'all' ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
-            color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 9,
-          }}>
-            {allLogos}
-            <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: value === 'all' ? 800 : 650 }}>All DEXs</span>
-            {value === 'all' && <Icon name="check" size={15} color={btb.green}/>}
-          </button>}
-          {filteredDexes.map(dex => {
-            const active = value === dex;
-            return (
-              <button key={dex} type="button" role="option" aria-selected={active} onClick={() => { onChange(dex); setOpen(false); }} style={{
-                width: '100%', height: 42, padding: '0 9px', border: 'none', borderRadius: 11,
-                background: active ? 'rgba(var(--fg-rgb), .1)' : 'transparent',
-                color: btb.text, fontFamily: 'inherit', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: 9,
-              }}>
-                <DexLogo name={dex} size={23} src={logos.get(dex)}/>
-                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{dex}</span>
-                {active && <Icon name="check" size={15} color={btb.green}/>}
-              </button>
-            );
-          })}
-          {filteredDexes.length === 0 && (
-            <div style={{ padding: '18px 10px', color: btb.textMuted, fontSize: 12.5, textAlign: 'center' }}>No DEXs found</div>
-          )}
+          {options}
         </div>
       )}
     </div>

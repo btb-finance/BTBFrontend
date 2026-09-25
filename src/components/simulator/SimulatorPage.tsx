@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isLpChain, v3DeploymentFor, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { Portal } from '../Portal';
 import { Icon } from '../Icon';
-import { btb } from '../design-tokens';
+import { btb, MOBILE_GUTTER } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
 import { LiquidityDepthChart } from '../LiquidityDepthChart';
 import { useSidebar } from '../../lib/SidebarContext';
@@ -327,7 +327,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   return (
     <Portal>
       <div style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto', padding: isMobile ? '14px 14px 96px' : '18px 24px 24px' }}>
+        <div style={{ maxWidth: 860, margin: '0 auto', padding: isMobile ? `14px ${MOBILE_GUTTER}px 96px` : '18px 24px 24px' }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
             <div onClick={onClose} title="Back to pool comparison" style={{

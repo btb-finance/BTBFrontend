@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useScrollLock } from '../lib/useScrollLock';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { useAction, useQuery } from 'convex/react';
@@ -53,6 +54,7 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
+  useScrollLock(true);
   const { width: sidebarWidth } = useSidebar();
   const config = useConfig();
   const { track } = useTx();

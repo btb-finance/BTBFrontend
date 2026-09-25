@@ -305,35 +305,35 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '0 4px' }}>
-        <div>
-          <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>{address ? 'Your week' : 'Get paid every Friday'}</div>
+      {/* ── header: only for visitors; a connected wallet goes straight to its balance card ── */}
+      {!address && (
+        <div style={{ padding: '0 4px' }}>
+          <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Get paid every Friday</div>
           <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
             {status ? `Week ${status.epochId} · settles in ${countdown(endsIn)}` : 'Settles Friday 00:00 UTC'}
           </div>
         </div>
-        {address && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: btb.surface, border: btb.border, borderRadius: 999, padding: '6px 12px', color: btb.text, fontSize: 12, fontWeight: 700 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: btb.green }}/>
-            {address.slice(0, 4)}…{address.slice(-4)}
-          </span>
-        )}
-      </div>
+      )}
 
       {/* ── BTB balance and top up, first thing on the page ── */}
       {address && (
-        <div style={{ borderRadius: 18, padding: '12px 14px', border: '1px solid rgba(var(--green-rgb), 0.25)', background: 'rgba(var(--green-rgb), 0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: 150 }}>
-            <div style={LABEL_STYLE}>BTB balance</div>
-            <div style={{ color: btb.text, fontSize: 20, fontWeight: 800, letterSpacing: -0.4, marginTop: 2 }}>{fmtBtb(credit.total)} BTB</div>
-            <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 1 }}>
-              {credit.rewards > 0 ? `incl. ${fmtBtb(credit.rewards)} unclaimed rewards · ` : ''}pays for auto-rebalance, alerts and the agent · {fmtBtb(walletBtb)} BTB in your wallet
+        <div style={{
+          borderRadius: 20, padding: isMobile ? '14px 14px 12px' : '16px 18px', border: '1px solid rgba(var(--green-rgb), 0.22)',
+          background: 'radial-gradient(110% 140% at 100% 0%, rgba(var(--green-rgb), 0.16), transparent 60%), rgba(var(--fg-rgb), 0.03)',
+          display: 'flex', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 16,
+        }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ color: btb.text, fontSize: isMobile ? 28 : 30, fontWeight: 800, letterSpacing: -0.8, lineHeight: 1 }}>{fmtBtb(credit.total)}</span>
+              <span style={{ color: btb.green, fontSize: 14, fontWeight: 800 }}>BTB</span>
+            </div>
+            <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 6 }}>
+              Pays for auto-rebalance, alerts and the agent{credit.rewards > 0 ? `, incl. ${fmtBtb(credit.rewards)} from rewards` : ''}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 32, padding: '0 14px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.5)', background: btb.green, color: '#000', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Top up</button>
-            <button type="button" onClick={onSwap} style={{ height: 32, padding: '0 14px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Get BTB</button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: isMobile ? '100%' : 240, flexShrink: 0 }}>
+            <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 40, borderRadius: 12, border: 'none', background: btb.green, color: '#000', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Top up</button>
+            <button type="button" onClick={onSwap} style={{ height: 40, borderRadius: 12, border: '1px solid rgba(var(--fg-rgb), 0.14)', background: 'rgba(var(--fg-rgb), 0.05)', color: btb.text, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>Get BTB</button>
           </div>
           {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
         </div>
