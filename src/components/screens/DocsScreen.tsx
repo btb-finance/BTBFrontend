@@ -189,7 +189,7 @@ function Block({ b }: { b: DocBlock }) {
         {b.head && <thead><tr>{b.head.map(h => <th key={h} style={{ textAlign: 'left', padding: '10px 12px', color: btb.textDim, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4, borderBottom: btb.borderSoft }}>{h}</th>)}</tr></thead>}
         <tbody>
           {b.rows!.map((r, i) => (
-            <tr key={i}>{r.map((c, j) => <td key={j} style={{ padding: '10px 12px', verticalAlign: 'top', color: j === 0 ? btb.text : btb.textMuted, fontWeight: j === 0 ? 700 : 500, borderBottom: i < b.rows!.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.05)' : undefined, lineHeight: 1.5 }}>{c}</td>)}</tr>
+            <tr key={i}>{r.map((c, j) => <td key={j} style={{ padding: '10px 12px', verticalAlign: 'top', color: j === 0 ? btb.text : btb.textMuted, fontWeight: j === 0 ? 700 : 500, borderBottom: i < b.rows!.length - 1 ? '1px solid rgba(var(--fg-rgb), 0.05)' : undefined, lineHeight: 1.5, ...(/^0x[0-9a-fA-F]{40}$/.test(c) ? { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5, wordBreak: 'break-all' as const, userSelect: 'all' as const } : {}) }}>{c}</td>)}</tr>
           ))}
         </tbody>
       </table>
