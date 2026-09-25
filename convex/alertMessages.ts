@@ -25,7 +25,7 @@ function signedAt(ms: number): string {
  * signing is not a transaction. Signed by the client and rebuilt byte for
  * byte by the server to verify.
  */
-export function alertAuthMessage(wallet: string, action: string, issuedAt: number): string {
+export function alertAuthMessage(wallet: string, action: string, issuedAt: number, nonce?: string): string {
   return [
     'BTB Finance',
     '',
@@ -35,7 +35,15 @@ export function alertAuthMessage(wallet: string, action: string, issuedAt: numbe
     '',
     `Wallet: ${wallet.toLowerCase()}`,
     `Signed: ${signedAt(issuedAt)}`,
+    // A login's one-time code: the hash of a secret only the signing device holds (see sessionActions).
+    ...(nonce ? [`Code: ${nonce}`] : []),
   ].join('\n');
+}
+
+/** The login code for a device secret: SHA-256, hex. Shown in the signed text; the secret itself never is. */
+export async function loginNonce(secret: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export const FAST_ON_ACTION = [

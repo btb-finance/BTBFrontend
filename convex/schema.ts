@@ -63,7 +63,8 @@ export default defineSchema({
     address: v.string(),        // lowercase
     expiresAt: v.float64(),
     createdAt: v.float64(),
-  }).index("by_token", ["token"]).index("by_address", ["address"]),
+    nonce: v.optional(v.string()), // the login code, so each signed login opens one session only
+  }).index("by_token", ["token"]).index("by_address", ["address"]).index("by_nonce", ["nonce"]),
 
   // Every credit ever made. `ref` is the deposit tx hash, or `payout:<id>`
   // for weekly rewards moved in; the unique lookup is what stops a pasted

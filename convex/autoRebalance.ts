@@ -161,6 +161,19 @@ export const setCompound = mutation({
 });
 
 /** A compound landed on-chain: charge for it. */
+/**
+ * The checker found the position staked (or back in the wallet) on chain and records it. Used when the page could
+ * not report the stake itself, as with a Safe whose co-owners sign later. Only called after an on-chain check.
+ */
+export const learnGauge = internalMutation({
+  args: { id: v.id("autoRebalances"), gauge: v.union(v.string(), v.null()) },
+  handler: async (ctx, a) => {
+    const row = await ctx.db.get(a.id);
+    if (!row) return;
+    await ctx.db.patch(a.id, { gauge: a.gauge?.toLowerCase() ?? undefined, updatedAt: Date.now() });
+  },
+});
+
 export const recordCompound = internalMutation({
   args: { id: v.id("autoRebalances") },
   handler: async (ctx, { id }) => {

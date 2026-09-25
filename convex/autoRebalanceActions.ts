@@ -249,6 +249,7 @@ async function execute(
 }
 
 const ERC20_ABI = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+const TARGET_ABI = parseAbi(["function isTarget(address) view returns (bool)"]);
 const REGISTRY_ABI = parseAbi(["function isListedPool(address) view returns (bool)", "function oracleFor(address, address) view returns (address)"]);
 const SLIP_FACTORY_ABI = parseAbi(["function getPool(address,address,int24) view returns (address)"]);
 const UNI_FACTORY_ABI = parseAbi(["function getPool(address,address,uint24) view returns (address)"]);
@@ -492,6 +493,36 @@ async function push(ctx: ActionCtx, address: string, label: string, kind: string
  * through the owner's V6 wallet (unstaking and restaking when it was staked).
  * Always leaves the row scheduled for its next check, or paused with a reason.
  */
+/**
+ * Bring a job in line with the chain after the owner staked, unstaked or took the position out. Needs no sign-in:
+ * it only records what the chain already shows (the NFT in the auto wallet, staked by it in a gauge our registry
+ * trusts, or gone), so no one can use it to change a job, only to refresh it. Replaces the signed follow-ups that a
+ * Safe could not finish until its co-owners signed.
+ */
+export const syncJob = action({
+  args: { id: v.id("autoRebalances") },
+  handler: async (ctx, { id }): Promise<{ ok: boolean; state?: "held" | "staked" | "gone" }> => {
+    const job = await ctx.runQuery(internal.autoRebalance.get, { id });
+    const client = job ? getChainClient(job.chainId) : null;
+    if (!job || !client || job.status === "stopped") return { ok: false };
+    const wallet = job.wallet.toLowerCase();
+    const tokenId = BigInt(job.tokenId);
+    const holder = (await client.readContract({ address: job.positionManager as `0x${string}`, abi: NFT_ABI, functionName: "ownerOf", args: [tokenId] }).catch(() => null))?.toLowerCase();
+    if (!holder) return { ok: false };
+    if (holder === wallet) {
+      if (job.gauge) await ctx.runMutation(internal.autoRebalance.learnGauge, { id, gauge: null });
+      return { ok: true, state: "held" };
+    }
+    const trusted = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: TARGET_ABI, functionName: "isTarget", args: [holder as `0x${string}`] }).catch(() => false);
+    if (trusted && await stakedIn(client, job.chainId, job.positionManager, holder, holder, wallet, tokenId).catch(() => false)) {
+      if (job.gauge?.toLowerCase() !== holder) await ctx.runMutation(internal.autoRebalance.learnGauge, { id, gauge: holder });
+      return { ok: true, state: "staked" };
+    }
+    await ctx.runMutation(internal.autoRebalance.markGone, { id, note: "Taken out of the auto wallet." });
+    return { ok: true, state: "gone" };
+  },
+});
+
 export const check = internalAction({
   args: { id: v.id("autoRebalances"), gen: v.float64(), retry: v.optional(v.boolean()) },
   handler: async (ctx, { id, gen, retry }) => {
@@ -512,7 +543,21 @@ export const check = internalAction({
       const holder = (await client.readContract({ address: pm, abi: NFT_ABI, functionName: "ownerOf", args: [tokenId] })).toLowerCase();
       if (holder !== wallet.toLowerCase()) {
         staked = !!job.gauge && await stakedIn(client, job.chainId, pm, job.gauge, holder, wallet, tokenId);
+        // Staked in a gauge the job does not know about yet (the page could not report it, e.g. a Safe that signed
+        // later): believe the chain, but only for a gauge our registry trusts, the same check the adapter makes.
+        if (!staked && holder !== job.gauge?.toLowerCase()) {
+          const trusted = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: TARGET_ABI, functionName: "isTarget", args: [holder as `0x${string}`] }).catch(() => false);
+          if (trusted && await stakedIn(client, job.chainId, pm, holder, holder, wallet, tokenId).catch(() => false)) {
+            await ctx.runMutation(internal.autoRebalance.learnGauge, { id, gauge: holder });
+            job.gauge = holder;
+            staked = true;
+          }
+        }
         if (!staked) { await ctx.runMutation(internal.autoRebalance.markGone, { id, note: "The position left the auto wallet." }); return; }
+      } else if (job.gauge) {
+        // Unstaked outside the app: the NFT is back in the wallet, so forget the gauge.
+        await ctx.runMutation(internal.autoRebalance.learnGauge, { id, gauge: null });
+        job.gauge = undefined;
       }
     } catch (e) {
       if (revertName(e) != null || (e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError))) {

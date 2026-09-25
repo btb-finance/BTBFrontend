@@ -4,7 +4,7 @@ import { useAction } from 'convex/react';
 import { useChainId, useSignMessage } from 'wagmi';
 import { hashMessage, hashTypedData } from 'viem';
 import { api } from '../../convex/_generated/api';
-import { alertAuthMessage, SESSION_ACTION } from '../../convex/alertMessages';
+import { alertAuthMessage, loginNonce, SESSION_ACTION } from '../../convex/alertMessages';
 
 type Stored = { token: string; expiresAt: number };
 const keyOf = (address: string) => `btb.session.${address.toLowerCase()}`;
@@ -76,22 +76,24 @@ export function useWalletSession(address?: string) {
     const have = read(address);
     if (have) return have.token;
     // A Safe message already waiting on co-owners: resume it rather than creating a second one.
-    let pending: { issuedAt: number; chainId: number } | null = null;
+    let pending: { issuedAt: number; chainId: number; secret?: string } | null = null;
     try { pending = JSON.parse(localStorage.getItem(pendingKeyOf(address)) ?? 'null'); } catch { /* ignore */ }
-    if (pending && (pending.chainId !== chainId || Date.now() - pending.issuedAt > 24 * 3600_000)) pending = null;
+    if (pending && (pending.chainId !== chainId || !pending.secret || Date.now() - pending.issuedAt > 24 * 3600_000)) pending = null;
 
     const issuedAt = pending?.issuedAt ?? Date.now();
-    const message = alertAuthMessage(address, SESSION_ACTION, issuedAt);
+    // This device's login secret: never sent until the signature is done, and only its hash is in the signed text.
+    const secret = pending?.secret ?? Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('');
+    const message = alertAuthMessage(address, SESSION_ACTION, issuedAt, await loginNonce(secret));
     let signature: string = pending ? '0x' : await signMessageAsync({ message });
     if (!signature || signature === '0x') {
-      try { localStorage.setItem(pendingKeyOf(address), JSON.stringify({ issuedAt, chainId })); } catch { /* ignore */ }
+      try { localStorage.setItem(pendingKeyOf(address), JSON.stringify({ issuedAt, chainId, secret })); } catch { /* ignore */ }
       setWaitingForSafe(true);
       const full = await waitForSafeSignature(address as `0x${string}`, chainId, message).finally(() => setWaitingForSafe(false));
       if (!full) throw new Error('Waiting for the other Safe owners to sign. Once they have, try again; no new signature is needed.');
       signature = full;
     }
     try { localStorage.removeItem(pendingKeyOf(address)); } catch { /* ignore */ }
-    const res = await start({ address, issuedAt, signature, chainId });
+    const res = await start({ address, issuedAt, signature, chainId, secret });
     if (!res.ok) throw new Error(res.reason);
     const s = { token: res.token, expiresAt: res.expiresAt };
     try { localStorage.setItem(keyOf(address), JSON.stringify(s)); } catch { /* private mode: lasts this page */ }

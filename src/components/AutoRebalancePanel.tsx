@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { encodeFunctionData, parseAbi, type PublicClient } from 'viem';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
@@ -148,8 +148,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
   const session = useWalletSession(address);
   const changeInterval = useMutation(api.autoRebalance.changeInterval);
   const setActive = useMutation(api.autoRebalance.setActive);
-  const stop = useMutation(api.autoRebalance.stop);
-  const setGauge = useMutation(api.autoRebalance.setGauge);
+  const syncJob = useAction(api.autoRebalanceActions.syncJob);
   const setCompound = useMutation(api.autoRebalance.setCompound);
   const isStaked = !!pos?.staked || !!job.gauge;
   // Giga's farm pays GIGA (sold through USDG); gauges pay the chain's reward token.
@@ -236,7 +235,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
     try {
       if (out) {
         setBusy(null);
-        await withSession('Stopping', (t) => stop({ sessionToken: t, id }));
+        await syncJob({ id }).catch(() => null);
         await onChanged?.();
       }
       if (failure) setErr(out
@@ -259,7 +258,8 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
           walletGaugeCall(job.wallet, kind, target, job.tokenId, stakeAdapterFor(job.chainId, job.positionManager)),
         ]);
       setBusy(null);
-      if (kind !== 'claim') await withSession('Saving', (t) => setGauge({ sessionToken: t, id, gauge: kind === 'stake' ? target : null }));
+      // The server reads the stake from the chain: no sign-in, so a Safe does not need a second multisig message.
+      if (kind !== 'claim') await syncJob({ id }).catch(() => null);
       await onChanged?.();
     } catch (e) { setErr(readableError(e, 'That did not go through.')); }
     finally { setBusy(null); }

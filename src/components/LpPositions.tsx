@@ -319,7 +319,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           // Only while the auto wallet still holds it, directly or staked in its gauge or farm; a position the owner
           // took out shows as their own again, not as a stale auto row.
           const holder = (await client.readContract({ address: j.positionManager as `0x${string}`, abi: AUTO_OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(j.tokenId)] }).catch(() => null))?.toLowerCase();
-          if (holder && holder !== j.wallet.toLowerCase() && holder !== j.gauge?.toLowerCase()) {
+          // A gauge the job has not recorded yet (a Safe's stake lands after its co-owners sign) still counts when
+          // that holder says the auto wallet staked it. Display only; the checker verifies it against the registry.
+          const stakedByWallet = !!holder && holder !== j.wallet.toLowerCase() && holder !== j.gauge?.toLowerCase()
+            && await client.readContract({ address: holder as `0x${string}`, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false);
+          if (holder && holder !== j.wallet.toLowerCase() && holder !== j.gauge?.toLowerCase() && !stakedByWallet) {
             if (live) { setAutoLeft((prev) => new Set(prev).add(keyOf(j))); setAutoPositions((prev) => prev.filter((x) => posKey(x) !== keyOf(j))); }
             return;
           }

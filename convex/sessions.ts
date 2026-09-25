@@ -15,12 +15,15 @@ export const walletFor = internalQuery({
 
 /** Written by the signed startSession action only. Old sessions for the wallet are pruned. */
 export const create = internalMutation({
-  args: { token: v.string(), address: v.string(), expiresAt: v.float64() },
-  handler: async (ctx, { token, address, expiresAt }) => {
+  args: { token: v.string(), address: v.string(), expiresAt: v.float64(), nonce: v.optional(v.string()) },
+  handler: async (ctx, { token, address, expiresAt, nonce }): Promise<boolean> => {
     const a = address.toLowerCase();
     const now = Date.now();
+    // A signed login is good for one session: a copied signature (a Safe's is public) cannot open another.
+    if (nonce && await ctx.db.query("sessions").withIndex("by_nonce", (q) => q.eq("nonce", nonce)).first()) return false;
     const old = await ctx.db.query("sessions").withIndex("by_address", (q) => q.eq("address", a)).collect();
     for (const r of old) if (r.expiresAt <= now) await ctx.db.delete(r._id);
-    await ctx.db.insert("sessions", { token, address: a, expiresAt, createdAt: now });
+    await ctx.db.insert("sessions", { token, address: a, expiresAt, createdAt: now, ...(nonce ? { nonce } : {}) });
+    return true;
   },
 });
