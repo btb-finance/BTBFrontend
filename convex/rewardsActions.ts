@@ -39,13 +39,9 @@ const OPOS_ABI = [
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
-/**
- * The treasury signer. Defaults to the shared agent key but reads
- * REWARDS_PRIVATE_KEY first, so the fee-receiver wallet can be isolated from
- * the trading agent without touching anything else.
- */
+/** The treasury signer (REWARDS_PRIVATE_KEY), kept apart from every agent key. */
 function treasuryAccount() {
-  const raw = process.env.REWARDS_PRIVATE_KEY || process.env.AGENT_PRIVATE_KEY || "";
+  const raw = process.env.REWARDS_PRIVATE_KEY || "";
   const key = (raw.startsWith("0x") ? raw : `0x${raw}`) as Hex;
   if (!/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error("Rewards treasury key is not configured");
   return privateKeyToAccount(key);

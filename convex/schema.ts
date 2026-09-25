@@ -190,25 +190,11 @@ export default defineSchema({
     updatedAt: v.float64(),
   }).index("by_key", ["key"]),
 
-  // Robinhood market feed, refreshed once server-side and read by every
-  // Dashboard visitor without repeating the explorer/DexScreener scan.
-  marketSnapshots: defineTable({
-    json: v.string(),
-    updatedAt: v.float64(),
-  }),
 
   // ── Shared server-computed caches ─────────────────────────────────────────
   // Two generic stores replace the "one bespoke table per dataset" pattern
   // (discoverPools/marketSnapshots above predate them and are left in place).
 
-  // No longer read or written (the bear-stats refresher and its reader were
-  // removed). Kept only because the table still holds rows; drop it once they
-  // are cleared in the dashboard.
-  snapshots: defineTable({
-    key: v.string(),
-    json: v.string(),
-    updatedAt: v.float64(),
-  }).index("by_key", ["key"]),
 
   // On-demand memo cache for data keyed by user input (a pool address, a token
   // pair) — too many combinations to precompute, but identical across everyone
@@ -344,18 +330,6 @@ export default defineSchema({
     .index("by_epoch", ["epochId"])
     .index("by_wallet", ["walletAddress"]),
 
-  // DeFi activity feed — append only, one row per on-chain event
-  userActivity: defineTable({
-    walletAddress: v.string(),
-    protocol: v.string(),              // "uniswap" | "aave" | "curve" | "btb" | …
-    action: v.string(),                // "swap" | "supply" | "borrow" | "stake" | "transfer"
-    tokenIn: v.optional(v.string()),   // token address
-    tokenOut: v.optional(v.string()),
-    valueUsd: v.optional(v.float64()),
-    txHash: v.optional(v.string()),
-    timestamp: v.float64(),
-  }).index("by_wallet", ["walletAddress"])
-    .index("by_wallet_time", ["walletAddress", "timestamp"]),
 
   // Latest token balance snapshot per user (upserted on each portfolio refresh)
   userTokenBalances: defineTable({
@@ -373,24 +347,6 @@ export default defineSchema({
     .index("by_wallet_token", ["walletAddress", "tokenAddress"]),
 
 
-  // Durable audit/worker queue. Only the on-chain monitor creates jobs.
-  rebalanceJobs: defineTable({
-    positionKey: v.string(),
-    chainId: v.float64(),
-    account: v.string(),
-    positionManager: v.string(),
-    positionId: v.string(),
-    state: v.string(),
-    requestedAt: v.float64(),
-    updatedAt: v.float64(),
-    attempts: v.float64(),
-    nextAttemptAt: v.optional(v.float64()),
-    newPositionId: v.optional(v.string()),
-    txHash: v.optional(v.string()),
-    signedTransaction: v.optional(v.string()),
-    error: v.optional(v.string()),
-  }).index("by_position", ["positionKey"])
-    .index("by_state", ["state"]),
 
 
   // ── Shared pool-fact cache (server-written only) ───────────────────────────
