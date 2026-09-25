@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { buildMetadata } from '@/lib/seo/metadata';
 import { SITE } from '@/lib/seo/config';
-import { COMPETITORS, OTHER_FREE_TOOLS, competitorBySlug } from '@/lib/seo/competitors';
+import { AUTOMATION_EXAMPLE, COMPETITORS, OTHER_FREE_TOOLS, competitorBySlug } from '@/lib/seo/competitors';
 import { VsShell, styles } from '../shell';
 
 export function generateStaticParams() {
@@ -15,11 +15,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const c = competitorBySlug(slug);
   if (!c) return {};
-  const title = `${c.name} alternative: free LP simulator that pays you`;
-  const description = `${c.name} charges ${c.pricing.find((p) => p.price !== '$0')?.price ?? 'for its tools'}. BTB Finance gives you the LP simulator, pool discovery and full position management free, and shares its revenue with users every Friday.`;
+  const title = c.automation ? `${c.name} alternative: LP auto-rebalance without the cut` : `${c.name} alternative: free LP simulator that pays you`;
+  const description = c.automation
+    ? `${c.name} takes ${c.automation.cut}. BTB Finance auto-rebalances LPs from your own wallet for a flat $0.10 per rebalance on Base ($0.50 on Robinhood Chain), never a share of your earnings, and pays its revenue back every Friday.`
+    : `${c.name} charges ${c.pricing.find((p) => p.price !== '$0')?.price ?? 'for its tools'}. BTB Finance gives you the LP simulator, pool discovery and full position management free, and shares its revenue with users every Friday.`;
   return buildMetadata({
     title, description, path: `/${c.slug}-alternative`,
-    keywords: [`${c.name} alternative`, `${c.name} pricing`, `${c.name} free`, `${c.name} vs BTB Finance`, `free ${c.name}`],
+    keywords: [`${c.name} alternative`, `${c.name} pricing`, `${c.name} fees`, `${c.name} vs BTB Finance`, c.automation ? 'LP auto-rebalance' : `free ${c.name}`, ...(c.automation ? ['concentrated liquidity automation', 'auto-compound LP'] : [])],
   });
 }
 
@@ -28,9 +30,17 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
   const c = competitorBySlug(slug);
   if (!c) notFound();
   const paid = c.pricing.filter((p) => p.price !== '$0');
+  const ex = AUTOMATION_EXAMPLE;
+  const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: n < 100 ? 2 : 0 })}`;
   const faq = [
-    { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB earns on swaps routed through the app and pays that revenue back to users every Friday.` },
-    { q: `How much does ${c.name} cost?`, a: `${c.name} lists ${paid.map((p) => `${p.plan} at ${p.price}`).join(' and ')} (checked ${c.checkedOn}).` },
+    c.automation
+      ? { q: `Is BTB Finance a cheaper alternative to ${c.name}?`, a: `Yes. ${c.name} takes ${c.automation.cut}. BTB auto-rebalances for a flat $0.10 per rebalance on Base and $0.50 on Robinhood Chain, whatever the position size, plus 1 BTB per check, and never takes a share of your fees. Your first 10 rebalances or compounds are free.` }
+      : { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB earns on swaps routed through the app and pays that revenue back to users every Friday.` },
+    { q: `How much does ${c.name} cost?`, a: `${c.name} lists ${paid.map((p) => `${p.plan} at ${p.price}`).join(', ')} (checked ${c.checkedOn}).` },
+    ...(c.automation ? [
+      { q: 'Who holds my funds with BTB auto-rebalance?', a: 'You do. Each position moves into your own auto wallet, a smart contract only you control. The BTB agent can rebalance, compound and stake it inside the rules you set, but it can never withdraw anything; only you can, and everything goes back to your own address.' },
+      { q: `What would ${c.name} cost me compared with BTB?`, a: `On a ${money(ex.position)} position earning ${money(ex.feesPerYear)} a year in fees, rebalanced ${ex.rebalances} times: about ${money(c.automation.exampleUsd)} a year on ${c.name} (${c.automation.exampleMath}) against about ${money(ex.btbUsd)} on BTB (${ex.btbMath}). The gap grows with the position, because BTB's fee is flat.` },
+    ] : []),
     { q: `Which DEXes does BTB Finance support for LP management?`, a: `Uniswap V3 and V4, PancakeSwap V3, SushiSwap V3, Aerodrome Slipstream, Giga, Ramses and UP, across Ethereum, Base, BNB Chain and Robinhood Chain, including gauge and MasterChef staking where the DEX offers it.` },
     { q: `What is the best free alternative to ${c.name}?`, a: `For simulating a concentrated range and then opening it, BTB Finance: it is free, covers Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome and the Robinhood Chain DEXes, and adds the position from the same screen. Revert Finance is a good free choice for analytics on existing Uniswap V3 positions; DefiLlama is the widest free yield table but does not simulate ranges.` },
     { q: `How does the revenue share work?`, a: `Every simulation, check-in, swap and position earns points during the week. On Friday the week's revenue is split across everyone's points and paid out in BTB. There is nothing to buy and nothing to stake.` },
@@ -54,10 +64,21 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
     <VsShell>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <p style={styles.eyebrow}>{c.name} alternative</p>
-      <h1 style={styles.h1}>Why pay {c.name} {c.yearlyUsd > 0 ? `$${c.yearlyUsd} a year` : 'a cut of your position'} for LP tools? BTB is free and pays you.</h1>
-      <p style={styles.lead}>
-        {c.name} is {c.what.charAt(0).toLowerCase() + c.what.slice(1)} BTB Finance does the same job, adds one-tap position management on every supported DEX, charges nothing for any of it, and pays its revenue back to the people who use it every Friday.
-      </p>
+      {c.automation ? (
+        <>
+          <h1 style={styles.h1}>Why give {c.name} {c.automation.cut}? BTB auto-rebalances for a flat fee.</h1>
+          <p style={styles.lead}>
+            {c.name} is {c.what.charAt(0).toLowerCase() + c.what.slice(1)} BTB Finance rebalances, compounds and keeps your LP staked from your own wallet for a flat $0.10 per rebalance on Base and $0.50 on Robinhood Chain, whatever the position size, and never takes a share of what it earns.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 style={styles.h1}>Why pay {c.name} {c.yearlyUsd > 0 ? `$${c.yearlyUsd} a year` : 'a cut of your position'} for LP tools? BTB is free and pays you.</h1>
+          <p style={styles.lead}>
+            {c.name} is {c.what.charAt(0).toLowerCase() + c.what.slice(1)} BTB Finance does the same job, adds one-tap position management on every supported DEX, charges nothing for any of it, and pays its revenue back to the people who use it every Friday.
+          </p>
+        </>
+      )}
       <div style={styles.ctaRow}>
         <Link href="/simulate" style={styles.ctaPrimary}>Open the free simulator</Link>
         <Link href="/discover" style={styles.ctaGhost}>Browse pools</Link>
@@ -72,7 +93,9 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
             {c.pricing.map((p) => (
               <tr key={p.plan}><td style={styles.td}>{p.plan}</td><td style={styles.td}>{p.price}</td><td style={styles.tdMuted}>{p.note ?? ''}</td></tr>
             ))}
-            <tr><td style={styles.tdStrong}>BTB Finance</td><td style={styles.tdStrong}>$0, forever</td><td style={styles.tdMuted}>and a share of revenue every Friday</td></tr>
+            {c.automation
+              ? <tr><td style={styles.tdStrong}>BTB Finance auto-rebalance</td><td style={styles.tdStrong}>$0.10 per rebalance on Base, $0.50 on Robinhood Chain</td><td style={styles.tdMuted}>flat, plus 1 BTB per check; no share of earnings; first 10 free</td></tr>
+              : <tr><td style={styles.tdStrong}>BTB Finance</td><td style={styles.tdStrong}>$0, forever</td><td style={styles.tdMuted}>and a share of revenue every Friday</td></tr>}
           </tbody>
         </table>
       </div>
@@ -88,6 +111,25 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
           </tbody>
         </table>
       </div>
+
+      {c.automation && (
+        <>
+          <h2 style={styles.h2}>What it costs on a real position</h2>
+          <p style={styles.body}>
+            Take a {money(ex.position)} position on Base in a 0.05% pool, earning {money(ex.feesPerYear)} a year in fees (30%), rebalanced {ex.rebalances} times and compounded weekly.
+          </p>
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead><tr><th style={styles.th}></th><th style={styles.th}>A year of automation</th><th style={styles.th}>How it adds up</th></tr></thead>
+              <tbody>
+                <tr><td style={styles.td}>{c.name}</td><td style={styles.td}>about {money(c.automation.exampleUsd)}</td><td style={styles.tdMuted}>{c.automation.exampleMath}</td></tr>
+                <tr><td style={styles.tdStrong}>BTB Finance</td><td style={styles.tdStrong}>about {money(ex.btbUsd)}</td><td style={styles.tdMuted}>{ex.btbMath}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style={styles.muted}>Percentage fees grow with the position; BTB&apos;s stays the same. At {money(ex.position * 10)} the {c.name} figure is about ten times larger, BTB&apos;s is unchanged. BTB rebalances without swapping, so there is no swap fee, slippage or MEV to add on its side.</p>
+        </>
+      )}
 
       {c.yearlyUsd > 0 && (
         <>
@@ -112,9 +154,9 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
         </table>
       </div>
 
-      <h2 style={styles.h2}>How BTB makes money without charging you</h2>
+      <h2 style={styles.h2}>{c.automation ? 'How BTB keeps automation cheap' : 'How BTB makes money without charging you'}</h2>
       <p style={styles.body}>
-        Swaps routed through BTB carry a 1% fee, shown before you confirm. That is the revenue. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything.
+        Swaps routed through BTB carry a 1% fee, shown before you confirm. That is the revenue. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
       </p>
 
       <h2 style={styles.h2}>Questions</h2>

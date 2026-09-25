@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     // /metrix-finance-alternative is served by the /vs/[slug] route; the URL the reader sees keeps the keyword.
-    return [{ source: "/:slug(metrix-finance|drippy-finance|revert-finance)-alternative", destination: "/vs/:slug" }];
+    return [{ source: "/:slug(metrix-finance|drippy-finance|revert-finance|vfat|krystal|snuggle|maxfi|hawkfi)-alternative", destination: "/vs/:slug" }];
   },
   async headers() {
     return [
