@@ -6,6 +6,7 @@ import { Tab } from './types';
 import { useChainTheme } from '../lib/ChainThemeContext';
 import { WalletSwitcher } from './WalletSwitcher';
 import { AlertsBell } from './AlertsBell';
+import { useSidebar } from '../lib/SidebarContext';
 
 /** The LP journey, in the order a user walks it. */
 const PRIMARY: { id: Tab; label: string }[] = [
@@ -37,6 +38,8 @@ export function TopNav({
   onConnect: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
+  // iPad portrait and half-screen windows: tighter tabs and no wordmark, so nothing overlaps.
+  const { forceCollapsed: tight } = useSidebar();
   const [userOpen, setUserOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
@@ -58,7 +61,7 @@ export function TopNav({
   }, [moreOpen, userOpen]);
 
   const itemStyle = (active: boolean): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', gap: 7, height: 34, padding: '0 14px', borderRadius: 999, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', gap: 7, height: 34, padding: tight ? '0 10px' : '0 14px', borderRadius: 999, cursor: 'pointer',
     background: active ? btb.surfaceStrong : 'transparent',
     color: active ? btb.text : btb.textMuted, fontSize: 13.5, fontWeight: active ? 700 : 500, whiteSpace: 'nowrap',
     transition: 'background 120ms ease, color 120ms ease',
@@ -67,13 +70,13 @@ export function TopNav({
   return (
     <header style={{
       position: 'sticky', top: 0, zIndex: 100, height: TOP_NAV_HEIGHT, flexShrink: 0,
-      display: 'flex', alignItems: 'center', gap: 18, padding: '0 clamp(16px, 3vw, 40px)',
+      display: 'flex', alignItems: 'center', gap: tight ? 10 : 18, padding: '0 clamp(16px, 3vw, 40px)',
       background: 'transparent',
     }}>
-      <div onClick={() => setTab('home')} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', marginRight: 6 }}>
+      <div onClick={() => setTab('home')} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', marginRight: tight ? 0 : 6, flexShrink: 0 }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/btblogo.jpg" alt="BTB" width={30} height={30} style={{ width: 30, height: 30, borderRadius: 999, objectFit: 'cover' }} />
-        <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>BTB</span>
+        {!tight && <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>BTB</span>}
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>

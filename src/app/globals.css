@@ -12,6 +12,12 @@ html, body {
   color: var(--btb-text, #fff);
 }
 
+/* Nothing may widen the page on a phone: anything wider than the screen (decorative orbs, a long row) used to let
+   the whole site slide left and right. clip, unlike hidden, keeps position: sticky working. */
+html { overflow-x: hidden; }
+@supports (overflow: clip) { html, body { overflow-x: clip; } }
+body { overscroll-behavior-x: none; }
+
 html, body, button, input, select, textarea {
   transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease, color 160ms ease;
 }
@@ -54,4 +60,11 @@ html, body, button, input, select, textarea {
   }
   select.btb-select option { padding: 8px 10px; border-radius: 8px; }
   select.btb-select option:checked { background: var(--chain-surface-strong, rgba(255,255,255,0.08)); }
+}
+
+/* Phones: cards keep their padding small (and a card inside a card smaller
+   still), so boxes nested in boxes do not eat the screen width. */
+@media (max-width: 768px) {
+  .btb-glass { padding: min(var(--glass-pad, 16px), 12px) !important; }
+  .btb-glass .btb-glass { padding: min(var(--glass-pad, 16px), 10px) !important; }
 }

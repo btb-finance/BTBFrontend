@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useScrollLock } from '../lib/useScrollLock';
 import { useAccount, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { useAction } from 'convex/react';
@@ -213,6 +214,7 @@ export function BtbTopUp({ credit }: { credit: Credit }) {
  * never means scrolling to a form far below. Closes on the backdrop or the X.
  */
 export function TopUpModal({ credit, onClose }: { credit: Credit; onClose: () => void }) {
+  useScrollLock(true);
   const { width: sidebarWidth } = useSidebar();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };

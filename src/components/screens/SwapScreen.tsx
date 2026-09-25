@@ -80,12 +80,14 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
   const ordered = [...chains].sort((a, b) => rank(a.id) - rank(b.id));
   // The card that hosts the picker clips overflow, so the list is portalled
   // to the body and pinned under the button with a fixed position.
-  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  // On a phone the list spans the screen between 12px margins: a 420px panel anchored to one button used to hang
+  // off the edge, and the browser zoomed out to show it.
+  const [anchor, setAnchor] = useState<{ top: number; right: number; narrow: boolean } | null>(null);
   useEffect(() => {
     if (!open) return;
     const place = () => {
       const r = rootRef.current?.getBoundingClientRect();
-      if (r) setAnchor({ top: r.bottom + 8, right: Math.max(12, window.innerWidth - r.right) });
+      if (r) setAnchor({ top: r.bottom + 8, right: Math.max(12, window.innerWidth - r.right), narrow: window.innerWidth < 520 });
     };
     place();
     window.addEventListener('resize', place);
@@ -130,14 +132,14 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
             position: 'fixed',
             zIndex: 450,
             top: anchor.top,
-            right: anchor.right,
-            width: 420,
-            maxWidth: 'min(420px, calc(100vw - 40px))',
-            maxHeight: 'min(70vh, 520px)',
+            ...(anchor.narrow
+              ? { left: 12, right: 12, width: 'auto', maxHeight: `min(70dvh, calc(100dvh - ${anchor.top + 16}px))` }
+              : { right: anchor.right, width: 420, maxWidth: 'min(420px, calc(100vw - 40px))', maxHeight: 'min(70vh, 520px)' }),
             overflowY: 'auto',
+            overscrollBehavior: 'contain',
             padding: 7,
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+            gridTemplateColumns: anchor.narrow ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(190px, 1fr))',
             gap: 2,
             borderRadius: 18,
             background: 'rgba(var(--bg-rgb), .98)',
@@ -178,7 +180,7 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
                 }}
               >
                 <ChainLogo chainId={chain.id} size={24}/>
-                <span style={{ flex: 1, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650 }}>{chain.name}</span>
+                <span style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 12.5, fontWeight: active ? 800 : 650, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{chain.name}</span>
                 {active && <Icon name="check" size={15} color={btb.green}/>}
               </button>
             );

@@ -27,3 +27,6 @@ export const btb = {
   gradPrimary: 'var(--chain-gradient, linear-gradient(135deg,rgba(var(--fg-rgb, 255,255,255),0.95),rgba(200,210,220,0.9)))',
   gradGreen:   'linear-gradient(135deg,#52E3A4,#1aad77)', // solid brand fill with white text, same in both modes
 } as const;
+
+/** Side margin of every page on a phone. One number, so every screen matches; change it here only. */
+export const MOBILE_GUTTER = 6;

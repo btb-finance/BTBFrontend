@@ -8,7 +8,7 @@ import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { TokenIcon } from './TokenIcon';
-import { btb } from './design-tokens';
+import { btb, MOBILE_GUTTER } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
@@ -1417,7 +1417,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   return (
     <Portal>
     <div onScroll={fitFormCol} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? '14px 14px 96px' : '16px 24px 88px' }}>
+      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? `12px ${MOBILE_GUTTER}px 96px` : '16px 24px 88px' }}>
         {/* Compact single-row header: back chevron + title, pair/dex as an
             inline subtitle — keeps the tap-to-go-back affordance without the
             tall "Back to Discover" stack eating the top of small screens. */}
@@ -1522,8 +1522,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             {/* Desktop: the form column scrolls on its own and stays in view while the simulator scrolls. */}
             <div ref={formColRef} style={{ minWidth: 0, ...(isMobile ? {} : { position: 'sticky' as const, top: 0, maxHeight: formColMax, overflowY: 'auto' as const, paddingBottom: 12 }) }}>
             <div style={{
-              width: '100%', boxSizing: 'border-box', background: 'rgba(var(--fg-rgb), 0.025)',
-              border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 18, padding: isMobile ? 14 : 22,
+              // Phone: no outer card, so the inputs and boxes get the whole screen width.
+              width: '100%', boxSizing: 'border-box', background: isMobile ? 'transparent' : 'rgba(var(--fg-rgb), 0.025)',
+              border: isMobile ? 'none' : '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 18, padding: isMobile ? '2px 0' : 22,
             }}>
             {/* Current price + flip */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
@@ -1549,7 +1550,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             </div>
             <div style={{ display: 'flex', gap: 10, marginBottom: 6 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Min price ({qQuote} per {qBase})</div>
+                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>{isMobile ? 'Min price' : `Min price (${qQuote} per ${qBase})`}</div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
                   <input value={minStr} inputMode="decimal" placeholder="0"
                     onChange={(e) => { setMinStr(e.target.value); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
@@ -1561,7 +1562,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>Max price ({qQuote} per {qBase})</div>
+                <div style={{ color: btb.textDim, fontSize: 11, marginBottom: 4 }}>{isMobile ? 'Max price' : `Max price (${qQuote} per ${qBase})`}</div>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
                   <input value={maxStr} inputMode="decimal" placeholder="∞"
                     onChange={(e) => { setMaxStr(e.target.value); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}

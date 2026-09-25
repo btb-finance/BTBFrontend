@@ -23,7 +23,7 @@ import { ReceiveModal } from './ReceiveModal';
 import { SendModal } from './SendModal';
 import { DocsScreen } from './screens/DocsScreen';
 import { OposSeedScreen } from './screens/OposSeedScreen';
-import { btb } from './design-tokens';
+import { btb, MOBILE_GUTTER } from './design-tokens';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
@@ -153,7 +153,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
       <div style={{
         flex: 1, minWidth: 0,
         width: '100%', maxWidth: isMobile ? undefined : 1360, margin: isMobile ? undefined : '0 auto',
-        padding: isMobile ? '18px 14px calc(86px + env(safe-area-inset-bottom))' : '28px clamp(16px, 3vw, 40px) 60px',
+        padding: isMobile ? `14px ${MOBILE_GUTTER}px calc(86px + env(safe-area-inset-bottom))` : '28px clamp(16px, 3vw, 40px) 60px',
       }}>
         {overlayContent ?? content}
       </div>

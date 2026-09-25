@@ -135,11 +135,14 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
 
   // Allocation bar: top four holdings, everything else grouped.
   const COLORS = ['var(--btb-text)', 'var(--btb-amber)', 'var(--btb-green)', '#94A3B8', 'rgba(var(--fg-rgb), 0.28)'];
-  const top4 = trustedTokens.slice(0, 4);
-  const restUsd = tokensUsd - top4.reduce((s, t) => s + (t.usdValue ?? 0), 0);
+  // The same token on several chains counts once, so the legend never reads ETH, ETH, ETH.
+  const bySymbol = [...trustedTokens.reduce((m, t) => m.set(t.symbol.toUpperCase(), { label: t.symbol, value: (m.get(t.symbol.toUpperCase())?.value ?? 0) + (t.usdValue ?? 0) }), new Map<string, { label: string; value: number }>()).values()]
+    .sort((a, b) => b.value - a.value);
+  const top4 = bySymbol.filter((t) => tokensUsd > 0 && t.value / tokensUsd >= 0.01).slice(0, 4);
+  const restUsd = tokensUsd - top4.reduce((s, t) => s + t.value, 0);
   const allocation = [
-    ...top4.map((t, i) => ({ key: t.address + t.symbol + (t.chainId ?? ''), label: t.symbol, value: t.usdValue ?? 0, color: COLORS[i] })),
-    ...(restUsd > 0.005 ? [{ key: 'rest', label: `${trustedTokens.length - top4.length} more`, value: restUsd, color: COLORS[4] }] : []),
+    ...top4.map((t, i) => ({ key: t.label, label: t.label, value: t.value, color: COLORS[i] })),
+    ...(restUsd > 0.005 ? [{ key: 'rest', label: `${bySymbol.length - top4.length} more`, value: restUsd, color: COLORS[4] }] : []),
   ];
 
   const canSwapToken = (t: Token) => !!KYBER_CHAINS[t.chainId ?? 1];
@@ -243,7 +246,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {onViewAddress && <WalletTabs viewAddress={viewAddress} onViewAddress={onViewAddress}/>}
-      <Glass padding={isMobile ? 16 : 22} radius={20} strong>
+      <Glass padding={isMobile ? 14 : 22} radius={isMobile ? 18 : 20} strong style={{ background: `radial-gradient(120% 90% at 100% 0%, rgba(var(--green-rgb), 0.13), transparent 60%), ${btb.glassStrong}` }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 600, letterSpacing: 0.4, textTransform: 'uppercase' }}>Net worth</div>
@@ -257,7 +260,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
+            {!isMobile && <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
               {([
                 { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
                 { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
@@ -269,7 +272,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
                   <span style={{ color: b.color, fontWeight: 700 }}>${fmt(b.value)}</span>
                 </div>
               ))}
-            </div>
+            </div>}
             {allTokensWithBalance.length > trustedTokens.length && (
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 6 }}>
                 {allTokensWithBalance.length - trustedTokens.length} unverified quotes excluded from net worth
@@ -291,8 +294,23 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
           </div>
         </div>
 
+        {isMobile && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
+            {([
+              { label: 'Tokens', value: tokensUsd, color: btb.text },
+              { label: 'LPs', value: lp.valueUsd, color: btb.text },
+              { label: 'Fees', value: lp.feesUsd, color: btb.green },
+            ] as const).map(b => (
+              <div key={b.label} style={{ padding: '8px 10px', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.05)', minWidth: 0 }}>
+                <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>{b.label}</div>
+                <div style={{ color: b.color, fontSize: 14, fontWeight: 800, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${fmt(b.value)}</div>
+              </div>
+            ))}
+          </div>
+        )}
         {allocation.length > 0 && tokensUsd > 0 && (
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: isMobile ? 12 : 16 }}>
+            {isMobile && <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, marginBottom: 6 }}>Token mix</div>}
             <div style={{ display: 'flex', height: 8, borderRadius: 999, overflow: 'hidden', gap: 2 }}>
               {allocation.map(a => (
                 <div key={a.key} title={`${a.label} ${Math.round((a.value / tokensUsd) * 100)}%`} style={{ width: `${(a.value / tokensUsd) * 100}%`, background: a.color, minWidth: a.value > 0 ? 2 : 0 }}/>
@@ -303,7 +321,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
                 <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
                   <span style={{ width: 7, height: 7, borderRadius: 4, background: a.color, flexShrink: 0 }}/>
                   <span style={{ color: btb.textMuted }}>{a.label}</span>
-                  <span style={{ color: btb.text, fontWeight: 700 }}>{Math.round((a.value / tokensUsd) * 100)}%</span>
+                  <span style={{ color: btb.text, fontWeight: 700 }}>{a.value / tokensUsd < 0.005 ? '<1' : Math.round((a.value / tokensUsd) * 100)}%</span>
                 </div>
               ))}
             </div>

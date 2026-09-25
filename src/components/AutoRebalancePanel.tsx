@@ -178,6 +178,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30_000); return () => clearInterval(t); }, []);
 
   // The wallet's cap on agent actions per UTC day, shown once it is getting close.
+  const [details, setDetails] = useState(false);
   const [limit, setLimit] = useState<{ used: number; max: number } | null>(null);
   const [limitNonce, setLimitNonce] = useState(0);
   useEffect(() => {
@@ -272,45 +273,52 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
     finally { setBusy(null); }
   }
 
-  const chip = (label: string, onClick: () => void, tone: string = btb.textMuted) => (
+  const btn = (label: string, onClick: () => void, tone: string = btb.text, wide = false) => (
     <button type="button" disabled={!!busy || !canTransact} onClick={onClick} style={{
-      height: 28, padding: '0 11px', borderRadius: 999, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, whiteSpace: 'nowrap',
-      cursor: busy || !canTransact ? 'default' : 'pointer', color: busy || !canTransact ? btb.textDim : tone,
-      background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.08)',
+      gridColumn: wide ? '1 / -1' : undefined, minHeight: 36, padding: '6px 10px', borderRadius: 12, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800,
+      lineHeight: 1.2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, cursor: busy || !canTransact ? 'default' : 'pointer', color: busy || !canTransact ? btb.textDim : tone,
+      background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
     }}>{label}</button>
   );
+  const limitWarning = !!limit && limit.used >= limit.max * 0.75;
+  // Buttons before Withdraw leftover; when that makes it the odd one out, it takes the whole row.
+  const gridCount = [onAdd && pos, true, true, !isStaked || rewardsOk, pos?.stakeable && !pos.staked, pos?.staked && pos.staked.earned > 0n,
+    pos?.staked || (job.gauge && !pos?.stakeable), limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning].filter(Boolean).length;
+  const oddButtons = gridCount % 2 === 0;
+  const compoundText = isStaked && !rewardsOk
+    ? 'Compounding staking rewards is not available on this chain yet.'
+    : isStaked
+      ? job.compound
+        ? `Auto-compound ${rewardSym} on: once the ${rewardSym} is worth $${compoundMinUsd(job.chainId).toFixed(2)}, it is unstaked, the ${rewardSym} is sold for this pair at no worse than the market average less ${job.chainId === 4663 ? 3 : 1}%, added to the position, and staked again. At most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
+        : `Auto-compound ${rewardSym} off: ${rewardSym} collects in your auto wallet.`
+      : job.compound
+        ? `Auto-compound on: fees go back into the position once they are worth $${compoundMinUsd(job.chainId).toFixed(2)} (5 times the compound price), at most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
+        : 'Auto-compound off: fees wait in the position until you collect them.';
 
   return (
     <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(var(--green-rgb), 0.25)', background: 'rgba(var(--green-rgb), 0.05)', padding: '10px 12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>Auto-rebalance{job.gauge ? ', staked' : ''}</div>
-          <div style={{ color: status.tone, fontSize: 12, marginTop: 2 }}>{status.text}</div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>Auto-rebalance{job.gauge ? ', staked' : ''}</div>
+        <button type="button" onClick={() => setDetails((d) => !d)} style={{ padding: 0, border: 'none', background: 'transparent', color: btb.textMuted, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+          {details ? 'Hide details' : 'Details'}
+        </button>
+      </div>
+      <div style={{ color: status.tone, fontSize: 12, marginTop: 2, lineHeight: 1.4 }}>{status.text}</div>
+      {/* One short line; everything else is under Details so the card stays short on a phone. */}
+      <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 4, lineHeight: 1.4 }}>
+        Every {intervalLabel(job.intervalMin)} · {job.rebalances} rebalance{job.rebalances === 1 ? '' : 's'} · {fmtBtb(job.spentBtb)} BTB used
+      </div>
+      {limitWarning && (
+        <div style={{ color: limit!.used >= limit!.max ? btb.amber : btb.textDim, fontSize: 11.5, marginTop: 4 }}>
+          Agent actions today: {limit!.used} of {limit!.max} (a staked rebalance uses 3; resets at midnight UTC).
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 11.5, textAlign: 'right' }}>
-          <div>Every {intervalLabel(job.intervalMin)}{job.active && job.nextCheckAt ? `, next ${inTime(job.nextCheckAt)}` : ''}</div>
-          <div>Checked {ago(job.lastCheckedAt)}</div>
+      )}
+      {details && (
+        <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 4, lineHeight: 1.5, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div>Checked {ago(job.lastCheckedAt)}{job.active && job.nextCheckAt ? `, next ${inTime(job.nextCheckAt)}` : ''}. {job.rebalances} rebalance{job.rebalances === 1 ? '' : 's'}{job.lastRebalancedAt ? ` (last ${ago(job.lastRebalancedAt)})` : ''}{job.compounds > 0 ? `, ${job.compounds} compound${job.compounds === 1 ? '' : 's'}` : ''}, {fmtBtb(job.spentBtb)} BTB used so far, {fmtBtb(job.rebalanceBtb)} BTB per rebalance or compound on {AUTO_CHAIN_NAMES[job.chainId]}.</div>
+          <div style={{ color: job.compound && !isStaked ? btb.green : btb.textDim }}>{compoundText}</div>
         </div>
-      </div>
-      <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 6 }}>
-        {limit && limit.used >= limit.max * 0.75 && (
-          <span style={{ color: limit.used >= limit.max ? btb.amber : btb.textDim }}>
-            Agent actions today: {limit.used} of {limit.max} (a staked rebalance uses 3; resets at midnight UTC).{' '}
-          </span>
-        )}
-        {job.rebalances} rebalance{job.rebalances === 1 ? '' : 's'}{job.lastRebalancedAt ? ` (last ${ago(job.lastRebalancedAt)})` : ''}{job.compounds > 0 ? `, ${job.compounds} compound${job.compounds === 1 ? '' : 's'}` : ''}, {fmtBtb(job.spentBtb)} BTB used so far, {fmtBtb(job.rebalanceBtb)} BTB per rebalance or compound on {AUTO_CHAIN_NAMES[job.chainId]}
-      </div>
-      <div style={{ color: job.compound && !isStaked ? btb.green : btb.textDim, fontSize: 11.5, marginTop: 4, lineHeight: 1.5 }}>
-        {isStaked && !rewardsOk
-          ? 'Compounding staking rewards is not available on this chain yet.'
-          : isStaked
-            ? job.compound
-              ? `Auto-compound ${rewardSym} on: once the ${rewardSym} is worth $${compoundMinUsd(job.chainId).toFixed(2)}, it is unstaked, the ${rewardSym} is sold for this pair at no worse than the market average less ${job.chainId === 4663 ? 3 : 1}%, added to the position, and staked again. At most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
-              : `Auto-compound ${rewardSym} off: ${rewardSym} collects in your auto wallet.`
-          : job.compound
-            ? `Auto-compound on: fees go back into the position once they are worth $${compoundMinUsd(job.chainId).toFixed(2)} (5 times the compound price), at most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
-            : 'Auto-compound off: fees wait in the position until you collect them.'}
-      </div>
+      )}
       {editing && (
         <div style={{ marginTop: 8 }}>
           <IntervalPills value={job.intervalMin} disabled={!!busy} onChange={async (min) => {
@@ -318,21 +326,21 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
           }}/>
         </div>
       )}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
-        {chip(editing ? 'Done' : 'Change interval', () => setEditing((e) => !e))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 10 }}>
+        {onAdd && pos && btn('Increase liquidity', onAdd, btb.green)}
+        {btn(editing ? 'Done' : 'Change interval', () => setEditing((e) => !e))}
         {job.active
-          ? chip('Pause', () => withSession('Pausing', (t) => setActive({ sessionToken: t, id, active: false })), btb.amber)
-          : chip('Resume', () => withSession('Resuming', (t) => setActive({ sessionToken: t, id, active: true })), btb.green)}
-        {pos?.stakeable && !pos.staked && chip(`Stake for ${pos.stakeable.rewardSymbol ?? 'rewards'}`, () => gauge('stake'), btb.green)}
-        {pos?.staked && pos.staked.earned > 0n && chip(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
-        {(pos?.staked || (job.gauge && !pos?.stakeable)) && chip('Unstake', () => gauge('unstake'), btb.amber)}
-        {(!isStaked || rewardsOk) && chip(`Auto-compound${isStaked ? ` ${rewardSym}` : ''}: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
-        {limit && limit.max < MAX_ACTIONS_PER_DAY && limit.used >= limit.max * 0.75 && chip(`Raise daily limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
-        {onAdd && pos && chip('Increase liquidity', onAdd, btb.green)}
-        {chip('Withdraw leftover tokens', sweep)}
-        {chip('Withdraw LP and stop auto', takeOut, btb.loss)}
-        {busy && <span style={{ color: btb.textMuted, fontSize: 11.5, alignSelf: 'center' }}>{busy}</span>}
+          ? btn('Pause', () => withSession('Pausing', (t) => setActive({ sessionToken: t, id, active: false })), btb.amber)
+          : btn('Resume', () => withSession('Resuming', (t) => setActive({ sessionToken: t, id, active: true })), btb.green)}
+        {(!isStaked || rewardsOk) && btn(`Compound: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
+        {pos?.stakeable && !pos.staked && btn(`Stake for ${pos.stakeable.rewardSymbol ?? 'rewards'}`, () => gauge('stake'), btb.green)}
+        {pos?.staked && pos.staked.earned > 0n && btn(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
+        {(pos?.staked || (job.gauge && !pos?.stakeable)) && btn('Unstake', () => gauge('unstake'), btb.amber)}
+        {limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning && btn(`Raise daily limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
+        {btn('Withdraw leftover', sweep, btb.textMuted, oddButtons)}
+        {btn('Withdraw LP and stop auto', takeOut, btb.loss, true)}
       </div>
+      {busy && <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 6 }}>{busy}</div>}
       {err && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 6 }}>{err}</div>}
     </div>
   );

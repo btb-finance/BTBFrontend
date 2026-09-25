@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useScrollLock } from '../lib/useScrollLock';
 import { Portal } from './Portal';
 import { Icon } from './Icon';
 import { btb } from './design-tokens';
@@ -17,6 +18,7 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
   const { isMobile } = useSidebar();
   const { walletAddress } = useTokenStore();
   const [open, setOpen] = useState(false);
+  useScrollLock(open);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +48,8 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
           <div style={{
             position: 'fixed', zIndex: 406, display: 'flex', flexDirection: 'column',
             ...(isMobile
-              ? { left: 0, right: 0, bottom: 0, height: '88vh', borderRadius: '24px 24px 0 0' }
+              // Nearly full screen, measured on the visible height so the keyboard does not push the input away.
+              ? { left: 0, right: 0, bottom: 0, height: '94dvh', maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))', borderRadius: '20px 20px 0 0' }
               : { right: 24, bottom: 24, width: 440, height: 'min(720px, calc(100vh - 48px))', borderRadius: 24 }),
             background: btb.bg, border: btb.border, boxShadow: '0 24px 60px rgba(0,0,0,0.45)', overflow: 'hidden',
           }}>

@@ -1710,55 +1710,58 @@ export function SimulateScreen() {
             {found.length} pool{found.length > 1 ? 's' : ''} across {foundPoolDexCount(found)} DEX{foundPoolDexCount(found) === 1 ? '' : 's'}{loading ? ' found so far' : ''} for {tokenA?.symbol}/{tokenB?.symbol}
           </div>
           <div style={{ padding: '0 18px 10px', color: btb.textMuted, fontSize: 11.5 }}>
-            Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
-            {found.some(f => f.aprIsUnranged) && ' † = whole-pool APR (fallback data), not the ±5% range-adjusted figure used elsewhere.'}
+            {isMobile
+              ? 'Sorted by TVL: bigger pools pay steadier fees.'
+              : <>Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
+                {found.some(f => f.aprIsUnranged) && ' † = whole-pool APR (fallback data), not the ±5% range-adjusted figure used elsewhere.'}</>}
           </div>
           {isMobile ? (
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 12px 14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 10px 12px' }}>
               {found.map((f, i) => {
                 const label = rowLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
                   <div key={foundPoolKey(f)} style={{
-                    borderRadius: 14, border: btb.borderSoft, padding: '12px 14px',
+                    borderRadius: 14, border: btb.borderSoft, padding: 12,
                     background: i === 0 ? 'rgba(var(--green-rgb), 0.05)' : 'rgba(var(--fg-rgb), 0.03)',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                      <DexLogo name={label} size={19}/>
-                      <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1 }}>
-                        {label} · {feeLabel}
-                        {i === 0 && <span title="Highest TVL" style={{ color: btb.green, fontSize: 10, marginLeft: 5 }}>Highest TVL</span>}
-                      </span>
-                      <span
-                        style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 14, fontWeight: 800, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
-                        title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
-                      >
-                        {foundAprText(f)}
-                      </span>
+                    {/* Row 1: which pool. Row 2: TVL and APR side by side. Row 3: the actions, full width. */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <DexLogo name={label} size={20}/>
+                      <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+                      <span style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 700, padding: '2px 7px', borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.07)', flexShrink: 0 }}>{feeLabel}</span>
+                      {i === 0 && <span style={{ color: btb.green, fontSize: 10.5, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'rgba(var(--green-rgb), 0.12)', flexShrink: 0 }}>Top TVL</span>}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                      <span style={{ color: btb.textMuted, fontSize: 12 }}>TVL {f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
-                      {f.external ? (
-                        <a href={f.external.url} target="_blank" rel="noreferrer" style={{
-                          height: 32, width: 100, marginLeft: 'auto', borderRadius: 14, border: btb.borderSoft,
-                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                          color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                          background: 'rgba(var(--fg-rgb), 0.06)',
-                        }}>View</a>
-                      ) : (
-                        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
-                          {mintDexFor(f) && (
-                            <Button variant="success" size="sm" onClick={() => setMintFee(f)} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
-                              Add LP
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
-                            Simulate
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
+                      <div style={{ padding: '7px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }}>
+                        <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>TVL</div>
+                        <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, marginTop: 1 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</div>
+                      </div>
+                      <div style={{ padding: '7px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }} title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}>
+                        <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>APR{f.aprIsUnranged ? ', whole pool' : ''}</div>
+                        <div style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 15, fontWeight: 800, marginTop: 1 }}>{foundAprText(f).replace('†', '')}</div>
+                      </div>
+                    </div>
+                    {f.external ? (
+                      <a href={f.external.url} target="_blank" rel="noreferrer" style={{
+                        height: 38, marginTop: 10, borderRadius: 12, border: btb.borderSoft,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        color: btb.textMuted, fontSize: 12.5, fontWeight: 700, textDecoration: 'none',
+                        background: 'rgba(var(--fg-rgb), 0.06)',
+                      }}>View pool</a>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: mintDexFor(f) ? '1fr 1fr' : '1fr', gap: 8, marginTop: 10 }}>
+                        {mintDexFor(f) && (
+                          <Button variant="success" size="sm" onClick={() => setMintFee(f)} style={{ height: 38, fontSize: 12.5, borderRadius: 12, boxShadow: 'none' }}>
+                            Add LP
                           </Button>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                        <Button variant="ghost" size="sm" onClick={() => setSheetFee(f)} style={{ height: 38, fontSize: 12.5, borderRadius: 12, border: btb.borderSoft }}>
+                          Simulate
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

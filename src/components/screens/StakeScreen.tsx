@@ -345,7 +345,7 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
   const empty = (history?.length ?? 0) === 0 && !pending;
 
   return (
-    <Screen gap={14} style={compact ? { height: '100%', minHeight: 0 } : { maxWidth: 720, margin: '0 auto' }}>
+    <Screen gap={compact ? 8 : 14} style={compact ? { height: '100%', minHeight: 0 } : { maxWidth: 720, margin: '0 auto' }}>
       {/* header */}
       {!compact && <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
@@ -365,12 +365,19 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
         </Badge>
       </div>}
 
-      {/* pricing and balance: free messages first, then 1 BTB each */}
-      <Glass padding={12} radius={16} soft>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ flex: 1, minWidth: 180, color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45 }}>
-            {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each from your BTB balance ({fmtBtb(credit.total)} BTB{credit.rewards > 0 ? ', weekly rewards included' : ''}).
-          </span>
+      {/* pricing and balance: free messages first, then 1 BTB each. In the dock the header already says the price,
+          so this shrinks to one slim line and the conversation gets the room. */}
+      <Glass padding={compact ? 8 : 12} radius={compact ? 14 : 16} soft>
+        <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 6 : 10, flexWrap: compact ? 'nowrap' : 'wrap' }}>
+          {compact ? (
+            <span style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {fmtBtb(credit.total)} BTB<span style={{ color: btb.textMuted, fontWeight: 600 }}> balance</span>
+            </span>
+          ) : (
+            <span style={{ flex: 1, minWidth: 180, color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45 }}>
+              {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each from your BTB balance ({fmtBtb(credit.total)} BTB{credit.rewards > 0 ? ', weekly rewards included' : ''}).
+            </span>
+          )}
           <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
             Top up
           </button>
@@ -455,8 +462,10 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
         </div>
       </Glass>
 
-      <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', lineHeight: 1.5 }}>
-        The agent gives information, not financial advice. It never holds your keys and cannot move funds. {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each.
+      <div style={{ color: btb.textDim, fontSize: compact ? 10 : 11, textAlign: 'center', lineHeight: 1.4 }}>
+        {compact
+          ? 'Information, not financial advice. It never holds your keys or moves funds.'
+          : <>The agent gives information, not financial advice. It never holds your keys and cannot move funds. {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each.</>}
       </div>
     </Screen>
   );
