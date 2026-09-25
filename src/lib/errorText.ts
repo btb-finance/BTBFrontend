@@ -51,6 +51,9 @@ export function readableError(reason: unknown, fallback: string): string {
   // The wallet's own "user rejected the request" is a choice, not a failure.
   if (/user (rejected|denied)|rejected the request|denied (transaction|message) signature/i.test(raw)) return 'Cancelled in your wallet.';
 
+  // Viem's catch-all when the wallet answers with an error it does not explain.
+  if (/unknown rpc error/i.test(raw)) return 'Your wallet could not send this. Try again, or use a smaller amount if the token has thin liquidity.';
+
   const text = stripEnvelope(raw);
   if (!text) return fallback;
   // A leftover file path or an empty husk means the parse missed; do not guess.

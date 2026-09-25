@@ -168,6 +168,9 @@ function isMethodUnsupported(err: unknown): boolean {
   // is only used around sendCalls, so treating that response as an unsupported
   // batch is safe and lets the receipt-gated sequential path take over.
   if (code === 4200 || code === -32601 || code === -32600 || code === -32602) return true;
+  // In-app wallet browsers often answer wallet_sendCalls with a bare "unknown RPC error" instead of saying
+  // they do not support it. Sending the calls one by one is safe: approvals are re-checked before each step.
+  if ((err as { name?: string })?.name === 'UnknownRpcError' || /unknown rpc error/i.test(`${e?.shortMessage ?? ''} ${e?.message ?? ''}`)) return true;
   const msg = `${e?.shortMessage ?? ''} ${e?.message ?? ''} ${e?.details ?? ''}`.toLowerCase();
   return (
     msg.includes('wallet_sendcalls') ||
