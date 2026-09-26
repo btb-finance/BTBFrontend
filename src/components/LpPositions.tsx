@@ -97,6 +97,7 @@ import {
 } from '../lib/krystal';
 import { getCachedLpPositions, setCachedLpPositions, useKrystalLp } from '../lib/appData';
 import { ChainLogo } from './ChainLogo';
+import { VfatMigrate } from './VfatMigrate';
 
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
@@ -895,6 +896,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
   const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
   const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
+  // Everything waiting to be claimed: trading fees, plus the gauge rewards staked positions earn instead of fees.
+  const unclaimedUsd = pendingFeesUsd + positions.reduce((s, p) => s + rewardsValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
   // What each position earns: the live APR (fees, or the gauge reward when staked) spread over a day, and the totals.
   const aprOf = (p: LiquidityPosition) => liveApr[posKey(p)] ?? analyticsOf(p)?.feeApr ?? 0;
@@ -941,11 +944,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   }, []);
   useEffect(() => {
     onSummary?.({
-      valueUsd: totalValueUsd, feesUsd: pendingFeesUsd, count: positions.length, inRange: inRangeCount, loading: loading || krystalLoading,
+      valueUsd: totalValueUsd, feesUsd: unclaimedUsd, count: positions.length, inRange: inRangeCount, loading: loading || krystalLoading,
       dailyUsd: estDailyUsd, apr: avgApr, canCollect: summaryCanCollect, collecting: collectingAll || !!busyId, collect: collectFromSummary, showOutOfRange,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalValueUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading, estDailyUsd, avgApr, summaryCanCollect, collectingAll, busyId]);
+  }, [totalValueUsd, unclaimedUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading, estDailyUsd, avgApr, summaryCanCollect, collectingAll, busyId]);
 
   if (!address) {
     return showEmpty ? (
@@ -1664,6 +1667,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
+      {/* Positions still on vfat, with a one-step move to BTB. Own wallet only: it needs the owner's signature. */}
+      {canTransact && connectedAddress && (
+        <VfatMigrate owner={connectedAddress as `0x${string}`} onMoved={async () => { setAutoNonce((n) => n + 1); setOrphanNonce((n) => n + 1); await load(); }}/>
+      )}
+
       {/* One overview for every position, auto or not: what they are worth, what they earn, and what is waiting. */}
       {positions.length > 0 && !onSummary && (() => {
         const money = (n: number) => n > 0 && n < 0.01 ? '<$0.01' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
@@ -1704,7 +1712,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           { label: 'Earning', value: estDailyUsd > 0 ? `~${perDay(estDailyUsd)}` : '$0/day', color: estDailyUsd > 0 ? btb.green : btb.textDim },
           { label: 'Avg APR', value: `${avgApr.toFixed(1)}%`, color: avgApr > 0 ? btb.green : btb.textDim },
           { label: 'In range', value: `${inRangeCount} / ${positions.length}`, color: allIn ? btb.text : btb.amber },
-          { label: 'Unclaimed', value: money(pendingFeesUsd), color: pendingFeesUsd >= 0.01 ? btb.green : btb.textDim },
+          { label: 'Unclaimed', value: money(unclaimedUsd), color: unclaimedUsd >= 0.01 ? btb.green : btb.textDim },
         ];
         return (
           <div style={{ borderRadius: 16, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', padding: 14 }}>

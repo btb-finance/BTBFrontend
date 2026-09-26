@@ -277,3 +277,20 @@ export function competitorBySlug(slug: string): Competitor | undefined {
 }
 
 export { BTB_ROWS_COMMON };
+
+/**
+ * A year of automation on one position, by the same model as AUTOMATION_EXAMPLE (100 rebalances, 52 compounds), for
+ * the position's own value and earnings. Used to show a vfat user what moving a position to BTB saves.
+ */
+export function automationYearlyCost(who: 'vfat' | 'Krystal' | 'Snuggle' | 'MaxFi' | 'BTB', valueUsd: number, earningsPerYearUsd: number, chainId = 8453): number {
+  const { rebalances, compounds } = AUTOMATION_EXAMPLE;
+  // A swapping rebalance trades about half the position through the pool (0.05% fee), every time.
+  const swapFees = rebalances * 0.0005 * (valueUsd / 2);
+  switch (who) {
+    case 'vfat': return rebalances * 0.0001 * valueUsd + 0.018 * earningsPerYearUsd + swapFees;
+    case 'Krystal': return rebalances * 0.0001 * valueUsd + 0.02 * earningsPerYearUsd + swapFees;
+    case 'Snuggle':
+    case 'MaxFi': return 0.15 * earningsPerYearUsd;
+    case 'BTB': return (rebalances + compounds) * (chainId === 4663 ? 0.5 : 0.1) + 8_760 * 0.00003;
+  }
+}

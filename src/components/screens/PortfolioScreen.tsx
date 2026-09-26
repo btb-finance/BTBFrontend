@@ -264,12 +264,12 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
               {([
                 { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
                 { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
-                { label: 'Unclaimed fees', value: lp.feesUsd, dot: btb.green, color: btb.green },
+                { label: 'Unclaimed', value: lp.feesUsd, dot: btb.green, color: btb.green },
               ] as const).map(b => (
                 <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 7, height: 7, borderRadius: 4, background: b.dot, flexShrink: 0 }}/>
                   <span style={{ color: btb.textMuted }}>{b.label}</span>
-                  <span style={{ color: b.color, fontWeight: 700 }}>${fmt(b.value)}</span>
+                  <span style={{ color: b.color, fontWeight: 700 }}>{b.value > 0 && b.value < 0.01 ? '<$0.01' : `$${fmt(b.value)}`}</span>
                 </div>
               ))}
             </div>}
