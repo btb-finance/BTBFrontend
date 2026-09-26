@@ -45,7 +45,8 @@ export async function fetchV3Positions(
     tokenIds = (await withSafeMulticall(client).multicall({ contracts: idxCalls, allowFailure: true }))
       .map((r) => (r.status === 'success' ? (r.result as bigint) : undefined))
       .filter((x): x is bigint => x !== undefined);
-    if (n > 0 && tokenIds.length === 0) throw new Error('Could not read owned LP NFT ids');
+    // A partial answer is worse than none: callers would show a shorter list as if the rest were gone.
+    if (tokenIds.length < n) throw new Error('Could not read every owned LP NFT id');
   }
 
   // 2) position struct for each tokenId
@@ -56,6 +57,8 @@ export async function fetchV3Positions(
   if (posCalls.length > 0 && !posRes.some((result) => result.status === 'success')) {
     throw new Error('Could not read LP NFT balances');
   }
+  // Ids the wallet owns right now must all read back. (Ids passed in may include burned ones, which revert.)
+  if (!knownIds && posRes.some((result) => result.status !== 'success')) throw new Error('Could not read every LP position');
 
   type Raw = {
     id: bigint; token0: `0x${string}`; token1: `0x${string}`; fee: number;

@@ -37,7 +37,7 @@ import { useDiscoverPools } from '../lib/discoverPools';
 import { RebalanceFlow } from './RebalanceFlow';
 import { AutoRebalanceSheet } from './AutoRebalanceSheet';
 import { AutoRebalancePanel, AutoJobControls, useAutoJobs, type AutoJob } from './AutoRebalancePanel';
-import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, REWARD_TOKEN, isFarmManager, unpackPosition, adapterFor, stakeAdapterFor, gaugeParams, compoundParams, Action, WALLET_ABI } from '../lib/autoRebalance';
+import { autoSupport, autoDeployment, AUTO_CHAIN_NAMES, REWARD_TOKEN, isFarmManager, unpackPosition, adapterFor, stakeAdapterFor, gaugeParams, compoundParams, Action, WALLET_ABI, AUTO_CHAINS, AUTO_MANAGERS, FACTORY_ABI, V6, DEFAULT_INTERVAL, buildTakeOutCalls } from '../lib/autoRebalance';
 
 const WETH_DEPOSIT_ABI = parseAbi(['function deposit() payable']);
 
@@ -80,7 +80,7 @@ const AUTO_FARM_ABI = parseAbi([
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
 import { readableError } from '../lib/errorText';
-import { useMutation, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap, planSwapToFit } from '../lib/swapGap';
@@ -367,10 +367,44 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     }
     return m;
   }, [autoJobs, autoLeft]);
+  // Positions in the owner's auto wallet that have no job, e.g. the step that starts auto-rebalance failed after
+  // the move. Without this they show nowhere: not in the wallet, not in the auto list.
+  const [orphans, setOrphans] = useState<LiquidityPosition[]>([]);
+  const [orphanNonce, setOrphanNonce] = useState(0);
+  const orphanWallet = useRef<Map<string, `0x${string}`>>(new Map());
+  useEffect(() => {
+    // Only for the wallet's own view: a read-only visitor cannot act on it.
+    if (!connectedAddress || !address || connectedAddress.toLowerCase() !== address.toLowerCase() || autoJobs === undefined) { setOrphans([]); return; }
+    let live = true;
+    (async () => {
+      const found: LiquidityPosition[] = [];
+      for (const chainId of AUTO_CHAINS) {
+        const client = getPublicClient(config, { chainId: chainId as never });
+        if (!client) continue;
+        const wallet = await client.readContract({ address: V6.factory as `0x${string}`, abi: FACTORY_ABI, functionName: 'accountOf', args: [connectedAddress as `0x${string}`] }).catch(() => null);
+        if (!wallet || /^0x0{40}$/i.test(wallet)) continue;
+        for (const pm of Object.keys(AUTO_MANAGERS[chainId] ?? {})) {
+          const dep = autoDeployment(chainId, pm);
+          if (!dep) continue;
+          const items = await fetchV3Positions(client as never, wallet as `0x${string}`, dep.deployment).catch(() => [] as LiquidityPosition[]);
+          for (const p of items) {
+            if (autoJobs.some((j) => j.chainId === chainId && j.positionManager.toLowerCase() === pm && j.tokenId === p.id.toString())) continue;
+            const row: LiquidityPosition = { ...p, protocol: dep.protocol, chainId, chainName: AUTO_CHAIN_NAMES[chainId], positionManager: pm as `0x${string}` };
+            orphanWallet.current.set(posKey(row), wallet as `0x${string}`);
+            found.push(row);
+          }
+        }
+      }
+      if (live) setOrphans(found);
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedAddress, address, autoJobsKey, orphanNonce]);
+
   const positions = useMemo(() => {
     const own = ownPositions.filter((p) => !autoByKey.has(posKey(p)));
-    return [...own, ...autoPositions.filter((p) => !autoLeft.has(posKey(p)))];
-  }, [ownPositions, autoPositions, autoByKey, autoLeft]);
+    return [...own, ...autoPositions.filter((p) => !autoLeft.has(posKey(p))), ...orphans.filter((o) => !autoPositions.some((p) => posKey(p) === posKey(o)))];
+  }, [ownPositions, autoPositions, autoByKey, autoLeft, orphans]);
 
   const alerts = useAlerts(connectedAddress);
   const alertCredit = useQuery(api.alerts.creditFor, connectedAddress ? { address: connectedAddress } : 'skip');
@@ -456,6 +490,17 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
       const rows = (krystalRef.current?.positions ?? []).filter((i) => !(i.status?.toUpperCase().includes('CLOSED') || i.closedTime > 0));
       const jobs: Promise<unknown>[] = [];
+      // A read that fails is retried, and if it still fails that venue keeps what it showed before: a flaky RPC
+      // must never make positions vanish from the list, or from the saved snapshot.
+      let anyFailed = false;
+      const retry = async <T,>(read: () => Promise<T>): Promise<T> => {
+        for (let i = 0; ; i++) {
+          try { return await read(); } catch (e) {
+            if (i >= 2) { anyFailed = true; throw e; }
+            await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+          }
+        }
+      };
       for (const chainId of LP_CHAINS) {
         const client = getPublicClient(config, { chainId });
         if (!client) continue;
@@ -500,16 +545,17 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         for (const { protocol, d } of v3Like) {
           const known = idsIn(d.positionManager) ?? [];
           jobs.push(
-            fetchV3Positions(client, owner, d)
-              .catch(() => [] as LiquidityPosition[])
+            retry(() => fetchV3Positions(client, owner, d))
               .then(async (enumerated) => {
                 const have = new Set(enumerated.map((p) => p.id));
                 const missing = known.filter((id) => !have.has(id));
+                // Ids from Krystal's index can be positions burned since; those fail to read, and that is fine.
                 const extra = missing.length > 0 ? await fetchV3Positions(client, owner, d, missing).catch(() => []) : [];
                 return [...enumerated, ...extra];
               })
               .then((items) => stakingSupported(d) ? withStakeTargets(client, d, items).catch(() => items) : items)
               .then((items) => setPositions((prev) => {
+                // Only reached when every read above worked; a failure skips this and the old rows stay.
                 const keep = prev.filter((p) => !(p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked && p.positionManager?.toLowerCase() === d.positionManager.toLowerCase()) && !(protocol !== 'aerodrome-cl' && p.protocol === protocol && (p.chainId ?? 1) === chainId && !p.staked));
                 const next = [...keep, ...items.map((p) => ({ ...p, chainId, chainName, positionManager: p.positionManager ?? d.positionManager }))];
                 positionsRef.current = next;
@@ -522,22 +568,23 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         // is young enough for that to be quick.
         const v4Ids = v4 ? idsIn(v4.positionManager) : undefined;
         if (v4 && v4Ids && v4Ids.length > 0) {
-          jobs.push(fetchV4Positions(client, owner, v4Ids, v4, v4DeployBlockFor(chainId)).then(merge('uniswap-v4', chainId, chainName)));
+          jobs.push(retry(() => fetchV4Positions(client, owner, v4Ids, v4, v4DeployBlockFor(chainId))).then(merge('uniswap-v4', chainId, chainName)));
         } else if (v4 && !KRYSTAL_LP_CHAINS.has(chainId)) {
-          jobs.push(fetchV4Positions(client, owner, undefined, v4, v4DeployBlockFor(chainId)).catch(() => [] as LiquidityPosition[]).then(merge('uniswap-v4', chainId, chainName)));
+          jobs.push(retry(() => fetchV4Positions(client, owner, undefined, v4, v4DeployBlockFor(chainId))).then(merge('uniswap-v4', chainId, chainName)));
         }
         // Aerodrome gauges: Krystal names the gauge, so read each staked NFT directly.
         if (stakedAero.length > 0) {
-          jobs.push(fetchAerodromeStakedByIds(client, owner, stakedAero).then(merge('aerodrome-cl', chainId, chainName, true)));
+          jobs.push(retry(() => fetchAerodromeStakedByIds(client, owner, stakedAero)).then(merge('aerodrome-cl', chainId, chainName, true)));
         }
         // Venues Krystal does not index (UP gauges, Giga's farm on Robinhood):
         // the staking contracts themselves enumerate the wallet's positions.
         for (const d of stakingDeploymentsFor(chainId)) {
-          jobs.push(fetchStakedPositions(client, owner, d).catch(() => [] as LiquidityPosition[]).then(merge(d.protocol, chainId, chainName, true)));
+          jobs.push(retry(() => fetchStakedPositions(client, owner, d)).then(merge(d.protocol, chainId, chainName, true)));
         }
       }
       await Promise.allSettled(jobs);
-      setCachedLpPositions(address, positionsRef.current);
+      // Save the snapshot only when the whole read worked, so a bad refresh cannot shrink the next quick load.
+      if (!anyFailed) setCachedLpPositions(address, positionsRef.current);
     } catch { /* read failure: leave the list as it was */ }
     finally { setLoading(false); }
   // krystalOpenKey: re-run once Krystal's index lands or changes.
@@ -1158,7 +1205,10 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
         )}
 
-        {autoByKey.has(posKey(p)) && connectedAddress ? (
+        {!autoByKey.has(posKey(p)) && orphanWallet.current.has(posKey(p)) && connectedAddress ? (
+          <OrphanControls pos={p} wallet={orphanWallet.current.get(posKey(p))!} owner={connectedAddress as `0x${string}`}
+            onChanged={async () => { setOrphanNonce((n) => n + 1); setAutoNonce((n) => n + 1); await load(); }}/>
+        ) : autoByKey.has(posKey(p)) && connectedAddress ? (
           <AutoJobControls job={autoByKey.get(posKey(p))!} pos={p} address={connectedAddress} canTransact={canTransact} onChanged={async () => { setAutoNonce((n) => n + 1); await load(); }}
             onAdd={() => setManage({ pos: p, mode: 'add', auto: autoByKey.get(posKey(p))! })}/>
         ) : (() => {
@@ -2138,5 +2188,56 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
       </div>
     </div>
     </Portal>
+  );
+}
+
+/**
+ * A position in the owner's auto wallet with no auto-rebalance job (the start step failed after the move, or the
+ * job was stopped while the NFT stayed). Offers the two ways out: start auto-rebalance (no signature: the server
+ * checks the wallet on chain) or take the position back to the owner's wallet.
+ */
+function OrphanControls({ pos, wallet, owner, onChanged }: { pos: LiquidityPosition; wallet: `0x${string}`; owner: `0x${string}`; onChanged: () => Promise<void> }) {
+  const config = useConfig();
+  const { track } = useTx();
+  const enableNew = useAction(api.autoRebalanceActions.enableNew);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const chainId = pos.chainId ?? 1;
+  const pm = pos.positionManager as `0x${string}`;
+
+  async function start() {
+    setErr(null); setBusy('Starting');
+    try {
+      const res = await enableNew({ owner, chainId, positionManager: pm, tokenId: pos.id.toString(), label: `${pos.symbol0} / ${pos.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, intervalMin: DEFAULT_INTERVAL });
+      if (!res.ok) throw new Error(res.reason);
+      await onChanged();
+    } catch (e) { setErr(readableError(e, 'Auto-rebalance did not start; try again.')); }
+    finally { setBusy(null); }
+  }
+  async function takeOut() {
+    setErr(null); setBusy('Withdrawing');
+    try {
+      const client = getPublicClient(config, { chainId: chainId as never });
+      if (!client) throw new Error('No connection to this chain right now.');
+      const calls = await buildTakeOutCalls(client as never, { wallet, positionManager: pm, tokenId: pos.id.toString(), gauge: null, chainId }, owner);
+      await runCalls(config, { account: owner, calls, label: `Withdraw ${pos.symbol0}/${pos.symbol1} from auto wallet`, track, chainId });
+      await onChanged();
+    } catch (e) { setErr(readableError(e, 'Could not take the position out.')); }
+    finally { setBusy(null); }
+  }
+  const btn = (label: string, onClick: () => void, tone: string) => (
+    <button type="button" disabled={!!busy} onClick={onClick} style={{ minHeight: 36, borderRadius: 12, border: '1px solid rgba(var(--fg-rgb), 0.1)', background: 'rgba(var(--fg-rgb), 0.05)', color: busy ? btb.textDim : tone, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: busy ? 'default' : 'pointer' }}>{label}</button>
+  );
+  return (
+    <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.06)', padding: '10px 12px' }}>
+      <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>In your auto wallet, not managed</div>
+      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.4 }}>Auto-rebalance is not running for this position. Start it, or take the position back to your wallet.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 10 }}>
+        {btn('Start auto-rebalance', start, btb.green)}
+        {btn('Take it out', takeOut, btb.text)}
+      </div>
+      {busy && <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 6 }}>{busy}</div>}
+      {err && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 6 }}>{err}</div>}
+    </div>
   );
 }

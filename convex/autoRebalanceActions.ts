@@ -800,6 +800,7 @@ export const enableNew = action({
       address: a.owner, wallet: v.wallet, chainId: a.chainId, positionManager: a.positionManager, tokenId: a.tokenId,
       label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin, compound: a.compound,
     });
+    if (id === "busy") return { ok: false, reason: "A rebalance just ran in this auto wallet. Try again in a few minutes." };
     if (!id) return { ok: false, reason: "Auto-rebalance is already set up for this position. Manage it from Portfolio." };
     return { ok: true, id };
   },

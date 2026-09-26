@@ -112,10 +112,13 @@ export async function buildEnableCalls(client: PublicClient, owner: `0x${string}
  * yet" answer is retried for a short while before it counts.
  */
 export async function enableWhenVisible<R extends { ok: boolean; reason?: string }>(start: () => Promise<R>): Promise<R> {
-  let res = await start();
-  for (let i = 0; i < 6 && !res.ok && /yet|not in your auto wallet|not created/i.test(res.reason ?? ''); i++) {
+  // A thrown error (the server's chain read failing) is retried like a returned one, not given up on at once.
+  const attempt = () => start().catch((e: unknown) => ({ ok: false, reason: e instanceof Error ? e.message : String(e) }) as unknown as R);
+  let res = await attempt();
+  // Retry the chain lagging behind the move, and a flaky RPC read (which used to leave a moved position unmanaged).
+  for (let i = 0; i < 6 && !res.ok && /yet|not in your auto wallet|not created|rpc|request failed|timed? ?out|fetch|network|rate limit/i.test(res.reason ?? ''); i++) {
     await new Promise((r) => setTimeout(r, 3000));
-    res = await start();
+    res = await attempt();
   }
   return res;
 }

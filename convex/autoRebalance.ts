@@ -244,6 +244,12 @@ export const createIfNew = internalMutation({
     const same = await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", a.address.toLowerCase())).collect();
     if (same.some((r) => r.chainId === a.chainId && r.positionManager === pm && r.tokenId === a.tokenId)) return null;
     const now = Date.now();
+    // A rebalance mints the new position a moment before its job moves to the new id: during that window the new
+    // NFT would look unmanaged, and starting it would give one position two jobs.
+    const lock = await ctx.db.query("rebalanceLocks").withIndex("by_chain", (q) => q.eq("chainId", a.chainId)).unique();
+    if ((lock && lock.until > now) || same.some((r) => r.chainId === a.chainId && r.wallet === a.wallet.toLowerCase() && (r.lastRebalancedAt ?? 0) > now - 3 * 60_000)) {
+      return "busy" as const;
+    }
     const id = await ctx.db.insert("autoRebalances", {
       address: a.address.toLowerCase(), chainId: a.chainId, positionManager: pm, tokenId: a.tokenId,
       wallet: a.wallet.toLowerCase(), label: a.label, gauge: a.gauge?.toLowerCase(), intervalMin: a.intervalMin,

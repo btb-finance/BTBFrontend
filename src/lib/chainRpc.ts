@@ -1,4 +1,5 @@
 import { fallback, http, type Transport } from 'viem';
+import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
 /**
  * Keyless RPC fallbacks per chain — the cross-chain read path (token metadata,
@@ -31,7 +32,12 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   137: ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org'],
   42161: ['https://arbitrum-one-rpc.publicnode.com', 'https://arbitrum.drpc.org'],
   10: ['https://optimism-rpc.publicnode.com', 'https://optimism.drpc.org'],
-  8453: ['https://base-rpc.publicnode.com', 'https://base.drpc.org'],
+  // Base carries most of auto-rebalance, so it gets a deep list: two endpoints alone rate-limited and cost users
+  // their positions on screen. All verified live with a batched eth_call and CORS for the page.
+  8453: [
+    'https://base-rpc.publicnode.com', 'https://mainnet.base.org', 'https://base.gateway.tenderly.co', 'https://1rpc.io/base',
+    'https://base.meowrpc.com', 'https://base.api.pocket.network', 'https://base-mainnet.public.blastapi.io', 'https://base.drpc.org',
+  ],
   43114: ['https://avalanche-c-chain-rpc.publicnode.com', 'https://avalanche.drpc.org'],
   59144: ['https://linea-rpc.publicnode.com', 'https://linea.drpc.org'],
   534352: ['https://scroll-rpc.publicnode.com', 'https://scroll.drpc.org'],
@@ -61,7 +67,8 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
 
 /** Failover transport for a chain: every listed endpoint, preferred first. */
 export function chainTransport(chainId: number): Transport {
-  const urls = CHAIN_RPC_URLS[chainId];
+  // Robinhood Chain: the verified upstream pool (the page's own proxy is not reachable from the server).
+  const urls = CHAIN_RPC_URLS[chainId] ?? (chainId === 4663 ? ROBINHOOD_RPC_UPSTREAMS : undefined);
   if (!urls?.length) return http();
   return fallback(urls.map(url => http(url, { timeout: 15_000, retryCount: 1 })));
 }
