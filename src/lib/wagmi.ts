@@ -48,10 +48,11 @@ export const ROBINHOOD_RPC_URLS = Array.from(new Set([
 ].filter((url): url is string => Boolean(url))));
 
 export function robinhoodTransport() {
+  // Batched reads, and one pass down the list on failure (not viem's default of three more passes).
   return fallback(ROBINHOOD_RPC_URLS.map(url => http(url, {
-    retryCount: url.includes('/api/robinhood-rpc') ? 1 : 0,
     timeout: 20_000,
-  })));
+    batch: { batchSize: 25, wait: 16 },
+  })), { retryCount: 1 });
 }
 export const SUPPORTED_CHAINS = [
   mainnet, bsc, polygon, arbitrum, optimism, base, avalanche, berachain,

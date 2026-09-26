@@ -97,7 +97,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
   const [lpToken, setLpToken] = useState<Token | null>(null);
   const [showHiddenAssets, setShowHiddenAssets] = useState(false);
   const [tokenSearch, setTokenSearch] = useState('');
-  const [lp, setLp] = useState<LpSummary>({ valueUsd: 0, feesUsd: 0, count: 0, inRange: 0, loading: false });
+  const [lp, setLp] = useState<LpSummary>({ valueUsd: 0, feesUsd: 0, count: 0, inRange: 0, loading: false, dailyUsd: 0, apr: 0 });
   const allTokensWithBalance = [...positions]
     .filter(t => parseFloat(t.balance ?? '0') > 0)
     .sort((a, b) => {
@@ -297,15 +297,37 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
         {isMobile && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
             {([
-              { label: 'Tokens', value: tokensUsd, color: btb.text },
-              { label: 'LPs', value: lp.valueUsd, color: btb.text },
-              { label: 'Fees', value: lp.feesUsd, color: btb.green },
-            ] as const).map(b => (
+              { label: 'Tokens', value: `$${fmt(tokensUsd)}`, sub: '', color: btb.text },
+              { label: 'LPs', value: `$${fmt(lp.valueUsd)}`, sub: lp.count > 0 ? `${lp.count} position${lp.count === 1 ? '' : 's'}` : '', color: btb.text },
+              { label: 'Earning', value: lp.dailyUsd > 0 ? `$${lp.dailyUsd < 0.01 ? '<0.01' : fmt(lp.dailyUsd)}/d` : '$0/d', sub: lp.apr > 0 ? `${lp.apr.toFixed(1)}% APR` : '', color: lp.dailyUsd > 0 ? btb.green : btb.textDim },
+            ]).map(b => (
               <div key={b.label} style={{ padding: '8px 10px', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.05)', minWidth: 0 }}>
                 <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>{b.label}</div>
-                <div style={{ color: b.color, fontSize: 14, fontWeight: 800, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>${fmt(b.value)}</div>
+                <div style={{ color: b.color, fontSize: 14, fontWeight: 800, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.value}</div>
+                {b.sub && <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.sub}</div>}
               </div>
             ))}
+          </div>
+        )}
+        {lp.count > 0 && ((!isMobile && lp.dailyUsd > 0) || (lp.canCollect && lp.collect)) && (
+          // Only what is worth a line: earnings on desktop (phones show them in the tiles) and Collect when fees are worth it.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+            {(() => {
+              const pill = (text: string, color: string, rgb: string) => (
+                <span style={{ padding: '4px 9px', borderRadius: 999, background: `rgba(${rgb}, 0.1)`, color, fontSize: 12, fontWeight: 750, whiteSpace: 'nowrap' }}>{text}</span>
+              );
+              return (
+                <>
+                  {!isMobile && lp.dailyUsd > 0 && pill(`~$${lp.dailyUsd < 0.01 ? '<0.01' : fmt(lp.dailyUsd)}/day · ${lp.apr.toFixed(1)}% APR`, btb.green, 'var(--green-rgb)')}
+                  <span style={{ flex: 1 }}/>
+                  {lp.canCollect && lp.collect && (
+                    <button type="button" onClick={lp.collect} disabled={lp.collecting} style={{ height: 28, padding: '0 12px', borderRadius: 999, border: 'none', background: btb.green, color: '#000', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: lp.collecting ? 'default' : 'pointer', opacity: lp.collecting ? 0.6 : 1 }}>
+                      {lp.collecting ? 'Collecting…' : 'Collect fees'}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
         {allocation.length > 0 && tokensUsd > 0 && (

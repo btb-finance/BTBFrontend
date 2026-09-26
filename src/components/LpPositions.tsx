@@ -69,6 +69,8 @@ function snapshotPosition(j: AutoJob): LiquidityPosition | null {
   } catch { return null; }
 }
 
+/** Aerodrome-style CL gauge and pool reads for a staked position's reward APR. */
+const GAUGE_RATE_ABI = parseAbi(['function rewardRate() view returns (uint256)', 'function pool() view returns (address)', 'function stakedLiquidity() view returns (uint128)']);
 const FEE_GROWTH_GLOBAL_ABI = parseAbi(['function feeGrowthGlobal0X128() view returns (uint256)', 'function feeGrowthGlobal1X128() view returns (uint256)']);
 const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
 const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
@@ -215,6 +217,17 @@ export interface LpSummary {
   count: number;
   inRange: number;
   loading: boolean;
+  /** Estimated earnings per day across all positions, in USD. */
+  dailyUsd: number;
+  /** Value-weighted average APR across all positions, in percent. */
+  apr: number;
+  /** Fees are waiting and this is the owner's own view, so Collect can run. */
+  canCollect?: boolean;
+  collecting?: boolean;
+  /** Collect fees from every position that has some. */
+  collect?: () => void;
+  /** Show only the positions that are out of range, and bring the list into view. */
+  showOutOfRange?: () => void;
 }
 
 export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: boolean; onSummary?: (s: LpSummary) => void } = {}) {
@@ -496,7 +509,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       const retry = async <T,>(read: () => Promise<T>): Promise<T> => {
         for (let i = 0; ; i++) {
           try { return await read(); } catch (e) {
-            if (i >= 2) { anyFailed = true; throw e; }
+            if (i >= 1) { anyFailed = true; throw e; }
             await new Promise((r) => setTimeout(r, 800 * (i + 1)));
           }
         }
@@ -674,60 +687,101 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
    * One liquidity read per position, refreshed with the list.
    */
   const [liveApr, setLiveApr] = useState<Record<string, number>>({});
+  // Per position (and its liquidity and range): the APR and when it was worked out. Kept across list refreshes, so a
+  // list that changes while it loads never restarts the work; an entry is only redone after five minutes.
+  const aprDone = useRef(new Map<string, number>());
+  const poolAddr = useRef(new Map<string, string>());
+  // A failed attempt (slow RPC, prices not in yet) retries on its own a few times, not only when the list next changes.
+  const aprTries = useRef(new Map<string, number>());
+  const [aprRetry, setAprRetry] = useState(0);
   useEffect(() => {
     if (positions.length === 0 || !discoverPools?.length) return;
-    let live = true;
-    (async () => {
-      const out: Record<string, number> = {};
-      await Promise.all(positions.map(async (p) => {
-        if (!p.inRange || p.liquidity === 0n) { out[posKey(p)] = 0; return; }
-        // In an Aerodrome-style gauge the trading fees go to voters; the position earns the reward token instead.
-        if (p.staked?.kind === 'gauge') { out[posKey(p)] = 0; return; }
-        const chainId = p.chainId ?? 1;
-        const client = getPublicClient(config, { chainId });
-        if (!client) return;
-        const set = new Set([p.token0.toLowerCase(), p.token1.toLowerCase()]);
-        try {
-          // V3 style pools are matched by their own address: the same pair and fee
-          // tier can exist on several DEXs (Uniswap, Giga, Ramses), and Aerodrome's
-          // snapshot tier is its dynamic fee, not the tick spacing a position keeps.
-          let row: (typeof discoverPools)[number] | undefined;
-          if (p.protocol === 'uniswap-v4') {
-            row = discoverPools.find((r) => (r.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === r.chain)?.chainId) === chainId
-              && r.feeTier === p.fee && (r.underlyingTokens ?? []).length === 2 && r.underlyingTokens!.every((t) => set.has(t.toLowerCase()))
-              && /^0x[0-9a-f]{64}$/i.test(r.id));
-          } else {
-            const d = v3DeploymentOf(p);
-            const pool = (d.slipstream
-              ? await client.readContract({ address: d.factory, abi: SLIP_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.tickSpacing ?? p.fee] })
-              : await client.readContract({ address: d.factory, abi: V3_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.fee] })).toLowerCase();
-            row = discoverPools.find((r) => r.id.toLowerCase() === pool);
-          }
-          if (!row) return;
-          const fees24h = row.fees24hUsd ?? (row.tvlUsd * (row.apyBase ?? 0)) / 100 / 365;
-          if (!(fees24h > 0)) return;
-          const poolL = p.protocol === 'uniswap-v4'
-            ? await client.readContract({ address: v4DeploymentOf(p).stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [row.id as `0x${string}`] }) as bigint
-            : await client.readContract({ address: row.id as `0x${string}`, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
-          const value = valueOf(p);
-          if (poolL === 0n || !(value > 0)) return;
-          // A pool that sends every fee to the protocol (some Giga pools) never grows LP fees: nothing to earn.
-          if (p.protocol !== 'uniswap-v4') {
-            const [g0, g1] = await Promise.all([
-              client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal0X128' }),
-              client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal1X128' }),
-            ]).catch(() => [1n, 1n]);
-            if (g0 === 0n && g1 === 0n) { out[posKey(p)] = 0; return; }
-          }
-          const share = Number(p.liquidity) / Number(poolL);
-          out[posKey(p)] = (fees24h * Math.min(share, 1) * 365 / value) * 100;
-        } catch { /* leave unknown */ }
-      }));
-      if (live) setLiveApr(out);
-    })();
-    return () => { live = false; };
+    // Includes the stake: an auto position is first drawn from its snapshot, which may not say it is staked; the live
+    // read that follows must count as new, or its reward APR is never worked out.
+    const keyOf = (p: LiquidityPosition) => `${posKey(p)}:${p.liquidity}:${p.inRange}:${p.staked?.gauge ?? ''}`;
+    const show = (p: LiquidityPosition, apr: number | null) => {
+      aprDone.current.set(keyOf(p), Date.now());
+      setLiveApr((prev) => {
+        if (apr === null) { if (!(posKey(p) in prev)) return prev; const next = { ...prev }; delete next[posKey(p)]; return next; }
+        return prev[posKey(p)] === apr ? prev : { ...prev, [posKey(p)]: apr };
+      });
+    };
+    /** The position's fee APR, null when there is nothing honest to show, undefined to try again later. */
+    const compute = async (p: LiquidityPosition): Promise<number | null | undefined> => {
+      if (!p.inRange || p.liquidity === 0n) return 0;
+      const chainId = p.chainId ?? 1;
+      const client = getPublicClient(config, { chainId });
+      if (!client) return undefined;
+      const set = new Set([p.token0.toLowerCase(), p.token1.toLowerCase()]);
+      // V3 style pools are matched by their own address: the same pair and fee tier can exist on several DEXs
+      // (Uniswap, Giga, Ramses), and Aerodrome's snapshot tier is its dynamic fee, not the position's tick spacing.
+      let row: (typeof discoverPools)[number] | undefined;
+      if (p.protocol === 'uniswap-v4') {
+        row = discoverPools.find((r) => (r.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === r.chain)?.chainId) === chainId
+          && r.feeTier === p.fee && (r.underlyingTokens ?? []).length === 2 && r.underlyingTokens!.every((t) => set.has(t.toLowerCase()))
+          && /^0x[0-9a-f]{64}$/i.test(r.id));
+      } else {
+        let pool = poolAddr.current.get(posKey(p));
+        if (!pool) {
+          const d = v3DeploymentOf(p);
+          pool = (d.slipstream
+            ? await client.readContract({ address: d.factory, abi: SLIP_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.tickSpacing ?? p.fee] })
+            : await client.readContract({ address: d.factory, abi: V3_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.fee] })).toLowerCase();
+          poolAddr.current.set(posKey(p), pool);
+        }
+        row = discoverPools.find((r) => r.id.toLowerCase() === pool);
+      }
+      // In an Aerodrome-style gauge the trading fees go to voters; the position earns the reward token instead. Its APR
+      // comes from the gauge itself: reward per second, times this position's share of the in-range staked liquidity.
+      if (p.staked?.kind === 'gauge') {
+        const value = valueOf(p);
+        const price = usd[p.staked.rewardToken.toLowerCase()];
+        if (!(value > 0) || !(price > 0)) return undefined; // prices not in yet
+        const gauge = p.staked.gauge as `0x${string}`;
+        const [rate, poolAddr] = await Promise.all([
+          client.readContract({ address: gauge, abi: GAUGE_RATE_ABI, functionName: 'rewardRate' }),
+          client.readContract({ address: gauge, abi: GAUGE_RATE_ABI, functionName: 'pool' }),
+        ]);
+        const stakedL = await client.readContract({ address: poolAddr, abi: GAUGE_RATE_ABI, functionName: 'stakedLiquidity' });
+        if (stakedL === 0n || rate === 0n) return 0;
+        const perYearUsd = (Number(rate) / 1e18) * 365 * 86_400 * price;
+        return (perYearUsd * Math.min(Number(p.liquidity) / Number(stakedL), 1) / value) * 100;
+      }
+      if (!row) return null;
+      const fees24h = row.fees24hUsd ?? (row.tvlUsd * (row.apyBase ?? 0)) / 100 / 365;
+      if (!(fees24h > 0)) return 0;
+      const value = valueOf(p);
+      if (!(value > 0)) return undefined; // prices not in yet
+      const isV4 = p.protocol === 'uniswap-v4';
+      // Pool liquidity and, for V3 style pools, whether it ever grows LP fees (some Giga pools send them all to the protocol).
+      const [poolL, g0, g1] = await Promise.all([
+        isV4
+          ? client.readContract({ address: v4DeploymentOf(p).stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [row.id as `0x${string}`] }) as Promise<bigint>
+          : client.readContract({ address: row.id as `0x${string}`, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
+        isV4 ? Promise.resolve(1n) : client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal0X128' }).catch(() => 1n),
+        isV4 ? Promise.resolve(1n) : client.readContract({ address: row.id as `0x${string}`, abi: FEE_GROWTH_GLOBAL_ABI, functionName: 'feeGrowthGlobal1X128' }).catch(() => 1n),
+      ]);
+      if (g0 === 0n && g1 === 0n) return 0;
+      if (poolL === 0n) return null;
+      return (fees24h * Math.min(Number(p.liquidity) / Number(poolL), 1) * 365 / value) * 100;
+    };
+    for (const p of positions) {
+      const done = aprDone.current.get(keyOf(p));
+      if (done && Date.now() - done < 5 * 60_000) continue;
+      aprDone.current.set(keyOf(p), Date.now()); // in flight: a refresh of the list does not start it twice
+      // Each position lands on its own, and a stuck read gives up after 12 s so it can be tried again.
+      Promise.race([compute(p), new Promise<undefined>((r) => setTimeout(() => r(undefined), 12_000))])
+        .catch(() => undefined)
+        .then((apr) => {
+          if (apr !== undefined) { aprTries.current.delete(keyOf(p)); show(p, apr); return; }
+          aprDone.current.delete(keyOf(p));
+          const tries = (aprTries.current.get(keyOf(p)) ?? 0) + 1;
+          aprTries.current.set(keyOf(p), tries);
+          if (tries <= 3) setTimeout(() => setAprRetry((n) => n + 1), 4000 * tries);
+        });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positions, discoverPools, usd]);
+  }, [positions, discoverPools, usd, aprRetry]);
 
   /**
    * Compound: collect the fees, swap only what the range needs so both sides
@@ -810,9 +864,44 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   /** Staking rewards waiting (AERO, UP and GIGA all have 18 decimals). */
   const rewardsValueOf = (p: LiquidityPosition) =>
     p.staked && p.staked.earned > 0n ? parseFloat(formatUnits(p.staked.earned, 18)) * (usd[p.staked.rewardToken.toLowerCase()] ?? 0) : 0;
+  const [chainHistory, setChainHistory] = useState<Record<string, PositionHistory>>({});
+  /** Provider analytics, or the same shape synthesised from chain history. */
+  const analyticsOf = (p: LiquidityPosition): KrystalPositionAnalytics | undefined => {
+    const fromKrystal = krystal?.positions?.find((item) => krystalMatches(p, item));
+    if (fromKrystal) return fromKrystal;
+    const h = chainHistory[posKey(p)];
+    if (!h || h.depositsUsd <= 0) return undefined;
+    const p0 = usd[p.token0.toLowerCase()] ?? 0, p1 = usd[p.token1.toLowerCase()] ?? 0;
+    const value = parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
+    const pending = parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
+    const pnl = value + pending + h.withdrawalsUsd + h.feesClaimedUsd - h.depositsUsd;
+    // HODL: the deposited token amounts at today's prices, less what was withdrawn.
+    const hodl = parseFloat(formatUnits(h.deposits0 - h.withdrawals0, p.decimals0)) * p0 + parseFloat(formatUnits(h.deposits1 - h.withdrawals1, p.decimals1)) * p1;
+    const ageDays = h.openedAt ? Math.max((Date.now() / 1000 - h.openedAt) / 86400, 1 / 24) : 0;
+    const feesTotal = h.feesClaimedUsd + pending;
+    const apr = ageDays > 0 && h.depositsUsd > 0 ? (feesTotal / h.depositsUsd) * (365 / ageDays) * 100 : 0;
+    return {
+      chainId: p.chainId ?? 1, chainName: p.chainName ?? '', tokenId: p.id.toString(), status: p.inRange ? 'IN_RANGE' : 'OUT_RANGE',
+      pnl, returnOnInvestment: (pnl / h.depositsUsd) * 100, compareWithHodl: value + pending - hodl,
+      apr, feeApr: apr, farmApr: 0,
+      totalDepositValue: h.depositsUsd, totalWithdrawValue: h.withdrawalsUsd, currentPositionValue: value,
+      createdTime: h.openedAt ?? 0, closedTime: 0,
+      feesClaimed: [{ token: { symbol: p.symbol0, decimals: p.decimals0 }, balance: h.feesClaimed0.toString(), quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed0, p.decimals0)) * p0 } } },
+                    { token: { symbol: p.symbol1, decimals: p.decimals1 }, balance: h.feesClaimed1.toString(), quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed1, p.decimals1)) * p1 } } }],
+      feePending: [{ token: { symbol: p.symbol0 }, quotes: { usd: { value: parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 } } }, { token: { symbol: p.symbol1 }, quotes: { usd: { value: parseFloat(formatUnits(p.fees1, p.decimals1)) * p1 } } }],
+      pool: { project: protocolBadgeLabel(p) },
+    };
+  };
+
   const totalValueUsd = positions.reduce((s, p) => s + valueOf(p), 0);
   const pendingFeesUsd = positions.reduce((s, p) => s + feesValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
+  // What each position earns: the live APR (fees, or the gauge reward when staked) spread over a day, and the totals.
+  const aprOf = (p: LiquidityPosition) => liveApr[posKey(p)] ?? analyticsOf(p)?.feeApr ?? 0;
+  const dailyOf = (p: LiquidityPosition) => (valueOf(p) * aprOf(p)) / 100 / 365;
+  const estDailyUsd = positions.reduce((s, p) => s + dailyOf(p), 0);
+  const avgApr = totalValueUsd > 0 ? (estDailyUsd * 365 / totalValueUsd) * 100 : 0;
+  const perDay = (n: number) => n <= 0 ? '$0/day' : n < 0.01 ? '<$0.01/day' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}/day`;
   const feePositions = positions.filter((p) => (p.fees0 > 0n || p.fees1 > 0n) && !p.staked);
   const collectingAll = busyId === 'collect-all';
 
@@ -839,10 +928,24 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     finally { setBusyId(null); }
   }
 
+  // The Portfolio card shows the overview and its Collect button; it calls back into this list's collect.
+  // Under a cent, collecting costs more gas than it brings in: no button.
+  const summaryCanCollect = feePositions.length > 0 && canTransact && pendingFeesUsd >= 0.01;
+  const collectAllRef = useRef(collectAll);
+  collectAllRef.current = collectAll;
+  const collectFromSummary = useCallback(() => { void collectAllRef.current(); }, []);
+  const listTopRef = useRef<HTMLDivElement>(null);
+  const showOutOfRange = useCallback(() => {
+    setRangeFilter('out');
+    requestAnimationFrame(() => listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, []);
   useEffect(() => {
-    onSummary?.({ valueUsd: totalValueUsd, feesUsd: pendingFeesUsd, count: positions.length, inRange: inRangeCount, loading: loading || krystalLoading });
+    onSummary?.({
+      valueUsd: totalValueUsd, feesUsd: pendingFeesUsd, count: positions.length, inRange: inRangeCount, loading: loading || krystalLoading,
+      dailyUsd: estDailyUsd, apr: avgApr, canCollect: summaryCanCollect, collecting: collectingAll || !!busyId, collect: collectFromSummary, showOutOfRange,
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalValueUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading]);
+  }, [totalValueUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading, estDailyUsd, avgApr, summaryCanCollect, collectingAll, busyId]);
 
   if (!address) {
     return showEmpty ? (
@@ -861,7 +964,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // Chain-read history for positions the provider does not cover (Robinhood
   // and any V3-style position Krystal misses): deposits, withdrawals and
   // fees claimed from the manager's events, priced at the time where possible.
-  const [chainHistory, setChainHistory] = useState<Record<string, PositionHistory>>({});
   useEffect(() => {
     const todo = positions.filter((p) => p.protocol !== 'uniswap-v4' && p.liquidity >= 0n && !krystal?.positions?.some((item) => krystalMatches(p, item)) && !chainHistory[posKey(p)]);
     if (todo.length === 0 || krystalLoading) return;
@@ -934,33 +1036,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, config, usd]);
 
-  /** Provider analytics, or the same shape synthesised from chain history. */
-  const analyticsOf = (p: LiquidityPosition): KrystalPositionAnalytics | undefined => {
-    const fromKrystal = krystal?.positions?.find((item) => krystalMatches(p, item));
-    if (fromKrystal) return fromKrystal;
-    const h = chainHistory[posKey(p)];
-    if (!h || h.depositsUsd <= 0) return undefined;
-    const p0 = usd[p.token0.toLowerCase()] ?? 0, p1 = usd[p.token1.toLowerCase()] ?? 0;
-    const value = parseFloat(formatUnits(p.amount0, p.decimals0)) * p0 + parseFloat(formatUnits(p.amount1, p.decimals1)) * p1;
-    const pending = parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 + parseFloat(formatUnits(p.fees1, p.decimals1)) * p1;
-    const pnl = value + pending + h.withdrawalsUsd + h.feesClaimedUsd - h.depositsUsd;
-    // HODL: the deposited token amounts at today's prices, less what was withdrawn.
-    const hodl = parseFloat(formatUnits(h.deposits0 - h.withdrawals0, p.decimals0)) * p0 + parseFloat(formatUnits(h.deposits1 - h.withdrawals1, p.decimals1)) * p1;
-    const ageDays = h.openedAt ? Math.max((Date.now() / 1000 - h.openedAt) / 86400, 1 / 24) : 0;
-    const feesTotal = h.feesClaimedUsd + pending;
-    const apr = ageDays > 0 && h.depositsUsd > 0 ? (feesTotal / h.depositsUsd) * (365 / ageDays) * 100 : 0;
-    return {
-      chainId: p.chainId ?? 1, chainName: p.chainName ?? '', tokenId: p.id.toString(), status: p.inRange ? 'IN_RANGE' : 'OUT_RANGE',
-      pnl, returnOnInvestment: (pnl / h.depositsUsd) * 100, compareWithHodl: value + pending - hodl,
-      apr, feeApr: apr, farmApr: 0,
-      totalDepositValue: h.depositsUsd, totalWithdrawValue: h.withdrawalsUsd, currentPositionValue: value,
-      createdTime: h.openedAt ?? 0, closedTime: 0,
-      feesClaimed: [{ token: { symbol: p.symbol0, decimals: p.decimals0 }, balance: h.feesClaimed0.toString(), quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed0, p.decimals0)) * p0 } } },
-                    { token: { symbol: p.symbol1, decimals: p.decimals1 }, balance: h.feesClaimed1.toString(), quotes: { usd: { value: parseFloat(formatUnits(h.feesClaimed1, p.decimals1)) * p1 } } }],
-      feePending: [{ token: { symbol: p.symbol0 }, quotes: { usd: { value: parseFloat(formatUnits(p.fees0, p.decimals0)) * p0 } } }, { token: { symbol: p.symbol1 }, quotes: { usd: { value: parseFloat(formatUnits(p.fees1, p.decimals1)) * p1 } } }],
-      pool: { project: protocolBadgeLabel(p) },
-    };
-  };
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
     item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
     !positions.some((p) => krystalMatches(p, item)),
@@ -1107,7 +1182,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
             {liveApr[posKey(p)] != null && (
               <div title="Pool's 24h fees times your share of in-range liquidity, annualised" style={{ color: liveApr[posKey(p)] > 0 ? btb.green : btb.textDim, fontSize: 11.5, fontWeight: 800, marginTop: 2 }}>
-                {liveApr[posKey(p)] > 0 ? `${liveApr[posKey(p)].toFixed(1)}% fee APR` : 'Earning 0% now'}
+                {liveApr[posKey(p)] > 0 ? `${liveApr[posKey(p)].toFixed(1)}% ${p.staked ? `${p.staked.rewardSymbol} APR` : 'fee APR'}` : 'Earning 0% now'}
               </div>
             )}
             {p.staked && !isMobile && <div style={{ marginTop: v > 0 ? 4 : 0 }}>{stakedEl}</div>}
@@ -1182,7 +1257,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               ['Invested', money(a.totalDepositValue), btb.text],
               ['Value', money(v > 0 ? v : a.totalDepositValue + a.pnl), btb.text],
               ['P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss],
-              ['Fee APR', a.feeApr > 0 ? `${a.feeApr.toFixed(1)}%` : '0%', btb.textMuted],
+              [p.staked ? `${p.staked.rewardSymbol} APR` : 'Fee APR', aprOf(p) > 0 ? `${aprOf(p).toFixed(1)}%` : '0%', aprOf(p) > 0 ? btb.green : btb.textMuted],
+              ['Est. per day', perDay(dailyOf(p)), dailyOf(p) > 0 ? btb.green : btb.textMuted],
               ...(a.totalWithdrawValue > 0 ? [['Withdrawn', money(a.totalWithdrawValue), btb.text]] : []),
             ] as [string, string, string][]).map(([l, val, c]) => (
               <div key={l} style={{ minWidth: 0 }}>
@@ -1197,7 +1273,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             {line('Invested', money(a.totalDepositValue))}
             {line('Current value', money(v > 0 ? v : a.totalDepositValue + a.pnl))}
             {a.totalWithdrawValue > 0 && line('Withdrawn', money(a.totalWithdrawValue))}
-            {a.feeApr > 0 && line('Fee APR', `${a.feeApr.toFixed(1)}%`, btb.textMuted)}
+            {aprOf(p) > 0 && line(p.staked ? `${p.staked.rewardSymbol} APR` : 'Fee APR', `${aprOf(p).toFixed(1)}%`, btb.green)}
+            {dailyOf(p) > 0 && line('Est. earning', perDay(dailyOf(p)), btb.green)}
             {chainHistory[posKey(p)] && line('Source', chainHistory[posKey(p)].estimated ? 'chain events, priced at today\'s rates' : 'chain events', btb.textDim)}
             <div style={{ borderTop: '1px solid rgba(var(--fg-rgb), 0.08)', marginTop: 2, paddingTop: 8 }}>
               {line('P&L', `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, a.pnl >= 0 ? btb.green : btb.loss, true)}
@@ -1290,7 +1367,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   };
 
   // ── Filters, sorting and the compact list ─────────────────────────────────
-  const aprOf = (p: LiquidityPosition) => liveApr[posKey(p)] ?? analyticsOf(p)?.feeApr ?? 0;
   const chainsPresent = [...new Set(positions.map((p) => p.chainId ?? 1))];
   const protosPresent = [...new Set(positions.map((p) => p.protocol))];
   const visiblePositions = orderedPositions
@@ -1327,7 +1403,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const divider = (k: string) => <span key={k} style={{ width: 1, height: 18, background: 'rgba(var(--fg-rgb), 0.12)', margin: '0 2px', flexShrink: 0 }}/>;
   // Phone: every filter in one sideways-scrolling strip (chains as logos, tap again to clear), then sort and view on one line.
   const toolbar = positions.length > 1 && (isMobile ? (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div ref={listTopRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px' }}>
         {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
         {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
@@ -1340,7 +1416,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{sortAndView}</div>
     </div>
   ) : (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div ref={listTopRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 72 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
         {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
@@ -1392,7 +1468,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       <div key={key} style={{ borderTop: index === 0 ? 'none' : '1px solid rgba(var(--fg-rgb), 0.06)' }}>
         <div role="button" tabIndex={0} className="lp-row" data-open={open || undefined}
           onClick={() => setExpanded(open ? null : key)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(open ? null : key); } }}
-          style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : LIST_COLS, alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '13px 14px' : '14px 18px', cursor: 'pointer', boxShadow: `inset 3px 0 0 rgba(${toneRgb}, ${p.inRange ? 0.55 : 0.8})` }}>
+          style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : LIST_COLS, alignItems: 'center', gap: isMobile ? 10 : 16, padding: isMobile ? '13px 14px' : '14px 18px', cursor: 'pointer', boxShadow: `inset 3px 0 0 rgba(${toneRgb}, ${p.inRange ? 0.55 : 0.8})` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             <div style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
               <TokenIcon symbol={p.symbol0} size={isMobile ? 28 : 32} logoUrl={logo0}/>
@@ -1406,14 +1482,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                 {tags[tagKeyOf(p)] && <span style={{ color: btb.green, fontSize: 10.5, fontWeight: 750, padding: '1px 6px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.1)', whiteSpace: 'nowrap' }}>{tags[tagKeyOf(p)]}</span>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap', fontSize: 11, fontWeight: 650 }}>
-                <span style={{ color: btb.textDim }}>{chainName}</span>
-                <span style={{ color: 'rgba(var(--fg-rgb), 0.2)' }}>|</span>
+                {/* The chain's logo already sits on the token icons; on a phone its name only costs a line. */}
+                {!isMobile && <span style={{ color: btb.textDim }}>{chainName}</span>}
+                {!isMobile && <span style={{ color: 'rgba(var(--fg-rgb), 0.2)' }}>|</span>}
                 <span style={{ color: PROTOCOL_BADGE[p.protocol].color }}>{protocolBadgeLabel(p)}</span>
                 {p.staked && <span style={{ color: btb.amber }}>Staked</span>}
-                {autoByKey.has(key) && <span style={{ color: btb.green, fontWeight: 800 }}>Auto-rebalance{autoByKey.get(key)!.active ? '' : ', paused'}</span>}
+                {autoByKey.has(key) && <span style={{ color: btb.green, fontWeight: 800 }}>{isMobile ? 'Auto' : 'Auto-rebalance'}{autoByKey.get(key)!.active ? '' : ', paused'}</span>}
                 {watched && <span title={fastAlerts ? 'Range alert, checked every 5 minutes' : 'Range alert, checked hourly'} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: fastAlerts ? btb.green : btb.textMuted }}><span style={{ width: 5, height: 5, borderRadius: 999, background: 'currentColor' }}/>{fastAlerts ? 'Fast alert' : 'Alert'}</span>}
               </div>
-              {isMobile && <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>{rangeBar(64)}<span style={{ color: tone, fontSize: 10.5, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : 'Out of range'}</span></div>}
             </div>
           </div>
           {!isMobile && (
@@ -1423,14 +1499,41 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             </div>
           )}
           {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.staked?.kind !== 'gauge' && (p.fees0 > 0n || p.fees1 > 0n)) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
-          {!isMobile && !tablet && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label('fee APR')}</div>}
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ color: btb.text, fontSize: isMobile ? 14.5 : 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
+          {!isMobile && !tablet && <div style={{ textAlign: 'right' }}><div style={{ color: apr > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{apr > 0 ? `${apr.toFixed(1)}%` : '0%'}</div>{label(`${p.staked ? `${p.staked.rewardSymbol} APR` : 'fee APR'} · ${perDay(dailyOf(p))}`)}</div>}
+          {!isMobile && <div style={{ textAlign: 'right' }}>
+            <div style={{ color: btb.text, fontSize: 15.5, fontWeight: 800, letterSpacing: -0.2 }}>{v > 0 ? money(v) : '...'}</div>
             {a && a.totalDepositValue > 0
               ? <div style={{ color: a.pnl >= 0 ? btb.green : btb.loss, fontSize: 10.5, fontWeight: 750, marginTop: 3, whiteSpace: 'nowrap' }}>{fmtSignedMoney(a.pnl)} ({fmtSignedPercent(a.returnOnInvestment)})</div>
-              : isMobile ? <div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 10.5, fontWeight: 750, marginTop: 3 }}>{f > 0 ? `${money(f)} fees` : apr > 0 ? `${apr.toFixed(1)}% APR` : 'no fees yet'}</div>
               : label('value')}
-          </div>
+          </div>}
+          {/* Phone: the range as its own full-width line, then value, APR and earnings as one even strip. */}
+          {isMobile && (
+            <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>{rangeBar('100%')}</div>
+              <span style={{ color: tone, fontSize: 11, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, ${side}` : ''}`}</span>
+            </div>
+          )}
+          {isMobile && (
+            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 6 }}>
+              {[
+                {
+                  label: 'Value', value: v > 0 ? money(v) : '...', color: btb.text,
+                  sub: a && a.totalDepositValue > 0 ? { text: `${fmtSignedMoney(a.pnl)} (${fmtSignedPercent(a.returnOnInvestment)})`, color: a.pnl >= 0 ? btb.green : btb.loss } : null,
+                },
+                { label: p.staked ? `${p.staked.rewardSymbol} APR` : 'Fee APR', value: apr > 0 ? `${apr.toFixed(1)}%` : '0%', color: apr > 0 ? btb.green : btb.textDim, sub: null },
+                // Fees worth collecting, else what it earns a day (a staked position's fees never show here).
+                f >= 0.01
+                  ? { label: 'To collect', value: money(f), color: btb.green, sub: null }
+                  : { label: 'Per day', value: perDay(dailyOf(p)).replace('/day', ''), color: dailyOf(p) > 0 ? btb.green : btb.textDim, sub: null },
+              ].map((c) => (
+                <div key={c.label} style={{ minWidth: 0, padding: '6px 8px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }}>
+                  <div style={{ color: btb.textDim, fontSize: 10, fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</div>
+                  <div style={{ color: c.color, fontSize: 13.5, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.value}</div>
+                  {c.sub && <div style={{ color: c.sub.color, fontSize: 10, fontWeight: 750, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.sub.text}</div>}
+                </div>
+              ))}
+            </div>
+          )}
           {!isMobile && (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: btb.textDim, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><path d="M6 9l6 6 6-6"/></svg>
           )}
@@ -1561,43 +1664,69 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-      {feePositions.length > 0 && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: isMobile ? 'nowrap' : 'wrap',
-          padding: isMobile ? '10px 12px' : '14px 18px', borderRadius: isMobile ? 14 : 16,
-          background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.12), rgba(26,173,119,0.08))',
-          border: '1px solid rgba(var(--green-rgb), 0.24)',
-        }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: btb.green, fontSize: isMobile ? 15 : 18, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
-              ${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })} {isMobile ? 'in fees' : 'in fees to collect'}
+      {/* One overview for every position, auto or not: what they are worth, what they earn, and what is waiting. */}
+      {positions.length > 0 && !onSummary && (() => {
+        const money = (n: number) => n > 0 && n < 0.01 ? '<$0.01' : `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+        const allIn = inRangeCount === positions.length;
+        const canCollect = feePositions.length > 0 && canTransact && pendingFeesUsd >= 0.01;
+        const collectBtn = canCollect && (
+          <button type="button" onClick={collectAll} disabled={collectingAll || !!busyId} style={{ flexShrink: 0, height: 28, padding: '0 12px', borderRadius: 999, border: 'none', background: btb.green, color: '#000', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: collectingAll || busyId ? 'default' : 'pointer', opacity: collectingAll || busyId ? 0.6 : 1 }}>
+            {collectingAll ? 'Collecting…' : 'Collect'}
+          </button>
+        );
+        const tag = (text: string, color: string, rgb: string) => (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 9px', borderRadius: 999, background: `rgba(${rgb}, 0.1)`, color, fontSize: 12, fontWeight: 750, whiteSpace: 'nowrap' }}>{text}</span>
+        );
+        if (isMobile) {
+          return (
+            <div style={{ borderRadius: 16, border: btb.borderSoft, background: 'radial-gradient(120% 140% at 100% 0%, rgba(var(--green-rgb), 0.1), transparent 60%), rgba(var(--fg-rgb), 0.03)', padding: '12px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: btb.textDim, fontSize: 11, fontWeight: 700 }}>LP value</div>
+                  <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5, marginTop: 2 }}>{money(totalValueUsd)}</div>
+                </div>
+                <div style={{ textAlign: 'right', minWidth: 0 }}>
+                  <div style={{ color: estDailyUsd > 0 ? btb.green : btb.textDim, fontSize: 18, fontWeight: 800 }}>{estDailyUsd > 0 ? `~${perDay(estDailyUsd)}` : '$0/day'}</div>
+                  <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>{avgApr.toFixed(1)}% avg APR</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                {allIn ? tag(`${inRangeCount}/${positions.length} in range`, btb.green, 'var(--green-rgb)') : tag(`${positions.length - inRangeCount} out of range`, btb.amber, 'var(--amber-rgb)')}
+                {tag(`${money(pendingFeesUsd)} unclaimed`, pendingFeesUsd >= 0.01 ? btb.green : btb.textMuted, pendingFeesUsd >= 0.01 ? 'var(--green-rgb)' : 'var(--fg-rgb)')}
+                <span style={{ flex: 1 }}/>
+                {collectBtn}
+              </div>
             </div>
-            <div style={{ color: btb.textMuted, fontSize: isMobile ? 11.5 : 12, marginTop: 2 }}>
-              from {feePositions.length} position{feePositions.length === 1 ? '' : 's'}{feePositions.length > 1 && !isMobile ? ', one confirmation per chain' : ''}
+          );
+        }
+        const tiles = [
+          { label: 'Value', value: money(totalValueUsd), color: btb.text },
+          { label: 'Earning', value: estDailyUsd > 0 ? `~${perDay(estDailyUsd)}` : '$0/day', color: estDailyUsd > 0 ? btb.green : btb.textDim },
+          { label: 'Avg APR', value: `${avgApr.toFixed(1)}%`, color: avgApr > 0 ? btb.green : btb.textDim },
+          { label: 'In range', value: `${inRangeCount} / ${positions.length}`, color: allIn ? btb.text : btb.amber },
+          { label: 'Unclaimed', value: money(pendingFeesUsd), color: pendingFeesUsd >= 0.01 ? btb.green : btb.textDim },
+        ];
+        return (
+          <div style={{ borderRadius: 16, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', padding: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
+              {tiles.map((t) => (
+                <div key={t.label} style={{ minWidth: 0, padding: '6px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.035)' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                    <span style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap' }}>{t.label}</span>
+                    {/* Collecting lives on the unclaimed total itself, only when there is something to collect. */}
+                    {t.label === 'Unclaimed' && canCollect && (
+                      <button type="button" onClick={collectAll} disabled={collectingAll || !!busyId} style={{ flexShrink: 0, padding: 0, border: 'none', background: 'transparent', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: collectingAll || busyId ? 'default' : 'pointer' }}>
+                        {collectingAll ? '…' : 'Collect'}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ color: t.color, fontSize: 17, fontWeight: 800, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.value}</div>
+                </div>
+              ))}
             </div>
           </div>
-          <LpButton tone="green" solid icon="gift" label={collectingAll ? 'Collecting…' : feePositions.length === 1 ? 'Collect fees' : 'Collect all'} onClick={collectAll} disabled={collectingAll || !!busyId || !canTransact} />
-        </div>
-      )}
-
-      {/* Portfolio shows these same totals in its own stat tiles. */}
-      {positions.length > 0 && !onSummary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: isMobile ? 6 : 10 }}>
-          {([
-            { label: 'Total value', value: `$${totalValueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, color: btb.text },
-            { label: 'Unclaimed fees', value: `$${pendingFeesUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}`, color: btb.green },
-            { label: 'In range', value: `${inRangeCount} / ${positions.length}`, color: btb.text },
-          ] as const).map(s => (
-            <Glass key={s.label} padding={isMobile ? 10 : 16} radius={14} soft>
-              <div style={{ color: btb.textMuted, fontSize: isMobile ? 9.5 : 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
-              <div style={{ color: s.color, fontSize: isMobile ? 14 : 22, fontWeight: 800, marginTop: isMobile ? 2 : 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</div>
-            </Glass>
-          ))}
-        </div>
-      )}
-
-
-
+        );
+      })()}
 
       {isMobile ? (
         // Card list — the 5-column table (with a 340px action column) can't

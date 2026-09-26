@@ -49,4 +49,4 @@ export const MAINNET_RPCS = [
 ];
 
 /** Wagmi transport for chain 1 — falls over to the next RPC if one fails. */
-export const MAINNET_TRANSPORT: Transport = fallback(MAINNET_RPCS.map(url => http(url)));
+export const MAINNET_TRANSPORT: Transport = fallback(MAINNET_RPCS.map(url => http(url, { batch: { batchSize: 25, wait: 16 } })), { retryCount: 1 });
