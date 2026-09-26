@@ -58,7 +58,10 @@ export function dailyCheckBtb(min: number): number {
 // ── Contracts (same addresses on Base and Robinhood Chain) ──────────────────
 
 export const V6 = {
-  factory: '0xE10280d01F95bC88DA149a224e68debc0721f8E6',
+  /** Creates new wallets directly on the latest release, and answers for wallets the first V6 factory made. */
+  factory: '0xc922eb8dCF5D61CEeFaeCe86265F5f0D6dC0EC77',
+  /** The first V6 factory: its wallets start on release 1. Still where every wallet made before the new factory lives. */
+  factoryV1: '0xE10280d01F95bC88DA149a224e68debc0721f8E6',
   aerodromeAdapter: '0x9275baf6E1ea3033AD132956e4347D4d25e96BB6',
   uniswapV3Adapter: '0x3801B52d9011901A7fAEf1FDb34C9E2ebdECa715',
   swapAdapter: '0x5A72E43960F4dA336a6459391CDEeD680D4084c8',
@@ -209,8 +212,9 @@ export function walletSetup(chainId: number, nowSeconds: number) {
     agent: REBALANCE_AGENT as `0x${string}`,
     agentExpiresAt: BigInt(nowSeconds + AGENT_TERM_SECONDS),
     maxActionsPerDay: MAX_ACTIONS_PER_DAY,
-    adapters: [V6.aerodromeAdapter, V6.uniswapV3Adapter, V6.swapAdapter] as `0x${string}`[],
-    configs: [config, config, encodeSwapConfig(chainId)],
+    // The farm adapter (Giga staking) used to be added by the upgrade step; new wallets now start on the latest release.
+    adapters: [V6.aerodromeAdapter, V6.uniswapV3Adapter, V6.swapAdapter, V6.farmAdapter] as `0x${string}`[],
+    configs: [config, config, encodeSwapConfig(chainId), '0x'] as `0x${string}`[],
   };
 }
 

@@ -75,8 +75,7 @@ export async function buildEnableCalls(client: PublicClient, owner: `0x${string}
       to: V6.factory, label: 'Create your auto wallet',
       data: encodeFunctionData({ abi: FACTORY_ABI, functionName: 'createAccount', args: [walletSetup(s.chainId, Math.floor(Date.now() / 1000))] }),
     });
-    // A new wallet starts on the first version; move it to the latest in the same confirmation.
-    calls.push(...upgradeCallsFor(wallet, false, true));
+    // The factory creates it on the latest release with every adapter on, so there is nothing to upgrade.
   } else {
     calls.push(...await upgradeCalls(client, wallet));
     const [agentUntil, adapterHash] = await Promise.all([

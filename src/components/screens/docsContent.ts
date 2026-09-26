@@ -250,6 +250,7 @@ export const DOCS: DocGroup[] = [
           { type: 'table', head: ['Contract', 'Address'], rows: [
             ['Registry', V6_REGISTRY],
             ['Wallet factory', V6.factory],
+            ['Wallet factory (first, still holds earlier wallets)', V6.factoryV1],
             ['Wallet (current, v3)', V6.walletV3],
             ['Wallet (v2)', V6.walletV2],
             ['Uniswap V3 adapter', V6.uniswapV3Adapter],
