@@ -23,6 +23,9 @@ import { readableError } from '../../lib/errorText';
 import { useAlertCredit, AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { fetchPancakePositions, PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
+import { AgentPoolCard } from '../AgentPoolCard';
+import { useSidebar } from '../../lib/SidebarContext';
+import { prefetchDiscoverPools, useDiscoverPools } from '../../lib/discoverPools';
 
 
 const SUGGESTIONS = [
@@ -179,11 +182,29 @@ const isTableRow = (line: string) => /^\s*\|.*\|\s*$/.test(line);
 const splitCells = (line: string) => line.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
 const isSeparatorRow = (cells: string[]) => cells.every(c => /^:?-{2,}:?$/.test(c));
 
+/** "Add LP: <pool link>" or "Simulate: <pool link>" on a line of its own, the way the agent hands out pools. */
+const POOL_LINE = /^\s*(?:[-•*]\s*)?(?:\*\*)?(Add LP|Simulate)(?:\*\*)?\s*:?\s*(?:\[[^\]]*\]\()?(https?:\/\/[^\s)]+\/discover\/[^\s)]+)\)?\s*$/i;
+
 function AgentMessage({ content }: { content: string }) {
+  const { pools } = useDiscoverPools();
+  useEffect(() => { prefetchDiscoverPools(); }, []);
   const lines = content.split('\n');
   const out: ReactNode[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    // A recommended pool: a card from the Discover catalog, or the plain link while it loads or if it is not listed.
+    const poolLine = POOL_LINE.exec(line);
+    if (poolLine) {
+      const href = poolLine[2].replace(/[.,;:\]]+$/, '');
+      let id: string | null = null;
+      try { id = new URL(href).searchParams.get('id'); } catch { /* not a pool link */ }
+      const pool = id ? pools.find((p) => p.id.toLowerCase() === id!.toLowerCase()) : undefined;
+      out.push(pool
+        ? <AgentPoolCard key={i} pool={pool} action={/add/i.test(poolLine[1]) ? 'Add LP' : 'Simulate'} href={href}/>
+        : <div key={i} style={{ margin: '2px 0' }}><InlineMd text={line}/></div>);
+      continue;
+    }
 
     // markdown table: consecutive |…| rows, separator row dropped
     if (isTableRow(line)) {
@@ -255,10 +276,11 @@ function AgentMessage({ content }: { content: string }) {
 
 type LpSummary = { pair: string; protocol: string; amount0: string; amount1: string; inRange: boolean };
 
-export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
-  walletAddress: string; onGetBtb?: () => void; compact?: boolean;
+export function AgentChat({ walletAddress, onGetBtb, compact = false, onClose }: {
+  walletAddress: string; onGetBtb?: () => void; compact?: boolean; onClose?: () => void;
 }) {
   const config = useConfig();
+  const { isMobile } = useSidebar();
   const { positions } = useTokenStore();
   // The chat is private to the wallet: history loads only with a signed
   // session, and the session is asked for on the first send, not on open.
@@ -345,54 +367,49 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
   const empty = (history?.length ?? 0) === 0 && !pending;
 
   return (
-    <Screen gap={compact ? 8 : 14} style={compact ? { height: '100%', minHeight: 0 } : { maxWidth: 720, margin: '0 auto' }}>
+    // The Agent tab fills the screen height so the conversation, not the chrome around it, gets the room.
+    <Screen gap={compact ? 8 : 10} style={compact ? { height: '100%', minHeight: 0 } : { maxWidth: 820, width: '100%', margin: '0 auto', height: isMobile ? 'calc(100dvh - 120px - env(safe-area-inset-bottom, 0px))' : 'calc(100dvh - 116px)', minHeight: 440 }}>
       {/* header */}
-      {!compact && <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {!compact && <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <div style={{
-          width: 42, height: 42, borderRadius: 14, flexShrink: 0,
+          width: 34, height: 34, borderRadius: 11, flexShrink: 0,
           background: 'linear-gradient(135deg, rgba(var(--fg-rgb), 0.22), rgba(var(--amber-rgb), 0.18))',
           border: '1px solid rgba(var(--fg-rgb), 0.2)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Icon name="bolt" size={20} color="var(--btb-text)"/>
+          <Icon name="bolt" size={16} color="var(--btb-text)"/>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.4 }}>BTB Agent</div>
-          <div style={{ color: btb.textMuted, fontSize: 12 }}>Sees your balances, LPs, Earn positions, and live pool data</div>
+          <div style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3 }}>BTB Agent</div>
+          {!isMobile && <div style={{ color: btb.textMuted, fontSize: 11.5 }}>Sees your balances, LPs and live pool data. {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each.</div>}
         </div>
-        <Badge color="var(--btb-green)" bg="rgba(var(--green-rgb), 0.15)" border="1px solid rgba(var(--green-rgb), 0.35)" style={{ flexShrink: 0 }}>
-          <span style={{ color: 'var(--btb-green)', fontSize: 11, fontWeight: 700 }}>{fmtBtb(credit.total)} BTB</span>
-        </Badge>
+        <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{fmtBtb(credit.total)} BTB</span>
+        <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Top up</button>
+        {onGetBtb && !isMobile && <button type="button" onClick={onGetBtb} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Get BTB</button>}
       </div>}
+      {!compact && showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
 
       {/* pricing and balance: free messages first, then 1 BTB each. In the dock the header already says the price,
           so this shrinks to one slim line and the conversation gets the room. */}
-      <Glass padding={compact ? 8 : 12} radius={compact ? 14 : 16} soft>
-        <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 6 : 10, flexWrap: compact ? 'nowrap' : 'wrap' }}>
-          {compact ? (
-            <span style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {fmtBtb(credit.total)} BTB<span style={{ color: btb.textMuted, fontWeight: 600 }}> balance</span>
-            </span>
-          ) : (
-            <span style={{ flex: 1, minWidth: 180, color: btb.textMuted, fontSize: 12.5, lineHeight: 1.45 }}>
-              {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each from your BTB balance ({fmtBtb(credit.total)} BTB{credit.rewards > 0 ? ', weekly rewards included' : ''}).
-            </span>
-          )}
-          <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-            Top up
-          </button>
-          {onGetBtb && <button type="button" onClick={onGetBtb} style={{ height: 30, padding: '0 12px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Get BTB</button>}
+      {/* In the dock: title, balance and actions on one slim line, so the conversation gets the room. */}
+      {compact && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '2px 2px 8px', borderBottom: btb.borderSoft }}>
+          <div style={{ width: 26, height: 26, borderRadius: 9, background: btb.gradGreen, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name="bolt" size={13} color="#fff"/>
+          </div>
+          <span style={{ color: btb.text, fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap' }}>BTB Agent</span>
+          <span style={{ flex: 1, minWidth: 0, textAlign: 'right', color: btb.text, fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtBtb(credit.total)} BTB</span>
+          <button type="button" onClick={() => setShowTopUp(true)} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: btb.green, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Top up</button>
+          {onGetBtb && <button type="button" onClick={onGetBtb} style={{ height: 26, padding: '0 10px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.text, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Get BTB</button>}
+          {onClose && <button type="button" onClick={onClose} aria-label="Close" style={{ width: 26, height: 26, border: 'none', background: 'transparent', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icon name="close" size={14} color={btb.textMuted}/></button>}
+          {/* Opens in front of the chat, also on its own when the free messages run out. */}
+          {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
         </div>
-        {/* Opens in front of the chat, also on its own when the free messages run out. */}
-        {showTopUp && <TopUpModal credit={credit} onClose={() => setShowTopUp(false)}/>}
-        {!session.token && (
-          <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 8 }}>Your wallet asks for one signature on your first message. It keeps your chat private and lasts 30 days on this device. No transaction, no gas.</div>
-        )}
-      </Glass>
+      )}
 
       {/* thread */}
-      <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: compact ? 0 : 380, flex: compact ? 1 : undefined }}>
-        <div style={{ flex: 1, overflowY: 'auto', maxHeight: compact ? undefined : 460, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <Glass padding={0} radius={22} style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: compact ? 14 : '18px 18px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {empty && (
             <div style={{ margin: 'auto', textAlign: 'center', padding: '30px 16px' }}>
               <div style={{ color: btb.text, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Ask me anything about your portfolio</div>
@@ -413,10 +430,10 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
           {(history ?? []).map(m => (
             <div key={m._id} style={{
               alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-              maxWidth: '85%', padding: '10px 14px', borderRadius: 16,
+              maxWidth: m.role === 'user' ? '80%' : '94%', padding: m.role === 'user' ? '10px 14px' : '12px 16px', borderRadius: m.role === 'user' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
               background: m.role === 'user' ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--fg-rgb), 0.06)',
               border: m.role === 'user' ? '1px solid rgba(var(--green-rgb), 0.25)' : btb.borderSoft,
-              color: btb.text, fontSize: 13.5, lineHeight: 1.55, wordBreak: 'break-word',
+              color: btb.text, fontSize: 14, lineHeight: 1.6, wordBreak: 'break-word',
               ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' as const } : {}),
             }}>
               {m.role === 'assistant' ? <AgentMessage content={m.content}/> : m.content}
@@ -462,10 +479,8 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false }: {
         </div>
       </Glass>
 
-      <div style={{ color: btb.textDim, fontSize: compact ? 10 : 11, textAlign: 'center', lineHeight: 1.4 }}>
-        {compact
-          ? 'Information, not financial advice. It never holds your keys or moves funds.'
-          : <>The agent gives information, not financial advice. It never holds your keys and cannot move funds. {AGENT_FREE_PER_DAY} free messages a day, then {AGENT_MESSAGE_BTB} BTB each.</>}
+      <div style={{ color: btb.textDim, fontSize: 10.5, textAlign: 'center', lineHeight: 1.4, flexShrink: 0 }}>
+        {compact ? `${AGENT_FREE_PER_DAY} free messages a day, then ${AGENT_MESSAGE_BTB} BTB each. ` : ''}{!session.token ? 'One signature on your first message keeps your chat private for 30 days. ' : ''}Information, not financial advice.
       </div>
     </Screen>
   );

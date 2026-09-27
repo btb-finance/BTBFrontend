@@ -5,8 +5,9 @@ import { useSignMessage } from 'wagmi';
 import { api } from '../../convex/_generated/api';
 import { alertAuthMessage, FAST_ON_ACTION } from '../../convex/alertMessages';
 
-export { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS, AGENT_MESSAGE_BTB, AGENT_FREE_PER_DAY } from '../../convex/alertMessages';
+export { FAST_CHECK_BTB, HOURLY_CHECK_MS, DEPOSIT_MAX_AGE_MS, AGENT_MESSAGE_BTB, AGENT_FREE_PER_DAY } from '../../convex/alertMessages';
 import { usePolledQuery } from './polledQuery';
+import { useWalletSession } from './session';
 import type { LiquidityPosition } from '@/protocols/types';
 
 export const ALERT_MIN_BTB = 10_000;
@@ -49,6 +50,22 @@ export function positionKey(p: LiquidityPosition) {
   return { chainId: p.chainId ?? 1, protocol: p.protocol, tokenId: p.id.toString() };
 }
 
+type Signed = { ok: boolean; reason?: string } | null | undefined;
+
+/**
+ * Runs an alert change with the wallet's signed session: one signature per device, then none for 30 days. A token
+ * the server no longer accepts is dropped and the change retried once with a fresh sign-in.
+ */
+export function useSignedCall(address?: string) {
+  const session = useWalletSession(address);
+  async function run<R extends Signed>(fn: (sessionToken: string) => Promise<R>): Promise<R> {
+    const res = await fn(await session.ensure());
+    if (res && !res.ok && /sign-in expired/i.test(res.reason ?? '')) { session.forget(); return fn(await session.ensure()); }
+    return res;
+  }
+  return { run, token: session.token };
+}
+
 export function useAlerts(address?: string) {
   const list = useQuery(api.alerts.listForAddress, address ? { address } : 'skip');
   const subscribe = useAction(api.alertsActions.subscribe);
@@ -56,6 +73,7 @@ export function useAlerts(address?: string) {
   const savePush = useMutation(api.alerts.savePushSubscription);
   const inbox = usePolledQuery(api.alerts.inbox, address ? { address } : 'skip', 60_000);
   const markRead = useMutation(api.alerts.markRead);
+  const signed = useSignedCall(address);
 
   const has = (p: LiquidityPosition) => {
     const k = positionKey(p);
@@ -73,7 +91,7 @@ export function useAlerts(address?: string) {
     const sub = await reg.pushManager.getSubscription() ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(vapid) as BufferSource });
     const json = sub.toJSON();
     if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return 'unsupported';
-    await savePush({ address, endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth, userAgent: navigator.userAgent.slice(0, 120) });
+    await signed.run((sessionToken) => savePush({ sessionToken, endpoint: json.endpoint!, p256dh: json.keys!.p256dh!, auth: json.keys!.auth!, userAgent: navigator.userAgent.slice(0, 120) }));
     return 'on';
   }
 
@@ -81,17 +99,17 @@ export function useAlerts(address?: string) {
   async function toggle(p: LiquidityPosition, label: string): Promise<string | null> {
     if (!address) return 'Connect a wallet first';
     const k = positionKey(p);
-    if (has(p)) { await unsubscribe({ address, ...k }); return null; }
-    const res = await subscribe({ address, ...k, label, inRange: p.inRange });
+    if (has(p)) { const off = await signed.run((sessionToken) => unsubscribe({ sessionToken, ...k })); return off.ok ? null : off.reason; }
+    const res = await signed.run((sessionToken) => subscribe({ sessionToken, ...k, label, inRange: p.inRange }));
     if (!res.ok) return res.reason;
     await enablePush().catch(() => 'unsupported');
     return null;
   }
 
   /** Stop one alert by its key, for rows whose position is not on screen. */
-  const stop = (k: { chainId: number; protocol: string; tokenId: string }) => address ? unsubscribe({ address, ...k }) : Promise.resolve();
+  const stop = (k: { chainId: number; protocol: string; tokenId: string }) => address ? signed.run((sessionToken) => unsubscribe({ sessionToken, chainId: k.chainId, protocol: k.protocol, tokenId: k.tokenId })) : Promise.resolve();
 
-  return { list, has, toggle, stop, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => address && markRead({ address }) };
+  return { list, has, toggle, stop, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => { if (signed.token) void markRead({ sessionToken: signed.token }); } };
 }
 
 /** The wallet's BTB balance (fast checks and agent messages draw on it), whether fast checks are on, and how to top it up. */
@@ -101,6 +119,7 @@ export function useAlertCredit(address?: string, { withTreasury = false } = {}) 
   const enable = useAction(api.alertsActions.enableFast);
   const readTreasury = useAction(api.alertsActions.depositAddress);
   const turnOff = useMutation(api.alerts.turnFastOff);
+  const signedCall = useSignedCall(address);
   const { signMessageAsync } = useSignMessage();
   const [treasury, setTreasury] = useState<string | null>(null);
   useEffect(() => { if (withTreasury && address && !treasury) readTreasury({}).then(setTreasury).catch(() => {}); }, [withTreasury, address, treasury, readTreasury]);
@@ -114,7 +133,7 @@ export function useAlertCredit(address?: string, { withTreasury = false } = {}) 
   /** Each returns null on success, otherwise a sentence to show. */
   async function setFast(on: boolean): Promise<string | null> {
     if (!address) return 'Connect a wallet first';
-    if (!on) { await turnOff({ address }); return null; }
+    if (!on) { const res = await signedCall.run((sessionToken) => turnOff({ sessionToken })); return res.ok ? null : res.reason; }
     const res = await enable({ address, ...(await signed(FAST_ON_ACTION)) });
     return res.ok ? null : res.reason;
   }

@@ -124,12 +124,13 @@ export function TopNav({
       </nav>
       </div>
 
-      <AlertsBell/>
+      {/* Bell, day / night and account share one pill, so they read as one group at the edge of the bar. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: 3, borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, flexShrink: 0 }}>
+      <AlertsBell bare/>
 
-      {/* Day / night */}
       <button type="button" onClick={toggleMode} title={mode === 'dark' ? 'Switch to day' : 'Switch to night'} aria-label="Toggle colour mode" style={{
-        width: 38, height: 38, borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, cursor: 'pointer', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.text, marginRight: 8,
+        width: 32, height: 32, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.text,
       }}>
         {mode === 'dark' ? <SunIcon/> : <MoonIcon/>}
       </button>
@@ -137,10 +138,10 @@ export function TopNav({
       {shortAddr ? (
         <div ref={userRef} style={{ position: 'relative', flexShrink: 0 }}>
           <div onClick={() => setUserOpen(o => !o)} style={{
-            height: 38, padding: '0 8px 0 4px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 8,
+            height: 32, padding: '0 8px 0 1px', borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.06)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <Avatar address={address!} size={30}/>
+            <Avatar address={address!} size={28}/>
             <span style={{ display: 'inline-flex', transform: userOpen ? 'rotate(90deg)' : 'rotate(-90deg)', transition: 'transform 120ms ease' }}>
               <Icon name="chevrons" size={13} color={btb.textMuted} />
             </span>
@@ -171,13 +172,14 @@ export function TopNav({
         </div>
       ) : (
         <div onClick={onConnect} style={{
-          height: 38, padding: '0 16px', borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+          height: 32, padding: '0 14px', borderRadius: 999, cursor: 'pointer', flexShrink: 0,
           background: btb.gradGreen, color: '#fff', fontSize: 13, fontWeight: 700,
           display: 'flex', alignItems: 'center', gap: 7,
         }}>
           Connect Wallet
         </div>
       )}
+      </div>
     </header>
   );
 }

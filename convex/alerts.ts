@@ -1,6 +1,7 @@
 import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { addCredit, availableFor, creditRow, spendCredit } from "./credit";
+import { sessionWallet } from "./sessions";
 
 /** Wallets below this BTB balance cannot hold alerts: every check is an RPC read. */
 export const ALERT_MIN_BTB = 10_000;
@@ -25,20 +26,29 @@ export const upsert = internalMutation({
   },
 });
 
+// Every change below acts only on the wallet of the caller's signed session, never on an address the caller names.
+const NO_SESSION = { ok: false as const, reason: "Your sign-in expired. Sign in again." };
+
 export const unsubscribe = mutation({
-  args: { address: v.string(), chainId: v.float64(), protocol: v.string(), tokenId: v.string() },
+  args: { sessionToken: v.string(), chainId: v.float64(), protocol: v.string(), tokenId: v.string() },
   handler: async (ctx, a) => {
-    const rows = await ctx.db.query("positionAlerts").withIndex("by_address", q => q.eq("address", a.address.toLowerCase())).collect();
+    const wallet = await sessionWallet(ctx, a.sessionToken);
+    if (!wallet) return NO_SESSION;
+    const rows = await ctx.db.query("positionAlerts").withIndex("by_address", q => q.eq("address", wallet)).collect();
     for (const r of rows) if (r.chainId === a.chainId && r.protocol === a.protocol && r.tokenId === a.tokenId) await ctx.db.patch(r._id, { active: false });
+    return { ok: true as const };
   },
 });
 
 export const savePushSubscription = mutation({
-  args: { address: v.string(), endpoint: v.string(), p256dh: v.string(), auth: v.string(), userAgent: v.optional(v.string()) },
-  handler: async (ctx, a) => {
+  args: { sessionToken: v.string(), endpoint: v.string(), p256dh: v.string(), auth: v.string(), userAgent: v.optional(v.string()) },
+  handler: async (ctx, { sessionToken, ...a }) => {
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return NO_SESSION;
     const existing = await ctx.db.query("pushSubscriptions").withIndex("by_endpoint", q => q.eq("endpoint", a.endpoint)).unique();
-    if (existing) { await ctx.db.patch(existing._id, { address: a.address.toLowerCase(), p256dh: a.p256dh, auth: a.auth }); return; }
-    await ctx.db.insert("pushSubscriptions", { ...a, address: a.address.toLowerCase(), createdAt: Date.now() });
+    if (existing) await ctx.db.patch(existing._id, { address: wallet, p256dh: a.p256dh, auth: a.auth });
+    else await ctx.db.insert("pushSubscriptions", { ...a, address: wallet, createdAt: Date.now() });
+    return { ok: true as const };
   },
 });
 
@@ -51,11 +61,14 @@ export const inbox = query({
 });
 
 export const markRead = mutation({
-  args: { address: v.string() },
-  handler: async (ctx, { address }) => {
-    const rows = await ctx.db.query("alertEvents").withIndex("by_address", q => q.eq("address", address.toLowerCase())).order("desc").take(50);
+  args: { sessionToken: v.string() },
+  handler: async (ctx, { sessionToken }) => {
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return NO_SESSION;
+    const rows = await ctx.db.query("alertEvents").withIndex("by_address", q => q.eq("address", wallet)).order("desc").take(50);
     const now = Date.now();
     for (const r of rows) if (!r.readAt) await ctx.db.patch(r._id, { readAt: now });
+    return { ok: true as const };
   },
 });
 
@@ -111,7 +124,7 @@ export const creditDeposit = internalMutation({
   handler: async (ctx, a) => ({ ok: await addCredit(ctx, a.address, a.amount, a.txHash.toLowerCase(), "tx") }),
 });
 
-/** Written by the signed action only; turning fast checks off needs no signature. */
+/** Written by the signed action only. */
 export const setFastVerified = internalMutation({
   args: { address: v.string(), fast: v.boolean() },
   handler: async (ctx, { address, fast }) => {
@@ -122,22 +135,24 @@ export const setFastVerified = internalMutation({
 });
 
 export const turnFastOff = mutation({
-  args: { address: v.string() },
-  handler: async (ctx, { address }) => {
-    const credit = await creditRow(ctx, address);
+  args: { sessionToken: v.string() },
+  handler: async (ctx, { sessionToken }) => {
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return NO_SESSION;
+    const credit = await creditRow(ctx, wallet);
     if (credit?.fast) await ctx.db.patch(credit._id, { fast: false, updatedAt: Date.now() });
+    return { ok: true as const };
   },
 });
 
 /** Wallets with fast checks on and something to pay with (balance plus unclaimed rewards). */
-export const fastWallets = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.query("alertCredits").withIndex("by_fast", q => q.eq("fast", true)).collect();
-    const out: { address: string; balance: number }[] = [];
-    for (const r of rows) {
-      const { total } = await availableFor(ctx, r.address);
-      if (total > 0) out.push({ address: r.address, balance: total });
+export const alertPayers = internalQuery({
+  args: { addresses: v.array(v.string()) },
+  handler: async (ctx, { addresses }) => {
+    const out: { address: string; balance: number; fast: boolean }[] = [];
+    for (const address of addresses) {
+      const { total, fast } = await availableFor(ctx, address);
+      out.push({ address, balance: total, fast: !!fast });
     }
     return out;
   },
@@ -167,13 +182,15 @@ export const tagsForAddress = query({
 });
 
 export const setTag = mutation({
-  args: { address: v.string(), key: v.string(), tag: v.string() },
-  handler: async (ctx, { address, key, tag }) => {
-    const a = address.toLowerCase();
+  args: { sessionToken: v.string(), key: v.string(), tag: v.string() },
+  handler: async (ctx, { sessionToken, key, tag }) => {
+    const a = await sessionWallet(ctx, sessionToken);
+    if (!a) return NO_SESSION;
     const clean = tag.trim().slice(0, 24);
     const row = await ctx.db.query("positionTags").withIndex("by_address_key", q => q.eq("address", a).eq("key", key)).unique();
-    if (!clean) { if (row) await ctx.db.delete(row._id); return; }
+    if (!clean) { if (row) await ctx.db.delete(row._id); return { ok: true as const }; }
     if (row) await ctx.db.patch(row._id, { tag: clean, updatedAt: Date.now() });
     else await ctx.db.insert("positionTags", { address: a, key, tag: clean, updatedAt: Date.now() });
+    return { ok: true as const };
   },
 });

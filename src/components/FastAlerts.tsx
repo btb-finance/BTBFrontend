@@ -223,7 +223,7 @@ export function TopUpModal({ credit, onClose }: { credit: Credit; onClose: () =>
   }, [onClose]);
   return (
     <Portal>
-      <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
+      <div data-overlay onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
         <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 24, padding: '18px 18px calc(20px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, letterSpacing: -0.3 }}>Top up BTB balance</div>
@@ -282,8 +282,8 @@ export function FastAlertsPanel({ address, watched, active = true }: { address: 
         </button>
       </div>
       <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-        Free alerts are checked once an hour. Fast checks run every 5 minutes for {FAST_CHECK_BTB} BTB per position per check{watched > 0 ? `, about ${fmtBtb(perHour)} BTB an hour for your ${watched}` : ''}, taken from your BTB balance and then your unclaimed weekly rewards. With nothing left, alerts drop back to hourly.
-        {credit.fast && credit.total < FAST_CHECK_BTB && <span style={{ color: btb.amber }}> Nothing left to pay with, so checks are hourly right now.</span>}
+        Every alert check costs {FAST_CHECK_BTB} BTB per position, taken from your BTB balance and then your unclaimed weekly rewards. Alerts are checked once an hour; fast checks run every 5 minutes{watched > 0 ? `, about ${fmtBtb(perHour)} BTB an hour for your ${watched}` : ''}. With nothing left to pay with, alerts pause until you top up.
+        {watched > 0 && credit.total < FAST_CHECK_BTB && <span style={{ color: btb.amber }}> Nothing left to pay with, so your alerts are paused right now.</span>}
       </div>
       {note && <div style={{ color: note.good ? btb.green : btb.amber, fontSize: 11.5, lineHeight: 1.5 }}>{note.text}</div>}
       <TopUpButton credit={credit} label="Top up BTB balance" style={{ alignSelf: 'flex-start' }}/>

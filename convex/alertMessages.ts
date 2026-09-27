@@ -1,10 +1,10 @@
 // Shared by the Convex actions and the browser, so the signed text is
 // byte-identical on both sides. No Convex functions live here.
 
-/** Price of one fast position read, in BTB. */
+/** Price of one position read, hourly or fast, in BTB. Nothing is checked for free. */
 export const FAST_CHECK_BTB = 1;
-/** Free alerts are read this often; fast ones every checker tick. */
-export const FREE_CHECK_MS = 60 * 60_000;
+/** Normal alerts are read this often; fast ones every checker tick. */
+export const HOURLY_CHECK_MS = 60 * 60_000;
 /** A pasted deposit transaction older than this is refused. */
 export const DEPOSIT_MAX_AGE_MS = 24 * 60 * 60_000;
 /** A signature older than this is refused. */

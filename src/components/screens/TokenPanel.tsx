@@ -21,7 +21,7 @@ import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { inviteLink } from '../../lib/referral';
-import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, epochIdAt, epochWindow } from '../../../convex/xpRules';
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -88,7 +88,7 @@ const EARN_ROWS: { icon: string; label: string; detail: string; href: string; ac
 const STEPS: { title: string; detail: string }[] = [
   { title: 'Earn points', detail: 'Check in daily, hold BTB, swap, simulate, mint and auto-rebalance. Points land on their own, no forms.' },
   { title: 'Friday split', detail: "Everyone with points is in automatically. The week's revenue is shared by points." },
-  { title: 'Claim or use it', detail: 'Claim to your wallet with no gas, or add it to your BTB balance. Untouched shares go back to the pot next Friday.' },
+  { title: 'Claim or use it', detail: `Claim to your wallet with no gas (from ${MIN_CLAIM_BTB.toLocaleString('en-US')} BTB), or add any amount to your BTB balance. Untouched shares go back to the pot next Friday.` },
 ];
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -152,7 +152,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     if (!address || busy) return;
     setBusy('claim'); setError(null);
     try {
-      await claim({ payoutId: payoutId as Id<'rewardPayouts'> });
+      const res = await claim({ payoutId: payoutId as Id<'rewardPayouts'> });
+      if ('reason' in res && res.reason) setError(res.reason);
     } catch (e) {
       setError(readableError(e, 'Could not claim; try again'));
     } finally {
@@ -353,23 +354,30 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       )}
 
       {/* ── ready to claim — only when there is BTB waiting ── */}
-      {claimable.map(row => (
+      {claimable.map(row => { const canSend = BigInt(row.amountRaw) >= BigInt(MIN_CLAIM_BTB) * 10n ** 18n; return (
         <div key={row.payoutId} style={{ borderRadius: 24, padding: '18px 20px', border: '1px solid rgba(var(--green-rgb), 0.45)', background: 'rgba(var(--green-rgb), 0.10)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ ...LABEL_STYLE, color: 'rgba(var(--green-rgb), 0.8)' }}>Week {row.epochId} · ready</div>
             <div style={{ color: btb.green, fontSize: 24, fontWeight: 800, letterSpacing: -0.5, marginTop: 3 }}>{formatBtb(row.amountRaw)} BTB</div>
-            <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2 }}>Claim it to your wallet (no gas) or add it to your BTB balance for the agent and fast alerts. Untouched by next Friday, it goes back into the pot for everyone.</div>
+            <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2 }}>
+              {canSend
+                ? 'Claim it to your wallet (no gas) or add it to your BTB balance for the agent, alerts and auto-rebalance.'
+                : `Add it to your BTB balance for the agent, alerts and auto-rebalance. Sending to a wallet starts at ${MIN_CLAIM_BTB.toLocaleString('en-US')} BTB.`}
+              {' '}Untouched by next Friday, it goes back into the pot for everyone.
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button size="sm" variant="successSoft" fullWidth={false} disabled={busy != null} loading={busy === 'balance'} onClick={() => doAddToBalance(row.payoutId)}>
               Add to BTB balance
             </Button>
-            <Button size="sm" variant="success" fullWidth={false} disabled={busy != null} loading={busy === 'claim'} onClick={() => doClaim(row.payoutId)}>
-              Claim to wallet
-            </Button>
+            {canSend && (
+              <Button size="sm" variant="success" fullWidth={false} disabled={busy != null} loading={busy === 'claim'} onClick={() => doClaim(row.payoutId)}>
+                Claim to wallet
+              </Button>
+            )}
           </div>
         </div>
-      ))}
+      ); })}
       {showLastAward && claimable.length === 0 && (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(var(--green-rgb), 0.10)', border: '1px solid rgba(var(--green-rgb), 0.28)', borderRadius: 12, padding: '8px 12px', alignSelf: 'flex-start' }}>
           <Icon name="receive" size={14} color={btb.green}/>
