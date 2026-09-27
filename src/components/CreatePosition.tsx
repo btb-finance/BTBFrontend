@@ -37,6 +37,8 @@ import { RangePicker } from './RangePicker';
 import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import { CHAIN_DATA_NETWORKS } from '../lib/chainDataNetworks';
+import { useCachedJson } from '../lib/convexCache';
+import type { DailyBar } from '../lib/geckoterminal';
 import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
@@ -47,6 +49,33 @@ import { AUTO_CHAIN_NAMES, CHECK_INTERVALS, DEFAULT_INTERVAL, adapterFor, buildE
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
   { label: '±1%', pct: 1 }, { label: '±5%', pct: 5 }, { label: '±10%', pct: 10 }, { label: 'Full', pct: null },
 ];
+/** Presets for pairs that barely move (stable against stable): a 5% band there would spread the liquidity thin for nothing. */
+const TIGHT_PRESETS: { label: string; pct: number | null }[] = [
+  { label: '±0.05%', pct: 0.05 }, { label: '±0.1%', pct: 0.1 }, { label: '±0.5%', pct: 0.5 }, { label: 'Full', pct: null },
+];
+/** The preset chip for the range the pool's own recent price history suggests. */
+const HISTORY_PRESET = -1;
+const HISTORY_LABEL = '30 days';
+
+/**
+ * The range the price actually used over the recent days, from daily closes (in pool price space): from the lowest
+ * to the highest close and today's price, widened by a tenth of that span on each side so the first move does not
+ * touch an edge, and at least two tick spacings either side of the price. Closes rather than wicks, so one odd trade
+ * does not blow a stable pair's range wide open.
+ */
+function historyRange(closes: number[], pool: MintPool, spacing: number) {
+  const cur = tickToPrice(pool.tick, pool.decimals0, pool.decimals1);
+  const pts = closes.filter((c) => c > 0 && isFinite(c));
+  if (pts.length < 5 || !(cur > 0)) return null;
+  const lo = Math.min(cur, ...pts), hi = Math.max(cur, ...pts);
+  const pad = Math.log(hi / lo) * 0.1;
+  const ln = Math.log(1.0001), scale = 10 ** (pool.decimals0 - pool.decimals1);
+  const toTick = (p: number) => Math.log(p / scale) / ln;
+  const floorTo = (t: number) => Math.floor(t / spacing) * spacing, ceilTo = (t: number) => Math.ceil(t / spacing) * spacing;
+  const tickLower = Math.min(floorTo(toTick(lo * Math.exp(-pad))), floorTo(pool.tick) - spacing * 2);
+  const tickUpper = Math.max(ceilTo(toTick(hi * Math.exp(pad))), ceilTo(pool.tick + 1) + spacing * 2);
+  return { tickLower, tickUpper, days: pts.length, downPct: (lo / cur - 1) * 100, upPct: (hi / cur - 1) * 100 };
+}
 /** Projection periods for the estimated-yield dropdown. */
 const YIELD_PERIODS: { d: number; label: string }[] = [
   { d: 7, label: '1 week' }, { d: 30, label: '1 month' }, { d: 90, label: '3 months' }, { d: 365, label: '1 year' },
@@ -417,6 +446,25 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pool, isV4, dex, chainId, tokenPricesUsd]);
 
+  // Daily closes for chains or pools without subgraph history: the same cached GeckoTerminal series the simulator's
+  // replay uses. Their token order is not guaranteed, so each series is turned to face the live pool price.
+  const dailyQ = useCachedJson<DailyBar[]>(pool?.exists && !history && CHAIN_DATA_NETWORKS[chainId]?.gecko ? {
+    kind: 'pool-daily', id: isV4 && v4PoolId ? v4PoolId : pool.address, days: 30, network: CHAIN_DATA_NETWORKS[chainId].gecko,
+  } : null);
+  const recentCloses = useMemo((): number[] | null => {
+    if (!pool?.exists) return null;
+    if (history && history.length >= 5) return history.map((d) => d.price0);
+    const bars = dailyQ.data;
+    if (!bars || bars.length < 5) return null;
+    const cur = tickToPrice(pool.tick, pool.decimals0, pool.decimals1);
+    const last = bars[bars.length - 1].close;
+    if (!(cur > 0) || !(last > 0)) return null;
+    const inverted = Math.abs(Math.log(last * cur)) < Math.abs(Math.log(last / cur));
+    const raw = bars.map((b) => (inverted ? (b.close > 0 ? 1 / b.close : 0) : b.close));
+    const k = cur / raw[raw.length - 1];
+    return raw.map((c) => c * k);
+  }, [pool, history, dailyQ.data]);
+
   // V4 carries its own per-pool spacing; V3's is fixed per fee tier.
   // The pool's own tick spacing wins; the deployment table is the fallback.
   // Ticks snapped to the wrong spacing are the usual reason a mint reverts.
@@ -431,6 +479,18 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     const inv = (s: string) => { const v = parseFloat(s); return isFinite(v) && v > 0 ? String(1 / v) : ''; };
     return ticksFromPrices(inv(maxStr), inv(minStr), pool, spacing);
   }, [pool, spacing, rangeMode, minStr, maxStr, flip]);
+
+  // The range the last month's prices suggest. Until the user picks something themselves, it replaces the plain ±5%
+  // default, so a stable pair opens on a tight band and a volatile one on a band it would actually have stayed in.
+  const suggested = useMemo(() => (pool?.exists && recentCloses ? historyRange(recentCloses, pool, spacing) : null), [pool, recentCloses, spacing]);
+  const rangeTouched = useRef(false);
+  useEffect(() => {
+    if (!suggested || rangeTouched.current || initialTicks || rangeMode !== 5) return;
+    setRangeMode({ tickLower: suggested.tickLower, tickUpper: suggested.tickUpper });
+  }, [suggested, rangeMode, initialTicks]);
+  const onSuggested = !!suggested && rangeMode !== null && typeof rangeMode === 'object' && rangeMode.tickLower === suggested.tickLower && rangeMode.tickUpper === suggested.tickUpper;
+  const tightPair = !!suggested && Math.max(Math.abs(suggested.downPct), suggested.upPct) < 1;
+  const presets = [...(suggested ? [{ label: HISTORY_LABEL, pct: HISTORY_PRESET }] : []), ...(tightPair ? TIGHT_PRESETS : RANGE_PRESETS)];
 
   // The closest usable tick strictly below/above the live tick leaves each
   // position entirely one-sided at submission time. The tiny gap is necessary:
@@ -614,13 +674,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   }, [depth, pool?.decimals0, pool?.decimals1, flip]);
 
   // How many of the recent days the price sat inside the chosen range.
+  // Daily closes from the subgraph, or from the cached daily series on chains without one.
   const inRangePct = useMemo(() => {
-    if (!pool || !pool.exists || !ticks || !history || history.length < 2) return null;
+    if (!pool || !pool.exists || !ticks || !recentCloses || recentCloses.length < 2) return null;
     const lo = tickToPrice(ticks.tickLower, pool.decimals0, pool.decimals1), hi = tickToPrice(ticks.tickUpper, pool.decimals0, pool.decimals1);
-    const days = history.filter((d) => d.price0 > 0);
+    const days = recentCloses.filter((c) => c > 0);
     if (days.length === 0) return null;
-    return (days.filter((d) => d.price0 >= lo && d.price0 <= hi).length / days.length) * 100;
-  }, [pool, ticks, history]);
+    return (days.filter((c) => c >= lo && c <= hi).length / days.length) * 100;
+  }, [pool, ticks, recentCloses]);
 
   // wallet balances of both tokens (+ native ETH)
   useEffect(() => {
@@ -1373,19 +1434,20 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
         {/* Compact single-row header: back chevron + title, pair/dex as an
             inline subtitle — keeps the tap-to-go-back affordance without the
             tall "Back to Discover" stack eating the top of small screens. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
           <div onClick={onClose} title="Back to Discover" style={{
-            width: 30, height: 30, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
+            width: 28, height: 28, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
             background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Icon name="back" size={14} color={btb.textMuted}/>
+            <Icon name="back" size={13} color={btb.textMuted}/>
           </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.1 }}>{simOnly ? 'Simulate LP earnings' : 'Add liquidity'}</div>
-            <div style={{ color: btb.textMuted, fontSize: 12.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${isSlipstream ? `${fmtFeeTier(pool.poolFeePips ?? 0)} fee · spacing ${fee}` : fmtFeeTier(fee)} · ${dexLabel}` : `${dexLabel} · ${chainLabel}`}
-            </div>
+          {/* One line: what this is, then the pool. The fee and DEX already say which pool; tick spacing is left to the chart. */}
+          <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 8, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <span style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3, flexShrink: 0 }}>{simOnly ? 'Simulate' : 'Add liquidity'}</span>
+            <span style={{ color: btb.textMuted, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${isSlipstream ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)} · ${dexLabel}` : `${dexLabel} · ${chainLabel}`}
+            </span>
           </div>
         </div>
 
@@ -1483,21 +1545,32 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
               low={parseFloat(minStr)}
               high={parseFloat(maxStr)}
               isFull={rangeMode === null}
-              activePreset={typeof rangeMode === 'number' ? (RANGE_PRESETS.find((r) => r.pct === rangeMode)?.label ?? 'Custom') : rangeMode === null ? 'Full' : 'Custom'}
-              presets={RANGE_PRESETS}
-              onPreset={(pct) => { setRangeMode(pct); setSmartNote(null); setSwapPreview(null); }}
-              onRange={(lo, hi) => { setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); setMinStr(fmtPrice(lo)); setMaxStr(fmtPrice(hi)); }}
+              activePreset={onSuggested ? HISTORY_LABEL : typeof rangeMode === 'number' ? (presets.find((r) => r.pct === rangeMode)?.label ?? 'Custom') : rangeMode === null ? 'Full' : 'Custom'}
+              presets={presets}
+              onPreset={(pct) => {
+                rangeTouched.current = true;
+                setRangeMode(pct === HISTORY_PRESET && suggested ? { tickLower: suggested.tickLower, tickUpper: suggested.tickUpper } : pct);
+                setSmartNote(null); setSwapPreview(null);
+              }}
+              onRange={(lo, hi) => { rangeTouched.current = true; setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); setMinStr(fmtPrice(lo)); setMaxStr(fmtPrice(hi)); }}
               minStr={minStr}
               maxStr={maxStr}
-              onMinStr={(v) => { setMinStr(v); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
-              onMaxStr={(v) => { setMaxStr(v); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
+              onMinStr={(v) => { rangeTouched.current = true; setMinStr(v); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
+              onMaxStr={(v) => { rangeTouched.current = true; setMaxStr(v); setRangeMode('custom'); setSmartNote(null); setSwapPreview(null); }}
               onNudge={nudgePrice}
               depth={depthDisplay}
               inRangePct={inRangePct}
-              inRangeDays={history?.length}
+              inRangeDays={recentCloses?.length}
               priceLabel={`1 ${qBase} = ${dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${qQuote}`}
               onFlip={toggleFlip}
             />
+            {suggested && (
+              <div style={{ color: btb.textDim, fontSize: 11.5, lineHeight: 1.5, margin: '8px 2px 12px' }}>
+                {onSuggested ? 'Set from' : `${HISTORY_LABEL}:`} the last {suggested.days} days, when the price moved between{' '}
+                <b style={{ color: btb.textMuted }}>{suggested.downPct >= 0 ? '+' : '-'}{Math.abs(suggested.downPct).toFixed(Math.abs(suggested.downPct) < 1 ? 2 : 1)}%</b> and{' '}
+                <b style={{ color: btb.textMuted }}>+{suggested.upPct.toFixed(suggested.upPct < 1 ? 2 : 1)}%</b> from today{history ? '' : ' (daily closes)'}.
+              </div>
+            )}
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
             {!simOnly && !splitRange && address && (

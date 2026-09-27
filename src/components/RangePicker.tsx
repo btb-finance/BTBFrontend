@@ -162,11 +162,12 @@ export function RangePicker({
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${presets.length + 1}, minmax(0, 1fr))`, gap: 4, padding: 3, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.05)' }}>
+      {/* Chips share the row while they fit and scroll sideways when they do not (six on a small phone). */}
+      <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.05)', overflowX: 'auto', scrollbarWidth: 'none' }}>
         {[...presets.map((p) => ({ label: p.label, go: () => onPreset(p.pct) })), { label: 'Custom', go: () => onRange(safeLow, safeHigh) }].map((p) => {
           const on = activePreset === p.label;
           return (
-            <button key={p.label} type="button" onClick={p.go} style={{ height: 32, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap', background: on ? `rgba(${toneRgb}, 0.18)` : 'transparent', color: on ? tone : btb.textMuted }}>{p.label}</button>
+            <button key={p.label} type="button" onClick={p.go} style={{ flex: '1 0 auto', padding: '0 10px', height: 30, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap', background: on ? `rgba(${toneRgb}, 0.18)` : 'transparent', color: on ? tone : btb.textMuted }}>{p.label}</button>
           );
         })}
       </div>

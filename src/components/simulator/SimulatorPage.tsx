@@ -149,7 +149,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const spacing = v4Pool ? v4Pool.tickSpacing : pool?.tickSpacing ?? deployment.tickSpacings[feeTier] ?? 60;
 
   const { history, estimatedHistory, fallbackCloses, tokenUsd, tickLiq, poolCreatedAt } =
-    usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks, feeTier);
+    usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks, feeTier, Math.max(30, horizonDays));
   // Indexed history wins; on chains without a subgraph the volume-derived
   // estimate stands in, and every section it feeds is labelled estimated.
   const effectiveHistory = history ?? estimatedHistory ?? null;
@@ -214,7 +214,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
       fees24hUsd: current?.fees24hUsd ?? (current?.tvlUsd != null && current?.apy != null ? (current.tvlUsd * current.apy) / 100 / 365 : undefined),
       tokenUsd, tvlUsd: current?.tvlUsd ?? null,
       depositUsd, tickLower: ticks.tickLower, tickUpper: ticks.tickUpper,
-      horizonDays, movePct, flip, gasUsd: GAS_EST_USD,
+      horizonDays, replayDays: horizonDays, movePct, flip, gasUsd: GAS_EST_USD,
       rewardAprPct: selected.aprKind === 'gauge' ? selected.apy : undefined,
       rewardLabel: selected.aprLabel,
       compound,
@@ -269,7 +269,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const horizonPicker = (
     <div style={{ display: 'flex', gap: 4, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 12, padding: 3, flexShrink: 0 }}>
       {[7, 30, 90, 180].map((d) => (
-        <button key={d} onClick={() => setHorizonDays(d)} style={{
+        <button key={d} type="button" onClick={() => setHorizonDays(d)} style={{
           height: 28, padding: isMobile ? '0 8px' : '0 11px', borderRadius: 9, border: 'none', cursor: 'pointer',
           fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
           background: horizonDays === d ? 'rgba(var(--green-rgb), 0.2)' : 'transparent',

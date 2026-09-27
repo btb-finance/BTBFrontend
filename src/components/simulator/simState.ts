@@ -50,6 +50,8 @@ export interface SimInputs {
   tickLower: number;
   tickUpper: number;
   horizonDays: number;
+  /** Days the historical replay covers: the last N of `history`. Omitted means all of it. */
+  replayDays?: number;
   /** Sensitivity override: display-space price move in percent. 0 = model median. */
   movePct: number;
   flip: boolean;
@@ -421,15 +423,17 @@ export function deriveSim(i: SimInputs): Sim | null {
 
   // ── Historical replay: real indexed pool prices/fees, with each day's
   // recorded liquidity used to estimate this new position's fee share.
-  const backtest = i.history && i.history.length >= 2
+  // Over the period picked (7, 30, 90 or 180 days), or as much history as the pool has.
+  const replay = i.history && i.replayDays ? i.history.slice(-i.replayDays) : i.history;
+  const backtest = replay && replay.length >= 2
     ? backtestRange({
-        history: i.history.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd, liquidity: d.liquidity })),
+        history: replay.map((d) => ({ price0: d.price0, feesUsd: d.feesUsd, liquidity: d.liquidity })),
         priceLower, priceUpper,
         userLiquidity: userL, activeLiquidity: poolL,
         depositUsd,
       })
     : null;
-  const backtestDays = (i.history ?? []).map((d) => ({
+  const backtestDays = (replay ?? []).map((d) => ({
     disp: poolToDisp(d.price0),
     inRange: d.price0 >= priceLower && d.price0 <= priceUpper,
   }));
