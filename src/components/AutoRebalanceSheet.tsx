@@ -110,14 +110,18 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
 
   return (
     <Portal>
-      <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, padding: '20px 20px calc(24px + env(safe-area-inset-bottom, 0px))' }}>
+      <div onClick={busy ? undefined : onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 320, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'max(16px, env(safe-area-inset-top, 0px)) 12px max(16px, env(safe-area-inset-bottom, 0px))' }}>
+        {/* The title and the Turn on button stay put; only the middle scrolls, inside the sheet, so no part of it is ever cut off. */}
+        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, maxHeight: '100%', display: 'flex', flexDirection: 'column', background: 'rgba(var(--bg-rgb), 0.98)', border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 28, overflow: 'hidden' }}>
+          <div style={{ flexShrink: 0, padding: '18px 20px 10px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.4 }}>Auto-rebalance</div>
             {!busy && <div onClick={onClose} style={{ cursor: 'pointer' }}><Icon name="close" size={16} color={btb.textMuted}/></div>}
           </div>
-          <div style={{ color: btb.textMuted, fontSize: 13, marginBottom: 14 }}>{label}{pos.staked ? `, staked for ${pos.staked.rewardSymbol}` : ''}</div>
+          <div style={{ color: btb.textMuted, fontSize: 13 }}>{label}{pos.staked ? `, staked for ${pos.staked.rewardSymbol}` : ''}</div>
+          </div>
 
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch', padding: '14px 20px' }}>
           {!support ? (
             line(pos.staked?.kind === 'masterchef'
               ? 'This position is staked in a farm the auto wallet does not support. Unstake it first.'
@@ -169,13 +173,19 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
                 )}
               </div>
 
+              <div style={{ color: btb.textDim, fontSize: 10.5, lineHeight: 1.5 }}>
+                One sign-in the first time, then one confirmation{pos.staked ? ' (unstake, move in and restake together)' : ''}. The first time on this chain it also creates your auto wallet, at the same address on every chain.
+              </div>
+            </div>
+          )}
+          </div>
+
+          {support && (
+            <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 20px 16px', borderTop: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
               {err && <div style={{ color: btb.loss, fontSize: 12 }}>{err}</div>}
               <Button variant="success" size="md" onClick={start} loading={!!busy} disabled={!!busy}>
                 {busy ?? 'Turn on auto-rebalance'}
               </Button>
-              <div style={{ color: btb.textDim, fontSize: 10.5, lineHeight: 1.5 }}>
-                One sign-in the first time, then one confirmation{pos.staked ? ' (unstake, move in and restake together)' : ''}. The first time on this chain it also creates your auto wallet, at the same address on every chain.
-              </div>
             </div>
           )}
         </div>

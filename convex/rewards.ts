@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { addCredit, closeEpochIfDrained } from "./credit";
-import { epochIdAt, epochWindow, REFERRAL_SHARE } from "./xpRules";
+import { epochIdAt, epochWindow, MIN_CLAIM_BTB, REFERRAL_SHARE } from "./xpRules";
 import { sessionWallet } from "./sessions";
 
 // Epoch timing (Friday 00:00 UTC weeks) lives in xpRules.ts so the screens use
@@ -155,6 +155,9 @@ export const claimReward = mutation({
     // Already claimed or already expired — a double-clicked button is a no-op,
     // not an error, and must never queue a second transfer.
     if (payout.state !== "claimable") return { claimed: false, state: payout.state };
+    if (BigInt(payout.amountRaw) < BigInt(MIN_CLAIM_BTB) * 10n ** 18n) {
+      return { claimed: false, state: payout.state, reason: `Shares under ${MIN_CLAIM_BTB.toLocaleString("en-US")} BTB cannot be sent to a wallet. Add it to your BTB balance instead.` };
+    }
 
     const now = Date.now();
     await ctx.db.patch(payoutId, { state: "queued", updatedAt: now, nextAttemptAt: undefined });

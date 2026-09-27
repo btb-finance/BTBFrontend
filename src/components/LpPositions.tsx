@@ -88,7 +88,7 @@ const AUTO_FARM_ABI = parseAbi([
   'function pendingReward(uint256 tokenId) view returns (uint256)',
 ]);
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
-import { useAlerts, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
+import { useAlerts, useSignedCall, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
 import { readableError } from '../lib/errorText';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
@@ -264,7 +264,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         setAlertNote(isWalletBrowser()
           ? 'Alert on. This wallet browser cannot receive push, so alerts show under the bell in the app.'
           : needsHomeScreen() ? 'Alert on. For push on iPhone, add BTB to your home screen from the Share menu; alerts also show under the bell.'
-          : 'Alert on. You will get a push on this device and a line under the bell when the range changes. Checked hourly, or every 5 minutes with fast alerts above.');
+          : `Alert on. You will get a push on this device and a line under the bell when the range changes. Checked hourly for ${FAST_CHECK_BTB} BTB per check, or every 5 minutes with fast alerts above.`);
       }
     } catch (e) {
       setAlertNote(readableError(e, 'Could not enable the alert.'));
@@ -435,12 +435,13 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // Tags: a short label per position, editable inline, stored per wallet.
   const tags = useQuery(api.alerts.tagsForAddress, address ? { address } : 'skip') ?? {};
   const setTagMutation = useMutation(api.alerts.setTag);
+  const signedCall = useSignedCall(address);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState('');
   const tagKeyOf = (p: LiquidityPosition) => `${p.chainId ?? 1}:${p.protocol}:${p.id.toString()}`;
   const commitTag = async (p: LiquidityPosition) => {
     if (!address) return;
-    await setTagMutation({ address, key: tagKeyOf(p), tag: tagDraft }).catch(() => {});
+    await signedCall.run((sessionToken) => setTagMutation({ sessionToken, key: tagKeyOf(p), tag: tagDraft })).catch(() => {});
     setEditingTag(null);
   };
 

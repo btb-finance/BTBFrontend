@@ -8,7 +8,7 @@ import { fetchV3Positions, fetchV4Positions } from "../src/protocols/dexs/uniswa
 import { deploymentOfPosition, v4DeploymentOfPosition } from "../src/protocols/lpChains";
 import type { LiquidityPosition } from "../src/protocols/types";
 import { ALERT_MIN_BTB } from "./alerts";
-import { FAST_CHECK_BTB, FREE_CHECK_MS, DEPOSIT_MAX_AGE_MS, SIGNATURE_MAX_AGE_MS, alertAuthMessage, FAST_ON_ACTION } from "./alertMessages";
+import { FAST_CHECK_BTB, HOURLY_CHECK_MS, DEPOSIT_MAX_AGE_MS, SIGNATURE_MAX_AGE_MS, alertAuthMessage, FAST_ON_ACTION } from "./alertMessages";
 
 const BTB = CONTRACTS.BTB;
 const OPOS = CONTRACTS.OPOS;
@@ -29,10 +29,13 @@ async function btbBalance(address: `0x${string}`): Promise<number> {
   return parseFloat(formatUnits(raw, 18));
 }
 
-/** Subscribe one position. Verifies the BTB balance on-chain first. */
+/** Subscribe one position of the signed-in wallet. Verifies the BTB balance on-chain first. */
 export const subscribe = action({
-  args: { address: v.string(), chainId: v.float64(), protocol: v.string(), tokenId: v.string(), label: v.string(), inRange: v.optional(v.boolean()) },
-  handler: async (ctx, a) => {
+  args: { sessionToken: v.string(), chainId: v.float64(), protocol: v.string(), tokenId: v.string(), label: v.string(), inRange: v.optional(v.boolean()) },
+  handler: async (ctx, { sessionToken, ...rest }): Promise<{ ok: true; balance: number } | { ok: false; reason: string; balance?: number }> => {
+    const address: string | null = await ctx.runQuery(internal.sessions.walletFor, { token: sessionToken });
+    if (!address) return { ok: false as const, reason: "Your sign-in expired. Sign in again." };
+    const a = { ...rest, address };
     // A plain result, not a thrown error: thrown errors reach the client wrapped
     // in Convex's request framing, which is not something to show a user.
     const bal = await btbBalance(a.address as `0x${string}`).catch(() => null);
@@ -77,8 +80,8 @@ async function positionBurned(chainId: number, protocol: string, tokenId: string
  * Every five minutes: re-read each due alert's position, write an inbox
  * event and push on every range change, drop alerts whose wallet sold below
  * the threshold (re-checked hourly per wallet) or whose position is gone.
- * Due means hourly for free alerts, every tick for a wallet paying for fast
- * checks (FAST_CHECK_BTB per successful read).
+ * Due means hourly, or every tick for a wallet with fast checks on. Every
+ * successful read costs FAST_CHECK_BTB; a wallet with nothing to pay with is skipped.
  */
 export const check = internalAction({
   args: {},
@@ -87,20 +90,23 @@ export const check = internalAction({
     const alerts = await ctx.runQuery(internal.alerts.activeAlerts, {});
     if (alerts.length === 0) return;
     const balanceCache = new Map<string, number>();
-    // Fast wallets pay per read; track what is left inside this run so a
+    // Every read is paid, hourly or fast; track what is left inside this run so a
     // wallet with many positions cannot spend past its balance.
-    const fastLeft = new Map((await ctx.runQuery(internal.alerts.fastWallets, {})).map((w) => [w.address, w.balance]));
+    const payers = new Map((await ctx.runQuery(internal.alerts.alertPayers, { addresses: [...new Set(alerts.map((a) => a.address))] })).map((w) => [w.address, w]));
     const started = Date.now();
     // Oldest first, so a run cut short by the time budget does not starve the same rows.
     alerts.sort((a, b) => (a.lastCheckedAt ?? 0) - (b.lastCheckedAt ?? 0));
     for (const alert of alerts) {
       if (Date.now() - started > 8 * 60_000) break;
       const owner = alert.address as `0x${string}`;
-      const left = fastLeft.get(alert.address) ?? 0;
-      const fast = left >= FAST_CHECK_BTB;
-      // Free alerts are read hourly. A few seconds of slack so a row checked
+      const payer = payers.get(alert.address);
+      const left = payer?.balance ?? 0;
+      // Nothing to pay with: the alert waits, still on, until the wallet tops up.
+      if (left < FAST_CHECK_BTB) continue;
+      const fast = !!payer?.fast;
+      // Normal alerts are read hourly. A few seconds of slack so a row checked
       // near the end of one tick is still due on the tick an hour later.
-      const due = fast || !alert.lastCheckedAt || Date.now() - alert.lastCheckedAt >= FREE_CHECK_MS - 60_000;
+      const due = fast || !alert.lastCheckedAt || Date.now() - alert.lastCheckedAt >= HOURLY_CHECK_MS - 60_000;
       if (!due) continue;
       // Balance gate, one read per wallet per run and only once an hour.
       const staleGate = !alert.lastCheckedAt || Date.now() - alert.lastCheckedAt > 60 * 60_000;
@@ -120,8 +126,8 @@ export const check = internalAction({
       }
       if (inRange == null) { await ctx.runMutation(internal.alerts.recordCheck, { id: alert._id, deactivate: true }); continue; }
       const changed = alert.lastInRange != null && alert.lastInRange !== inRange;
-      if (fast) fastLeft.set(alert.address, left - FAST_CHECK_BTB);
-      await ctx.runMutation(internal.alerts.recordCheck, { id: alert._id, inRange, charge: fast ? FAST_CHECK_BTB : undefined });
+      payers.set(alert.address, { ...payer!, balance: left - FAST_CHECK_BTB });
+      await ctx.runMutation(internal.alerts.recordCheck, { id: alert._id, inRange, charge: FAST_CHECK_BTB });
       if (!changed) continue;
       const kind = inRange ? "in" : "out";
       const message = inRange ? `${alert.label} is back in range and earning fees.` : `${alert.label} moved out of range. Rebalance to keep earning.`;

@@ -48,6 +48,11 @@ export const TX_XP_DAILY_CAP = 20;
 export const MINT_XP = 1000;
 /** Simulate: first pool checked each day, and each chain researched each day. */
 export const SIMULATE_XP = 100;
+/**
+ * Smallest weekly share that can be sent to a wallet: each send is a transfer we pay gas for, so many tiny wallets
+ * cannot run up our gas. A smaller share can still go into the app BTB balance, which costs no gas.
+ */
+export const MIN_CLAIM_BTB = 5_000;
 /** A referrer's share of every point the wallets they invited earn (one level; the invited wallet loses nothing). */
 export const REFERRAL_SHARE = 0.1;
 /** XP for each rebalance the BTB agent completes on the user's position. */

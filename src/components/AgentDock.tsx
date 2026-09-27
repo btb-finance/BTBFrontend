@@ -64,10 +64,11 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
             ...(isMobile
               // Nearly full screen, measured on the visible height so the keyboard does not push the input away.
               ? { left: 0, right: 0, bottom: 0, height: '94dvh', maxHeight: 'calc(100dvh - env(safe-area-inset-top, 0px))', borderRadius: '20px 20px 0 0' }
-              : { right: 24, bottom: 24, width: 440, height: 'min(720px, calc(100vh - 48px))', borderRadius: 24 }),
+              : { right: 24, bottom: 24, width: 'min(560px, calc(100vw - 48px))', height: 'min(860px, calc(100vh - 48px))', borderRadius: 24 }),
             background: btb.bg, border: btb.border, boxShadow: '0 24px 60px rgba(0,0,0,0.45)', overflow: 'hidden',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: btb.borderSoft, flexShrink: 0 }}>
+            {/* With a wallet the chat draws its own one-line header (title, balance, Top up, close). */}
+            {!walletAddress && <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: btb.borderSoft, flexShrink: 0 }}>
               <div style={{ width: 30, height: 30, borderRadius: 10, background: btb.gradGreen, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="bolt" size={15} color="#fff"/>
               </div>
@@ -76,10 +77,10 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
                 <div style={{ color: btb.textMuted, fontSize: 11 }}>{walletAddress ? `${AGENT_FREE_PER_DAY} free messages a day, then ${AGENT_MESSAGE_BTB} BTB each` : 'Connect a wallet to chat'}</div>
               </div>
               <div onClick={() => setOpen(false)} style={{ cursor: 'pointer', padding: 6 }}><Icon name="close" size={16} color={btb.textMuted}/></div>
-            </div>
-            <div style={{ flex: 1, minHeight: 0, padding: 12, display: 'flex', flexDirection: 'column' }}>
+            </div>}
+            <div style={{ flex: 1, minHeight: 0, padding: '10px 12px 12px', display: 'flex', flexDirection: 'column' }}>
               {walletAddress ? (
-                <AgentChat walletAddress={walletAddress} onGetBtb={onGetBtb} compact/>
+                <AgentChat walletAddress={walletAddress} onGetBtb={onGetBtb} compact onClose={() => setOpen(false)}/>
               ) : (
                 <div style={{ margin: 'auto', textAlign: 'center', color: btb.textMuted, fontSize: 13, lineHeight: 1.6, padding: 20 }}>
                   The agent reads your holdings and positions, so it needs a wallet.

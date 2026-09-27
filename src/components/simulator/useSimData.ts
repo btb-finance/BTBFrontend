@@ -14,7 +14,7 @@
  * — see src/lib/cacheKeys.ts for the TTLs. Only the on-chain reads (pool
  * state, tick depth) still leave the browser.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import {
@@ -136,6 +136,8 @@ export function usePoolExtras(
   wrappedNative: `0x${string}`,
   networks: ChainDataNetwork,
   feeTier: number,
+  /** How many days of history to load; the simulator asks for more when the replay period is longer than a month. */
+  days = 30,
 ): PoolExtras {
   const config = useConfig();
   const [tickLiq, setTickLiq] = useState<TickLiquidityPoint[] | null>(null);
@@ -151,11 +153,14 @@ export function usePoolExtras(
   const historyQ = useCachedJson<PoolDay[]>(useGraph && pool ? {
     kind: 'pool-history',
     id: pool.address,
-    days: 30,
+    days,
     subgraphId: dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID,
   } : null);
 
-  const history = historyQ.data && historyQ.data.length > 1 ? historyQ.data : null;
+  // A longer window loads under a new key; until it arrives the shorter one already on screen stays.
+  const lastHistory = useRef<PoolDay[] | null>(null);
+  if (historyQ.data && historyQ.data.length > 1) lastHistory.current = historyQ.data;
+  const history = historyQ.data && historyQ.data.length > 1 ? historyQ.data : historyQ.loading ? lastHistory.current : null;
 
   // The subgraph runs on Convex now, so its Graph key has to exist there too.
   // If it doesn't — or the pool simply isn't indexed — fall through to the
@@ -164,7 +169,7 @@ export function usePoolExtras(
   const graphEmpty = useGraph && !historyQ.loading && !history;
   const chartId = isV4 ? v4PoolId : pool?.address;
   const dailyQ = useCachedJson<DailyBar[]>(resolved && chartId && (!useGraph || graphEmpty) ? {
-    kind: 'pool-daily', id: chartId, days: 30, network: networks.gecko,
+    kind: 'pool-daily', id: chartId, days, network: networks.gecko,
   } : null);
 
   // Pool age — the explorer reports creation time; immutable once known.
@@ -181,8 +186,11 @@ export function usePoolExtras(
   // series synthesized from traded volume × fee tier so the replay and
   // fee-steadiness stats work on chains with no subgraph. Clearly labelled as
   // estimated downstream — never presented as real fees.
+  const lastBars = useRef<DailyBar[] | null>(null);
+  if (dailyQ.data && dailyQ.data.length > 1) lastBars.current = dailyQ.data;
+  const barsData = dailyQ.data && dailyQ.data.length > 1 ? dailyQ.data : dailyQ.loading ? lastBars.current : dailyQ.data;
   const { fallbackCloses, estimatedHistory } = useMemo(() => {
-    const bars = dailyQ.data;
+    const bars = barsData;
     if (!pool || !bars || bars.length < 2) return { fallbackCloses: null, estimatedHistory: null };
     const last = bars[bars.length - 1].close;
     const ratio = last > 0 && price > 0 ? price / last : 1;
@@ -205,7 +213,7 @@ export function usePoolExtras(
       .filter((d) => d.date > 0 && d.date < todayBucket);
 
     return { fallbackCloses: closes, estimatedHistory: days.length >= 5 ? days : null };
-  }, [dailyQ.data, pool, price, feeTier]);
+  }, [barsData, pool, price, feeTier]);
 
   const poolCreatedAt = pool ? statsQ.data?.[pool.address.toLowerCase()]?.createdAt ?? null : null;
 

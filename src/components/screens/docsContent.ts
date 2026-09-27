@@ -139,9 +139,11 @@ export const DOCS: DocGroup[] = [
       {
         id: 'alerts', title: 'Range alerts', summary: 'A push when a position leaves or re-enters its range. For wallets holding 10,000 BTB.',
         blocks: [
-          { type: 'p', text: 'Tap Alert me on any LP card. Every five minutes BTB re-reads that position on-chain; when it crosses out of range, or comes back, you get a line under the bell in the app and a push notification on devices that support it.' },
+          { type: 'p', text: 'Tap Alert me on any LP card and sign in once with your wallet. Every hour (or every five minutes with fast checks) BTB re-reads that position on-chain; when it crosses out of range, or comes back, you get a line under the bell in the app and a push notification on devices that support it.' },
           { type: 'list', items: [
-            'Requires 10,000 BTB in the connected wallet, checked on-chain when you subscribe and again every hour. Each position is an RPC read every five minutes, so the gate keeps the service sustainable.',
+            'Requires 10,000 BTB in the connected wallet, checked on-chain when you subscribe and again every hour.',
+            'Each check costs 1 BTB per position, from your BTB balance in the app and then your unclaimed weekly rewards. With nothing left to pay with, alerts pause until you top up.',
+            'Only the wallet itself can turn its alerts on or off, add a device for push, or rename a position: each needs its signed sign-in.',
             'Push works in Safari, Chrome and Firefox on desktop and Android. On iPhone, add BTB to your home screen first (Share, then Add to Home Screen); iOS only delivers push to installed web apps.',
             'Wallet in-app browsers (Trust Wallet, SafePal, TokenPocket and similar) cannot receive push. Alerts still land under the bell, so open the app to see them.',
             'Alerts switch off by themselves when the position is closed or the wallet drops below the threshold.',
@@ -180,6 +182,7 @@ export const DOCS: DocGroup[] = [
         id: 'rewards', title: 'Rewards: check-in, XP, Friday BTB', summary: 'Use the app, get paid.',
         blocks: [
           { type: 'p', text: 'Every action credits XP to the current week. Weeks run Friday 00:00 UTC to Friday 00:00 UTC. On Friday the week\'s revenue is split across everyone in proportion to the XP they earned that week and paid in BTB. Nothing to buy, nothing to stake.' },
+          { type: 'p', text: 'Claim your share to your wallet with no gas from 5,000 BTB, or add any amount to your BTB balance in the app, where it pays for alerts, the agent and auto-rebalance. A share left untouched by the next Friday goes back into the pot.' },
           { type: 'table', head: ['Action', 'XP'], rows: [
             ['Daily check-in', '10 on day one, +2 per consecutive day, capped at 50. Every 7-day streak adds a bonus (+50, then +100, and so on).'],
             ['Simulate a pool', '100, first pool of the day'],
