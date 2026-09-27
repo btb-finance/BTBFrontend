@@ -193,12 +193,45 @@ function sender(client: PublicClient, chainId: number, wallet: `0x${string}`) {
   };
 }
 
+/**
+ * Before the agent touches a position, send every loose token in the wallet back to the owner (wallet version 4 and
+ * up): the position's own pair, its reward token and WETH. A rebalance or compound is then built only from what that
+ * position itself returns, never from leftovers, other positions' rewards or tokens sent to the wallet by mistake.
+ * Skipped when there is nothing loose, so it costs no transaction or daily action for nothing. Never blocks the
+ * action it precedes: an older wallet, or a refused sweep, simply goes ahead as before.
+ */
+async function sweepLoose(client: PublicClient, chainId: number, wallet: `0x${string}`, tokens: string[]) {
+  try {
+    const version = await client.readContract({ address: wallet, abi: VERSION_ABI, functionName: "VERSION" }).catch(() => 1n);
+    if (version < 4n) return;
+
+    const list = [...new Set([...tokens, AUTO_WETH[chainId]].filter(Boolean).map((t) => t!.toLowerCase()))] as `0x${string}`[];
+    const balances = await Promise.all(list.map((t) => client.readContract({ address: t, abi: ERC20_ABI, functionName: "balanceOf", args: [wallet] }).catch(() => 0n)));
+    const loose = list.filter((_, i) => balances[i] > 0n);
+    if (loose.length === 0) return;
+    const account = agentAccount();
+    const walletClient = createWalletClient({ account, chain: CHAINS[chainId], transport: SEND_TRANSPORT[chainId] });
+    const { request } = await client.simulateContract({ account, address: wallet, abi: WALLET_ABI, functionName: "sweepToOwner", args: [loose] });
+    const hash = await walletClient.writeContract(request);
+    await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+  } catch { /* the action below still runs; it only uses its own position's funds anyway */ }
+}
+
 async function execute(
   client: PublicClient,
-  o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; gauge?: `0x${string}`; stakedNow: boolean },
+  o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; gauge?: `0x${string}`; stakedNow: boolean; token0: string; token1: string; compound: boolean },
 ) {
   const send = sender(client, o.chainId, o.wallet);
   const stakeAdapter = stakeAdapterFor(o.chainId, o.pm);
+  const payTokens = [o.token0, o.token1, rewardFor(o.chainId, o.pm)?.address ?? ''];
+  // Compound off, on a version 4 wallet: the position's fees are the owner's income. Collect them first (a staked
+  // position has none: its fees go to voters) and send them over with any loose tokens, so the new position is built
+  // from principal only. With compound on, fees stay in and go into the new position as before.
+  const payOut = !o.compound && (await client.readContract({ address: o.wallet, abi: VERSION_ABI, functionName: "VERSION" }).catch(() => 1n)) >= 4n;
+  if (payOut && !o.stakedNow) await send(o.adapter, collectParams(o.pm, o.tokenId)).catch(() => null);
+  await sweepLoose(client, o.chainId, o.wallet, payTokens);
+  // After the rebalance: the side the new range did not use and the rewards the unstake paid out go to the owner too.
+  const payAfter = async () => { if (payOut) await sweepLoose(client, o.chainId, o.wallet, payTokens); };
   const stop = (r: Extract<Sent, { ok: false }>) => ({
     newTokenId: null, staked: false,
     wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null,
@@ -224,6 +257,7 @@ async function execute(
     const minted = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: r.logs }).find((l) =>
       l.address.toLowerCase() === o.pm.toLowerCase() && /^0x0{40}$/.test(l.args.from) && l.args.to.toLowerCase() === o.wallet.toLowerCase());
     if (!minted) return { newTokenId: null, staked: false, wait: null, error: "rebalance landed but no new position was found" };
+    await payAfter();
     return { newTokenId: minted.args.tokenId, staked, wait: null, error: null };
   }
 
@@ -245,10 +279,12 @@ async function execute(
   const newTokenId = minted.args.tokenId;
   // A refused restake leaves the new position safe in the wallet, unstaked.
   const staked = o.gauge ? (await send(stakeAdapter, gaugeParams(Action.Stake, o.gauge, newTokenId)).catch(() => null))?.ok === true : false;
+  await payAfter();
   return { newTokenId, staked, wait: null, error: null };
 }
 
 const ERC20_ABI = parseAbi(["function balanceOf(address) view returns (uint256)"]);
+const VERSION_ABI = parseAbi(["function VERSION() view returns (uint256)"]);
 const TARGET_ABI = parseAbi(["function isTarget(address) view returns (bool)"]);
 const REGISTRY_ABI = parseAbi(["function isListedPool(address) view returns (bool)", "function oracleFor(address, address) view returns (address)"]);
 const SLIP_FACTORY_ABI = parseAbi(["function getPool(address,address,int24) view returns (address)"]);
@@ -295,6 +331,7 @@ async function feesUsd(chainId: number, p: LiquidityPosition): Promise<number | 
  */
 async function compoundFees(client: PublicClient, d: V3Deployment, o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; p: LiquidityPosition }) {
   const send = sender(client, o.chainId, o.wallet);
+  await sweepLoose(client, o.chainId, o.wallet, [o.p.token0, o.p.token1]);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
   const pool = d.slipstream
     ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.tickSpacing ?? o.p.fee] })
@@ -443,6 +480,10 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
   const share = { [t0]: v0 / Math.max(v0 + v1, 1e-12), [t1]: v1 / Math.max(v0 + v1, 1e-12) };
 
   const bal = (t: string) => client.readContract({ address: t as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [o.wallet] });
+  await sweepLoose(client, o.chainId, o.wallet, [t0, t1, reward]);
+  // Only this position's rewards: what arrives from its own unstake (and claim), measured from here. The wallet also
+  // holds rewards other positions were paid when they were unstaked; those are theirs, never compounded into this one.
+  const rewardBefore = await bal(reward);
   if (o.stakedNow) {
     const r = await send(stakeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
     if (!r.ok) return { ok: false, wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null, note: r.name ?? r.message };
@@ -456,7 +497,8 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
       return !!params && (await send(V6.swapAdapter, params)).ok;
     };
     // 1. All rewards into the hub (unless the rewards are the hub).
-    if (hub !== reward && !(await swap(reward, hub, await bal(reward)))) {
+    const rewardGain = (await bal(reward)) - rewardBefore;
+    if (hub !== reward && !(await swap(reward, hub, rewardGain > 0n ? rewardGain : 0n))) {
       return { ok: false, note: "The reward swap was refused; it is retried later." };
     }
     // 2. From what the rewards brought in, each pair token that is not the hub gets its share.
@@ -688,6 +730,7 @@ export const check = internalAction({
       result = await execute(client, {
         chainId: job.chainId, wallet, pm, adapter, tokenId, stakedNow: staked,
         gauge: job.gauge as `0x${string}` | undefined,
+        token0: position?.token0 ?? "", token1: position?.token1 ?? "", compound: !!job.compound,
       });
     } catch (e) {
       const text = e instanceof Error ? e.message : String(e);
@@ -783,6 +826,27 @@ export const enable = action({
 });
 
 /**
+ * Whether `txHash` is the transaction that put this position into the auto wallet on the owner's behalf. Anyone can
+ * mint a position on a real position manager straight into someone's auto wallet (the manager is approved), so a
+ * signature-free start must not let a stranger make the agent run, and bill, a junk position. The page passes the
+ * transaction it just sent (the move in, or a mint by the wallet); its receipt, read from the chain, must show this NFT
+ * arriving in the wallet from the owner, or minted there while the wallet itself was acting (its own action). No
+ * history index is involved: a stranger cannot produce such a receipt.
+ */
+async function movedInByOwner(client: PublicClient, txHash: string | undefined, pm: `0x${string}`, tokenId: bigint, wallet: string, owner: string): Promise<boolean> {
+  if (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return false;
+  const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` }).catch(() => null);
+  if (!receipt || receipt.status !== "success") return false;
+  const w = wallet.toLowerCase();
+  const into = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: receipt.logs })
+    .filter((l) => l.address.toLowerCase() === pm.toLowerCase() && l.args.tokenId === tokenId && l.args.to.toLowerCase() === w);
+  const last = into[into.length - 1];
+  if (!last) return false;
+  if (last.args.from.toLowerCase() === owner.toLowerCase()) return true;
+  return /^0x0{40}$/.test(last.args.from) && receipt.logs.some((l) => l.address.toLowerCase() === w);
+}
+
+/**
  * Start auto-rebalance on a position just moved into its auto wallet, with no signature. The move itself was
  * the owner's signed transaction, and every fact is read from chain here, so the owner's address alone is
  * enough. Create only: an existing job (paused, a different interval) can only be changed with a session.
@@ -791,11 +855,23 @@ export const enableNew = action({
   args: {
     owner: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
     label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
+    /** The transactions the action sent (the move in, or a mint through the wallet): the proof it was the owner. */
+    txHashes: v.optional(v.array(v.string())),
   },
   handler: async (ctx, a): Promise<Result> => {
     if (!isAddress(a.owner)) return { ok: false, reason: "Invalid wallet address." };
     const v = await verifyOnChain(a.owner.toLowerCase(), a);
     if (!v.ok) return v;
+    const client = getChainClient(a.chainId);
+    // TEMPORARY: the app released before this check sends no txHashes. Until the new app is live everywhere, such a
+    // request is handled as before; remove this line once it is (every current client sends the hashes).
+    let proven = a.txHashes === undefined;
+    for (const h of (a.txHashes ?? []).slice(0, 8)) {
+      if (client && (await movedInByOwner(client, h, a.positionManager as `0x${string}`, BigInt(a.tokenId), v.wallet, a.owner))) { proven = true; break; }
+    }
+    if (!proven) {
+      return { ok: false, reason: "This position was not moved in by you. Start it from the app with a signature." };
+    }
     const id = await ctx.runMutation(internal.autoRebalance.createIfNew, {
       address: a.owner, wallet: v.wallet, chainId: a.chainId, positionManager: a.positionManager, tokenId: a.tokenId,
       label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin, compound: a.compound,

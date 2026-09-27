@@ -14,7 +14,8 @@ export type Call = {
   label?: string;
 };
 
-export type RunResult = { lastHash?: `0x${string}` };
+/** `hashes`: every transaction the action sent, in order (one for a batch); `lastHash` is the final one. */
+export type RunResult = { lastHash?: `0x${string}`; hashes?: `0x${string}`[] };
 
 export type ChainStateCheck = {
   /** Return true once the confirmed transaction is visible through the RPC. */
@@ -110,7 +111,7 @@ export async function runCalls(
       const res = await done;
       if (res.status !== 'confirmed') throw new Error(res.error ?? 'Batch failed');
       if (verify) await waitForChainState(verify);
-      return { lastHash: res.hash };
+      return { lastHash: res.hash, hashes: res.hash ? [res.hash] : [] };
     } catch (err) {
       // Only fall back to sequential when the wallet simply doesn't support
       // wallet_sendCalls. A user rejection or an on-chain revert must surface.
@@ -120,6 +121,7 @@ export async function runCalls(
 
   // --- Sequential fallback / single call ---
   let lastHash: `0x${string}` | undefined;
+  const hashes: `0x${string}`[] = [];
   for (let i = 0; i < pendingCalls.length; i++) {
     const c = pendingCalls[i];
     // Re-check immediately before submission: an earlier call in this action,
@@ -130,12 +132,13 @@ export async function runCalls(
     const stepLabel = pendingCalls.length > 1 ? `${actionLabel} (${i + 1}/${pendingCalls.length})` : actionLabel;
     const hash = await sendTransaction(config, { account, chainId: chainId as SupportedChainId | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas });
     lastHash = hash;
+    hashes.push(hash);
     const { done } = track({ hash, label: stepLabel, chainId });
     const res = await done;
     if (res.status !== 'confirmed') throw new Error(res.error ?? 'Transaction failed');
   }
   if (verify) await waitForChainState(verify);
-  return { lastHash };
+  return { lastHash, hashes };
 }
 
 async function isSatisfiedApproval(config: Config, owner: `0x${string}`, call: Call, chainId?: number): Promise<boolean> {

@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { addCredit, closeEpochIfDrained } from "./credit";
-import { epochIdAt, epochWindow } from "./xpRules";
+import { epochIdAt, epochWindow, REFERRAL_SHARE } from "./xpRules";
 import { sessionWallet } from "./sessions";
 
 // Epoch timing (Friday 00:00 UTC weeks) lives in xpRules.ts so the screens use
@@ -14,9 +14,22 @@ export { epochIdAt, epochWindow } from "./xpRules";
  * Credit XP to the current epoch's ledger. Called alongside every write to
  * `users.points` — the lifetime counter is cosmetic, this is what pays.
  */
-export async function addEpochPoints(ctx: MutationCtx, walletAddress: string, amount: number) {
+export async function addEpochPoints(ctx: MutationCtx, walletAddress: string, amount: number, fromReferral = false) {
   if (!(amount > 0)) return;
   const addr = walletAddress.toLowerCase();
+  // Every point source passes through here, so the referral share is paid in one place. One level only: a referrer's
+  // bonus does not pay their own referrer.
+  if (!fromReferral) {
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).unique();
+    const inviter = user?.referredBy
+      ? await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", user.referredBy!)).unique()
+      : null;
+    if (inviter) {
+      const bonus = amount * REFERRAL_SHARE;
+      await ctx.db.patch(inviter._id, { points: inviter.points + bonus, referralXp: (inviter.referralXp ?? 0) + bonus });
+      await addEpochPoints(ctx, inviter.walletAddress, bonus, true);
+    }
+  }
   const epochId = epochIdAt();
   const row = await ctx.db
     .query("epochPoints")

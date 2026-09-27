@@ -74,9 +74,9 @@ export function VfatMigrate({ owner, onMoved }: { owner: `0x${string}`; onMoved:
       const support = autoSupport(p);
       if (!support) throw new Error('Auto-rebalance does not support this position yet.');
       const { calls } = await buildEnableCalls(client as never, owner, p.id, support);
-      await runCalls(config, { account: owner, calls: [buildVfatExit(p), ...calls], label: `Move ${p.symbol0}/${p.symbol1} from vfat to BTB`, track, chainId: 8453 });
+      const { hashes } = await runCalls(config, { account: owner, calls: [buildVfatExit(p), ...calls], label: `Move ${p.symbol0}/${p.symbol1} from vfat to BTB`, track, chainId: 8453 });
       const res = await enableWhenVisible(() => enableNew({
-        owner, chainId: 8453, positionManager: support.positionManager, tokenId: p.id.toString(),
+        owner, txHashes: hashes, chainId: 8453, positionManager: support.positionManager, tokenId: p.id.toString(),
         label: autoLabel(p), gauge: support.gauge, intervalMin: DEFAULT_INTERVAL,
       }));
       if (!res.ok) throw new Error(`Moved to BTB, but auto-rebalance did not start: ${res.reason}`);

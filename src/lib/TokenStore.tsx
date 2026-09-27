@@ -7,6 +7,7 @@ import { useReadContracts } from 'wagmi';
 import { erc20Abi, formatUnits } from 'viem';
 import { api } from '../../convex/_generated/api';
 import { useOtherChainBalances } from './useOtherChainBalances';
+import { pendingReferral } from './referral';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -249,7 +250,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       // Check-in is automatic on connect — the server is the judge of whether
       // today already counted, so a second visit the same day is a no-op and
       // the streak still needs one visit per day to survive.
-      registerOrGet({ walletAddress })
+      registerOrGet({ walletAddress, ref: pendingReferral(walletAddress) })
         .then(() => checkIn({ walletAddress }))
         .then(r => { if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
         .catch(() => {}),

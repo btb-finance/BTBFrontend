@@ -106,6 +106,7 @@ import {
 import { getCachedLpPositions, setCachedLpPositions, useKrystalLp } from '../lib/appData';
 import { ChainLogo } from './ChainLogo';
 import { VfatMigrate } from './VfatMigrate';
+import { useWalletSession } from '../lib/session';
 
 
 /** Deployment for a V3-architecture position (Uniswap default, Pancake fork). */
@@ -2388,7 +2389,10 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
 function OrphanControls({ pos, wallet, owner, onChanged }: { pos: LiquidityPosition; wallet: `0x${string}`; owner: `0x${string}`; onChanged: () => Promise<void> }) {
   const config = useConfig();
   const { track } = useTx();
-  const enableNew = useAction(api.autoRebalanceActions.enableNew);
+  // No fresh transaction proves who put this position here (anyone can mint into an auto wallet), so starting it takes
+  // the owner's signed session.
+  const enable = useAction(api.autoRebalanceActions.enable);
+  const session = useWalletSession(owner);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const chainId = pos.chainId ?? 1;
@@ -2397,8 +2401,9 @@ function OrphanControls({ pos, wallet, owner, onChanged }: { pos: LiquidityPosit
   async function start() {
     setErr(null); setBusy('Starting');
     try {
-      const res = await enableNew({ owner, chainId, positionManager: pm, tokenId: pos.id.toString(), label: `${pos.symbol0} / ${pos.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, intervalMin: DEFAULT_INTERVAL });
-      if (!res.ok) throw new Error(res.reason);
+      const sessionToken = await session.ensure();
+      const res = await enable({ sessionToken, chainId, positionManager: pm, tokenId: pos.id.toString(), label: `${pos.symbol0} / ${pos.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, intervalMin: DEFAULT_INTERVAL });
+      if (!res.ok) { if (/sign-in expired/i.test(res.reason)) session.forget(); throw new Error(res.reason); }
       await onChanged();
     } catch (e) { setErr(readableError(e, 'Auto-rebalance did not start; try again.')); }
     finally { setBusy(null); }

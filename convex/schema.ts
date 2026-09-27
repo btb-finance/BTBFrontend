@@ -234,7 +234,11 @@ export default defineSchema({
     btbAtCheckIn: v.optional(v.float64()),
     portfolioValueUsd: v.optional(v.float64()),
     portfolioUpdatedAt: v.optional(v.float64()),
-  }).index("by_wallet", ["walletAddress"]),
+    // Who invited this wallet (lowercase), set once with the wallet's own signed session. The inviter earns a share
+    // of every point this wallet earns (REFERRAL_SHARE); referralXp is what a wallet has earned that way in total.
+    referredBy: v.optional(v.string()),
+    referralXp: v.optional(v.float64()),
+  }).index("by_wallet", ["walletAddress"]).index("by_referrer", ["referredBy"]),
 
   // Quest proof submissions (tweets, articles, installs…). XP is only credited
   // on approval — nothing here awards points at submission time, because none

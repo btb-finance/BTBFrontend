@@ -1,4 +1,4 @@
-import { mutation, query, internalMutation } from "./_generated/server";
+import { mutation, query, internalMutation, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { addEpochPoints } from "./rewards";
 import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_CHAINS_PER_DAY } from "./xpRules";
@@ -13,8 +13,9 @@ const MS_PER_DAY = 86_400_000;
  * Returns existing profile if already registered.
  */
 export const registerOrGet = mutation({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }) => {
+  // `ref`: the invite code this browser arrived with, if any. It only counts when this call creates the wallet.
+  args: { walletAddress: v.string(), ref: v.optional(v.string()) },
+  handler: async (ctx, { walletAddress, ref }) => {
     const addr = walletAddress.toLowerCase();
     const existing = await ctx.db
       .query("users")
@@ -22,6 +23,9 @@ export const registerOrGet = mutation({
       .unique();
     if (existing) return existing;
 
+    // A wallet is linked to its inviter once, when it first connects, so no click or signature is needed and an
+    // existing wallet can never be moved to another inviter.
+    const inviter = ref ? await walletForCode(ctx, ref) : null;
     const id = await ctx.db.insert("users", {
       walletAddress: addr,
       joinedAt: Date.now(),
@@ -29,10 +33,26 @@ export const registerOrGet = mutation({
       longestStreak: 0,
       totalCheckIns: 0,
       points: 0,
+      ...(inviter && inviter !== addr ? { referredBy: inviter } : {}),
     });
     return ctx.db.get(id);
   },
 });
+
+/**
+ * Invite codes are the first 8 hex characters of the inviter's address, so nothing extra is stored: the code is
+ * resolved with a prefix range on the wallet index. Two BTB wallets sharing a prefix (about 1 in 4 billion per pair)
+ * make the code ambiguous, and then nobody is linked.
+ */
+async function walletForCode(ctx: QueryCtx, code: string): Promise<string | null> {
+  const c = code.toLowerCase();
+  if (!/^[0-9a-f]{8}$/.test(c)) return null;
+  const hits = await ctx.db
+    .query("users")
+    .withIndex("by_wallet", (q) => q.gte("walletAddress", `0x${c}`).lt("walletAddress", `0x${c}g`))
+    .take(2);
+  return hits.length === 1 ? hits[0].walletAddress : null;
+}
 
 export const getUser = query({
   args: { walletAddress: v.string() },
@@ -245,3 +265,18 @@ export const getBalanceSnapshot = query({
       .collect(),
 });
 
+
+/** A wallet's invite stats: how many wallets it invited, the points it earned from them, and who invited it. */
+export const referralStats = query({
+  args: { walletAddress: v.string() },
+  handler: async (ctx, { walletAddress }) => {
+    const addr = walletAddress.toLowerCase();
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).unique();
+    const invited = await ctx.db.query("users").withIndex("by_referrer", (q) => q.eq("referredBy", addr)).collect();
+    return {
+      invited: invited.length,
+      referralXp: user?.referralXp ?? 0,
+      referredBy: user?.referredBy ?? null,
+    };
+  },
+});

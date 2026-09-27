@@ -15,7 +15,7 @@ export const CHECK_BTB = 1;
  */
 export const FREE_ACTIONS = 10;
 /** The wallet version new wallets are moved to, and the one the app offers as an update. */
-export const LATEST_WALLET_VERSION = 3;
+export const LATEST_WALLET_VERSION = 4;
 /** Tokens one withdrawAll takes (MAX_WITHDRAW_TOKENS in the wallet). */
 export const MAX_WITHDRAW_TOKENS = 20;
 /** What one rebalance costs, in USD, per chain. Charged only when it happens. */
@@ -62,13 +62,21 @@ export const V6 = {
   factory: '0xc922eb8dCF5D61CEeFaeCe86265F5f0D6dC0EC77',
   /** The first V6 factory: its wallets start on release 1. Still where every wallet made before the new factory lives. */
   factoryV1: '0xE10280d01F95bC88DA149a224e68debc0721f8E6',
+  /** Created by the factory: the code a new wallet points at for its first moment, before it moves to the latest release. */
+  walletStarter: '0x54b075D4Cd2abD734061cb6d4f9d8E5d1b10f62a',
+  /** Wallet version 1, the first V6 release. */
+  walletV1: '0x4a3FdE308c1B898c086449d779b10F68aC87b995',
+  /** Accepts a gauge only when its DEX's own voter registered it for its pool. */
+  gaugeVerifier: '0xf3c713B4df2081FbBAA042443DB1cAa9792e1409',
   aerodromeAdapter: '0x9275baf6E1ea3033AD132956e4347D4d25e96BB6',
   uniswapV3Adapter: '0x3801B52d9011901A7fAEf1FDb34C9E2ebdECa715',
   swapAdapter: '0x5A72E43960F4dA336a6459391CDEeD680D4084c8',
   /** Wallet version 2: position NFTs may be staked into registry-approved farms by transfer. */
   walletV2: '0x884f4e5dE91e8Ca9148E852F55F082bE533Da53c',
-  /** Wallet version 3: withdrawAll, every spare token and ETH to the owner in one call. The latest. */
+  /** Wallet version 3: withdrawAll, every spare token and ETH to the owner in one call. */
   walletV3: '0x270E91e52E1A6A860E56C9497e7A8942080CfaC8',
+  /** Wallet version 4: sweepToOwner, the agent may send loose tokens back, only ever to the owner. The latest. */
+  walletV4: '0x46e8403b51c7e2FaB5e35Aa2F942abAc678bf889',
   /** Stake, unstake and claim on MasterChef V3 farms (Giga). */
   farmAdapter: '0x0993a62835e7c1534C2f3525828Ec9f3e60781AB',
   /** EIP-7702 code for the agent address: unstake, rebalance and restake in one transaction. */
@@ -272,6 +280,7 @@ export const WALLET_ABI = parseAbi([
   'function setAdapter(address adapter, bool enabled, bytes config)',
   'function withdrawNft(address collection, uint256 tokenId)',
   'function withdrawAll(address[] tokens)',
+  'function sweepToOwner(address[] tokens)',
   'error NotAllowed(address target)',
   'error NotOperator()',
   'error Paused()',

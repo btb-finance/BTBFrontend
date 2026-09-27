@@ -22,6 +22,7 @@ import {
 export * from '../../convex/autoRebalanceConfig';
 
 const NFT_ABI = parseAbi(['function safeTransferFrom(address from, address to, uint256 tokenId)']);
+const FACTORY_LATEST_ABI = parseAbi(['function latest() view returns (address)']);
 
 export type AutoSupport = { chainId: number; positionManager: `0x${string}`; adapter: `0x${string}`; gauge?: `0x${string}` };
 
@@ -75,7 +76,11 @@ export async function buildEnableCalls(client: PublicClient, owner: `0x${string}
       to: V6.factory, label: 'Create your auto wallet',
       data: encodeFunctionData({ abi: FACTORY_ABI, functionName: 'createAccount', args: [walletSetup(s.chainId, Math.floor(Date.now() / 1000))] }),
     });
-    // The factory creates it on the latest release with every adapter on, so there is nothing to upgrade.
+    // The factory creates it on the release it currently points at. Until that is the app's latest (a new release waits
+    // 48 hours in the factory's queue), upgrade it in the same confirmation; once the factory has switched, this adds nothing.
+    const factoryRelease = await client.readContract({ address: V6.factory as `0x${string}`, abi: FACTORY_LATEST_ABI, functionName: 'latest' }).catch(() => null);
+    const startsOn = factoryRelease ? await walletVersion(client, factoryRelease) : LATEST_WALLET_VERSION;
+    if (startsOn < LATEST_WALLET_VERSION) calls.push(...upgradeCallsFor(wallet, false, false));
   } else {
     calls.push(...await upgradeCalls(client, wallet));
     const [agentUntil, adapterHash] = await Promise.all([
@@ -141,7 +146,7 @@ function upgradeCallsFor(wallet: string, alreadyPaused: boolean, needsFarmAdapte
   const w = wallet as `0x${string}`;
   const calls: Call[] = [];
   if (!alreadyPaused) calls.push({ to: w, label: 'Pause for the upgrade', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setPaused', args: [true] }) });
-  calls.push({ to: w, label: 'Upgrade your auto wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'upgradeToAndCall', args: [V6.walletV3, '0x'] }) });
+  calls.push({ to: w, label: 'Upgrade your auto wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'upgradeToAndCall', args: [V6.walletV4, '0x'] }) });
   if (!alreadyPaused) calls.push({ to: w, label: 'Resume', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setPaused', args: [false] }) });
   if (needsFarmAdapter) calls.push({ to: w, label: 'Allow farm staking', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.farmAdapter, true, '0x'] }) });
   return calls;

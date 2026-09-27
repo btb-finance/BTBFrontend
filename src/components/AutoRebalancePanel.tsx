@@ -81,6 +81,7 @@ export function AutoRebalancePanel({ address }: { address?: string }) {
 const WALLET_CHANGES: { version: number; text: string }[] = [
   { version: 2, text: 'Giga farm staking: Giga positions can be staked for GIGA inside the auto wallet and stay staked through every rebalance.' },
   { version: 3, text: 'Withdraw everything in one confirmation: every leftover token and any ETH come out together, and a broken or spam token is skipped instead of blocking the rest.' },
+  { version: 4, text: 'Your fees come to you: before each rebalance the BTB agent collects the position\'s fees and sends them to your wallet, along with any leftover tokens and rewards, unless you turned on auto-compound (then fees keep growing the position). Each position is rebuilt only from its own funds. The agent can only ever send to your own wallet, never anywhere else.' },
 ];
 const WALLET_SAME = 'Nothing else changes: same address, same positions, same settings. Only you can upgrade, and only to versions BTB has approved.';
 
@@ -290,10 +291,10 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
     : isStaked
       ? job.compound
         ? `Auto-compound ${rewardSym} on: once the ${rewardSym} is worth $${compoundMinUsd(job.chainId).toFixed(2)}, it is unstaked, the ${rewardSym} is sold for this pair at no worse than the market average less ${job.chainId === 4663 ? 3 : 1}%, added to the position, and staked again. At most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
-        : `Auto-compound ${rewardSym} off: ${rewardSym} collects in your auto wallet.`
+        : `Auto-compound ${rewardSym} off: at each rebalance your ${rewardSym} is sent to your wallet (auto wallet version 4).`
       : job.compound
         ? `Auto-compound on: fees go back into the position once they are worth $${compoundMinUsd(job.chainId).toFixed(2)} (5 times the compound price), at most every 6 hours${job.lastCompoundedAt ? `, last ${ago(job.lastCompoundedAt)}` : ''}.`
-        : 'Auto-compound off: fees wait in the position until you collect them.';
+        : 'Auto-compound off: at each rebalance your fees are collected and sent to your wallet (auto wallet version 4).';
 
   return (
     <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(var(--green-rgb), 0.25)', background: 'rgba(var(--green-rgb), 0.05)', padding: '10px 12px' }}>
