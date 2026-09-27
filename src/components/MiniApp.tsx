@@ -24,6 +24,7 @@ import { SendModal } from './SendModal';
 import { DocsScreen } from './screens/DocsScreen';
 import { OposSeedScreen } from './screens/OposSeedScreen';
 import { btb, MOBILE_GUTTER } from './design-tokens';
+import { captureReferral } from '../lib/referral';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
@@ -185,6 +186,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
 
 export function MiniApp() {
   const [mounted, setMounted] = useState(false);
+  // An invite link (?ref=0x…) is remembered in this browser until the new wallet confirms it.
+  useEffect(() => { captureReferral(); }, []);
   const { address } = useConnection();
   const { disconnect } = useDisconnect();
   // Read-only address — set when the user "imports" a wallet without connecting.

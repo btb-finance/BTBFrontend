@@ -187,6 +187,8 @@ export const DOCS: DocGroup[] = [
             ['Swap in the app', '100 per day'],
             ['Stake, supply or LP', '10 per day'],
             ['Mint a BTB Bear', '1000 per Bear'],
+            ['Auto-rebalance', '100 for every rebalance the BTB agent does on your position'],
+            ['Invite a friend', '10% of every point they earn, on top (they lose nothing). Share your link from the dashboard; a new wallet that opens it is linked to you as soon as it connects.'],
           ] },
           { type: 'p', text: 'Social and content quests (posts, threads, videos) pay more and are reviewed by hand. Lifetime XP is kept as a counter; only the current week\'s XP is used for the payout.' },
         ],

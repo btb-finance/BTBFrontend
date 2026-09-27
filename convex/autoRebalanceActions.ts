@@ -863,7 +863,9 @@ export const enableNew = action({
     const v = await verifyOnChain(a.owner.toLowerCase(), a);
     if (!v.ok) return v;
     const client = getChainClient(a.chainId);
-    let proven = false;
+    // TEMPORARY: the app released before this check sends no txHashes. Until the new app is live everywhere, such a
+    // request is handled as before; remove this line once it is (every current client sends the hashes).
+    let proven = a.txHashes === undefined;
     for (const h of (a.txHashes ?? []).slice(0, 8)) {
       if (client && (await movedInByOwner(client, h, a.positionManager as `0x${string}`, BigInt(a.tokenId), v.wallet, a.owner))) { proven = true; break; }
     }

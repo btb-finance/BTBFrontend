@@ -3,6 +3,8 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { availableFor, spendCredit } from "./credit";
+import { addEpochPoints } from "./rewards";
+import { REBALANCE_XP } from "./xpRules";
 import { sessionWallet } from "./sessions";
 import { AUTO_CHAIN_NAMES, CHECK_INTERVALS, CHECK_BTB, FREE_ACTIONS, isFarmManager, rebalanceBtb, unpackPosition } from "./autoRebalanceConfig";
 
@@ -361,6 +363,12 @@ export const recordRebalance = internalMutation({
       spentBtb: row.spentBtb + btb, gauge: a.staked ? row.gauge : undefined, updatedAt: Date.now(),
       ...(paid ? {} : { active: false, status: "paused", note: "Your BTB balance ran out. Top up to resume.", gen: row.gen + 1 }),
     });
+    // Every completed agent rebalance earns the owner XP, which counts toward this week's reward share.
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", row.address)).unique();
+    if (user) {
+      await ctx.db.patch(user._id, { points: user.points + REBALANCE_XP });
+      await addEpochPoints(ctx, row.address, REBALANCE_XP);
+    }
     return { btb, freeLeft: await freeLeft(ctx, row.address) };
   },
 });

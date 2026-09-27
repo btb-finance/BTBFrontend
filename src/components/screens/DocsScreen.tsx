@@ -36,6 +36,23 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
+  // A new section starts at its title: without this a long page left you wherever the last one was scrolled to.
+  const articleRef = useRef<HTMLDivElement>(null);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    articleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Desktop: keep the highlighted entry visible in the side navigation.
+    navRef.current?.querySelector('[data-on="1"]')?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
+  // A small way back up once a long section has been scrolled.
+  const [farDown, setFarDown] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setFarDown(window.scrollY > 900);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   const q = search.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return null;
@@ -56,7 +73,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
           {g.sections.map(s => {
             const on = s.id === active && !q;
             return (
-              <div key={s.id} onClick={() => goto(s.id)} style={{ padding: '8px 10px', borderRadius: 10, cursor: 'pointer', background: on ? btb.surfaceStrong : 'transparent', color: on ? btb.text : btb.textMuted, fontSize: 13, fontWeight: on ? 700 : 500 }}>{s.title}</div>
+              <div key={s.id} data-on={on ? '1' : undefined} onClick={() => goto(s.id)} style={{ padding: '8px 10px', borderRadius: 10, cursor: 'pointer', background: on ? btb.surfaceStrong : 'transparent', color: on ? btb.text : btb.textMuted, fontSize: 13, fontWeight: on ? 700 : 500 }}>{s.title}</div>
             );
           })}
         </div>
@@ -103,14 +120,19 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : '230px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
           {isMobile ? (
-            <select className="btb-select" value={active} onChange={e => goto(e.target.value)} style={{ width: '100%', height: 44, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', fontFamily: 'inherit', fontSize: 14 }}>
-              {DOCS.map(g => <optgroup key={g.title} label={g.title}>{g.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
-            </select>
+            // Stays at the top while reading, so any section is one tap away from anywhere on the page.
+            <div style={{ position: 'sticky', top: 'env(safe-area-inset-top, 0px)', zIndex: 5, display: 'flex', gap: 6, padding: '8px 0', background: btb.bg }}>
+              <button type="button" aria-label="Previous section" disabled={idx === 0} onClick={() => goto(ALL_SECTIONS[idx - 1].id)} style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: idx === 0 ? btb.textDim : btb.text, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{'<'}</button>
+              <select className="btb-select" value={active} onChange={e => goto(e.target.value)} style={{ flex: 1, minWidth: 0, height: 44, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', fontFamily: 'inherit', fontSize: 16 }}>
+                {DOCS.map(g => <optgroup key={g.title} label={g.title}>{g.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
+              </select>
+              <button type="button" aria-label="Next section" disabled={idx === ALL_SECTIONS.length - 1} onClick={() => goto(ALL_SECTIONS[idx + 1].id)} style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: idx === ALL_SECTIONS.length - 1 ? btb.textDim : btb.text, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{'>'}</button>
+            </div>
           ) : (
             <div ref={navRef} style={{ position: 'sticky', top: 76, maxHeight: 'calc(100vh - 92px)', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 4 }}>{nav}</div>
           )}
 
-          <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div ref={articleRef} style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, scrollMarginTop: isMobile ? 72 : 84 }}>
             <Glass padding={isMobile ? 18 : 26} radius={22} strong>
               <div style={{ color: btb.green, fontSize: 11, fontWeight: 800, letterSpacing: .5, textTransform: 'uppercase' }}>{DOCS.find(g => g.sections.includes(section))?.title}</div>
               <h1 style={{ color: btb.text, fontSize: isMobile ? 22 : 26, fontWeight: 800, letterSpacing: -0.5, margin: '6px 0 6px' }}>{section.title}</h1>
@@ -154,6 +176,12 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
             )}
           </div>
         </div>
+      )}
+      {farDown && !matches && (
+        <button type="button" onClick={() => articleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} aria-label="Back to the top of this section"
+          style={{ position: 'fixed', left: 16, bottom: isMobile ? 'calc(96px + env(safe-area-inset-bottom, 0px))' : 24, zIndex: 20, height: 36, padding: '0 14px', borderRadius: 999, border: btb.border, background: btb.surfaceStrong, color: btb.text, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', boxShadow: btb.shadow }}>
+          Top
+        </button>
       )}
     </Screen>
   );

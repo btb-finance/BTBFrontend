@@ -20,7 +20,8 @@ import { useTokenStore } from '../../lib/TokenStore';
 import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
-import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, epochIdAt, epochWindow } from '../../../convex/xpRules';
+import { inviteLink } from '../../lib/referral';
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -73,18 +74,19 @@ function shortDate(ms: number) {
  * click is intercepted and handled in-app: these are tabs of the same React
  * shell, and letting the browser follow the link would tear down and re-boot
  * the whole wallet stack for what is really a state change. */
-type EarnAction = 'swap' | 'simulate' | 'nft';
+type EarnAction = 'swap' | 'simulate' | 'nft' | 'portfolio';
 
 const EARN_ROWS: { icon: string; label: string; detail: string; href: string; action: EarnAction; tint: string }[] = [
   { icon: 'wallet', label: 'Hold BTB', detail: `+1 XP per ${BTB_PER_BONUS_XP} BTB at every check-in, up to ${HOLD_BONUS_CAP.toLocaleString('en-US')} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
   { icon: 'swap', label: 'Make a swap', detail: `+${SWAP_XP} XP per swap, up to ${TX_XP_DAILY_CAP} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
   { icon: 'chart', label: 'Simulate a pool', detail: `+${SIMULATE_XP} XP a day, +${SIMULATE_XP} per chain researched`, href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
   { icon: 'nft', label: 'Mint a BTB Bear', detail: `+${MINT_XP.toLocaleString('en-US')} XP per Bear minted`, href: '/nft', action: 'nft', tint: 'var(--btb-amber)' },
+  { icon: 'refresh', label: 'Auto-rebalance an LP', detail: `+${REBALANCE_XP} XP every time the agent rebalances your position`, href: '/portfolio', action: 'portfolio', tint: 'var(--btb-green)' },
 ];
 
 /** The three-beat story: use → enter → claim. */
 const STEPS: { title: string; detail: string }[] = [
-  { title: 'Earn points', detail: 'Check in daily, hold BTB, swap, simulate and mint. Points land on their own, no forms.' },
+  { title: 'Earn points', detail: 'Check in daily, hold BTB, swap, simulate, mint and auto-rebalance. Points land on their own, no forms.' },
   { title: 'Friday split', detail: "Everyone with points is in automatically. The week's revenue is shared by points." },
   { title: 'Claim or use it', detail: 'Claim to your wallet with no gas, or add it to your BTB balance. Untouched shares go back to the pot next Friday.' },
 ];
@@ -241,6 +243,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     if (action === 'swap') { onSwap(); return; }
     if (action === 'simulate') { goto('simulate'); return; }
     if (action === 'nft') { goto('nft'); return; }
+    if (action === 'portfolio') { goto('portfolio'); return; }
   };
 
   // The strip shows the current 7-day cycle of the streak, so day 7 (the bonus
@@ -497,6 +500,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
       </div>
       )}
 
+      {address && <InviteFriends address={address}/>}
+
       {/* ── ways to earn ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <SectionHeader title={isNew ? 'Ways to earn' : 'Earn more points'}/>
@@ -624,6 +629,38 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         <a href="/revert-finance-alternative" style={{ color: btb.textMuted }}>Revert</a>.
       </div>
 
+    </div>
+  );
+}
+
+/**
+ * Invite friends: the wallet's own short invite link and what it has earned from it. A new wallet that arrives through
+ * the link is linked to the inviter when it first connects (see registerOrGet), with no click or signature.
+ */
+function InviteFriends({ address }: { address: string }) {
+  const stats = useQuery(api.users.referralStats, { walletAddress: address });
+  const [copied, setCopied] = useState(false);
+
+  const link = inviteLink(address);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(link); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* the link stays visible to copy by hand */ }
+  };
+  const pct = Math.round(REFERRAL_SHARE * 100);
+  return (
+    <div style={{ borderRadius: 18, padding: '14px 16px', border: '1px solid rgba(var(--green-rgb), 0.22)', background: 'rgba(var(--green-rgb), 0.05)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div>
+        <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Invite friends, earn {pct}% of their points</div>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.5 }}>Every point a friend earns adds {pct}% for you, on top. They lose nothing, and it counts toward your Friday BTB.</div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: 0, height: 38, display: 'flex', alignItems: 'center', padding: '0 12px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.05)', color: btb.textMuted, fontSize: 12.5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'all' }}>{link}</div>
+        <button type="button" onClick={copy} style={{ flexShrink: 0, height: 38, padding: '0 16px', borderRadius: 10, border: 'none', background: btb.green, color: '#000', fontFamily: 'inherit', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>{copied ? 'Copied' : 'Copy'}</button>
+      </div>
+      {stats && (stats.invited > 0 || stats.referralXp > 0) && (
+        <div style={{ color: btb.textMuted, fontSize: 12.5 }}>
+          <b style={{ color: btb.text }}>{stats.invited}</b> friend{stats.invited === 1 ? '' : 's'} invited · <b style={{ color: btb.green }}>{Math.round(stats.referralXp).toLocaleString('en-US')} XP</b> earned from invites
+        </div>
+      )}
     </div>
   );
 }

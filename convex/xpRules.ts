@@ -48,5 +48,9 @@ export const TX_XP_DAILY_CAP = 20;
 export const MINT_XP = 1000;
 /** Simulate: first pool checked each day, and each chain researched each day. */
 export const SIMULATE_XP = 100;
+/** A referrer's share of every point the wallets they invited earn (one level; the invited wallet loses nothing). */
+export const REFERRAL_SHARE = 0.1;
+/** XP for each rebalance the BTB agent completes on the user's position. */
+export const REBALANCE_XP = 100;
 /** Distinct chains a wallet can be paid for researching per day. */
 export const SIMULATE_CHAINS_PER_DAY = 8;
