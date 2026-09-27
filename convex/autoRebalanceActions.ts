@@ -443,6 +443,9 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
   const share = { [t0]: v0 / Math.max(v0 + v1, 1e-12), [t1]: v1 / Math.max(v0 + v1, 1e-12) };
 
   const bal = (t: string) => client.readContract({ address: t as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [o.wallet] });
+  // Only this position's rewards: what arrives from its own unstake (and claim), measured from here. The wallet also
+  // holds rewards other positions were paid when they were unstaked; those are theirs, never compounded into this one.
+  const rewardBefore = await bal(reward);
   if (o.stakedNow) {
     const r = await send(stakeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
     if (!r.ok) return { ok: false, wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null, note: r.name ?? r.message };
@@ -456,7 +459,8 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
       return !!params && (await send(V6.swapAdapter, params)).ok;
     };
     // 1. All rewards into the hub (unless the rewards are the hub).
-    if (hub !== reward && !(await swap(reward, hub, await bal(reward)))) {
+    const rewardGain = (await bal(reward)) - rewardBefore;
+    if (hub !== reward && !(await swap(reward, hub, rewardGain > 0n ? rewardGain : 0n))) {
       return { ok: false, note: "The reward swap was refused; it is retried later." };
     }
     // 2. From what the rewards brought in, each pair token that is not the hub gets its share.
