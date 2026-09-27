@@ -69,6 +69,14 @@ function snapshotPosition(j: AutoJob): LiquidityPosition | null {
   } catch { return null; }
 }
 
+/** Giga's MasterChef V3 farm: a staked position's pool, the pool's reward rate, and the staked liquidity it is shared by. */
+const FARM_RATE_ABI = parseAbi([
+  'function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)',
+  'function poolInfo(uint256 pid) view returns (uint256 allocPoint, address clPool, address token0, address token1, uint24 fee, uint256 totalLiquidity)',
+  'function getLatestPeriodInfo(address pool) view returns (uint256 rewardPerSecond, uint256 endTime)',
+  'function lmPool() view returns (address)',
+  'function lmLiquidity() view returns (uint128)',
+]);
 /** Aerodrome-style CL gauge and pool reads for a staked position's reward APR. */
 const GAUGE_RATE_ABI = parseAbi(['function rewardRate() view returns (uint256)', 'function pool() view returns (address)', 'function stakedLiquidity() view returns (uint128)']);
 const FEE_GROWTH_GLOBAL_ABI = parseAbi(['function feeGrowthGlobal0X128() view returns (uint256)', 'function feeGrowthGlobal1X128() view returns (uint256)']);
@@ -748,6 +756,25 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const perYearUsd = (Number(rate) / 1e18) * 365 * 86_400 * price;
         return (perYearUsd * Math.min(Number(p.liquidity) / Number(stakedL), 1) / value) * 100;
       }
+      // Giga's farm (a MasterChef V3): the pool's reward per second (scaled by 1e12) from its controller, shared by the
+      // staked liquidity in range (the LM pool's lmLiquidity).
+      if (p.staked?.kind === 'masterchef') {
+        const value = valueOf(p);
+        const price = usd[p.staked.rewardToken.toLowerCase()];
+        if (!(value > 0) || !(price > 0)) return undefined;
+        const farm = p.staked.gauge as `0x${string}`;
+        const info = await client.readContract({ address: farm, abi: FARM_RATE_ABI, functionName: 'userPositionInfos', args: [p.id] });
+        const pool = (await client.readContract({ address: farm, abi: FARM_RATE_ABI, functionName: 'poolInfo', args: [info[6]] }))[1];
+        const [lm, period] = await Promise.all([
+          client.readContract({ address: pool, abi: FARM_RATE_ABI, functionName: 'lmPool' }),
+          client.readContract({ address: farm, abi: FARM_RATE_ABI, functionName: 'getLatestPeriodInfo', args: [pool] }),
+        ]);
+        const lmL = await client.readContract({ address: lm, abi: FARM_RATE_ABI, functionName: 'lmLiquidity' });
+        const [ratePerSecond, endTime] = period;
+        if (lmL === 0n || ratePerSecond === 0n || Number(endTime) * 1000 < Date.now()) return 0;
+        const perYearUsd = (Number(ratePerSecond) / 1e12 / 1e18) * 365 * 86_400 * price;
+        return (perYearUsd * Math.min(Number(info[0]) / Number(lmL), 1) / value) * 100;
+      }
       if (!row) return null;
       const fees24h = row.fees24hUsd ?? (row.tvlUsd * (row.apyBase ?? 0)) / 100 / 365;
       if (!(fees24h > 0)) return 0;
@@ -1388,7 +1415,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       color: active ? btb.green : btb.textMuted,
     }}>{label}</button>
   );
-  const sortAndView = (
+  const sortPicker = (
     <>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} aria-label="Sort positions" style={{ flex: isMobile ? 1 : undefined, minWidth: 0, height: 28, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11.5, fontWeight: 700, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' }}>
           <option value="attention">Needs attention first</option>
@@ -1396,6 +1423,10 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           <option value="fees">Most fees to collect</option>
           <option value="apr">Highest fee APR</option>
         </select>
+    </>
+  );
+  const viewToggle = (
+    <>
         <div style={{ display: 'inline-flex', borderRadius: 999, border: btb.borderSoft, padding: 2 }}>
           {(['cards', 'list'] as const).map((v) => (
             <button key={v} type="button" onClick={() => setView(v)} style={{ height: 24, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, background: view === v ? btb.surfaceSoft : 'transparent', color: view === v ? btb.text : btb.textDim }}>{v === 'cards' ? 'Cards' : 'List'}</button>
@@ -1403,38 +1434,43 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         </div>
     </>
   );
-  const divider = (k: string) => <span key={k} style={{ width: 1, height: 18, background: 'rgba(var(--fg-rgb), 0.12)', margin: '0 2px', flexShrink: 0 }}/>;
-  // Phone: every filter in one sideways-scrolling strip (chains as logos, tap again to clear), then sort and view on one line.
+  const sortAndView = <>{sortPicker}{viewToggle}</>;
+  // Chains and DEXs are pickers, not chip rows: a user on many chains and DEXs would otherwise need several lines.
+  const pick: React.CSSProperties = { minWidth: 0, height: 28, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: isMobile ? 16 : 11.5, fontWeight: 700, fontFamily: 'inherit', outline: 'none', cursor: 'pointer' };
+  const chainPicker = chainsPresent.length > 1 && (
+    <select value={String(chainFilter)} onChange={(e) => setChainFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))} aria-label="Filter by chain"
+      style={{ ...pick, flex: isMobile ? 1 : undefined, color: chainFilter === 'all' ? btb.text : btb.green }}>
+      <option value="all">All chains</option>
+      {chainsPresent.map((c) => <option key={c} value={c}>{LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`} ({positions.filter((p) => (p.chainId ?? 1) === c).length})</option>)}
+    </select>
+  );
+  const dexPicker = protosPresent.length > 1 && (
+    <select value={protoFilter} onChange={(e) => setProtoFilter(e.target.value as typeof protoFilter)} aria-label="Filter by DEX"
+      style={{ ...pick, flex: isMobile ? 1 : undefined, color: protoFilter === 'all' ? btb.text : btb.green }}>
+      <option value="all">All DEXs</option>
+      {protosPresent.map((pr) => <option key={pr} value={pr}>{PROTOCOL_BADGE[pr].label} ({positions.filter((p) => p.protocol === pr).length})</option>)}
+    </select>
+  );
+  const rangeChips = (
+    <>
+      {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
+      {chip(rangeFilter === 'in', `${isMobile ? 'In' : 'In range'} ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
+      {chip(rangeFilter === 'out', `${isMobile ? 'Out' : 'Out of range'} ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
+    </>
+  );
+  // Desktop: everything on one line. Phone: range and view on one line, the three pickers on the next.
   const toolbar = positions.length > 1 && (isMobile ? (
     <div ref={listTopRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -4px', padding: '0 4px' }}>
-        {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
-        {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
-        {chip(rangeFilter === 'out', `Out ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
-        {chainsPresent.length > 1 && divider('d-c')}
-        {chainsPresent.length > 1 && chainsPresent.map((c) => chip(chainFilter === c, <LpChainLogo chainId={c} chainName={LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`}/>, () => setChainFilter(chainFilter === c ? 'all' : c), `c-${c}`))}
-        {protosPresent.length > 1 && divider('d-p')}
-        {protosPresent.length > 1 && protosPresent.map((pr) => chip(protoFilter === pr, PROTOCOL_BADGE[pr].label, () => setProtoFilter(protoFilter === pr ? 'all' : pr), `p-${pr}`))}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{sortAndView}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{rangeChips}<div style={{ flex: 1 }}/>{viewToggle}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{chainPicker}{dexPicker}{sortPicker}</div>
     </div>
   ) : (
-    <div ref={listTopRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 72 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
-        {chip(rangeFilter === 'in', `In range ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
-        {chip(rangeFilter === 'out', `Out of range ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
-        <div style={{ flex: 1 }}/>
-        {sortAndView}
-      </div>
-      {(chainsPresent.length > 1 || protosPresent.length > 1) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {chainsPresent.length > 1 && chip(chainFilter === 'all', 'All chains', () => setChainFilter('all'), 'c-all')}
-          {chainsPresent.length > 1 && chainsPresent.map((c) => chip(chainFilter === c, <><LpChainLogo chainId={c} chainName={LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`}/>{LP_CHAIN_NAMES[c as LpChainId] ?? `Chain ${c}`}</>, () => setChainFilter(chainFilter === c ? 'all' : c), `c-${c}`))}
-          {chainsPresent.length > 1 && protosPresent.length > 1 && <span style={{ width: 1, height: 18, background: 'rgba(var(--fg-rgb), 0.12)', margin: '0 2px' }}/>}
-          {protosPresent.length > 1 && protosPresent.map((pr) => chip(protoFilter === pr, PROTOCOL_BADGE[pr].label, () => setProtoFilter(protoFilter === pr ? 'all' : pr), `p-${pr}`))}
-        </div>
-      )}
+    <div ref={listTopRef} style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', scrollMarginTop: 72 }}>
+      {rangeChips}
+      <div style={{ flex: 1 }}/>
+      {chainPicker}
+      {dexPicker}
+      {sortAndView}
     </div>
   ));
 
@@ -1451,8 +1487,18 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const logo1 = logoFor(p.token1, p.chainId ?? 1, p.symbol1) ?? snapshotLogo(p.token1, p.chainId ?? 1);
     const fullRange = p.tickLower <= -887200 && p.tickUpper >= 887200;
     const span = p.tickUpper - p.tickLower;
-    const at = fullRange ? 0.5 : span > 0 ? (p.currentTick - p.tickLower) / span : 0.5;
+    // Prices read as "1 base = x quote": a stablecoin first in the pair is flipped so the number is the other token's price.
+    const flipQuote = STABLES.has(p.symbol0.toUpperCase()) && !STABLES.has(p.symbol1.toUpperCase());
+    const px = (tick: number) => { const q = tickToPrice(tick, p.decimals0, p.decimals1); return flipQuote && q > 0 ? 1 / q : q; };
+    const minPx = px(flipQuote ? p.tickUpper : p.tickLower), maxPx = px(flipQuote ? p.tickLower : p.tickUpper);
+    const tickAt = fullRange ? 0.5 : span > 0 ? (p.currentTick - p.tickLower) / span : 0.5;
+    // Where the price sits between the shown min (left) and max (right); flipped quotes run the other way in ticks.
+    const at = flipQuote ? 1 - tickAt : tickAt;
     const side = at < 0 ? 'below' : at > 1 ? 'above' : null;
+    // How far the range reaches from today's price, down and up: the widths people set a range by (for example -5% / +5%).
+    const nowPx = px(p.currentTick);
+    const pct = (v: number) => { const d = nowPx > 0 ? (v / nowPx - 1) * 100 : 0; return `${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(Math.abs(d) < 10 ? 1 : 0)}%`; };
+    const shortPx = (v: number) => v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : fmtPrice(v);
     const watched = alerts.has(p);
     const tone = p.inRange ? btb.green : btb.amber;
     const toneRgb = p.inRange ? 'var(--green-rgb)' : 'var(--amber-rgb)';
@@ -1499,6 +1545,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <div>
               {rangeBar('100%')}
               <div style={{ color: tone, fontSize: 11, fontWeight: 750, marginTop: 6, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side && !tablet ? `, price ${side}` : ''}`}</div>
+              {!fullRange && <div title={`${shortPx(minPx)} to ${shortPx(maxPx)}`} style={{ color: btb.textDim, fontSize: 10.5, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}><b style={{ color: btb.textMuted }}>{pct(minPx)} / {pct(maxPx)}</b> from price</div>}
             </div>
           )}
           {!isMobile && <div style={{ textAlign: 'right' }}><div style={{ color: f > 0 ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800 }}>{f > 0 ? money(f) : (p.staked?.kind !== 'gauge' && (p.fees0 > 0n || p.fees1 > 0n)) ? 'Yes' : '0'}</div>{label('to collect')}</div>}
@@ -1511,9 +1558,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>}
           {/* Phone: the range as its own full-width line, then value, APR and earnings as one even strip. */}
           {isMobile && (
-            <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>{rangeBar('100%')}</div>
-              <span style={{ color: tone, fontSize: 11, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, ${side}` : ''}`}</span>
+            <div style={{ gridColumn: '1 / -1' }}>
+              {rangeBar('100%')}
+              {/* The real range under the bar: min on the left, status in the middle, max on the right. */}
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginTop: 6, fontSize: 10.5 }}>
+                <span style={{ color: btb.textDim, whiteSpace: 'nowrap' }}>{fullRange ? '0' : <><b style={{ color: btb.text }}>{pct(minPx)}</b> {shortPx(minPx)}</>}</span>
+                <span style={{ color: tone, fontWeight: 750, whiteSpace: 'nowrap' }}>{fullRange ? 'Full range' : p.inRange ? 'In range' : `Out of range${side ? `, ${side}` : ''}`}</span>
+                <span style={{ color: btb.textDim, whiteSpace: 'nowrap' }}>{fullRange ? '∞' : <>{shortPx(maxPx)} <b style={{ color: btb.text }}>{pct(maxPx)}</b></>}</span>
+              </div>
             </div>
           )}
           {isMobile && (
