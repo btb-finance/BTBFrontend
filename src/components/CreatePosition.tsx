@@ -272,8 +272,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     setStepMsg('Moving it into your auto wallet…');
     const support = { chainId, positionManager: deployment.positionManager, adapter: autoAdapter, gauge };
     const { calls } = await buildEnableCalls(client as never, acct, newId, support);
-    await runCalls(config, { account: acct, calls, label: `Auto-rebalance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
+    // The move's own transaction is the proof, for the server, that the owner put this position in.
+    const { hashes } = await runCalls(config, { account: acct, calls, label: `Auto-rebalance ${pool.symbol0}/${pool.symbol1}`, track, chainId });
     const res = await enableWhenVisible(() => enableAuto({
+      txHashes: hashes,
       owner: acct, chainId, positionManager: deployment.positionManager, tokenId: newId.toString(),
       label: `${pool.symbol0} / ${pool.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, gauge, intervalMin: autoInterval,
     }));

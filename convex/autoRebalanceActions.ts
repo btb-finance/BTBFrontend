@@ -826,6 +826,27 @@ export const enable = action({
 });
 
 /**
+ * Whether `txHash` is the transaction that put this position into the auto wallet on the owner's behalf. Anyone can
+ * mint a position on a real position manager straight into someone's auto wallet (the manager is approved), so a
+ * signature-free start must not let a stranger make the agent run, and bill, a junk position. The page passes the
+ * transaction it just sent (the move in, or a mint by the wallet); its receipt, read from the chain, must show this NFT
+ * arriving in the wallet from the owner, or minted there while the wallet itself was acting (its own action). No
+ * history index is involved: a stranger cannot produce such a receipt.
+ */
+async function movedInByOwner(client: PublicClient, txHash: string | undefined, pm: `0x${string}`, tokenId: bigint, wallet: string, owner: string): Promise<boolean> {
+  if (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return false;
+  const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` }).catch(() => null);
+  if (!receipt || receipt.status !== "success") return false;
+  const w = wallet.toLowerCase();
+  const into = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: receipt.logs })
+    .filter((l) => l.address.toLowerCase() === pm.toLowerCase() && l.args.tokenId === tokenId && l.args.to.toLowerCase() === w);
+  const last = into[into.length - 1];
+  if (!last) return false;
+  if (last.args.from.toLowerCase() === owner.toLowerCase()) return true;
+  return /^0x0{40}$/.test(last.args.from) && receipt.logs.some((l) => l.address.toLowerCase() === w);
+}
+
+/**
  * Start auto-rebalance on a position just moved into its auto wallet, with no signature. The move itself was
  * the owner's signed transaction, and every fact is read from chain here, so the owner's address alone is
  * enough. Create only: an existing job (paused, a different interval) can only be changed with a session.
@@ -834,11 +855,21 @@ export const enableNew = action({
   args: {
     owner: v.string(), chainId: v.float64(), positionManager: v.string(), tokenId: v.string(),
     label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
+    /** The transactions the action sent (the move in, or a mint through the wallet): the proof it was the owner. */
+    txHashes: v.optional(v.array(v.string())),
   },
   handler: async (ctx, a): Promise<Result> => {
     if (!isAddress(a.owner)) return { ok: false, reason: "Invalid wallet address." };
     const v = await verifyOnChain(a.owner.toLowerCase(), a);
     if (!v.ok) return v;
+    const client = getChainClient(a.chainId);
+    let proven = false;
+    for (const h of (a.txHashes ?? []).slice(0, 8)) {
+      if (client && (await movedInByOwner(client, h, a.positionManager as `0x${string}`, BigInt(a.tokenId), v.wallet, a.owner))) { proven = true; break; }
+    }
+    if (!proven) {
+      return { ok: false, reason: "This position was not moved in by you. Start it from the app with a signature." };
+    }
     const id = await ctx.runMutation(internal.autoRebalance.createIfNew, {
       address: a.owner, wallet: v.wallet, chainId: a.chainId, positionManager: a.positionManager, tokenId: a.tokenId,
       label: a.label.slice(0, 80), gauge: a.gauge, intervalMin: a.intervalMin, compound: a.compound,

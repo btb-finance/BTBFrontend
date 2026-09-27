@@ -6,7 +6,6 @@
  */
 import { CONTRACTS } from '../../lib/contractAddresses';
 import { V6, V6_REGISTRY, REBALANCE_AGENT } from '../../../convex/autoRebalanceConfig';
-import { TOP_UP_TREASURY } from '../../../convex/topUpConfig';
 
 export interface DocBlock { type: 'p' | 'steps' | 'list' | 'table' | 'note'; text?: string; items?: string[]; rows?: string[][]; head?: string[] }
 export interface DocSection { id: string; title: string; summary: string; blocks: DocBlock[] }
@@ -250,20 +249,23 @@ export const DOCS: DocGroup[] = [
           { type: 'table', head: ['Contract', 'Address'], rows: [
             ['Registry', V6_REGISTRY],
             ['Wallet factory', V6.factory],
+            ['Wallet starter (used by the factory)', V6.walletStarter],
             ['Wallet factory (first, still holds earlier wallets)', V6.factoryV1],
             ['Wallet (current, v4)', V6.walletV4],
             ['Wallet (v3)', V6.walletV3],
             ['Wallet (v2)', V6.walletV2],
+            ['Wallet (v1)', V6.walletV1],
             ['Uniswap V3 adapter', V6.uniswapV3Adapter],
             ['Aerodrome adapter', V6.aerodromeAdapter],
             ['MasterChef V3 farm adapter', V6.farmAdapter],
             ['Swap adapter', V6.swapAdapter],
+            ['Aerodrome gauge verifier', V6.gaugeVerifier],
             ['Agent batch (EIP-7702)', V6.agentBatch],
             ['Rebalance agent', REBALANCE_AGENT],
           ] },
-          { type: 'p', text: 'Treasury. The BTB Safe, at the same address on Ethereum, Base and Robinhood Chain. Top ups are paid here.' },
+          { type: 'p', text: 'Weekly rewards. The wallet that sends everyone their Friday BTB, on Ethereum.' },
           { type: 'table', head: ['Contract', 'Address'], rows: [
-            ['BTB Safe (treasury)', TOP_UP_TREASURY],
+            ['Weekly rewards payout wallet', '0x1Ee9d27A62427a4a1c88518E34d04AAdD52a2C7a'],
           ] },
           { type: 'note', text: 'Only trust these addresses. BTB never asks you to approve or send to any other contract.' },
         ],

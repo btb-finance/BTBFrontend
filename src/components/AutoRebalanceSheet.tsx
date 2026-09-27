@@ -82,13 +82,14 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
       const client = getPublicClient(config, { chainId: chainId as never }) as PublicClient;
       const { calls } = await buildEnableCalls(client, account, pos.id, support, buildUnstakeCalls(pos, account));
       setBusy('Confirm in your wallet');
-      await runCalls(config, { account, calls, label: `Auto-rebalance ${pos.symbol0}/${pos.symbol1}`, track, chainId });
+      const { hashes } = await runCalls(config, { account, calls, label: `Auto-rebalance ${pos.symbol0}/${pos.symbol1}`, track, chainId });
       setBusy('Starting');
       const job = { chainId, positionManager: support.positionManager, tokenId: pos.id.toString(), label, gauge: support.gauge, intervalMin: interval, compound: !pos.staked && compound };
       // No signature for a first-time job: the move above was the owner's own transaction and the server checks
       // it on chain. Only a position that had a job before (restarting it) needs the signed session.
-      let res = await enableWhenVisible(() => enableNew({ owner: account, ...job }));
-      if (!res.ok && /already set up/i.test(res.reason)) {
+      let res = await enableWhenVisible(() => enableNew({ owner: account, txHashes: hashes, ...job }));
+      // A job that existed before, or a move the server could not tie to this wallet's owner: the signed start.
+      if (!res.ok && /already set up|not moved in by you/i.test(res.reason)) {
         setBusy('Signing in');
         const sessionToken = await session.ensure();
         res = await enableWhenVisible(() => enable({ sessionToken, ...job }));
