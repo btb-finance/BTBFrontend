@@ -1,9 +1,9 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V4, NATIVE_CURRENCY, isNativeCurrency, type PoolKey, type V4Deployment } from './addresses';
 import { POSITION_MANAGER_ABI, STATE_VIEW_ABI } from './abis';
-import { ERC20_META_ABI } from '../v3/abis';
 import type { MintPool } from '../v3/pool';
 import { withSafeMulticall } from '@/lib/safeMulticall';
+import { tokenMetas } from '@/lib/rpcCache';
 
 /**
  * A V4 pool ready for the mint sheet — same shape as V3's MintPool (so the
@@ -64,21 +64,7 @@ export async function fetchV4PoolForMint(
 
   // token metadata — currency0 may be native ETH (address 0)
   const erc20s = [currency0, currency1].filter((t) => !isNativeCurrency(t));
-  const metaRes = await withSafeMulticall(client).multicall({
-    contracts: erc20s.flatMap((t) => [
-      { address: t, abi: ERC20_META_ABI, functionName: 'symbol' as const },
-      { address: t, abi: ERC20_META_ABI, functionName: 'decimals' as const },
-    ]),
-    allowFailure: true,
-  });
-  const meta = new Map<string, { symbol: string; decimals: number }>();
-  erc20s.forEach((t, i) => {
-    const sym = metaRes[i * 2], dec = metaRes[i * 2 + 1];
-    meta.set(t.toLowerCase(), {
-      symbol: sym.status === 'success' ? (sym.result as string) : '?',
-      decimals: dec.status === 'success' ? Number(dec.result as number) : 18,
-    });
-  });
+  const meta = await tokenMetas(client, erc20s);
   const metaOf = (t: `0x${string}`) =>
     isNativeCurrency(t) ? { symbol: 'ETH', decimals: 18 } : meta.get(t.toLowerCase()) ?? { symbol: '?', decimals: 18 };
   const m0 = metaOf(currency0);

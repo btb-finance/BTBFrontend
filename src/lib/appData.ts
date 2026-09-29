@@ -28,12 +28,30 @@ export function useKrystalLp(address?: string | null) {
 // React Query cannot model as one queryFn. Instead the last full snapshot is
 // kept here so a revisit renders instantly while a background refresh runs.
 
-const lpSnapshots = new Map<string, LiquidityPosition[]>();
+const lpSnapshots = new Map<string, { positions: LiquidityPosition[]; at: number; indexKey: string }>();
 
 export function getCachedLpPositions(address?: string | null): LiquidityPosition[] | null {
-  return address ? lpSnapshots.get(address.toLowerCase()) ?? null : null;
+  return address ? lpSnapshots.get(address.toLowerCase())?.positions ?? null : null;
 }
 
-export function setCachedLpPositions(address: string, positions: LiquidityPosition[]): void {
-  lpSnapshots.set(address.toLowerCase(), positions);
+/** `indexKey` names the position index the snapshot was read against, so a changed index is never treated as fresh. */
+export function setCachedLpPositions(address: string, positions: LiquidityPosition[], indexKey = ''): void {
+  lpSnapshots.set(address.toLowerCase(), { positions, at: Date.now(), indexKey });
+}
+
+/**
+ * The full multi chain LP scan is the heaviest read in the app (every venue on
+ * every chain). Reopening Portfolio within this window reuses the last full
+ * read instead of scanning again; any action that changes a position still
+ * forces a fresh scan.
+ */
+const LP_FRESH_MS = 60_000;
+export function isLpSnapshotFresh(address: string, indexKey: string): boolean {
+  const s = lpSnapshots.get(address.toLowerCase());
+  return !!s && s.indexKey === indexKey && Date.now() - s.at < LP_FRESH_MS;
+}
+
+/** Any confirmed transaction may have minted, moved or closed a position anywhere in the app; the next view rescans. */
+export function markLpSnapshotsStale(): void {
+  for (const s of lpSnapshots.values()) s.at = 0;
 }

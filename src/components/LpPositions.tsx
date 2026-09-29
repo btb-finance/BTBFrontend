@@ -102,7 +102,7 @@ import {
   type KrystalPositionAnalytics,
   type KrystalTokenAmount,
 } from '../lib/krystal';
-import { getCachedLpPositions, setCachedLpPositions, useKrystalLp } from '../lib/appData';
+import { getCachedLpPositions, setCachedLpPositions, isLpSnapshotFresh, useKrystalLp } from '../lib/appData';
 import { ChainLogo } from './ChainLogo';
 import { VfatMigrate } from './VfatMigrate';
 import { useWalletSession } from '../lib/session';
@@ -494,11 +494,18 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const krystalOpenKey = (krystal?.positions ?? [])
     .filter((i) => !(i.status?.toUpperCase().includes('CLOSED') || i.closedTime > 0))
     .map((i) => `${i.chainId}:${i.tokenAddress ?? ''}:${i.tokenId}:${i.id ?? ''}`).sort().join(',');
-  const load = useCallback(async () => {
+  // soft: the list is only being shown again (mount, tab switch), not refreshed after an action.
+  const load = useCallback(async (opts?: { soft?: boolean }) => {
     if (!address) { setPositions([]); return; }
     const owner = address as `0x${string}`;
     // A previous full snapshot renders instantly; the refresh runs silently.
     const cached = getCachedLpPositions(address);
+    if (opts?.soft && cached && isLpSnapshotFresh(address, krystalOpenKey)) {
+      positionsRef.current = cached;
+      setPositions(cached);
+      setLoading(false);
+      return;
+    }
     if (cached && positionsRef.current.length === 0) setPositions(cached);
     setLoading(!cached && positionsRef.current.length === 0);
     try {
@@ -611,14 +618,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       }
       await Promise.allSettled(jobs);
       // Save the snapshot only when the whole read worked, so a bad refresh cannot shrink the next quick load.
-      if (!anyFailed) setCachedLpPositions(address, positionsRef.current);
+      if (!anyFailed) setCachedLpPositions(address, positionsRef.current, krystalOpenKey);
     } catch { /* read failure: leave the list as it was */ }
     finally { setLoading(false); }
   // krystalOpenKey: re-run once Krystal's index lands or changes.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, config, krystalOpenKey]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load({ soft: true }); }, [load]);
 
   useEffect(() => { positionsRef.current = positions; }, [positions]);
 

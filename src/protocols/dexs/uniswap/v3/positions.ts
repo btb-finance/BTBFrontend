@@ -1,9 +1,10 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, RAMSES_NPM_ABI, FEE_GROWTH_ABI, TICKS_HEAD_ABI, SLIPSTREAM_TICKS_HEAD_ABI, ALGEBRA_NPM_ABI, ALGEBRA_FACTORY_ABI, ALGEBRA_POOL_ABI } from './abis';
+import { NPM_ABI, FACTORY_ABI, POOL_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, RAMSES_NPM_ABI, FEE_GROWTH_ABI, TICKS_HEAD_ABI, SLIPSTREAM_TICKS_HEAD_ABI, ALGEBRA_NPM_ABI, ALGEBRA_FACTORY_ABI, ALGEBRA_POOL_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
 import { withSafeMulticall } from '@/lib/safeMulticall';
+import { tokenMetas, poolLookupKey, knownAddress, rememberAddress, shareInflight } from '@/lib/rpcCache';
 
 /**
  * Read every V3-architecture position the owner holds on mainnet, with current
@@ -11,12 +12,23 @@ import { withSafeMulticall } from '@/lib/safeMulticall';
  * Defaults to Uniswap V3; pass a fork deployment (PancakeSwap V3) to read its
  * byte-compatible NonfungiblePositionManager instead.
  */
-export async function fetchV3Positions(
+export function fetchV3Positions(
   client: PublicClient,
   owner: `0x${string}`,
   d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
   /** Pre-enumerated position tokenIds (from the Alchemy NFT index) — skips
    * the balanceOf + tokenOfOwnerByIndex round trips entirely. */
+  knownIds?: bigint[],
+): Promise<LiquidityPosition[]> {
+  // Portfolio, the Agent and the stake screen can ask for the same wallet at once; they share one read.
+  const key = `v3:${client.chain?.id}:${d.positionManager.toLowerCase()}:${owner.toLowerCase()}:${knownIds ? knownIds.join(',') : 'all'}`;
+  return shareInflight(key, () => readV3Positions(client, owner, d, knownIds));
+}
+
+async function readV3Positions(
+  client: PublicClient,
+  owner: `0x${string}`,
+  d: V3Deployment,
   knownIds?: bigint[],
 ): Promise<LiquidityPosition[]> {
   const npm = d.positionManager;
@@ -97,8 +109,11 @@ export async function fetchV3Positions(
   // 3) resolve pools + slot0 (current price/tick) for each unique (t0,t1,fee)
   const poolKey = (r: Raw) => `${r.token0}-${r.token1}-${r.fee}`;
   const uniquePools = [...new Map(raws.map((r) => [poolKey(r), r])).values()];
-  const poolAddrs = (await withSafeMulticall(client).multicall({
-    contracts: uniquePools.map((r) => (algebra
+  // Factory answers never change once a pool exists, so only unseen pairs are asked.
+  const lookupOf = (r: Raw) => poolLookupKey(client.chain?.id ?? 0, d.factory, r.token0, r.token1, algebra ? 0 : r.fee);
+  const unknownPools = uniquePools.filter((r) => !knownAddress(lookupOf(r)));
+  const fetchedAddrs = unknownPools.length === 0 ? [] : (await withSafeMulticall(client).multicall({
+    contracts: unknownPools.map((r) => (algebra
       ? { address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair' as const, args: [r.token0, r.token1] as const }
       : {
           address: d.factory, abi: slip ? SLIPSTREAM_FACTORY_ABI : FACTORY_ABI, functionName: 'getPool' as const,
@@ -106,6 +121,8 @@ export async function fetchV3Positions(
         })),
     allowFailure: true,
   })).map((r) => (r.status === 'success' ? (r.result as `0x${string}`) : undefined));
+  unknownPools.forEach((r, i) => rememberAddress(lookupOf(r), fetchedAddrs[i]));
+  const poolAddrs = uniquePools.map((r) => knownAddress(lookupOf(r)) ?? fetchedAddrs[unknownPools.indexOf(r)]);
   if (uniquePools.length > 0 && poolAddrs.every((address) => !address)) {
     throw new Error('Could not resolve LP pools');
   }
@@ -204,25 +221,8 @@ export async function fetchV3Positions(
   }
 
   // 4) token metadata (symbol/decimals) for every token involved
-  const tokens = [...new Set(raws.flatMap((r) => [r.token0, r.token1]))] as `0x${string}`[];
-  const metaRes = await withSafeMulticall(client).multicall({
-    contracts: tokens.flatMap((t) => [
-      { address: t, abi: ERC20_META_ABI, functionName: 'symbol' as const },
-      { address: t, abi: ERC20_META_ABI, functionName: 'decimals' as const },
-    ]),
-    allowFailure: true,
-  });
-  const meta = new Map<string, { symbol: string; decimals: number }>();
-  // A busy RPC can fail part of a batch. Retry those tokens one read at a
-  // time: a wrong decimals default turns every amount and price into nonsense.
-  await Promise.all(tokens.map(async (t, i) => {
-    const sym = metaRes[i * 2];
-    const dec = metaRes[i * 2 + 1];
-    const read = <T,>(fn: 'symbol' | 'decimals') => client.readContract({ address: t, abi: ERC20_META_ABI, functionName: fn }).then((r) => r as T).catch(() => undefined);
-    const symbol = sym.status === 'success' ? (sym.result as string) : await read<string>('symbol');
-    const decimals = dec.status === 'success' ? Number(dec.result as number) : await read<number>('decimals');
-    meta.set(t.toLowerCase(), { symbol: symbol ?? '?', decimals: decimals != null ? Number(decimals) : 18 });
-  }));
+  // Cached app wide; a token read that fails even after a single retry keeps the '?' / 18 fallback below.
+  const meta = await tokenMetas(client, raws.flatMap((r) => [r.token0, r.token1]));
 
   // 5) assemble
   return raws.map((r): LiquidityPosition => {

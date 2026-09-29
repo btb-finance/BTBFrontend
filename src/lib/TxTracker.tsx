@@ -5,6 +5,7 @@ import { waitForTransactionReceipt, waitForCallsStatus } from 'wagmi/actions';
 import { Icon } from '@/components/Icon';
 import { btb } from '@/components/design-tokens';
 import { SUPPORTED_CHAINS, type SupportedChainId } from './wagmi';
+import { markLpSnapshotsStale } from './appData';
 
 // One global place that watches every pending on-chain action (mint, swap,
 // stake, approve, claim, unstake), polls confirmation every 5s, and surfaces a
@@ -78,6 +79,7 @@ export function TxProvider({ children }: { children: ReactNode }) {
         }
         if (ok) {
           patch(id, { status: 'confirmed' });
+          markLpSnapshotsStale();
           onConfirmed?.();
           scheduleDismiss(id);
           return { status: 'confirmed' as const, hash: settledHash };
