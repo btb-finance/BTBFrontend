@@ -12,12 +12,13 @@ import { getChainClient } from "../src/lib/chainClient";
 import { chainTransport } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
 import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
-import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
+import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
 import { uniswapV3DeploymentForChain, type V3Deployment } from "../src/protocols/dexs/uniswap/v3/addresses";
+import { poolAddressOf } from "../src/protocols/dexs/uniswap/v3/pool";
 import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
-  V6, V6_REGISTRY, WALLET_ABI, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
+  V6, V6_REGISTRY, WALLET_ABI, ALANDALE, MIN_LUTE_CLAIM, REWARD_CLAIM_EVERY_MS, claimRewardParams, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
   AGENT_BATCH_ABI, encodeAgentBatch, hasPriceHistory, isFarmManager, type AgentStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
@@ -71,6 +72,7 @@ function deploymentFor(chainId: number, positionManager: string): V3Deployment |
   }
   if (chainId === 4663 && UP_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return UP_V3_DEPLOYMENT;
   if (chainId === 4663 && GIGA_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return GIGA_V3_DEPLOYMENT;
+  if (chainId === 4663 && ALANDALE_CL_DEPLOYMENT.positionManager.toLowerCase() === pm) return ALANDALE_CL_DEPLOYMENT;
   const uni = uniswapV3DeploymentForChain(chainId);
   return uni && uni.positionManager.toLowerCase() === pm ? uni : null;
 }
@@ -217,6 +219,30 @@ async function sweepLoose(client: PublicClient, chainId: number, wallet: `0x${st
   } catch { /* the action below still runs; it only uses its own position's funds anyway */ }
 }
 
+const REWARDER_ABI = parseAbi(["function claimed(address user) view returns (uint256)"]);
+
+/**
+ * Alandale: fetch the wallet's signed LUTE total, claim what is waiting through the Algebra adapter, then send the
+ * LUTE to the owner. The signature is bound to this wallet by the rewarder itself, so a wrong or tampered answer
+ * only fails; nothing is trusted but availability. Returns the amount claimed, or 0n.
+ */
+async function claimAlgebraRewards(client: PublicClient, chainId: number, wallet: `0x${string}`, adapter: `0x${string}`): Promise<bigint> {
+  const res = await fetch(`${ALANDALE.claimApi}?address=${wallet}`, { signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) return 0n;
+  const body = (await res.json()) as { totalAmount?: unknown; deadline?: unknown; signature?: unknown };
+  if (typeof body.totalAmount !== "string" || !/^\d+$/.test(body.totalAmount)) return 0n;
+  if (typeof body.deadline !== "string" || !/^\d+$/.test(body.deadline)) return 0n;
+  if (typeof body.signature !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(body.signature)) return 0n;
+  const total = BigInt(body.totalAmount), deadline = BigInt(body.deadline);
+  if (deadline <= BigInt(Math.floor(Date.now() / 1000) + 120)) return 0n;
+  const claimed = await client.readContract({ address: ALANDALE.rewarder, abi: REWARDER_ABI, functionName: "claimed", args: [wallet] });
+  if (total - claimed < MIN_LUTE_CLAIM) return 0n;
+  const r = await sender(client, chainId, wallet)(adapter, claimRewardParams(ALANDALE.rewarder, total, deadline, body.signature as `0x${string}`));
+  if (!r.ok) return 0n;
+  await sweepLoose(client, chainId, wallet, [ALANDALE.lute]);
+  return total - claimed;
+}
+
 async function execute(
   client: PublicClient,
   o: { chainId: number; wallet: `0x${string}`; pm: `0x${string}`; adapter: `0x${string}`; tokenId: bigint; gauge?: `0x${string}`; stakedNow: boolean; token0: string; token1: string; compound: boolean },
@@ -287,8 +313,6 @@ const ERC20_ABI = parseAbi(["function balanceOf(address) view returns (uint256)"
 const VERSION_ABI = parseAbi(["function VERSION() view returns (uint256)"]);
 const TARGET_ABI = parseAbi(["function isTarget(address) view returns (bool)"]);
 const REGISTRY_ABI = parseAbi(["function isListedPool(address) view returns (bool)", "function oracleFor(address, address) view returns (address)"]);
-const SLIP_FACTORY_ABI = parseAbi(["function getPool(address,address,int24) view returns (address)"]);
-const UNI_FACTORY_ABI = parseAbi(["function getPool(address,address,uint24) view returns (address)"]);
 
 let ethUsdCache: { at: number; usd: number } | null = null;
 /** ETH in USD from DefiLlama, cached for 10 minutes. */
@@ -333,9 +357,7 @@ async function compoundFees(client: PublicClient, d: V3Deployment, o: { chainId:
   const send = sender(client, o.chainId, o.wallet);
   await sweepLoose(client, o.chainId, o.wallet, [o.p.token0, o.p.token1]);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
-  const pool = d.slipstream
-    ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.tickSpacing ?? o.p.fee] })
-    : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.fee] });
+  const pool = await poolAddressOf(client, d, o.p.token0, o.p.token1, d.slipstream ? o.p.tickSpacing ?? o.p.fee : o.p.fee);
   const listed = await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: REGISTRY_ABI, functionName: "isListedPool", args: [pool] });
   if (!listed) return send(o.adapter, compoundParams(o.pm, o.tokenId, 0n, 0n, deadline));
   const bal = () => Promise.all([o.p.token0, o.p.token1].map((t) => client.readContract({ address: t, abi: ERC20_ABI, functionName: "balanceOf", args: [o.wallet] })));
@@ -465,9 +487,7 @@ async function compoundRewards(client: PublicClient, d: V3Deployment, o: {
   const t0 = o.p.token0.toLowerCase(), t1 = o.p.token1.toLowerCase();
   const reward = rewardFor(o.chainId, o.pm)?.address.toLowerCase();
   if (!reward) return { ok: false, note: "No reward token here." };
-  const pool = d.slipstream
-    ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.tickSpacing ?? o.p.fee] })
-    : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [o.p.token0, o.p.token1, o.p.fee] });
+  const pool = await poolAddressOf(client, d, o.p.token0, o.p.token1, d.slipstream ? o.p.tickSpacing ?? o.p.fee : o.p.fee);
   if (!(await client.readContract({ address: V6_REGISTRY as `0x${string}`, abi: REGISTRY_ABI, functionName: "isListedPool", args: [pool] }))) {
     return { ok: false, note: "Reward compounding works on pools BTB lists." };
   }
@@ -638,6 +658,14 @@ export const check = internalAction({
       if (charged.broke) await push(ctx, job.address, job.label, "auto", "Auto-rebalance paused", `${job.label}: auto-rebalance paused, your BTB balance ran out.`);
       return;
     }
+    // Alandale pays its CL rewards (LUTE) by signed claim to whichever wallet holds the position: collect them for
+    // the owner every few hours. Never blocks the rebalance or compound below.
+    if (d.algebra && Date.now() - (job.lastRewardClaimAt ?? 0) >= REWARD_CLAIM_EVERY_MS) {
+      await ctx.runMutation(internal.autoRebalance.markRewardClaim, { id });
+      const got = await claimAlgebraRewards(client, job.chainId, wallet, adapter).catch(() => 0n);
+      if (got > 0n) await push(ctx, job.address, job.label, "auto", "LUTE rewards claimed", `${job.label}: ${(Number(got) / 1e18).toFixed(2)} LUTE in Alandale rewards was claimed and sent to your wallet.`);
+    }
+
     if (inRange) {
       // Auto-compound: an in-range, unstaked position whose fees are worth
       // several times the compound price. Staked positions earn gauge
@@ -700,10 +728,8 @@ export const check = internalAction({
     // TWAP window; a pool without that history would fail it after the unstake,
     // so check first and leave the position staked and untouched.
     if (position) {
-      const pool = d.slipstream
-        ? await client.readContract({ address: d.factory, abi: SLIP_FACTORY_ABI, functionName: "getPool", args: [position.token0, position.token1, position.tickSpacing ?? position.fee] })
-        : await client.readContract({ address: d.factory, abi: UNI_FACTORY_ABI, functionName: "getPool", args: [position.token0, position.token1, position.fee] });
-      if (!(await hasPriceHistory(client, pool, lpConfig(job.chainId).twapWindow))) {
+      const pool = await poolAddressOf(client, d, position.token0, position.token1, d.slipstream ? position.tickSpacing ?? position.fee : position.fee);
+      if (!(await hasPriceHistory(client, pool, lpConfig(job.chainId).twapWindow, !!d.algebra))) {
         const note = "Out of range. This pool does not record enough price history to rebalance safely, so it is left as it is.";
         if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Cannot rebalance this pool", `${job.label}: ${note}`);
         await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: intervalMs });

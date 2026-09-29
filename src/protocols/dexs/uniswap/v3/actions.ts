@@ -1,5 +1,5 @@
 import { encodeFunctionData, erc20Abi } from 'viem';
-import { NPM_ABI, SLIPSTREAM_NPM_ABI, RAMSES_NPM_ABI } from './abis';
+import { NPM_ABI, SLIPSTREAM_NPM_ABI, RAMSES_NPM_ABI, ALGEBRA_NPM_ABI } from './abis';
 import { MAX_UINT128, UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
 import type { Call } from '@/lib/txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
@@ -170,7 +170,19 @@ export function buildMint(args: {
   if (amount1Desired > 0n && nativeEthSide !== 1) {
     calls.push({ to: token1, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [d.positionManager, amount1Desired] }) });
   }
-  const mintData = d.compactPositions
+  const mintData = d.algebra
+    ? encodeFunctionData({
+        abi: ALGEBRA_NPM_ABI,
+        functionName: 'mint',
+        args: [{
+          token0, token1, tickLower, tickUpper,
+          amount0Desired, amount1Desired,
+          ...minimums,
+          recipient,
+          deadline: deadline(),
+        }],
+      })
+    : d.compactPositions
     ? encodeFunctionData({
         abi: RAMSES_NPM_ABI,
         functionName: 'mint',

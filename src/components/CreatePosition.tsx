@@ -39,7 +39,7 @@ import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ti
 import { CHAIN_DATA_NETWORKS } from '../lib/chainDataNetworks';
 import { useCachedJson } from '../lib/convexCache';
 import type { DailyBar } from '../lib/geckoterminal';
-import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI, ALGEBRA_POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
@@ -169,6 +169,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const [aeroDeploymentByTier, setAeroDeploymentByTier] = useState<Record<number, V3Deployment>>({});
   const baseDeployment = v3DeploymentFor(dex, chainId) ?? UNISWAP_V3_DEPLOYMENT;
   const isSlipstream = !!baseDeployment.slipstream;
+  // Slipstream and Algebra pools carry their own (dynamic) swap fee; the tier key is not the fee.
+  const perPoolFee = isSlipstream || !!baseDeployment.algebra;
   // Only Aerodrome has gauges the sheet can stake into.
   // Venues whose pools have a staking contract the sheet can deposit into
   // (Aerodrome and UP gauges, Giga's farm).
@@ -180,7 +182,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const [stakeAfterMint, setStakeAfterMint] = useState(canStake && stakeByDefault);
   const isChainWeth = (addr: string) => addr.toLowerCase() === chainWeth.toLowerCase();
   const [fee, setFee] = useState(
-    initialFee !== undefined && baseDeployment.feeTiers.includes(initialFee) ? initialFee : baseDeployment.feeTiers[2],
+    initialFee !== undefined && baseDeployment.feeTiers.includes(initialFee) ? initialFee : baseDeployment.feeTiers[2] ?? baseDeployment.feeTiers[0],
   );
   const deployment: V3Deployment = dex === 'aerodrome' ? (aeroDeploymentByTier[fee] ?? baseDeployment) : baseDeployment;
   // All fee tiers are fetched in one batch up front — switching tiers is instant.
@@ -272,7 +274,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     return s0 && !s1; // token0 stable → base the volatile token1
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
-  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' || dex === 'up' || dex === 'sushiswap' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
+  const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'giga' || dex === 'ramses' || dex === 'up' || dex === 'sushiswap' || dex === 'alandale' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
   const chainLabel = LP_CHAIN_NAMES[chainId];
   const pool = pools?.[fee] ?? null;
   const v4Pool = isV4 ? (pool as V4MintPool | null) : null;
@@ -399,6 +401,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           client.readContract({ address: v4Deployment.stateView, abi: STATE_VIEW_ABI, functionName: 'getLiquidity', args: [v4PoolId] }) as Promise<bigint>,
         ]);
         sqrtPriceX96 = s0[0]; tick = Number(s0[1]); liquidity = liq;
+      } else if (baseDeployment.algebra) {
+        // Algebra: globalState in place of slot0 (price and tick first, like slot0).
+        const [gs, liq] = await Promise.all([
+          client.readContract({ address: cur.address, abi: ALGEBRA_POOL_ABI, functionName: 'globalState' }),
+          client.readContract({ address: cur.address, abi: ALGEBRA_POOL_ABI, functionName: 'liquidity' }),
+        ]);
+        sqrtPriceX96 = gs[0]; tick = Number(gs[1]); liquidity = liq;
       } else {
         const [s0, liq] = await Promise.all([
           client.readContract({ address: cur.address, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
@@ -1446,7 +1455,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 8, overflow: 'hidden', whiteSpace: 'nowrap' }}>
             <span style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3, flexShrink: 0 }}>{simOnly ? 'Simulate' : 'Add liquidity'}</span>
             <span style={{ color: btb.textMuted, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${isSlipstream ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)} · ${dexLabel}` : `${dexLabel} · ${chainLabel}`}
+              {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${perPoolFee ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)} · ${dexLabel}` : `${dexLabel} · ${chainLabel}`}
             </span>
           </div>
         </div>
@@ -1511,7 +1520,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                     tokenB={!isV4 ? tokenB : undefined}
                     selected={{
                       protocol: isV4 ? 'uniswap-v4' : dex === 'pancakeswap' ? 'pancakeswap-v3' : 'uniswap-v3',
-                      feeTier: fee,
+                      // Algebra pools are keyed by nothing; the simulator models them on their live fee.
+                      feeTier: baseDeployment.algebra ? pool.poolFeePips ?? 0 : fee,
                       address: !isV4 ? (pool.address as `0x${string}`) : undefined,
                       v4PoolId,
                       dexLabel: dex === 'uniswap' || dex === 'pancakeswap' ? undefined : dexLabel,
@@ -1525,7 +1535,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                     onClose={() => {}}
                     embed={{
                       ticks,
-                      feeTier: fee,
+                      feeTier: baseDeployment.algebra ? pool.poolFeePips ?? 0 : fee,
                       depositUsd: sim?.depositUsd && sim.depositUsd > 0 ? sim.depositUsd : 10_000,
                       onRange: (t) => { setRangeMode(t); setSmartNote(null); setSwapPreview(null); },
                     }}

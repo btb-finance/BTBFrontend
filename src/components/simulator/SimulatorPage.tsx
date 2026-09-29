@@ -119,6 +119,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const [deploying, setDeploying] = useState(false);
   const [compound, setCompound] = useState(false);
 
+  // Alandale (Algebra Integral): its own pool reads and depth walk; everything else is the same model.
+  const isAlgebra = chainId === 4663 && /alandale/i.test(selected.dexLabel ?? '');
   const { pools, loading, error, retry } = useSimPools(
     tokenA,
     tokenB,
@@ -128,6 +130,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     wrappedNative,
     selected.address,
     selected.feeTier,
+    isAlgebra,
   );
 
   // If the chosen tier has no pool (or V4 pinned a different fee), jump to the
@@ -149,7 +152,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   const spacing = v4Pool ? v4Pool.tickSpacing : pool?.tickSpacing ?? deployment.tickSpacings[feeTier] ?? 60;
 
   const { history, estimatedHistory, fallbackCloses, tokenUsd, tickLiq, poolCreatedAt } =
-    usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks, feeTier, Math.max(30, horizonDays));
+    usePoolExtras(pool, isV4, selected.v4PoolId, dex, spacing, chainId, wrappedNative, networks, feeTier, Math.max(30, horizonDays), isAlgebra);
   // Indexed history wins; on chains without a subgraph the volume-derived
   // estimate stands in, and every section it feeds is labelled estimated.
   const effectiveHistory = history ?? estimatedHistory ?? null;
@@ -253,6 +256,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
     : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
     : chainId === 4663 && /^up\b/i.test(selected.dexLabel ?? '') ? 'up'
+    : isAlgebra ? 'alandale'
     : /sushi/i.test(selected.dexLabel ?? '') && sushiV3DeploymentForChain(chainId) ? 'sushiswap'
     : null;
   const deploySupported = !!forkDex || (isLpChain(chainId) && !!v3DeploymentFor(dex, chainId));
@@ -458,7 +462,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <CreatePosition
             tokenA={!isV4 ? mintTokenA : undefined}
             tokenB={!isV4 ? mintTokenB : undefined}
-            initialFee={forkDex === 'aerodrome' || forkDex === 'ramses' || forkDex === 'up' ? pool?.tickSpacing : !isV4 ? feeTier : undefined}
+            initialFee={forkDex === 'aerodrome' || forkDex === 'ramses' || forkDex === 'up' ? pool?.tickSpacing : forkDex === 'alandale' ? undefined : !isV4 ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
             dex={forkDex ?? dex}

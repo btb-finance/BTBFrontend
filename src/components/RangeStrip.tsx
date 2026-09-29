@@ -7,7 +7,8 @@ import { fmtPrice } from './LpCardParts';
 import { tickToPrice } from '@/protocols/dexs/uniswap/shared';
 import type { LiquidityPosition } from '@/protocols/types';
 import { deploymentOfPosition, v4DeploymentOfPosition } from '@/protocols/lpChains';
-import { FACTORY_ABI, SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { poolAddressOf } from '@/protocols/dexs/uniswap/v3/pool';
 import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import { poolIdOf } from '@/protocols/dexs/uniswap';
@@ -42,10 +43,10 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           return;
         }
         const d = deploymentOfPosition(p);
-        const pool = d.slipstream
-          ? await client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [p.token0, p.token1, spacing] }) as `0x${string}`
-          : await client.readContract({ address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.fee] }) as `0x${string}`;
+        const pool = await poolAddressOf(client, d, p.token0, p.token1, d.slipstream ? spacing : p.fee);
         if (!pool || /^0x0{40}$/.test(pool)) throw new Error('no pool');
+        // Algebra keeps its ticks in a different structure; the band and price still draw without depth.
+        if (d.algebra) return;
         const liq = await client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as bigint;
         const dist = await fetchTickLiquidityDistribution(client, pool, p.currentTick, liq, spacing).catch(() => []);
         if (live) setDepth(dist);

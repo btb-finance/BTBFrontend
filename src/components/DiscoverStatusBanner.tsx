@@ -37,7 +37,7 @@ export function DiscoverStatusBanner({ isMobile = false }: { isMobile?: boolean 
       </span>
 
       <span style={{ color: btb.textMuted, fontSize: 11, lineHeight: 1.35, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
-        Auto-rebalance your LPs on Aerodrome, UP, Giga and Uniswap V3. They stay in your own wallet, stay staked, and compound what they earn.
+        Auto-rebalance your LPs on Aerodrome, UP, Giga, Alandale and Uniswap V3. They stay in your own wallet, stay staked, and compound what they earn.
       </span>
     </div>
   );

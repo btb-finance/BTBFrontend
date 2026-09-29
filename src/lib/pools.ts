@@ -872,7 +872,7 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap'; chainId: 1 | 4663 | 8453 | 56 | 5042 };
+export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap' | 'alandale'; chainId: 1 | 4663 | 8453 | 56 | 5042 };
 
 /** Where "Add LP" can mint in-app: Uniswap V3/V4 and PancakeSwap V3 on
  * Ethereum, Base and BNB Chain, Uniswap V3/V4 on Robinhood Chain, Aerodrome
@@ -895,6 +895,8 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
     if (/^ramses/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'ramses', chainId: 4663 };
     if (/^up(?:[-_]|$)/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'up', chainId: 4663 };
     if (/^sushi/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'sushiswap', chainId: 4663 };
+    // Alandale's concentrated pools (Algebra). Its classic pools are a separate AMM and are not mintable here.
+    if (/^alandale[-_]cl/i.test(p.project) && cl) return { tokenA: tokens[0], tokenB: tokens[1], dex: 'alandale', chainId: 4663 };
   }
   // Mainnet SushiSwap: only rows that name V3. The bare "sushiswap" project is the V2 AMM.
   if (chainId === 1 && tokens.length >= 2 && /^sushi/i.test(p.project) && (/v3/i.test(p.project) || /v3/i.test(p.version ?? ''))) {

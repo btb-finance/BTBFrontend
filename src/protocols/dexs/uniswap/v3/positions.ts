@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, RAMSES_NPM_ABI, FEE_GROWTH_ABI, TICKS_HEAD_ABI, SLIPSTREAM_TICKS_HEAD_ABI } from './abis';
+import { NPM_ABI, FACTORY_ABI, POOL_ABI, ERC20_META_ABI, SLIPSTREAM_NPM_ABI, SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, RAMSES_NPM_ABI, FEE_GROWTH_ABI, TICKS_HEAD_ABI, SLIPSTREAM_TICKS_HEAD_ABI, ALGEBRA_NPM_ABI, ALGEBRA_FACTORY_ABI, ALGEBRA_POOL_ABI } from './abis';
 import { getAmountsForLiquidity } from './math';
 import type { LiquidityPosition } from '@/protocols/types';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -25,7 +25,9 @@ export async function fetchV3Positions(
   const slip = !!d.slipstream;
   // Ramses: ten-field position struct, tickSpacing third, no nonce/operator.
   const compact = !!d.compactPositions;
-  const npmAbi = compact ? RAMSES_NPM_ABI : slip ? SLIPSTREAM_NPM_ABI : NPM_ABI;
+  // Algebra (Alandale): eleven fields, no fee; one pool per pair; globalState in place of slot0.
+  const algebra = !!d.algebra;
+  const npmAbi = algebra ? ALGEBRA_NPM_ABI : compact ? RAMSES_NPM_ABI : slip ? SLIPSTREAM_NPM_ABI : NPM_ABI;
 
   let tokenIds: bigint[];
   if (knownIds) {
@@ -71,7 +73,8 @@ export async function fetchV3Positions(
     const raw = r.result as readonly unknown[];
     // Normalise the compact layout onto the twelve-field one by prefixing two
     // empty slots, so every index below is the same for both.
-    const p = compact ? [undefined, undefined, ...raw] : raw;
+    // Algebra has no fee field: slot a zero in its place so the indices line up too.
+    const p = compact ? [undefined, undefined, ...raw] : algebra ? [...raw.slice(0, 4), 0, ...raw.slice(4)] : raw;
     const liquidity = p[7] as bigint;
     const owed0 = p[10] as bigint;
     const owed1 = p[11] as bigint;
@@ -95,10 +98,12 @@ export async function fetchV3Positions(
   const poolKey = (r: Raw) => `${r.token0}-${r.token1}-${r.fee}`;
   const uniquePools = [...new Map(raws.map((r) => [poolKey(r), r])).values()];
   const poolAddrs = (await withSafeMulticall(client).multicall({
-    contracts: uniquePools.map((r) => ({
-      address: d.factory, abi: slip ? SLIPSTREAM_FACTORY_ABI : FACTORY_ABI, functionName: 'getPool' as const,
-      args: [r.token0, r.token1, r.fee] as const,
-    })),
+    contracts: uniquePools.map((r) => (algebra
+      ? { address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair' as const, args: [r.token0, r.token1] as const }
+      : {
+          address: d.factory, abi: slip ? SLIPSTREAM_FACTORY_ABI : FACTORY_ABI, functionName: 'getPool' as const,
+          args: [r.token0, r.token1, r.fee] as const,
+        })),
     allowFailure: true,
   })).map((r) => (r.status === 'success' ? (r.result as `0x${string}`) : undefined));
   if (uniquePools.length > 0 && poolAddrs.every((address) => !address)) {
@@ -106,11 +111,14 @@ export async function fetchV3Positions(
   }
 
   const slot0Res = await withSafeMulticall(client).multicall({
-    contracts: poolAddrs.map((addr) => ({
-      address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-      // Price and tick only: works for seven-field (V3, Ramses) and six-field (Slipstream) slot0 alike.
-      abi: SLOT0_HEAD_ABI, functionName: 'slot0' as const,
-    })),
+    contracts: poolAddrs.map((addr) => (algebra
+      // Algebra's globalState starts with price and tick too, and carries the dynamic fee third.
+      ? { address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`, abi: ALGEBRA_POOL_ABI, functionName: 'globalState' as const }
+      : {
+          address: (addr ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
+          // Price and tick only: works for seven-field (V3, Ramses) and six-field (Slipstream) slot0 alike.
+          abi: SLOT0_HEAD_ABI, functionName: 'slot0' as const,
+        })),
     allowFailure: true,
   });
   if (slot0Res.length > 0 && !slot0Res.some((result) => result.status === 'success')) {
@@ -132,7 +140,7 @@ export async function fetchV3Positions(
     if (s.status !== 'success') return;
     const arr = s.result as readonly unknown[];
     const f = feeRes?.[i];
-    poolState.set(poolKey(r), { sqrtPriceX96: arr[0] as bigint, tick: Number(arr[1]), fee: f?.status === 'success' ? Number(f.result) : undefined });
+    poolState.set(poolKey(r), { sqrtPriceX96: arr[0] as bigint, tick: Number(arr[1]), fee: algebra ? Number(arr[2]) : f?.status === 'success' ? Number(f.result) : undefined });
   });
   // Same retry for a Slipstream fee the batch dropped, so the tier never shows 0%.
   if (slip) await Promise.all(uniquePools.map(async (r, i) => {
@@ -152,16 +160,24 @@ export async function fetchV3Positions(
     const addrOf = new Map(uniquePools.map((r, i) => [poolKey(r), poolAddrs[i]]));
     const live = raws.filter((r) => r.liquidity > 0n && addrOf.get(poolKey(r)) && poolState.has(poolKey(r)));
     const tickAbi = slip ? SLIPSTREAM_TICKS_HEAD_ABI : TICKS_HEAD_ABI;
-    const res = live.length === 0 ? [] : await withSafeMulticall(client).multicall({
-      contracts: live.flatMap((r) => {
+    // Mixed ABIs in one batch: typed loosely here, decoded by index below.
+    type Read = { address: `0x${string}`; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] };
+    const res: { status: string; result?: unknown }[] = live.length === 0 ? [] : await withSafeMulticall(client).multicall({
+      contracts: live.flatMap((r): Read[] => {
         const pool = addrOf.get(poolKey(r))!;
+        if (algebra) return [
+          { address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'totalFeeGrowth0Token' as const },
+          { address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'totalFeeGrowth1Token' as const },
+          { address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'ticks' as const, args: [r.tickLower] as const },
+          { address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'ticks' as const, args: [r.tickUpper] as const },
+        ];
         return [
           { address: pool, abi: FEE_GROWTH_ABI, functionName: 'feeGrowthGlobal0X128' as const },
           { address: pool, abi: FEE_GROWTH_ABI, functionName: 'feeGrowthGlobal1X128' as const },
           { address: pool, abi: tickAbi, functionName: 'ticks' as const, args: [r.tickLower] as const },
           { address: pool, abi: tickAbi, functionName: 'ticks' as const, args: [r.tickUpper] as const },
         ];
-      }),
+      }) as never,
       allowFailure: true,
     }).catch(() => []);
     const MASK = (1n << 256n) - 1n;
@@ -170,7 +186,8 @@ export async function fetchV3Positions(
       const [g0, g1, lo, hi] = res.slice(i * 4, i * 4 + 4);
       if (!g0 || !g1 || !lo || !hi || [g0, g1, lo, hi].some((x) => x.status !== 'success')) return;
       const tick = poolState.get(poolKey(r))!.tick;
-      const outside = (t: unknown) => { const a = t as readonly bigint[]; return slip ? [a[3], a[4]] : [a[2], a[3]]; };
+      // Fee growth outside each tick: V3 fields 2-3, Slipstream 3-4, Algebra 4-5.
+      const outside = (t: unknown) => { const a = t as readonly bigint[]; return algebra ? [a[4], a[5]] : slip ? [a[3], a[4]] : [a[2], a[3]]; };
       const [lo0, lo1] = outside(lo.result), [hi0, hi1] = outside(hi.result);
       const inside = (global: bigint, below: bigint, above: bigint) => {
         const b = tick >= r.tickLower ? below : sub(global, below);
@@ -223,7 +240,7 @@ export async function fetchV3Positions(
       token0: r.token0, token1: r.token1,
       symbol0: m0.symbol, symbol1: m1.symbol,
       decimals0: m0.decimals, decimals1: m1.decimals,
-      fee: slip ? (st?.fee ?? 0) : r.fee, tickLower: r.tickLower, tickUpper: r.tickUpper,
+      fee: slip || algebra ? (st?.fee ?? 0) : r.fee, tickLower: r.tickLower, tickUpper: r.tickUpper,
       // Every position carries its manager so later actions resolve the same deployment on the same chain.
       positionManager: npm,
       ...(slip ? { tickSpacing: r.fee } : {}),

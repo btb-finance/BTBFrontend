@@ -80,8 +80,6 @@ const FARM_RATE_ABI = parseAbi([
 /** Aerodrome-style CL gauge and pool reads for a staked position's reward APR. */
 const GAUGE_RATE_ABI = parseAbi(['function rewardRate() view returns (uint256)', 'function pool() view returns (address)', 'function stakedLiquidity() view returns (uint128)']);
 const FEE_GROWTH_GLOBAL_ABI = parseAbi(['function feeGrowthGlobal0X128() view returns (uint256)', 'function feeGrowthGlobal1X128() view returns (uint256)']);
-const V3_GET_POOL_ABI = parseAbi(['function getPool(address, address, uint24) view returns (address)']);
-const SLIP_GET_POOL_ABI = parseAbi(['function getPool(address, address, int24) view returns (address)']);
 const AUTO_OWNER_OF_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
 const AUTO_FARM_ABI = parseAbi([
   'function userPositionInfos(uint256 tokenId) view returns (uint128 liquidity, int24 tickLower, int24 tickUpper, uint256 rewardGrowthInside, uint256 reward, address user, uint256 pid, uint40 lastLiquidityChange)',
@@ -95,7 +93,8 @@ import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap, planSwapToFit } from '../lib/swapGap';
 import { fetchPositionHistory, fetchEmptyPositions, type PositionHistory } from '../lib/positionHistory';
-import { NPM_ABI as V3_NPM_ABI, RAMSES_NPM_ABI, SLIPSTREAM_NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { NPM_ABI as V3_NPM_ABI, RAMSES_NPM_ABI, SLIPSTREAM_NPM_ABI, ALGEBRA_NPM_ABI } from '@/protocols/dexs/uniswap/v3/abis';
+import { poolAddressOf } from '@/protocols/dexs/uniswap/v3/pool';
 import { rebalancePlan } from '@/protocols/dexs/uniswap/v3/math';
 import { POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
@@ -132,6 +131,7 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
   'up-v3': { label: 'UP', color: '#52E3A4' },
   'sushiswap-v3': { label: 'SUSHI V3', color: '#FA52A0' },
+  'alandale-cl': { label: 'ALANDALE', color: '#C9A227' },
 };
 
 function fmtAmt(raw: bigint, decimals: number): string {
@@ -159,6 +159,7 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'ramses-v3': 'ramses',
   'up-v3': 'up',
   'sushiswap-v3': 'sushiswapv3',
+  'alandale-cl': 'alandale',
 };
 
 /** Krystal row ↔ on-chain position. Aerodrome's projectKey varies by
@@ -557,6 +558,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const ramses = v3DeploymentFor('ramses', chainId);
         const up = v3DeploymentFor('up', chainId);
         const sushi = v3DeploymentFor('sushiswap', chainId);
+        const alandale = v3DeploymentFor('alandale', chainId);
         const v3Like: { protocol: LiquidityPosition['protocol']; d: V3Deployment }[] = [
           ...(v3 ? [{ protocol: 'uniswap-v3' as const, d: v3 }] : []),
           ...(cake ? [{ protocol: 'pancakeswap-v3' as const, d: cake }] : []),
@@ -564,6 +566,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           ...(ramses ? [{ protocol: 'ramses-v3' as const, d: ramses }] : []),
           ...(up ? [{ protocol: 'up-v3' as const, d: up }] : []),
           ...(sushi ? [{ protocol: 'sushiswap-v3' as const, d: sushi }] : []),
+          ...(alandale ? [{ protocol: 'alandale-cl' as const, d: alandale }] : []),
           ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
         ];
         for (const { protocol, d } of v3Like) {
@@ -735,9 +738,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         let pool = poolAddr.current.get(posKey(p));
         if (!pool) {
           const d = v3DeploymentOf(p);
-          pool = (d.slipstream
-            ? await client.readContract({ address: d.factory, abi: SLIP_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.tickSpacing ?? p.fee] })
-            : await client.readContract({ address: d.factory, abi: V3_GET_POOL_ABI, functionName: 'getPool', args: [p.token0, p.token1, p.fee] })).toLowerCase();
+          pool = (await poolAddressOf(client, d, p.token0, p.token1, d.slipstream ? p.tickSpacing ?? p.fee : p.fee)).toLowerCase();
           poolAddr.current.set(posKey(p), pool);
         }
         row = discoverPools.find((r) => r.id.toLowerCase() === pool);
@@ -1030,12 +1031,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     if (!client) return;
     let live = true;
     (async () => {
-      const dexes: LpDex[] = ['uniswap', 'pancakeswap', 'sushiswap', 'giga', 'ramses', 'up'];
+      const dexes: LpDex[] = ['uniswap', 'pancakeswap', 'sushiswap', 'giga', 'ramses', 'up', 'alandale'];
       const rows: KrystalPositionAnalytics[] = [];
       await Promise.all(dexes.map(async (dex) => {
         const d = v3DeploymentFor(dex, chainId);
         if (!d) return;
-        const abi = d.compactPositions ? RAMSES_NPM_ABI : d.slipstream ? SLIPSTREAM_NPM_ABI : V3_NPM_ABI;
+        const abi = d.algebra ? ALGEBRA_NPM_ABI : d.compactPositions ? RAMSES_NPM_ABI : d.slipstream ? SLIPSTREAM_NPM_ABI : V3_NPM_ABI;
         const empties = await fetchEmptyPositions(client, d, address as `0x${string}`, abi).catch(() => []);
         await Promise.all(empties.map(async (e) => {
           try {

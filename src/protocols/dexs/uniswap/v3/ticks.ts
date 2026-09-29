@@ -108,3 +108,50 @@ export async function fetchTickLiquidityDistribution(
 function priceAtTick(tick: number): number {
   return Math.pow(1.0001, tick);
 }
+
+const ALGEBRA_TICKS_ABI = [
+  { name: 'prevTickGlobal', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] },
+  { name: 'nextTickGlobal', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] },
+  {
+    name: 'ticks', type: 'function', stateMutability: 'view', inputs: [{ type: 'int24' }],
+    outputs: [
+      { name: 'liquidityTotal', type: 'uint256' }, { name: 'liquidityDelta', type: 'int128' },
+      { name: 'prevTick', type: 'int24' }, { name: 'nextTick', type: 'int24' },
+      { name: 'outerFeeGrowth0Token', type: 'uint256' }, { name: 'outerFeeGrowth1Token', type: 'uint256' },
+    ],
+  },
+] as const;
+const ALGEBRA_STEPS_EACH_SIDE = 40;
+const ALGEBRA_EDGE = 887272;
+
+/**
+ * The same depth for an Algebra Integral pool (Alandale). Algebra keeps its initialized ticks as a linked list, so
+ * instead of bitmap words this walks from the ticks either side of the price (prevTickGlobal / nextTickGlobal)
+ * outward, a fixed number of steps each way, both directions at once. Same accumulation as above.
+ */
+export async function fetchAlgebraTickLiquidity(
+  client: PublicClient,
+  poolAddress: `0x${string}`,
+  currentLiquidity: bigint,
+): Promise<TickLiquidityPoint[]> {
+  const read = (fn: 'prevTickGlobal' | 'nextTickGlobal') => client.readContract({ address: poolAddress, abi: ALGEBRA_TICKS_ABI, functionName: fn }).then(Number);
+  const tickAt = (t: number) => client.readContract({ address: poolAddress, abi: ALGEBRA_TICKS_ABI, functionName: 'ticks', args: [t] });
+  const [prev, next] = await Promise.all([read('prevTickGlobal'), read('nextTickGlobal')]);
+
+  const walk = async (start: number, up: boolean): Promise<TickLiquidityPoint[]> => {
+    const out: TickLiquidityPoint[] = [];
+    let liq = currentLiquidity, t = start;
+    for (let i = 0; i < ALGEBRA_STEPS_EACH_SIDE && Math.abs(t) < ALGEBRA_EDGE; i++) {
+      const info = await tickAt(t);
+      const delta = info[1];
+      liq = up ? liq + delta : liq - delta;
+      out.push({ tick: t, price: priceAtTick(t), liquidity: Number(liq < 0n ? 0n : liq) });
+      const step = Number(up ? info[3] : info[2]);
+      if (step === t) break;
+      t = step;
+    }
+    return out;
+  };
+  const [below, above] = await Promise.all([walk(prev, false), walk(next, true)]);
+  return [...below, ...above].sort((a, b) => a.tick - b.tick);
+}

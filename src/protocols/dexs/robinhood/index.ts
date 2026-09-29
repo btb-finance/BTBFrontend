@@ -73,3 +73,20 @@ export const RAMSES_V3_DEPLOYMENT: V3Deployment = {
   feeTiers: RAMSES_TICK_SPACINGS,
   tickSpacings: Object.fromEntries(RAMSES_TICK_SPACINGS.map((s) => [s, s])),
 };
+
+/**
+ * Alandale: a ve(3,3) MetaDEX whose concentrated pools run on Algebra Integral. One pool per pair with a dynamic
+ * fee and its own tick spacing. CL rewards (LUTE) are not staked: they are paid off chain via Merkl-style signed
+ * claims to whoever holds an in-range position. Addresses from alandale.gitbook.io/alandale/reference/contracts,
+ * confirmed on chain (manager.factory() and a live pool).
+ */
+export const ALANDALE_CL_DEPLOYMENT: V3Deployment = {
+  protocol: 'alandale-cl',
+  chainId: ROBINHOOD_CHAIN_ID,
+  label: 'Alandale',
+  algebra: true,
+  positionManager: '0xe62a5F67516dBDBA2Aa28b1512C8Ff44E42cB5c3',
+  factory: '0x16494A80E08Bcb9285D87b67149d7b01774D82F8',
+  feeTiers: [0],
+  tickSpacings: { 0: 60 },
+};

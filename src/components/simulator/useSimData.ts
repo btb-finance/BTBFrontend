@@ -28,7 +28,9 @@ import { PANCAKE_V3_DEPLOYMENT, PANCAKE_V3_SUBGRAPH_ID } from '@/protocols/dexs/
 import type { DailyBar } from '../../lib/geckoterminal';
 import type { TokenSafety } from '../../lib/tokenSafety';
 import { useCachedJson } from '../../lib/convexCache';
-import { fetchTickLiquidityDistribution, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
+import { fetchTickLiquidityDistribution, fetchAlgebraTickLiquidity, type TickLiquidityPoint } from '@/protocols/dexs/uniswap/v3/ticks';
+import { fetchAlgebraPool } from '@/protocols/dexs/uniswap/v3/pool';
+import { ALANDALE_CL_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { fetchV4TickLiquidityDistribution } from '@/protocols/dexs/uniswap/v4/ticks';
 import type { SupportedChainId } from '../../lib/wagmi';
 import type { ChainDataNetwork } from '../../lib/chainDataNetworks';
@@ -62,6 +64,8 @@ export function useSimPools(
   wrappedNative: `0x${string}`,
   selectedPoolAddress?: `0x${string}`,
   selectedFee?: number,
+  /** Alandale (Algebra Integral): one pool per pair, read through globalState. */
+  algebra = false,
 ): SimPools {
   const config = useConfig();
   const [pools, setPools] = useState<Record<number, MintPool> | null>(null);
@@ -80,7 +84,11 @@ export function useSimPools(
     const v4Deployment = v4DeploymentFor(chainId) ?? UNISWAP_V4;
     const token0 = tokenA ? toV3Address(tokenA, wrappedNative) : undefined;
     const token1 = tokenB ? toV3Address(tokenB, wrappedNative) : undefined;
-    const run = v4PoolId
+    const [s0, s1] = token0 && token1 ? (token0.toLowerCase() < token1.toLowerCase() ? [token0, token1] : [token1, token0]) : [undefined, undefined];
+    const run = algebra && s0 && s1
+      // Keyed by the fee the row showed, so the page opens on this pool; its live fee is poolFeePips.
+      ? retryRead(() => fetchAlgebraPool(client, s0, s1, ALANDALE_CL_DEPLOYMENT)).then((p) => ({ [selectedFee ?? 0]: { ...p, fee: selectedFee ?? 0 } }))
+      : v4PoolId
       ? fetchV4PoolForMint(client, v4PoolId, v4Deployment).then((p) => ({ [p.fee]: p as MintPool }))
       : token0 && token1 && deployment
         ? selectedPoolAddress && selectedFee != null
@@ -94,7 +102,7 @@ export function useSimPools(
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, tokenA, tokenB, v4PoolId, dex, chainId, wrappedNative, selectedPoolAddress, selectedFee, nonce]);
+  }, [config, tokenA, tokenB, v4PoolId, dex, chainId, wrappedNative, selectedPoolAddress, selectedFee, algebra, nonce]);
 
   return { pools, loading, error, retry: () => setNonce((n) => n + 1) };
 }
@@ -138,6 +146,7 @@ export function usePoolExtras(
   feeTier: number,
   /** How many days of history to load; the simulator asks for more when the replay period is longer than a month. */
   days = 30,
+  algebra = false,
 ): PoolExtras {
   const config = useConfig();
   const [tickLiq, setTickLiq] = useState<TickLiquidityPoint[] | null>(null);
@@ -224,7 +233,9 @@ export function usePoolExtras(
     const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
     if (!client) return;
     const v4Pool = isV4 ? (pool as V4MintPool) : null;
-    const fetcher = v4Pool
+    const fetcher = algebra
+      ? fetchAlgebraTickLiquidity(client, pool.address, pool.liquidity)
+      : v4Pool
       ? fetchV4TickLiquidityDistribution(
           client,
           v4Pool.poolId,
@@ -237,7 +248,7 @@ export function usePoolExtras(
     fetcher.then((pts) => { if (live && pts.length > 0) setTickLiq(pts); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, pool, isV4, spacing, chainId]);
+  }, [config, pool, isV4, spacing, chainId, algebra]);
 
   // Derived USD pair with pool-price backfill for a missing side.
   const tokenUsd = useMemo(() => {

@@ -29,13 +29,17 @@ export function isWeth(addr: string): boolean {
 /** A V3-architecture DEX deployment (Uniswap V3 or a byte-compatible fork). */
 export interface V3Deployment {
   /** Position tag used in LiquidityPosition.protocol. */
-  protocol: 'uniswap-v3' | 'pancakeswap-v3' | 'aerodrome-cl' | 'giga-v3' | 'ramses-v3' | 'up-v3' | 'sushiswap-v3';
+  protocol: 'uniswap-v3' | 'pancakeswap-v3' | 'aerodrome-cl' | 'giga-v3' | 'ramses-v3' | 'up-v3' | 'sushiswap-v3' | 'alandale-cl';
   /** Pools keyed by tickSpacing, not fee (Aerodrome Slipstream, Ramses V3):
    * factory getPool and mint take a spacing, the fee is read from the pool. */
   slipstream?: boolean;
   /** Ramses V3 position manager: positions() has no nonce/operator (ten
    * fields, tickSpacing third) and mint() has no sqrtPriceX96 argument. */
   compactPositions?: boolean;
+  /** Algebra Integral (Alandale): one pool per pair from poolByPair, globalState() in place of slot0, a dynamic
+   * per-pool fee, an eleven-field position struct and a mint with no fee or spacing. `feeTiers` is [0], a
+   * placeholder key for the single pool; its spacing comes from the pool. */
+  algebra?: boolean;
   chainId?: number;
   /** Display name when a protocol has several live deployments (Aerodrome). */
   label?: string;
