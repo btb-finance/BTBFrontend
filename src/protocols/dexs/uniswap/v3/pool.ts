@@ -1,6 +1,6 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI } from './abis';
+import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, ALGEBRA_FACTORY_ABI, ALGEBRA_POOL_ABI } from './abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 
 export interface MintPool {
@@ -82,6 +82,7 @@ export async function fetchPoolForMint(
   d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Promise<MintPool> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
+  if (d.algebra) return fetchAlgebraPool(client, token0, token1, d);
 
   const pool = (await client.readContract({
     address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, fee],
@@ -131,6 +132,7 @@ export async function fetchPoolsForMint(
   d: V3Deployment = UNISWAP_V3_DEPLOYMENT,
 ): Promise<Record<number, MintPool>> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
+  if (d.algebra) return { [d.feeTiers[0]]: await fetchAlgebraPool(client, token0, token1, d) };
   // Slipstream: "tiers" are tick spacings, slot0 has one field fewer, and the
   // swap fee is a per-pool value read separately.
   const slip = !!d.slipstream;
@@ -200,4 +202,55 @@ export async function fetchPoolsForMint(
     out[a.fee] = { address: a.pool, token0, token1, ...meta, fee: a.fee, exists, sqrtPriceX96, tick, liquidity, ...(poolFeePips != null ? { poolFeePips } : {}), ...(tickSpacing ? { tickSpacing } : {}) };
   }
   return out;
+}
+
+/**
+ * The single Algebra Integral pool of a sorted pair: poolByPair on the factory, then globalState (price, tick and
+ * the current dynamic fee), liquidity and the pool's own tick spacing. `fee` is the deployment's placeholder key;
+ * the real swap fee goes in poolFeePips, as for Slipstream pools.
+ */
+export async function fetchAlgebraPool(
+  client: PublicClient,
+  token0: `0x${string}`,
+  token1: `0x${string}`,
+  d: V3Deployment,
+): Promise<MintPool> {
+  const [poolRes, metaRes] = await Promise.all([
+    client.readContract({ address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair', args: [token0, token1] }).catch(() => ZERO) as Promise<`0x${string}`>,
+    withSafeMulticall(client).multicall({
+      contracts: [
+        { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
+        { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
+        { address: token1, abi: ERC20_META_ABI, functionName: 'symbol' },
+        { address: token1, abi: ERC20_META_ABI, functionName: 'decimals' },
+      ],
+      allowFailure: true,
+    }),
+  ]);
+  const pool = (poolRes || ZERO) as `0x${string}`;
+  const base = {
+    address: pool, token0, token1, fee: d.feeTiers[0],
+    symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
+    decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
+    symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
+    decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
+  };
+  if (pool.toLowerCase() === ZERO) return { ...base, exists: false, sqrtPriceX96: 0n, tick: 0, liquidity: 0n };
+  const [gs, liquidity, spacing] = await Promise.all([
+    client.readContract({ address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'globalState' }),
+    client.readContract({ address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'liquidity' }),
+    client.readContract({ address: pool, abi: ALGEBRA_POOL_ABI, functionName: 'tickSpacing' }).then(Number),
+  ]);
+  const [price, tick, lastFee] = gs as readonly [bigint, number, number, number, number, boolean];
+  return { ...base, exists: price > 0n, sqrtPriceX96: price, tick: Number(tick), liquidity: liquidity as bigint, poolFeePips: Number(lastFee), tickSpacing: spacing };
+}
+
+/**
+ * The pool a position lives in, for every deployment style: getPool by fee (V3), getPool by tick spacing
+ * (Slipstream, Ramses), or poolByPair (Algebra). `key` is the fee or the spacing; Algebra ignores it.
+ */
+export async function poolAddressOf(client: PublicClient, d: V3Deployment, token0: `0x${string}`, token1: `0x${string}`, key: number): Promise<`0x${string}`> {
+  if (d.algebra) return client.readContract({ address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair', args: [token0, token1] }) as Promise<`0x${string}`>;
+  if (d.slipstream) return client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, key] }) as Promise<`0x${string}`>;
+  return client.readContract({ address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, key] }) as Promise<`0x${string}`>;
 }

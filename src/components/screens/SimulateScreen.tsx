@@ -16,7 +16,8 @@ import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
 import { aerodromeDeploymentsFor } from '@/protocols/dexs/aerodrome';
-import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from '@/protocols/dexs/robinhood';
+import { fetchAlgebraPool } from '@/protocols/dexs/uniswap/v3/pool';
 import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
 import { v3DeploymentFor, v4DeploymentFor, isLpChain, wrappedNativeFor, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { SLIPSTREAM_FACTORY_ABI, POOL_ABI } from '@/protocols/dexs/uniswap/v3/abis';
@@ -625,6 +626,15 @@ async function findSpacingKeyedPools(
     address: x.address,
     dexLabel,
   }));
+}
+
+/** Alandale on Robinhood Chain (Algebra Integral): one pool per pair from poolByPair, with its current dynamic fee. */
+async function findAlgebraPools(client: PublicClient, tokenA: Token, tokenB: Token, wrappedNative: `0x${string}`): Promise<FoundPool[]> {
+  const addrA = toV3Address(tokenA.address, wrappedNative);
+  const addrB = toV3Address(tokenB.address, wrappedNative);
+  const [token0, token1] = addrA.toLowerCase() < addrB.toLowerCase() ? [addrA, addrB] : [addrB, addrA];
+  const pool = await fetchAlgebraPool(client, token0, token1, ALANDALE_CL_DEPLOYMENT);
+  return pool.exists ? [{ protocol: 'uniswap-v3' as const, feeTier: pool.poolFeePips ?? 0, address: pool.address, dexLabel: 'Alandale' }] : [];
 }
 
 /** Giga V3 on Robinhood Chain: a fee-keyed Uniswap V3 fork, probed like one. */
@@ -1353,6 +1363,7 @@ export function SimulateScreen() {
     if (chainId === 4663 && /giga/i.test(f.dexLabel ?? '')) return { dex: 'giga', chainId: 4663 };
     if (chainId === 4663 && /ramses/i.test(f.dexLabel ?? '')) return { dex: 'ramses', chainId: 4663 };
     if (chainId === 4663 && /^up\b/i.test(f.dexLabel ?? '')) return { dex: 'up', chainId: 4663 };
+    if (chainId === 4663 && /alandale/i.test(f.dexLabel ?? '')) return { dex: 'alandale', chainId: 4663 };
     if (/sushi/i.test(f.dexLabel ?? '') && sushiV3DeploymentForChain(chainId)) return { dex: 'sushiswap', chainId };
     if (f.dexLabel) return null;
     if (f.protocol === 'uniswap-v3' && v3DeploymentFor('uniswap', chainId)) return { dex: 'uniswap', chainId };
@@ -1532,6 +1543,7 @@ export function SimulateScreen() {
           { label: 'Giga V3', run: () => findGigaPools(client, tokenA, tokenB, wrappedNative) },
           { label: 'Ramses V3', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [RAMSES_V3_DEPLOYMENT], 'Ramses V3') },
           { label: 'UP', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [UP_V3_DEPLOYMENT], 'UP V3') },
+          { label: 'Alandale', run: () => findAlgebraPools(client, tokenA, tokenB, wrappedNative) },
         ] : []),
       ];
       const results = await Promise.all(checks.map(c => withRetry(c.run).then(
@@ -1679,7 +1691,7 @@ export function SimulateScreen() {
           <ChainSelect chains={availableChains} value={chainId} onChange={selectChain} small ariaLabel="Simulate network"/>
         </div>
         <div style={{ color: btb.textMuted, fontSize: 12, marginBottom: 14 }}>
-          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 || chainId === 5042 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3, UP, SushiSwap V3' : chainId === 1 ? ', SushiSwap V3' : ''}, and the wider DEX market together.
+          Pick two tokens on {chainName}. We check Uniswap V3{v4DeploymentFor(chainId) ? ', Uniswap V4' : ''}{v3DeploymentFor('pancakeswap', chainId) ? ', PancakeSwap V3' : ''}{chainId === 8453 || chainId === 5042 ? ', Aerodrome Slipstream' : ''}{chainId === 4663 ? ', Giga V3, Ramses V3, UP, Alandale, SushiSwap V3' : chainId === 1 ? ', SushiSwap V3' : ''}, and the wider DEX market together.
         </div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
           <TokenPickerButton label="Token 1" token={tokenA} onPick={t => { setTokenA(t); setFound(null); }} tokens={chainTokens} onImportAddress={importSingleChainToken} />
@@ -1824,7 +1836,7 @@ export function SimulateScreen() {
           dex={mintDexFor(mintFee)!.dex}
           chainId={mintDexFor(mintFee)!.chainId}
           // Spacing-keyed DEXes (Aerodrome, Ramses): the sheet picks the deepest spacing.
-          initialFee={['aerodrome', 'ramses', 'up'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
+          initialFee={['aerodrome', 'ramses', 'up', 'alandale'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
           fees24hUsd={mintFee.fees24hUsd}
           onClose={() => setMintFee(null)}
         />

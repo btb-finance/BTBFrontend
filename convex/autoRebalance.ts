@@ -176,6 +176,15 @@ export const learnGauge = internalMutation({
   },
 });
 
+/** Alandale: the agent is about to look for signed LUTE rewards; spaces the next look by REWARD_CLAIM_EVERY_MS. */
+export const markRewardClaim = internalMutation({
+  args: { id: v.id("autoRebalances") },
+  handler: async (ctx, { id }) => {
+    const row = await ctx.db.get(id);
+    if (row) await ctx.db.patch(row._id, { lastRewardClaimAt: Date.now() });
+  },
+});
+
 export const recordCompound = internalMutation({
   args: { id: v.id("autoRebalances") },
   handler: async (ctx, { id }) => {
@@ -342,6 +351,20 @@ export const recordFailure = internalMutation({
 });
 
 /** The position left the wallet (the owner took it out): stop quietly. */
+/**
+ * Server only (npx convex run): restart a job the checker stopped by mistake, for example after a support gap for its
+ * DEX was fixed. The position has not moved, so it resumes exactly where it was.
+ */
+export const restart = internalMutation({
+  args: { id: v.id("autoRebalances") },
+  handler: async (ctx, { id }) => {
+    const row = await ctx.db.get(id);
+    if (!row || row.active) return { ok: false as const };
+    await schedule(ctx, row, Date.now() + 5_000, { active: true, status: "watching", note: undefined, failures: 0 });
+    return { ok: true as const };
+  },
+});
+
 export const markGone = internalMutation({
   args: { id: v.id("autoRebalances"), note: v.string() },
   handler: async (ctx, { id, note }) => {

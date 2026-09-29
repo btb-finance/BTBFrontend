@@ -79,6 +79,8 @@ export const V6 = {
   walletV4: '0x46e8403b51c7e2FaB5e35Aa2F942abAc678bf889',
   /** Stake, unstake and claim on MasterChef V3 farms (Giga). */
   farmAdapter: '0x0993a62835e7c1534C2f3525828Ec9f3e60781AB',
+  /** Algebra Integral (Alandale). Same address on every chain; see ALGEBRA_LIVE. */
+  algebraAdapter: '0x5116F68d95b6d8584A47CDAA66A5ec2441b9E458',
   /** EIP-7702 code for the agent address: unstake, rebalance and restake in one transaction. */
   agentBatch: '0xC1962EfeC30e3Bd876dc3bB81f1Bd42FcD746CEC',
 } as const;
@@ -134,6 +136,13 @@ export const AUTO_CHAIN_NAMES: Record<number, string> = { 8453: 'Base', 4663: 'R
  * Position managers auto-rebalance supports, per chain, and the adapter that
  * speaks each one's format. Must match what the V6 registry lists as targets.
  */
+/**
+ * Turn on once the Algebra adapter is deployed and the registry lists it and Alandale's position manager
+ * (script/DeployAlgebraAdapter.s.sol in the contracts repo). Until then Alandale positions can be added, managed and
+ * removed by hand, but not auto-rebalanced.
+ */
+export const ALGEBRA_LIVE = true;
+
 export const AUTO_MANAGERS: Record<number, Record<string, `0x${string}`>> = {
   8453: {
     '0x827922686190790b37229fd06084350e74485b72': V6.aerodromeAdapter, // Aerodrome (old)
@@ -145,6 +154,7 @@ export const AUTO_MANAGERS: Record<number, Record<string, `0x${string}`>> = {
     '0x07f44c47743a2f36414a82b9f558ecfcf0eedcef': V6.aerodromeAdapter, // UP
     '0x73991a25c818bf1f1128deaab1492d45638de0d3': V6.uniswapV3Adapter, // Uniswap V3
     '0xa79f5775b0b49e51202c48ddf03f380faa96f641': V6.uniswapV3Adapter, // Giga V3 (a PancakeSwap V3 fork, same position format)
+    ...(ALGEBRA_LIVE ? { '0xe62a5f67516dbdba2aa28b1512c8ff44e42cb5c3': V6.algebraAdapter } : {}), // Alandale (Algebra Integral)
   },
 };
 
@@ -250,6 +260,25 @@ export function rebalanceParams(positionManager: `0x${string}`, tokenId: bigint,
   return action(Action.Rebalance, encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }], [positionManager, tokenId, deadline]));
 }
 
+/**
+ * Alandale (Algebra) CL rewards. No staking: the DEX signs each wallet's running LUTE total off chain, and the
+ * rewarder pays it to the wallet that calls claim, never anyone else. The API only delivers that signature.
+ */
+export const ALANDALE = {
+  positionManager: '0xe62a5f67516dbdba2aa28b1512c8ff44e42cb5c3',
+  rewarder: '0x8A76f49e091F21C896122B4879541930322b799D',
+  lute: '0xD1e861CC5Eee7eA88649206b74504D78CCD7AEeA',
+  claimApi: 'https://app.alandale.xyz/api/claim',
+} as const;
+/** How often the agent asks for a wallet's signed rewards; the DEX refreshes them about daily. */
+export const REWARD_CLAIM_EVERY_MS = 6 * 60 * 60_000;
+/** Smaller amounts wait for the next look: a claim is a transaction and a daily action. */
+export const MIN_LUTE_CLAIM = 10n ** 18n;
+
+export function claimRewardParams(rewarder: `0x${string}`, total: bigint, deadline: bigint, signature: `0x${string}`): `0x${string}` {
+  return action(Action.Claim, encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'bytes' }], [rewarder, total, deadline, signature]));
+}
+
 export function gaugeParams(kind: number, gauge: `0x${string}`, tokenId: bigint): `0x${string}` {
   return action(kind, encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }], [gauge, tokenId]));
 }
@@ -316,12 +345,22 @@ export function unpackPosition<T>(json: string): T {
  * point (observation cardinality 1) never can, however long it waits, until
  * someone pays to raise it with increaseObservationCardinalityNext.
  */
-export async function hasPriceHistory(client: { readContract: (a: never) => Promise<unknown> }, pool: `0x${string}`, window = lpConfig(0).twapWindow): Promise<boolean> {
+export async function hasPriceHistory(client: { readContract: (a: never) => Promise<unknown> }, pool: `0x${string}`, window = lpConfig(0).twapWindow, algebra = false): Promise<boolean> {
   try {
+    if (algebra) {
+      // Algebra keeps its history in the pool's plugin, which the adapter asks the same way.
+      const plugin = await client.readContract({ address: pool, abi: ALGEBRA_PLUGIN_ABI, functionName: 'plugin' } as never) as `0x${string}`;
+      await client.readContract({ address: plugin, abi: ALGEBRA_PLUGIN_ABI, functionName: 'getTimepoints', args: [[window, 0]] } as never);
+      return true;
+    }
     await client.readContract({ address: pool, abi: OBSERVE_ABI, functionName: 'observe', args: [[window, 0]] } as never);
     return true;
   } catch { return false; }
 }
+const ALGEBRA_PLUGIN_ABI = parseAbi([
+  'function plugin() view returns (address)',
+  'function getTimepoints(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint88[] volatilityCumulatives)',
+]);
 const OBSERVE_ABI = parseAbi(['function observe(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)']);
 
 export const AGENT_BATCH_ABI = parseAbi([

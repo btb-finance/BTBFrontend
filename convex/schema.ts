@@ -125,6 +125,7 @@ export default defineSchema({
     // Auto-compound: collect the position's fees and add them back to it.
     compound: v.optional(v.boolean()),
     lastCompoundedAt: v.optional(v.float64()),
+    lastRewardClaimAt: v.optional(v.float64()), // Alandale: last time the agent looked for signed LUTE rewards
     compounds: v.optional(v.float64()),
     spentBtb: v.float64(),
     failures: v.float64(),

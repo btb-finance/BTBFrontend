@@ -263,3 +263,88 @@ export const SLIPSTREAM_TICKS_HEAD_ABI = [
     { name: 'feeGrowthOutside0X128', type: 'uint256' }, { name: 'feeGrowthOutside1X128', type: 'uint256' },
   ] },
 ] as const;
+
+/**
+ * Algebra Integral (Alandale on Robinhood Chain). One pool per pair (no fee tiers), found with poolByPair; the pool
+ * reports price and tick through globalState() with a dynamic fee, keeps its own tickSpacing, and names its fee
+ * accumulators totalFeeGrowth*Token. The position struct has no fee field (eleven words), and mint takes no fee or
+ * spacing. increaseLiquidity, decreaseLiquidity, collect and burn are the Uniswap V3 ones. Read from the live
+ * contracts: manager 0xe62a5F67…B5c3 (bytecode selectors) and a WETH/USAR pool.
+ */
+export const ALGEBRA_NPM_ABI = [
+  {
+    name: 'positions', type: 'function', stateMutability: 'view',
+    inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [
+      { name: 'nonce', type: 'uint88' },
+      { name: 'operator', type: 'address' },
+      { name: 'token0', type: 'address' },
+      { name: 'token1', type: 'address' },
+      { name: 'tickLower', type: 'int24' },
+      { name: 'tickUpper', type: 'int24' },
+      { name: 'liquidity', type: 'uint128' },
+      { name: 'feeGrowthInside0LastX128', type: 'uint256' },
+      { name: 'feeGrowthInside1LastX128', type: 'uint256' },
+      { name: 'tokensOwed0', type: 'uint128' },
+      { name: 'tokensOwed1', type: 'uint128' },
+    ],
+  },
+  {
+    name: 'mint', type: 'function', stateMutability: 'payable',
+    inputs: [{
+      name: 'params', type: 'tuple', components: [
+        { name: 'token0', type: 'address' },
+        { name: 'token1', type: 'address' },
+        { name: 'tickLower', type: 'int24' },
+        { name: 'tickUpper', type: 'int24' },
+        { name: 'amount0Desired', type: 'uint256' },
+        { name: 'amount1Desired', type: 'uint256' },
+        { name: 'amount0Min', type: 'uint256' },
+        { name: 'amount1Min', type: 'uint256' },
+        { name: 'recipient', type: 'address' },
+        { name: 'deadline', type: 'uint256' },
+      ],
+    }],
+    outputs: [
+      { name: 'tokenId', type: 'uint256' },
+      { name: 'liquidity', type: 'uint128' },
+      { name: 'amount0', type: 'uint256' },
+      { name: 'amount1', type: 'uint256' },
+    ],
+  },
+] as const;
+
+export const ALGEBRA_FACTORY_ABI = [
+  { name: 'poolByPair', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }], outputs: [{ type: 'address' }] },
+] as const;
+
+export const ALGEBRA_POOL_ABI = [
+  {
+    name: 'globalState', type: 'function', stateMutability: 'view', inputs: [],
+    outputs: [
+      { name: 'price', type: 'uint160' },
+      { name: 'tick', type: 'int24' },
+      { name: 'lastFee', type: 'uint16' },
+      { name: 'pluginConfig', type: 'uint8' },
+      { name: 'communityFee', type: 'uint16' },
+      { name: 'unlocked', type: 'bool' },
+    ],
+  },
+  { name: 'liquidity', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint128' }] },
+  { name: 'tickSpacing', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] },
+  { name: 'fee', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint16' }] },
+  { name: 'totalFeeGrowth0Token', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'totalFeeGrowth1Token', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  {
+    name: 'ticks', type: 'function', stateMutability: 'view', inputs: [{ type: 'int24' }],
+    outputs: [
+      { name: 'liquidityTotal', type: 'uint256' },
+      { name: 'liquidityDelta', type: 'int128' },
+      { name: 'prevTick', type: 'int24' },
+      { name: 'nextTick', type: 'int24' },
+      { name: 'outerFeeGrowth0Token', type: 'uint256' },
+      { name: 'outerFeeGrowth1Token', type: 'uint256' },
+    ],
+  },
+  { name: 'plugin', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] },
+] as const;

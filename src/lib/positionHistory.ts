@@ -154,9 +154,11 @@ export async function fetchEmptyPositions(client: PublicClient, d: V3Deployment,
     try {
       const r = await client.readContract({ address: d.positionManager, abi, functionName: 'positions', args: [id] }) as readonly unknown[];
       // Standard struct: [nonce, operator, token0, token1, fee, tickLower, tickUpper, liquidity, fg0, fg1, owed0, owed1]; compact forks shift by two.
+      // Algebra has no fee field: one fewer from liquidity on, and no fee to report.
       const off = d.compactPositions ? -2 : 0;
-      const liquidity = r[7 + off] as bigint, owed0 = r[10 + off] as bigint, owed1 = r[11 + off] as bigint;
-      if (liquidity === 0n && owed0 === 0n && owed1 === 0n) out.push({ tokenId: id, token0: r[2 + off] as `0x${string}`, token1: r[3 + off] as `0x${string}`, fee: Number(r[4 + off]) });
+      const after = d.algebra ? -1 : off;
+      const liquidity = r[7 + after] as bigint, owed0 = r[10 + after] as bigint, owed1 = r[11 + after] as bigint;
+      if (liquidity === 0n && owed0 === 0n && owed1 === 0n) out.push({ tokenId: id, token0: r[2 + off] as `0x${string}`, token1: r[3 + off] as `0x${string}`, fee: d.algebra ? 0 : Number(r[4 + off]) });
     } catch { /* burned or unreadable */ }
   }));
   return out;
