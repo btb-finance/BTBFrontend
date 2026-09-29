@@ -1,12 +1,11 @@
 'use client';
-import dynamic from 'next/dynamic';
+import { ClientApp } from './ClientOnly';
 
 // Deep-link routes (/discover/<chain>[/<pair>]) are rendered on demand by a
 // serverless function. SSR-ing the wallet providers there crashes (indexedDB
-// is not defined), so we mount the whole app on the client only. Page metadata
-// is still rendered server-side, so share previews work for crawlers.
-const AppShell = dynamic(() => import('./AppShell').then((m) => m.AppShell), { ssr: false });
-
+// is not defined), so the app mounts on the client only through the same
+// entry as every other route. Page metadata is still rendered server-side, so
+// share previews work for crawlers.
 export function AppClientOnly() {
-  return <AppShell/>;
+  return <ClientApp/>;
 }

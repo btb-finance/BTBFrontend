@@ -2,13 +2,9 @@
 import { unpackSnapshotBrowser } from './snapshotCodec';
 import { useSyncExternalStore } from 'react';
 import type { PublicClient } from 'viem';
-import { ConvexHttpClient } from 'convex/browser';
-import { api } from '../../convex/_generated/api';
+import { fetchDiscoverRow } from './discoverSnapshot';
 import { getEarnPools, addRangeAprs, isConcentratedPool, EarnPool } from './pools';
 import { fetchPoolPriceChanges } from './geckoterminal';
-
-// Same fallback as Providers.tsx — keep in sync.
-const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud';
 
 // ─── Discover pool data store ────────────────────────────────────────────────
 // Lives at module level so the data survives the screen unmounting, and so the
@@ -62,8 +58,7 @@ export function prefetchDiscoverPools(client?: PublicClient) {
     // is the cron's problem — the browser never recomputes just because the row
     // got old, it only falls back when there is no row at all.
     try {
-      const convex = new ConvexHttpClient(CONVEX_URL);
-      const row = await convex.query(api.discover.get, {});
+      const row = await fetchDiscoverRow();
       if (row) {
         const snap = await unpackSnapshotBrowser<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
         if (snap.pools?.length > 0) {
