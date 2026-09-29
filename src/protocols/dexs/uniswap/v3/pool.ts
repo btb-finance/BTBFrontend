@@ -1,7 +1,8 @@
 import type { PublicClient } from 'viem';
 import { UNISWAP_V3_DEPLOYMENT, type V3Deployment } from './addresses';
-import { FACTORY_ABI, POOL_ABI, ERC20_META_ABI , SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, ALGEBRA_FACTORY_ABI, ALGEBRA_POOL_ABI } from './abis';
+import { FACTORY_ABI, POOL_ABI, SLIPSTREAM_FACTORY_ABI, SLOT0_HEAD_ABI, ALGEBRA_FACTORY_ABI, ALGEBRA_POOL_ABI } from './abis';
 import { withSafeMulticall } from '@/lib/safeMulticall';
+import { tokenMetas, poolLookupKey, knownAddress, rememberAddress } from '@/lib/rpcCache';
 
 export interface MintPool {
   /** Pool contract address (zero when the pool doesn't exist). */
@@ -26,6 +27,16 @@ export interface MintPool {
 const ZERO = '0x0000000000000000000000000000000000000000';
 const TICK_SPACING_ABI = [{ name: 'tickSpacing', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'int24' }] }] as const;
 
+/** Symbols and decimals of a sorted pair, from the app wide cache where known ('?' / 18 when a read fails). */
+async function pairMeta(client: PublicClient, token0: `0x${string}`, token1: `0x${string}`) {
+  const m = await tokenMetas(client, [token0, token1]);
+  const m0 = m.get(token0.toLowerCase()), m1 = m.get(token1.toLowerCase());
+  return {
+    symbol0: m0?.symbol ?? '?', decimals0: m0?.decimals ?? 18,
+    symbol1: m1?.symbol ?? '?', decimals1: m1?.decimals ?? 18,
+  };
+}
+
 /**
  * Read a V3-compatible pool that was already resolved by a factory probe.
  * This avoids repeating factory discovery when opening a progressive result.
@@ -38,28 +49,17 @@ export async function fetchKnownV3Pool(
   fee: number,
 ): Promise<MintPool> {
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
-  const [slot0, liquidity, tickSpacing, metaRes] = await Promise.all([
+  const [slot0, liquidity, tickSpacing, meta] = await Promise.all([
     client.readContract({ address: pool, abi: SLOT0_HEAD_ABI, functionName: 'slot0' }) as Promise<readonly unknown[]>,
     client.readContract({ address: pool, abi: POOL_ABI, functionName: 'liquidity' }) as Promise<bigint>,
     client.readContract({ address: pool, abi: TICK_SPACING_ABI, functionName: 'tickSpacing' }).then(Number).catch(() => undefined),
-    withSafeMulticall(client).multicall({
-      contracts: [
-        { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
-        { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
-        { address: token1, abi: ERC20_META_ABI, functionName: 'symbol' },
-        { address: token1, abi: ERC20_META_ABI, functionName: 'decimals' },
-      ],
-      allowFailure: true,
-    }),
+    pairMeta(client, token0, token1),
   ]);
   return {
     address: pool,
     token0,
     token1,
-    symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
-    decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
-    symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
-    decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
+    ...meta,
     fee,
     exists: (slot0[0] as bigint) > 0n,
     sqrtPriceX96: slot0[0] as bigint,
@@ -84,20 +84,10 @@ export async function fetchPoolForMint(
   const [token0, token1] = tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA];
   if (d.algebra) return fetchAlgebraPool(client, token0, token1, d);
 
-  const pool = (await client.readContract({
-    address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, fee],
-  })) as `0x${string}`;
+  const pool = await poolAddressOf(client, d, token0, token1, fee);
   const exists = !!pool && pool.toLowerCase() !== ZERO;
 
-  const metaRes = await withSafeMulticall(client).multicall({
-    contracts: [
-      { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
-      { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
-      { address: token1, abi: ERC20_META_ABI, functionName: 'symbol' },
-      { address: token1, abi: ERC20_META_ABI, functionName: 'decimals' },
-    ],
-    allowFailure: true,
-  });
+  const meta = await pairMeta(client, token0, token1);
 
   let sqrtPriceX96 = 0n, tick = 0, liquidity = 0n;
   if (exists) {
@@ -113,10 +103,7 @@ export async function fetchPoolForMint(
   return {
     address: pool,
     token0, token1,
-    symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
-    decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
-    symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
-    decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
+    ...meta,
     fee, exists, sqrtPriceX96, tick, liquidity,
   };
 }
@@ -137,28 +124,29 @@ export async function fetchPoolsForMint(
   // swap fee is a per-pool value read separately.
   const slip = !!d.slipstream;
 
-  const [addrRes, metaRes] = await Promise.all([
-    withSafeMulticall(client).multicall({
-      contracts: d.feeTiers.map((fee) => ({
+  // Tiers whose pool is already known skip the factory; only unseen (or not yet created) tiers are asked.
+  const lookupOf = (fee: number) => poolLookupKey(client.chain?.id ?? 0, d.factory, token0, token1, fee);
+  const unknownTiers = d.feeTiers.filter((fee) => !knownAddress(lookupOf(fee)));
+  const [addrRes, meta] = await Promise.all([
+    unknownTiers.length === 0 ? Promise.resolve([]) : withSafeMulticall(client).multicall({
+      contracts: unknownTiers.map((fee) => ({
         address: d.factory, abi: slip ? SLIPSTREAM_FACTORY_ABI : FACTORY_ABI, functionName: 'getPool' as const, args: [token0, token1, fee] as const,
       })),
       allowFailure: true,
     }),
-    withSafeMulticall(client).multicall({
-      contracts: [
-        { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
-        { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
-        { address: token1, abi: ERC20_META_ABI, functionName: 'symbol' },
-        { address: token1, abi: ERC20_META_ABI, functionName: 'decimals' },
-      ],
-      allowFailure: true,
-    }),
+    pairMeta(client, token0, token1),
   ]);
+  unknownTiers.forEach((fee, i) => {
+    const r = addrRes[i];
+    if (r?.status === 'success') rememberAddress(lookupOf(fee), r.result as `0x${string}`);
+  });
 
-  const addrs = d.feeTiers.map((fee, i) => ({
-    fee,
-    pool: (addrRes[i].status === 'success' ? (addrRes[i].result as `0x${string}`) : ZERO) as `0x${string}`,
-  }));
+  const addrs = d.feeTiers.map((fee) => {
+    const i = unknownTiers.indexOf(fee);
+    const r = i >= 0 ? addrRes[i] : undefined;
+    const fetched = r?.status === 'success' ? (r.result as `0x${string}`) : undefined;
+    return { fee, pool: (knownAddress(lookupOf(fee)) ?? fetched ?? ZERO) as `0x${string}` };
+  });
   const existing = addrs.filter((a) => a.pool && a.pool.toLowerCase() !== ZERO);
 
   // slot0 + liquidity for every existing tier, one batch
@@ -177,12 +165,6 @@ export async function fetchPoolsForMint(
       })
     : [];
 
-  const meta = {
-    symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
-    decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
-    symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
-    decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
-  };
 
   const out: Record<number, MintPool> = {};
   for (const a of addrs) {
@@ -215,25 +197,14 @@ export async function fetchAlgebraPool(
   token1: `0x${string}`,
   d: V3Deployment,
 ): Promise<MintPool> {
-  const [poolRes, metaRes] = await Promise.all([
-    client.readContract({ address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair', args: [token0, token1] }).catch(() => ZERO) as Promise<`0x${string}`>,
-    withSafeMulticall(client).multicall({
-      contracts: [
-        { address: token0, abi: ERC20_META_ABI, functionName: 'symbol' },
-        { address: token0, abi: ERC20_META_ABI, functionName: 'decimals' },
-        { address: token1, abi: ERC20_META_ABI, functionName: 'symbol' },
-        { address: token1, abi: ERC20_META_ABI, functionName: 'decimals' },
-      ],
-      allowFailure: true,
-    }),
+  const [poolRes, meta] = await Promise.all([
+    poolAddressOf(client, d, token0, token1, 0).catch(() => ZERO as `0x${string}`),
+    pairMeta(client, token0, token1),
   ]);
   const pool = (poolRes || ZERO) as `0x${string}`;
   const base = {
     address: pool, token0, token1, fee: d.feeTiers[0],
-    symbol0: metaRes[0].status === 'success' ? (metaRes[0].result as string) : '?',
-    decimals0: metaRes[1].status === 'success' ? Number(metaRes[1].result) : 18,
-    symbol1: metaRes[2].status === 'success' ? (metaRes[2].result as string) : '?',
-    decimals1: metaRes[3].status === 'success' ? Number(metaRes[3].result) : 18,
+    ...meta,
   };
   if (pool.toLowerCase() === ZERO) return { ...base, exists: false, sqrtPriceX96: 0n, tick: 0, liquidity: 0n };
   const [gs, liquidity, spacing] = await Promise.all([
@@ -250,7 +221,15 @@ export async function fetchAlgebraPool(
  * (Slipstream, Ramses), or poolByPair (Algebra). `key` is the fee or the spacing; Algebra ignores it.
  */
 export async function poolAddressOf(client: PublicClient, d: V3Deployment, token0: `0x${string}`, token1: `0x${string}`, key: number): Promise<`0x${string}`> {
-  if (d.algebra) return client.readContract({ address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair', args: [token0, token1] }) as Promise<`0x${string}`>;
-  if (d.slipstream) return client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, key] }) as Promise<`0x${string}`>;
-  return client.readContract({ address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, key] }) as Promise<`0x${string}`>;
+  // A pool's address never changes once created, so each pair is asked once per browser.
+  const lookup = poolLookupKey(client.chain?.id ?? 0, d.factory, token0, token1, d.algebra ? 0 : key);
+  const hit = knownAddress(lookup);
+  if (hit) return hit;
+  const pool = await (d.algebra
+    ? client.readContract({ address: d.factory, abi: ALGEBRA_FACTORY_ABI, functionName: 'poolByPair', args: [token0, token1] })
+    : d.slipstream
+      ? client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, key] })
+      : client.readContract({ address: d.factory, abi: FACTORY_ABI, functionName: 'getPool', args: [token0, token1, key] })) as `0x${string}`;
+  rememberAddress(lookup, pool);
+  return pool;
 }

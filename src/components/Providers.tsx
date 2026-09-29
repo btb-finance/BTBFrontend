@@ -8,6 +8,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { ChainThemeProvider } from '@/lib/ChainThemeContext';
 import { XpToastProvider } from '@/lib/XpToast';
 import { SafeAutoConnect } from '@/lib/SafeAutoConnect';
+import { AppSkeleton } from '@/components/AppSkeleton';
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud';
 
@@ -42,7 +43,7 @@ export function Providers({ children }: { children: ReactNode }) {
   // (Node.js) runtime. Skip rendering wagmi/convex providers on the server
   // and wait until the client mounts.
   if (!mounted) {
-    return null;
+    return <AppSkeleton/>;
   }
 
   return (

@@ -13,6 +13,7 @@
 import { encodeFunctionData, type PublicClient } from 'viem';
 import type { Call } from '@/lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
+import { knownAddress, rememberAddress, shareInflight } from '@/lib/rpcCache';
 import type { LiquidityPosition } from './types';
 import type { V3Deployment } from './dexs/uniswap/v3/addresses';
 import { SLIPSTREAM_FACTORY_ABI } from './dexs/uniswap/v3/abis';
@@ -109,23 +110,41 @@ export async function withStakeTargets(client: PublicClient, d: V3Deployment, po
 /** Every position the wallet has staked at this venue, with claimable rewards.
  * Gauges: every pool the voter lists, stakedValues(owner) each (one multicall
  * round). MasterChef: the chef enumerates per owner. */
-export async function fetchStakedPositions(client: PublicClient, owner: `0x${string}`, d: V3Deployment): Promise<LiquidityPosition[]> {
+export function fetchStakedPositions(client: PublicClient, owner: `0x${string}`, d: V3Deployment): Promise<LiquidityPosition[]> {
+  return shareInflight(`staked:${client.chain?.id}:${d.positionManager.toLowerCase()}:${owner.toLowerCase()}`, () => readStakedPositions(client, owner, d));
+}
+
+async function readStakedPositions(client: PublicClient, owner: `0x${string}`, d: V3Deployment): Promise<LiquidityPosition[]> {
   const venue = venueFor(d);
   if (!venue) return [];
   let entries: { id: bigint; contract: `0x${string}` }[] = [];
   if (venue.kind === 'gauge') {
     const n = Number(await client.readContract({ address: venue.voter!, abi: VOTER_ABI, functionName: 'length' }));
     if (n === 0) return [];
-    const pools = await withSafeMulticall(client).multicall({
-      contracts: Array.from({ length: n }, (_, i) => ({ address: venue.voter!, abi: VOTER_ABI, functionName: 'pools' as const, args: [BigInt(i)] as const })),
+    // The voter's pool list only grows and a pool's gauge is set once, so both
+    // are remembered: a refresh reads only pools added since, not the whole list.
+    const chainId = client.chain?.id ?? 0;
+    const voter = venue.voter!.toLowerCase();
+    const poolAt = (i: number) => `${chainId}:voter-pool:${voter}:${i}`;
+    const gaugeOf = (pool: string) => `${chainId}:gauge:${voter}:${pool.toLowerCase()}`;
+    const unknownIdx = Array.from({ length: n }, (_, i) => i).filter((i) => !knownAddress(poolAt(i)));
+    const pools = unknownIdx.length === 0 ? [] : await withSafeMulticall(client).multicall({
+      contracts: unknownIdx.map((i) => ({ address: venue.voter!, abi: VOTER_ABI, functionName: 'pools' as const, args: [BigInt(i)] as const })),
       allowFailure: true,
     });
-    const poolAddrs = pools.flatMap((r) => (r.status === 'success' ? [r.result as `0x${string}`] : []));
-    const gauges = await withSafeMulticall(client).multicall({
-      contracts: poolAddrs.map((pool) => ({ address: venue.voter!, abi: VOTER_ABI, functionName: 'gauges' as const, args: [pool] as const })),
+    unknownIdx.forEach((i, j) => { if (pools[j]?.status === 'success') rememberAddress(poolAt(i), pools[j].result as `0x${string}`); });
+    const fetchedPool = new Map(unknownIdx.map((i, j) => [i, pools[j]?.status === 'success' ? (pools[j].result as `0x${string}`) : undefined]));
+    const poolAddrs = Array.from({ length: n }, (_, i) => knownAddress(poolAt(i)) ?? fetchedPool.get(i)).filter((a): a is `0x${string}` => !!a);
+    const unknownPools = poolAddrs.filter((pool) => !knownAddress(gaugeOf(pool)));
+    const gauges = unknownPools.length === 0 ? [] : await withSafeMulticall(client).multicall({
+      contracts: unknownPools.map((pool) => ({ address: venue.voter!, abi: VOTER_ABI, functionName: 'gauges' as const, args: [pool] as const })),
       allowFailure: true,
     });
-    const gaugeAddrs = gauges.flatMap((r) => (r.status === 'success' && (r.result as string).toLowerCase() !== ZERO ? [r.result as `0x${string}`] : []));
+    const fetchedGauge = new Map(unknownPools.map((pool, j) => [pool, gauges[j]?.status === 'success' ? (gauges[j].result as `0x${string}`) : undefined]));
+    unknownPools.forEach((pool) => rememberAddress(gaugeOf(pool), fetchedGauge.get(pool)));
+    const gaugeAddrs = poolAddrs
+      .map((pool) => knownAddress(gaugeOf(pool)) ?? fetchedGauge.get(pool))
+      .filter((g): g is `0x${string}` => !!g && g.toLowerCase() !== ZERO);
     if (gaugeAddrs.length === 0) return [];
     const staked = await withSafeMulticall(client).multicall({
       contracts: gaugeAddrs.map((g) => ({ address: g, abi: CL_GAUGE_ABI, functionName: 'stakedValues' as const, args: [owner] as const })),

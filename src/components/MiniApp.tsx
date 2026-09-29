@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { useConnection, useDisconnect, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
@@ -7,27 +8,72 @@ import { prefetchDiscoverPools } from '../lib/discoverPools';
 import { pathFor, parsePath, type Overlay } from '../lib/routes';
 import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
+import { AppSkeleton } from './AppSkeleton';
 import { TopNav } from './TopNav';
 import { MobileNav } from './MobileNav';
-import { AgentDock } from './AgentDock';
 import { Tab } from './types';
-import { ConnectScreen } from './screens/ConnectScreen';
-import { HomeScreen } from './screens/HomeScreen';
-import { DiscoverScreen } from './screens/DiscoverScreen';
-import { SimulateScreen } from './screens/SimulateScreen';
-import { SwapScreen } from './screens/SwapScreen';
-import { PortfolioScreen } from './screens/PortfolioScreen';
-import { NFTScreen } from './screens/NFTScreen';
-import { StakeScreen } from './screens/StakeScreen';
-import { ReceiveModal } from './ReceiveModal';
-import { SendModal } from './SendModal';
-import { DocsScreen } from './screens/DocsScreen';
-import { OposSeedScreen } from './screens/OposSeedScreen';
-import { btb, MOBILE_GUTTER } from './design-tokens';
+import { MOBILE_GUTTER } from './design-tokens';
 import { captureReferral } from '../lib/referral';
 import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
+
+// Each screen, overlay and modal is its own chunk. Bundled together they were
+// ~900 KB that every visitor downloaded before the first paint, whatever tab
+// they opened. The loaders are kept so the idle warmup below can reuse them.
+const screenLoader = {
+  home:      () => import('./screens/HomeScreen'),
+  discover:  () => import('./screens/DiscoverScreen'),
+  simulate:  () => import('./screens/SimulateScreen'),
+  swap:      () => import('./screens/SwapScreen'),
+  portfolio: () => import('./screens/PortfolioScreen'),
+  nft:       () => import('./screens/NFTScreen'),
+  stake:     () => import('./screens/StakeScreen'),
+  docs:      () => import('./screens/DocsScreen'),
+  connect:   () => import('./screens/ConnectScreen'),
+  agentDock: () => import('./AgentDock'),
+  send:      () => import('./SendModal'),
+  receive:   () => import('./ReceiveModal'),
+};
+
+const ScreenLoading = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+    <Spinner size={32} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>
+  </div>
+);
+
+const HomeScreen      = dynamic(() => screenLoader.home().then(m => m.HomeScreen), { ssr: false, loading: ScreenLoading });
+const DiscoverScreen  = dynamic(() => screenLoader.discover().then(m => m.DiscoverScreen), { ssr: false, loading: ScreenLoading });
+const SimulateScreen  = dynamic(() => screenLoader.simulate().then(m => m.SimulateScreen), { ssr: false, loading: ScreenLoading });
+const SwapScreen      = dynamic(() => screenLoader.swap().then(m => m.SwapScreen), { ssr: false, loading: ScreenLoading });
+const PortfolioScreen = dynamic(() => screenLoader.portfolio().then(m => m.PortfolioScreen), { ssr: false, loading: ScreenLoading });
+const NFTScreen       = dynamic(() => screenLoader.nft().then(m => m.NFTScreen), { ssr: false, loading: ScreenLoading });
+const StakeScreen     = dynamic(() => screenLoader.stake().then(m => m.StakeScreen), { ssr: false, loading: ScreenLoading });
+const DocsScreen      = dynamic(() => screenLoader.docs().then(m => m.DocsScreen), { ssr: false, loading: ScreenLoading });
+// Treasury only tool: never warmed, fetched only when someone opens it.
+const OposSeedScreen  = dynamic(() => import('./screens/OposSeedScreen').then(m => m.OposSeedScreen), { ssr: false, loading: ScreenLoading });
+const ConnectScreen   = dynamic(() => screenLoader.connect().then(m => m.ConnectScreen), { ssr: false });
+const AgentDock       = dynamic(() => screenLoader.agentDock().then(m => m.AgentDock), { ssr: false });
+const SendModal       = dynamic(() => screenLoader.send().then(m => m.SendModal), { ssr: false });
+const ReceiveModal    = dynamic(() => screenLoader.receive().then(m => m.ReceiveModal), { ssr: false });
+
+// Once the first screen is up, fetch the rest one at a time while the browser
+// is idle, so later tab switches and the connect sheet still open instantly.
+function useWarmScreens() {
+  useEffect(() => {
+    let cancelled = false;
+    const idle = (fn: () => void) =>
+      typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 1500);
+    const queue = Object.values(screenLoader);
+    const next = () => {
+      const load = queue.shift();
+      if (cancelled || !load) return;
+      load().catch(() => {}).finally(() => idle(next));
+    };
+    idle(next);
+    return () => { cancelled = true; };
+  }, []);
+}
 
 function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onViewAddress }: {
   effectiveAddress?: string;
@@ -51,6 +97,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   // Warm the BearNFT/BearStaking reads while the user is anywhere in the app so
   // the NFT/Agent tab is instant when they open it.
   usePreloadBear(effectiveAddress);
+  useWarmScreens();
 
   const { isMobile } = useSidebar();
   const config = useConfig();
@@ -209,11 +256,7 @@ export function MiniApp() {
     setViewAddress(undefined);
   };
 
-  if (!mounted) return (
-    <div style={{ minHeight: '100vh', background: btb.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Spinner size={48} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)" style={{ borderWidth: 3 }}/>
-    </div>
-  );
+  if (!mounted) return <AppSkeleton/>;
 
   return (
     <TokenStoreProvider walletAddress={effectiveAddress}>

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-import { Providers } from '@/components/Providers';
-import { MiniApp } from '@/components/MiniApp';
+import { ClientApp } from '@/components/ClientOnly';
 import { buildMetadata } from '@/lib/seo/metadata';
 
 // Every tab/overlay of the app shell is deep-linkable. The shell (MiniApp)
@@ -31,9 +30,5 @@ export async function generateMetadata({ params }: { params: Promise<{ tab: stri
 }
 
 export default function TabPage() {
-  return (
-    <Providers>
-      <MiniApp/>
-    </Providers>
-  );
+  return <ClientApp/>;
 }

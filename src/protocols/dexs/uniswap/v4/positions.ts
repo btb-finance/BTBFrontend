@@ -3,10 +3,10 @@ import { UNISWAP_V4, V4_DEPLOY_BLOCK, isNativeCurrency, type PoolKey, type V4Dep
 import { POSITION_MANAGER_ABI, STATE_VIEW_ABI, POOL_KEY_COMPONENTS, ERC721_TRANSFER_EVENT } from './abis';
 import { V4_SUBGRAPH_ID } from './subgraph';
 import { getOwnerPositionIds, hasGraphKey } from '../graph';
-import { ERC20_META_ABI } from '../v3/abis';
 import { getAmountsForLiquidity } from '../v3/math';
 import type { LiquidityPosition } from '@/protocols/types';
 import { withSafeMulticall } from '@/lib/safeMulticall';
+import { tokenMetas, shareInflight } from '@/lib/rpcCache';
 
 const MASK256 = (1n << 256n) - 1n;
 const Q128 = 1n << 128n;
@@ -50,7 +50,7 @@ function unpackTicks(info: bigint): { tickLower: number; tickUpper: number } {
  * tokensOwed counter; uncollected fees are computed live from the fee-growth
  * delta: liquidity * (feeGrowthInside_now − feeGrowthInside_last) / 2^128.
  */
-export async function fetchV4Positions(
+export function fetchV4Positions(
   client: PublicClient,
   owner: `0x${string}`,
   /** Pre-enumerated position tokenIds (from the Alchemy NFT index) — skips
@@ -58,6 +58,18 @@ export async function fetchV4Positions(
   knownIds?: bigint[],
   deployment: V4Deployment = UNISWAP_V4,
   deployBlock: bigint = V4_DEPLOY_BLOCK,
+): Promise<LiquidityPosition[]> {
+  // Screens asking for the same wallet at the same moment share one read (and one log scan).
+  const key = `v4:${client.chain?.id}:${deployment.positionManager.toLowerCase()}:${owner.toLowerCase()}:${knownIds ? knownIds.join(',') : 'all'}:${deployBlock}`;
+  return shareInflight(key, () => readV4Positions(client, owner, knownIds, deployment, deployBlock));
+}
+
+async function readV4Positions(
+  client: PublicClient,
+  owner: `0x${string}`,
+  knownIds: bigint[] | undefined,
+  deployment: V4Deployment,
+  deployBlock: bigint,
 ): Promise<LiquidityPosition[]> {
   const posm = deployment.positionManager;
 
@@ -187,21 +199,7 @@ export async function fetchV4Positions(
   // 5) token metadata — native ETH (address 0) is hardcoded, ERC-20s are read
   const tokens = [...new Set(raws.flatMap((r) => [r.key.currency0, r.key.currency1]))]
     .filter((t) => !isNativeCurrency(t));
-  const metaRes = await withSafeMulticall(client).multicall({
-    contracts: tokens.flatMap((t) => [
-      { address: t, abi: ERC20_META_ABI, functionName: 'symbol' as const },
-      { address: t, abi: ERC20_META_ABI, functionName: 'decimals' as const },
-    ]),
-    allowFailure: true,
-  });
-  const meta = new Map<string, { symbol: string; decimals: number }>();
-  tokens.forEach((t, i) => {
-    const sym = metaRes[i * 2], dec = metaRes[i * 2 + 1];
-    meta.set(t.toLowerCase(), {
-      symbol: sym.status === 'success' ? (sym.result as string) : '?',
-      decimals: dec.status === 'success' ? Number(dec.result as number) : 18,
-    });
-  });
+  const meta = await tokenMetas(client, tokens);
   const metaOf = (t: `0x${string}`) =>
     isNativeCurrency(t) ? { symbol: 'ETH', decimals: 18 } : meta.get(t.toLowerCase()) ?? { symbol: '?', decimals: 18 };
 

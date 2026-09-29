@@ -1,9 +1,5 @@
-import { Providers, MiniApp } from '@/components/ClientOnly';
+import { ClientApp } from '@/components/ClientOnly';
 
 export default function Page() {
-  return (
-    <Providers>
-      <MiniApp/>
-    </Providers>
-  );
+  return <ClientApp/>;
 }

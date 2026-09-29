@@ -68,3 +68,21 @@ html, body, button, input, select, textarea {
   .btb-glass { padding: min(var(--glass-pad, 16px), 12px) !important; }
   .btb-glass .btb-glass { padding: min(var(--glass-pad, 16px), 10px) !important; }
 }
+
+/* First paint app frame (src/components/AppSkeleton.tsx), replaced once the app mounts. */
+@keyframes btb-skeleton-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.btb-skeleton { min-height: 100vh; display: flex; flex-direction: column; background: var(--chain-app-background, #0A0A0F); }
+.btb-skeleton-top { height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 clamp(16px, 3vw, 40px); }
+.btb-skeleton-top img { width: 30px; height: 30px; border-radius: 999px; object-fit: cover; }
+.btb-skeleton-pill, .btb-skeleton-block { background: rgba(255, 255, 255, 0.06); animation: btb-skeleton-pulse 1.6s ease-in-out infinite; }
+.btb-skeleton-pill { height: 44px; border-radius: 999px; }
+.btb-skeleton-block { border-radius: 20px; }
+.btb-skeleton-body { flex: 1; width: 100%; max-width: 1360px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 60px; display: flex; flex-direction: column; gap: 16px; }
+.btb-skeleton-bottom { display: none; }
+@media (max-width: 768px) {
+  .btb-skeleton-top .btb-skeleton-pill { display: none; }
+  .btb-skeleton-body { padding: 14px 6px 100px; }
+  .btb-skeleton-bottom { display: block; position: fixed; left: 6px; right: 6px; bottom: calc(14px + env(safe-area-inset-bottom)); }
+  .btb-skeleton-bottom .btb-skeleton-pill { height: 62px; }
+}
+@media (prefers-reduced-motion: reduce) { .btb-skeleton-pill, .btb-skeleton-block { animation: none; } }
