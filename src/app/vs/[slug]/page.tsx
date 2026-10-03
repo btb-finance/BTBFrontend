@@ -35,7 +35,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
   const faq = [
     c.automation
       ? { q: `Is BTB Finance a cheaper alternative to ${c.name}?`, a: `Yes. ${c.name} takes ${c.automation.cut}. BTB auto-rebalances for a flat $0.10 per rebalance on Base and $0.50 on Robinhood Chain, whatever the position size, plus 1 BTB per check, and never takes a share of your fees. Your first 10 rebalances or compounds are free.` }
-      : { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB earns on swaps routed through the app and pays that revenue back to users every Friday.` },
+      : { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB shares 100% of its revenue, the token fees, back to users every Friday.` },
     { q: `How much does ${c.name} cost?`, a: `${c.name} lists ${paid.map((p) => `${p.plan} at ${p.price}`).join(', ')} (checked ${c.checkedOn}).` },
     ...(c.automation ? [
       { q: 'Who holds my funds with BTB auto-rebalance?', a: 'You do. Each position moves into your own auto wallet, a smart contract only you control. The BTB agent can rebalance, compound and stake it inside the rules you set, but it can never withdraw anything; only you can, and everything goes back to your own address.' },
@@ -156,7 +156,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
 
       <h2 style={styles.h2}>{c.automation ? 'How BTB keeps automation cheap' : 'How BTB makes money without charging you'}</h2>
       <p style={styles.body}>
-        Swaps routed through BTB carry a 1% fee, shown before you confirm. That is the revenue. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
+        BTB&apos;s revenue is its token fees (the OPOS transfer tax), and 100% of it goes back to users. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
       </p>
 
       <h2 style={styles.h2}>Questions</h2>
