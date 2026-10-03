@@ -1,4 +1,5 @@
 import { fallback, http, type Transport } from 'viem';
+import { MAINNET_RPCS } from './rpc';
 import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
 /**
@@ -18,11 +19,8 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   // viem's built in default endpoint and hung. The dedicated failover list in
   // ./rpc.ts is still what the wallet config uses; this is the keyless subset
   // for server side reads.
-  1: [
-    'https://eth.api.pocket.network', 'https://gateway.tenderly.co/public/mainnet', 'https://eth.rpc.blxrbdn.com',
-    'https://ethereum.public.blockpi.network/v1/rpc/public', 'https://0xrpc.io/eth', 'https://eth.blockrazor.xyz',
-    'https://eth.drpc.org', 'https://ethereum-rpc.publicnode.com', 'https://1.rpc.thirdweb.com', 'https://eth.meowrpc.com',
-  ],
+  // The same checked list the wallet config uses (./rpc.ts), so a dead endpoint is removed in one place.
+  1: MAINNET_RPCS,
   56: [
     'https://rpc.swiftnodes.io/rpc/bsc', 'https://bsc.rpc.blxrbdn.com', 'https://bsc.api.pocket.network', 'https://public.1rpc.io/bnb',
     'https://bsc-dataseed1.bnbchain.org', 'https://bsc-dataseed1.defibit.io', 'https://bsc-dataseed1.ninicoin.io', 'https://bsc-dataseed2.bnbchain.org',

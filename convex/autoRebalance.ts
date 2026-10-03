@@ -243,7 +243,8 @@ export const upsertVerified = internalMutation({
 /**
  * Create only: the job for a position that has never had one. Used without a signed session (every fact is
  * checked on chain first), so it must never touch an existing job: someone else cannot re-enable a job the
- * owner paused or change its interval. Null when a job already exists.
+ * owner paused or change its interval. Null when an active job already exists; a stopped or paused one for the same
+ * position is turned back on.
  */
 export const createIfNew = internalMutation({
   args: {
@@ -253,13 +254,24 @@ export const createIfNew = internalMutation({
   handler: async (ctx, a) => {
     const pm = a.positionManager.toLowerCase();
     const same = await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", a.address.toLowerCase())).collect();
-    if (same.some((r) => r.chainId === a.chainId && r.positionManager === pm && r.tokenId === a.tokenId)) return null;
+    const existing = same.find((r) => r.chainId === a.chainId && r.positionManager === pm && r.tokenId === a.tokenId);
+    if (existing?.active) return null;
     const now = Date.now();
     // A rebalance mints the new position a moment before its job moves to the new id: during that window the new
     // NFT would look unmanaged, and starting it would give one position two jobs.
     const lock = await ctx.db.query("rebalanceLocks").withIndex("by_chain", (q) => q.eq("chainId", a.chainId)).unique();
     if ((lock && lock.until > now) || same.some((r) => r.chainId === a.chainId && r.wallet === a.wallet.toLowerCase() && (r.lastRebalancedAt ?? 0) > now - 3 * 60_000)) {
       return "busy" as const;
+    }
+    // The same position back in its auto wallet (taken out, then moved in again): the owner's proven move turns its
+    // old job back on with the new settings, keeping its history, instead of refusing it as "already set up".
+    if (existing) {
+      await schedule(ctx, existing, now + 5_000, {
+        active: true, status: "watching", note: undefined, failures: 0,
+        wallet: a.wallet.toLowerCase(), label: a.label, gauge: a.gauge?.toLowerCase(), intervalMin: a.intervalMin,
+        ...(a.compound != null ? { compound: a.compound } : {}),
+      });
+      return existing._id;
     }
     const id = await ctx.db.insert("autoRebalances", {
       address: a.address.toLowerCase(), chainId: a.chainId, positionManager: pm, tokenId: a.tokenId,

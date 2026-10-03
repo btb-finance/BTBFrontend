@@ -54,6 +54,40 @@ async function walletForCode(ctx: QueryCtx, code: string): Promise<string | null
   return hits.length === 1 ? hits[0].walletAddress : null;
 }
 
+/**
+ * Server only (npx convex run): correct the BTB balance a check-in stored, when a bad RPC read recorded the wrong
+ * one. Tomorrow's holding bonus uses the lower of this and the next check-in's balance.
+ */
+export const fixCheckInBalance = internalMutation({
+  args: { walletAddress: v.string(), btb: v.float64() },
+  handler: async (ctx, { walletAddress, btb }) => {
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", walletAddress.toLowerCase())).unique();
+    if (!user) return { ok: false as const };
+    await ctx.db.patch(user._id, { btbAtCheckIn: btb });
+    return { ok: true as const };
+  },
+});
+
+/**
+ * Server only (npx convex run): credit XP a wallet should have earned but did not because of a bug on our side. It
+ * counts toward the current week like any other XP and is recorded once per `reason`, so a repeat does nothing.
+ */
+export const creditMissedXp = internalMutation({
+  args: { walletAddress: v.string(), xp: v.float64(), reason: v.string() },
+  handler: async (ctx, { walletAddress, xp, reason }) => {
+    const addr = walletAddress.toLowerCase();
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).unique();
+    if (!user || !(xp > 0)) return { ok: false as const, reason: "no user" };
+    const key = `fix:${reason}`;
+    const done = await ctx.db.query("dailyAwards").withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", 0).eq("key", key)).first();
+    if (done) return { ok: false as const, reason: "already credited" };
+    await ctx.db.insert("dailyAwards", { walletAddress: addr, day: 0, key, xp, createdAt: Date.now() });
+    await ctx.db.patch(user._id, { points: user.points + xp });
+    await addEpochPoints(ctx, addr, xp);
+    return { ok: true as const, awarded: xp };
+  },
+});
+
 export const getUser = query({
   args: { walletAddress: v.string() },
   handler: async (ctx, { walletAddress }) =>
