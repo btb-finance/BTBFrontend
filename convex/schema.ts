@@ -64,7 +64,7 @@ export default defineSchema({
     expiresAt: v.float64(),
     createdAt: v.float64(),
     nonce: v.optional(v.string()), // the login code, so each signed login opens one session only
-  }).index("by_token", ["token"]).index("by_address", ["address"]).index("by_nonce", ["nonce"]),
+  }).index("by_token", ["token"]).index("by_address", ["address"]).index("by_nonce", ["nonce"]).index("by_expires", ["expiresAt"]),
 
   // Every credit ever made. `ref` is the deposit tx hash, or `payout:<id>`
   // for weekly rewards moved in; the unique lookup is what stops a pasted
@@ -96,7 +96,7 @@ export default defineSchema({
     message: v.string(),
     createdAt: v.float64(),
     readAt: v.optional(v.float64()),
-  }).index("by_address", ["address", "createdAt"]),
+  }).index("by_address", ["address", "createdAt"]).index("by_created", ["createdAt"]),
 
   // Auto-rebalance: one row per position moved into the owner's V6 wallet.
   // Each check is scheduled on its own at nextCheckAt; `gen` makes any older

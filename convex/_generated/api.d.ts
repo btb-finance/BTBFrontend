@@ -21,6 +21,7 @@ import type * as balances from "../balances.js";
 import type * as cache from "../cache.js";
 import type * as cacheFill from "../cacheFill.js";
 import type * as checkInActions from "../checkInActions.js";
+import type * as cleanup from "../cleanup.js";
 import type * as credit from "../credit.js";
 import type * as crons from "../crons.js";
 import type * as discover from "../discover.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   cache: typeof cache;
   cacheFill: typeof cacheFill;
   checkInActions: typeof checkInActions;
+  cleanup: typeof cleanup;
   credit: typeof credit;
   crons: typeof crons;
   discover: typeof discover;
