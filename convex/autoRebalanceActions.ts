@@ -63,6 +63,46 @@ const NFT_ABI = parseAbi([
 ]);
 const RUN_ABI = [...WALLET_ABI, ...ADAPTER_ERRORS_ABI];
 
+/** Blocks per log query: public Base RPCs cap a range at 2,000 blocks; Robinhood Chain's take far more. */
+const LOG_CHUNK: Record<number, bigint> = { 8453: 2_000n };
+const MAX_LOG_QUERIES = 60;
+
+/**
+ * Where a burned position went. A rebalance burns the tracked NFT and mints its successor to the wallet in the same
+ * transaction, so a check that finds the tracked id gone first looks for that burn, from the last check that saw the
+ * position. This catches a rebalance that landed while its receipt never reached us (an RPC timeout makes the send
+ * throw, so the new id was never saved). Follows a few hops, in order. A hop is billed only when the BTB agent sent it.
+ */
+async function successorsOf(client: PublicClient, pm: `0x${string}`, wallet: `0x${string}`, tokenId: bigint, sinceMs: number) {
+  const latest = await client.getBlock();
+  const earlier = await client.getBlock({ blockNumber: latest.number > 1000n ? latest.number - 1000n : 0n });
+  const msPerBlock = Math.max(1, (Number(latest.timestamp - earlier.timestamp) * 1000) / Number(latest.number - earlier.number || 1n));
+  const back = BigInt(Math.ceil(Math.max(0, Date.now() - sinceMs) / msPerBlock));
+  const chunk = LOG_CHUNK[client.chain?.id ?? 0] ?? 50_000n;
+  const fromBlock = latest.number > back ? latest.number - back : 0n;
+  const event = NFT_ABI[1];
+  const hops: { tokenId: bigint; byAgent: boolean }[] = [];
+  let id = tokenId;
+  for (let hop = 0; hop < 5; hop++) {
+    let burn = null;
+    for (let start = fromBlock, n = 0; start <= latest.number && n < MAX_LOG_QUERIES && !burn; start += chunk, n++) {
+      const end = start + chunk - 1n < latest.number ? start + chunk - 1n : latest.number;
+      const logs = await client.getLogs({ address: pm, event, args: { from: wallet, to: "0x0000000000000000000000000000000000000000", tokenId: id }, fromBlock: start, toBlock: end });
+      burn = logs[0] ?? null;
+    }
+    if (!burn) break;
+    const receipt = await client.getTransactionReceipt({ hash: burn.transactionHash });
+    const minted = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: receipt.logs }).find((l) =>
+      l.address.toLowerCase() === pm.toLowerCase() && /^0x0{40}$/.test(l.args.from) && l.args.to.toLowerCase() === wallet.toLowerCase());
+    if (!minted) break;
+    id = minted.args.tokenId;
+    hops.push({ tokenId: id, byAgent: receipt.from.toLowerCase() === REBALANCE_AGENT.toLowerCase() });
+    const alive = await client.readContract({ address: pm, abi: NFT_ABI, functionName: "ownerOf", args: [id] }).then(() => true, () => false);
+    if (alive) return hops;
+  }
+  return null;
+}
+
 /** The DEX deployment behind a position manager this feature supports. */
 function deploymentFor(chainId: number, positionManager: string): V3Deployment | null {
   const pm = positionManager.toLowerCase();
@@ -623,6 +663,19 @@ export const check = internalAction({
       }
     } catch (e) {
       if (revertName(e) != null || (e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError))) {
+        // Burned: usually by our own rebalance whose new id never got saved. Follow it before giving up.
+        const since = (job.lastCheckedAt ?? job.nextCheckAt - intervalMs) - 30 * 60_000;
+        const hops = await successorsOf(client, pm, wallet, tokenId, since).catch(() => null);
+        if (hops?.length) {
+          for (const h of hops) {
+            if (h.byAgent) await ctx.runMutation(internal.autoRebalance.recordRebalance, { id, newTokenId: h.tokenId.toString(), staked: !!job.gauge });
+            else await ctx.runMutation(internal.autoRebalance.followPosition, { id, tokenId: h.tokenId.toString() });
+          }
+          // The next check reads where the new position is (wallet or gauge) and carries on from there.
+          const after = await ctx.runQuery(internal.autoRebalance.get, { id });
+          if (after?.active) await ctx.runMutation(internal.autoRebalance.settle, { id, gen: after.gen, status: "watching", nextInMs: 5_000 });
+          return;
+        }
         await ctx.runMutation(internal.autoRebalance.markGone, { id, note: "The position no longer exists." });
         return;
       }
