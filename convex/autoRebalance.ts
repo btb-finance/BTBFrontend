@@ -6,7 +6,7 @@ import { availableFor, spendCredit } from "./credit";
 import { addEpochPoints } from "./rewards";
 import { REBALANCE_XP } from "./xpRules";
 import { sessionWallet } from "./sessions";
-import { AUTO_CHAIN_NAMES, CHECK_INTERVALS, CHECK_BTB, FREE_ACTIONS, isFarmManager, rebalanceBtb, unpackPosition } from "./autoRebalanceConfig";
+import { AUTO_CHAIN_NAMES, BATCH_CHECKS, CHECK_INTERVALS, CHECK_BTB, FREE_ACTIONS, isFarmManager, rebalanceBtb, unpackPosition } from "./autoRebalanceConfig";
 
 /** Free-trial rebalances and compounds the owner has left. */
 async function freeLeft(ctx: QueryCtx | MutationCtx, address: string): Promise<number> {
@@ -66,11 +66,20 @@ async function payAction(ctx: MutationCtx, address: string, cost: number): Promi
 
 const validInterval = (min: number) => (CHECK_INTERVALS as readonly number[]).includes(min);
 
+/**
+ * Run the check for this generation at `at`. In live batch mode nothing is scheduled per row: the minute sweep picks
+ * the row up once `nextCheckAt` passes (convex/autoRebalanceBatch.ts).
+ */
+async function timer(ctx: MutationCtx, id: Id<"autoRebalances">, at: number, gen: number, retry?: boolean) {
+  if (BATCH_CHECKS === 'live') return;
+  await ctx.scheduler.runAt(at, internal.autoRebalanceActions.check, { id, gen, retry });
+}
+
 /** Point the row at its next check and schedule it; any earlier schedule becomes a no-op. */
 async function schedule(ctx: MutationCtx, row: Doc<"autoRebalances">, at: number, patch: Partial<Doc<"autoRebalances">> = {}) {
   const gen = row.gen + 1;
-  await ctx.db.patch(row._id, { ...patch, nextCheckAt: at, gen, updatedAt: Date.now() });
-  await ctx.scheduler.runAt(at, internal.autoRebalanceActions.check, { id: row._id, gen });
+  await ctx.db.patch(row._id, { ...patch, nextCheckAt: at, gen, retryNext: false, updatedAt: Date.now() });
+  await timer(ctx, row._id, at, gen);
 }
 
 async function ownedRow(ctx: MutationCtx, sessionToken: string, id: Id<"autoRebalances">) {
@@ -310,7 +319,7 @@ export const canPay = internalQuery({
  * cannot pay for the check.
  */
 export const recordCheck = internalMutation({
-  args: { id: v.id("autoRebalances"), gen: v.float64(), inRange: v.boolean(), charge: v.boolean(), snapshot: v.optional(v.string()), staked: v.optional(v.boolean()) },
+  args: { id: v.id("autoRebalances"), gen: v.float64(), inRange: v.boolean(), charge: v.boolean(), snapshot: v.optional(v.string()), staked: v.optional(v.boolean()), pool: v.optional(v.string()) },
   handler: async (ctx, a) => {
     const row = await ctx.db.get(a.id);
     if (!row || row.gen !== a.gen || !row.active) return { ok: false, stale: true };
@@ -322,7 +331,8 @@ export const recordCheck = internalMutation({
     }
     await ctx.db.patch(row._id, {
       lastInRange: a.inRange, lastCheckedAt: Date.now(), failures: 0, updatedAt: Date.now(),
-      ...(a.snapshot ? { snapshot: a.snapshot, snapshotStaked: a.staked } : {}),
+      ...(a.snapshot ? { snapshot: a.snapshot, snapshotStaked: a.staked, lastFullAt: Date.now() } : {}),
+      ...(a.pool ? { pool: a.pool.toLowerCase() } : {}),
       ...(a.charge ? { checks: row.checks + 1 } : {}),
       ...(charge ? { spentBtb: row.spentBtb + CHECK_BTB } : {}),
     });
@@ -338,8 +348,8 @@ export const settle = internalMutation({
     if (!row || row.gen !== a.gen || !row.active) return;
     const at = Date.now() + a.nextInMs;
     const gen = row.gen + 1;
-    await ctx.db.patch(row._id, { status: a.status, note: a.note, nextCheckAt: at, gen, updatedAt: Date.now() });
-    await ctx.scheduler.runAt(at, internal.autoRebalanceActions.check, { id: row._id, gen, retry: a.retry });
+    await ctx.db.patch(row._id, { status: a.status, note: a.note, nextCheckAt: at, gen, retryNext: !!a.retry, updatedAt: Date.now() });
+    await timer(ctx, row._id, at, gen, a.retry);
   },
 });
 
@@ -356,8 +366,8 @@ export const recordFailure = internalMutation({
     }
     const at = Date.now() + a.nextInMs;
     const gen = row.gen + 1;
-    await ctx.db.patch(row._id, { failures, note: a.note, nextCheckAt: at, gen, updatedAt: Date.now() });
-    await ctx.scheduler.runAt(at, internal.autoRebalanceActions.check, { id: row._id, gen });
+    await ctx.db.patch(row._id, { failures, note: a.note, nextCheckAt: at, gen, retryNext: false, updatedAt: Date.now() });
+    await timer(ctx, row._id, at, gen);
     return { paused: false };
   },
 });
@@ -462,5 +472,85 @@ export const sweep = internalMutation({
     const overdue = await ctx.db.query("autoRebalances")
       .withIndex("by_active_next", (q) => q.eq("active", true).lt("nextCheckAt", now - 15 * 60_000)).take(200);
     for (const row of overdue) await schedule(ctx, row, now + Math.floor(Math.random() * 60_000));
+  },
+});
+
+// ── Batched checks (convex/autoRebalanceBatch.ts) ───────────────────────────
+
+/**
+ * Live mode: take up to `limit` due rows for this sweep. Each one's generation moves on, so any older timer or a
+ * second sweep does nothing with it, and it is leased for 10 minutes: a sweep that dies half way leaves it to be
+ * picked up again, never checked twice.
+ */
+export const claimDue = internalMutation({
+  args: { limit: v.float64() },
+  handler: async (ctx, { limit }) => {
+    const now = Date.now();
+    const due = await ctx.db.query("autoRebalances").withIndex("by_active_next", (q) => q.eq("active", true).lte("nextCheckAt", now)).take(limit);
+    const out = [];
+    for (const r of due) {
+      const gen = r.gen + 1;
+      await ctx.db.patch(r._id, { gen, nextCheckAt: now + 10 * 60_000, updatedAt: now });
+      out.push({
+        id: r._id, gen, chainId: r.chainId, positionManager: r.positionManager, tokenId: r.tokenId, wallet: r.wallet,
+        gauge: r.gauge ?? null, compound: !!r.compound, snapshot: r.snapshot ?? null, pool: r.pool ?? null,
+        lastFullAt: r.lastFullAt ?? 0, retry: !!r.retryNext,
+      });
+    }
+    return out;
+  },
+});
+
+/**
+ * In range with nothing else to do: charge the check exactly as a full check would (free while trial actions are left,
+ * then CHECK_BTB) and set the next one, all in one write per row. A row whose generation moved on is skipped.
+ */
+export const fastSettle = internalMutation({
+  args: { items: v.array(v.object({ id: v.id("autoRebalances"), gen: v.float64() })) },
+  handler: async (ctx, { items }) => {
+    const now = Date.now();
+    let settled = 0;
+    for (const it of items) {
+      const row = await ctx.db.get(it.id);
+      if (!row || row.gen !== it.gen || !row.active) continue;
+      const charge = (await freeLeft(ctx, row.address)) === 0;
+      if (charge && !(await spendCredit(ctx, row.address, CHECK_BTB))) {
+        await ctx.db.patch(row._id, { active: false, status: "paused", note: "Your BTB balance ran out. Top up to resume.", gen: row.gen + 1, updatedAt: now });
+        const message = `${row.label}: auto-rebalance paused, your BTB balance ran out.`;
+        await ctx.db.insert("alertEvents", { address: row.address, kind: "auto", label: row.label, message, createdAt: now });
+        await ctx.scheduler.runAfter(0, internal.pushActions.sendPush, { address: row.address, title: "Auto-rebalance paused", body: message, url: "/portfolio" });
+        continue;
+      }
+      await ctx.db.patch(row._id, {
+        lastInRange: true, lastCheckedAt: now, failures: 0, checks: row.checks + 1,
+        ...(charge ? { spentBtb: row.spentBtb + CHECK_BTB } : {}),
+        status: "watching", note: undefined, nextCheckAt: now + row.intervalMin * 60_000, gen: row.gen + 1, retryNext: false, updatedAt: now,
+      });
+      settled++;
+    }
+    return settled;
+  },
+});
+
+/** Shadow mode: every active row, as the batch checker would see it. */
+export const activeForShadow = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("autoRebalances").withIndex("by_active_next", (q) => q.eq("active", true)).collect();
+    return rows.map((r) => ({
+      id: r._id, chainId: r.chainId, positionManager: r.positionManager, tokenId: r.tokenId, wallet: r.wallet,
+      gauge: r.gauge ?? null, compound: !!r.compound, snapshot: r.snapshot ?? null, pool: r.pool ?? null,
+      lastFullAt: r.lastFullAt ?? 0, lastCheckedAt: r.lastCheckedAt ?? 0, lastInRange: r.lastInRange ?? null, label: r.label,
+    }));
+  },
+});
+
+export const recordShadow = internalMutation({
+  args: { compared: v.float64(), agree: v.float64(), disagree: v.float64(), fastEligible: v.float64(), active: v.float64(), details: v.string() },
+  handler: async (ctx, a) => {
+    await ctx.db.insert("checkerShadow", { ...a, at: Date.now() });
+    // Keep about three days.
+    const old = await ctx.db.query("checkerShadow").withIndex("by_at", (q) => q.lt("at", Date.now() - 3 * 86_400_000)).take(100);
+    for (const r of old) await ctx.db.delete(r._id);
   },
 });

@@ -126,6 +126,11 @@ export default defineSchema({
     compound: v.optional(v.boolean()),
     lastCompoundedAt: v.optional(v.float64()),
     lastRewardClaimAt: v.optional(v.float64()), // Alandale: last time the agent looked for signed LUTE rewards
+    // Batched checks (convex/autoRebalanceBatch.ts): the pool the position is in, when a full check last read the
+    // position, and whether the next check is a retry that must not be charged again.
+    pool: v.optional(v.string()),
+    lastFullAt: v.optional(v.float64()),
+    retryNext: v.optional(v.boolean()),
     compounds: v.optional(v.float64()),
     spentBtb: v.float64(),
     failures: v.float64(),
@@ -136,6 +141,17 @@ export default defineSchema({
     createdAt: v.float64(),
     updatedAt: v.float64(),
   }).index("by_address", ["address"]).index("by_active_next", ["active", "nextCheckAt"]),
+
+  // Batched checker in shadow mode: each run's in-range answers compared with the full checks that ran just before.
+  checkerShadow: defineTable({
+    at: v.float64(),
+    compared: v.float64(),
+    agree: v.float64(),
+    disagree: v.float64(),
+    fastEligible: v.float64(),
+    active: v.float64(),
+    details: v.string(),        // up to 10 disagreements, JSON
+  }).index("by_at", ["at"]),
 
   // App BTB balance top-ups paid in ETH or a stablecoin on any supported chain (convex/topUp.ts).
   topUpPayments: defineTable({

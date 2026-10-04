@@ -15,6 +15,7 @@ import type * as alerts from "../alerts.js";
 import type * as alertsActions from "../alertsActions.js";
 import type * as autoRebalance from "../autoRebalance.js";
 import type * as autoRebalanceActions from "../autoRebalanceActions.js";
+import type * as autoRebalanceBatch from "../autoRebalanceBatch.js";
 import type * as autoRebalanceConfig from "../autoRebalanceConfig.js";
 import type * as balances from "../balances.js";
 import type * as cache from "../cache.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   alertsActions: typeof alertsActions;
   autoRebalance: typeof autoRebalance;
   autoRebalanceActions: typeof autoRebalanceActions;
+  autoRebalanceBatch: typeof autoRebalanceBatch;
   autoRebalanceConfig: typeof autoRebalanceConfig;
   balances: typeof balances;
   cache: typeof cache;

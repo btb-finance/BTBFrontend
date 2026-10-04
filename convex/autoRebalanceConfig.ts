@@ -10,6 +10,14 @@ export const BTB_USD = 0.00003;
 /** One position check, in BTB. */
 export const CHECK_BTB = 1;
 /**
+ * Batched checks (convex/autoRebalanceBatch.ts). 'shadow': the per-position checks run as before and the batch checker
+ * only compares its answers with theirs (charges nothing, changes nothing). 'live': a once-a-minute sweep claims the
+ * due positions, settles the in-range ones from one multicall per chain, and runs the full check only for the rest.
+ */
+export const BATCH_CHECKS: 'shadow' | 'live' = 'shadow';
+/** Even a position that stays in range gets a full check (fresh snapshot, ownership, staking) this often. */
+export const FULL_CHECK_EVERY_MS = 6 * 60 * 60_000;
+/**
  * Free trial: each owner's first rebalances and compounds cost nothing, across
  * all chains, and checks are free while any are left. No BTB needed to try it.
  */

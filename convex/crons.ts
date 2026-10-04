@@ -42,6 +42,9 @@ if (process.env.DISABLE_CRONS !== "1") {
   // picks up a row whose scheduled check was lost (a restart), so it is cheap.
   crons.interval("sweep auto-rebalance schedules", { minutes: 30 }, internal.autoRebalance.sweep);
 
+  // Batched auto-rebalance checks (convex/autoRebalanceBatch.ts): compares in shadow mode, does the checks when live.
+  crons.interval("batched auto-rebalance checks", { minutes: 1 }, internal.autoRebalanceBatch.sweepChecks);
+
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
   // UTC; this ticks hourly rather than weekly so a failed settlement retries an

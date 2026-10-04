@@ -104,7 +104,7 @@ async function successorsOf(client: PublicClient, pm: `0x${string}`, wallet: `0x
 }
 
 /** The DEX deployment behind a position manager this feature supports. */
-function deploymentFor(chainId: number, positionManager: string): V3Deployment | null {
+export function deploymentFor(chainId: number, positionManager: string): V3Deployment | null {
   const pm = positionManager.toLowerCase();
   if (chainId === 8453) {
     const aero = AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm);
@@ -705,8 +705,10 @@ export const check = internalAction({
       return;
     }
 
+    // The batch checker reads the pool's price directly; learn the pool once.
+    const pool = job.pool ? undefined : await poolAddressOf(client, d, position!.token0, position!.token1, d.slipstream ? position!.tickSpacing ?? position!.fee : position!.fee).catch(() => undefined);
     // Paid only now that the read succeeded, and never twice for one check.
-    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry, snapshot: packPosition(position), staked });
+    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry, snapshot: packPosition(position), staked, pool });
     if (!charged.ok) {
       if (charged.broke) await push(ctx, job.address, job.label, "auto", "Auto-rebalance paused", `${job.label}: auto-rebalance paused, your BTB balance ran out.`);
       return;
