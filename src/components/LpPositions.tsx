@@ -1938,6 +1938,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <RebalanceFlow
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
+          carryTag={tags[tagKeyOf(rebalance)] ? { key: tagKeyOf(rebalance), tag: tags[tagKeyOf(rebalance)] } : undefined}
           onClose={() => setRebalance(null)}
           onDone={async () => { await load(); }}
         />

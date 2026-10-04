@@ -15,6 +15,7 @@ import { runCalls, supportsAtomicBatch, type Call } from '../lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap, planSwapToFit, planZapToFit, type FitPlan, type ZapPlan } from '../lib/swapGap';
 import { useTokenStore, useTokenLogos, type Token } from '../lib/TokenStore';
+import { useSignedCall } from '../lib/alerts';
 import { PickerSheet } from './PickerSheet';
 import { readableError } from '../lib/errorText';
 import { getTokenPricesUsd } from '../lib/defillama';
@@ -45,7 +46,7 @@ import { NPM_ABI, SLOT0_HEAD_ABI, POOL_ABI, ALGEBRA_POOL_ABI } from '@/protocols
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
 import { STABLES } from '../lib/pools';
 import { api } from '../../convex/_generated/api';
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
 import { AUTO_CHAIN_NAMES, CHECK_INTERVALS, DEFAULT_INTERVAL, adapterFor, buildEnableCalls, dailyCheckBtb, enableWhenVisible, intervalLabel, isFarmManager, rebalanceBtb } from '../lib/autoRebalance';
 
 const RANGE_PRESETS: { label: string; pct: number | null }[] = [
@@ -134,7 +135,7 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, stakeByDefault = true, onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, stakeByDefault = true, carryTag, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
@@ -157,6 +158,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   /** Aerodrome: stake the new NFT in the pool's gauge after minting (default on). */
   stakeByDefault?: boolean;
   onClose: () => void; onDone?: () => void;
+  /** Rebalancing by hand: the old position's tag, moved to the position this mints. */
+  carryTag?: { key: string; tag: string };
 }) {
   const { width: sidebarWidth, isMobile } = useSidebar();
   const { address } = useConnection();
@@ -232,6 +235,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const [payQuery, setPayQuery] = useState('');
   const [zapPlan, setZapPlan] = useState<ZapPlan | null>(null);
   const { positions: held } = useTokenStore();
+  const setTagMutation = useMutation(api.alerts.setTag);
+  const tagSigned = useSignedCall(address);
   // Logos the app already knows (wallet holdings on every chain, then the token list); a side paid in ETH shows ETH's.
   const logoFor = useTokenLogos();
   const [busy, setBusy] = useState(false);
@@ -306,6 +311,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
 
   /** After a mint: hand the newest position to auto-rebalance, or stake it as before. */
   async function afterMint(acct: `0x${string}`) {
+    await moveTag(acct);
     if (!wantsAuto || !pool || !autoAdapter) { await stakeNewest(acct); return; }
     const client = getPublicClient(config, { chainId });
     if (!client) return;
@@ -325,6 +331,25 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
       label: `${pool.symbol0} / ${pool.symbol1} on ${AUTO_CHAIN_NAMES[chainId] ?? 'chain'}`, gauge, intervalMin: autoInterval,
     }));
     if (!res.ok) { throw new Error(`Liquidity added, but auto-rebalance did not start: ${res.reason}`); }
+  }
+  /**
+   * Rebalancing by hand: put the old position's tag on the one just minted (the newest in the wallet, read before it
+   * is staked or moved), then clear the old one. Same key shape as the positions list: chainId:protocol:tokenId.
+   * V4 positions are not enumerable, so their tag stays put. Never blocks the deposit.
+   */
+  async function moveTag(acct: `0x${string}`) {
+    if (!carryTag || isV4) return;
+    try {
+      const client = getPublicClient(config, { chainId });
+      if (!client) return;
+      const count = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'balanceOf', args: [acct] });
+      if (count === 0n) return;
+      const newId = await client.readContract({ address: deployment.positionManager, abi: NPM_ABI, functionName: 'tokenOfOwnerByIndex', args: [acct, count - 1n] });
+      const newKey = carryTag.key.replace(/:[^:]+$/, `:${newId.toString()}`);
+      if (newKey === carryTag.key) return;
+      await tagSigned.run((sessionToken) => setTagMutation({ sessionToken, key: newKey, tag: carryTag.tag }));
+      await tagSigned.run((sessionToken) => setTagMutation({ sessionToken, key: carryTag.key, tag: '' }));
+    } catch { /* the tag is a convenience; the position is what matters */ }
   }
   const feeSwitchProtocol: FeeSwitchProtocol = dex === 'pancakeswap' ? 'pancakeswap-v3' : isV4 ? 'uniswap-v4' : 'uniswap-v3';
   const feeSplit = getFeeSplit(feeSwitchProtocol, fee);

@@ -385,12 +385,27 @@ export const markGone = internalMutation({
   },
 });
 
+/**
+ * A rebalance gives the position a new id. Move the owner's tag on the old id (key `chainId:protocol:tokenId`) to the
+ * new one, so a label set on a position stays with it across rebalances.
+ */
+async function carryTags(ctx: MutationCtx, owner: string, chainId: number, oldId: string, newId: string) {
+  if (oldId === newId) return;
+  const rows = await ctx.db.query("positionTags").withIndex("by_address", (q) => q.eq("address", owner.toLowerCase())).collect();
+  for (const r of rows) {
+    const [c, protocol, id] = r.key.split(":");
+    if (c === String(chainId) && id === oldId && protocol) await ctx.db.patch(r._id, { key: `${c}:${protocol}:${newId}`, updatedAt: Date.now() });
+  }
+}
+
 /** The position was rebuilt by someone other than the agent (the owner, from the wallet): follow it, no charge. */
 export const followPosition = internalMutation({
   args: { id: v.id("autoRebalances"), tokenId: v.string() },
   handler: async (ctx, { id, tokenId }) => {
     const row = await ctx.db.get(id);
-    if (row) await ctx.db.patch(id, { tokenId, updatedAt: Date.now() });
+    if (!row) return;
+    await carryTags(ctx, row.address, row.chainId, row.tokenId, tokenId);
+    await ctx.db.patch(id, { tokenId, updatedAt: Date.now() });
   },
 });
 
@@ -402,6 +417,7 @@ export const recordRebalance = internalMutation({
     if (!row) return null;
     // Checked before sending; if the balance moved meanwhile, take what is there and pause.
     const { paid, btb } = await payAction(ctx, row.address, rebalanceBtb(row.chainId));
+    await carryTags(ctx, row.address, row.chainId, row.tokenId, a.newTokenId);
     await ctx.db.patch(row._id, {
       tokenId: a.newTokenId, lastRebalancedAt: Date.now(), lastInRange: true, rebalances: row.rebalances + 1,
       spentBtb: row.spentBtb + btb, gauge: a.staked ? row.gauge : undefined, updatedAt: Date.now(),

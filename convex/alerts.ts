@@ -181,6 +181,18 @@ export const tagsForAddress = query({
   },
 });
 
+/** Admin: move an owner's tag from one position key to another (repairs a tag left on an old position id). */
+export const moveTagKey = internalMutation({
+  args: { address: v.string(), from: v.string(), to: v.string() },
+  handler: async (ctx, { address, from, to }) => {
+    const a = address.toLowerCase();
+    const row = await ctx.db.query("positionTags").withIndex("by_address_key", q => q.eq("address", a).eq("key", from)).unique();
+    if (!row) return { ok: false as const };
+    await ctx.db.patch(row._id, { key: to, updatedAt: Date.now() });
+    return { ok: true as const };
+  },
+});
+
 export const setTag = mutation({
   args: { sessionToken: v.string(), key: v.string(), tag: v.string() },
   handler: async (ctx, { sessionToken, key, tag }) => {
