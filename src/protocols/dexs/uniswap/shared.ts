@@ -8,6 +8,17 @@
 export const SLIPPAGE_BPS = 50;
 /** ETH held back for gas whenever a native-ETH side is swapped/deposited. */
 export const GAS_RESERVE = 5n * 10n ** 15n; // 0.005 ETH
+
+/**
+ * ETH to keep back for gas when a deposit pays in ETH, from the live gas price: room for about 4M gas (a swap, the
+ * approvals and the mint, with headroom for the price moving), at least 0.0002 ETH for the L1 data fee rollups add on
+ * top, and never more than GAS_RESERVE.
+ */
+export function gasReserveFor(gasPrice: bigint): bigint {
+  const need = gasPrice * 4_000_000n;
+  const floor = 2n * 10n ** 14n;
+  return need < floor ? floor : need > GAS_RESERVE ? GAS_RESERVE : need;
+}
 /** Transaction deadline window. */
 const DEADLINE_SECONDS = 1200; // 20 minutes
 

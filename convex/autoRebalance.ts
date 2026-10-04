@@ -385,6 +385,15 @@ export const markGone = internalMutation({
   },
 });
 
+/** The position was rebuilt by someone other than the agent (the owner, from the wallet): follow it, no charge. */
+export const followPosition = internalMutation({
+  args: { id: v.id("autoRebalances"), tokenId: v.string() },
+  handler: async (ctx, { id, tokenId }) => {
+    const row = await ctx.db.get(id);
+    if (row) await ctx.db.patch(id, { tokenId, updatedAt: Date.now() });
+  },
+});
+
 /** A rebalance landed on-chain: follow the new position and charge for it. */
 export const recordRebalance = internalMutation({
   args: { id: v.id("autoRebalances"), newTokenId: v.string(), staked: v.boolean() },

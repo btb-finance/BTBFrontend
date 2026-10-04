@@ -32,6 +32,8 @@ export interface SwapGapArgs {
   slippageBps: number;
   /** Chain the swap executes on (KyberSwap-supported). Defaults to mainnet. */
   chainId?: number;
+  /** ETH to keep back when selling native ETH; 0 when the caller's budget already leaves gas. */
+  gasReserve?: bigint;
 }
 
 export interface SwapGapResult {
@@ -52,7 +54,8 @@ export async function buildSwapGap(args: SwapGapArgs): Promise<SwapGapResult | n
   // Selling native ETH must leave gas for the swap + mint that follow.
   const sellNative = native0 && sellSide === 0;
   if (sellNative) {
-    const room = budget0 > GAS_RESERVE ? budget0 - GAS_RESERVE : 0n;
+    const keep = args.gasReserve ?? GAS_RESERVE;
+    const room = budget0 > keep ? budget0 - keep : 0n;
     if (sellRaw > room) sellRaw = room;
   }
   if (sellRaw <= 0n) return null;
@@ -173,4 +176,97 @@ export async function planSwapToFit(a: FitArgs): Promise<FitPlan> {
     calls.push({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: sellNative ? x : BigInt(tx.value && tx.value !== '0' ? tx.value : '0'), gas: tx.gas ? BigInt(tx.gas) : undefined, label: 'Swap to fit the range' });
   }
   return { sellSide, sellRaw: x, out, final0, final1, calls, route: quote.route, priceImpact: quote.priceImpact };
+}
+
+// ── Pay with any other token: split it into both sides of the range ────────────
+
+export interface ZapArgs extends FitArgs {
+  /** The token paid in: an address, or 'ETH' for the native coin. Not one of the pool's tokens. */
+  payToken: string;
+  payAmount: bigint;
+}
+
+export interface ZapPlan {
+  /** How much of the paid token goes to each side. */
+  in0: bigint;
+  in1: bigint;
+  /** Expected output of each swap, after price impact and the 1% BTB fee. */
+  out0: bigint;
+  out1: bigint;
+  /** What goes into the position: the amounts typed for each side plus what the swaps return. */
+  final0: bigint;
+  final1: bigint;
+  calls: Call[];
+  route: string;
+  priceImpact: number;
+}
+
+/**
+ * Split a third token into both pool tokens in the ratio the range needs, so it all goes in with nothing left over.
+ * With R = token0 needed per token1 at this price and range, b0 and b1 already typed for each side, A paid in, and
+ * r0, r1 the two swaps' own rates (output per input, after price impact and the BTB fee), sending x to token0 needs
+ * (b0 + r0 x) / (b1 + r1 (A - x)) = R, so x = (R b1 + R r1 A - b0) / (r0 + R r1), kept within 0..A. The rates are
+ * first taken from quotes for half each, then from quotes at the chosen sizes, and the final sizes are quoted again so
+ * the swaps that run are the ones priced. A one-sided range sends everything to the side it takes. Charges the BTB
+ * swap fee on each swap.
+ */
+export async function planZapToFit(a: ZapArgs): Promise<ZapPlan> {
+  const [need0, need1] = getAmountsForLiquidity(a.sqrtPriceX96, a.tickLower, a.tickUpper, 10n ** 24n);
+  const A = a.payAmount;
+  const R = need1 === 0n ? Infinity : Number(need0) / Number(need1);
+  const b0 = Number(a.budget0), b1 = Number(a.budget1);
+  const addr = (side: 0 | 1) => ((side === 0 ? a.native0 : a.native1) ? 'ETH' : side === 0 ? a.token0 : a.token1);
+  const quote = (side: 0 | 1, x: bigint) => x > 0n
+    ? getKyberQuote(a.payToken, addr(side), x.toString(), side === 0 ? a.decimals0 : a.decimals1, a.chainId, { chargeBtbFee: true })
+    : Promise.resolve(null);
+  const split = (r0: number, r1: number): bigint => {
+    if (need1 === 0n) return A;
+    if (need0 === 0n) return 0n;
+    const x = (R * b1 + R * r1 * Number(A) - b0) / (r0 + R * r1);
+    if (!(x > 0)) return 0n;
+    const raw = BigInt(Math.floor(x));
+    return raw > A ? A : raw;
+  };
+  const rate = (q: Awaited<ReturnType<typeof quote>>, x: bigint) => (q && x > 0n ? Number(q.amountOut) / Number(x) : 0);
+
+  // 1. Rates from half each. 2. Split, quote those sizes, split again. 3. Quote the final sizes.
+  const half = A / 2n;
+  let [q0, q1] = await Promise.all([quote(0, need0 > 0n ? half : 0n), quote(1, need1 > 0n ? A - half : 0n)]);
+  let x = split(rate(q0, half), rate(q1, A - half));
+  [q0, q1] = await Promise.all([quote(0, x), quote(1, A - x)]);
+  const x2 = split(q0 ? rate(q0, x) : rate(null, 0n), q1 ? rate(q1, A - x) : rate(null, 0n));
+  if (q0 && q1 && x2 !== x) {
+    x = x2;
+    [q0, q1] = await Promise.all([quote(0, x), quote(1, A - x)]);
+  }
+  const in0 = q0 ? x : 0n, in1 = q1 ? A - x : 0n;
+  const out0 = q0 ? BigInt(q0.amountOut) : 0n, out1 = q1 ? BigInt(q1.amountOut) : 0n;
+
+  const calls: Call[] = [];
+  if (a.build) {
+    const payNative = a.payToken === 'ETH';
+    const built = await Promise.all([
+      q0 ? buildKyberTx(q0.routeSummary, q0.routerAddress, a.account, a.account, a.slippageBps, a.chainId) : null,
+      q1 ? buildKyberTx(q1.routeSummary, q1.routerAddress, a.account, a.account, a.slippageBps, a.chainId) : null,
+    ]);
+    // One approval per router covering what goes through it (both swaps usually share the router).
+    if (!payNative) {
+      const perRouter = new Map<string, bigint>();
+      if (q0) perRouter.set(q0.routerAddress.toLowerCase(), (perRouter.get(q0.routerAddress.toLowerCase()) ?? 0n) + in0);
+      if (q1) perRouter.set(q1.routerAddress.toLowerCase(), (perRouter.get(q1.routerAddress.toLowerCase()) ?? 0n) + in1);
+      for (const [router, amount] of perRouter) {
+        calls.push({ to: a.payToken as `0x${string}`, label: 'Approve the swap', data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [router as `0x${string}`, amount] }) });
+      }
+    }
+    built.forEach((tx, i) => {
+      if (!tx) return;
+      const amount = i === 0 ? in0 : in1;
+      calls.push({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: payNative ? amount : BigInt(tx.value && tx.value !== '0' ? tx.value : '0'), gas: tx.gas ? BigInt(tx.gas) : undefined, label: 'Swap into the pool tokens' });
+    });
+  }
+  return {
+    in0, in1, out0, out1, final0: a.budget0 + out0, final1: a.budget1 + out1, calls,
+    route: [q0?.route, q1?.route].filter(Boolean).join(' · '),
+    priceImpact: Math.max(q0?.priceImpact ?? 0, q1?.priceImpact ?? 0),
+  };
 }
