@@ -1,7 +1,7 @@
 // Auto-rebalance: shared by the Convex actions and the browser, so prices,
 // addresses and the encoded wallet setup are identical on both sides.
 // No Convex functions live here.
-import { encodeAbiParameters, encodeFunctionData, parseAbi } from 'viem';
+import { BaseError, ContractFunctionRevertedError, encodeAbiParameters, encodeFunctionData, parseAbi } from 'viem';
 
 // ── Prices ──────────────────────────────────────────────────────────────────
 
@@ -353,18 +353,38 @@ export function unpackPosition<T>(json: string): T {
  * point (observation cardinality 1) never can, however long it waits, until
  * someone pays to raise it with increaseObservationCardinalityNext.
  */
-export async function hasPriceHistory(client: { readContract: (a: never) => Promise<unknown> }, pool: `0x${string}`, window = lpConfig(0).twapWindow, algebra = false): Promise<boolean> {
+/**
+ * 'ok': the pool answers a TWAP over `window`. 'short': the pool itself refused (it keeps too little history).
+ * 'unknown': the read failed for another reason (RPC down, timeout), so nothing is known about the pool yet.
+ */
+export async function hasPriceHistory(client: { readContract: (a: never) => Promise<unknown> }, pool: `0x${string}`, window = lpConfig(0).twapWindow, algebra = false): Promise<'ok' | 'short' | 'unknown'> {
   try {
     if (algebra) {
       // Algebra keeps its history in the pool's plugin, which the adapter asks the same way.
       const plugin = await client.readContract({ address: pool, abi: ALGEBRA_PLUGIN_ABI, functionName: 'plugin' } as never) as `0x${string}`;
       await client.readContract({ address: plugin, abi: ALGEBRA_PLUGIN_ABI, functionName: 'getTimepoints', args: [[window, 0]] } as never);
-      return true;
+      return 'ok';
     }
     await client.readContract({ address: pool, abi: OBSERVE_ABI, functionName: 'observe', args: [[window, 0]] } as never);
-    return true;
-  } catch { return false; }
+    return 'ok';
+  } catch (e) {
+    const reverted = e instanceof BaseError && !!e.walk((x) => x instanceof ContractFunctionRevertedError);
+    return reverted ? 'short' : 'unknown';
+  }
 }
+
+/** Observation slots a short pool is grown to: at least 10 minutes of history unless it swaps in more than 50 blocks per 10 minutes. */
+export const MIN_OBSERVATIONS = 50;
+
+/** The pool's observationCardinalityNext (the 5th word of slot0 on Uniswap V3 and Slipstream alike), or null if unreadable. */
+export async function observationsNext(client: { call: (a: never) => Promise<{ data?: `0x${string}` }> }, pool: `0x${string}`): Promise<number | null> {
+  try {
+    const { data } = await client.call({ to: pool, data: '0x3850c7bd' } as never); // slot0()
+    if (!data || data.length < 2 + 64 * 5) return null;
+    return Number(BigInt('0x' + data.slice(2 + 64 * 4, 2 + 64 * 5)));
+  } catch { return null; }
+}
+export const GROW_OBSERVATIONS_ABI = parseAbi(['function increaseObservationCardinalityNext(uint16 observationCardinalityNext)']);
 const ALGEBRA_PLUGIN_ABI = parseAbi([
   'function plugin() view returns (address)',
   'function getTimepoints(uint32[] secondsAgos) view returns (int56[] tickCumulatives, uint88[] volatilityCumulatives)',
