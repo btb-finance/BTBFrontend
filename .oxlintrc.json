@@ -1,0 +1,43 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "eslint",
+    "typescript",
+    "react",
+    "nextjs",
+    "jsx-a11y",
+    "unicorn",
+    "oxc",
+    "import"
+  ],
+  "categories": {
+    "correctness": "warn"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "nextjs/no-html-link-for-pages": "warn",
+    "nextjs/no-img-element": "warn"
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "convex/_generated/**",
+    "indexer/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "convex/**"
+      ],
+      "rules": {
+        "react/rules-of-hooks": "off"
+      }
+    }
+  ]
+}
