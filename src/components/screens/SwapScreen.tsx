@@ -73,8 +73,6 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
     };
   }, [open]);
 
-  if (!selected) return null;
-
   // The LP chains first, then the rest in their wagmi order, so the four
   // networks the app is built around never hide behind a scroll.
   const ordered = [...chains].sort((a, b) => rank(a.id) - rank(b.id));
@@ -94,6 +92,9 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
     window.addEventListener('scroll', place, true);
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
   }, [open]);
+
+  // After every hook: returning earlier changed the hook count when the selected chain appeared or went away.
+  if (!selected) return null;
 
   return (
     <div ref={rootRef} style={{ position: 'relative', flexShrink: 0 }}>

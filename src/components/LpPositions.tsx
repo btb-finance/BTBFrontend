@@ -987,19 +987,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalValueUsd, unclaimedUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading, estDailyUsd, avgApr, summaryCanCollect, collectingAll, busyId]);
 
-  if (!address) {
-    return showEmpty ? (
-      <Glass padding={16} radius={18}>
-        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>Connect your wallet to see your LP positions.</div>
-      </Glass>
-    ) : null;
-  }
-  if (!loading && !krystalLoading && positions.length === 0 && (krystal?.positions?.length ?? 0) === 0) {
-    // Portfolio still renders the smart-account overview: a wallet may have no
-    // directly-owned NFT because every position is held by its fixed-owner
-    // account. Embedded Earn views keep their previous compact empty behavior.
-    if (!showEmpty) return null;
-  }
 
   // Chain-read history for positions the provider does not cover (Robinhood
   // and any V3-style position Krystal misses): deposits, withdrawals and
@@ -1075,6 +1062,21 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, config, usd]);
+
+  // After every hook: returning earlier made the hook count change when a wallet connects or disconnects.
+  if (!address) {
+    return showEmpty ? (
+      <Glass padding={16} radius={18}>
+        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>Connect your wallet to see your LP positions.</div>
+      </Glass>
+    ) : null;
+  }
+  if (!loading && !krystalLoading && positions.length === 0 && (krystal?.positions?.length ?? 0) === 0) {
+    // Portfolio still renders the smart-account overview: a wallet may have no
+    // directly-owned NFT because every position is held by its fixed-owner
+    // account. Embedded Earn views keep their previous compact empty behavior.
+    if (!showEmpty) return null;
+  }
 
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
     item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
