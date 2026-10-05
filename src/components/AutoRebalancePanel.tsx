@@ -106,7 +106,7 @@ function WalletUpdates({ address, jobs }: { address: string; jobs: Job[] }) {
         if (version < LATEST_WALLET_VERSION) found.push({ chainId: Number(c), wallet, version });
       }));
       if (live) setOld(found.sort((a, b) => a.chainId - b.chainId));
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
   }, [walletsKey, nonce, config]);
 

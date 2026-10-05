@@ -110,7 +110,7 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
               <div style={{ color: btb.textMuted, fontSize: 12.5, marginTop: 3 }}>{s.summary}</div>
             </Glass>
           ))}
-          {faqs.map((f, i) => (
+          {faqs.map((f) => (
             <Glass key={f.q} padding={16} radius={16}>
               <div style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{f.q}</div>
               <div style={{ color: btb.textMuted, fontSize: 13, lineHeight: 1.55, marginTop: 6 }}>{f.a}</div>

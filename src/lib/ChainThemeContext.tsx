@@ -24,8 +24,10 @@ const ChainThemeContext = createContext<ChainThemeContextValue>({
 
 export function ChainThemeProvider({ children }: { children: ReactNode }) {
   const { chainId: walletChainId } = useConnection();
-  const [chainId, setChainId] = useState(DEFAULT_CHAIN_THEME.chainId);
-  const [mode, setMode] = useState<ColorMode>('dark');
+  const [chainId, setChainId] = useState(() => {
+    try { const stored = Number(localStorage.getItem(STORAGE_KEY)); return CHAIN_THEMES[stored] ? stored : DEFAULT_CHAIN_THEME.chainId; } catch { return DEFAULT_CHAIN_THEME.chainId; }
+  });
+  const [mode, setMode] = useState<ColorMode>(() => { try { return localStorage.getItem(MODE_KEY) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } });
   const toggleMode = useCallback(() => {
     setMode(m => { const next = m === 'dark' ? 'light' : 'dark'; try { localStorage.setItem(MODE_KEY, next); } catch {} return next; });
   }, []);
@@ -36,13 +38,9 @@ export function ChainThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, String(nextChainId));
   }, []);
 
+  // The theme follows the wallet's network and remembers it, so this effect syncs into storage too.
   useEffect(() => {
-    const stored = Number(localStorage.getItem(STORAGE_KEY));
-    if (CHAIN_THEMES[stored]) setChainId(stored);
-    try { if (localStorage.getItem(MODE_KEY) === 'light') setMode('light'); } catch {}
-  }, []);
-
-  useEffect(() => {
+    // eslint-disable-next-line react/set-state-in-effect
     if (walletChainId && CHAIN_THEMES[walletChainId]) setThemeChainId(walletChainId);
   }, [walletChainId, setThemeChainId]);
 

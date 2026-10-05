@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { formatUnits } from 'viem';
 import {
-  ALCHEMY_NETWORKS, ALCHEMY_CHAIN_ID, NATIVE_TOKEN,
+  ALCHEMY_NETWORKS, NATIVE_TOKEN,
   fetchAlchemyTokenBalances, fetchAlchemyTokenMetadata, fetchAlchemyTokenPrices, fetchAlchemyNativePrices, hasAlchemyKey,
 } from './alchemy';
 import type { Token } from './TokenStore';
@@ -39,16 +39,19 @@ function writeBalanceCache(walletAddress: string, tokens: Token[]) {
   } catch { /* private mode / quota — cache is best-effort */ }
 }
 
+const NO_TOKENS: Token[] = [];
+
 export function useOtherChainBalances(walletAddress?: string) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!walletAddress) { setTokens([]); return; }
+    if (!walletAddress) return;
     let cancelled = false;
     // Paint the last-known balances immediately; only show the skeleton on a cold cache.
     const cached = readBalanceCache(walletAddress);
+    // eslint-disable-next-line react/set-state-in-effect -- the cache lives in localStorage, keyed by the wallet this effect is for
     if (cached && cached.length > 0) { setTokens(cached); setLoading(false); }
     else setLoading(true);
     setError(null);
@@ -186,5 +189,5 @@ export function useOtherChainBalances(walletAddress?: string) {
     return () => { cancelled = true; };
   }, [walletAddress]);
 
-  return { tokens, loading, error };
+  return { tokens: walletAddress ? tokens : NO_TOKENS, loading, error };
 }

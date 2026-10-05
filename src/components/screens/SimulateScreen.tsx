@@ -31,11 +31,10 @@ import {
   type V3Deployment,
 } from '@/protocols/dexs/uniswap/v3/addresses';
 import {
-  ROBINHOOD_UNISWAP_V4, UNISWAP_V4, NATIVE_CURRENCY,
+  NATIVE_CURRENCY,
   type V4Deployment,
 } from '@/protocols/dexs/uniswap/v4/addresses';
 import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
-import { PANCAKE_V3_DEPLOYMENT } from '@/protocols/dexs/pancakeswap';
 import { fetchPoolStats } from '../../lib/geckoterminal';
 import { fetchDexPaprikaPools } from '../../lib/dexpaprika';
 import { fetchDexScreenerPools } from '../../lib/dexscreener';
@@ -820,6 +819,8 @@ function CrossChainResearch({ chains, isMobile }: {
   useEffect(() => {
     const controller = new AbortController();
     if (selectedChains.length === 0) {
+      // Same effect as the async token load below, which it cancels: clearing the picker belongs with it.
+      // eslint-disable-next-line react/set-state-in-effect
       setPairTokenOptions([]);
       setLoadingPairTokens(false);
       setPairTokenA(null);

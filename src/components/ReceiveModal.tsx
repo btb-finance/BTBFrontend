@@ -14,7 +14,7 @@ export function ReceiveModal({ address, onClose }: { address: string; onClose: (
     navigator.clipboard.writeText(address).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(() => { /* clipboard blocked: the address stays on screen to copy by hand */ });
   }
 
   return (

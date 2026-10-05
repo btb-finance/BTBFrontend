@@ -30,7 +30,7 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
     let live = true;
     const client = getPublicClient(config, { chainId });
     if (!client) return;
-    (async () => {
+    void (async () => {
       try {
         const spacing = p.tickSpacing ?? deploymentOfPosition(p).tickSpacings[p.fee] ?? 60;
         if (isV4) {

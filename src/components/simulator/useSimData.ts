@@ -20,7 +20,7 @@ import { getPublicClient } from 'wagmi/actions';
 import {
   fetchKnownV3Pool, fetchPoolsForMint, fetchV4PoolForMint, hasGraphKey, V3_SUBGRAPH_ID,
   uniswapV3DeploymentForChain,
-  UNISWAP_V4, ROBINHOOD_UNISWAP_V4, isNativeCurrency,
+  UNISWAP_V4, isNativeCurrency,
   type MintPool, type V4MintPool, type PoolDay,
 } from '@/protocols/dexs/uniswap';
 import { v4DeploymentFor } from '@/protocols/lpChains';

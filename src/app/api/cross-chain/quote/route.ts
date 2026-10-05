@@ -10,6 +10,9 @@ const AMOUNT = /^\d+$/;
 // especially for small routes into newer Robinhood Chain markets.
 const BRIDGE_SLIPPAGE = '0.03';
 
+/** A request field as text; anything but a string or number (an object, say) is treated as missing. */
+const text = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v) : '');
+
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try { body = await request.json(); }
@@ -17,10 +20,10 @@ export async function POST(request: Request) {
 
   const fromChain = Number(body.fromChain);
   const toChain = Number(body.toChain);
-  const fromToken = String(body.fromToken ?? '').toLowerCase();
-  const toToken = String(body.toToken ?? '').toLowerCase();
-  const fromAmount = String(body.fromAmount ?? '');
-  const wallet = String(body.wallet ?? '');
+  const fromToken = text(body.fromToken).toLowerCase();
+  const toToken = text(body.toToken).toLowerCase();
+  const fromAmount = text(body.fromAmount);
+  const wallet = text(body.wallet);
   if (!KYBER_CHAINS[fromChain] || !KYBER_CHAINS[toChain] || fromChain === toChain) {
     return Response.json({ error: 'Choose two different supported networks' }, { status: 400 });
   }

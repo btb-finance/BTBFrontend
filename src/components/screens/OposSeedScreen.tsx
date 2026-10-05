@@ -77,7 +77,7 @@ export function OposSeedScreen() {
     }
     setPairs((m) => ({ ...m, ...next }));
   }
-  useEffect(() => { refreshPairs(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [client != null, list.length]);
+  useEffect(() => { refreshPairs().catch(() => {}); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [client != null, list.length]);
 
   /** decimals per token, read once in one multicall so held balances render
    * before anything is priced. */
@@ -110,7 +110,7 @@ export function OposSeedScreen() {
     setBal({ eth, usdc: g(base[0]), btb: g(base[1]), opos: g(base[2]), tokens: tk });
     setTreasury(tr);
   }
-  useEffect(() => { refreshBalances(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [address, list.length]);
+  useEffect(() => { refreshBalances().catch(() => {}); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [address, list.length]);
   useEffect(() => {
     if (!client || ref) return;
     readReference(client).then(setRef).catch((e) => setErr((e as Error).message));

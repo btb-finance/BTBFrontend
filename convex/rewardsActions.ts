@@ -84,7 +84,8 @@ async function send(to: Address, data: Hex) {
 }
 
 function messageOf(reason: unknown) {
-  return reason instanceof Error ? reason.message : String(reason || "Rewards payout failed");
+  if (reason instanceof Error) return reason.message;
+  return typeof reason === "string" && reason ? reason : "Rewards payout failed";
 }
 
 /** Errors that will never succeed on retry — fail the payout instead of looping. */

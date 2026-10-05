@@ -24,15 +24,15 @@ export function MerklRewards({ address }: { address?: string }) {
   const canTransact = !!connected && !!address && connected.toLowerCase() === address.toLowerCase();
 
   useEffect(() => {
-    if (!address) { setClaims([]); return; }
+    if (!address) return;
     let live = true;
-    Promise.all(LP_CHAINS.map((c) => fetchMerklClaims(address, c).catch(() => [] as MerklClaim[])))
+    void Promise.all(LP_CHAINS.map((c) => fetchMerklClaims(address, c).catch(() => [] as MerklClaim[])))
       .then((all) => { if (live) setClaims(all.flat()); });
     return () => { live = false; };
   }, [address, nonce]);
 
   const byChain = new Map<number, MerklClaim[]>();
-  for (const c of claims) byChain.set(c.chainId, [...(byChain.get(c.chainId) ?? []), c]);
+  for (const c of address ? claims : []) byChain.set(c.chainId, [...(byChain.get(c.chainId) ?? []), c]);
   if (byChain.size === 0) return null;
 
   async function claim(chainId: number, rows: MerklClaim[]) {

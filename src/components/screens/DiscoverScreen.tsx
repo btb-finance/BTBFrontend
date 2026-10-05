@@ -599,11 +599,6 @@ export function DiscoverScreen() {
     for (const pool of pools) if (pool.dexLogo && !m.has(dexKey(pool))) m.set(dexKey(pool), pool.dexLogo);
     return m;
   }, [pools]);
-  const chainLogos = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const pool of pools) if (pool.chainLogo && !m.has(pool.chain)) m.set(pool.chain, pool.chainLogo);
-    return m;
-  }, [pools]);
   const dexes = useMemo(() => [...new Set(
     pools
       .filter(pool => selectedChain === 'all' || pool.chain === selectedChain)

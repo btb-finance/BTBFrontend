@@ -70,7 +70,7 @@ function PayTopUp() {
           : client.getBalance({ address })).catch(() => 0n);
       })));
       if (live) setHeld(out);
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
   }, [address, config]);
 
@@ -84,10 +84,12 @@ function PayTopUp() {
     if (suggested || !prices || Object.keys(held).length === 0) return;
     const options = TOP_UP_CHAINS.flatMap((c) => TOP_UP_ASSETS[c].map((a) => ({ c, a, usd: usdOf(a, heldUnits(c, a)) }))).filter((o) => o.usd >= TOP_UP_MIN_USD * 1.5);
     const pick = options.filter((o) => o.c === walletChain).sort((x, y) => y.usd - x.usd)[0] ?? options.sort((x, y) => y.usd - x.usd)[0];
+    // A one time default picked when balances first arrive; the user can change it after, so it is state, not derived.
+    // eslint-disable-next-line react/set-state-in-effect
     if (!pick) { setSuggested('none'); return; }
     setChainId(pick.c); setSymbol(pick.a.symbol); setSuggested(keyOf(pick.c, pick.a.symbol));
   }, [held, prices]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!TOP_UP_ASSETS[chainId].some((a) => a.symbol === symbol)) setSymbol(TOP_UP_ASSETS[chainId][0].symbol); }, [chainId, symbol]);
+  if (!TOP_UP_ASSETS[chainId].some((a) => a.symbol === symbol)) setSymbol(TOP_UP_ASSETS[chainId][0].symbol);
 
   const asset = TOP_UP_ASSETS[chainId].find((a) => a.symbol === symbol) ?? TOP_UP_ASSETS[chainId][0];
   const n = parseFloat(amount);
@@ -199,7 +201,7 @@ export function BtbTopUp({ credit }: { credit: Credit }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <PayTopUp/>
       <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>Paid but not credited? Paste the transaction hash.</div>
-      <form onSubmit={(e) => { e.preventDefault(); submit(); }} style={{ display: 'flex', gap: 6 }}>
+      <form onSubmit={(e) => { e.preventDefault(); void submit(); }} style={{ display: 'flex', gap: 6 }}>
         <input value={txHash} onChange={(e) => setTxHash(e.target.value)} placeholder="0x transaction hash" spellCheck={false}
           style={{ flex: 1, minWidth: 0, height: 30, padding: '0 10px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11.5, fontFamily: 'inherit', outline: 'none' }}/>
         <button type="submit" disabled={busy || !txHash.trim()} style={{ ...smallBtn(btb.green), height: 30 }}>{busy ? 'Checking' : 'Credit'}</button>

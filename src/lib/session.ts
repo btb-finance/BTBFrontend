@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useAction } from 'convex/react';
 import { useChainId, useSignMessage } from 'wagmi';
 import { hashMessage, hashTypedData } from 'viem';
@@ -62,8 +62,9 @@ function read(address?: string): Stored | null {
  * something that needs it (the agent), never on page load.
  */
 export function useWalletSession(address?: string) {
-  const [session, setSession] = useState<Stored | null>(null);
-  useEffect(() => { setSession(read(address)); }, [address]);
+  const [session, setSession] = useState<Stored | null>(() => read(address));
+  const [sessionFor, setSessionFor] = useState(address);
+  if (sessionFor !== address) { setSessionFor(address); setSession(read(address)); }
   const start = useAction(api.sessionActions.startSession);
   const { signMessageAsync } = useSignMessage();
   const chainId = useChainId();

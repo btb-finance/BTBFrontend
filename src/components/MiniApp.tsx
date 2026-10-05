@@ -8,7 +8,6 @@ import { prefetchDiscoverPools } from '../lib/discoverPools';
 import { pathFor, parsePath, type Overlay } from '../lib/routes';
 import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
-import { AppSkeleton } from './AppSkeleton';
 import { TopNav } from './TopNav';
 import { MobileNav } from './MobileNav';
 import { Tab } from './types';
@@ -232,7 +231,6 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
 }
 
 export function MiniApp() {
-  const [mounted, setMounted] = useState(false);
   // An invite link (?ref=0x…) is remembered in this browser until the new wallet confirms it.
   useEffect(() => { captureReferral(); }, []);
   const { address } = useConnection();
@@ -243,8 +241,9 @@ export function MiniApp() {
   // A linked wallet the user chose to look at while connected with another
   // one: everything reads as that wallet, transactions stay disabled.
   const [viewAddress, setViewAddress] = useState<string | undefined>();
-  useEffect(() => { setMounted(true); }, []);
-  useEffect(() => { setViewAddress(undefined); }, [address]);
+  // The viewed wallet belongs to the connected one: switching wallets drops it in this render, not an effect later.
+  const [viewFor, setViewFor] = useState(address);
+  if (viewFor !== address) { setViewFor(address); setViewAddress(undefined); }
 
   const viewing = viewAddress && address && viewAddress.toLowerCase() !== address.toLowerCase() ? viewAddress : undefined;
   const effectiveAddress = viewing ?? address ?? readOnlyAddress;
@@ -255,8 +254,6 @@ export function MiniApp() {
     setReadOnlyAddress(undefined);
     setViewAddress(undefined);
   };
-
-  if (!mounted) return <AppSkeleton/>;
 
   return (
     <TokenStoreProvider walletAddress={effectiveAddress}>

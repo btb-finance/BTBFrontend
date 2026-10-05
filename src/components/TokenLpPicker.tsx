@@ -12,7 +12,6 @@ import {
 import { useDiscoverPools, prefetchDiscoverPools } from '../lib/discoverPools';
 import type { Token } from '../lib/TokenStore';
 import { CreatePosition } from './CreatePosition';
-import type { LpChainId } from '../protocols/lpChains';
 
 const MAX_SUGGESTIONS = 8;
 

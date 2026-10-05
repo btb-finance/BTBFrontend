@@ -228,7 +228,7 @@ function findPools(pools: Pool[], a: Record<string, unknown>): string {
 }
 
 function estimateEarnings(pools: Pool[], a: Record<string, unknown>): string {
-  const p = pools.find((x) => x.id.toLowerCase() === String(a.poolId ?? "").toLowerCase());
+  const p = pools.find((x) => x.id.toLowerCase() === (typeof a.poolId === "string" ? a.poolId : "").toLowerCase());
   if (!p) return "Unknown pool id; call find_pools first.";
   const deposit = Number(a.depositUsd);
   const days = typeof a.days === "number" && a.days > 0 ? a.days : 30;

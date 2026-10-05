@@ -120,9 +120,9 @@ function MintTab({ address }: { address?: string }) {
         label: `Mint ${n} BTB Bear NFT${n > 1 ? 's' : ''}`,
         onConfirmed: () => {
           // XP is counted server-side from the Bears this transaction minted to the wallet.
-          if (address) awardTxXp({ walletAddress: address, chainId: 1, txHash: hash, kind: 'mint' }).then(r => showXp(r.awarded, `Minted ${n} Bear${n === 1 ? '' : 's'}`)).catch(() => {});
+          if (address) awardTxXp({ walletAddress: address, chainId: 1, txHash: hash, kind: 'mint' }).then(r => showXp(r.awarded, `Minted ${n} Bear${n === 1 ? '' : 's'}`)).catch(() => {}).catch(() => {});
           setMintedQty(n);
-          refetch();
+          void refetch();
         },
       });
       const res = await done;
@@ -381,18 +381,18 @@ function StakeTab({ address }: { address?: string }) {
         label: `${isApproved ? 'Stake' : 'Approve & stake'} ${stakeIds.length} NFT${stakeIds.length > 1 ? 's' : ''}`,
         track,
       });
-      refetch();
+      void refetch();
     } catch (e) {
       setWriteErr(e as Error);
     } finally { setBusy(false); }
   }
 
   function doUnstake() {
-    runSingle(`Unstake ${cappedUnstake} NFT${cappedUnstake > 1 ? 's' : ''}`, () =>
+    void runSingle(`Unstake ${cappedUnstake} NFT${cappedUnstake > 1 ? 's' : ''}`, () =>
       writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'unstake', args: [BigInt(cappedUnstake)] }));
   }
   function doClaim() {
-    runSingle('Claim BTBB rewards', () =>
+    void runSingle('Claim BTBB rewards', () =>
       writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'claim', args: [] }));
   }
 
