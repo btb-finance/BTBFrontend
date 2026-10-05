@@ -187,8 +187,6 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   }, [pool]);
   const flip = flipManual ?? autoFlip;
 
-  const price = pool ? ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1) : 0;
-
   const histCloses = useMemo(
     () => (history && history.length > 1 ? history.map((d) => d.price0) : fallbackCloses ?? []),
     [history, fallbackCloses],

@@ -19,7 +19,7 @@ import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, ALANDALE, MIN_LUTE_CLAIM, REWARD_CLAIM_EVERY_MS, claimRewardParams, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  AGENT_BATCH_ABI, encodeAgentBatch, hasPriceHistory, isFarmManager, type AgentStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
+  AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -104,7 +104,7 @@ async function successorsOf(client: PublicClient, pm: `0x${string}`, wallet: `0x
 }
 
 /** The DEX deployment behind a position manager this feature supports. */
-function deploymentFor(chainId: number, positionManager: string): V3Deployment | null {
+export function deploymentFor(chainId: number, positionManager: string): V3Deployment | null {
   const pm = positionManager.toLowerCase();
   if (chainId === 8453) {
     const aero = AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm);
@@ -257,6 +257,24 @@ async function sweepLoose(client: PublicClient, chainId: number, wallet: `0x${st
     const hash = await walletClient.writeContract(request);
     await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
   } catch { /* the action below still runs; it only uses its own position's funds anyway */ }
+}
+
+/**
+ * Make sure the pool is set to keep MIN_OBSERVATIONS price observations, growing it as the agent when it keeps
+ * fewer. True when the pool is (now) set to keep enough, so the missing history only needs time to build up.
+ */
+async function growObservations(client: PublicClient, chainId: number, pool: `0x${string}`): Promise<boolean> {
+  const next = await observationsNext(client as never, pool);
+  if (next == null) return false;
+  if (next >= MIN_OBSERVATIONS) return true;
+  try {
+    const account = agentAccount();
+    const walletClient = createWalletClient({ account, chain: CHAINS[chainId], transport: SEND_TRANSPORT[chainId] });
+    const { request } = await client.simulateContract({ account, address: pool, abi: GROW_OBSERVATIONS_ABI, functionName: "increaseObservationCardinalityNext", args: [MIN_OBSERVATIONS] });
+    const hash = await walletClient.writeContract(request);
+    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    return receipt.status === "success";
+  } catch { return false; }
 }
 
 const REWARDER_ABI = parseAbi(["function claimed(address user) view returns (uint256)"]);
@@ -705,8 +723,10 @@ export const check = internalAction({
       return;
     }
 
+    // The batch checker reads the pool's price directly; learn the pool once.
+    const pool = job.pool ? undefined : await poolAddressOf(client, d, position!.token0, position!.token1, d.slipstream ? position!.tickSpacing ?? position!.fee : position!.fee).catch(() => undefined);
     // Paid only now that the read succeeded, and never twice for one check.
-    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry, snapshot: packPosition(position), staked });
+    const charged = await ctx.runMutation(internal.autoRebalance.recordCheck, { id, gen, inRange, charge: !retry, snapshot: packPosition(position), staked, pool });
     if (!charged.ok) {
       if (charged.broke) await push(ctx, job.address, job.label, "auto", "Auto-rebalance paused", `${job.label}: auto-rebalance paused, your BTB balance ran out.`);
       return;
@@ -782,10 +802,20 @@ export const check = internalAction({
     // so check first and leave the position staked and untouched.
     if (position) {
       const pool = await poolAddressOf(client, d, position.token0, position.token1, d.slipstream ? position.tickSpacing ?? position.fee : position.fee);
-      if (!(await hasPriceHistory(client, pool, lpConfig(job.chainId).twapWindow, !!d.algebra))) {
-        const note = "Out of range. This pool does not record enough price history to rebalance safely, so it is left as it is.";
-        if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Cannot rebalance this pool", `${job.label}: ${note}`);
-        await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: intervalMs });
+      const history = await hasPriceHistory(client, pool, lpConfig(job.chainId).twapWindow, !!d.algebra);
+      if (history === "unknown") {
+        await ctx.runMutation(internal.autoRebalance.recordFailure, { id, gen, note: "Out of range. Could not read the pool's price history; retrying.", max: MAX_FAILURES, nextInMs: RETRY_MS });
+        return;
+      }
+      if (history === "short") {
+        // A V3 style pool keeps only as many price observations as it was asked to. Anyone may grow that buffer, and
+        // it costs cents on the chains auto-rebalance runs on, so the agent grows it once and waits for history to build.
+        const grown = !d.algebra && await growObservations(client, job.chainId, pool);
+        const note = grown
+          ? "Out of range. This pool kept too little price history; BTB extended it and will rebalance once 10 minutes are recorded."
+          : "Out of range. This pool does not record enough price history to rebalance safely, so it is left as it is.";
+        if (job.note !== note && !grown) await push(ctx, job.address, job.label, "auto", "Cannot rebalance this pool", `${job.label}: ${note}`);
+        await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: grown ? Math.min(intervalMs, 5 * 60_000) : intervalMs });
         return;
       }
     }

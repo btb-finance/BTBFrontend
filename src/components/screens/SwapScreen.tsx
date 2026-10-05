@@ -1,6 +1,6 @@
 'use client';
 import { useXpToast } from '../../lib/XpToast';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useConnection, useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { useAction } from 'convex/react';
@@ -73,8 +73,6 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
     };
   }, [open]);
 
-  if (!selected) return null;
-
   // The LP chains first, then the rest in their wagmi order, so the four
   // networks the app is built around never hide behind a scroll.
   const ordered = [...chains].sort((a, b) => rank(a.id) - rank(b.id));
@@ -94,6 +92,9 @@ export function ChainSelect({ chains, value, onChange, disabledId, small = false
     window.addEventListener('scroll', place, true);
     return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
   }, [open]);
+
+  // After every hook: returning earlier changed the hook count when the selected chain appeared or went away.
+  if (!selected) return null;
 
   return (
     <div ref={rootRef} style={{ position: 'relative', flexShrink: 0 }}>
@@ -452,7 +453,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   const [lastSwap, setLastSwap] = useState<{ amount: string; from: string; out: string; to: string } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const chainTokens = (() => {
+  // Memoized: it merges every listed token for the chain, which ran on every render of the screen before.
+  const chainTokens = useMemo(() => {
     const merged = new Map<string, Token>();
     const add = (token: Token) => {
       if ((token.chainId ?? 1) !== chainId) return;
@@ -467,7 +469,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
     for (const token of customTokens) add(token);
     for (const token of liveBalanceTokens) add(token);
     return [...merged.values()];
-  })();
+  }, [chainId, listedTokens, tokens, positions, customTokens, liveBalanceTokens]);
 
   // Deep-linkable pair: /swap?from=<address|symbol>&to=<address|symbol>.
   // The query string is captured once on first render — the URL-writer effect
@@ -531,10 +533,13 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
 
     const refresh = () => Promise.all([read(fromToken), read(toToken)])
       .then(next => { if (!cancelled) setLiveBalanceTokens(next); });
-    refresh();
+    void refresh();
     const timer = setInterval(refresh, 15_000);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [address, chainId, config, fromToken.address, fromToken.decimals, toToken.address, toToken.decimals, balanceRefreshNonce]);
+  // Keyed on the fields the read uses, not the whole token objects: those are replaced every time a balance lands,
+  // which would restart the read each time it finishes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, chainId, config, fromToken.address, fromToken.decimals, fromToken.usdPrice, toToken.address, toToken.decimals, toToken.usdPrice, balanceRefreshNonce]);
 
   // Pick the pair once when the token list first arrives: URL params win,
   // then the initialFrom prop (portfolio "Swap" buttons), then ETH → USDC.
@@ -572,7 +577,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       }
     }
     // Runs again once the token list has loaded: on a first render it is often still empty.
-  }, [chainId, chainTokens.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chainId, chainTokens.length > 0]);
 
   // Keep the URL carrying the full pair so the current swap is always
   // shareable. replaceState (not push) — token picking shouldn't pile up
@@ -598,7 +604,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
     if (liveTo && (liveTo.balance !== toToken.balance || liveTo.usdPrice !== toToken.usdPrice)) {
       setToToken(liveTo);
     }
-  }, [chainId, positions, tokens, listedTokens, customTokens, liveBalanceTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
+  }, [chainTokens, fromToken.address, toToken.address, fromToken.balance, fromToken.usdPrice, toToken.balance, toToken.usdPrice]);
 
   function selectChain(nextChainId: number) {
     if (!KYBER_CHAINS[nextChainId] || nextChainId === chainId) return;
@@ -976,8 +982,8 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         if ((error as Error).name !== 'AbortError') setter([]);
       } finally { if (!controller.signal.aborted) setLoading(false); }
     };
-    load(fromChainId, setFromCatalog, setLoadingFrom);
-    load(toChainId, setToCatalog, setLoadingTo);
+    void load(fromChainId, setFromCatalog, setLoadingFrom);
+    void load(toChainId, setToCatalog, setLoadingTo);
     return () => controller.abort();
   }, [fromChainId, toChainId]);
 
@@ -992,10 +998,12 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         : await client.readContract({ address: fromToken.address as `0x${string}`, abi: erc20Abi, functionName: 'balanceOf', args: [address] }).catch(() => 0n);
       if (!cancelled) setLiveFrom({ ...fromToken, address: isNativeToken(fromToken.address) ? 'ETH' : fromToken.address.toLowerCase(), chainId: fromChainId, balanceRaw: raw.toString(), balance: formatUnits(raw, fromToken.decimals) });
     };
-    refresh();
+    void refresh();
     const timer = setInterval(refresh, 15_000);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [address, config, fromChainId, fromToken.address, fromToken.decimals]);
+  // Keyed on the fields the read uses; the whole token object is replaced whenever its balance lands.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, config, fromChainId, fromToken.address, fromToken.decimals, fromToken.usdPrice]);
 
   function selectFromChain(next: number) {
     if (next === toChainId) return;

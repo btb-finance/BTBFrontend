@@ -195,7 +195,8 @@ export function SharePositionCard({ data, onClose }: { data: ShareCardData; onCl
 
   useEffect(() => {
     let live = true;
-    renderShareCard(data).then((c) => { if (!live) return; canvasRef.current = c; setUrl(c.toDataURL('image/png')); });
+    renderShareCard(data).then((c) => { if (!live) return; canvasRef.current = c; setUrl(c.toDataURL('image/png')); })
+      .catch(() => { /* the card stays blank; sharing the link still works */ });
     return () => { live = false; };
   }, [data]);
 

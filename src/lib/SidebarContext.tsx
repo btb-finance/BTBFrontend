@@ -23,19 +23,15 @@ interface SidebarCtx {
 const Ctx = createContext<SidebarCtx>({ collapsed: false, forceCollapsed: false, toggle: () => {}, width: 0, isMobile: false });
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [narrow, setNarrow] = useState(false);
-
-  useEffect(() => {
-    try { setCollapsed(localStorage.getItem(STORAGE_KEY) === '1'); } catch {}
-  }, []);
+  // Read on the first render (the app only renders in the browser), so a phone never paints the desktop layout first.
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; } });
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+  const [narrow, setNarrow] = useState(() => window.matchMedia(NARROW_QUERY).matches);
 
   useEffect(() => {
     const mqMobile = window.matchMedia(MOBILE_QUERY);
     const mqNarrow = window.matchMedia(NARROW_QUERY);
     const update = () => { setIsMobile(mqMobile.matches); setNarrow(mqNarrow.matches); };
-    update();
     mqMobile.addEventListener('change', update);
     mqNarrow.addEventListener('change', update);
     return () => {

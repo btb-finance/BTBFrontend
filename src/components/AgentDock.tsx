@@ -30,8 +30,9 @@ export function AgentDock({ hidden, onConnect, onGetBtb }: { hidden?: boolean; o
   // Phone: the round button shows for 5 seconds, then tucks into a slim tab on the right edge, above any
   // bottom action bar, so it never covers a button. Scrolling tucks it at once. Tapping the tab opens the chat.
   const [tucked, setTucked] = useState(false);
+  if (!isMobile && tucked) setTucked(false);
   useEffect(() => {
-    if (!isMobile) { setTucked(false); return; }
+    if (!isMobile) return;
     const t = setTimeout(() => setTucked(true), 5000);
     const onScroll = () => setTucked(true);
     window.addEventListener('scroll', onScroll, { passive: true, once: true });

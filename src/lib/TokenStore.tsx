@@ -6,6 +6,7 @@ import { useAction, useMutation, useQuery } from 'convex/react';
 import { useReadContracts } from 'wagmi';
 import { erc20Abi, formatUnits } from 'viem';
 import { api } from '../../convex/_generated/api';
+import type { FunctionReturnType } from 'convex/server';
 import { useOtherChainBalances } from './useOtherChainBalances';
 import { pendingReferral } from './referral';
 
@@ -93,6 +94,12 @@ export const PROTOCOL_TOKENS = [
 ] as const;
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
 
+// One shared empty value per dataset while it loads. A fresh `[]` on every render made each memo below
+// rebuild its maps on every render of the app until the data arrived.
+const NO_TOKENS: FunctionReturnType<typeof api.tokens.listAll> = [];
+const NO_PRICES: FunctionReturnType<typeof api.queries.listAllPrices> = [];
+const NO_SNAPSHOT: FunctionReturnType<typeof api.users.getBalanceSnapshot> = [];
+
 export function TokenStoreProvider({ children, walletAddress }: { children: ReactNode; walletAddress?: string }) {
   const registerOrGet     = useMutation(api.users.registerOrGet);
   const checkIn           = useAction(api.checkInActions.checkIn);
@@ -107,14 +114,14 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
   // five minutes by cron, so polling at that cadence is just as fresh and
   // stops every visitor re-reading both tables on every cron write.
   // The list is refreshed weekly server-side; a daily poll is plenty (~440 KB each).
-  const convexTokenList = usePolledQuery(api.tokens.listAll, {}, 24 * 60 * 60_000) ?? [];
-  const convexPrices    = usePolledQuery(api.queries.listAllPrices, {}, 5 * 60_000) ?? [];
+  const convexTokenList = usePolledQuery(api.tokens.listAll, {}, 24 * 60 * 60_000) ?? NO_TOKENS;
+  const convexPrices    = usePolledQuery(api.queries.listAllPrices, {}, 5 * 60_000) ?? NO_PRICES;
   // Cached wallet holdings — fetched server-side, read here as the single
   // source of truth for `positions`.
   const snapshot        = useQuery(
     api.users.getBalanceSnapshot,
     walletAddress ? { walletAddress } : 'skip',
-  ) ?? [];
+  ) ?? NO_SNAPSHOT;
 
   const loadingList = convexTokenList.length === 0;
   const [loadingBalances, setLoadingBalances] = useState(false);
@@ -246,7 +253,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     if (triggeredForRef.current === walletAddress) return;
     triggeredForRef.current = walletAddress;
 
-    Promise.all([
+    void Promise.all([
       // Check-in is automatic on connect — the server is the judge of whether
       // today already counted, so a second visit the same day is a no-op and
       // the streak still needs one visit per day to survive.

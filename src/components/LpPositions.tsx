@@ -378,7 +378,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           if (live) setAutoPositions((prev) => place(new Map([...prev.map((p) => [posKey(p), p] as const), [posKey(pos), pos]])));
         } catch { /* the snapshot stays; the next job refresh retries */ }
       }));
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoJobsKey, config]);
@@ -420,7 +420,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         }
       }
       if (live) setOrphans(found);
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectedAddress, address, autoJobsKey, orphanNonce]);
@@ -470,7 +470,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         } catch { /* unknown gas */ }
       }));
       if (live) setCollectGasUsd(out);
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, connectedAddress, usd]);
@@ -625,7 +625,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, config, krystalOpenKey]);
 
-  useEffect(() => { load({ soft: true }); }, [load]);
+  useEffect(() => { void load({ soft: true }); }, [load]);
 
   useEffect(() => { positionsRef.current = positions; }, [positions]);
 
@@ -808,7 +808,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       if (done && Date.now() - done < 5 * 60_000) continue;
       aprDone.current.set(keyOf(p), Date.now()); // in flight: a refresh of the list does not start it twice
       // Each position lands on its own, and a stuck read gives up after 12 s so it can be tried again.
-      Promise.race([compute(p), new Promise<undefined>((r) => setTimeout(() => r(undefined), 12_000))])
+      void Promise.race([compute(p), new Promise<undefined>((r) => setTimeout(() => r(undefined), 12_000))])
         .catch(() => undefined)
         .then((apr) => {
           if (apr !== undefined) { aprTries.current.delete(keyOf(p)); show(p, apr); return; }
@@ -987,19 +987,6 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalValueUsd, unclaimedUsd, pendingFeesUsd, positions.length, inRangeCount, loading, krystalLoading, estDailyUsd, avgApr, summaryCanCollect, collectingAll, busyId]);
 
-  if (!address) {
-    return showEmpty ? (
-      <Glass padding={16} radius={18}>
-        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>Connect your wallet to see your LP positions.</div>
-      </Glass>
-    ) : null;
-  }
-  if (!loading && !krystalLoading && positions.length === 0 && (krystal?.positions?.length ?? 0) === 0) {
-    // Portfolio still renders the smart-account overview: a wallet may have no
-    // directly-owned NFT because every position is held by its fixed-owner
-    // account. Embedded Earn views keep their previous compact empty behavior.
-    if (!showEmpty) return null;
-  }
 
   // Chain-read history for positions the provider does not cover (Robinhood
   // and any V3-style position Krystal misses): deposits, withdrawals and
@@ -1022,7 +1009,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         } catch { /* stays unknown */ }
       }));
       if (live && Object.keys(out).length > 0) setChainHistory((prev) => ({ ...prev, ...out }));
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, krystal, krystalLoading, usd]);
@@ -1071,10 +1058,25 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         }));
       }));
       if (live) setChainClosed(rows.sort((a, b) => b.closedTime - a.closedTime));
-    })();
+    })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, config, usd]);
+
+  // After every hook: returning earlier made the hook count change when a wallet connects or disconnects.
+  if (!address) {
+    return showEmpty ? (
+      <Glass padding={16} radius={18}>
+        <div style={{ color: btb.textMuted, fontSize: 13, textAlign: 'center' }}>Connect your wallet to see your LP positions.</div>
+      </Glass>
+    ) : null;
+  }
+  if (!loading && !krystalLoading && positions.length === 0 && (krystal?.positions?.length ?? 0) === 0) {
+    // Portfolio still renders the smart-account overview: a wallet may have no
+    // directly-owned NFT because every position is held by its fixed-owner
+    // account. Embedded Earn views keep their previous compact empty behavior.
+    if (!showEmpty) return null;
+  }
 
   const otherChainPositions = (krystal?.positions ?? []).filter((item) =>
     item.chainId !== 1 && !(item.status?.toUpperCase().includes('CLOSED') || item.closedTime > 0) &&
@@ -1174,7 +1176,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     // On a phone the fee, status, chain, protocol, Staked and tag share one line under the pair.
     const tagEl = (
       editingTag === tagKeyOf(p) ? (
-        <input autoFocus value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} onBlur={() => commitTag(p)} onKeyDown={(e) => { if (e.key === 'Enter') commitTag(p); if (e.key === 'Escape') setEditingTag(null); }} maxLength={24} placeholder="Tag"
+        <input autoFocus value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} onBlur={() => void commitTag(p)} onKeyDown={(e) => { if (e.key === 'Enter') void commitTag(p); if (e.key === 'Escape') setEditingTag(null); }} maxLength={24} placeholder="Tag"
           style={{ height: 22, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11, fontFamily: 'inherit', outline: 'none', width: 120 }}/>
       ) : (
         <span onClick={() => { if (address) { setEditingTag(tagKeyOf(p)); setTagDraft(tags[tagKeyOf(p)] ?? ''); } }} title="Tag this position" style={{ cursor: address ? 'pointer' : 'default', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, border: tags[tagKeyOf(p)] ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft, background: tags[tagKeyOf(p)] ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: tags[tagKeyOf(p)] ? btb.green : btb.textDim }}>
@@ -1938,6 +1940,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <RebalanceFlow
           pos={rebalance}
           account={connectedAddress as `0x${string}`}
+          carryTag={tags[tagKeyOf(rebalance)] ? { key: tagKeyOf(rebalance), tag: tags[tagKeyOf(rebalance)] } : undefined}
           onClose={() => setRebalance(null)}
           onDone={async () => { await load(); }}
         />
@@ -2016,7 +2019,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
     let live = true;
     const client = getPublicClient(config, { chainId: (pos.chainId ?? 1) as number });
     if (!client) return;
-    (async () => {
+    void (async () => {
       try {
         const [b0, b1] = await withSafeMulticall(client).multicall({
           contracts: [
@@ -2034,7 +2037,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
       } catch { /* unknown balances */ }
     })();
     return () => { live = false; };
-  }, [mode, config, account, pos.token0, pos.token1]);
+  }, [mode, config, account, pos.token0, pos.token1, pos.chainId]);
 
   const effBal0 = ethMode && nativeSide === 0 ? ethBal : bal0;
   const effBal1 = ethMode && nativeSide === 1 ? ethBal : bal1;
@@ -2371,7 +2374,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
 
         {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
 
-        <Button variant="success" size="md" onClick={() => { if (!busy) run(); }} disabled={!canRun} style={{ marginTop: 18, fontWeight: 800 }}>
+        <Button variant="success" size="md" onClick={() => { if (!busy) void run(); }} disabled={!canRun} style={{ marginTop: 18, fontWeight: 800 }}>
           {busy ? (step ?? 'Confirm in your wallet') : mode === 'withdraw' ? (pct === 100 ? 'Withdraw all' : `Withdraw ${pct}%`)
             : swapFit
               ? fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : fitBudget[0] > 0n || fitBudget[1] > 0n ? (fitPlan ? (fitPlan.sellSide !== null ? 'Swap and increase liquidity' : 'Increase liquidity') : 'Getting a price') : 'Enter an amount'

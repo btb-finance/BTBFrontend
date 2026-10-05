@@ -38,9 +38,11 @@ function fmtAmt(raw: bigint, decimals: number): string {
  * Aerodrome a restake toggle — pre-filled with this pool so the user only
  * picks the new range and confirms.
  */
-export function RebalanceFlow({ pos, account, onClose, onDone }: {
+export function RebalanceFlow({ pos, account, carryTag, onClose, onDone }: {
   pos: LiquidityPosition;
   account: `0x${string}`;
+  /** The old position's tag, moved to the new position once it is minted. */
+  carryTag?: { key: string; tag: string };
   onClose: () => void;
   onDone: () => void | Promise<void>;
 }) {
@@ -142,6 +144,7 @@ export function RebalanceFlow({ pos, account, onClose, onDone }: {
         initialFee={pos.protocol === 'alandale-cl' ? undefined : pos.protocol === 'aerodrome-cl' || pos.protocol === 'ramses-v3' || pos.protocol === 'up-v3' ? pos.tickSpacing : pos.fee}
         initialTicks={useSuggested && suggested ? { tickLower: suggested.tickLower, tickUpper: suggested.tickUpper } : undefined}
         stakeByDefault={!!pos.staked}
+        carryTag={carryTag}
         onClose={async () => { await onDone(); onClose(); }}
         onDone={() => {}}
       />

@@ -21,12 +21,6 @@ export interface TickLiquidityPoint {
 
 const WORDS_EACH_SIDE = 12; // ~12*256*tickSpacing ticks of coverage each direction
 
-function mostSignificantBit(x: bigint): number {
-  let n = -1;
-  while (x > 0n) { x >>= 1n; n++; }
-  return n;
-}
-
 /** Decode a tickBitmap word into the initialized tick indices it contains. */
 function decodeWord(word: bigint, wordPos: number, tickSpacing: number): number[] {
   if (word === 0n) return [];

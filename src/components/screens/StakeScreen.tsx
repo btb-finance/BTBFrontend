@@ -300,7 +300,7 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false, onClose }:
   // The agent reads the user's LPs too — same fast path the LP tab uses.
   useEffect(() => {
     let on = true;
-    (async () => {
+    void (async () => {
       try {
         const client = getPublicClient(config);
         const addr = walletAddress as `0x${string}`;
@@ -464,7 +464,7 @@ export function AgentChat({ walletAddress, onGetBtb, compact = false, onClose }:
           <input
             value={input}
             onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); } }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void submit(); } }}
             placeholder="Ask about pools, risk, or your positions…"
             disabled={busy}
             style={{

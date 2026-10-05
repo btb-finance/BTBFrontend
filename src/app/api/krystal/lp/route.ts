@@ -9,6 +9,9 @@ const CHAIN_IDS = '1,10,56,130,137,2020,324,42161,43114,59144,80094,81457,8453,9
 
 /** Read-only Krystal LP analytics proxy. The address is the only caller input;
  * chain, pagination and endpoint are pinned so this cannot become an open proxy. */
+/** A field of Krystal's untyped JSON as text; objects never reach the dedup key as '[object Object]'. */
+const text = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v) : '');
+
 export async function GET(req: NextRequest) {
   const address = new URL(req.url).searchParams.get('address') ?? '';
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
@@ -35,7 +38,7 @@ export async function GET(req: NextRequest) {
     if (pages.length === 0) return Response.json({ error: 'analytics unavailable' }, { status: 502 });
     const seen = new Set<string>();
     const positions = pages.flatMap((page) => page.positions ?? []).filter((position) => {
-      const key = `${position.chainId ?? ''}:${position.tokenAddress ?? ''}:${position.tokenId ?? ''}`;
+      const key = `${text(position.chainId)}:${text(position.tokenAddress)}:${text(position.tokenId)}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
