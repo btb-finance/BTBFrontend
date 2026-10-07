@@ -83,7 +83,7 @@ export const creditMissedXp = internalMutation({
     if (done) return { ok: false as const, reason: "already credited" };
     await ctx.db.insert("dailyAwards", { walletAddress: addr, day: 0, key, xp, createdAt: Date.now() });
     await ctx.db.patch(user._id, { points: user.points + xp });
-    await addEpochPoints(ctx, addr, xp);
+    await addEpochPoints(ctx, addr, xp, false, "XP you were owed, credited");
     return { ok: true as const, awarded: xp };
   },
 });
@@ -147,7 +147,8 @@ export const recordCheckIn = internalMutation({
       points: newPoints,
       ...(btbBalance != null ? { btbAtCheckIn: btbBalance } : {}),
     });
-    await addEpochPoints(ctx, addr, earned);
+    const extras = [weekMilestone ? `+${weekMilestone} week streak bonus` : "", holdBonus ? `+${holdBonus.toLocaleString("en-US")} for holding BTB` : ""].filter(Boolean);
+    await addEpochPoints(ctx, addr, earned, false, `Daily check-in, day ${newStreak}${extras.length ? ` (${extras.join(", ")})` : ""}`);
 
     return { alreadyCheckedIn: false as const, dailyXp, weekMilestone, holdBonus, newStreak, newPoints };
   },
@@ -160,8 +161,8 @@ export const recordCheckIn = internalMutation({
  * paid once, ever.
  */
 export const creditTxXp = internalMutation({
-  args: { walletAddress: v.string(), key: v.string(), xp: v.float64(), capped: v.boolean() },
-  handler: async (ctx, { walletAddress, key, xp, capped }) => {
+  args: { walletAddress: v.string(), key: v.string(), xp: v.float64(), capped: v.boolean(), reason: v.optional(v.string()) },
+  handler: async (ctx, { walletAddress, key, xp, capped, reason }) => {
     const addr = walletAddress.toLowerCase();
     const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).unique();
     if (!user) return { ok: false as const, reason: "not registered", awarded: 0 };
@@ -179,7 +180,7 @@ export const creditTxXp = internalMutation({
     await ctx.db.insert("dailyAwards", { walletAddress: addr, day: 0, key, xp, createdAt: now });
     if (capped) await ctx.db.insert("dailyAwards", { walletAddress: addr, day, key: `swap:${key}`, xp, createdAt: now });
     await ctx.db.patch(user._id, { points: user.points + xp });
-    await addEpochPoints(ctx, addr, xp);
+    await addEpochPoints(ctx, addr, xp, false, reason ?? "Transaction");
     return { ok: true as const, awarded: xp };
   },
 });
@@ -224,7 +225,7 @@ export const awardSimulateXp = mutation({
 
     await ctx.db.insert("dailyAwards", { walletAddress: addr, day, key, xp: SIMULATE_XP, createdAt: now });
     await ctx.db.patch(user._id, { points: user.points + SIMULATE_XP });
-    await addEpochPoints(ctx, addr, SIMULATE_XP);
+    await addEpochPoints(ctx, addr, SIMULATE_XP, false, kind === "pool" ? "Simulated a pool" : "Simulated on a new chain");
     return { ok: true, awarded: SIMULATE_XP };
   },
 });

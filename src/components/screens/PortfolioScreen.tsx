@@ -19,6 +19,7 @@ import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { isLpChain } from '../../protocols/lpChains';
 import { useSidebar } from '../../lib/SidebarContext';
 import { ChainLogo } from '../ChainLogo';
+import { AlertsBell } from '../AlertsBell';
 
 function fmt(n: number, dp = 2) {
   return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
@@ -280,6 +281,8 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {/* Mobile has no top bar; the notifications bell lives here, beside Send and Refresh. */}
+            {isMobile && <AlertsBell pill/>}
             {onSend && (
               <Button variant="ghost" size="sm" fullWidth={false} onClick={onSend} title="Send tokens from this wallet"
                 style={{ height: 36, width: isMobile ? 36 : undefined, padding: isMobile ? 0 : undefined, gap: 5, fontSize: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.07)', color: btb.text, borderRadius: 999 }}>

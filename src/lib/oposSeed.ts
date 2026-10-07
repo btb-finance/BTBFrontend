@@ -179,12 +179,80 @@ const TOKENS_RAW: { symbol: string; address: string; via: 'USDC' | 'WETH' }[] = 
   { symbol: 'SAND',   address: '0x3845badAde8e6dFF049820680d1F14bD3903a5d0', via: 'WETH' },
   { symbol: 'AUDIO',  address: '0x18aAA7115705e8be94bfFEBDE57Af9BFc265B998', via: 'WETH' },
   { symbol: 'PEPE',   address: '0x6982508145454Ce325dDbE47a25d4ec3d2311933', via: 'WETH' },
+  // From Etherscan's top 200 by volume (2026-10-06), each passing priceToken that day
+  // Stablecoins and yield
+  { symbol: 'USD1',   address: '0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d', via: 'USDC' },
+  { symbol: 'USDG',   address: '0xe343167631d89B6Ffc58B88d6b7fB0228795491D', via: 'USDC' },
+  { symbol: 'FDUSD',  address: '0xc5f0f7b66764F6ec8C8Dff7BA683102295E16409', via: 'USDC' },
+  { symbol: 'EURCV',  address: '0x5F7827FDeb7c20b443265Fc2F40845B715385Ff2', via: 'USDC' },
+  { symbol: 'syrupUSDC', address: '0x80ac24aA929eaF5013f6436cdA2a7ba190f5Cc0b', via: 'USDC' },
+  // Exchange tokens
+  { symbol: 'CRO',    address: '0xA0b73E1Ff0B80914AB6fe0444E65848C4C34450b', via: 'WETH' },
+  { symbol: 'BGB',    address: '0x54D2252757e1672EEaD234D27B1270728fF90581', via: 'WETH' },
+  { symbol: 'KCS',    address: '0xf34960d9d60be18cC1D5Afc1A6F012A723a28811', via: 'WETH' },
+  // AI and data
+  { symbol: 'WLD',    address: '0x163f8C2467924be0ae7B5347228CABF260318753', via: 'WETH' },
+  { symbol: 'NIL',    address: '0x7Cf9a80db3B29eE8efE3710AadB7b95270572d47', via: 'WETH' },
+  { symbol: 'KITE',   address: '0x118B70dF4F06Fa5678E7d543e6066e028C8ea0c0', via: 'WETH' },
+  { symbol: 'PROMPT', address: '0x28d38dF637dB75533bD3F71426F3410a82041544', via: 'WETH' },
+  { symbol: 'BIO',    address: '0xcb1592591996765Ec0eFc1f92599A19767ee5ffA', via: 'WETH' },
+  { symbol: 'NMR',    address: '0x1776e1F26f98b1A5dF9cD347953a26dd3Cb46671', via: 'WETH' },
+  { symbol: 'PHA',    address: '0x6c5bA91642F10282b576d91922Ae6448C9d52f4E', via: 'WETH' },
+  { symbol: 'AIOZ',   address: '0x626E8036dEB333b408Be468F951bdB42433cBF18', via: 'WETH' },
+  { symbol: 'LPT',    address: '0x58b6A8A3302369DAEc383334672404Ee733aB239', via: 'WETH' },
+  { symbol: 'DIA',    address: '0x84cA8bc7997272c7CfB4D0Cd3D55cd942B3c9419', via: 'WETH' },
+  // DeFi and infrastructure
+  { symbol: 'WLFI',   address: '0xdA5e1988097297dCdc1f90D4dFE7909e847CBeF6', via: 'WETH' },
+  { symbol: 'DEXE',   address: '0xde4EE8057785A7e8e800Db58F9784845A5C2Cbd6', via: 'WETH' },
+  { symbol: 'DODO',   address: '0x43Dfc4159D86F3A37A5A4B3D4580b888ad7d4DDd', via: 'WETH' },
+  { symbol: 'BICO',   address: '0xF17e65822b568B3903685a7c9F496CF7656Cc6C2', via: 'WETH' },
+  { symbol: 'COTI',   address: '0xDDB3422497E61e13543BeA06989C0789117555c5', via: 'WETH' },
+  { symbol: 'AMP',    address: '0xfF20817765cB7f73d4bde2e66e067E58D11095C2', via: 'WETH' },
+  { symbol: 'GTC',    address: '0xDe30da39c46104798bB5aA3fe8B9e0e1F348163F', via: 'WETH' },
+  // Gaming, NFTs, culture
+  { symbol: 'MANA',   address: '0x0F5D2fB29fb7d3CFeE444a200298f468908cC942', via: 'WETH' },
+  { symbol: 'ENJ',    address: '0xF629cBd94d3791C9250152BD8dfBDF380E2a3B9c', via: 'WETH' },
+  { symbol: 'BEAM',   address: '0x62D0A8458eD7719FDAF978fe5929C6D342B0bFcE', via: 'WETH' },
+  { symbol: 'SUPER',  address: '0xe53EC727dbDEB9E2d5456c3be40cFF031AB40A55', via: 'WETH' },
+  { symbol: 'RARE',   address: '0xba5BDe662c17e2aDFF1075610382B9B691296350', via: 'WETH' },
+  { symbol: 'PENGU',  address: '0x6418c0dd099a9FDA397C766304CDd918233E8847', via: 'WETH' },
+  { symbol: 'PEOPLE', address: '0x7A58c0Be72BE218B41C608b7Fe7C5bB630736C71', via: 'WETH' },
+  { symbol: 'Neiro',  address: '0x812Ba41e071C7b7fA4EBcFB62dF5F45f6fA853Ee', via: 'WETH' },
   // Created, never funded
   { symbol: 'CRV',    address: '0xD533a949740bb3306d119CC777fa900bA034cd52', via: 'WETH' },
 ];
 // Addresses above are typed by hand; checksum them once so a casing slip cannot reach a transaction.
 
 export const TOKENS: { symbol: string; address: Address; via: 'USDC' | 'WETH' }[] = TOKENS_RAW.map((t) => ({ ...t, address: getAddress(t.address.toLowerCase()) }));
+
+/** The next 50 to seed, highest 24h volume first (Etherscan and CoinGecko,
+ * 2026-10-06). Volatile tokens only: a pool earns when its token moves against
+ * BTB, so stablecoins, staked ETH and gold were left out, as were one-day
+ * volume spikes (24h volume above market cap). Retry FET, RENDER, VIRTUAL and
+ * LPT on the day; they were held only by the price check. */
+export const NEXT_BATCH: string[] = [
+  'QNT', 'WLD', 'PENGU', 'ARB', 'ZRO', 'SHIB', 'SAND', 'INJ', 'STRK', 'CRV',
+  'NIL', 'FLOKI', 'WLFI', 'EIGEN', 'COTI', 'PHA', 'MANA', 'BEAM', 'APE', 'BIO',
+  'KCS', 'DIA', 'GRT', 'SPX', 'NMR', 'W', 'BAT', 'LSK', 'T', 'AMP',
+  'MOG', 'SYN', '1INCH', 'SUPER', 'KITE', 'BGB', 'CRO', 'ENJ', 'IMX', 'Neiro',
+  'RARE', 'REZ', 'DEXE', 'DODO', 'ZRX', 'PEOPLE', 'AIOZ', 'HEMI', 'SAFE', 'AEVO',
+];
+
+/** Tokens that have an OPOS V2 pair but are not in the seed list (the first
+ * batch, whose LP was burned, and pairs others opened). Found by scanning the
+ * factory's PairCreated events on 2026-10-06; the pairs page reads these too. */
+export const OTHER_PAIRED: { symbol: string; address: Address }[] = [
+  { symbol: 'UNI',    address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984' },
+  { symbol: 'AAVE',   address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9' },
+  { symbol: 'LINK',   address: '0x514910771AF9Ca656af840dff83E8264EcF986CA' },
+  { symbol: 'PENDLE', address: '0x808507121B80c02388fAd14726482e061B8da827' },
+  { symbol: 'LDO',    address: '0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32' },
+  { symbol: 'OCEAN',  address: '0x967da4048cD07aB37855c090aAF366e4ce1b9F48' },
+  { symbol: 'ATH',    address: '0xbe0Ed4138121EcFC5c0E56B40517da27E6c5226B' },
+  { symbol: 'BADGER', address: '0x3472A5A71965499acd81997a54BBA8D852C6E53d' },
+  { symbol: 'TEL',    address: '0x467Bccd9d29f223BcE8043b84E8C8B282827790F' },
+  { symbol: 'CTM',    address: '0xc8Fb80fCc03f699C70ff0CC08C09106288888888' },
+];
 
 export const FACTORY_ABI = parseAbi(['function getPair(address,address) view returns (address)']);
 export const PAIR_ABI = parseAbi(['function getReserves() view returns (uint112,uint112,uint32)', 'function token0() view returns (address)']);

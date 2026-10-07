@@ -14,6 +14,7 @@ const TAB_META: Record<string, { title: string; description: string }> = {
   nft:       { title: 'BTB Bear NFT', description: 'Mint and stake BTB Bears to earn BTBB rewards.' },
   agent:     { title: 'Agent', description: 'Your personal AI agent that reads your portfolio and flags risks.' },
   'opos-seed': { title: 'OPOS pair seeding', description: 'Treasury tool.' },
+  'opos-pairs': { title: 'OPOS pairs', description: 'BTB held in every OPOS pair and the fees it has earned.' },
   docs:      { title: 'Docs: the BTB manual', description: 'How to find pools, simulate a range, add liquidity, claim, stake, rebalance and remove positions, swap, and earn the Friday BTB payout.' },
 };
 

@@ -180,11 +180,21 @@ const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const LABEL_STYLE = { color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.5 };
 const CARD_STYLE = { background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 14, padding: '11px 13px', minWidth: 0 };
 
-/** Small stat tile used across the hero and proof grids. */
-function StatTile({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+/** Small stat tile used across the hero and proof grids. `row`: label left, value right, for a phone, where three
+ * tiles side by side leave each about 70px and the labels ran into each other. */
+function StatTile({ label, value, sub, color, row = false }: { label: string; value: string; sub?: string; color?: string; row?: boolean }) {
+  if (row) return (
+    <div style={{ ...CARD_STYLE, padding: '10px 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={LABEL_STYLE}>{label}</div>
+      <div style={{ textAlign: 'right', minWidth: 0 }}>
+        <div style={{ color: color ?? btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>{value}</div>
+        {sub && <div style={{ color: btb.textDim, fontSize: 10, marginTop: 1 }}>{sub}</div>}
+      </div>
+    </div>
+  );
   return (
     <div style={CARD_STYLE}>
-      <div style={{ ...LABEL_STYLE, whiteSpace: 'nowrap' }}>{label}</div>
+      <div style={{ ...LABEL_STYLE, lineHeight: 1.3 }}>{label}</div>
       <div style={{ color: color ?? btb.text, fontSize: 17, fontWeight: 800, marginTop: 3, letterSpacing: -0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
       {sub && <div style={{ color: btb.textDim, fontSize: 10, marginTop: 2 }}>{sub}</div>}
     </div>
@@ -588,10 +598,10 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               BTB shares its weekly revenue with the people who use it. Swaps, liquidity and a daily check-in all earn points. Points become BTB.
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 9 }}>
-            <StatTile label="This week's pot" value={epochs ? `${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '—'}/>
-            <StatTile label="Paid last week" value={epochs ? String(epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0) : '—'} sub="wallets"/>
-            <StatTile label="Settles in" value={countdown(nextSettleAt(now) - now)} sub="Friday 00:00 UTC"/>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 9 }}>
+            <StatTile row={isMobile} label="This week's pot" value={epochs ? `${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '—'}/>
+            <StatTile row={isMobile} label="Paid last week" value={epochs ? `${epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0}${isMobile ? ' wallets' : ''}` : '—'} sub={isMobile ? undefined : 'wallets'}/>
+            <StatTile row={isMobile} label="Settles in" value={countdown(nextSettleAt(now) - now)} sub="Friday 00:00 UTC"/>
           </div>
           <Button size="md" variant="success" icon="wallet" onClick={onConnect}>Connect and check in</Button>
           <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center' }}>Your first check-in is worth +10 XP the moment you connect.</div>

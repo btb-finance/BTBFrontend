@@ -51,6 +51,7 @@ const StakeScreen     = dynamic(() => screenLoader.stake().then(m => m.StakeScre
 const DocsScreen      = dynamic(() => screenLoader.docs().then(m => m.DocsScreen), { ssr: false, loading: ScreenLoading });
 // Treasury only tool: never warmed, fetched only when someone opens it.
 const OposSeedScreen  = dynamic(() => import('./screens/OposSeedScreen').then(m => m.OposSeedScreen), { ssr: false, loading: ScreenLoading });
+const OposPairsScreen = dynamic(() => import('./screens/OposPairsScreen').then(m => m.OposPairsScreen), { ssr: false, loading: ScreenLoading });
 const ConnectScreen   = dynamic(() => screenLoader.connect().then(m => m.ConnectScreen), { ssr: false });
 const AgentDock       = dynamic(() => screenLoader.agentDock().then(m => m.AgentDock), { ssr: false });
 const SendModal       = dynamic(() => screenLoader.send().then(m => m.SendModal), { ssr: false });
@@ -181,6 +182,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
     ? <DocsScreen onBack={closeOverlay}/>
     : overlay === 'opos-seed'
     ? <OposSeedScreen/>
+    : overlay === 'opos-pairs'
+    ? <OposPairsScreen/>
     : null;
 
   return (
