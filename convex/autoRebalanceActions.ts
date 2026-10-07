@@ -19,7 +19,7 @@ import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, ALANDALE, MIN_LUTE_CLAIM, REWARD_CLAIM_EVERY_MS, claimRewardParams, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
+  AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, sweepStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -235,6 +235,13 @@ function sender(client: PublicClient, chainId: number, wallet: `0x${string}`) {
   };
 }
 
+/** Whether the wallet holds any of these tokens (or WETH) loose, outside its positions. */
+async function hasLoose(client: PublicClient, wallet: `0x${string}`, tokens: string[]): Promise<boolean> {
+  const list = [...new Set(tokens.filter(Boolean).map((t) => t.toLowerCase()))] as `0x${string}`[];
+  const balances = await Promise.all(list.map((t) => client.readContract({ address: t, abi: ERC20_ABI, functionName: "balanceOf", args: [wallet] }).catch(() => 0n)));
+  return balances.some((b) => b > 0n);
+}
+
 /**
  * Before the agent touches a position, send every loose token in the wallet back to the owner (wallet version 4 and
  * up): the position's own pair, its reward token and WETH. A rebalance or compound is then built only from what that
@@ -307,15 +314,11 @@ async function execute(
 ) {
   const send = sender(client, o.chainId, o.wallet);
   const stakeAdapter = stakeAdapterFor(o.chainId, o.pm);
-  const payTokens = [o.token0, o.token1, rewardFor(o.chainId, o.pm)?.address ?? ''];
-  // Compound off, on a version 4 wallet: the position's fees are the owner's income. Collect them first (a staked
-  // position has none: its fees go to voters) and send them over with any loose tokens, so the new position is built
+  const payTokens = [o.token0, o.token1, rewardFor(o.chainId, o.pm)?.address ?? '', AUTO_WETH[o.chainId] ?? ''];
+  // Compound off, on a version 4 wallet: the position's fees are the owner's income, so the new position is built
   // from principal only. With compound on, fees stay in and go into the new position as before.
-  const payOut = !o.compound && (await client.readContract({ address: o.wallet, abi: VERSION_ABI, functionName: "VERSION" }).catch(() => 1n)) >= 4n;
-  if (payOut && !o.stakedNow) await send(o.adapter, collectParams(o.pm, o.tokenId)).catch(() => null);
-  await sweepLoose(client, o.chainId, o.wallet, payTokens);
-  // After the rebalance: the side the new range did not use and the rewards the unstake paid out go to the owner too.
-  const payAfter = async () => { if (payOut) await sweepLoose(client, o.chainId, o.wallet, payTokens); };
+  const version = await client.readContract({ address: o.wallet, abi: VERSION_ABI, functionName: "VERSION" }).catch(() => 1n);
+  const payOut = !o.compound && version >= 4n;
   const stop = (r: Extract<Sent, { ok: false }>) => ({
     newTokenId: null, staked: false,
     wait: r.name && WAIT_REASONS[r.name] ? WAIT_REASONS[r.name] : null,
@@ -323,34 +326,47 @@ async function execute(
   });
 
   if (await batchReady(client)) {
-    // One transaction: unstake, rebalance, restake the new position. If the
-    // farm or gauge refuses the restake, rebalance anyway and leave the new
-    // position in the wallet; any other refusal changes nothing at all.
+    // One transaction, all or nothing. Compound off: a staked position is unstaked, which brings its rewards into the
+    // wallet; an unstaked one has its fees collected. Either way that income (and anything loose) is swept to the
+    // owner before the rebalance, so the new position is built from principal only, then restaked. Done as separate
+    // transactions, a collect that was refused left the fees in the position and the rebalance put them back in.
+    // If the farm or gauge refuses the restake, rebalance anyway and leave the new position in the wallet; any other
+    // refusal changes nothing at all.
     const sendBatch = batchSender(client, o.chainId, o.wallet);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
-    const steps: AgentStep[] = [];
-    if (o.stakedNow && o.gauge) steps.push({ adapter: stakeAdapter, params: gaugeParams(Action.Unstake, o.gauge, o.tokenId) });
-    steps.push({ adapter: o.adapter, params: rebalanceParams(o.pm, o.tokenId, deadline) });
+    const before: AgentStep[] = [];
+    if (o.stakedNow && o.gauge) before.push({ adapter: stakeAdapter, params: gaugeParams(Action.Unstake, o.gauge, o.tokenId) });
+    if (payOut) {
+      if (!o.stakedNow) before.push({ adapter: o.adapter, params: collectParams(o.pm, o.tokenId) });
+      before.push(sweepStep(payTokens));
+    } else if (version >= 4n && await hasLoose(client, o.wallet, payTokens)) {
+      // Compound on: leftovers from earlier actions are still the owner's, never part of this position.
+      before.unshift(sweepStep(payTokens));
+    }
+    const rebalance: AgentStep = { adapter: o.adapter, params: rebalanceParams(o.pm, o.tokenId, deadline) };
+    const restake: AgentStep[] = o.gauge ? [{ adapter: stakeAdapter, params: gaugeParams(Action.Stake, o.gauge, 0n), newestOf: o.pm }] : [];
     let staked = !!o.gauge;
-    let r = await sendBatch(o.gauge ? [...steps, { adapter: stakeAdapter, params: gaugeParams(Action.Stake, o.gauge, 0n), newestOf: o.pm }] : steps);
+    let r = await sendBatch([...before, rebalance, ...restake]);
     if (!r.ok && o.gauge && !(r.name && WAIT_REASONS[r.name])) {
-      const plain = await sendBatch(steps);
+      const plain = await sendBatch([...before, rebalance]);
       if (plain.ok) { r = plain; staked = false; }
     }
     if (!r.ok) return stop(r);
     const minted = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: r.logs }).find((l) =>
       l.address.toLowerCase() === o.pm.toLowerCase() && /^0x0{40}$/.test(l.args.from) && l.args.to.toLowerCase() === o.wallet.toLowerCase());
     if (!minted) return { newTokenId: null, staked: false, wait: null, error: "rebalance landed but no new position was found" };
-    await payAfter();
     return { newTokenId: minted.args.tokenId, staked, wait: null, error: null };
   }
 
+  // No batch code on this chain yet: the same order as separate transactions (unstake or collect, sweep, rebalance).
   let unstaked = false;
   if (o.stakedNow && o.gauge) {
     const r = await send(stakeAdapter, gaugeParams(Action.Unstake, o.gauge, o.tokenId));
     if (!r.ok) return stop(r);
     unstaked = true;
   }
+  if (payOut && !o.stakedNow) await send(o.adapter, collectParams(o.pm, o.tokenId)).catch(() => null);
+  await sweepLoose(client, o.chainId, o.wallet, payTokens);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 15 * 60);
   const r = await send(o.adapter, rebalanceParams(o.pm, o.tokenId, deadline));
   if (!r.ok) {
@@ -363,7 +379,6 @@ async function execute(
   const newTokenId = minted.args.tokenId;
   // A refused restake leaves the new position safe in the wallet, unstaked.
   const staked = o.gauge ? (await send(stakeAdapter, gaugeParams(Action.Stake, o.gauge, newTokenId)).catch(() => null))?.ok === true : false;
-  await payAfter();
   return { newTokenId, staked, wait: null, error: null };
 }
 
