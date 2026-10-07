@@ -108,8 +108,8 @@ export const getUser = query({
  * - Missed day → streak resets to 1, and the holder bonus waits a day
  */
 export const recordCheckIn = internalMutation({
-  args: { walletAddress: v.string(), btbBalance: v.optional(v.float64()) },
-  handler: async (ctx, { walletAddress, btbBalance }) => {
+  args: { walletAddress: v.string(), btbBalance: v.optional(v.float64()), btbSnapshot: v.optional(v.float64()) },
+  handler: async (ctx, { walletAddress, btbBalance, btbSnapshot }) => {
     const addr = walletAddress.toLowerCase();
     const user = await ctx.db
       .query("users")
@@ -135,7 +135,10 @@ export const recordCheckIn = internalMutation({
     const weekMilestone = weekMilestoneXp(newStreak);
     // Holder bonus only across consecutive days: a gap means the balance in
     // between is unknown, so the count starts again from today.
-    const holdBonus = isConsecutive ? holdBonusXp(user.btbAtCheckIn, btbBalance) : 0;
+    // ...and also no more than it held at a random block in the last 24 hours, so one balance passed between wallets
+    // cannot earn the bonus in each of them. No snapshot (every archive RPC failed) leaves the two-point rule alone.
+    const heldBefore = user.btbAtCheckIn != null && btbSnapshot != null ? Math.min(user.btbAtCheckIn, btbSnapshot) : user.btbAtCheckIn;
+    const holdBonus = isConsecutive ? holdBonusXp(heldBefore, btbBalance) : 0;
     const earned = dailyXp + weekMilestone + holdBonus;
     const newPoints = user.points + earned;
 
