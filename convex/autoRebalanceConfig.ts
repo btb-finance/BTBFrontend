@@ -396,13 +396,23 @@ export const AGENT_BATCH_ABI = parseAbi([
   'function execute(Call[] calls)',
 ]);
 
-/** One agent step: a wallet run, or a stake of the wallet's newest position of `newestOf` (id filled on-chain). */
-export type AgentStep = { adapter: `0x${string}`; params: `0x${string}`; newestOf?: `0x${string}` };
+/**
+ * One agent step: a wallet run, a stake of the wallet's newest position of `newestOf` (id filled on-chain), or a plain
+ * wallet call (`call`), such as sweepToOwner.
+ */
+export type AgentStep = { adapter: `0x${string}`; params: `0x${string}`; newestOf?: `0x${string}` } | { call: `0x${string}` };
+
+/** A batch step that sends these tokens (and any ETH) from the wallet to its owner. Version 4 wallets and up. */
+export function sweepStep(tokens: string[]): AgentStep {
+  const list = [...new Set(tokens.filter(Boolean).map((t) => t.toLowerCase()))] as `0x${string}`[];
+  return { call: encodeFunctionData({ abi: WALLET_ABI, functionName: 'sweepToOwner', args: [list] }) };
+}
 
 /** Calldata for BTBAgentBatch.execute: each step as wallet.run, sent by the agent address to itself. */
 export function encodeAgentBatch(wallet: `0x${string}`, steps: AgentStep[]): `0x${string}` {
   const zero = '0x0000000000000000000000000000000000000000' as const;
   const calls = steps.map((s) => {
+    if ('call' in s) return { target: wallet, data: s.call, idSource: zero, idOwner: zero, idAt: 0n };
     const data = encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [s.adapter, s.params] });
     // A stake's position id is the last word of its params, which end the calldata.
     const idAt = s.newestOf ? BigInt((data.length - 2) / 2 - 32) : 0n;

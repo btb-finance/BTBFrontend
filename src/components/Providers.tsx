@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
 import { makeConfig } from '@/lib/wagmi';
 import { TxProvider } from '@/lib/TxTracker';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import { AppSkeleton } from '@/components/AppSkeleton';
 import { ChainThemeProvider } from '@/lib/ChainThemeContext';
 import { XpToastProvider } from '@/lib/XpToast';
 import { SafeAutoConnect } from '@/lib/SafeAutoConnect';
@@ -35,8 +36,14 @@ export function Providers({ children }: { children: ReactNode }) {
     },
   }));
 
-  // Server rendering never reaches here: ClientOnly loads AppShell with ssr:false, so the wallet connectors
-  // (which touch indexedDB) only ever run in the browser.
+  // Start wagmi one render after mount, not on the first one. Its reconnect looks for the wallet used last among
+  // the connectors it knows at that moment; on the very first render, browser extensions (MetaMask, Rabby, ...)
+  // have not announced themselves yet, so the reconnect found nothing and every refresh came up disconnected.
+  // Server rendering never reaches here (ClientOnly loads AppShell with ssr:false); this wait is only about timing.
+  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-time mount flag is the point
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return <AppSkeleton/>;
 
   return (
     <ConvexProvider client={convex}>

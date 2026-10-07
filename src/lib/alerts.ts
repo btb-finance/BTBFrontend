@@ -71,8 +71,15 @@ export function useAlerts(address?: string) {
   const subscribe = useAction(api.alertsActions.subscribe);
   const unsubscribe = useMutation(api.alerts.unsubscribe);
   const savePush = useMutation(api.alerts.savePushSubscription);
-  const inbox = usePolledQuery(api.alerts.inbox, address ? { address } : 'skip', 60_000);
+  const serverInbox = usePolledQuery(api.alerts.inbox, address ? { address } : 'skip', 60_000);
   const markRead = useMutation(api.alerts.markRead);
+  // "Read" is also kept in this browser, per wallet, as the newest notification already seen. The server only marks
+  // read with a signed session, and most wallets (everyone who just earns XP) never sign one, so without this the
+  // unread count never cleared. The server copy is still updated when there is a session, for other devices.
+  const [seenBump, setSeenBump] = useState(0);
+  const seenKey = address ? `btb.alerts.seen.${address.toLowerCase()}` : null;
+  const seenAt = (() => { void seenBump; try { return seenKey ? Number(localStorage.getItem(seenKey) ?? 0) || 0 : 0; } catch { return 0; } })();
+  const inbox = serverInbox?.map((e) => ({ ...e, read: e.read || e.createdAt <= seenAt }));
   const signed = useSignedCall(address);
 
   const has = (p: LiquidityPosition) => {
@@ -109,7 +116,11 @@ export function useAlerts(address?: string) {
   /** Stop one alert by its key, for rows whose position is not on screen. */
   const stop = (k: { chainId: number; protocol: string; tokenId: string }) => address ? signed.run((sessionToken) => unsubscribe({ sessionToken, chainId: k.chainId, protocol: k.protocol, tokenId: k.tokenId })) : Promise.resolve();
 
-  return { list, has, toggle, stop, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => { if (signed.token) void markRead({ sessionToken: signed.token }); } };
+  return { list, has, toggle, stop, enablePush, inbox, unread: (inbox ?? []).filter((e) => !e.read).length, markRead: () => {
+    const newest = Math.max(0, ...(serverInbox ?? []).map((e) => e.createdAt));
+    try { if (seenKey && newest > seenAt) { localStorage.setItem(seenKey, String(newest)); setSeenBump((n) => n + 1); } } catch { /* private mode: the server copy below still applies */ }
+    if (signed.token) void markRead({ sessionToken: signed.token });
+  } };
 }
 
 /** The wallet's BTB balance (fast checks and agent messages draw on it), whether fast checks are on, and how to top it up. */

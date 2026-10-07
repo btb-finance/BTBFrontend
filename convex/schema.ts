@@ -294,7 +294,8 @@ export default defineSchema({
     points: v.float64(),
     updatedAt: v.float64(),
   }).index("by_epoch_wallet", ["epochId", "walletAddress"])
-    .index("by_epoch", ["epochId"]),
+    .index("by_epoch", ["epochId"])
+    .index("by_wallet", ["walletAddress"]),
 
   // One row per weekly reward epoch. Created lazily when the first user
   // requests a payout, closed by the Friday cron.
