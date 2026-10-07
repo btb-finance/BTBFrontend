@@ -38,7 +38,8 @@ export const dropOldAlertEvents = internalMutation({
  * weeks still add up.
  *
  * Never removed, whatever the dates: a wallet with BTB in the app, a Friday share not yet claimed or still being sent,
- * an active auto-rebalance or alert, a quest waiting for review, or a top-up payment not yet turned into BTB.
+ * an auto-rebalance that is not stopped (running or paused, its position still in the smart wallet), an active alert,
+ * a quest waiting for review, or a top-up payment not yet turned into BTB.
  * `dryRun` counts without deleting.
  */
 export const dropInactiveWallets = internalMutation({
@@ -62,7 +63,7 @@ export const dropInactiveWallets = internalMutation({
       const alerts = await ctx.db.query("positionAlerts").withIndex("by_address", (q) => q.eq("address", addr)).collect();
       const quests = await ctx.db.query("questSubmissions").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect();
       const topUps = await ctx.db.query("topUpPayments").withIndex("by_payer", (q) => q.eq("payer", addr)).collect();
-      if ((credit?.balance ?? 0) > 0 || payouts.some((p) => !PAYOUT_DONE.has(p.state)) || jobs.some((j) => j.active)
+      if ((credit?.balance ?? 0) > 0 || payouts.some((p) => !PAYOUT_DONE.has(p.state)) || jobs.some((j) => j.active || j.status !== "stopped")
         || alerts.some((a) => a.active) || quests.some((s) => s.status === "pending") || topUps.some((t) => !t.bought)) { kept++; continue; }
       deleted++;
       if (dryRun) continue;
