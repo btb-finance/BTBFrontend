@@ -314,6 +314,50 @@ function marketPoolDexCount(pools: MarketPool[]): number {
   return new Set(pools.map(pool => dexBrand(pool.dexLabel))).size;
 }
 
+/**
+ * A cross-chain result on a phone, in the one-chain mode's card style: which pool (and on which chain, by name), three
+ * number boxes, then full-width actions. The three-column metric strip it replaces had 8.5px labels that ran together.
+ */
+function CrossChainPoolCard({ pool, chainId, chainName, title, top, onAddLp, simulateHref }: {
+  pool: MarketPool; chainId: number; chainName: string; title: string; top: boolean;
+  onAddLp?: () => void; simulateHref?: string | null;
+}) {
+  const box = (label: string, value: string, tone: string = btb.text) => (
+    <div style={{ padding: '7px 9px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)', minWidth: 0 }}>
+      <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>{label}</div>
+      <div style={{ color: tone, fontSize: 14, fontWeight: 800, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+    </div>
+  );
+  return (
+    <div style={{ borderRadius: 14, border: btb.borderSoft, padding: 12, background: top ? 'rgba(var(--green-rgb), 0.05)' : 'rgba(var(--fg-rgb), 0.03)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <DexLogo name={pool.dexLabel} size={20}/>
+        <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 700, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 8px 2px 3px', borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.07)', color: btb.textMuted, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+          <ChainLogo chainId={chainId} size={16}/>{chainName}
+        </span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, marginTop: 10 }}>
+        {box('TVL', fmtCompactUsd(pool.tvlUsd))}
+        {box('24h volume', fmtCompactUsd(pool.volume24hUsd))}
+        {box('APR', pool.aprPct != null ? fmtApr(pool.aprPct) : marketAprText(pool), pool.aprPct != null ? btb.amber : btb.textDim)}
+      </div>
+      {/* The box holds only the percentage; a gauge's reward token ("141% · AERO" did not fit) is spelled out here. */}
+      {pool.aprKind === 'gauge' && pool.aprPct != null
+        ? <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 6 }}>Paid in {pool.aprLabel?.split('·').at(-1)?.trim() || 'rewards'} for staking the LP</div>
+        : pool.aprLabel && pool.aprPct != null && <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 6 }}>{pool.aprLabel}</div>}
+      {(onAddLp || simulateHref) && (
+        <div style={{ display: 'grid', gridTemplateColumns: onAddLp && simulateHref ? '1fr 1fr' : '1fr', gap: 8, marginTop: 10 }}>
+          {onAddLp && <Button variant="success" size="sm" onClick={onAddLp} style={{ height: 38, fontSize: 12.5, borderRadius: 12, boxShadow: 'none' }}>Add LP</Button>}
+          {simulateHref && (
+            <a href={simulateHref} style={{ height: 38, borderRadius: 12, border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.text, fontSize: 12.5, fontWeight: 700, textDecoration: 'none', background: 'rgba(var(--fg-rgb), 0.06)' }}>Simulate</a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MobilePoolMetrics({ pool }: { pool: MarketPool }) {
   const metrics = [
     ['TVL', fmtCompactUsd(pool.tvlUsd)],
@@ -805,6 +849,11 @@ function CrossChainResearch({ chains, isMobile }: {
   const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 5042].filter(id => chains.some(chain => chain.id === id));
   const [selectedChains, setSelectedChains] = useState<number[]>(defaultChainIds);
+  // On a phone the 18 network buttons are a wall of nine rows before the token pickers, so they start folded into
+  // one row of the selected chains' logos, like the one-chain form's single chain menu.
+  // null until the user taps: open on desktop, folded on a phone (derived, so it is right even if isMobile settles late).
+  const [networksOpen, setShowNetworks] = useState<boolean | null>(null);
+  const showNetworks = networksOpen ?? !isMobile;
   const [mint, setMint] = useState<{ result: CrossChainResearchResult; pool: MarketPool; target: { dex: LpDex; chainId: LpChainId; fee?: number } } | null>(null);
   const [pairs, setPairs] = useState<CrossChainPair[]>([]);
   const [pairTokenA, setPairTokenA] = useState<ResearchTokenOption | null>(null);
@@ -815,6 +864,10 @@ function CrossChainResearch({ chains, isMobile }: {
   const [results, setResults] = useState<CrossChainResearchResult[]>([]);
   const [researching, setResearching] = useState(false);
   const [rankBy, setRankBy] = useState<'volume' | 'tvl' | 'apr'>('volume');
+  // Phone: the ranking starts at its top 10 and each chain's own list starts folded, so results are not a long scroll.
+  const [showAllRanked, setShowAllRanked] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const chainName = (id: number) => chains.find(chain => chain.id === id)?.name ?? `Chain ${id}`;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1077,12 +1130,31 @@ function CrossChainResearch({ chains, isMobile }: {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 18, marginBottom: 9 }}>
           <span style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5 }}>Networks</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" disabled={researching} onClick={() => { setSelectedChains(chains.map(chain => chain.id)); setResults([]); }} style={{ border: 0, background: 'transparent', color: btb.textMuted, font: 'inherit', fontSize: 11, cursor: 'pointer' }}>Select all</button>
-            <button type="button" disabled={researching} onClick={() => { setSelectedChains([]); setResults([]); }} style={{ border: 0, background: 'transparent', color: btb.textMuted, font: 'inherit', fontSize: 11, cursor: 'pointer' }}>Clear</button>
-          </div>
+          {showNetworks && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" disabled={researching} onClick={() => { setSelectedChains(chains.map(chain => chain.id)); setResults([]); }} style={{ border: 0, background: 'transparent', color: btb.textMuted, font: 'inherit', fontSize: 11, cursor: 'pointer' }}>Select all</button>
+              <button type="button" disabled={researching} onClick={() => { setSelectedChains([]); setResults([]); }} style={{ border: 0, background: 'transparent', color: btb.textMuted, font: 'inherit', fontSize: 11, cursor: 'pointer' }}>Clear</button>
+              {isMobile && <button type="button" onClick={() => setShowNetworks(false)} style={{ border: 0, background: 'transparent', color: btb.green, font: 'inherit', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>Done</button>}
+            </div>
+          )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 7 }}>
+        {!showNetworks && (
+          <button type="button" disabled={researching} onClick={() => setShowNetworks(true)} style={{
+            width: '100%', height: 48, borderRadius: 13, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text,
+            padding: '0 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: researching ? 'default' : 'pointer', fontFamily: 'inherit',
+          }}>
+            <span style={{ display: 'flex' }}>
+              {selectedChains.slice(0, 6).map((id, i) => (
+                <span key={id} style={{ marginLeft: i === 0 ? 0 : -7, borderRadius: 999, boxShadow: '0 0 0 2px var(--chain-app-background, #0A0A0F)', display: 'inline-flex' }}><ChainLogo chainId={id} size={22}/></span>
+              ))}
+            </span>
+            <span style={{ flex: 1, minWidth: 0, textAlign: 'left', fontSize: 12.5, fontWeight: 750, color: selectedChains.length ? btb.text : btb.textMuted }}>
+              {selectedChains.length ? `${selectedChains.length} network${selectedChains.length === 1 ? '' : 's'}` : 'Pick networks'}
+            </span>
+            <span style={{ color: btb.green, fontSize: 11.5, fontWeight: 800 }}>Change</span>
+          </button>
+        )}
+        {showNetworks && <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 7 }}>
           {chains.map(chain => {
             const selected = selectedChains.includes(chain.id);
             return (
@@ -1096,7 +1168,7 @@ function CrossChainResearch({ chains, isMobile }: {
               </button>
             );
           })}
-        </div>
+        </div>}
 
         <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .5, marginTop: 18, marginBottom: 9 }}>Your pairs</div>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr auto', gap: 8 }}>
@@ -1109,9 +1181,11 @@ function CrossChainResearch({ chains, isMobile }: {
             fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800,
           }}>Add pair</button>
         </div>
-        <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 7 }}>
-          {loadingPairTokens ? 'Loading token catalogs for the selected networks…' : `${pairTokenOptions.length.toLocaleString()} searchable token symbols found across the selected networks.`}
-        </div>
+        {(!isMobile || loadingPairTokens) && (
+          <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 7 }}>
+            {loadingPairTokens ? 'Loading token catalogs for the selected networks…' : `${pairTokenOptions.length.toLocaleString()} searchable token symbols found across the selected networks.`}
+          </div>
+        )}
         {pairError && <div style={{ color: btb.amber, fontSize: 11, marginTop: 7 }}>{pairError}</div>}
         {pairs.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
@@ -1173,7 +1247,25 @@ function CrossChainResearch({ chains, isMobile }: {
               {['Pool', 'TVL', '24h volume', 'APR', ''].map(label => <span key={label} style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .35 }}>{label}</span>)}
             </div>
           )}
-          {rankedPools.map(({ result, pool }, index) => {
+          {isMobile && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '0 10px 12px' }}>
+              {(showAllRanked ? rankedPools : rankedPools.slice(0, 10)).map(({ result, pool }, index) => {
+                const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null;
+                return (
+                  <CrossChainPoolCard key={`${result.key}:${pool.address}`} pool={pool} chainId={result.chainId} chainName={chainName(result.chainId)}
+                    title={`${result.pair.label} · ${pool.dexLabel}`} top={index === 0}
+                    onAddLp={target ? () => setMint({ result, pool, target }) : undefined}
+                    simulateHref={result.tokenA && result.tokenB ? `/simulate?chain=${result.chainId}&tokenA=${encodeURIComponent(result.tokenA.address)}&tokenB=${encodeURIComponent(result.tokenB.address)}` : null}/>
+                );
+              })}
+              {rankedPools.length > 10 && (
+                <button type="button" onClick={() => setShowAllRanked(v => !v)} style={{ height: 38, borderRadius: 12, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+                  {showAllRanked ? 'Show top 10' : `Show all ${rankedPools.length}`}
+                </button>
+              )}
+            </div>
+          )}
+          {!isMobile && rankedPools.map(({ result, pool }, index) => {
             const simulateHref = result.tokenA && result.tokenB
               ? `/simulate?chain=${result.chainId}&tokenA=${encodeURIComponent(result.tokenA.address)}&tokenB=${encodeURIComponent(result.tokenB.address)}`
               : null;
@@ -1222,19 +1314,39 @@ function CrossChainResearch({ chains, isMobile }: {
                 <div style={{ minHeight: 58, padding: '11px 15px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: topPools.length > 0 ? btb.borderSoft : undefined }}>
                   <ChainLogo chainId={result.chainId} size={28}/>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{result.pair.label}</div>
+                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{result.pair.label} <span style={{ color: btb.textMuted, fontWeight: 700 }}>on {chainName(result.chainId)}</span></div>
                     <div style={{ color: result.status === 'error' || result.status === 'unavailable' ? btb.amber : btb.textMuted, fontSize: 11, marginTop: 2 }}>
                       {result.status === 'queued' ? 'Waiting…' : result.status === 'loading' ? result.message : result.message ?? `${result.pools.length} pool${result.pools.length === 1 ? '' : 's'} found`}
                     </div>
                   </div>
                   {result.status === 'loading' && <span className="spin" style={{ width: 12, height: 12, borderRadius: '50%', border: '1.5px solid rgba(var(--fg-rgb), .22)', borderTopColor: btb.text }}/>}
-                  {simulateHref && result.status === 'complete' && (
+                  {isMobile && topPools.length > 0 && (
+                    <button type="button" onClick={() => setOpenGroups(s => { const n = new Set(s); if (n.has(result.key)) n.delete(result.key); else n.add(result.key); return n; })} style={{ height: 31, padding: '0 12px', borderRadius: 12, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, cursor: 'pointer' }}>
+                      {openGroups.has(result.key) ? 'Hide' : 'Show pools'}
+                    </button>
+                  )}
+                  {!isMobile && simulateHref && result.status === 'complete' && (
                     <a href={simulateHref} style={{ height: 31, padding: '0 12px', borderRadius: 12, border: btb.borderSoft, display: 'inline-flex', alignItems: 'center', color: btb.text, background: btb.surfaceSoft, textDecoration: 'none', fontSize: 11.5, fontWeight: 750 }}>
                       Full simulate
                     </a>
                   )}
                 </div>
-                {topPools.map((pool, index) => {
+                {isMobile && openGroups.has(result.key) && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 10px 12px' }}>
+                    {topPools.map((pool, index) => {
+                      const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null;
+                      return (
+                        <CrossChainPoolCard key={pool.address} pool={pool} chainId={result.chainId} chainName={chainName(result.chainId)}
+                          title={`${pool.dexLabel}${pool.feePct != null ? ` · ${(pool.feePct * 100).toLocaleString(undefined, { maximumFractionDigits: 3 })}%` : ''}`} top={index === 0}
+                          onAddLp={target ? () => setMint({ result, pool, target }) : undefined} simulateHref={null}/>
+                      );
+                    })}
+                    {simulateHref && result.status === 'complete' && (
+                      <a href={simulateHref} style={{ height: 38, borderRadius: 12, border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.text, fontSize: 12.5, fontWeight: 700, textDecoration: 'none', background: 'rgba(var(--fg-rgb), 0.06)' }}>Full simulate</a>
+                    )}
+                  </div>
+                )}
+                {!isMobile && topPools.map((pool, index) => {
                   const target = result.tokenA && result.tokenB ? marketMintTarget(result.chainId, pool) : null;
                   return (
                   <div key={pool.address} style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr) auto' : 'minmax(0, 1.2fr) minmax(0, .8fr) minmax(0, .8fr) auto', alignItems: 'center', gap: 10, padding: '9px 15px', borderBottom: index < topPools.length - 1 ? '1px solid rgba(var(--fg-rgb), .04)' : undefined, background: index === 0 ? 'rgba(var(--green-rgb), .035)' : undefined }}>

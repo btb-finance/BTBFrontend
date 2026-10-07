@@ -282,7 +282,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const setView = (v: 'cards' | 'list') => { setViewState(v); try { localStorage.setItem('btb.lp.view', v); } catch { /* private mode */ } };
   const [chainFilter, setChainFilter] = useState<number | 'all'>('all');
   const [protoFilter, setProtoFilter] = useState<string>('all');
-  const [rangeFilter, setRangeFilter] = useState<'all' | 'in' | 'out'>('all');
+  const [rangeFilter, setRangeFilter] = useState<'all' | 'in' | 'out' | 'auto'>('all');
   const [sortBy, setSortBy] = useState<'attention' | 'value' | 'fees' | 'apr'>('attention');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [fastOpen, setFastOpen] = useState(false);
@@ -1089,9 +1089,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
   // Out-of-range positions with liquidity first, since they are the ones that
   // need a decision; then by value.
+  // Auto-rebalanced positions lead every sort (running ones, then paused): a wallet can hold 100+ NFTs and these are
+  // the ones the agent is working on.
+  const autoRank = (p: (typeof positions)[number]) => { const job = autoByKey.get(posKey(p)); return job ? (job.active ? 2 : 1) : 0; };
   const orderedPositions = [...positions].sort((a, b) => {
     const na = a.liquidity > 0n && !a.inRange ? 1 : 0, nb = b.liquidity > 0n && !b.inRange ? 1 : 0;
-    return nb - na || valueOf(b) - valueOf(a);
+    return autoRank(b) - autoRank(a) || nb - na || valueOf(b) - valueOf(a);
   });
   const needsAttention = positions.filter((p) => p.liquidity > 0n && !p.inRange && !autoByKey.has(posKey(p)));
   const idleUsd = needsAttention.reduce((sum, p) => sum + valueOf(p), 0);
@@ -1414,13 +1417,13 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const visiblePositions = orderedPositions
     .filter((p) => chainFilter === 'all' || (p.chainId ?? 1) === chainFilter)
     .filter((p) => protoFilter === 'all' || p.protocol === protoFilter)
-    .filter((p) => rangeFilter === 'all' || (rangeFilter === 'in' ? p.inRange : !p.inRange))
-    .sort((a, b) => sortBy === 'value' ? valueOf(b) - valueOf(a) : sortBy === 'fees' ? feesValueOf(b) - feesValueOf(a) : sortBy === 'apr' ? aprOf(b) - aprOf(a) : 0);
+    .filter((p) => rangeFilter === 'all' || (rangeFilter === 'auto' ? autoByKey.has(posKey(p)) : rangeFilter === 'in' ? p.inRange : !p.inRange))
+    .sort((a, b) => autoRank(b) - autoRank(a) || (sortBy === 'value' ? valueOf(b) - valueOf(a) : sortBy === 'fees' ? feesValueOf(b) - feesValueOf(a) : sortBy === 'apr' ? aprOf(b) - aprOf(a) : 0));
   const filtered = chainFilter !== 'all' || protoFilter !== 'all' || rangeFilter !== 'all';
 
   const chip = (active: boolean, label: React.ReactNode, onClick: () => void, key: string) => (
     <button key={key} type="button" onClick={onClick} style={{
-      height: 28, padding: '0 11px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap',
+      height: 28, padding: '0 11px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 750, whiteSpace: 'nowrap', flexShrink: 0,
       display: 'inline-flex', alignItems: 'center', gap: 5,
       border: active ? '1px solid rgba(var(--green-rgb), 0.4)' : btb.borderSoft,
       background: active ? 'rgba(var(--green-rgb), 0.1)' : 'transparent',
@@ -1466,6 +1469,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const rangeChips = (
     <>
       {chip(rangeFilter === 'all', `All ${positions.length}`, () => setRangeFilter('all'), 'r-all')}
+      {positions.some((p) => autoByKey.has(posKey(p))) && chip(rangeFilter === 'auto', `Auto ${positions.filter((p) => autoByKey.has(posKey(p))).length}`, () => setRangeFilter('auto'), 'r-auto')}
       {chip(rangeFilter === 'in', `${isMobile ? 'In' : 'In range'} ${positions.filter((p) => p.inRange).length}`, () => setRangeFilter('in'), 'r-in')}
       {chip(rangeFilter === 'out', `${isMobile ? 'Out' : 'Out of range'} ${positions.filter((p) => !p.inRange).length}`, () => setRangeFilter('out'), 'r-out')}
     </>
@@ -1473,7 +1477,11 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // Desktop: everything on one line. Phone: range and view on one line, the three pickers on the next.
   const toolbar = positions.length > 1 && (isMobile ? (
     <div ref={listTopRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, scrollMarginTop: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{rangeChips}<div style={{ flex: 1 }}/>{viewToggle}</div>
+      {/* The chips scroll sideways if they outgrow the line, so the view toggle always stays on it. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>{rangeChips}</div>
+        {viewToggle}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{chainPicker}{dexPicker}{sortPicker}</div>
     </div>
   ) : (

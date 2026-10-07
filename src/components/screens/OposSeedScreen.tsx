@@ -17,7 +17,7 @@ import { runCalls } from '../../lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import {
   readReference, priceToken, buildAddLiquidity, buildBuy, buildMintOpos, buildWrap, fmt,
-  OPOS, BTB, USDC, OPOS_ABI, LP_RECIPIENT, USD_PER_SIDE, TOKENS, V2_FACTORY, FACTORY_ABI, PAIR_ABI, type SeedReference, type SeedRow,
+  OPOS, BTB, USDC, OPOS_ABI, LP_RECIPIENT, USD_PER_SIDE, TOKENS, NEXT_BATCH, V2_FACTORY, FACTORY_ABI, PAIR_ABI, type SeedReference, type SeedRow,
 } from '../../lib/oposSeed';
 
 export function OposSeedScreen() {
@@ -43,6 +43,14 @@ export function OposSeedScreen() {
   const client = getPublicClient(config, { chainId: 1 });
 
   const list: SeedToken[] = useMemo(() => [...TOKENS, ...custom], [custom]);
+  /** 'next' shows only NEXT_BATCH, in its volume order; 'all' the whole list. */
+  const [view, setView] = useState<'next' | 'all'>('next');
+  const shown: SeedToken[] = useMemo(() => {
+    if (view === 'all') return list;
+    const bySymbol = new Map(list.map((t) => [t.symbol, t]));
+    return NEXT_BATCH.map((sym) => bySymbol.get(sym)).filter((t): t is SeedToken => !!t);
+  }, [view, list]);
+
 
   /** Existing OPOS pair per token: address and what is already in it. Read for
    * every token in one pass so a pool that exists is obvious before you add. */
@@ -78,6 +86,7 @@ export function OposSeedScreen() {
     setPairs((m) => ({ ...m, ...next }));
   }
   useEffect(() => { refreshPairs().catch(() => {}); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [client != null, list.length]);
+  const batchSeeded = NEXT_BATCH.filter((sym) => { const p = pairs[sym]; return !!p && p.opos > 0n; }).length;
 
   /** decimals per token, read once in one multicall so held balances render
    * before anything is priced. */
@@ -275,13 +284,19 @@ export function OposSeedScreen() {
       </div>
       {err && <div style={{ color: btb.loss, fontSize: 12.5 }}>{err}</div>}
 
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Button variant={view === 'next' ? 'success' : 'ghost'} size="sm" onClick={() => setView('next')}>Next batch ({NEXT_BATCH.length})</Button>
+        <Button variant={view === 'all' ? 'success' : 'ghost'} size="sm" onClick={() => setView('all')}>All tokens ({list.length})</Button>
+        {view === 'next' && <span style={{ color: btb.textDim, fontSize: 12 }}>{batchSeeded} of {NEXT_BATCH.length} seeded. Highest 24h volume first; volatile tokens only.</span>}
+      </div>
+
       <div style={{ overflowX: 'auto', border: btb.borderSoft, borderRadius: 14 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr>{['Token', 'Existing pool', 'Price', 'Gap', 'Impact', 'Amount in', 'Held', 'Get', 'Add LP', 'Status'].map((h) => <th key={h} style={{ textAlign: 'left', padding: '8px 10px', color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .3, borderBottom: btb.borderSoft, whiteSpace: 'nowrap' }}>{h}</th>)}</tr>
           </thead>
           <tbody>
-            {list.map((t) => {
+            {shown.map((t) => {
               const r = rows[t.symbol];
               const held = bal?.tokens[t.symbol] ?? 0n;
               const dec = r?.dec ?? decs[t.symbol];

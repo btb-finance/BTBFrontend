@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useConnection } from 'wagmi';
 import { btb } from './design-tokens';
 import { useQuery } from 'convex/react';
@@ -37,9 +38,11 @@ function Empty({ title, text }: { title: string; text: string }) {
 }
 
 /** Bell with unread count; opens the notifications panel: recent range alerts, and the watched positions with the
- * check settings. Hidden until the wallet has any alerts. */
-/** `bare`: no border or fill of its own, for sitting inside the top bar's grouped pill. */
-export function AlertsBell({ compact = false, bare = false }: { compact?: boolean; bare?: boolean }) {
+ * check settings, plus a line for every XP the wallet earns. Hidden until the wallet has any of these. */
+/** `bare`: no border or fill of its own, for sitting inside the top bar's grouped pill. `pill`: a 36px round button
+ * matching the Portfolio card's Send and Refresh; that card clips its contents, so the panel opens in a layer on the
+ * page body, under the button and the full width of the screen. */
+export function AlertsBell({ compact = false, bare = false, pill = false }: { compact?: boolean; bare?: boolean; pill?: boolean }) {
   const { address } = useConnection();
   const { inbox, unread, markRead, list, stop } = useAlerts(address);
   const [open, setOpen] = useState(false);
@@ -50,6 +53,8 @@ export function AlertsBell({ compact = false, bare = false }: { compact?: boolea
   const [view, setView] = useState<'activity' | 'watching'>('activity');
   // The ones unread when the panel opened stay highlighted while it is open, even though opening marks them read.
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  /** Where the panel opens when it lives on the page body (pill): just under the button. */
+  const [anchor, setAnchor] = useState<{ top: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -81,6 +86,8 @@ export function AlertsBell({ compact = false, bare = false }: { compact?: boolea
     if (last && last[0] === day) last[1].push(e); else groups.push([day, [e]]);
   }
 
+  const onBody = (node: React.ReactNode) => (pill ? createPortal(node, document.body) : node);
+
   async function run(key: string, fn: () => Promise<string | null>, success: string) {
     setBusy(key); setNote(null);
     try {
@@ -92,15 +99,26 @@ export function AlertsBell({ compact = false, bare = false }: { compact?: boolea
 
   return (
     <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-label="Alerts" style={{
-        width: bare ? 32 : compact ? 34 : 38, height: bare ? 32 : compact ? 34 : 38, borderRadius: bare ? 999 : 12, border: bare ? 'none' : btb.borderSoft, background: bare ? 'transparent' : btb.surfaceSoft, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.text, position: 'relative', marginRight: bare ? 0 : 8,
+      <button type="button" aria-label="Alerts" onClick={() => {
+        if (pill && !open && ref.current) {
+          const r = ref.current.getBoundingClientRect();
+          setAnchor({ top: r.bottom + 8 });
+        }
+        setOpen(o => !o);
+      }} style={{
+        width: pill ? 36 : bare ? 32 : compact ? 34 : 38, height: pill ? 36 : bare ? 32 : compact ? 34 : 38, borderRadius: bare || pill ? 999 : 12,
+        border: bare ? 'none' : btb.borderSoft, background: bare ? 'transparent' : pill ? 'rgba(var(--fg-rgb), 0.07)' : btb.surfaceSoft, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: btb.text, position: 'relative', marginRight: bare || pill ? 0 : 8,
       }}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
         {unread > 0 && <span style={{ position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999, background: btb.green, color: '#0A0A0F', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread}</span>}
       </button>
-      {open && (
-        <div style={{ position: 'absolute', top: 44, right: 0, width: 380, maxWidth: 'calc(100vw - 24px)', maxHeight: 'min(620px, calc(100vh - 90px))', display: 'flex', flexDirection: 'column', borderRadius: 20, background: btb.glassStrong, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: '0 20px 50px rgba(0,0,0,0.4)', zIndex: 120, overflow: 'hidden' }}>
+      {open && onBody(
+        <div data-overlay style={{ ...(pill && anchor
+          // On a phone: the full width between 12px margins, on the app background so the page behind cannot show through.
+          ? { position: 'fixed', top: anchor.top, left: 12, right: 12, width: 'auto', maxHeight: `min(620px, calc(100vh - ${anchor.top + 96}px))`,
+              background: `linear-gradient(${btb.glassStrong}, ${btb.glassStrong}), var(--chain-app-background, #0A0A0F)` }
+          : { position: 'absolute', top: 44, right: 0, width: 380, maxWidth: 'calc(100vw - 24px)', maxHeight: 'min(620px, calc(100vh - 90px))', background: btb.glassStrong }), display: 'flex', flexDirection: 'column', borderRadius: 20, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: '0 20px 50px rgba(0,0,0,0.4)', zIndex: 120, overflow: 'hidden' }}>
           <div style={{ flexShrink: 0, padding: '14px 14px 10px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
               <div style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.2 }}>Notifications</div>
@@ -116,18 +134,21 @@ export function AlertsBell({ compact = false, bare = false }: { compact?: boolea
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: 8 }}>
             {view === 'activity' ? (
               events.length === 0 ? (
-                <Empty title="No alerts yet" text={`You will see a line here when a watched position leaves or re-enters its range${isWalletBrowser() ? '. This browser cannot receive push, so check back here.' : ', and a push on this device.'}`}/>
+                <Empty title="Nothing yet" text={`You will see a line here for every XP you earn, and when a watched position leaves or re-enters its range${isWalletBrowser() ? '. This browser cannot receive push, so check back here.' : ', with a push on this device for range alerts.'}`}/>
               ) : groups.map(([day, rows]) => (
                 <div key={day}>
                   <div style={section}>{day}</div>
                   {rows.map(e => {
-                    const out = e.kind === 'out';
+                    // Range alerts ('out', 'in') have fixed wording; the agent ('auto') and XP ('xp') lines carry their own message.
+                    const out = e.kind === 'out', xp = e.kind === 'xp', range = out || e.kind === 'in';
                     const tone = out ? btb.amber : btb.green;
                     return (
                       <div key={e.id} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px', borderRadius: 14, background: fresh.has(e.id) ? 'rgba(var(--green-rgb), 0.07)' : 'transparent' }}>
                         <span style={{ width: 32, height: 32, borderRadius: 11, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: tone, background: `color-mix(in srgb, ${tone} 15%, transparent)` }}>
                           {out
                             ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                            : xp
+                            ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>
                             : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>}
                         </span>
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -136,7 +157,9 @@ export function AlertsBell({ compact = false, bare = false }: { compact?: boolea
                             <span style={{ color: btb.textDim, fontSize: 11, flexShrink: 0 }}>{ago(e.createdAt)}</span>
                           </div>
                           <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.45 }}>
-                            <span style={{ color: tone, fontWeight: 700 }}>{out ? 'Out of range.' : 'Back in range.'}</span> {out ? 'Rebalance to keep earning fees.' : 'Earning fees again.'}
+                            {range
+                              ? <><span style={{ color: tone, fontWeight: 700 }}>{out ? 'Out of range.' : 'Back in range.'}</span> {out ? 'Rebalance to keep earning fees.' : 'Earning fees again.'}</>
+                              : e.message}
                           </div>
                         </div>
                         {fresh.has(e.id) && <span style={{ width: 7, height: 7, borderRadius: 999, background: btb.green, flexShrink: 0, marginTop: 6 }}/>}

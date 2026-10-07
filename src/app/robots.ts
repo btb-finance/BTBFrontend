@@ -3,7 +3,7 @@ import { SITE } from '@/lib/seo/config';
 
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/opos-seed'] }],
+    rules: [{ userAgent: '*', allow: '/', disallow: ['/opos-seed', '/opos-pairs'] }],
     sitemap: `${SITE.url}/sitemap.xml`,
     host: SITE.url,
   };

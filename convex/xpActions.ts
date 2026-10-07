@@ -56,6 +56,6 @@ export const awardTxXp = action({
       xp = SWAP_XP;
     }
     if (xp <= 0) return { ok: false, awarded: 0, reason: "nothing to award" };
-    return ctx.runMutation(internal.users.creditTxXp, { walletAddress: wallet, key: `tx:${chainId}:${txHash.toLowerCase()}`, xp, capped: kind !== "mint" });
+    return ctx.runMutation(internal.users.creditTxXp, { walletAddress: wallet, key: `tx:${chainId}:${txHash.toLowerCase()}`, xp, capped: kind !== "mint", reason: kind === "mint" ? "Minted a BTB Bear" : kind === "bridge" ? "Bridge" : "Swap" });
   },
 });

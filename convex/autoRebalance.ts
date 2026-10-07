@@ -437,7 +437,7 @@ export const recordRebalance = internalMutation({
     const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", row.address)).unique();
     if (user) {
       await ctx.db.patch(user._id, { points: user.points + REBALANCE_XP });
-      await addEpochPoints(ctx, row.address, REBALANCE_XP);
+      await addEpochPoints(ctx, row.address, REBALANCE_XP, false, `Agent rebalanced ${row.label}`);
     }
     return { btb, freeLeft: await freeLeft(ctx, row.address) };
   },

@@ -117,7 +117,7 @@ export const review = internalMutation({
       .withIndex("by_wallet", (q) => q.eq("walletAddress", submission.walletAddress))
       .unique();
     if (user) await ctx.db.patch(user._id, { points: user.points + xp });
-    await addEpochPoints(ctx, submission.walletAddress, xp);
+    await addEpochPoints(ctx, submission.walletAddress, xp, false, `Quest approved: ${QUEST_BY_ID[submission.questId]?.title ?? "quest"}`);
 
     await ctx.db.patch(submissionId, {
       status: "approved", xp, reviewedAt: now, reviewNote: note, awardedEpochId: epochIdAt(now),
