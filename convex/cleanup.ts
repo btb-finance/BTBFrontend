@@ -32,18 +32,20 @@ export const dropOldAlertEvents = internalMutation({
 
 /**
  * Forgets wallets that have been gone for 90 days: no check-in (or, never checked in, joined over 90 days ago) and no
- * XP of any kind in the last 13 weekly epochs. Removes the wallet's record (its XP total, streak and who invited it),
- * its once-a-day award markers and its cached token balances. A returning wallet simply starts fresh.
+ * XP of any kind in the last 13 weekly epochs. Everything kept about the wallet goes: its record (XP total, streak,
+ * who invited it), weekly XP and payout history, quests, alerts, stopped auto-rebalances, tags, linked profiles, push
+ * subscriptions, sessions, chat and payment records. A returning wallet simply starts fresh. Epoch totals stay, so past
+ * weeks still add up.
  *
  * Never removed, whatever the dates: a wallet with BTB in the app, a Friday share not yet claimed or still being sent,
- * an active auto-rebalance or alert, or a quest waiting for review. Weekly XP and payout history stay for good.
+ * an active auto-rebalance or alert, a quest waiting for review, or a top-up payment not yet turned into BTB.
  * `dryRun` counts without deleting.
  */
 export const dropInactiveWallets = internalMutation({
   args: { cursor: v.union(v.string(), v.null()), dryRun: v.optional(v.boolean()) },
   handler: async (ctx, { cursor, dryRun }) => {
     const now = Date.now(), cutoff = now - INACTIVE_WALLET_MS, epochNow = epochIdAt(now);
-    const page = await ctx.db.query("users").paginate({ cursor, numItems: 100 });
+    const page = await ctx.db.query("users").paginate({ cursor, numItems: 50 });
     let deleted = 0, kept = 0;
     for (const u of page.page) {
       if ((u.lastCheckIn ?? u.joinedAt) >= cutoff) continue;
@@ -59,12 +61,31 @@ export const dropInactiveWallets = internalMutation({
       const jobs = await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", addr)).collect();
       const alerts = await ctx.db.query("positionAlerts").withIndex("by_address", (q) => q.eq("address", addr)).collect();
       const quests = await ctx.db.query("questSubmissions").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect();
+      const topUps = await ctx.db.query("topUpPayments").withIndex("by_payer", (q) => q.eq("payer", addr)).collect();
       if ((credit?.balance ?? 0) > 0 || payouts.some((p) => !PAYOUT_DONE.has(p.state)) || jobs.some((j) => j.active)
-        || alerts.some((a) => a.active) || quests.some((s) => s.status === "pending")) { kept++; continue; }
+        || alerts.some((a) => a.active) || quests.some((s) => s.status === "pending") || topUps.some((t) => !t.bought)) { kept++; continue; }
       deleted++;
       if (dryRun) continue;
-      for (const r of await ctx.db.query("dailyAwards").withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr)).collect()) await ctx.db.delete(r._id);
-      for (const r of await ctx.db.query("userTokenBalances").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect()) await ctx.db.delete(r._id);
+      // Rows already read for the checks above: all finished, inactive or reviewed by now.
+      // Rows already read for the checks above: all finished, inactive or reviewed by now. Deposit records stop a
+      // payment being credited twice, but a payment over a day old can never be credited, and these are 90 days old.
+      for (const r of [...payouts, ...jobs, ...alerts, ...quests, ...topUps]) await ctx.db.delete(r._id);
+      if (credit) await ctx.db.delete(credit._id);
+      const rows = (await Promise.all([
+        ctx.db.query("epochPoints").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect(),
+        ctx.db.query("rewardRequests").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect(),
+        ctx.db.query("dailyAwards").withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr)).collect(),
+        ctx.db.query("userTokenBalances").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect(),
+        ctx.db.query("agentMessages").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).collect(),
+        ctx.db.query("alertEvents").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+        ctx.db.query("alertDeposits").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+        ctx.db.query("autoTrials").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+        ctx.db.query("positionTags").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+        ctx.db.query("profileLinks").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+        ctx.db.query("pushSubscriptions").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+        ctx.db.query("sessions").withIndex("by_address", (q) => q.eq("address", addr)).collect(),
+      ])).flat();
+      for (const r of rows) await ctx.db.delete(r._id);
       await ctx.db.delete(u._id);
     }
     return { deleted, kept, cursor: page.isDone ? null : page.continueCursor };
