@@ -42,7 +42,8 @@ if (process.env.DISABLE_CRONS !== "1") {
   // picks up a row whose scheduled check was lost (a restart), so it is cheap.
   crons.interval("sweep auto-rebalance schedules", { minutes: 30 }, internal.autoRebalance.sweep);
 
-  // Daily cleanup (convex/cleanup.ts): notifications older than 90 days, chat beyond 200 messages a wallet, expired sign-ins.
+  // Daily cleanup (convex/cleanup.ts): notifications older than 90 days, chat beyond 200 messages a wallet, expired
+  // sign-ins, and everything about wallets with no check-in and no XP for 90 days.
   crons.daily("daily cleanup", { hourUTC: 4, minuteUTC: 17 }, internal.cleanup.daily);
 
   // Batched auto-rebalance checks (convex/autoRebalanceBatch.ts): compares in shadow mode, does the checks when live.
