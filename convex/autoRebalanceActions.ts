@@ -19,7 +19,7 @@ import type { LiquidityPosition } from "../src/protocols/types";
 import {
   ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, ALANDALE, MIN_LUTE_CLAIM, REWARD_CLAIM_EVERY_MS, claimRewardParams, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
-  AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, sweepStep, lpConfig, packPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
+  AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, sweepStep, lpConfig, packPosition, unpackPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 
 /** Reads or sends that fail this many times in a row pause the row. */
@@ -101,6 +101,44 @@ async function successorsOf(client: PublicClient, pm: `0x${string}`, wallet: `0x
     if (alive) return hops;
   }
   return null;
+}
+
+const STAKED_VALUES_ABI = parseAbi(["function stakedValues(address depositor) view returns (uint256[])"]);
+const ENUMERABLE_ABI = parseAbi(["function balanceOf(address owner) view returns (uint256)", "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)"]);
+
+/**
+ * A lost position's replacement, found without logs: the newest position in the same pool (same pair and fee tier or
+ * tick spacing, with liquidity) that the wallet holds or has staked in the job's gauge or farm, and that no other job
+ * tracks. The fallback for when the burn cannot be found in the logs (a lagging or refusing RPC right after a
+ * rebalance). Throws when a holding cannot be read, so the caller retries instead of giving up.
+ */
+async function replacementFor(
+  client: PublicClient, d: V3Deployment, wallet: `0x${string}`, pm: `0x${string}`,
+  job: { snapshot?: string; gauge?: string }, taken: Set<string>,
+): Promise<bigint | null> {
+  if (!job.snapshot) return null;
+  const old = unpackPosition<LiquidityPosition>(job.snapshot);
+  const enumerate = async (holder: `0x${string}`) => {
+    const n = await client.readContract({ address: holder, abi: ENUMERABLE_ABI, functionName: "balanceOf", args: [wallet] });
+    return Promise.all(Array.from({ length: Number(n) }, (_, i) =>
+      client.readContract({ address: holder, abi: ENUMERABLE_ABI, functionName: "tokenOfOwnerByIndex", args: [wallet, BigInt(i)] })));
+  };
+  const ids = [...await enumerate(pm)];
+  if (job.gauge) {
+    const g = job.gauge as `0x${string}`;
+    // Aerodrome and UP gauges list a depositor's ids; a MasterChef farm enumerates them like an NFT.
+    const staked = await client.readContract({ address: g, abi: STAKED_VALUES_ABI, functionName: "stakedValues", args: [wallet] })
+      .catch(() => enumerate(g));
+    ids.push(...staked);
+  }
+  const free = [...new Set(ids.map(String))].filter((id) => !taken.has(id)).map((id) => BigInt(id));
+  if (free.length === 0) return null;
+  const found = await fetchV3Positions(client, wallet, d, free);
+  const same = found.filter((p) => p.liquidity > 0n
+    && p.token0.toLowerCase() === old.token0.toLowerCase() && p.token1.toLowerCase() === old.token1.toLowerCase()
+    && (old.tickSpacing != null && p.tickSpacing != null ? p.tickSpacing === old.tickSpacing : p.fee === old.fee));
+  if (same.length === 0) return null;
+  return same.map((p) => BigInt(p.id)).reduce((a, b) => (b > a ? b : a));
 }
 
 /** The DEX deployment behind a position manager this feature supports. */
@@ -696,15 +734,37 @@ export const check = internalAction({
       }
     } catch (e) {
       if (revertName(e) != null || (e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError))) {
-        // Burned: usually by our own rebalance whose new id never got saved. Follow it before giving up.
+        // Burned: usually by our own rebalance whose new id never got saved. Follow it before giving up. A job is only
+        // ever stopped once both ways of finding the new position agree it is gone; a read that fails retries instead
+        // (on 2026-10-13 a refused log search right after a rebalance stopped a job whose position was safely staked).
         const since = (job.lastCheckedAt ?? job.nextCheckAt - intervalMs) - 30 * 60_000;
-        const hops = await successorsOf(client, pm, wallet, tokenId, since).catch(() => null);
+        let hops: Awaited<ReturnType<typeof successorsOf>>;
+        try { hops = await successorsOf(client, pm, wallet, tokenId, since); }
+        catch {
+          await ctx.runMutation(internal.autoRebalance.recordFailure, { id, gen, note: "Could not trace the position after a change; retrying.", max: MAX_FAILURES, nextInMs: RETRY_MS });
+          return;
+        }
         if (hops?.length) {
           for (const h of hops) {
             if (h.byAgent) await ctx.runMutation(internal.autoRebalance.recordRebalance, { id, newTokenId: h.tokenId.toString(), staked: !!job.gauge });
             else await ctx.runMutation(internal.autoRebalance.followPosition, { id, tokenId: h.tokenId.toString() });
           }
           // The next check reads where the new position is (wallet or gauge) and carries on from there.
+          const after = await ctx.runQuery(internal.autoRebalance.get, { id });
+          if (after?.active) await ctx.runMutation(internal.autoRebalance.settle, { id, gen: after.gen, status: "watching", nextInMs: 5_000 });
+          return;
+        }
+        // No burn in the logs (a fresh rebalance a lagging RPC has not indexed yet): look at what the wallet holds.
+        let replacement: bigint | null;
+        try {
+          const taken = new Set(await ctx.runQuery(internal.autoRebalance.trackedIds, { address: job.address, chainId: job.chainId, positionManager: job.positionManager, except: id }));
+          replacement = await replacementFor(client, d, wallet, pm, job, taken);
+        } catch {
+          await ctx.runMutation(internal.autoRebalance.recordFailure, { id, gen, note: "Could not trace the position after a change; retrying.", max: MAX_FAILURES, nextInMs: RETRY_MS });
+          return;
+        }
+        if (replacement != null) {
+          await ctx.runMutation(internal.autoRebalance.followPosition, { id, tokenId: replacement.toString() });
           const after = await ctx.runQuery(internal.autoRebalance.get, { id });
           if (after?.active) await ctx.runMutation(internal.autoRebalance.settle, { id, gen: after.gen, status: "watching", nextInMs: 5_000 });
           return;

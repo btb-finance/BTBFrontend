@@ -302,6 +302,15 @@ export const get = internalQuery({
   handler: (ctx, { id }) => ctx.db.get(id),
 });
 
+/** Position ids every other job of this owner tracks on this manager, whatever its state, so a search for a lost
+ * position's replacement can never take over a position that belongs to another job. */
+export const trackedIds = internalQuery({
+  args: { address: v.string(), chainId: v.float64(), positionManager: v.string(), except: v.id("autoRebalances") },
+  handler: async (ctx, a) => (await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", a.address)).collect())
+    .filter((r) => r._id !== a.except && r.chainId === a.chainId && r.positionManager.toLowerCase() === a.positionManager.toLowerCase())
+    .map((r) => r.tokenId),
+});
+
 export const available = internalQuery({
   args: { address: v.string() },
   handler: async (ctx, { address }) => (await availableFor(ctx, address)).total,
