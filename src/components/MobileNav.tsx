@@ -23,12 +23,13 @@ const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'stake',    label: 'Agent',     icon: 'bolt' },
 ];
 
-export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect, onDisconnect, onViewAddress }: {
+export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onVote, onConnect, onDisconnect, onViewAddress }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   address?: string;
   isReadOnly: boolean;
   onDocs: () => void;
+  onVote: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onViewAddress: (addr: string | undefined) => void;
@@ -71,6 +72,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {[
                 ...MORE_TABS.map(i => ({ ...i, onClick: () => { setTab(i.id); setSheet(false); }, active: tab === i.id })),
+                { id: 'vote', label: 'Vote', icon: 'star', onClick: () => { onVote(); setSheet(false); }, active: false },
                 { id: 'docs', label: 'Docs', icon: 'doc', onClick: () => { onDocs(); setSheet(false); }, active: false },
               ].map(i => (
                 <div key={i.id} onClick={i.onClick} style={{

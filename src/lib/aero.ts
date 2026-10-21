@@ -13,10 +13,78 @@ import { encodeFunctionData, parseAbi, type PublicClient } from 'viem';
 
 export const CHAIN0 = 0n;
 
-/** Contract addresses per chain. Base's are filled in once Aero publishes them (deployment-addresses/base.json). */
-export const AERO: Record<number, { votingEscrow: `0x${string}`; voter: `0x${string}`; leafVoter: `0x${string}` } | undefined> = {
+export interface AeroDeployment {
+  votingEscrow: `0x${string}`;
+  /** Root Voter: allocate, chain budgets. */
+  voter: `0x${string}`;
+  /** This chain's leaf voter: gauge weights, a stake's current split, cooldown. */
+  leafVoter: `0x${string}`;
+  /** Normal-pool factories (volatile and stable) and the concentrated-liquidity factory. */
+  poolFactories: `0x${string}`[];
+  clFactory: `0x${string}`;
+  gaugeFactory: `0x${string}`;
+  clGaugeFactory: `0x${string}`;
+}
+
+/** Contract addresses per chain. Base's are filled in once Aero publishes them (deployment-addresses/base.json in
+ * Dromos-Labs/metadex-public and metadex-slipstream-public); until then the vote page says Aero voting is not live. */
+export const AERO: Record<number, AeroDeployment | undefined> = {
   8453: undefined,
 };
+
+/** The chain Aero votes are cast from; its gauges need no bridge fee. */
+export const AERO_ROOT_CHAIN = 8453;
+
+export const POOL_FACTORY_ABI = parseAbi([
+  'function allPools() view returns (address[])',
+  'function allPoolsLength() view returns (uint256)',
+  'function allPools(uint256 index) view returns (address)',
+  'function defaultFee() view returns (uint256)',
+]);
+export const GAUGE_FACTORY_ABI = parseAbi([
+  'function computeGaugeAddress(address pool) view returns (address)',
+  'function isGauge(address gauge) view returns (bool)',
+]);
+export const POOL_ABI = parseAbi([
+  'function token0() view returns (address)',
+  'function token1() view returns (address)',
+  'function fee() view returns (uint24)',
+]);
+export const GAUGE_STATES_ABI = parseAbi([
+  'struct Point { int128 bias; int128 slope; uint48 ts; uint128 permanentStakeBalance; }',
+  'function gaugeStates(address gauge) view returns (uint128 ceiling, uint128 claimed, uint48 lastSettlement, bool isRegistered, bool isActivated, uint128 surplus, uint256 lastIndex, uint256 lastTimeIndex, Point point)',
+]);
+
+/** A gauge's votes now: the decaying part resolved to `nowSec`, plus permanent stakes. */
+export function votesNow(point: { bias: bigint; slope: bigint; ts: number; permanentStakeBalance: bigint }, nowSec: number): bigint {
+  const decayed = point.bias - point.slope * BigInt(Math.max(0, nowSec - Number(point.ts)));
+  return (decayed > 0n ? decayed : 0n) + point.permanentStakeBalance;
+}
+
+/** One pool users can vote for, as the hourly job ranks it (convex/aeroVote.ts). */
+export interface AeroVotePool {
+  pool: `0x${string}`;
+  gauge: `0x${string}`;
+  pair: string;
+  kind: 'cl' | 'volatile' | 'stable';
+  /** Swap fee as a fraction (0.0005 = 0.05%). */
+  fee: number;
+  volume24hUsd: number;
+  fees24hUsd: number;
+  /** AERO already voted on the gauge, in whole tokens. */
+  votes: number;
+  /** Yearly fees per AERO of votes, as a percent of the AERO's value; null when the gauge has no votes yet. */
+  aprPerVote: number | null;
+}
+
+/**
+ * Estimated yearly USD a vote of `myVotes` AERO earns on a pool: its share of the pool's fees once added to the
+ * votes already there. Adding votes shrinks every voter's share, which this accounts for.
+ */
+export function yearlyFromVote(p: AeroVotePool, myVotes: number): number {
+  if (myVotes <= 0) return 0;
+  return p.fees24hUsd * 365 * (myVotes / (p.votes + myVotes));
+}
 
 export const VOTING_ESCROW_ABI = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',

@@ -334,6 +334,14 @@ export default defineSchema({
   // treasury EOA never races its own nonce.
   // Public RPCs per chain, tested and ranked by convex/rpcHealth.ts (from chainlist.org plus our own list). The app
   // and the agent read from these first; the hardcoded lists in src/lib are only the backup.
+  // Pools sAERO holders can vote for on Aero, ranked by yearly fees per vote (convex/aeroVote.ts, hourly).
+  aeroVotePools: defineTable({
+    chainId: v.float64(),
+    pools: v.string(),          // JSON AeroVotePool[] (src/lib/aero.ts), best first
+    aeroUsd: v.float64(),
+    updatedAt: v.float64(),
+  }).index("by_chain", ["chainId"]),
+
   rpcEndpoints: defineTable({
     chainId: v.float64(),
     endpoints: v.array(v.object({
