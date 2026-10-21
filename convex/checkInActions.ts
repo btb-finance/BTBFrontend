@@ -3,8 +3,9 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { createPublicClient, erc20Abi, formatUnits, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
-import { MAINNET_RPCS } from "../src/lib/rpc";
+import { rpcUrls } from "../src/lib/chainRpc";
 import { CONTRACTS } from "../src/lib/contractAddresses";
+import { loadLiveRpcs } from "./liveRpcs";
 
 
 /**
@@ -13,7 +14,7 @@ import { CONTRACTS } from "../src/lib/contractAddresses";
  * BTB on 2026-10-03, costing it the holding bonus); none can report BTB that is not there. Null only if all fail.
  */
 async function btbBalanceOf(wallet: `0x${string}`): Promise<bigint | null> {
-  const urls = [...MAINNET_RPCS].sort(() => Math.random() - 0.5).slice(0, 3);
+  const urls = [...rpcUrls(1)].slice(0, 8).sort(() => Math.random() - 0.5).slice(0, 3);
   const reads = await Promise.allSettled(urls.map((url) =>
     createPublicClient({ chain: mainnet, transport: http(url, { timeout: 8_000 }) })
       .readContract({ address: CONTRACTS.BTB, abi: erc20Abi, functionName: "balanceOf", args: [wallet] })));
@@ -22,7 +23,7 @@ async function btbBalanceOf(wallet: `0x${string}`): Promise<bigint | null> {
 }
 
 /** Ethereum RPCs that answered balance reads up to 7,000 blocks back when tested on 2026-10-07 (most public nodes
- * keep only recent state). Used for the random snapshot below. */
+ * keep only recent state). The backup for the random snapshot below; the tested list's archive endpoints come first. */
 const ARCHIVE_RPCS = [
   'https://rpc-eth.blockmachine.io', 'https://ethereum-json-rpc.stakely.io', 'https://gateway.tenderly.co/public/mainnet',
   'https://mainnet.rpc.sentio.xyz', 'https://1.rpc.thirdweb.com', 'https://rpc.swiftnodes.io/rpc/eth',
@@ -38,7 +39,7 @@ const BLOCKS_PER_DAY = 7_200;
  * number, so it cannot be predicted or timed. Null if no archive RPC answered.
  */
 async function btbBalanceAtRandomBlock(wallet: `0x${string}`): Promise<bigint | null> {
-  const urls = [...ARCHIVE_RPCS].sort(() => Math.random() - 0.5);
+  const urls = [...new Set([...rpcUrls(1, { archive: true }).sort(() => Math.random() - 0.5), ...[...ARCHIVE_RPCS].sort(() => Math.random() - 0.5)])];
   const pick = new Uint32Array(1);
   crypto.getRandomValues(pick);
   const back = 5n + BigInt(pick[0] % BLOCKS_PER_DAY);
@@ -62,6 +63,7 @@ async function btbBalanceAtRandomBlock(wallet: `0x${string}`): Promise<bigint | 
 export const checkIn = action({
   args: { walletAddress: v.string() },
   handler: async (ctx, { walletAddress }): Promise<{ alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number }> => {
+    await loadLiveRpcs(ctx);
     if (!isAddress(walletAddress)) throw new Error("Invalid wallet address");
     const [raw, snap] = await Promise.all([
       btbBalanceOf(walletAddress as `0x${string}`),

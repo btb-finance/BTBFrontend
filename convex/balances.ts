@@ -18,27 +18,16 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { createPublicClient, http, fallback, erc20Abi } from "viem";
 import { mainnet } from "viem/chains";
+import { loadLiveRpcs } from "./liveRpcs";
+import { rpcUrls } from "../src/lib/chainRpc";
 
 // Only RPCs that actually serve Multicall3. The `probeFirstBatch` action below
 // proved that ~8 of the public endpoints return all-zero/empty for multicalls
 // (llamarpc, cloudflare, ankr, zan, tatum, flashbots, meowrpc, payload) even
 // though they respond OK to plain eth_call. Including them in the pool here
 // just produces silent failures that look like "USDC didn't load".
-const MAINNET_RPCS = [
-  "https://ethereum.publicnode.com",
-  "https://1rpc.io/eth",
-  "https://eth.drpc.org",
-  "https://eth.blockrazor.xyz",
-  "https://eth.rpc.blxrbdn.com",
-  "https://rpc.eth.gateway.fm",
-  "https://gateway.tenderly.co/public/mainnet",
-  "https://mainnet.gateway.tenderly.co",
-  "https://eth1.lava.build",
-  "https://eth.api.onfinality.io/public",
-  "https://0xrpc.io/eth",
-  "https://ethereum.public.blockpi.network/v1/rpc/public",
-  "https://eth-mainnet.public.blastapi.io",
-];
+// Ethereum RPCs come from the tested, ranked list (convex/rpcHealth.ts via rpcUrls), with the shared hardcoded
+// list as its backup, so a dead endpoint drops out without an edit here.
 
 const NATIVE = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
 const WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
@@ -61,6 +50,7 @@ type PriceRow = { address: string; priceUsd: number };
 export const refresh = action({
   args: { walletAddress: v.string() },
   handler: async (ctx, { walletAddress }) => {
+    await loadLiveRpcs(ctx);
     const addr = walletAddress.toLowerCase() as `0x${string}`;
 
     const [tokenListRaw, priceRowsRaw] = await Promise.all([
@@ -83,8 +73,8 @@ export const refresh = action({
     const batches: typeof erc20List[] = [];
     for (let i = 0; i < erc20List.length; i += BATCH) batches.push(erc20List.slice(i, i + BATCH));
 
-    const clients = MAINNET_RPCS.map((url) => createPublicClient({ chain: mainnet, transport: http(url) }));
-    const pub = createPublicClient({ chain: mainnet, transport: fallback(MAINNET_RPCS.map((url) => http(url))) });
+    const clients = rpcUrls(1).map((url) => createPublicClient({ chain: mainnet, transport: http(url) }));
+    const pub = createPublicClient({ chain: mainnet, transport: fallback(rpcUrls(1).map((url) => http(url))) });
 
     const callBatch = (clientIdx: number, batch: typeof erc20List) =>
       clients[clientIdx % clients.length].multicall({

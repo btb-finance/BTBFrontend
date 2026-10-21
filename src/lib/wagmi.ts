@@ -6,7 +6,6 @@ import {
 } from 'wagmi/chains';
 import { defineChain, fallback, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask, safe } from '@wagmi/connectors';
-import { MAINNET_TRANSPORT } from './rpc';
 import { chainTransport } from './chainRpc';
 import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
@@ -88,7 +87,8 @@ export function makeConfig() {
   return createConfig({
     chains: SUPPORTED_CHAINS,
     transports: {
-      [mainnet.id]: MAINNET_TRANSPORT,
+      // The tested list first (convex/rpcHealth.ts, installed by Providers), then the hardcoded backup.
+      [mainnet.id]: chainTransport(mainnet.id),
       // Every non-mainnet chain previously rode viem's single default public
       // RPC — one rate-limited endpoint with no fallback. chainTransport gives
       // each a verified multi-endpoint failover list (see ./chainRpc.ts).

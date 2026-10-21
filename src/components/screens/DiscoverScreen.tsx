@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useGrowingList } from '../../lib/useGrowingList';
 import { isAddress } from 'viem';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
@@ -588,6 +589,9 @@ export function DiscoverScreen() {
   const forYou = showAllForYou ? forYouAll : forYouAll.slice(0, FOR_YOU_MAX);
   const forYouKeys = useMemo(() => new Set(forYou.map(p => `${p.chain}-${p.id}`)), [forYou]);
   const rest = useMemo(() => filtered.filter(p => !forYouKeys.has(`${p.chain}-${p.id}`)), [filtered, forYouKeys]);
+  // Phones get cards by TVL, drawn a batch at a time: all ~3,700 at once kept a phone busy for half a minute.
+  const restByTvl = useMemo(() => [...rest].sort((a, b) => b.tvlUsd - a.tvlUsd), [rest]);
+  const mobilePage = useGrowingList(restByTvl.length, 30);
 
   const chains = useMemo(() => {
     const byName = new Map<string, DiscoverChain>();
@@ -867,7 +871,14 @@ export function DiscoverScreen() {
           {!loading && forYou.length > 0 && rest.length > 0 && (
             <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3, padding: '8px 4px 0' }}>All pools</div>
           )}
-          {!loading && [...rest].sort((a, b) => b.tvlUsd - a.tvlUsd).map(renderMobileCard)}
+          {!loading && restByTvl.slice(0, mobilePage.count).map(renderMobileCard)}
+          {!loading && mobilePage.left > 0 && (
+            <div ref={mobilePage.sentinel} style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+              <button type="button" onClick={mobilePage.more} style={{ height: 36, padding: '0 18px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                Show more ({mobilePage.left.toLocaleString('en-US')} left)
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -905,6 +916,7 @@ export function DiscoverScreen() {
             <DataTable
               columns={columns}
               rows={rest}
+              pageSize={60}
               rowKey={p => `${p.chain}-${p.id}`}
               loading={loading}
               emptyMessage="No pools found"

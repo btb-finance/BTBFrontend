@@ -198,12 +198,17 @@ export async function buildTakeOutCalls(client: PublicClient, job: { wallet: str
   const tokenId = BigInt(job.tokenId);
   const calls: Call[] = [];
   const holder = await client.readContract({ address: pm, abi: parseAbi(['function ownerOf(uint256) view returns (address)']), functionName: 'ownerOf', args: [tokenId] }).catch(() => null);
-  if (job.gauge && holder?.toLowerCase() === job.gauge.toLowerCase()) {
-    calls.push({ to: wallet, label: 'Unstake', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [stakeAdapterFor(Number(job.chainId ?? 0), job.positionManager), gaugeParams(Action.Unstake, job.gauge as `0x${string}`, tokenId)] }) });
+  const h = holder?.toLowerCase();
+  // Where the NFT really is decides the steps, not the job's saved gauge: a position staked by hand, or whose saved
+  // gauge is missing or out of date, is held by its gauge or farm, so unstake from that holder first. Without this the
+  // withdraw tried to send an NFT the wallet did not hold, and failed.
+  const stakedIn = h && h !== wallet.toLowerCase() && h !== owner?.toLowerCase() ? holder! : null;
+  if (stakedIn) {
+    calls.push({ to: wallet, label: 'Unstake', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'run', args: [stakeAdapterFor(Number(job.chainId ?? 0), job.positionManager), gaugeParams(Action.Unstake, stakedIn, tokenId)] }) });
   }
-  if (holder) calls.push({ to: wallet, label: 'Send the position to your wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'withdrawNft', args: [pm, tokenId] }) });
-  const staked = !!job.gauge && holder?.toLowerCase() === job.gauge.toLowerCase();
-  calls.push(...await buildSweepCalls(client, job, staked, owner));
+  // Already with the owner: nothing to send, only the leftovers below.
+  if (holder && h !== owner?.toLowerCase()) calls.push({ to: wallet, label: 'Send the position to your wallet', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'withdrawNft', args: [pm, tokenId] }) });
+  calls.push(...await buildSweepCalls(client, { ...job, gauge: stakedIn ?? job.gauge }, !!stakedIn, owner));
   return calls;
 }
 

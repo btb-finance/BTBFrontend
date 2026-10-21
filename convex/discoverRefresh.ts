@@ -23,30 +23,20 @@ import { CHAIN_DATA_NETWORKS } from "../src/lib/chainDataNetworks";
 import { fetchPoolPriceChanges, fetchTokenLogos } from "../src/lib/geckoterminal";
 import { fetchMerklPoolRewards, MERKL_CHAINS } from "../src/lib/merkl";
 import { packSnapshot, unpackSnapshotNode } from "../src/lib/snapshotCodec";
+import { loadLiveRpcs } from "./liveRpcs";
+import { rpcUrls } from "../src/lib/chainRpc";
 
 // Multicall3-capable public RPCs — same proven set as balances.ts.
-const MAINNET_RPCS = [
-  "https://ethereum.publicnode.com",
-  "https://1rpc.io/eth",
-  "https://eth.drpc.org",
-  "https://eth.blockrazor.xyz",
-  "https://eth.rpc.blxrbdn.com",
-  "https://rpc.eth.gateway.fm",
-  "https://gateway.tenderly.co/public/mainnet",
-  "https://mainnet.gateway.tenderly.co",
-  "https://eth1.lava.build",
-  "https://eth.api.onfinality.io/public",
-  "https://0xrpc.io/eth",
-  "https://ethereum.public.blockpi.network/v1/rpc/public",
-  "https://eth-mainnet.public.blastapi.io",
-];
+// Ethereum RPCs come from the tested, ranked list (convex/rpcHealth.ts via rpcUrls), with the shared hardcoded
+// list as its backup, so a dead endpoint drops out without an edit here.
 
 export const refresh = internalAction({
   args: {},
   handler: async (ctx) => {
+    await loadLiveRpcs(ctx);
     const mainnetClient = createPublicClient({
       chain: mainnet,
-      transport: fallback(MAINNET_RPCS.map((u) => http(u, { timeout: 12_000, retryCount: 1 }))),
+      transport: fallback(rpcUrls(1).map((u) => http(u, { timeout: 12_000, retryCount: 1 }))),
     });
 
     // One client per discovery chain, built once and reused across the pass.
@@ -110,6 +100,7 @@ export const refresh = internalAction({
 export const coverDexes = internalAction({
   args: { index: v.number() },
   handler: async (ctx, { index }) => {
+    await loadLiveRpcs(ctx);
     const target = DISCOVERY_CHAINS[index];
     if (!target || target.chainId == null) return;
     const row = await ctx.runQuery(internal.discover.getInternal, {});
@@ -145,6 +136,7 @@ export const coverDexes = internalAction({
 export const fillTokenLogos = internalAction({
   args: {},
   handler: async (ctx) => {
+    await loadLiveRpcs(ctx);
     const row = await ctx.runQuery(internal.discover.getInternal, {});
     if (!row) return;
     const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
@@ -203,6 +195,7 @@ export const fillTokenLogos = internalAction({
 export const fillMerkl = internalAction({
   args: {},
   handler: async (ctx) => {
+    await loadLiveRpcs(ctx);
     const row = await ctx.runQuery(internal.discover.getInternal, {});
     if (!row) return;
     const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);

@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as aeroVote from "../aeroVote.js";
 import type * as agent from "../agent.js";
 import type * as agentChat from "../agentChat.js";
 import type * as alertMessages from "../alertMessages.js";
@@ -26,6 +27,7 @@ import type * as credit from "../credit.js";
 import type * as crons from "../crons.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
+import type * as liveRpcs from "../liveRpcs.js";
 import type * as poolFacts from "../poolFacts.js";
 import type * as prices from "../prices.js";
 import type * as profiles from "../profiles.js";
@@ -36,6 +38,7 @@ import type * as questCatalog from "../questCatalog.js";
 import type * as quests from "../quests.js";
 import type * as rewards from "../rewards.js";
 import type * as rewardsActions from "../rewardsActions.js";
+import type * as rpcHealth from "../rpcHealth.js";
 import type * as sessionActions from "../sessionActions.js";
 import type * as sessions from "../sessions.js";
 import type * as tokens from "../tokens.js";
@@ -53,6 +56,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aeroVote: typeof aeroVote;
   agent: typeof agent;
   agentChat: typeof agentChat;
   alertMessages: typeof alertMessages;
@@ -71,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
+  liveRpcs: typeof liveRpcs;
   poolFacts: typeof poolFacts;
   prices: typeof prices;
   profiles: typeof profiles;
@@ -81,6 +86,7 @@ declare const fullApi: ApiFromModules<{
   quests: typeof quests;
   rewards: typeof rewards;
   rewardsActions: typeof rewardsActions;
+  rpcHealth: typeof rpcHealth;
   sessionActions: typeof sessionActions;
   sessions: typeof sessions;
   tokens: typeof tokens;

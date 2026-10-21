@@ -2,6 +2,7 @@
 import { ReactNode, useState } from 'react';
 import { btb } from './design-tokens';
 import { Spinner } from './Spinner';
+import { useGrowingList } from '../lib/useGrowingList';
 
 export interface Column<T> {
   key: string;
@@ -22,11 +23,13 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   defaultSortKey?: string;
   defaultSortDir?: 'asc' | 'desc';
+  /** Draw this many rows at first and more as the table scrolls; sorting still covers every row. */
+  pageSize?: number;
 }
 
 export function DataTable<T>({
   columns, rows, rowKey, loading, emptyMessage = 'No data', onRowClick,
-  defaultSortKey, defaultSortDir = 'desc',
+  defaultSortKey, defaultSortDir = 'desc', pageSize,
 }: DataTableProps<T>) {
   const [sortKey, setSortKey] = useState<string | undefined>(defaultSortKey);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>(defaultSortDir);
@@ -46,6 +49,8 @@ export function DataTable<T>({
         return sortDir === 'asc' ? cmp : -cmp;
       })
     : rows;
+  const page = useGrowingList(sortedRows.length, pageSize ?? Number.MAX_SAFE_INTEGER);
+  const shownRows = pageSize ? sortedRows.slice(0, page.count) : sortedRows;
 
   return (
     <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -91,7 +96,7 @@ export function DataTable<T>({
               </td>
             </tr>
           ) : (
-            sortedRows.map(row => (
+            shownRows.map(row => (
               <tr
                 key={rowKey(row)}
                 onClick={() => onRowClick?.(row)}
@@ -121,6 +126,13 @@ export function DataTable<T>({
           )}
         </tbody>
       </table>
+      {pageSize && page.left > 0 && (
+        <div ref={page.sentinel} style={{ padding: '12px', display: 'flex', justifyContent: 'center' }}>
+          <button type="button" onClick={page.more} style={{ height: 34, padding: '0 16px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>
+            Show more ({page.left.toLocaleString('en-US')} left)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
