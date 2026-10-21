@@ -14,6 +14,7 @@ import { mainnet } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Doc, Id } from "./_generated/dataModel";
 import { CONTRACTS } from "../src/lib/contractAddresses";
+import { loadLiveRpcs } from "./liveRpcs";
 
 // BTB and OPOSSUM both live on Ethereum mainnet — not the Robinhood chain the
 // trading agents in this folder use. Addresses mirror CONTRACTS in
@@ -106,6 +107,7 @@ function terminalFailure(message: string) {
 export const settle = internalAction({
   args: { epochId: v.float64() },
   handler: async (ctx, { epochId }): Promise<{ skipped: boolean; state?: string; queued?: number; potRaw?: string }> => {
+    await loadLiveRpcs(ctx);
     try {
       const epoch = await ctx.runQuery(internal.rewards.getEpoch, { epochId });
       if (!epoch || epoch.state !== "burning") return { skipped: true };
@@ -162,6 +164,7 @@ export const settle = internalAction({
 export const drain = internalAction({
   args: {},
   handler: async (ctx): Promise<{ processed: boolean; locked?: boolean; payoutId?: Id<"rewardPayouts">; error?: string }> => {
+    await loadLiveRpcs(ctx);
     const workerId = crypto.randomUUID();
     const claimed: { locked: boolean; retryAfter: number; payout: Doc<"rewardPayouts"> | null } =
       await ctx.runMutation(internal.rewards.claimPayout, { workerId });

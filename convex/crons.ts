@@ -44,6 +44,8 @@ if (process.env.DISABLE_CRONS !== "1") {
 
   // Daily cleanup (convex/cleanup.ts): notifications older than 90 days, chat beyond 200 messages a wallet, expired
   // sign-ins, and everything about wallets with no check-in and no XP for 90 days.
+  // Test every public RPC (chainlist.org plus our own lists) for each chain and keep the best, ranked (convex/rpcHealth.ts).
+  crons.interval("refresh tested RPC lists", { hours: 6 }, internal.rpcHealth.refreshAll);
   crons.daily("daily cleanup", { hourUTC: 4, minuteUTC: 17 }, internal.cleanup.daily);
 
   // Batched auto-rebalance checks (convex/autoRebalanceBatch.ts): compares in shadow mode, does the checks when live.

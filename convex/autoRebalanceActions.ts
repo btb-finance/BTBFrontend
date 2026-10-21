@@ -3,13 +3,13 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
-  BaseError, ContractFunctionRevertedError, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
+  BaseError, ContractFunctionRevertedError, createPublicClient, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
   parseEventLogs, type Chain, type PublicClient,
 } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { getChainClient } from "../src/lib/chainClient";
-import { chainTransport } from "../src/lib/chainRpc";
+import { chainTransport, logRpcs } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
 import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
 import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
@@ -21,6 +21,7 @@ import {
   V6, V6_REGISTRY, WALLET_ABI, ALANDALE, MIN_LUTE_CLAIM, REWARD_CLAIM_EVERY_MS, claimRewardParams, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
   AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, sweepStep, lpConfig, packPosition, unpackPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
+import { loadLiveRpcs } from "./liveRpcs";
 
 /** Reads or sends that fail this many times in a row pause the row. */
 const MAX_FAILURES = 6;
@@ -36,7 +37,8 @@ const robinhood = defineChain({
 
 /** Transactions go through endpoints that accept them; public read-only proxies refuse sends. */
 const SEND_TRANSPORT: Record<number, ReturnType<typeof fallback>> = {
-  8453: chainTransport(8453) as ReturnType<typeof fallback>,
+  // Built when used, not at load: Base's list is the tested one, installed by loadLiveRpcs at the start of each run.
+  get 8453() { return chainTransport(8453) as ReturnType<typeof fallback>; },
   4663: fallback([http("https://rpc.mainnet.chain.robinhood.com/"), http("https://robinhood.api.pocket.network")]),
 };
 const CHAINS: Record<number, Chain> = { 8453: base, 4663: robinhood };
@@ -73,12 +75,15 @@ const MAX_LOG_QUERIES = 60;
  * position. This catches a rebalance that landed while its receipt never reached us (an RPC timeout makes the send
  * throw, so the new id was never saved). Follows a few hops, in order. A hop is billed only when the BTB agent sent it.
  */
-async function successorsOf(client: PublicClient, pm: `0x${string}`, wallet: `0x${string}`, tokenId: bigint, sinceMs: number) {
+async function successorsOf(readClient: PublicClient, pm: `0x${string}`, wallet: `0x${string}`, tokenId: bigint, sinceMs: number) {
+  // Log searches go to the tested endpoints that accept wide ranges, in the largest range all of them take.
+  const wide = logRpcs(readClient.chain?.id ?? 0);
+  const client = wide ? createPublicClient({ chain: readClient.chain, transport: fallback(wide.urls.map((u) => http(u, { timeout: 15_000 })), { retryCount: 1 }) }) as PublicClient : readClient;
   const latest = await client.getBlock();
   const earlier = await client.getBlock({ blockNumber: latest.number > 1000n ? latest.number - 1000n : 0n });
   const msPerBlock = Math.max(1, (Number(latest.timestamp - earlier.timestamp) * 1000) / Number(latest.number - earlier.number || 1n));
   const back = BigInt(Math.ceil(Math.max(0, Date.now() - sinceMs) / msPerBlock));
-  const chunk = LOG_CHUNK[client.chain?.id ?? 0] ?? 50_000n;
+  const chunk = wide ? BigInt(wide.range) : LOG_CHUNK[client.chain?.id ?? 0] ?? 50_000n;
   const fromBlock = latest.number > back ? latest.number - back : 0n;
   const event = NFT_ABI[1];
   const hops: { tokenId: bigint; byAgent: boolean }[] = [];
@@ -675,6 +680,7 @@ async function push(ctx: ActionCtx, address: string, label: string, kind: string
 export const syncJob = action({
   args: { id: v.id("autoRebalances") },
   handler: async (ctx, { id }): Promise<{ ok: boolean; state?: "held" | "staked" | "gone" }> => {
+    await loadLiveRpcs(ctx);
     const job = await ctx.runQuery(internal.autoRebalance.get, { id });
     const client = job ? getChainClient(job.chainId) : null;
     if (!job || !client || job.status === "stopped") return { ok: false };
@@ -699,6 +705,7 @@ export const syncJob = action({
 export const check = internalAction({
   args: { id: v.id("autoRebalances"), gen: v.float64(), retry: v.optional(v.boolean()) },
   handler: async (ctx, { id, gen, retry }) => {
+    await loadLiveRpcs(ctx);
     const job = await ctx.runQuery(internal.autoRebalance.get, { id });
     if (!job || !job.active || job.gen !== gen) return;
     const intervalMs = job.intervalMin * 60_000;
@@ -997,6 +1004,7 @@ export const enable = action({
     label: v.string(), gauge: v.optional(v.string()), intervalMin: v.float64(), compound: v.optional(v.boolean()),
   },
   handler: async (ctx, a): Promise<Result> => {
+    await loadLiveRpcs(ctx);
     const owner = await ctx.runQuery(internal.sessions.walletFor, { token: a.sessionToken });
     if (!owner) return { ok: false, reason: "Your sign-in expired. Sign in again." };
     const v = await verifyOnChain(owner, a);
@@ -1043,6 +1051,7 @@ export const enableNew = action({
     txHashes: v.optional(v.array(v.string())),
   },
   handler: async (ctx, a): Promise<Result> => {
+    await loadLiveRpcs(ctx);
     if (!isAddress(a.owner)) return { ok: false, reason: "Invalid wallet address." };
     const v = await verifyOnChain(a.owner.toLowerCase(), a);
     if (!v.ok) return v;

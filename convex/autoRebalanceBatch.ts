@@ -6,6 +6,7 @@ import { getChainClient } from "../src/lib/chainClient";
 import { SLOT0_HEAD_ABI } from "../src/protocols/dexs/uniswap/v3/abis";
 import { BATCH_CHECKS, FULL_CHECK_EVERY_MS, unpackPosition } from "./autoRebalanceConfig";
 import { deploymentFor } from "./autoRebalanceActions";
+import { loadLiveRpcs } from "./liveRpcs";
 
 /**
  * Batched auto-rebalance checks, run once a minute.
@@ -127,6 +128,7 @@ async function shadow(ctx: ActionCtx) {
 export const sweepChecks = internalAction({
   args: {},
   handler: async (ctx) => {
+    await loadLiveRpcs(ctx);
     if (BATCH_CHECKS === "live") await live(ctx);
     else await shadow(ctx);
   },

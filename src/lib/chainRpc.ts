@@ -64,11 +64,45 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   // object's default endpoint, which is that same RPC.
 };
 
-/** Failover transport for a chain: every listed endpoint, preferred first. */
+/** One tested endpoint, as convex/rpcHealth.ts saves it. */
+export type LiveRpc = { url: string; latencyMs: number; archive: boolean; logRange: number; cors: boolean; tracking: string };
+
+/**
+ * The tested, ranked lists (convex/rpcHealth.ts refreshes them every few hours from chainlist.org and our own lists).
+ * Installed once per server run or page load; until then, and as the backup behind them, the hardcoded lists above.
+ */
+let LIVE: Record<number, LiveRpc[]> = {};
+
+/** Install the tested lists. A page passes `browser`: only endpoints a page may call and that do not track users. */
+export function setLiveRpcs(lists: { chainId: number; endpoints: LiveRpc[] }[], browser = false) {
+  const next: Record<number, LiveRpc[]> = {};
+  for (const l of lists) next[l.chainId] = browser ? l.endpoints.filter((e) => e.cors && e.tracking !== 'yes') : l.endpoints;
+  LIVE = next;
+}
+
+/**
+ * A chain's RPC urls, best first: the tested endpoints that meet `need`, then the hardcoded backup. When a capability
+ * is needed (old-block reads, a log range), only tested endpoints known to have it are listed.
+ */
+export function rpcUrls(chainId: number, need: { archive?: boolean; minLogRange?: number } = {}): string[] {
+  const live = (LIVE[chainId] ?? [])
+    .filter((e) => (!need.archive || e.archive) && (!need.minLogRange || e.logRange >= need.minLogRange))
+    .map((e) => e.url);
+  const fixed = need.archive || need.minLogRange ? [] : [...(CHAIN_RPC_URLS[chainId] ?? (chainId === 4663 ? ROBINHOOD_RPC_UPSTREAMS : []))];
+  return [...new Set([...live, ...fixed].map((u) => u.replace(/\/$/, '')))];
+}
+
+/** The largest log range every tested endpoint of a chain with at least 2,000 accepts, with those endpoints. */
+export function logRpcs(chainId: number): { urls: string[]; range: number } | null {
+  const wide = (LIVE[chainId] ?? []).filter((e) => e.logRange >= 2_000);
+  if (wide.length === 0) return null;
+  return { urls: wide.map((e) => e.url), range: Math.min(...wide.map((e) => e.logRange)) };
+}
+
+/** Failover transport for a chain: the tested endpoints first, then the hardcoded backup. */
 export function chainTransport(chainId: number): Transport {
-  // Robinhood Chain: the verified upstream pool (the page's own proxy is not reachable from the server).
-  const urls = CHAIN_RPC_URLS[chainId] ?? (chainId === 4663 ? ROBINHOOD_RPC_UPSTREAMS : undefined);
-  if (!urls?.length) return http();
+  const urls = rpcUrls(chainId);
+  if (!urls.length) return http();
   // Reads made together go out as one JSON-RPC batch. A failed read moves down the list once; viem's default would walk
   // the whole list three more times, which under rate limits turned one slow endpoint into thousands of requests.
   return fallback(urls.map(url => http(url, { timeout: 15_000, batch: { batchSize: 25, wait: 16 } })), { retryCount: 1 });

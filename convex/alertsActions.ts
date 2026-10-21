@@ -9,6 +9,7 @@ import { deploymentOfPosition, v4DeploymentOfPosition } from "../src/protocols/l
 import type { LiquidityPosition } from "../src/protocols/types";
 import { ALERT_MIN_BTB } from "./alerts";
 import { FAST_CHECK_BTB, HOURLY_CHECK_MS, DEPOSIT_MAX_AGE_MS, SIGNATURE_MAX_AGE_MS, alertAuthMessage, FAST_ON_ACTION } from "./alertMessages";
+import { loadLiveRpcs } from "./liveRpcs";
 
 const BTB = CONTRACTS.BTB;
 const OPOS = CONTRACTS.OPOS;
@@ -33,6 +34,7 @@ async function btbBalance(address: `0x${string}`): Promise<number> {
 export const subscribe = action({
   args: { sessionToken: v.string(), chainId: v.float64(), protocol: v.string(), tokenId: v.string(), label: v.string(), inRange: v.optional(v.boolean()) },
   handler: async (ctx, { sessionToken, ...rest }): Promise<{ ok: true; balance: number } | { ok: false; reason: string; balance?: number }> => {
+    await loadLiveRpcs(ctx);
     const address: string | null = await ctx.runQuery(internal.sessions.walletFor, { token: sessionToken });
     if (!address) return { ok: false as const, reason: "Your sign-in expired. Sign in again." };
     const a = { ...rest, address };
@@ -86,6 +88,7 @@ async function positionBurned(chainId: number, protocol: string, tokenId: string
 export const check = internalAction({
   args: {},
   handler: async (ctx) => {
+    await loadLiveRpcs(ctx);
     if (process.env.DISABLE_CRONS) return;
     const alerts = await ctx.runQuery(internal.alerts.activeAlerts, {});
     if (alerts.length === 0) return;
@@ -158,6 +161,7 @@ async function checkAuth(wallet: string, action: string, issuedAt: number, signa
 export const depositFromTx = action({
   args: { txHash: v.string() },
   handler: async (ctx, { txHash }): Promise<Result> => {
+    await loadLiveRpcs(ctx);
     const hash = txHash.trim().toLowerCase();
     if (!isHash(hash)) return { ok: false, reason: "That is not a transaction hash." };
     const client = mainnetClient();
@@ -185,6 +189,7 @@ export const depositFromTx = action({
 export const enableFast = action({
   args: { address: v.string(), issuedAt: v.float64(), signature: v.string() },
   handler: async (ctx, a): Promise<Result> => {
+    await loadLiveRpcs(ctx);
     const problem = await checkAuth(a.address, FAST_ON_ACTION, a.issuedAt, a.signature);
     if (problem) return { ok: false, reason: problem };
     await ctx.runMutation(internal.alerts.setFastVerified, { address: a.address, fast: true });

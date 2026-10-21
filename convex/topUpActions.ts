@@ -6,6 +6,7 @@ import { getChainClient } from "../src/lib/chainClient";
 import { BTB_USD } from "./autoRebalanceConfig";
 import { DEPOSIT_MAX_AGE_MS } from "./alertMessages";
 import { TOP_UP_ASSETS, TOP_UP_CHAIN_NAMES, TOP_UP_MIN_USD, TOP_UP_TREASURY } from "./topUpConfig";
+import { loadLiveRpcs } from "./liveRpcs";
 
 async function ethUsd(): Promise<number | null> {
   try {
@@ -32,6 +33,7 @@ type Result = { ok: true; btb: number; usd: number } | { ok: false; reason: stri
 export const creditPayment = action({
   args: { chainId: v.float64(), txHash: v.string() },
   handler: async (ctx, { chainId, txHash }): Promise<Result> => {
+    await loadLiveRpcs(ctx);
     const hash = txHash.trim().toLowerCase();
     const assets = TOP_UP_ASSETS[chainId];
     if (!assets) return { ok: false, reason: "Payments are accepted on Base, Robinhood Chain and Ethereum." };

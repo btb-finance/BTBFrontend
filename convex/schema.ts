@@ -332,6 +332,22 @@ export default defineSchema({
   // Durable BTB payout queue. Rows are only ever created by settlement, never
   // by a client, and the worker sends at most one transfer at a time so the
   // treasury EOA never races its own nonce.
+  // Public RPCs per chain, tested and ranked by convex/rpcHealth.ts (from chainlist.org plus our own list). The app
+  // and the agent read from these first; the hardcoded lists in src/lib are only the backup.
+  rpcEndpoints: defineTable({
+    chainId: v.float64(),
+    endpoints: v.array(v.object({
+      url: v.string(),
+      latencyMs: v.float64(),
+      archive: v.boolean(),      // answers reads about 5,000 blocks back
+      logRange: v.float64(),     // largest eth_getLogs block range accepted (10000, 2000, 500 or 0)
+      cors: v.boolean(),         // a web page may call it
+      tracking: v.string(),      // chainlist's privacy label: none | limited | yes | unknown
+    })),
+    tested: v.float64(),
+    checkedAt: v.float64(),
+  }).index("by_chain", ["chainId"]),
+
   rewardPayouts: defineTable({
     epochId: v.float64(),
     walletAddress: v.string(),         // lowercase

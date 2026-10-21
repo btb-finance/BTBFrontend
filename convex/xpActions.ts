@@ -5,6 +5,7 @@ import { erc20Abi, erc721Abi, isAddress, isHash, parseEventLogs } from "viem";
 import { getChainClient } from "../src/lib/chainClient";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { SWAP_XP, MINT_XP } from "./xpRules";
+import { loadLiveRpcs } from "./liveRpcs";
 
 const BEAR_NFT = CONTRACTS.BEAR_NFT;
 /** A transaction older than this earns nothing; the app asks right after it confirms. */
@@ -21,6 +22,7 @@ type Result = { ok: boolean; awarded: number; reason?: string };
 export const awardTxXp = action({
   args: { walletAddress: v.string(), chainId: v.float64(), txHash: v.string(), kind: v.union(v.literal("swap"), v.literal("bridge"), v.literal("mint")) },
   handler: async (ctx, { walletAddress, chainId, txHash, kind }): Promise<Result> => {
+    await loadLiveRpcs(ctx);
     if (!isAddress(walletAddress) || !isHash(txHash)) return { ok: false, awarded: 0, reason: "bad input" };
     const wallet = walletAddress.toLowerCase();
     const client = getChainClient(chainId);
