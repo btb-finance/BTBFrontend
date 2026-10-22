@@ -164,6 +164,8 @@ export function prettyDexLabel(dexId: string): string {
     .trim();
   if (!clean || clean.toLowerCase() === 'unknown' || /^0x[0-9a-f]{6,}/i.test(clean)) return 'Other DEX';
   if (/^aerodrome slipstream(?: \d+)?$/i.test(clean)) return 'Aerodrome Slipstream';
+  // Aero (live 2026-10-22) is listed as "aero" or "aero slipstream" depending on the network.
+  if (/^aero(?: slipstream)?$/i.test(clean)) return 'Aero';
   const KNOWN: Record<string, string> = {
     'uniswap v2': 'Uniswap V2', 'uniswap v3': 'Uniswap V3', 'uniswap': 'Uniswap',
     'sushiswap': 'SushiSwap', 'shibaswap': 'ShibaSwap', 'sakeswap': 'SakeSwap',

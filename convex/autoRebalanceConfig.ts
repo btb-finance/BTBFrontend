@@ -156,10 +156,13 @@ export const AUTO_MANAGERS: Record<number, Record<string, `0x${string}`>> = {
     '0x827922686190790b37229fd06084350e74485b72': V6.aerodromeAdapter, // Aerodrome (old)
     '0xa990c6a764b73bf43cee5bb40339c3322fb9d55f': V6.aerodromeAdapter, // Aerodrome (old, gauge caps)
     '0xe1f8cd9ac4e4a65f54f38a5cdafca44f6dd68b53': V6.aerodromeAdapter, // Aerodrome
+    // Aero (live 2026-10-22): the same Slipstream format, so the same adapter. Listed as a registry target 2026-10-22.
+    '0x4857db576ee0e45f10525ec59527bfd10beec60b': V6.aerodromeAdapter, // Aero
     '0x03a520b32c04bf3beef7beb72e919cf822ed34f1': V6.uniswapV3Adapter, // Uniswap V3
   },
   4663: {
     '0x07f44c47743a2f36414a82b9f558ecfcf0eedcef': V6.aerodromeAdapter, // UP
+    '0x4857db576ee0e45f10525ec59527bfd10beec60b': V6.aerodromeAdapter, // Aero, same address as on Base
     '0x73991a25c818bf1f1128deaab1492d45638de0d3': V6.uniswapV3Adapter, // Uniswap V3
     '0xa79f5775b0b49e51202c48ddf03f380faa96f641': V6.uniswapV3Adapter, // Giga V3 (a PancakeSwap V3 fork, same position format)
     ...(ALGEBRA_LIVE ? { '0xe62a5f67516dbdba2aa28b1512c8ff44e42cb5c3': V6.algebraAdapter } : {}), // Alandale (Algebra Integral)

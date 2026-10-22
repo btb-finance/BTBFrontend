@@ -32,9 +32,9 @@ export const BASE_WETH = '0x4200000000000000000000000000000000000006' as const;
  */
 const SLIPSTREAM_TICK_SPACINGS = [1, 10, 50, 100, 200, 2000] as const;
 
-function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`, label: string, chainId: number = BASE_CHAIN_ID, spacings: readonly number[] = SLIPSTREAM_TICK_SPACINGS): V3Deployment {
+function slipstreamDeployment(positionManager: `0x${string}`, factory: `0x${string}`, label: string, chainId: number = BASE_CHAIN_ID, spacings: readonly number[] = SLIPSTREAM_TICK_SPACINGS, protocol: V3Deployment['protocol'] = 'aerodrome-cl'): V3Deployment {
   return {
-    protocol: 'aerodrome-cl',
+    protocol,
     label,
     slipstream: true,
     chainId,
@@ -56,6 +56,24 @@ export const AERODROME_CL_DEPLOYMENTS: readonly V3Deployment[] = [
  * (EURC/USDC); spacings from the factory. No voter yet, so no gauges. */
 export const ARC_AERODROME_DEPLOYMENT: V3Deployment = slipstreamDeployment(
   '0xc84bB45D43CD25D02b83B4C085eaA4e08da8f473', '0xb89Df768aF2CFE637ceB352c587Fe8edAf491d03', 'Aerodrome', 5042, [1, 10, 50, 100, 200, 2000]);
+
+/**
+ * Aero (the Aerodrome and Velodrome merger, live 2026-10-22): the same Slipstream position format, a new position
+ * manager at the same address on every network and a factory per network. Its own protocol tag, so its positions are
+ * told apart from the old Aerodrome ones. Addresses from Dromos-Labs/metadex-slipstream-public deployment-addresses
+ * (cl-base.json, cl-robinhood.json); spacings from each factory's tickSpacings().
+ */
+export const AERO_POSITION_MANAGER = '0x4857DB576eE0e45F10525eC59527BfD10beeC60b' as const;
+const AERO_TICK_SPACINGS = [1, 10, 50, 100, 150, 200, 250] as const;
+const AERO_DEPLOYMENTS: Record<number, V3Deployment> = {
+  8453: slipstreamDeployment(AERO_POSITION_MANAGER, '0x9CB220581b91b0C83223012FE69688b92aD07a76', 'Aero', 8453, AERO_TICK_SPACINGS, 'aero-cl'),
+  4663: slipstreamDeployment(AERO_POSITION_MANAGER, '0xc63d7338c178e805c544B8f897066bD3BBcBE136', 'Aero', 4663, AERO_TICK_SPACINGS, 'aero-cl'),
+};
+
+/** Aero's deployment on a chain, if the app supports Aero there. */
+export function aeroDeploymentFor(chainId: number): V3Deployment | null {
+  return AERO_DEPLOYMENTS[chainId] ?? null;
+}
 
 /** Slipstream deployments to read and mint on, per chain. */
 export function aerodromeDeploymentsFor(chainId: number): readonly V3Deployment[] {

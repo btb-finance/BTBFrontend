@@ -25,7 +25,7 @@ import {
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
-import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
+import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, aeroDeploymentFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
 import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
@@ -116,10 +116,8 @@ const canActOn = (p: LiquidityPosition) => canActOnPosition(p, (hooks) => isNati
 
 /** Badge text; Aerodrome positions on an older Slipstream deployment say so. */
 function protocolBadgeLabel(p: LiquidityPosition): string {
-  if (p.protocol === 'aerodrome-cl') {
-    const label = deploymentOfPosition(p).label ?? '';
-    return /old/i.test(label) ? 'AERO V3 (old)' : 'AERO V3';
-  }
+  // Every Aerodrome position is from before Aero now: its gauges stopped paying at Aero's launch.
+  if (p.protocol === 'aerodrome-cl') return 'AERODROME (old)';
   return PROTOCOL_BADGE[p.protocol].label;
 }
 
@@ -127,7 +125,8 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'uniswap-v3': { label: 'V3', color: '#FF007A' },
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
-  'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
+  'aerodrome-cl': { label: 'AERODROME (old)', color: '#2A6BFF' },
+  'aero-cl': { label: 'AERO', color: '#2A6BFF' },
   'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
   'up-v3': { label: 'UP', color: '#52E3A4' },
@@ -156,6 +155,7 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
   'aerodrome-cl': 'aerodrome',
+  'aero-cl': 'aero',
   'giga-v3': 'giga',
   'ramses-v3': 'ramses',
   'up-v3': 'up',
@@ -199,7 +199,8 @@ function krystalAmountLabel(amount: KrystalTokenAmount): string {
 
 function compactProjectLabel(project?: string, projectKey?: string): string {
   const value = `${project ?? ''} ${projectKey ?? ''}`.toLowerCase();
-  if (value.includes('aerodrome')) return 'AERO V3';
+  if (value.includes('aerodrome')) return 'AERODROME (old)';
+  if (/\baero\b/.test(value)) return 'AERO';
   if (value.includes('uniswap') && value.includes('v4')) return 'V4';
   if (value.includes('uniswap') && value.includes('v3')) return 'V3';
   if (value.includes('pancake')) return 'CAKE V3';
@@ -545,6 +546,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const v4 = v4DeploymentFor(chainId);
         const cake = v3DeploymentFor('pancakeswap', chainId);
         const aero = aerodromeDeploymentsFor(chainId);
+        const aeroNew = aeroDeploymentFor(chainId);
 
         // Krystal ids for this chain, bucketed by the manager contract they live in.
         const byManager = new Map<string, bigint[]>();
@@ -579,6 +581,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           ...(sushi ? [{ protocol: 'sushiswap-v3' as const, d: sushi }] : []),
           ...(alandale ? [{ protocol: 'alandale-cl' as const, d: alandale }] : []),
           ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
+          ...(aeroNew ? [{ protocol: 'aero-cl' as const, d: aeroNew }] : []),
         ];
         for (const { protocol, d } of v3Like) {
           const known = idsIn(d.positionManager) ?? [];

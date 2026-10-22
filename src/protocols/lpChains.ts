@@ -8,7 +8,7 @@
 import { UNISWAP_V3_DEPLOYMENT, ROBINHOOD_UNISWAP_V3_DEPLOYMENT, WETH, ROBINHOOD_WETH, uniswapV3DeploymentForChain, type V3Deployment } from './dexs/uniswap/v3/addresses';
 import { uniswapV4DeploymentForChain, V4_DEPLOY_BLOCKS, type V4Deployment } from './dexs/uniswap/v4/addresses';
 import { PANCAKE_V3_DEPLOYMENT } from './dexs/pancakeswap';
-import { AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT, BASE_WETH } from './dexs/aerodrome';
+import { AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT, BASE_WETH, aeroDeploymentFor } from './dexs/aerodrome';
 import { ARC_WUSDC } from './dexs/uniswap/v3/addresses';
 import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from './dexs/robinhood';
 import { sushiV3DeploymentForChain } from './dexs/sushiswap';
@@ -16,7 +16,7 @@ import type { LiquidityPosition } from './types';
 
 export const LP_CHAINS = [1, 8453, 56, 4663, 5042] as const;
 export type LpChainId = (typeof LP_CHAINS)[number];
-export type LpDex = 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap' | 'alandale';
+export type LpDex = 'uniswap' | 'pancakeswap' | 'aerodrome' | 'aero' | 'giga' | 'ramses' | 'up' | 'sushiswap' | 'alandale';
 
 export const LP_CHAIN_NAMES: Record<LpChainId, string> = { 1: 'Ethereum', 8453: 'Base', 56: 'BNB Chain', 4663: 'Robinhood Chain', 5042: 'Arc' };
 
@@ -44,6 +44,7 @@ export function lpSlippageBps(chainId: number, base = 50): number {
 export function v3DeploymentFor(dex: LpDex, chainId: number): V3Deployment | null {
   if (dex === 'pancakeswap') return PANCAKE_V3_CHAINS.includes(chainId) ? PANCAKE_V3_DEPLOYMENT : null;
   if (dex === 'aerodrome') return chainId === 8453 ? AERODROME_CL_DEPLOYMENTS[2] : chainId === 5042 ? ARC_AERODROME_DEPLOYMENT : null;
+  if (dex === 'aero') return aeroDeploymentFor(chainId);
   if (dex === 'giga') return chainId === 4663 ? GIGA_V3_DEPLOYMENT : null;
   if (dex === 'ramses') return chainId === 4663 ? RAMSES_V3_DEPLOYMENT : null;
   if (dex === 'up') return chainId === 4663 ? UP_V3_DEPLOYMENT : null;
@@ -68,6 +69,8 @@ export function deploymentOfPosition(p: LiquidityPosition): V3Deployment {
     return [...AERODROME_CL_DEPLOYMENTS, ARC_AERODROME_DEPLOYMENT].find((d) => d.positionManager.toLowerCase() === pm)
       ?? (chainId === 5042 ? ARC_AERODROME_DEPLOYMENT : AERODROME_CL_DEPLOYMENTS[2]);
   }
+  // The same position manager address on every chain, so the chain picks the deployment.
+  if (p.protocol === 'aero-cl') return aeroDeploymentFor(chainId) ?? aeroDeploymentFor(8453)!;
   if (p.protocol === 'pancakeswap-v3') return PANCAKE_V3_DEPLOYMENT;
   if (p.protocol === 'giga-v3') return GIGA_V3_DEPLOYMENT;
   if (p.protocol === 'ramses-v3') return RAMSES_V3_DEPLOYMENT;
@@ -86,6 +89,7 @@ export function canActOnPosition(p: LiquidityPosition, isNativeOrUnhooked: (hook
   const chainId = p.chainId ?? 1;
   if (!isLpChain(chainId)) return false;
   if (p.protocol === 'aerodrome-cl') return chainId === 8453 || chainId === 5042;
+  if (p.protocol === 'aero-cl') return !!aeroDeploymentFor(chainId);
   if (p.protocol === 'pancakeswap-v3') return PANCAKE_V3_CHAINS.includes(chainId);
   if (p.protocol === 'sushiswap-v3') return !!sushiV3DeploymentForChain(chainId);
   if (p.protocol === 'giga-v3' || p.protocol === 'ramses-v3' || p.protocol === 'up-v3' || p.protocol === 'alandale-cl') return chainId === 4663;

@@ -11,7 +11,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { getChainClient } from "../src/lib/chainClient";
 import { chainTransport, logRpcs, rpcUrls } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
-import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
+import { AERODROME_CL_DEPLOYMENTS, aeroDeploymentFor } from "../src/protocols/dexs/aerodrome";
 import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
 import { uniswapV3DeploymentForChain, type V3Deployment } from "../src/protocols/dexs/uniswap/v3/addresses";
 import { poolAddressOf } from "../src/protocols/dexs/uniswap/v3/pool";
@@ -234,6 +234,9 @@ export function deploymentFor(chainId: number, positionManager: string): V3Deplo
     const aero = AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm);
     if (aero) return aero;
   }
+  // Aero: one position manager address on every chain, a factory per chain.
+  const aeroNew = aeroDeploymentFor(chainId);
+  if (aeroNew && aeroNew.positionManager.toLowerCase() === pm) return aeroNew;
   if (chainId === 4663 && UP_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return UP_V3_DEPLOYMENT;
   if (chainId === 4663 && GIGA_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return GIGA_V3_DEPLOYMENT;
   if (chainId === 4663 && ALANDALE_CL_DEPLOYMENT.positionManager.toLowerCase() === pm) return ALANDALE_CL_DEPLOYMENT;

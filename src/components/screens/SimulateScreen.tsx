@@ -15,7 +15,7 @@ import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
-import { aerodromeDeploymentsFor } from '@/protocols/dexs/aerodrome';
+import { aerodromeDeploymentsFor, aeroDeploymentFor } from '@/protocols/dexs/aerodrome';
 import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { fetchAlgebraPool } from '@/protocols/dexs/uniswap/v3/pool';
 import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
@@ -151,7 +151,10 @@ function marketMintTarget(chainId: number, pool: MarketPool): { dex: LpDex; chai
   if (!isLpChain(chainId)) return null;
   const label = pool.dexLabel ?? '';
   const fee = pool.feePct != null ? Math.round(pool.feePct * 1_000_000) : undefined;
-  if ((chainId === 8453 || chainId === 5042) && /aerodrome|^aero\b/i.test(label)) return /slipstream|v3|cl|^aero\b/i.test(label) ? { dex: 'aerodrome', chainId } : null;
+  // "Aero" is the new deployment (live 2026-10-22); "Aerodrome" the old one. Mapping Aero to the old one put the
+  // deposit in the old pool for the pair.
+  if ((chainId === 8453 || chainId === 4663) && /^aero\b(?!drome)/i.test(label)) return /basic|v2/i.test(label) ? null : { dex: 'aero', chainId };
+  if ((chainId === 8453 || chainId === 5042) && /aerodrome/i.test(label)) return /slipstream|v3|cl/i.test(label) ? { dex: 'aerodrome', chainId } : null;
   if (chainId === 4663 && /giga/i.test(label)) return { dex: 'giga', chainId };
   if (chainId === 4663 && /ramses/i.test(label)) return /v3|cl/i.test(label) ? { dex: 'ramses', chainId } : null;
   if (chainId === 4663 && /^up\b/i.test(label)) return { dex: 'up', chainId };
@@ -1466,12 +1469,14 @@ export function SimulateScreen() {
   }, [found, chainId, config]);
   const rowLabel = (f: FoundPool) => {
     const aero = f.address ? aeroLabelByPool[f.address.toLowerCase()] : undefined;
-    return aero && /old/i.test(aero) ? `${foundPoolDexLabel(f)} (old)` : foundPoolDexLabel(f);
+    // Every Aerodrome pool is from before Aero now.
+    return aero || /aerodrome/i.test(f.dexLabel ?? '') ? `${foundPoolDexLabel(f)} (old)` : foundPoolDexLabel(f);
   };
   /** Pools the app can mint on from this finder: Uniswap V3 and PancakeSwap
    * V3 on Ethereum, Uniswap V3 on Robinhood, Aerodrome Slipstream on Base. */
   const mintDexFor = (f: FoundPool): { dex: LpDex; chainId: LpChainId } | null => {
     if (f.external || !isLpChain(chainId)) return null;
+    if ((chainId === 8453 || chainId === 4663) && /^aero$/i.test(f.dexLabel ?? '')) return { dex: 'aero', chainId };
     if ((chainId === 8453 || chainId === 5042) && /aerodrome/i.test(f.dexLabel ?? '')) return { dex: 'aerodrome', chainId };
     if (chainId === 4663 && /giga/i.test(f.dexLabel ?? '')) return { dex: 'giga', chainId: 4663 };
     if (chainId === 4663 && /ramses/i.test(f.dexLabel ?? '')) return { dex: 'ramses', chainId: 4663 };
@@ -1650,6 +1655,7 @@ export function SimulateScreen() {
         ...(uniswapV3 ? [{ label: 'Uniswap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, uniswapV3, wrappedNative) }] : []),
         ...(uniswapV4 ? [{ label: 'Uniswap V4', run: () => findV4Pools(client, tokenA, tokenB, uniswapV4) }] : []),
         ...(cakeV3 ? [{ label: 'PancakeSwap V3', run: () => findV3Pools(client, 'pancakeswap-v3', tokenA, tokenB, cakeV3, wrappedNative) }] : []),
+        ...(aeroDeploymentFor(chainId) ? [{ label: 'Aero', run: () => findSpacingKeyedPools(client, tokenA, tokenB, wrappedNative, [aeroDeploymentFor(chainId)!], 'Aero') }] : []),
         ...(aerodromeDeploymentsFor(chainId).length > 0 ? [{ label: 'Aerodrome', run: () => findAerodromePools(client, tokenA, tokenB, wrappedNative, chainId) }] : []),
         ...(sushiV3 ? [{ label: 'SushiSwap V3', run: () => findV3Pools(client, 'uniswap-v3' as const, tokenA, tokenB, sushiV3, wrappedNative).then(rows => rows.map(r => ({ ...r, dexLabel: 'SushiSwap V3' }))) }] : []),
         ...(chainId === 4663 ? [
@@ -1949,7 +1955,7 @@ export function SimulateScreen() {
           dex={mintDexFor(mintFee)!.dex}
           chainId={mintDexFor(mintFee)!.chainId}
           // Spacing-keyed DEXes (Aerodrome, Ramses): the sheet picks the deepest spacing.
-          initialFee={['aerodrome', 'ramses', 'up', 'alandale'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
+          initialFee={['aerodrome', 'aero', 'ramses', 'up', 'alandale'].includes(mintDexFor(mintFee)!.dex) ? undefined : mintFee.feeTier}
           fees24hUsd={mintFee.fees24hUsd}
           onClose={() => setMintFee(null)}
         />

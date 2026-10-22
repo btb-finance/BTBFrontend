@@ -871,7 +871,7 @@ export function poolLink(p: EarnPool): string {
  * fees/behavior in ways we can't preview. The read-only simulator works for
  * hooked pools too (`forSimulate`). Null → not actionable.
  */
-export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'giga' | 'ramses' | 'up' | 'sushiswap' | 'alandale'; chainId: 1 | 4663 | 8453 | 56 | 5042 };
+export type MintTarget = { tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; dex?: 'uniswap' | 'pancakeswap' | 'aerodrome' | 'aero' | 'giga' | 'ramses' | 'up' | 'sushiswap' | 'alandale'; chainId: 1 | 4663 | 8453 | 56 | 5042 };
 
 /** Where "Add LP" can mint in-app: Uniswap V3/V4 and PancakeSwap V3 on
  * Ethereum, Base and BNB Chain, Uniswap V3/V4 on Robinhood Chain, Aerodrome
@@ -881,6 +881,10 @@ export function mintTarget(p: EarnPool, forSimulate = false): MintTarget | null 
   const tokens = (p.underlyingTokens ?? []) as `0x${string}`[];
   const chainId = chain === 'ethereum' ? 1 : chain === 'base' ? 8453 : chain === 'bnb chain' || chain === 'bsc' || chain === 'binance' ? 56 : chain === 'robinhood chain' ? 4663 : chain === 'arc' ? 5042 : null;
   if (!chainId) return null;
+  // Aero's concentrated pools (src/lib/aeroPools.ts) on the chains the app has its deployment for. Basic pools are not mintable.
+  if (p.project === 'aero' && p.liquidityModel === 'CLMM' && (chainId === 8453 || chainId === 4663) && tokens.length >= 2) {
+    return { tokenA: tokens[0], tokenB: tokens[1], dex: 'aero', chainId };
+  }
   if (chainId === 8453 || chainId === 5042) {
     // DeFiLlama rows say "aerodrome-slipstream"; DexPaprika rows collapse to
     // the "aerodrome" brand with a CLMM model. Aerodrome V2 (AMM) is not mintable.
