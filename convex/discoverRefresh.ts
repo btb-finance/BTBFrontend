@@ -5,7 +5,7 @@
  * TVL + on-chain fee/range-APR multicalls) takes several seconds and hits
  * rate-limited public APIs — running it per visitor made the page slow.
  * This action runs it once an hour and stores the finished list via
- * `discover.save`; storage/read live in `discover.ts` (Convex requires
+ * `saveDiscover` (convex/discoverStore.ts); storage/read live in `discover.ts` (Convex requires
  * queries/mutations to live outside "use node" files).
  *
  * Reuses the exact pipeline code from `src/lib/pools.ts`, so Discover shows
@@ -22,8 +22,8 @@ import { v } from "convex/values";
 import { CHAIN_DATA_NETWORKS } from "../src/lib/chainDataNetworks";
 import { fetchPoolPriceChanges, fetchTokenLogos } from "../src/lib/geckoterminal";
 import { fetchMerklPoolRewards, MERKL_CHAINS } from "../src/lib/merkl";
-import { packSnapshot, unpackSnapshotNode } from "../src/lib/snapshotCodec";
 import { loadLiveRpcs } from "./liveRpcs";
+import { loadDiscover, saveDiscover } from "./discoverStore";
 import { ingestAeroPools } from "../src/lib/aeroPools";
 import { rpcUrls } from "../src/lib/chainRpc";
 
@@ -70,18 +70,16 @@ export const refresh = internalAction({
     // them: the coverage steps below take up to a quarter of an hour, and
     // without this the extra DEXes vanished from Discover for that long every
     // refresh. The steps then replace each chain's rows with fresh numbers.
-    const previous = await ctx.runQuery(internal.discover.getInternal, {});
+    const previous = await loadDiscover(ctx).catch(() => null);
     const baseKeys = new Set(withRange.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
     let carried: EarnPool[] = [];
     if (previous) {
       try {
-        const prev = await unpackSnapshotNode<{ pools?: EarnPool[] }>(previous.json);
+        const prev = previous;
         carried = (prev.pools ?? []).filter((p) => (isConcentratedPool(p) || p.project === "aero") && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
       } catch { /* unreadable previous snapshot: start clean */ }
     }
-    await ctx.runMutation(internal.discover.save, {
-      json: await packSnapshot({ version: 2, pools: [...withRange, ...carried], priceChange }),
-    });
+    await saveDiscover(ctx, { version: 2, pools: [...withRange, ...carried], priceChange });
 
     // DEX coverage runs as independent follow-up actions, one chain each,
     // staggered so their paced GeckoTerminal walks do not overlap. Scheduled
@@ -106,9 +104,8 @@ export const coverDexes = internalAction({
     await loadLiveRpcs(ctx);
     const target = DISCOVERY_CHAINS[index];
     if (!target || target.chainId == null) return;
-    const row = await ctx.runQuery(internal.discover.getInternal, {});
-    if (!row) return;
-    const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
+    const snap = await loadDiscover(ctx);
+    if (!snap) return;
     const chainName = target.chain;
     const existing = snap.pools.filter((p) => p.chain === chainName);
     const client = getChainClient(target.chainId);
@@ -117,14 +114,11 @@ export const coverDexes = internalAction({
     if (extras.length > 0) {
       applyLogos(extras, await fetchDexLogos().catch(() => new Map<string, string>()));
       // Re-read before writing: the base refresh may have run meanwhile.
-      const latest = await ctx.runQuery(internal.discover.getInternal, {});
-      const current = latest ? await unpackSnapshotNode<typeof snap>(latest.json) : snap;
+      const current = (await loadDiscover(ctx)) ?? snap;
       // Fresh rows win over what the snapshot already had for the same pool.
       const fresh = new Set(extras.map((p) => `${p.chain}:${p.id.toLowerCase()}`));
       const merged = [...current.pools.filter((p) => !fresh.has(`${p.chain}:${p.id.toLowerCase()}`)), ...extras];
-      await ctx.runMutation(internal.discover.save, {
-        json: await packSnapshot({ ...current, pools: merged }),
-      });
+      await saveDiscover(ctx, { ...current, pools: merged });
     }
   },
 });
@@ -138,15 +132,12 @@ export const coverAero = internalAction({
     const pools = await ingestAeroPools((chainId) => getChainClient(chainId) as any).catch((e) => { console.warn("aero pools", e); return [] as EarnPool[]; });
     console.log(`aero: ${pools.length} pools`, Object.fromEntries([...new Set(pools.map((p) => p.chain))].map((c) => [c, pools.filter((p) => p.chain === c).length])));
     if (pools.length === 0) return;
-    const latest = await ctx.runQuery(internal.discover.getInternal, {});
-    if (!latest) return;
-    const current = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(latest.json);
+    const current = await loadDiscover(ctx);
+    if (!current) return;
     // Replace a network's Aero rows only when that network answered: a rate-limited network returns nothing, and
     // wiping its rows then left 12 of 81 pools after one run.
     const answered = new Set(pools.map((p) => p.chainId));
-    await ctx.runMutation(internal.discover.save, {
-      json: await packSnapshot({ ...current, pools: [...current.pools.filter((p) => p.project !== "aero" || !answered.has(p.chainId)), ...pools] }),
-    });
+    await saveDiscover(ctx, { ...current, pools: [...current.pools.filter((p) => p.project !== "aero" || !answered.has(p.chainId)), ...pools] });
   },
 });
 
@@ -161,9 +152,8 @@ export const fillTokenLogos = internalAction({
   args: {},
   handler: async (ctx) => {
     await loadLiveRpcs(ctx);
-    const row = await ctx.runQuery(internal.discover.getInternal, {});
-    if (!row) return;
-    const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
+    const snap = await loadDiscover(ctx);
+    if (!snap) return;
     // Every EVM chain the snapshot carries, not only the four LP chains.
     const netFor = (p: EarnPool) => {
       const id = p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId;
@@ -203,15 +193,14 @@ export const fillTokenLogos = internalAction({
     if (found.length > 0) await ctx.runMutation(internal.discover.saveTokenLogos, { entries: found });
     const all: Record<string, string> = { ...known, ...Object.fromEntries(found.filter((f) => f.logoURI).map((f) => [f.key, f.logoURI])) };
     // Re-read before writing so a coverage pass that landed meanwhile is kept.
-    const latest = await ctx.runQuery(internal.discover.getInternal, {});
-    const current = latest ? await unpackSnapshotNode<typeof snap>(latest.json) : snap;
+    const current = (await loadDiscover(ctx)) ?? snap;
     for (const p of current.pools) {
       const net = netFor(p);
       if (!net) continue;
       const logos = (p.underlyingTokens ?? []).map((t) => all[`${net.chainId}:${t.toLowerCase()}`]);
       if (logos.some(Boolean)) p.tokenLogos = logos.map((l) => l ?? null);
     }
-    await ctx.runMutation(internal.discover.save, { json: await packSnapshot(current) });
+    await saveDiscover(ctx, current);
   },
 });
 
@@ -220,9 +209,8 @@ export const fillMerkl = internalAction({
   args: {},
   handler: async (ctx) => {
     await loadLiveRpcs(ctx);
-    const row = await ctx.runQuery(internal.discover.getInternal, {});
-    if (!row) return;
-    const snap = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
+    const snap = await loadDiscover(ctx);
+    if (!snap) return;
     const chainIds = [...new Set(snap.pools.map((p) => p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId).filter((c): c is number => c != null && MERKL_CHAINS.has(c)))];
     const byChain = new Map<number, Awaited<ReturnType<typeof fetchMerklPoolRewards>>>();
     for (const c of chainIds) byChain.set(c, await fetchMerklPoolRewards(c).catch(() => new Map()));
@@ -234,6 +222,6 @@ export const fillMerkl = internalAction({
       else if (p.merkl) delete p.merkl;
     }
     console.log(`merkl: ${hits} pools with live rewards`);
-    await ctx.runMutation(internal.discover.save, { json: await packSnapshot(snap) });
+    await saveDiscover(ctx, snap);
   },
 });

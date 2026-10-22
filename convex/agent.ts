@@ -43,7 +43,7 @@ export const saveMessage = internalMutation({
 });
 
 /** Everything the chat action needs in one query: balances (portfolio
- * context), the Discover pool snapshot, recent history for the model, today's
+ * context), recent history for the model, today's
  * message count (free allowance) and what the wallet can pay with. */
 export const contextData = internalQuery({
   args: { walletAddress: v.string() },
@@ -53,7 +53,6 @@ export const contextData = internalQuery({
       .query("userTokenBalances")
       .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet))
       .collect();
-    const poolsRow = await ctx.db.query("discoverPools").first();
     const history = await ctx.db
       .query("agentMessages")
       .withIndex("by_wallet", (q) => q.eq("walletAddress", wallet))
@@ -78,7 +77,6 @@ export const contextData = internalQuery({
         balanceFormatted: b.balanceFormatted,
         valueUsd: b.valueUsd,
       })),
-      poolsJson: poolsRow?.json ?? null,
       history: history.reverse().map((m) => ({ role: m.role, content: m.content })),
       userMsgsToday,
     };

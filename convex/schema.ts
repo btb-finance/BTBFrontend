@@ -199,6 +199,14 @@ export default defineSchema({
     json: v.string(),
     updatedAt: v.float64(),
   }),
+  // Discover, split so no document nears Convex's 1 MB limit: `top` is the first screen (the busiest pools, packed),
+  // each chain's full list is a gzip file in storage (convex/discoverStore.ts).
+  discoverIndex: defineTable({
+    top: v.string(),
+    chains: v.array(v.object({ chain: v.string(), file: v.id("_storage"), count: v.float64() })),
+    total: v.float64(),
+    updatedAt: v.float64(),
+  }),
 
   // Token logo per chain and address, filled from GeckoTerminal after each
   // Discover refresh so pool rows on every chain carry both token images.
