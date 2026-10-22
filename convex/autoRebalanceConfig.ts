@@ -104,7 +104,7 @@ const GIGA_MANAGER = '0xa79f5775b0b49e51202c48ddf03f380faa96f641';
  * (script/DeployAeroGauge.s.sol). Until then Aero positions earn fees unstaked; a wallet cannot enable an adapter that
  * does not exist yet, so new wallets only get it in their setup from then on.
  */
-export const AERO_STAKING_LIVE = false;
+export const AERO_STAKING_LIVE = true;
 /** Aero's position manager, the same address on every chain. */
 export const AERO_PM = '0x4857db576ee0e45f10525ec59527bfd10beec60b';
 /** AERO after the merger (Aero, live 2026-10-22): what Aero's gauges pay. The old AERO above is the Aerodrome token. */
