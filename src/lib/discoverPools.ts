@@ -2,7 +2,7 @@
 import { unpackSnapshotBrowser } from './snapshotCodec';
 import { useSyncExternalStore } from 'react';
 import type { PublicClient } from 'viem';
-import { fetchDiscoverRow } from './discoverSnapshot';
+import { fetchDiscoverSource, fetchChainPools } from './discoverSnapshot';
 import { getEarnPools, addRangeAprs, isConcentratedPool, EarnPool } from './pools';
 import { fetchPoolPriceChanges } from './geckoterminal';
 
@@ -24,9 +24,11 @@ export type DiscoverData = {
   pools: EarnPool[];
   priceChange: Record<string, number>;
   loading: boolean;
+  /** False while only the first screen (the busiest pools) is in and the full per-chain lists are still loading. */
+  complete: boolean;
 };
 
-let state: DiscoverData = { pools: [], priceChange: {}, loading: false };
+let state: DiscoverData = { pools: [], priceChange: {}, loading: false, complete: false };
 let ts = 0;
 let inflight = false;
 const listeners = new Set<() => void>();
@@ -58,13 +60,28 @@ export function prefetchDiscoverPools(client?: PublicClient) {
     // is the cron's problem — the browser never recomputes just because the row
     // got old, it only falls back when there is no row at all.
     try {
-      const row = await fetchDiscoverRow();
-      if (row) {
-        const snap = await unpackSnapshotBrowser<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(row.json);
+      const source = await fetchDiscoverSource();
+      if (source.kind === 'index') {
+        // First screen at once: the busiest pools, packed in the index itself (about 40 KB instead of 792 KB).
+        const top = await unpackSnapshotBrowser<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(source.index.top);
+        if (top.pools?.length > 0) {
+          ts = Date.now();
+          if (state.pools.length === 0) set({ pools: top.pools.filter(isConcentratedPool), priceChange: top.priceChange ?? {}, loading: false });
+          // Then every chain's full list in parallel; one chain failing keeps the others.
+          const lists = await Promise.all(source.index.chains.map((c) => fetchChainPools<EarnPool>(c.url).catch(() => null)));
+          const full = lists.flatMap((l) => l ?? []);
+          const failed = lists.some((l) => l == null);
+          // A chain that failed keeps whatever the first screen had for it.
+          const keep = failed ? top.pools.filter((p) => !full.some((f) => f.chain === p.chain && f.id === p.id)) : [];
+          set({ pools: [...full, ...keep].filter(isConcentratedPool), complete: !failed, loading: false });
+          return;
+        }
+      } else if (source.row) {
+        const snap = await unpackSnapshotBrowser<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(source.row.json);
         if (snap.pools?.length > 0) {
           ts = Date.now();
           // Older snapshots may still carry full-range rows; drop them here too.
-          set({ pools: snap.pools.filter(isConcentratedPool), priceChange: snap.priceChange ?? {}, loading: false });
+          set({ pools: snap.pools.filter(isConcentratedPool), priceChange: snap.priceChange ?? {}, loading: false, complete: true });
           return;
         }
       }
@@ -74,7 +91,7 @@ export function prefetchDiscoverPools(client?: PublicClient) {
     // and an empty Discover tab is worse than one slow first load.
     const p = await getEarnPools(undefined, client);
     ts = Date.now();
-    set({ pools: p });
+    set({ pools: p, complete: true });
     if (client) addRangeAprs(client, p).then(ep => set({ pools: ep })).catch(() => {});
     const addressable = p.filter(x => x.source === 'uniswap');
     if (addressable.length > 0) {
@@ -92,7 +109,7 @@ export function prefetchDiscoverPools(client?: PublicClient) {
  * second request while prefetch is already in flight.
  */
 export function waitForDiscoverPools(timeoutMs = 3_000): Promise<EarnPool[]> {
-  if (state.pools.length > 0) return Promise.resolve(state.pools);
+  if (state.complete && state.pools.length > 0) return Promise.resolve(state.pools);
   prefetchDiscoverPools();
   return new Promise(resolve => {
     let settled = false;
@@ -104,7 +121,8 @@ export function waitForDiscoverPools(timeoutMs = 3_000): Promise<EarnPool[]> {
       resolve(state.pools);
     };
     const onChange = () => {
-      if (state.pools.length > 0 || (!state.loading && !inflight)) finish();
+      // The full list when it lands in time; on timeout, whatever is in (the first screen at least).
+      if ((state.complete && state.pools.length > 0) || (!state.loading && !inflight)) finish();
     };
     const timer = setTimeout(finish, timeoutMs);
     listeners.add(onChange);

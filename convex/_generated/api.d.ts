@@ -27,6 +27,7 @@ import type * as credit from "../credit.js";
 import type * as crons from "../crons.js";
 import type * as discover from "../discover.js";
 import type * as discoverRefresh from "../discoverRefresh.js";
+import type * as discoverStore from "../discoverStore.js";
 import type * as liveRpcs from "../liveRpcs.js";
 import type * as poolFacts from "../poolFacts.js";
 import type * as prices from "../prices.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   discover: typeof discover;
   discoverRefresh: typeof discoverRefresh;
+  discoverStore: typeof discoverStore;
   liveRpcs: typeof liveRpcs;
   poolFacts: typeof poolFacts;
   prices: typeof prices;

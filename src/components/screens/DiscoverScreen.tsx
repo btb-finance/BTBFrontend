@@ -398,7 +398,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
 export function DiscoverScreen() {
   const config = useConfig();
   const { isMobile } = useSidebar();
-  const { pools, priceChange, loading } = useDiscoverPools();
+  const { pools, priceChange, loading, complete } = useDiscoverPools();
   const [search, setSearch] = useState('');
   const [selectedChain, setSelectedChain] = useState('all');
   const [selectedDex, setSelectedDex] = useState('all');
@@ -925,6 +925,10 @@ export function DiscoverScreen() {
           )}
           {!loading && forYou.length > 0 && (
             <div style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3, padding: '4px 4px 0' }}>All pools</div>
+          )}
+          {/* The busiest pools show first; the full lists for every chain follow in the background. */}
+          {!loading && !complete && pools.length > 0 && (
+            <div style={{ color: btb.textMuted, fontSize: 12, padding: '0 4px' }}>Showing the busiest pools, loading the rest…</div>
           )}
           <div style={{ borderRadius: 16, border: btb.borderSoft, background: btb.surfaceSoft, overflow: 'hidden' }}>
             <DataTable

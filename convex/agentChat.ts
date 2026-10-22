@@ -15,7 +15,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { AGENT_FREE_PER_DAY, AGENT_MESSAGE_BTB } from "./alertMessages";
 import { FREE_ACTIONS } from "./autoRebalanceConfig";
-import { unpackSnapshotNode } from "../src/lib/snapshotCodec";
+import { loadDiscover } from "./discoverStore";
 import { mintTarget, type EarnPool } from "../src/lib/pools";
 import { poolPath } from "../src/lib/routes";
 
@@ -307,7 +307,8 @@ export const chat = action({
 
     // The Discover snapshot is gzip-packed in Convex; unpack once per request.
     let pools: Pool[] = [];
-    try { if (data.poolsJson) pools = (await unpackSnapshotNode<{ pools: Pool[] }>(data.poolsJson)).pools ?? []; } catch { /* tools answer 'unavailable' */ }
+    // The Discover pools, from the split snapshot (convex/discoverStore.ts).
+    try { pools = ((await loadDiscover(ctx))?.pools ?? []) as unknown as Pool[]; } catch { /* tools answer 'unavailable' */ }
     const portfolio = () => {
       let lps = "none";
       try { const l = (JSON.parse(extras ?? "{}") as { lps?: unknown[] }).lps; if (l && l.length) lps = JSON.stringify(l).slice(0, 8000); } catch { /* none */ }
