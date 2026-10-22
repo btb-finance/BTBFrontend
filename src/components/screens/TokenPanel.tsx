@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { useReadContract, useReadContracts } from 'wagmi';
+import { useConnection, useReadContract, useReadContracts } from 'wagmi';
 import { erc20Abi, parseAbi } from 'viem';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -21,7 +21,7 @@ import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { inviteLink } from '../../lib/referral';
-import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -163,7 +163,7 @@ type EarnAction = 'swap' | 'simulate' | 'nft' | 'portfolio';
 const EARN_ROWS: { icon: string; label: string; detail: string; href: string; action: EarnAction; tint: string }[] = [
   { icon: 'wallet', label: 'Hold BTB', detail: `+1 XP per ${BTB_PER_BONUS_XP} BTB at every check-in, up to ${HOLD_BONUS_CAP.toLocaleString('en-US')} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
   { icon: 'swap', label: 'Make a swap', detail: `+${SWAP_XP} XP per swap, up to ${TX_XP_DAILY_CAP} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
-  { icon: 'chart', label: 'Simulate a pool', detail: `+${SIMULATE_XP} XP a day, +${SIMULATE_XP} per chain researched`, href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
+  { icon: 'chart', label: 'Simulate a pool', detail: `+${SIMULATE_XP} XP for a pool or a chain researched, up to ${SIMULATE_DAILY_CAP} a day`, href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
   { icon: 'nft', label: 'Mint a BTB Bear', detail: `+${MINT_XP.toLocaleString('en-US')} XP per Bear minted`, href: '/nft', action: 'nft', tint: 'var(--btb-amber)' },
   { icon: 'refresh', label: 'Auto-rebalance an LP', detail: `+${REBALANCE_XP} XP every time the agent rebalances your position`, href: '/portfolio', action: 'portfolio', tint: 'var(--btb-green)' },
 ];
@@ -244,12 +244,19 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     }).catch(() => {});
   };
 
+  // Claiming or moving a share is for the wallet itself, never a watched one: both take the connected wallet's own
+  // signed session, and the server checks it owns the share. The address shown can be a watch-only one.
+  const { address: connectedAddress } = useConnection();
+  const isOwnWallet = !!address && !!connectedAddress && connectedAddress.toLowerCase() === address.toLowerCase();
+  const session = useWalletSession(isOwnWallet ? connectedAddress : undefined);
+
   const doClaim = async (payoutId: string) => {
-    if (!address || busy) return;
+    if (!address || busy || !isOwnWallet) return;
     setBusy('claim'); setError(null);
     try {
-      const res = await claim({ payoutId: payoutId as Id<'rewardPayouts'> });
-      if ('reason' in res && res.reason) setError(res.reason);
+      const sessionToken = await session.ensure();
+      const res = await claim({ payoutId: payoutId as Id<'rewardPayouts'>, sessionToken });
+      if ('reason' in res && res.reason) { if (/Sign in again/.test(res.reason)) session.forget(); setError(res.reason); }
     } catch (e) {
       setError(readableError(e, 'Could not claim; try again'));
     } finally {
@@ -257,12 +264,10 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     }
   };
 
-  // Moving a share into the BTB balance makes it app-only, so it takes the
-  // wallet's session (one signature, then 30 days on this device).
-  const session = useWalletSession(address);
+  // Moving a share into the BTB balance makes it app-only; the same session as a claim (one signature, then 30 days).
   const addToBalance = useMutation(api.rewards.addToBalance);
   const doAddToBalance = async (payoutId: string) => {
-    if (!address || busy) return;
+    if (!address || busy || !isOwnWallet) return;
     setBusy('balance'); setError(null);
     try {
       const sessionToken = await session.ensure();
@@ -523,7 +528,9 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               {' '}Untouched by next Friday, it goes back into the pot for everyone.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {!isOwnWallet ? (
+            <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700 }}>Connect this wallet to claim it</div>
+          ) : <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Button size="sm" variant="successSoft" fullWidth={false} disabled={busy != null} loading={busy === 'balance'} onClick={() => doAddToBalance(row.payoutId)}>
               Add to BTB balance
             </Button>
@@ -532,7 +539,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                 Claim to wallet
               </Button>
             )}
-          </div>
+          </div>}
         </div>
       ); })}
 

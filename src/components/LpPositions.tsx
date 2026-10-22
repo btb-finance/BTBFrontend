@@ -2442,8 +2442,7 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
 function MigrateToAero({ pos, owner, autoWallet, autoJobId, onChanged }: { pos: LiquidityPosition; owner: `0x${string}`; autoWallet?: `0x${string}`; autoJobId?: AutoJob['id']; onChanged: () => Promise<void> }) {
   const config = useConfig();
   const { track } = useTx();
-  const stop = useMutation(api.autoRebalance.stop);
-  const session = useWalletSession(owner);
+  const syncJob = useAction(api.autoRebalanceActions.syncJob);
   const chainId = pos.chainId ?? BASE_CHAIN_ID;
   const pair = `${pos.symbol0}/${pos.symbol1}`;
   const [target, setTarget] = useState<AeroTarget | null | undefined>(undefined);
@@ -2474,8 +2473,9 @@ function MigrateToAero({ pos, owner, autoWallet, autoJobId, onChanged }: { pos: 
       setBusy('Finishing');
       const receipt = lastHash ? await client.getTransactionReceipt({ hash: lastHash }).catch(() => null) : null;
       const newId = receipt ? migratedTokenId(receipt.logs) : null;
-      // The old position is burned; its job has nothing left to watch.
-      if (autoJobId) { const token = await session.ensure().catch(() => null); if (token) await stop({ sessionToken: token, id: autoJobId }).catch(() => null); }
+      // The old position is burned: have the server check its job now, which closes it (no sign-in needed). Stopping it
+      // here needed a signed session, and a declined signature left the old job showing beside the new position.
+      if (autoJobId) await syncJob({ id: autoJobId }).catch(() => null);
       setDone(`Moved to Aero${newId != null ? ` as position #${newId}` : ''}.${autoWallet ? ' Turn on auto-rebalance for it to keep it managed.' : ''}`);
       await onChanged();
     } catch (e) { setErr(readableError(e, 'The move did not go through.')); }

@@ -154,10 +154,14 @@ export const listPayouts = query({
  * money sooner than they asked for it.
  */
 export const claimReward = mutation({
-  args: { payoutId: v.id("rewardPayouts") },
-  handler: async (ctx, { payoutId }) => {
+  args: { payoutId: v.id("rewardPayouts"), sessionToken: v.string() },
+  handler: async (ctx, { payoutId, sessionToken }) => {
+    // Only the wallet itself decides where its share goes: anyone watching an address could claim it before.
+    const wallet = await sessionWallet(ctx, sessionToken);
+    if (!wallet) return { claimed: false, state: "claimable", reason: "Sign in again." };
     const payout = await ctx.db.get(payoutId);
     if (!payout) throw new Error("Payout not found");
+    if (payout.walletAddress !== wallet) return { claimed: false, state: payout.state, reason: "That reward is not this wallet's." };
     // Already claimed or already expired — a double-clicked button is a no-op,
     // not an error, and must never queue a second transfer.
     if (payout.state !== "claimable") return { claimed: false, state: payout.state };

@@ -24,9 +24,16 @@ export function dailyXpForStreak(streak: number): number {
   return Math.min(10 + (streak - 1) * 2, 50);
 }
 
-/** Every 7th streak day pays a bonus that grows each week: +50, +100, … */
+/** The streak day after which streak rewards stop growing; the streak itself keeps counting. */
+export const STREAK_GROWTH_DAYS = 100;
+
+/**
+ * Every 7th streak day pays a bonus that grows each week (+50, +100, …) up to day 100: day 98 pays +700, and every
+ * 7th day after that pays +700 again. Without the cap it grew forever (+2,600 on day 364).
+ */
 export function weekMilestoneXp(streak: number): number {
-  return streak > 0 && streak % 7 === 0 ? (streak / 7) * 50 : 0;
+  if (!(streak > 0 && streak % 7 === 0)) return 0;
+  return Math.floor(Math.min(streak, STREAK_GROWTH_DAYS) / 7) * 50;
 }
 
 /** Holder bonus: 1 XP per this many BTB held, on every check-in. */
@@ -57,5 +64,5 @@ export const MIN_CLAIM_BTB = 5_000;
 export const REFERRAL_SHARE = 0.1;
 /** XP for each rebalance the BTB agent completes on the user's position. */
 export const REBALANCE_XP = 100;
-/** Distinct chains a wallet can be paid for researching per day. */
-export const SIMULATE_CHAINS_PER_DAY = 8;
+/** Most Simulate XP a wallet can earn in a day, the first pool and every chain researched together (was 100 per chain on up to 8 chains). */
+export const SIMULATE_DAILY_CAP = 500;
