@@ -767,7 +767,7 @@ async function push(ctx: ActionCtx, address: string, label: string, kind: string
  */
 export const syncJob = action({
   args: { id: v.id("autoRebalances") },
-  handler: async (ctx, { id }): Promise<{ ok: boolean; state?: "held" | "staked" | "gone" }> => {
+  handler: async (ctx, { id }): Promise<{ ok: boolean; state?: "held" | "staked" | "gone" | "checking" }> => {
     await loadLiveRpcs(ctx);
     const job = await ctx.runQuery(internal.autoRebalance.get, { id });
     const client = job ? getChainClient(job.chainId) : null;
@@ -775,7 +775,13 @@ export const syncJob = action({
     const wallet = job.wallet.toLowerCase();
     const tokenId = BigInt(job.tokenId);
     const holder = (await client.readContract({ address: job.positionManager as `0x${string}`, abi: NFT_ABI, functionName: "ownerOf", args: [tokenId] }).catch(() => null))?.toLowerCase();
-    if (!holder) return { ok: false };
+    // Unreadable or burned (moved to Aero, or rebalanced into a new id): run the job's own check now rather than at its
+    // next scheduled time. It follows a rebalance to the new position and closes the job only when nothing replaced it,
+    // so asking early is safe without a sign-in. Moves to Aero left old jobs running for a day without this.
+    if (!holder) {
+      if (job.active) await ctx.scheduler.runAfter(0, internal.autoRebalanceActions.check, { id, gen: job.gen });
+      return { ok: true, state: "checking" };
+    }
     if (holder === wallet) {
       if (job.gauge) await ctx.runMutation(internal.autoRebalance.learnGauge, { id, gauge: null });
       return { ok: true, state: "held" };
