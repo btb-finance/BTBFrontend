@@ -80,8 +80,11 @@ export const saveTokenLogos = internalMutation({
 
 // ── Split snapshot (discoverStore.ts) ───────────────────────────────────────
 
-/** Old chain files are kept this long after a newer index, so a page that read the old index can still fetch them. */
-const OLD_FILES_KEEP_MS = 15 * 60_000;
+/**
+ * Old chain files are kept this long after a newer index, so a page holding an old index can still fetch them, including
+ * one served from the CDN (src/app/api/discover-top: 5 minutes fresh plus up to 30 stale).
+ */
+const OLD_FILES_KEEP_MS = 2 * 60 * 60_000;
 
 export const saveIndex = internalMutation({
   args: {

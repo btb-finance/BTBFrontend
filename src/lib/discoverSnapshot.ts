@@ -21,11 +21,29 @@ export type DiscoverSource = { kind: 'index'; index: DiscoverIndex } | { kind: '
 
 let early: Promise<DiscoverSource> | null = null;
 
-async function query(): Promise<DiscoverSource> {
+/** The index from our own CDN (src/app/api/discover-top), the fast path; null on any failure. */
+async function fromCdn(): Promise<DiscoverIndex | null> {
+  try {
+    const res = await fetch('/api/discover-top', { signal: AbortSignal.timeout(4_000) });
+    if (!res.ok) return null;
+    const index = await res.json() as DiscoverIndex;
+    return index?.top && Array.isArray(index.chains) ? index : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The index straight from Convex (the CDN copy's source), or the old single row when there is no index. */
+export async function queryConvex(): Promise<DiscoverSource> {
   const client = new ConvexHttpClient(CONVEX_URL);
   const index = await client.query(api.discover.index, {}).catch(() => null);
   if (index) return { kind: 'index', index };
   return { kind: 'legacy', row: await client.query(api.discover.get, {}).catch(() => null) };
+}
+
+async function query(): Promise<DiscoverSource> {
+  const index = await fromCdn();
+  return index ? { kind: 'index', index } : queryConvex();
 }
 
 /** Fire the snapshot read now; the first fetchDiscoverSource() call picks it up. */

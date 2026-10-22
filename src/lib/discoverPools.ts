@@ -2,7 +2,7 @@
 import { unpackSnapshotBrowser } from './snapshotCodec';
 import { useSyncExternalStore } from 'react';
 import type { PublicClient } from 'viem';
-import { fetchDiscoverSource, fetchChainPools } from './discoverSnapshot';
+import { fetchDiscoverSource, fetchChainPools, queryConvex } from './discoverSnapshot';
 import { getEarnPools, addRangeAprs, isConcentratedPool, EarnPool } from './pools';
 import { fetchPoolPriceChanges } from './geckoterminal';
 
@@ -68,7 +68,12 @@ export function prefetchDiscoverPools(client?: PublicClient) {
           ts = Date.now();
           if (state.pools.length === 0) set({ pools: top.pools.filter(isConcentratedPool), priceChange: top.priceChange ?? {}, loading: false });
           // Then every chain's full list in parallel; one chain failing keeps the others.
-          const lists = await Promise.all(source.index.chains.map((c) => fetchChainPools<EarnPool>(c.url).catch(() => null)));
+          let lists = await Promise.all(source.index.chains.map((c) => fetchChainPools<EarnPool>(c.url).catch(() => null)));
+          // A CDN copy of the index can point at a chain file Convex has since replaced: ask Convex once and retry.
+          if (lists.some((l) => l == null)) {
+            const fresh = await queryConvex().catch(() => null);
+            if (fresh?.kind === 'index') lists = await Promise.all(fresh.index.chains.map((c) => fetchChainPools<EarnPool>(c.url).catch(() => null)));
+          }
           const full = lists.flatMap((l) => l ?? []);
           const failed = lists.some((l) => l == null);
           // A chain that failed keeps whatever the first screen had for it.
