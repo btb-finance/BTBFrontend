@@ -46,22 +46,27 @@ const NPM_TRANSFER_ABI = [
   { name: 'safeTransferFrom', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'from', type: 'address' }, { name: 'to', type: 'address' }, { name: 'tokenId', type: 'uint256' }], outputs: [] },
 ] as const;
 
-/** Staking venue for a V3-style deployment, if the app knows one. */
-function venueFor(d: V3Deployment): { kind: StakeKind; voter?: `0x${string}`; chef?: `0x${string}`; rewardToken: `0x${string}`; rewardSymbol: string } | null {
-  if (d.protocol === 'aerodrome-cl') return { kind: 'gauge', voter: AERODROME_VOTER, rewardToken: AERO_TOKEN, rewardSymbol: 'AERO' };
+/** Staking venue for a V3-style deployment, if the app knows one. `closed`: no new stakes are offered, while positions
+ * already staked are still found, unstaked and claimed. */
+function venueFor(d: V3Deployment): { kind: StakeKind; voter?: `0x${string}`; chef?: `0x${string}`; rewardToken: `0x${string}`; rewardSymbol: string; closed?: boolean } | null {
+  // Aero's launch (2026-10-22) killed every gauge of the old Aerodrome voter: rewards stopped, and staked liquidity
+  // hands its fees to the gauge, so a new stake there would earn nothing. Staking returns with Aero's own gauges.
+  if (d.protocol === 'aerodrome-cl') return { kind: 'gauge', voter: AERODROME_VOTER, rewardToken: AERO_TOKEN, rewardSymbol: 'AERO', closed: true };
   if (d.protocol === 'up-v3') return { kind: 'gauge', voter: UP_VOTER, rewardToken: UP_TOKEN, rewardSymbol: 'UP' };
   if (d.protocol === 'giga-v3') return { kind: 'masterchef', chef: GIGA_MASTERCHEF, rewardToken: GIGA_TOKEN, rewardSymbol: 'GIGA' };
   return null;
 }
 
+/** Whether new stakes are offered for this deployment's positions. */
 export function stakingSupported(d: V3Deployment): boolean {
-  return venueFor(d) !== null;
+  const venue = venueFor(d);
+  return venue !== null && !venue.closed;
 }
 
 /** Where a freshly minted position on this pool could be staked, if anywhere. */
 export async function stakeTargetForPool(client: PublicClient, d: V3Deployment, token0: `0x${string}`, token1: `0x${string}`, tier: number): Promise<StakeTarget | null> {
   const venue = venueFor(d);
-  if (!venue) return null;
+  if (!venue || venue.closed) return null;
   const pool = d.slipstream
     ? await client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, tier] })
     : await client.readContract({ address: d.factory, abi: [{ name: 'getPool', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint24' }], outputs: [{ type: 'address' }] }] as const, functionName: 'getPool', args: [token0, token1, tier] });
@@ -78,7 +83,7 @@ export async function stakeTargetForPool(client: PublicClient, d: V3Deployment, 
 export async function withStakeTargets(client: PublicClient, d: V3Deployment, positions: LiquidityPosition[]): Promise<LiquidityPosition[]> {
   const venue = venueFor(d);
   const live = positions.filter((p) => p.liquidity > 0n);
-  if (!venue || live.length === 0) return positions;
+  if (!venue || venue.closed || live.length === 0) return positions;
   const pools = await withSafeMulticall(client).multicall({
     contracts: live.map((p) => d.slipstream
       ? { address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool' as const, args: [p.token0, p.token1, p.tickSpacing ?? 0] as const }
