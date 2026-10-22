@@ -57,5 +57,5 @@ export const MIN_CLAIM_BTB = 5_000;
 export const REFERRAL_SHARE = 0.1;
 /** XP for each rebalance the BTB agent completes on the user's position. */
 export const REBALANCE_XP = 100;
-/** Distinct chains a wallet can be paid for researching per day. */
-export const SIMULATE_CHAINS_PER_DAY = 8;
+/** Most Simulate XP a wallet can earn in a day, the first pool and every chain researched together (was 100 per chain on up to 8 chains). */
+export const SIMULATE_DAILY_CAP = 500;

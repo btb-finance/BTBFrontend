@@ -1,7 +1,7 @@
 import { mutation, query, internalMutation, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { addEpochPoints } from "./rewards";
-import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_CHAINS_PER_DAY } from "./xpRules";
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP } from "./xpRules";
 
 const MS_PER_DAY = 86_400_000;
 
@@ -190,7 +190,7 @@ export const creditTxXp = internalMutation({
 
 /** Simulate rewards: SIMULATE_XP the first time a wallet checks a pool each
  * day, and SIMULATE_XP per chain used in cross-chain research, each chain once
- * a day (at most SIMULATE_CHAINS_PER_DAY chains). */
+ * a day, up to SIMULATE_DAILY_CAP XP a day for all of it together. */
 
 export const awardSimulateXp = mutation({
   args: {
@@ -216,15 +216,14 @@ export const awardSimulateXp = mutation({
       .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day).eq("key", key))
       .unique();
     if (already) return { ok: true, awarded: 0 };
-    // Each chain id pays once a day, but any integer is a "chain" to the
-    // server, so cap how many a wallet can collect per day.
-    if (kind === "chain") {
-      const today = await ctx.db
-        .query("dailyAwards")
-        .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day))
-        .collect();
-      if (today.filter((r) => r.key.startsWith("simulate:chain:")).length >= SIMULATE_CHAINS_PER_DAY) return { ok: true, awarded: 0 };
-    }
+    // One daily cap for all Simulate XP: any integer is a "chain" to the server, and research across many chains
+    // should not outpay everything else in the app.
+    const today = await ctx.db
+      .query("dailyAwards")
+      .withIndex("by_wallet_day_key", (q) => q.eq("walletAddress", addr).eq("day", day))
+      .collect();
+    const earned = today.filter((r) => r.key.startsWith("simulate:")).reduce((sum, r) => sum + r.xp, 0);
+    if (earned + SIMULATE_XP > SIMULATE_DAILY_CAP) return { ok: true, awarded: 0 };
 
     await ctx.db.insert("dailyAwards", { walletAddress: addr, day, key, xp: SIMULATE_XP, createdAt: now });
     await ctx.db.patch(user._id, { points: user.points + SIMULATE_XP });

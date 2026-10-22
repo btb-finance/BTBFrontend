@@ -21,7 +21,7 @@ import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { inviteLink } from '../../lib/referral';
-import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -163,7 +163,7 @@ type EarnAction = 'swap' | 'simulate' | 'nft' | 'portfolio';
 const EARN_ROWS: { icon: string; label: string; detail: string; href: string; action: EarnAction; tint: string }[] = [
   { icon: 'wallet', label: 'Hold BTB', detail: `+1 XP per ${BTB_PER_BONUS_XP} BTB at every check-in, up to ${HOLD_BONUS_CAP.toLocaleString('en-US')} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
   { icon: 'swap', label: 'Make a swap', detail: `+${SWAP_XP} XP per swap, up to ${TX_XP_DAILY_CAP} a day`, href: '/swap', action: 'swap', tint: 'var(--btb-green)' },
-  { icon: 'chart', label: 'Simulate a pool', detail: `+${SIMULATE_XP} XP a day, +${SIMULATE_XP} per chain researched`, href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
+  { icon: 'chart', label: 'Simulate a pool', detail: `+${SIMULATE_XP} XP for a pool or a chain researched, up to ${SIMULATE_DAILY_CAP} a day`, href: '/simulate', action: 'simulate', tint: 'var(--btb-reward)' },
   { icon: 'nft', label: 'Mint a BTB Bear', detail: `+${MINT_XP.toLocaleString('en-US')} XP per Bear minted`, href: '/nft', action: 'nft', tint: 'var(--btb-amber)' },
   { icon: 'refresh', label: 'Auto-rebalance an LP', detail: `+${REBALANCE_XP} XP every time the agent rebalances your position`, href: '/portfolio', action: 'portfolio', tint: 'var(--btb-green)' },
 ];
