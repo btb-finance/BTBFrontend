@@ -136,13 +136,16 @@ export const coverAero = internalAction({
     await loadLiveRpcs(ctx);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pools = await ingestAeroPools((chainId) => getChainClient(chainId) as any).catch((e) => { console.warn("aero pools", e); return [] as EarnPool[]; });
-    console.log(`aero: ${pools.length} pools`);
+    console.log(`aero: ${pools.length} pools`, Object.fromEntries([...new Set(pools.map((p) => p.chain))].map((c) => [c, pools.filter((p) => p.chain === c).length])));
     if (pools.length === 0) return;
     const latest = await ctx.runQuery(internal.discover.getInternal, {});
     if (!latest) return;
     const current = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(latest.json);
+    // Replace a network's Aero rows only when that network answered: a rate-limited network returns nothing, and
+    // wiping its rows then left 12 of 81 pools after one run.
+    const answered = new Set(pools.map((p) => p.chainId));
     await ctx.runMutation(internal.discover.save, {
-      json: await packSnapshot({ ...current, pools: [...current.pools.filter((p) => p.project !== "aero"), ...pools] }),
+      json: await packSnapshot({ ...current, pools: [...current.pools.filter((p) => p.project !== "aero" || !answered.has(p.chainId)), ...pools] }),
     });
   },
 });
