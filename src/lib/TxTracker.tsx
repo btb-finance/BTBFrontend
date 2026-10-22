@@ -15,6 +15,25 @@ import { markLpSnapshotsStale } from './appData';
 
 const POLL_MS = 1_000;       // fast chains settle quickly; surface reverts promptly
 const TIMEOUT_MS = 180_000;  // give up after 3 min
+
+/**
+ * A receipt wait that survives a lagging RPC. viem's wait asks for the block a transaction landed in, and a node a
+ * block or two behind answers "block not found": that is not a failure, so ask again until the overall timeout. On
+ * 2026-10-22 a top-up that confirmed on Base was shown as failed (and not credited) this way.
+ */
+async function receiptSurvivingLag(config: Parameters<typeof waitForTransactionReceipt>[0], hash: `0x${string}`, chainId: SupportedChainId | undefined) {
+  const end = Date.now() + TIMEOUT_MS;
+  for (;;) {
+    try {
+      return await waitForTransactionReceipt(config, { hash, chainId, pollingInterval: POLL_MS, timeout: Math.max(1_000, end - Date.now()) });
+    } catch (e) {
+      const name = (e as { name?: string })?.name ?? '';
+      const lag = /BlockNotFound|TransactionNotFound|TransactionReceiptNotFound/.test(name) || /could not be found/i.test((e as Error)?.message ?? '');
+      if (!lag || Date.now() > end) throw e;
+      await new Promise((r) => setTimeout(r, POLL_MS * 2));
+    }
+  }
+}
 const DISMISS_MS = 6_000;    // auto-hide settled pills
 
 export type TxStatus = 'pending' | 'confirmed' | 'failed';
@@ -74,7 +93,7 @@ export function TxProvider({ children }: { children: ReactNode }) {
           const last = res.receipts?.[res.receipts.length - 1]?.transactionHash;
           if (last) { patch(id, { hash: last }); settledHash = last; }
         } else if (hash) {
-          const receipt = await waitForTransactionReceipt(config, { hash, chainId: chainId as SupportedChainId | undefined, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
+          const receipt = await receiptSurvivingLag(config, hash, chainId as SupportedChainId | undefined);
           ok = receipt.status === 'success';
         }
         if (ok) {

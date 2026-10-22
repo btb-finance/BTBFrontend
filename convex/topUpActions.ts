@@ -1,12 +1,31 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { erc20Abi, formatUnits, isHash, parseEventLogs, type PublicClient } from "viem";
+import { createPublicClient, erc20Abi, formatUnits, http, isHash, parseEventLogs, type PublicClient, type TransactionReceipt } from "viem";
 import { getChainClient } from "../src/lib/chainClient";
 import { BTB_USD } from "./autoRebalanceConfig";
 import { DEPOSIT_MAX_AGE_MS } from "./alertMessages";
 import { TOP_UP_ASSETS, TOP_UP_CHAIN_NAMES, TOP_UP_MIN_USD, TOP_UP_TREASURY } from "./topUpConfig";
 import { loadLiveRpcs } from "./liveRpcs";
+import { rpcUrls } from "../src/lib/chainRpc";
+
+/** Each chain's own public endpoint, always asked alongside the tested list. */
+const OFFICIAL_RPC: Record<number, string> = { 1: "https://ethereum-rpc.publicnode.com", 8453: "https://mainnet.base.org", 4663: "https://rpc.mainnet.chain.robinhood.com/" };
+
+/**
+ * A receipt from whichever of several RPCs has it. One fallback transport is not enough: a node a block behind answers
+ * "no receipt" without erroring, so it is never skipped, and a payment that had confirmed read as not found.
+ */
+async function findReceipt(client: PublicClient, chainId: number, hash: `0x${string}`): Promise<TransactionReceipt | null> {
+  const first = await client.getTransactionReceipt({ hash }).catch(() => null);
+  if (first) return first;
+  const urls = [...new Set([OFFICIAL_RPC[chainId], ...rpcUrls(chainId).slice(0, 4)].filter(Boolean))];
+  return Promise.any(urls.map(async (u) => {
+    const r = await createPublicClient({ transport: http(u, { timeout: 8_000 }) }).getTransactionReceipt({ hash });
+    if (!r) throw new Error("not yet");
+    return r;
+  })).catch(() => null);
+}
 
 async function ethUsd(): Promise<number | null> {
   try {
@@ -41,7 +60,7 @@ export const creditPayment = action({
     const client = getChainClient(chainId) as PublicClient | null;
     if (!client) return { ok: false, reason: "That chain is not available right now." };
     const where = TOP_UP_CHAIN_NAMES[chainId];
-    const receipt = await client.getTransactionReceipt({ hash: hash as `0x${string}` }).catch(() => null);
+    const receipt = await findReceipt(client, chainId, hash as `0x${string}`);
     if (!receipt) return { ok: false, reason: `Transaction not found on ${where} yet. It is checked again in a moment.` };
     if (receipt.status !== "success") return { ok: false, reason: "That transaction failed on-chain." };
     const to = TOP_UP_TREASURY.toLowerCase();

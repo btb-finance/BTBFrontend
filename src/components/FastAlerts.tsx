@@ -181,12 +181,15 @@ export function BtbTopUp({ credit }: { credit: Credit }) {
   async function creditAny(hash: string): Promise<string | null> {
     const problem = await credit.depositTx(hash);
     if (!problem) return null;
+    // A BTB deposit's problem only matters when the hash is not a payment on any chain: a payment on Base that a node
+    // had not seen yet used to come back as "not found on Ethereum", which pointed at the wrong chain.
+    let found = /not found/i.test(problem) ? null : problem;
     for (const chainId of TOP_UP_CHAINS) {
       const res = await creditPayment({ chainId, txHash: hash }).catch(() => null);
       if (res?.ok) return null;
-      if (res && !/not found/i.test(res.reason)) return res.reason;
+      if (res && !/not found/i.test(res.reason)) found = res.reason;
     }
-    return problem;
+    return found ?? `Not found on ${TOP_UP_CHAINS.map((c) => TOP_UP_CHAIN_NAMES[c]).join(', ')} yet. If it just confirmed, wait a few seconds and press Credit again.`;
   }
 
   async function submit() {
