@@ -94,12 +94,15 @@ function PayTopUp() {
   const asset = TOP_UP_ASSETS[chainId].find((a) => a.symbol === symbol) ?? TOP_UP_ASSETS[chainId][0];
   const n = parseFloat(amount);
   const balance = heldUnits(chainId, asset);
-  const tooMuch = n > 0 && Object.keys(held).length > 0 && n > balance;
-  // Max leaves some ETH behind to pay for the transaction itself.
+  // Compared in the token's own units, so a Max amount equal to the balance is never refused by float rounding.
+  const rawAmount = (() => { try { return n > 0 ? parseUnits(amount, asset.decimals) : 0n; } catch { return 0n; } })();
+  const tooMuch = rawAmount > 0n && Object.keys(held).length > 0 && rawAmount > (held[keyOf(chainId, asset.symbol)] ?? 0n);
+  // Max leaves some ETH behind to pay for the transaction itself. Worked out on the exact on-chain amount: rounding a
+  // float could land a hair above the balance (1.329418 shown as 1.32942), which marked it too much and disabled Pay.
   const maxAmount = () => {
-    const reserve = asset.address ? 0 : chainId === 1 ? 0.003 : 0.0003;
-    const units = Math.max(0, balance - reserve);
-    return units > 0 ? String(Number(units.toPrecision(6))) : '';
+    const raw = held[keyOf(chainId, asset.symbol)] ?? 0n;
+    const reserve = asset.address ? 0n : parseUnits(chainId === 1 ? '0.003' : '0.0003', asset.decimals);
+    return raw > reserve ? formatUnits(raw - reserve, asset.decimals) : '';
   };
   const fmtHeld = (units: number) => (units === 0 ? '0' : units < 0.0001 ? '<0.0001' : units >= 1000 ? fmtBtb(units) : String(Number(units.toPrecision(4))));
   // BTB is credited one for one; dollars and ETH at the fixed BTB price.
