@@ -174,6 +174,13 @@ export async function upgradeCalls(client: PublicClient, wallet: string): Promis
   return upgradeCallsFor(w, paused, needsFarm);
 }
 
+/** Turn on Aero gauge staking in a wallet made before it was part of the setup: one owner call, the first time. */
+export async function aeroStakingCalls(client: PublicClient, wallet: string): Promise<Call[]> {
+  const hash = await client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: 'adapterCodeHash', args: [V6.aeroGaugeAdapter] }).catch(() => null);
+  if (hash && !/^0x0{64}$/.test(hash)) return [];
+  return [{ to: wallet as `0x${string}`, label: 'Allow Aero staking', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.aeroGaugeAdapter, true, '0x'] }) }];
+}
+
 /** One owner call that runs a gauge or farm action for a position held in the auto wallet. */
 export function walletGaugeCall(wallet: string, kind: 'stake' | 'unstake' | 'claim', gauge: string, tokenId: string | bigint, adapter: `0x${string}` = V6.aerodromeAdapter): Call {
   const action = kind === 'stake' ? Action.Stake : kind === 'unstake' ? Action.Unstake : Action.Claim;

@@ -26,7 +26,7 @@ import {
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, aeroDeploymentFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
-import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
+import { AERO_GAUGE_ABI, withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
@@ -367,7 +367,10 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             if (target && target.kind === 'gauge') {
               const [staked, earned] = await Promise.all([
                 client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false),
-                client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => 0n),
+                // Aero's gauges take a list of ids; the older ones one id.
+                (found.deployment.protocol === 'aero-cl'
+                  ? client.readContract({ address: target.contract, abi: AERO_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, [BigInt(j.tokenId)]] })
+                  : client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] })).catch(() => 0n),
               ]);
               if (staked) pos.staked = { kind: 'gauge', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
               else pos.stakeable = { kind: 'gauge', gauge: target.contract, rewardSymbol: target.rewardSymbol };

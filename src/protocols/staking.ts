@@ -18,7 +18,8 @@ import type { LiquidityPosition } from './types';
 import type { V3Deployment } from './dexs/uniswap/v3/addresses';
 import { SLIPSTREAM_FACTORY_ABI } from './dexs/uniswap/v3/abis';
 import { fetchV3Positions } from './dexs/uniswap/v3/positions';
-import { CL_GAUGE_ABI, AERODROME_VOTER, AERO_TOKEN } from './dexs/aerodrome';
+import { CL_GAUGE_ABI, AERODROME_VOTER, AERO_TOKEN, aeroDeploymentFor } from './dexs/aerodrome';
+import { AERO_NEW_TOKEN, AERO_STAKING_LIVE } from '../../convex/autoRebalanceConfig';
 import { UP_V3_DEPLOYMENT, UP_VOTER, UP_TOKEN, GIGA_V3_DEPLOYMENT, GIGA_MASTERCHEF, GIGA_TOKEN } from './dexs/robinhood';
 
 export type StakeKind = 'gauge' | 'masterchef';
@@ -48,7 +49,9 @@ const NPM_TRANSFER_ABI = [
 
 /** Staking venue for a V3-style deployment, if the app knows one. `closed`: no new stakes are offered, while positions
  * already staked are still found, unstaked and claimed. */
-function venueFor(d: V3Deployment): { kind: StakeKind; voter?: `0x${string}`; chef?: `0x${string}`; rewardToken: `0x${string}`; rewardSymbol: string; closed?: boolean } | null {
+function venueFor(d: V3Deployment): { kind: StakeKind; voter?: `0x${string}`; chef?: `0x${string}`; aero?: boolean; rewardToken: `0x${string}`; rewardSymbol: string; closed?: boolean } | null {
+  // Aero: no voter lookup, a pool names its own gauge (aeroGaugesOf). Offered once the Aero gauge adapter is live.
+  if (d.protocol === 'aero-cl') return { kind: 'gauge', aero: true, rewardToken: (AERO_NEW_TOKEN[d.chainId ?? 0] ?? ZERO) as `0x${string}`, rewardSymbol: 'AERO', closed: !AERO_STAKING_LIVE };
   // Aero's launch (2026-10-22) killed every gauge of the old Aerodrome voter: rewards stopped, and staked liquidity
   // hands its fees to the gauge, so a new stake there would earn nothing. Staking returns with Aero's own gauges.
   if (d.protocol === 'aerodrome-cl') return { kind: 'gauge', voter: AERODROME_VOTER, rewardToken: AERO_TOKEN, rewardSymbol: 'AERO', closed: true };
@@ -71,6 +74,10 @@ export async function stakeTargetForPool(client: PublicClient, d: V3Deployment, 
     ? await client.readContract({ address: d.factory, abi: SLIPSTREAM_FACTORY_ABI, functionName: 'getPool', args: [token0, token1, tier] })
     : await client.readContract({ address: d.factory, abi: [{ name: 'getPool', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint24' }], outputs: [{ type: 'address' }] }] as const, functionName: 'getPool', args: [token0, token1, tier] });
   if (!pool || pool.toLowerCase() === ZERO) return null;
+  if (venue.aero) {
+    const gauge = (await aeroGaugesOf(client, [pool]))[0];
+    return gauge ? { kind: 'gauge', contract: gauge, rewardToken: venue.rewardToken, rewardSymbol: venue.rewardSymbol } : null;
+  }
   if (venue.kind === 'gauge') {
     const gauge = await client.readContract({ address: venue.voter!, abi: VOTER_ABI, functionName: 'gauges', args: [pool] });
     return gauge.toLowerCase() === ZERO ? null : { kind: 'gauge', contract: gauge, rewardToken: venue.rewardToken, rewardSymbol: venue.rewardSymbol };
@@ -92,7 +99,9 @@ export async function withStakeTargets(client: PublicClient, d: V3Deployment, po
   });
   const poolOf = live.map((_, i) => (pools[i].status === 'success' ? (pools[i].result as `0x${string}`) : ZERO) as `0x${string}`);
   let targetOf: (`0x${string}` | null)[];
-  if (venue.kind === 'gauge') {
+  if (venue.aero) {
+    targetOf = await aeroGaugesOf(client, poolOf);
+  } else if (venue.kind === 'gauge') {
     const gauges = await withSafeMulticall(client).multicall({
       contracts: poolOf.map((pool) => ({ address: venue.voter!, abi: VOTER_ABI, functionName: 'gauges' as const, args: [pool] as const })),
       allowFailure: true,
@@ -122,6 +131,7 @@ export function fetchStakedPositions(client: PublicClient, owner: `0x${string}`,
 async function readStakedPositions(client: PublicClient, owner: `0x${string}`, d: V3Deployment): Promise<LiquidityPosition[]> {
   const venue = venueFor(d);
   if (!venue) return [];
+  if (venue.aero) return readAeroStaked(client, owner, d, venue.rewardToken);
   let entries: { id: bigint; contract: `0x${string}` }[] = [];
   if (venue.kind === 'gauge') {
     const n = Number(await client.readContract({ address: venue.voter!, abi: VOTER_ABI, functionName: 'length' }));
@@ -202,14 +212,91 @@ export function buildUnstakeCalls(pos: LiquidityPosition, owner: `0x${string}`):
 
 export function buildClaimCalls(pos: LiquidityPosition, owner: `0x${string}`): Call[] {
   if (!pos.staked) return [];
+  if (pos.protocol === 'aero-cl') return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: AERO_GAUGE_ABI, functionName: 'claimEmissions', args: [owner, owner, [pos.id]] }) }];
   if (pos.staked.kind === 'masterchef') return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: MASTERCHEF_V3_ABI, functionName: 'harvest', args: [pos.id, owner] }) }];
   return [{ to: pos.staked.gauge, data: encodeFunctionData({ abi: CL_GAUGE_ABI, functionName: 'getReward', args: [pos.id] }) }];
 }
 
 /** Deployments with a staking venue on a chain, for the LP list's staked scan. */
 export function stakingDeploymentsFor(chainId: number): V3Deployment[] {
-  if (chainId === 4663) return [UP_V3_DEPLOYMENT, GIGA_V3_DEPLOYMENT];
-  return [];
+  const aero = AERO_STAKING_LIVE ? aeroDeploymentFor(chainId) : null;
+  if (chainId === 4663) return [UP_V3_DEPLOYMENT, GIGA_V3_DEPLOYMENT, ...(aero ? [aero] : [])];
+  return aero ? [aero] : [];
 }
 
 /** Read the NPM ownerOf as a post-unstake check (shared by rebalance flows). */
+
+// ── Aero gauges ─────────────────────────────────────────────────────────────
+
+/** Aero's per-chain voter, the same address on every chain: a gauge earns AERO only once activated. */
+const AERO_LEAF_VOTER = '0x382409fad8503FbCdbB27A4211551fa03e884078' as const;
+const AERO_POOL_ABI = [{ name: 'gauge', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const;
+const AERO_VOTER_ABI = [{ name: 'isActivated', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'bool' }] }] as const;
+export const AERO_GAUGE_ABI = [
+  { name: 'stakedValues', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }], outputs: [{ type: 'uint256[]' }] },
+  { name: 'earned', type: 'function', stateMutability: 'view', inputs: [{ type: 'address' }, { type: 'uint256[]' }], outputs: [{ type: 'uint256' }] },
+  { name: 'claimEmissions', type: 'function', stateMutability: 'nonpayable', inputs: [{ type: 'address' }, { type: 'address' }, { type: 'uint256[]' }], outputs: [] },
+] as const;
+const AERO_FACTORY_LIST_ABI = [
+  { name: 'allPoolsLength', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
+  { name: 'allPools', type: 'function', stateMutability: 'view', inputs: [{ type: 'uint256' }], outputs: [{ type: 'address' }] },
+] as const;
+
+/** Each pool's own gauge, or null when it has none or Aero has not activated it (it would earn nothing). */
+async function aeroGaugesOf(client: PublicClient, pools: `0x${string}`[]): Promise<(`0x${string}` | null)[]> {
+  const live = pools.map((p) => (p && p.toLowerCase() !== ZERO ? p : null));
+  const g = await withSafeMulticall(client).multicall({
+    contracts: live.map((p) => ({ address: (p ?? ZERO) as `0x${string}`, abi: AERO_POOL_ABI, functionName: 'gauge' as const })),
+    allowFailure: true,
+  });
+  const gauges = g.map((r, i) => (live[i] && r.status === 'success' && (r.result as string).toLowerCase() !== ZERO ? (r.result as `0x${string}`) : null));
+  const act = await withSafeMulticall(client).multicall({
+    contracts: gauges.map((x) => ({ address: AERO_LEAF_VOTER, abi: AERO_VOTER_ABI, functionName: 'isActivated' as const, args: [(x ?? ZERO) as `0x${string}`] as const })),
+    allowFailure: true,
+  });
+  return gauges.map((x, i) => (x && act[i].status === 'success' && act[i].result ? x : null));
+}
+
+/**
+ * Every position the wallet has staked in an Aero gauge, with its AERO earned. Aero's voter has no pool list per
+ * wallet, so every pool of the factory is read once (pools and their gauges are remembered), then each gauge is asked
+ * for the wallet's stakes in one round.
+ */
+async function readAeroStaked(client: PublicClient, owner: `0x${string}`, d: V3Deployment, rewardToken: `0x${string}`): Promise<LiquidityPosition[]> {
+  const chainId = client.chain?.id ?? 0;
+  const n = Number(await client.readContract({ address: d.factory, abi: AERO_FACTORY_LIST_ABI, functionName: 'allPoolsLength' }));
+  const key = (i: number) => `${chainId}:aero-pool:${d.factory.toLowerCase()}:${i}`;
+  const unknown = Array.from({ length: n }, (_, i) => i).filter((i) => !knownAddress(key(i)));
+  if (unknown.length > 0) {
+    const got = await withSafeMulticall(client).multicall({
+      contracts: unknown.map((i) => ({ address: d.factory, abi: AERO_FACTORY_LIST_ABI, functionName: 'allPools' as const, args: [BigInt(i)] as const })),
+      allowFailure: true,
+    });
+    unknown.forEach((i, j) => { if (got[j].status === 'success') rememberAddress(key(i), got[j].result as `0x${string}`); });
+  }
+  const pools = Array.from({ length: n }, (_, i) => knownAddress(key(i))).filter((p): p is `0x${string}` => !!p);
+  const gaugeKey = (p: string) => `${chainId}:aero-gauge:${p.toLowerCase()}`;
+  const need = pools.filter((p) => !knownAddress(gaugeKey(p)));
+  if (need.length > 0) {
+    const g = await withSafeMulticall(client).multicall({ contracts: need.map((p) => ({ address: p, abi: AERO_POOL_ABI, functionName: 'gauge' as const })), allowFailure: true });
+    need.forEach((p, j) => { if (g[j].status === 'success') rememberAddress(gaugeKey(p), g[j].result as `0x${string}`); });
+  }
+  const gauges = [...new Set(pools.map((p) => knownAddress(gaugeKey(p))).filter((x): x is `0x${string}` => !!x && x.toLowerCase() !== ZERO))];
+  if (gauges.length === 0) return [];
+  const staked = await withSafeMulticall(client).multicall({
+    contracts: gauges.map((g) => ({ address: g, abi: AERO_GAUGE_ABI, functionName: 'stakedValues' as const, args: [owner] as const })),
+    allowFailure: true,
+  });
+  const entries = gauges.flatMap((g, i) => (staked[i].status === 'success' ? (staked[i].result as readonly bigint[]).map((id) => ({ id, gauge: g })) : []));
+  if (entries.length === 0) return [];
+  const earned = await withSafeMulticall(client).multicall({
+    contracts: entries.map((e) => ({ address: e.gauge, abi: AERO_GAUGE_ABI, functionName: 'earned' as const, args: [owner, [e.id]] as const })),
+    allowFailure: true,
+  });
+  const positions = await fetchV3Positions(client, owner, d, entries.map((e) => e.id));
+  return positions.map((p) => {
+    const i = entries.findIndex((e) => e.id === p.id);
+    const r = earned[i];
+    return { ...p, staked: { kind: 'gauge' as const, gauge: entries[i].gauge, earned: r?.status === 'success' ? (r.result as bigint) : 0n, rewardToken, rewardSymbol: 'AERO' } };
+  });
+}

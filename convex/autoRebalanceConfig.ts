@@ -89,6 +89,8 @@ export const V6 = {
   farmAdapter: '0x0993a62835e7c1534C2f3525828Ec9f3e60781AB',
   /** Algebra Integral (Alandale). Same address on every chain; see ALGEBRA_LIVE. */
   algebraAdapter: '0x5116F68d95b6d8584A47CDAA66A5ec2441b9E458',
+  /** Stake, unstake and claim AERO on Aero's gauges (contracts branch aero-gauge, script/DeployAeroGauge.s.sol). See AERO_STAKING_LIVE. */
+  aeroGaugeAdapter: '0x8e5a57b34B6fC7ebED179930d2202912f8b39399',
   /** EIP-7702 code for the agent address: unstake, rebalance and restake in one transaction. */
   agentBatch: '0xC1962EfeC30e3Bd876dc3bB81f1Bd42FcD746CEC',
 } as const;
@@ -97,8 +99,20 @@ export const V6 = {
 export const GIGA_FARM = '0x60380925a8b1007f70f60a6a42bffe391374b09a';
 const GIGA_MANAGER = '0xa79f5775b0b49e51202c48ddf03f380faa96f641';
 
-/** The adapter that stakes, unstakes and claims for a position: Giga's farm, or an Aerodrome-style gauge. */
+/**
+ * Turn on once AeroGaugeAdapter and AeroGaugeVerifier are deployed and listed on both chains
+ * (script/DeployAeroGauge.s.sol). Until then Aero positions earn fees unstaked; a wallet cannot enable an adapter that
+ * does not exist yet, so new wallets only get it in their setup from then on.
+ */
+export const AERO_STAKING_LIVE = false;
+/** Aero's position manager, the same address on every chain. */
+export const AERO_PM = '0x4857db576ee0e45f10525ec59527bfd10beec60b';
+/** AERO after the merger (Aero, live 2026-10-22): what Aero's gauges pay. The old AERO above is the Aerodrome token. */
+export const AERO_NEW_TOKEN: Record<number, string> = { 8453: '0x3f5bf3edac59d650d8fdf9657a71f2f904a3a4ee' };
+
+/** The adapter that stakes, unstakes and claims for a position: Giga's farm, Aero's gauges, or an Aerodrome-style gauge. */
 export function stakeAdapterFor(chainId: number, positionManager: string): `0x${string}` {
+  if (positionManager.toLowerCase() === AERO_PM) return V6.aeroGaugeAdapter;
   return chainId === 4663 && positionManager.toLowerCase() === GIGA_MANAGER ? V6.farmAdapter : V6.aerodromeAdapter;
 }
 export function isFarmManager(chainId: number, positionManager: string): boolean {
@@ -242,8 +256,8 @@ export function walletSetup(chainId: number, nowSeconds: number) {
     agentExpiresAt: BigInt(nowSeconds + AGENT_TERM_SECONDS),
     maxActionsPerDay: MAX_ACTIONS_PER_DAY,
     // The farm adapter (Giga staking) used to be added by the upgrade step; new wallets now start on the latest release.
-    adapters: [V6.aerodromeAdapter, V6.uniswapV3Adapter, V6.swapAdapter, V6.farmAdapter] as `0x${string}`[],
-    configs: [config, config, encodeSwapConfig(chainId), '0x'] as `0x${string}`[],
+    adapters: [V6.aerodromeAdapter, V6.uniswapV3Adapter, V6.swapAdapter, V6.farmAdapter, ...(AERO_STAKING_LIVE ? [V6.aeroGaugeAdapter] : [])] as `0x${string}`[],
+    configs: [config, config, encodeSwapConfig(chainId), '0x', ...(AERO_STAKING_LIVE ? ['0x'] : [])] as `0x${string}`[],
   };
 }
 
