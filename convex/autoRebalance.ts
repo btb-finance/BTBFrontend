@@ -82,6 +82,18 @@ async function schedule(ctx: MutationCtx, row: Doc<"autoRebalances">, at: number
   await timer(ctx, row._id, at, gen);
 }
 
+/**
+ * BTB just arrived for this owner: check every job waiting on the balance ("short") in a few seconds, instead of at
+ * its next scheduled check, which on a daily interval was up to a day after the top-up.
+ */
+export const wakeShort = internalMutation({
+  args: { address: v.string() },
+  handler: async (ctx, { address }) => {
+    const rows = await ctx.db.query("autoRebalances").withIndex("by_address", (q) => q.eq("address", address.toLowerCase())).collect();
+    for (const row of rows) if (row.active && row.status === "short") await schedule(ctx, row, Date.now() + 5_000);
+  },
+});
+
 async function ownedRow(ctx: MutationCtx, sessionToken: string, id: Id<"autoRebalances">) {
   const wallet = await sessionWallet(ctx, sessionToken);
   if (!wallet) return { error: "Your sign-in expired. Sign in again." } as const;
