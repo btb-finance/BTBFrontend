@@ -30,7 +30,8 @@ import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploy
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
-import { FastAlertsPanel, fmtBtb } from './FastAlerts';
+import { FastAlertsPanel, TopUpModal, fmtBtb } from './FastAlerts';
+import { useAlertCredit } from '../lib/alerts';
 import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
 import { CONTRACTS } from '../lib/wagmi';
 import { useDiscoverPools } from '../lib/discoverPools';
@@ -309,6 +310,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // Positions in the owner's V6 auto wallet: read from the wallet, shown in the
   // same list as every other position, with auto controls instead of actions.
   const autoJobs = useAutoJobs(connectedAddress)?.jobs;
+  // Auto-rebalance pauses a position when the BTB balance cannot pay for its next move ("short"): say so up top.
+  const [topUpOpen, setTopUpOpen] = useState(false);
+  const credit = useAlertCredit(connectedAddress, { withTreasury: topUpOpen });
   const [autoPositions, setAutoPositions] = useState<LiquidityPosition[]>([]);
   /** Auto jobs whose position is no longer in the auto wallet (taken out, waiting for the checker to notice). */
   const [autoLeft, setAutoLeft] = useState<Set<string>>(new Set());
@@ -1098,7 +1102,23 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   });
   const needsAttention = positions.filter((p) => p.liquidity > 0n && !p.inRange && !autoByKey.has(posKey(p)));
   const idleUsd = needsAttention.reduce((sum, p) => sum + valueOf(p), 0);
-  const attentionBlock = needsAttention.length > 0 && (
+  const shortJobs = (autoJobs ?? []).filter((j) => j.status === 'short');
+  const shortBlock = shortJobs.length > 0 && (
+    <div style={{ borderRadius: 16, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.07)', padding: isMobile ? '10px 12px' : '12px 14px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: btb.amber, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Auto-rebalance paused</div>
+        <div style={{ color: btb.text, fontSize: isMobile ? 12.5 : 13.5, fontWeight: 700, marginTop: 2 }}>
+          BTB balance too low for {shortJobs.length} position{shortJobs.length === 1 ? '' : 's'}
+        </div>
+        <div style={{ color: btb.textMuted, fontSize: isMobile ? 11.5 : 12, marginTop: 2 }}>
+          {credit.loading ? '' : `You have ${fmtBtb(credit.total)} BTB. `}They rebalance again as soon as you top up.
+        </div>
+      </div>
+      {canTransact && <LpButton tone="amber" label="Top up BTB" onClick={() => setTopUpOpen(true)}/>}
+      {topUpOpen && <TopUpModal credit={credit} onClose={() => setTopUpOpen(false)}/>}
+    </div>
+  );
+  const attentionBlock = (shortBlock || needsAttention.length > 0) && (<>{shortBlock}{needsAttention.length > 0 && (
     <div style={{ borderRadius: 16, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.07)', padding: isMobile ? '10px 12px' : '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
       <div style={{ flex: 1, minWidth: isMobile ? 0 : 220 }}>
         <div style={{ color: btb.amber, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: .4 }}>Needs attention</div>
@@ -1111,7 +1131,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <LpButton tone="amber" label={isMobile ? 'Rebalance' : `Rebalance ${needsAttention[0].symbol0}/${needsAttention[0].symbol1}`} onClick={() => setRebalance(needsAttention[0])} disabled={busyId != null}/>
       )}
     </div>
-  );
+  )}</>);
 
   /** One position card, same layout on desktop and phone: header, three
    * stat boxes, range bar, history list, equal-width actions. */
