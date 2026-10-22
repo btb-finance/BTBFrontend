@@ -16,6 +16,7 @@ import { DataTable, Column } from '../DataTable';
 import { TokenIcon } from '../TokenIcon';
 import { DexLogo } from '../DexLogo';
 import { Badge } from '../Badge';
+import { isOldAero } from '@/lib/aeroPools';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { PickerSheet } from '../PickerSheet';
@@ -81,7 +82,18 @@ function discoverChainId(name: string, explicitId?: number): number | undefined 
  * chip per generation ("Uniswap V3", "Uniswap V4"), since they are different
  * products with different pools, ranges and fees. */
 function dexKey(p: EarnPool): string {
+  // Pools from before Aero get their own chip, so "Aero" and the old Aerodrome and Velodrome pools never mix.
+  if (isOldAero(p)) return `${p.dex} (old)`;
   return p.version && /uniswap|pancakeswap|sushiswap|orvex|swaphood/i.test(p.dex) ? `${p.dex} ${p.version}` : p.dex;
+}
+
+/** Marks a pool from before Aero: its gauge stopped paying at Aero's launch. */
+function OldBadge() {
+  return (
+    <span title="From before Aero. Its gauge stopped paying rewards at Aero's launch on Oct 22, 2026; Aero's new pools are listed as Aero.">
+      <Badge size="sm" color={btb.amber} bg="rgba(var(--amber-rgb), 0.14)" border="none" style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>Old</Badge>
+    </span>
+  );
 }
 
 function canSimulatePool(pool: EarnPool): boolean {
@@ -656,6 +668,7 @@ export function DiscoverScreen() {
                   </Badge>
                 </span>
                 <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
+                {isOldAero(p) && <OldBadge/>}
                 {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                 {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                 {mine.length > 0 && (
@@ -769,6 +782,7 @@ export function DiscoverScreen() {
                         </Badge>
                       </span>
                       <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
+                {isOldAero(p) && <OldBadge/>}
                       {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
                       {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
                       {mine.length > 0 && (

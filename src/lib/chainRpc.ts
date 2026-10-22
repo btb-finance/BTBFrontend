@@ -56,6 +56,8 @@ export const CHAIN_RPC_URLS: Record<number, readonly string[]> = {
   4326: ['https://mainnet.megaeth.com/rpc'],
   999: ['https://rpc.hyperliquid.xyz/evm'],
   42793: ['https://etherlink.drpc.org'],
+  // Checked 2026-10-22: chain id and Multicall3 answer on each.
+  57073: ['https://rpc-gel.inkonchain.com', 'https://rpc-qnd.inkonchain.com', 'https://ink.drpc.org'],
   // Arc's own endpoint first; the partner RPCs behind it each passed a
   // parallel multicall load test (5 x 20 reads) on 2026-09-23.
   5042: ['https://rpc.mainnet.arc.io', 'https://rpc.beamrpc.com', 'https://rpc.blockdaemon.mainnet.arc.io', 'https://rpc.quicknode.mainnet.arc.io', 'https://rpc.drpc.mainnet.arc.io'],

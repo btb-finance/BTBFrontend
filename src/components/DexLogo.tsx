@@ -2,6 +2,7 @@
 import { useState } from 'react';
 
 const DEX_ASSETS: [RegExp, string][] = [
+  [/^aero$/i, 'aero'],
   [/aerodrome/i, 'aerodrome'],
   [/balancer/i, 'balancer'],
   [/baseswap/i, 'baseswap'],
