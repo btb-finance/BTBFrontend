@@ -193,7 +193,7 @@ export const DOCS: DocGroup[] = [
           { type: 'p', text: 'Every action credits XP to the current week. Weeks run Friday 00:00 UTC to Friday 00:00 UTC. On Friday the week\'s revenue is split across everyone in proportion to the XP they earned that week and paid in BTB.' },
           { type: 'p', text: 'Claim your share to your wallet with no gas from 5,000 BTB, or add any amount to your BTB balance in the app, where it pays for alerts, the agent and auto-rebalance. A share left untouched by the next Friday goes back into the pot.' },
           { type: 'table', head: ['Action', 'XP'], rows: [
-            ['Daily check-in', '10 on day one, +2 per consecutive day, capped at 50. Every 7-day streak adds a bonus (+50, then +100, and so on).'],
+            ['Daily check-in', '10 on day one, +2 per consecutive day, capped at 50. Every 7-day streak adds a bonus (+50, then +100, and so on, up to +700 on day 98; from day 100 on it stays at +700 every 7th day).'],
             ['Hold BTB', '1 extra XP per 100 BTB at each daily check-in, counting the lower of your balance then and at your previous check-in, up to 10,000 XP a day.'],
             ['Simulate a pool', '100, first pool of the day'],
             ['Cross-chain research', '100 per chain, once a day; Simulate XP tops out at 500 a day in all'],
