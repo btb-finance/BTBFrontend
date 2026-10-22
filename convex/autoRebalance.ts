@@ -302,6 +302,12 @@ export const get = internalQuery({
   handler: (ctx, { id }) => ctx.db.get(id),
 });
 
+/** Every job not stopped (watching, short or paused) whose position the app believes is staked. */
+export const stakedJobs = internalQuery({
+  args: {},
+  handler: async (ctx) => (await ctx.db.query("autoRebalances").collect()).filter((r) => r.status !== "stopped" && !!r.gauge),
+});
+
 /** Position ids every other job of this owner tracks on this manager, whatever its state, so a search for a lost
  * position's replacement can never take over a position that belongs to another job. */
 export const trackedIds = internalQuery({
