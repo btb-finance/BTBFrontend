@@ -25,8 +25,8 @@ import {
   addAmounts, addSide, isWeth, isNativeCurrency, liquidityForAmounts, maxIn, SLIPPAGE_BPS,
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
-import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
-import { withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
+import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, aeroDeploymentFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
+import { AERO_GAUGE_ABI, withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
@@ -89,6 +89,7 @@ const AUTO_FARM_ABI = parseAbi([
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, useSignedCall, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
 import { readableError } from '../lib/errorText';
+import { buildMigrateCalls, findAeroTarget, migratedTokenId, type AeroTarget } from '../lib/aeroMigrate';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -116,10 +117,8 @@ const canActOn = (p: LiquidityPosition) => canActOnPosition(p, (hooks) => isNati
 
 /** Badge text; Aerodrome positions on an older Slipstream deployment say so. */
 function protocolBadgeLabel(p: LiquidityPosition): string {
-  if (p.protocol === 'aerodrome-cl') {
-    const label = deploymentOfPosition(p).label ?? '';
-    return /old/i.test(label) ? 'AERO V3 (old)' : 'AERO V3';
-  }
+  // Every Aerodrome position is from before Aero now: its gauges stopped paying at Aero's launch.
+  if (p.protocol === 'aerodrome-cl') return 'AERODROME (old)';
   return PROTOCOL_BADGE[p.protocol].label;
 }
 
@@ -127,7 +126,8 @@ const PROTOCOL_BADGE: Record<LiquidityPosition['protocol'], { label: string; col
   'uniswap-v3': { label: 'V3', color: '#FF007A' },
   'uniswap-v4': { label: 'V4', color: '#FF007A' },
   'pancakeswap-v3': { label: 'CAKE V3', color: '#1FC7D4' },
-  'aerodrome-cl': { label: 'AERO V3', color: '#2A6BFF' },
+  'aerodrome-cl': { label: 'AERODROME (old)', color: '#2A6BFF' },
+  'aero-cl': { label: 'AERO', color: '#2A6BFF' },
   'giga-v3': { label: 'GIGA V3', color: '#F5A524' },
   'ramses-v3': { label: 'RAMSES V3', color: '#E0245E' },
   'up-v3': { label: 'UP', color: '#52E3A4' },
@@ -156,6 +156,7 @@ const KRYSTAL_PROTOCOL: Record<LiquidityPosition['protocol'], string> = {
   'uniswap-v4': 'uniswapv4',
   'pancakeswap-v3': 'pancakev3',
   'aerodrome-cl': 'aerodrome',
+  'aero-cl': 'aero',
   'giga-v3': 'giga',
   'ramses-v3': 'ramses',
   'up-v3': 'up',
@@ -199,7 +200,8 @@ function krystalAmountLabel(amount: KrystalTokenAmount): string {
 
 function compactProjectLabel(project?: string, projectKey?: string): string {
   const value = `${project ?? ''} ${projectKey ?? ''}`.toLowerCase();
-  if (value.includes('aerodrome')) return 'AERO V3';
+  if (value.includes('aerodrome')) return 'AERODROME (old)';
+  if (/\baero\b/.test(value)) return 'AERO';
   if (value.includes('uniswap') && value.includes('v4')) return 'V4';
   if (value.includes('uniswap') && value.includes('v3')) return 'V3';
   if (value.includes('pancake')) return 'CAKE V3';
@@ -365,7 +367,10 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             if (target && target.kind === 'gauge') {
               const [staked, earned] = await Promise.all([
                 client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false),
-                client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => 0n),
+                // Aero's gauges take a list of ids; the older ones one id.
+                (found.deployment.protocol === 'aero-cl'
+                  ? client.readContract({ address: target.contract, abi: AERO_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, [BigInt(j.tokenId)]] })
+                  : client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] })).catch(() => 0n),
               ]);
               if (staked) pos.staked = { kind: 'gauge', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
               else pos.stakeable = { kind: 'gauge', gauge: target.contract, rewardSymbol: target.rewardSymbol };
@@ -545,6 +550,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         const v4 = v4DeploymentFor(chainId);
         const cake = v3DeploymentFor('pancakeswap', chainId);
         const aero = aerodromeDeploymentsFor(chainId);
+        const aeroNew = aeroDeploymentFor(chainId);
 
         // Krystal ids for this chain, bucketed by the manager contract they live in.
         const byManager = new Map<string, bigint[]>();
@@ -579,6 +585,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           ...(sushi ? [{ protocol: 'sushiswap-v3' as const, d: sushi }] : []),
           ...(alandale ? [{ protocol: 'alandale-cl' as const, d: alandale }] : []),
           ...aero.map((d) => ({ protocol: 'aerodrome-cl' as const, d })),
+          ...(aeroNew ? [{ protocol: 'aero-cl' as const, d: aeroNew }] : []),
         ];
         for (const { protocol, d } of v3Like) {
           const known = idsIn(d.positionManager) ?? [];
@@ -1347,6 +1354,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
         )}
 
+        {p.protocol === 'aerodrome-cl' && (p.chainId ?? 1) === BASE_CHAIN_ID && hasLiquidity && canTransact && connectedAddress && (
+          <MigrateToAero pos={p} owner={connectedAddress as `0x${string}`}
+            autoWallet={(autoByKey.get(posKey(p))?.wallet ?? orphanWallet.current.get(posKey(p))) as `0x${string}` | undefined}
+            autoJobId={autoByKey.get(posKey(p))?.id}
+            onChanged={async () => { setOrphanNonce((n) => n + 1); setAutoNonce((n) => n + 1); await load(); }}/>
+        )}
         {!autoByKey.has(posKey(p)) && orphanWallet.current.has(posKey(p)) && connectedAddress ? (
           <OrphanControls pos={p} wallet={orphanWallet.current.get(posKey(p))!} owner={connectedAddress as `0x${string}`}
             onChanged={async () => { setOrphanNonce((n) => n + 1); setAutoNonce((n) => n + 1); await load(); }}/>
@@ -2418,6 +2431,75 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
       </div>
     </div>
     </Portal>
+  );
+}
+
+/**
+ * Old Aerodrome positions: Aero (live 2026-10-22) no longer supports the old pools, so offer the move. One flow for a
+ * position in the owner's wallet (unstaking it first if staked) and for one in the auto wallet (taken out first, then
+ * the old job stopped once the move lands, since the new Aero position has a new id). Aero's own migrator does the move.
+ */
+function MigrateToAero({ pos, owner, autoWallet, autoJobId, onChanged }: { pos: LiquidityPosition; owner: `0x${string}`; autoWallet?: `0x${string}`; autoJobId?: AutoJob['id']; onChanged: () => Promise<void> }) {
+  const config = useConfig();
+  const { track } = useTx();
+  const stop = useMutation(api.autoRebalance.stop);
+  const session = useWalletSession(owner);
+  const chainId = pos.chainId ?? BASE_CHAIN_ID;
+  const pair = `${pos.symbol0}/${pos.symbol1}`;
+  const [target, setTarget] = useState<AeroTarget | null | undefined>(undefined);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const client = getPublicClient(config, { chainId: chainId as never });
+    if (!client) { setTarget(null); return; }
+    findAeroTarget(client as never, chainId, pos).then((t) => { if (live) setTarget(t); }).catch(() => { if (live) setTarget(null); });
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, chainId, pos.id]);
+
+  async function move() {
+    if (!target) return;
+    setErr(null); setBusy('Confirm in your wallet');
+    try {
+      const client = getPublicClient(config, { chainId: chainId as never });
+      if (!client) throw new Error('No connection to this chain right now.');
+      const calls: Call[] = [];
+      if (autoWallet) calls.push(...await buildTakeOutCalls(client as never, { wallet: autoWallet, positionManager: pos.positionManager!, tokenId: pos.id.toString(), gauge: null, chainId }, owner));
+      else if (pos.staked) calls.push(...buildUnstakeCalls(pos, owner).map((c) => ({ ...c, label: 'Unstake' })));
+      calls.push(...buildMigrateCalls(pos, owner, target));
+      const { lastHash } = await runCalls(config, { account: owner, calls, label: `Move ${pair} to Aero`, track, chainId });
+      setBusy('Finishing');
+      const receipt = lastHash ? await client.getTransactionReceipt({ hash: lastHash }).catch(() => null) : null;
+      const newId = receipt ? migratedTokenId(receipt.logs) : null;
+      // The old position is burned; its job has nothing left to watch.
+      if (autoJobId) { const token = await session.ensure().catch(() => null); if (token) await stop({ sessionToken: token, id: autoJobId }).catch(() => null); }
+      setDone(`Moved to Aero${newId != null ? ` as position #${newId}` : ''}.${autoWallet ? ' Turn on auto-rebalance for it to keep it managed.' : ''}`);
+      await onChanged();
+    } catch (e) { setErr(readableError(e, 'The move did not go through.')); }
+    finally { setBusy(null); }
+  }
+
+  const range = target ? (target.tickLower === pos.tickLower && target.tickUpper === pos.tickUpper ? 'the same price range' : 'the same price range, rounded to the new pool') : '';
+  return (
+    <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.06)', padding: '10px 12px' }}>
+      <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>Aero no longer supports old Aerodrome pools</div>
+      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.45 }}>
+        Aerodrome became Aero on Oct 22. This pool&apos;s rewards have stopped and its traders are moving to Aero.{' '}
+        {target === undefined ? 'Finding the Aero pool for this pair…'
+          : target ? `Move it to the Aero ${pair} pool in one step, with ${range}. Uncollected fees come with it.`
+          : `Aero has no ${pair} pool with liquidity yet. You can keep this position or withdraw it.`}
+      </div>
+      {done ? <div style={{ color: btb.green, fontSize: 12, fontWeight: 700, marginTop: 8 }}>{done}</div> : (
+        <button type="button" disabled={!target || !!busy} onClick={move}
+          style={{ marginTop: 10, width: '100%', minHeight: 36, borderRadius: 12, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: !target || busy ? btb.textDim : btb.green, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: !target || busy ? 'default' : 'pointer' }}>
+          {busy ?? 'Move to Aero'}
+        </button>
+      )}
+      {err && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 6 }}>{err}</div>}
+    </div>
   );
 }
 

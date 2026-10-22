@@ -1,7 +1,7 @@
 import { createPublicClient, defineChain, type Chain, type PublicClient } from 'viem';
 import {
   arbitrum, avalanche, base, berachain, blast, bsc, etherlink, fantom,
-  hyperEvm, linea, mainnet, mantle, megaeth, monad, optimism, plasma,
+  hyperEvm, ink, linea, mainnet, mantle, megaeth, monad, optimism, plasma,
   polygon, ronin, scroll, sonic, unichain, zkSync,
 } from 'viem/chains';
 import { chainTransport } from './chainRpc';
@@ -56,6 +56,7 @@ const CHAINS: Record<number, Chain> = {
   324: zkSync,
   4663: robinhood,
   5042: arc,
+  57073: ink,
 };
 
 /** Public client with the verified failover transports — server-side only. */

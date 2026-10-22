@@ -250,7 +250,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   // protocols/dexs/aerodrome), so it is the one dexLabel pool that deploys.
   const isAerodrome = chainId === 8453 && /aerodrome/i.test(selected.dexLabel ?? '');
   // Robinhood-native forks the app can mint on; both carry a dexLabel.
-  const forkDex: LpDex | null = isAerodrome ? 'aerodrome'
+  const isAero = (chainId === 8453 || chainId === 4663) && /^aero$/i.test(selected.dexLabel ?? '');
+  const forkDex: LpDex | null = isAero ? 'aero' : isAerodrome ? 'aerodrome'
     : chainId === 4663 && /giga/i.test(selected.dexLabel ?? '') ? 'giga'
     : chainId === 4663 && /ramses/i.test(selected.dexLabel ?? '') ? 'ramses'
     : chainId === 4663 && /^up\b/i.test(selected.dexLabel ?? '') ? 'up'
@@ -460,7 +461,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <CreatePosition
             tokenA={!isV4 ? mintTokenA : undefined}
             tokenB={!isV4 ? mintTokenB : undefined}
-            initialFee={forkDex === 'aerodrome' || forkDex === 'ramses' || forkDex === 'up' ? pool?.tickSpacing : forkDex === 'alandale' ? undefined : !isV4 ? feeTier : undefined}
+            initialFee={forkDex === 'aerodrome' || forkDex === 'aero' || forkDex === 'ramses' || forkDex === 'up' ? pool?.tickSpacing : forkDex === 'alandale' ? undefined : !isV4 ? feeTier : undefined}
             initialTicks={ticks}
             v4PoolId={selected.v4PoolId}
             dex={forkDex ?? dex}

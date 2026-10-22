@@ -13,7 +13,7 @@ import { useTx } from '../lib/TxTracker';
 import { runCalls } from '../lib/txRunner';
 import { useWalletSession } from '../lib/session';
 import { readableError } from '../lib/errorText';
-import { AUTO_CHAIN_NAMES, LATEST_WALLET_VERSION, MAX_ACTIONS_PER_DAY, WALLET_ABI, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
+import { AERO_PM, aeroStakingCalls, AUTO_CHAIN_NAMES, LATEST_WALLET_VERSION, MAX_ACTIONS_PER_DAY, WALLET_ABI, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, buildSweepCalls, buildTakeOutCalls, compoundMinUsd, intervalLabel, isFarmManager, stakeAdapterFor, swapAdapterCalls, upgradeCalls, walletGaugeCall, walletVersion } from '../lib/autoRebalance';
 import type { LiquidityPosition } from '@/protocols/types';
 
 type Job = NonNullable<ReturnType<typeof useAutoJobs>>['jobs'][number];
@@ -256,6 +256,8 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
         async (c) => [
           // Farm staking needs wallet version 2; an older wallet is upgraded in the same confirmation.
           ...(kind === 'stake' && pos?.stakeable?.kind === 'masterchef' ? await upgradeCalls(c, job.wallet) : []),
+          // Aero's gauges have their own adapter; a wallet turns it on in the same confirmation the first time.
+          ...(kind === 'stake' && job.positionManager.toLowerCase() === AERO_PM ? await aeroStakingCalls(c, job.wallet) : []),
           walletGaugeCall(job.wallet, kind, target, job.tokenId, stakeAdapterFor(job.chainId, job.positionManager)),
         ]);
       setBusy(null);

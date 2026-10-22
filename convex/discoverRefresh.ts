@@ -24,6 +24,7 @@ import { fetchPoolPriceChanges, fetchTokenLogos } from "../src/lib/geckoterminal
 import { fetchMerklPoolRewards, MERKL_CHAINS } from "../src/lib/merkl";
 import { packSnapshot, unpackSnapshotNode } from "../src/lib/snapshotCodec";
 import { loadLiveRpcs } from "./liveRpcs";
+import { ingestAeroPools } from "../src/lib/aeroPools";
 import { rpcUrls } from "../src/lib/chainRpc";
 
 // Multicall3-capable public RPCs — same proven set as balances.ts.
@@ -75,7 +76,7 @@ export const refresh = internalAction({
     if (previous) {
       try {
         const prev = await unpackSnapshotNode<{ pools?: EarnPool[] }>(previous.json);
-        carried = (prev.pools ?? []).filter((p) => isConcentratedPool(p) && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
+        carried = (prev.pools ?? []).filter((p) => (isConcentratedPool(p) || p.project === "aero") && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
       } catch { /* unreadable previous snapshot: start clean */ }
     }
     await ctx.runMutation(internal.discover.save, {
@@ -89,9 +90,11 @@ export const refresh = internalAction({
     for (let index = 0; index < DISCOVERY_CHAINS.length; index++) {
       await ctx.scheduler.runAfter(index * 4 * 60_000, internal.discoverRefresh.coverDexes, { index });
     }
+    // Aero's pools on every network it runs on, in the slot after the last chain's coverage.
+    await ctx.scheduler.runAfter(DISCOVERY_CHAINS.length * 4 * 60_000, internal.discoverRefresh.coverAero, {});
     // Token logos once the coverage passes have landed.
-    await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 1) * 4 * 60_000, internal.discoverRefresh.fillTokenLogos, {});
-    await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 1) * 4 * 60_000 + 60_000, internal.discoverRefresh.fillMerkl, {});
+    await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 2) * 4 * 60_000, internal.discoverRefresh.fillTokenLogos, {});
+    await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 2) * 4 * 60_000 + 60_000, internal.discoverRefresh.fillMerkl, {});
   },
 });
 
@@ -123,6 +126,27 @@ export const coverDexes = internalAction({
         json: await packSnapshot({ ...current, pools: merged }),
       });
     }
+  },
+});
+
+/** Aero's pools (src/lib/aeroPools.ts), replacing the previous pass's Aero rows. */
+export const coverAero = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    await loadLiveRpcs(ctx);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pools = await ingestAeroPools((chainId) => getChainClient(chainId) as any).catch((e) => { console.warn("aero pools", e); return [] as EarnPool[]; });
+    console.log(`aero: ${pools.length} pools`, Object.fromEntries([...new Set(pools.map((p) => p.chain))].map((c) => [c, pools.filter((p) => p.chain === c).length])));
+    if (pools.length === 0) return;
+    const latest = await ctx.runQuery(internal.discover.getInternal, {});
+    if (!latest) return;
+    const current = await unpackSnapshotNode<{ version?: number; pools: EarnPool[]; priceChange?: Record<string, number> }>(latest.json);
+    // Replace a network's Aero rows only when that network answered: a rate-limited network returns nothing, and
+    // wiping its rows then left 12 of 81 pools after one run.
+    const answered = new Set(pools.map((p) => p.chainId));
+    await ctx.runMutation(internal.discover.save, {
+      json: await packSnapshot({ ...current, pools: [...current.pools.filter((p) => p.project !== "aero" || !answered.has(p.chainId)), ...pools] }),
+    });
   },
 });
 

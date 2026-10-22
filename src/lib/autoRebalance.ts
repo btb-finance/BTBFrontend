@@ -7,7 +7,7 @@
 import { encodeFunctionData, parseAbi, zeroAddress, type PublicClient } from 'viem';
 import type { Call } from './txRunner';
 import type { LiquidityPosition } from '@/protocols/types';
-import { AERODROME_CL_DEPLOYMENTS } from '@/protocols/dexs/aerodrome';
+import { AERODROME_CL_DEPLOYMENTS, aeroDeploymentFor } from '@/protocols/dexs/aerodrome';
 import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { uniswapV3DeploymentForChain, type V3Deployment } from '@/protocols/dexs/uniswap/v3/addresses';
 import { deploymentOfPosition } from '@/protocols/lpChains';
@@ -43,6 +43,8 @@ export function autoDeployment(chainId: number, positionManager: string): { depl
   const pm = positionManager.toLowerCase();
   const aero = chainId === 8453 ? AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm) : undefined;
   if (aero) return { deployment: aero, protocol: 'aerodrome-cl' };
+  const aeroNew = aeroDeploymentFor(chainId);
+  if (aeroNew && aeroNew.positionManager.toLowerCase() === pm) return { deployment: aeroNew, protocol: 'aero-cl' };
   if (chainId === 4663 && UP_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return { deployment: UP_V3_DEPLOYMENT, protocol: 'up-v3' };
   if (chainId === 4663 && GIGA_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return { deployment: GIGA_V3_DEPLOYMENT, protocol: 'giga-v3' };
   if (chainId === 4663 && ALANDALE_CL_DEPLOYMENT.positionManager.toLowerCase() === pm) return { deployment: ALANDALE_CL_DEPLOYMENT, protocol: 'alandale-cl' };
@@ -170,6 +172,13 @@ export async function upgradeCalls(client: PublicClient, wallet: string): Promis
   const needsFarm = !farmHash || /^0x0{64}$/.test(farmHash);
   if (version >= LATEST_WALLET_VERSION) return needsFarm ? upgradeCallsFor(w, true, true).filter((c) => c.label === 'Allow farm staking') : [];
   return upgradeCallsFor(w, paused, needsFarm);
+}
+
+/** Turn on Aero gauge staking in a wallet made before it was part of the setup: one owner call, the first time. */
+export async function aeroStakingCalls(client: PublicClient, wallet: string): Promise<Call[]> {
+  const hash = await client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: 'adapterCodeHash', args: [V6.aeroGaugeAdapter] }).catch(() => null);
+  if (hash && !/^0x0{64}$/.test(hash)) return [];
+  return [{ to: wallet as `0x${string}`, label: 'Allow Aero staking', data: encodeFunctionData({ abi: WALLET_ABI, functionName: 'setAdapter', args: [V6.aeroGaugeAdapter, true, '0x'] }) }];
 }
 
 /** One owner call that runs a gauge or farm action for a position held in the auto wallet. */

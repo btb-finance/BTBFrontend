@@ -50,7 +50,7 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
         v4PoolId={t.v4PoolId}
         dex={t.dex}
         chainId={t.chainId}
-        initialFee={t.dex === 'aerodrome' ? undefined : sheet.feeTier}
+        initialFee={t.dex === 'aerodrome' || t.dex === 'aero' ? undefined : sheet.feeTier}
         fees24hUsd={sheet.fees24hUsd ?? (sheet.tvlUsd * sheet.apyBase) / 100 / 365}
         onClose={() => setSheet(null)}
         onDone={onClose}

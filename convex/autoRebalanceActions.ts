@@ -11,13 +11,13 @@ import { privateKeyToAccount } from "viem/accounts";
 import { getChainClient } from "../src/lib/chainClient";
 import { chainTransport, logRpcs, rpcUrls } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
-import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
+import { AERODROME_CL_DEPLOYMENTS, aeroDeploymentFor } from "../src/protocols/dexs/aerodrome";
 import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
 import { uniswapV3DeploymentForChain, type V3Deployment } from "../src/protocols/dexs/uniswap/v3/addresses";
 import { poolAddressOf } from "../src/protocols/dexs/uniswap/v3/pool";
 import type { LiquidityPosition } from "../src/protocols/types";
 import {
-  ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
+  AERO_PM, AERO_NEW_TOKEN, ADAPTER_ERRORS_ABI, AUTO_STABLES, AUTO_WETH, Action, KYBER_CHAIN, KYBER_ROUTER, REWARD_COMPOUND_CHAINS, REWARD_TOKEN, CHECK_INTERVALS, COMPOUND_COOLDOWN_MS, FACTORY_ABI, REBALANCE_AGENT,
   V6, V6_REGISTRY, WALLET_ABI, ALANDALE, MIN_LUTE_CLAIM, REWARD_CLAIM_EVERY_MS, claimRewardParams, adapterFor, collectParams, compoundBtb, compoundMinUsd, compoundParams, gaugeParams,
   AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, sweepStep, lpConfig, packPosition, unpackPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
@@ -234,6 +234,9 @@ export function deploymentFor(chainId: number, positionManager: string): V3Deplo
     const aero = AERODROME_CL_DEPLOYMENTS.find((d) => d.positionManager.toLowerCase() === pm);
     if (aero) return aero;
   }
+  // Aero: one position manager address on every chain, a factory per chain.
+  const aeroNew = aeroDeploymentFor(chainId);
+  if (aeroNew && aeroNew.positionManager.toLowerCase() === pm) return aeroNew;
   if (chainId === 4663 && UP_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return UP_V3_DEPLOYMENT;
   if (chainId === 4663 && GIGA_V3_DEPLOYMENT.positionManager.toLowerCase() === pm) return GIGA_V3_DEPLOYMENT;
   if (chainId === 4663 && ALANDALE_CL_DEPLOYMENT.positionManager.toLowerCase() === pm) return ALANDALE_CL_DEPLOYMENT;
@@ -566,6 +569,8 @@ async function compoundFees(client: PublicClient, d: V3Deployment, o: { chainId:
 }
 
 const GAUGE_EARNED_ABI = parseAbi(["function earned(address account, uint256 tokenId) view returns (uint256)"]);
+/** Aero's gauges take a list of ids. */
+const AERO_EARNED_ABI = parseAbi(["function earned(address account, uint256[] tokenIds) view returns (uint256)"]);
 const FARM_PENDING_ABI = parseAbi(["function pendingReward(uint256 tokenId) view returns (uint256)"]);
 
 /** USD price from DefiLlama, cached for 10 minutes per key. */
@@ -647,6 +652,8 @@ async function kyberSwap(chainId: number, wallet: string, tokenIn: string, token
 
 /** The reward a staked position earns: Giga's farm pays GIGA, gauges pay the chain's reward token. */
 function rewardFor(chainId: number, pm: string): { address: string; symbol: string } | null {
+  // Aero's gauges pay the new AERO; no entry for a chain means nothing to sell there yet.
+  if (pm.toLowerCase() === AERO_PM) return AERO_NEW_TOKEN[chainId] ? { address: AERO_NEW_TOKEN[chainId], symbol: "AERO" } : null;
   return isFarmManager(chainId, pm) ? { address: GIGA_TOKEN.toLowerCase(), symbol: "GIGA" } : REWARD_TOKEN[chainId] ?? null;
 }
 
@@ -921,7 +928,9 @@ export const check = internalAction({
         const [earned, held, aeroUsd] = await Promise.all([
           !staked ? Promise.resolve(0n)
             : farm ? client.readContract({ address: job.gauge as `0x${string}`, abi: FARM_PENDING_ABI, functionName: "pendingReward", args: [tokenId] }).catch(() => 0n)
-            : client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_EARNED_ABI, functionName: "earned", args: [wallet, tokenId] }).catch(() => 0n),
+            : pm.toLowerCase() === AERO_PM
+              ? client.readContract({ address: job.gauge as `0x${string}`, abi: AERO_EARNED_ABI, functionName: "earned", args: [wallet, [tokenId]] }).catch(() => 0n)
+              : client.readContract({ address: job.gauge as `0x${string}`, abi: GAUGE_EARNED_ABI, functionName: "earned", args: [wallet, tokenId] }).catch(() => 0n),
           client.readContract({ address: reward.address as `0x${string}`, abi: ERC20_ABI, functionName: "balanceOf", args: [wallet] }).catch(() => 0n),
           usdOf(job.chainId, reward.address, client),
         ]);
