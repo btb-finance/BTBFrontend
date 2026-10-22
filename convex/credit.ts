@@ -1,4 +1,5 @@
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 /**
  * The wallet's BTB balance inside the app. Fast range checks and agent
@@ -40,6 +41,8 @@ export async function addCredit(ctx: MutationCtx, address: string, amount: numbe
   const credit = await creditRow(ctx, a);
   if (credit) await ctx.db.patch(credit._id, { balance: credit.balance + amount, updatedAt: now });
   else await ctx.db.insert("alertCredits", { address: a, balance: amount, fast: false, updatedAt: now });
+  // Auto-rebalance jobs paused for want of BTB go again now rather than at their next scheduled check.
+  await ctx.scheduler.runAfter(0, internal.autoRebalance.wakeShort, { address: a });
   return true;
 }
 

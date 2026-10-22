@@ -4,12 +4,12 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
   BaseError, ContractFunctionRevertedError, createPublicClient, createWalletClient, decodeErrorResult, encodeFunctionData, defineChain, encodeAbiParameters, fallback, http, isAddress, parseAbi,
-  parseEventLogs, type Chain, type PublicClient,
+  parseEventLogs, type Chain, type PublicClient, type TransactionReceipt,
 } from "viem";
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { getChainClient } from "../src/lib/chainClient";
-import { chainTransport, logRpcs } from "../src/lib/chainRpc";
+import { chainTransport, logRpcs, rpcUrls } from "../src/lib/chainRpc";
 import { fetchV3Positions } from "../src/protocols/dexs/uniswap";
 import { AERODROME_CL_DEPLOYMENTS } from "../src/protocols/dexs/aerodrome";
 import { GIGA_TOKEN, GIGA_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from "../src/protocols/dexs/robinhood";
@@ -43,6 +43,30 @@ const SEND_TRANSPORT: Record<number, ReturnType<typeof fallback>> = {
 };
 const CHAINS: Record<number, Chain> = { 8453: base, 4663: robinhood };
 
+/** Each chain's own public endpoint, always asked for receipts alongside the tested list. */
+const OFFICIAL_RPC: Record<number, string> = { 8453: "https://mainnet.base.org", 4663: "https://rpc.mainnet.chain.robinhood.com/" };
+
+/**
+ * Wait for a receipt by asking several RPCs at once and taking the first that has it. One waited-on fallback
+ * transport is not enough: an endpoint that keeps answering "no receipt yet" is never skipped, so a transaction that
+ * landed was reported as timed out (2026-10-22, an unstake confirmed in a block while the wait gave up).
+ */
+async function receiptOf(chainId: number, hash: `0x${string}`, timeoutMs = 180_000): Promise<TransactionReceipt> {
+  const urls = [...new Set([OFFICIAL_RPC[chainId], ...rpcUrls(chainId).slice(0, 4)].filter(Boolean))];
+  const clients = urls.map((u) => createPublicClient({ chain: CHAINS[chainId], transport: http(u, { timeout: 10_000 }) }));
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const found = await Promise.any(clients.map(async (c) => {
+      const r = await c.getTransactionReceipt({ hash });
+      if (!r) throw new Error("not yet");
+      return r;
+    })).catch(() => null);
+    if (found) return found;
+    await new Promise((r) => setTimeout(r, 3_000));
+  }
+  throw new Error(`No receipt for ${hash} after ${Math.round(timeoutMs / 1000)}s`);
+}
+
 const GAUGE_ABI = parseAbi([
   "function stakedContains(address depositor, uint256 tokenId) view returns (bool)",
 ]);
@@ -59,6 +83,63 @@ async function stakedIn(client: PublicClient, chainId: number, pm: string, stake
   }
   return client.readContract({ address: stake as `0x${string}`, abi: GAUGE_ABI, functionName: "stakedContains", args: [wallet as `0x${string}`, tokenId] });
 }
+const GAUGE_VOTER_ABI = parseAbi([
+  "function voter() view returns (address)",
+  "function isAlive(address gauge) view returns (bool)",
+]);
+
+/**
+ * Whether a gauge's own voter has killed it. Aero's launch (2026-10-22) killed every old Aerodrome gauge: rewards
+ * stopped, and staked concentrated liquidity hands its fees to the gauge, so a position left there earns nothing.
+ * False when the voter cannot be read (a farm, or another design): only a voter that says so counts.
+ */
+async function gaugeDead(client: PublicClient, gauge: `0x${string}`): Promise<boolean> {
+  try {
+    const voter = await client.readContract({ address: gauge, abi: GAUGE_VOTER_ABI, functionName: "voter" });
+    return !(await client.readContract({ address: voter, abi: GAUGE_VOTER_ABI, functionName: "isAlive", args: [gauge] }));
+  } catch {
+    return false;
+  }
+}
+
+/** Take a position out of a killed gauge and forget the gauge, so it is never restaked there. Gas is ours, no BTB. */
+async function leaveDeadGauge(ctx: ActionCtx, client: PublicClient, job: { _id: Id<"autoRebalances">; chainId: number; wallet: string; positionManager: string; tokenId: string; gauge?: string }): Promise<boolean> {
+  const gauge = job.gauge as `0x${string}`;
+  const send = sender(client, job.chainId, job.wallet as `0x${string}`);
+  console.log("[dead gauge] unstaking", job._id, job.tokenId);
+  const r = await send(stakeAdapterFor(job.chainId, job.positionManager), gaugeParams(Action.Unstake, gauge, BigInt(job.tokenId)));
+  if (!r.ok) { console.warn("[dead gauge] unstake refused", job._id, r.name, r.message); return false; }
+  await ctx.runMutation(internal.autoRebalance.learnGauge, { id: job._id, gauge: null });
+  console.log("[dead gauge] unstaked", job._id, job.tokenId, "from", gauge);
+  return true;
+}
+
+/** One pass over every Base job still staked: unstake those whose gauge was killed. Run by hand after Aero's launch. */
+export const leaveDeadGauges = internalAction({
+  args: { dryRun: v.optional(v.boolean()), only: v.optional(v.string()) },
+  handler: async (ctx, { dryRun, only }) => {
+    await loadLiveRpcs(ctx);
+    const jobs = (await ctx.runQuery(internal.autoRebalance.stakedJobs, {}))
+      .filter((j) => !isFarmManager(j.chainId, j.positionManager) && (!only || j.tokenId === only));
+    const out: { id: string; tokenId: string; gauge: string; result: string }[] = [];
+    for (const job of jobs) {
+      const client = getChainClient(job.chainId);
+      if (!client || !job.gauge) continue;
+      if (!(await gaugeDead(client, job.gauge as `0x${string}`))) continue;
+      // Already back in the wallet (an earlier pass landed but its receipt was missed): only the record is stale.
+      const holder = await client.readContract({ address: job.positionManager as `0x${string}`, abi: NFT_ABI, functionName: "ownerOf", args: [BigInt(job.tokenId)] }).catch(() => null);
+      if (holder?.toLowerCase() === job.wallet.toLowerCase()) {
+        if (!dryRun) await ctx.runMutation(internal.autoRebalance.learnGauge, { id: job._id, gauge: null });
+        out.push({ id: job._id, tokenId: job.tokenId, gauge: job.gauge, result: "already unstaked" });
+        continue;
+      }
+      const result = dryRun ? "dead" : (await leaveDeadGauge(ctx, client, job)) ? "unstaked" : "refused";
+      out.push({ id: job._id, tokenId: job.tokenId, gauge: job.gauge, result });
+    }
+    return out;
+  },
+});
+
 const NFT_ABI = parseAbi([
   "function ownerOf(uint256 tokenId) view returns (address)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
@@ -232,7 +313,7 @@ function batchSender(client: PublicClient, chainId: number, wallet: `0x${string}
         account, chain, to: account.address, authorizationList: [authorization], gas: 150_000n,
         data: encodeFunctionData({ abi: AGENT_BATCH_ABI, functionName: "execute", args: [[]] }),
       });
-      const r = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+      const r = await receiptOf(chainId, hash);
       if (r.status !== "success") return { ok: false, name: null, message: `agent delegation ${hash} reverted` };
     }
     try {
@@ -242,7 +323,7 @@ function batchSender(client: PublicClient, chainId: number, wallet: `0x${string}
     }
     const estimate = await client.estimateGas({ account, to: account.address, data });
     const hash = await walletClient.sendTransaction({ account, chain, to: account.address, data, gas: (estimate * 13n) / 10n });
-    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    const receipt = await receiptOf(chainId, hash);
     if (receipt.status !== "success") return { ok: false, name: null, message: `transaction ${hash} reverted` };
     return { ok: true, logs: receipt.logs };
   };
@@ -272,7 +353,7 @@ function sender(client: PublicClient, chainId: number, wallet: `0x${string}`) {
     // the gas. A margin is far cheaper than a failed transaction.
     const estimate = await client.estimateContractGas({ account, address: o.wallet, abi: RUN_ABI, functionName: "run", args: [adapter, params] });
     const hash = await walletClient.writeContract({ ...request, gas: (estimate * 13n) / 10n });
-    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    const receipt = await receiptOf(chainId, hash);
     if (receipt.status !== "success") return { ok: false, name: null, message: `transaction ${hash} reverted` };
     return { ok: true, logs: receipt.logs };
   };
@@ -305,7 +386,7 @@ async function sweepLoose(client: PublicClient, chainId: number, wallet: `0x${st
     const walletClient = createWalletClient({ account, chain: CHAINS[chainId], transport: SEND_TRANSPORT[chainId] });
     const { request } = await client.simulateContract({ account, address: wallet, abi: WALLET_ABI, functionName: "sweepToOwner", args: [loose] });
     const hash = await walletClient.writeContract(request);
-    await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    await receiptOf(chainId, hash);
   } catch { /* the action below still runs; it only uses its own position's funds anyway */ }
 }
 
@@ -322,7 +403,7 @@ async function growObservations(client: PublicClient, chainId: number, pool: `0x
     const walletClient = createWalletClient({ account, chain: CHAINS[chainId], transport: SEND_TRANSPORT[chainId] });
     const { request } = await client.simulateContract({ account, address: pool, abi: GROW_OBSERVATIONS_ABI, functionName: "increaseObservationCardinalityNext", args: [MIN_OBSERVATIONS] });
     const hash = await walletClient.writeContract(request);
-    const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+    const receipt = await receiptOf(chainId, hash);
     return receipt.status === "success";
   } catch { return false; }
 }
@@ -781,6 +862,11 @@ export const check = internalAction({
       }
       await ctx.runMutation(internal.autoRebalance.recordFailure, { id, gen, note: "Could not read the position; retrying.", max: MAX_FAILURES, nextInMs: RETRY_MS });
       return;
+    }
+
+    // A killed gauge pays nothing and keeps the fees: leave it, and keep the position unstaked from here on.
+    if (staked && job.gauge && await gaugeDead(client, job.gauge as `0x${string}`)) {
+      if (await leaveDeadGauge(ctx, client, { ...job, _id: id })) { job.gauge = undefined; staked = false; }
     }
 
     let inRange: boolean;
