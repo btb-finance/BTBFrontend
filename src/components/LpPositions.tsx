@@ -89,6 +89,7 @@ const AUTO_FARM_ABI = parseAbi([
 import { SharePositionCard, type ShareCardData } from './SharePositionCard';
 import { useAlerts, useSignedCall, FAST_CHECK_BTB, needsHomeScreen, isWalletBrowser, checkedAgo } from '../lib/alerts';
 import { readableError } from '../lib/errorText';
+import { buildMigrateCalls, findAeroTarget, migratedTokenId, type AeroTarget } from '../lib/aeroMigrate';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { withSafeMulticall } from '@/lib/safeMulticall';
@@ -1350,6 +1351,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
         )}
 
+        {p.protocol === 'aerodrome-cl' && (p.chainId ?? 1) === BASE_CHAIN_ID && hasLiquidity && canTransact && connectedAddress && (
+          <MigrateToAero pos={p} owner={connectedAddress as `0x${string}`}
+            autoWallet={(autoByKey.get(posKey(p))?.wallet ?? orphanWallet.current.get(posKey(p))) as `0x${string}` | undefined}
+            autoJobId={autoByKey.get(posKey(p))?.id}
+            onChanged={async () => { setOrphanNonce((n) => n + 1); setAutoNonce((n) => n + 1); await load(); }}/>
+        )}
         {!autoByKey.has(posKey(p)) && orphanWallet.current.has(posKey(p)) && connectedAddress ? (
           <OrphanControls pos={p} wallet={orphanWallet.current.get(posKey(p))!} owner={connectedAddress as `0x${string}`}
             onChanged={async () => { setOrphanNonce((n) => n + 1); setAutoNonce((n) => n + 1); await load(); }}/>
@@ -2421,6 +2428,75 @@ function ManageSheet({ pos, mode, account, auto, prices = {}, onClose, onDone }:
       </div>
     </div>
     </Portal>
+  );
+}
+
+/**
+ * Old Aerodrome positions: Aero (live 2026-10-22) no longer supports the old pools, so offer the move. One flow for a
+ * position in the owner's wallet (unstaking it first if staked) and for one in the auto wallet (taken out first, then
+ * the old job stopped once the move lands, since the new Aero position has a new id). Aero's own migrator does the move.
+ */
+function MigrateToAero({ pos, owner, autoWallet, autoJobId, onChanged }: { pos: LiquidityPosition; owner: `0x${string}`; autoWallet?: `0x${string}`; autoJobId?: AutoJob['id']; onChanged: () => Promise<void> }) {
+  const config = useConfig();
+  const { track } = useTx();
+  const stop = useMutation(api.autoRebalance.stop);
+  const session = useWalletSession(owner);
+  const chainId = pos.chainId ?? BASE_CHAIN_ID;
+  const pair = `${pos.symbol0}/${pos.symbol1}`;
+  const [target, setTarget] = useState<AeroTarget | null | undefined>(undefined);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const client = getPublicClient(config, { chainId: chainId as never });
+    if (!client) { setTarget(null); return; }
+    findAeroTarget(client as never, chainId, pos).then((t) => { if (live) setTarget(t); }).catch(() => { if (live) setTarget(null); });
+    return () => { live = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, chainId, pos.id]);
+
+  async function move() {
+    if (!target) return;
+    setErr(null); setBusy('Confirm in your wallet');
+    try {
+      const client = getPublicClient(config, { chainId: chainId as never });
+      if (!client) throw new Error('No connection to this chain right now.');
+      const calls: Call[] = [];
+      if (autoWallet) calls.push(...await buildTakeOutCalls(client as never, { wallet: autoWallet, positionManager: pos.positionManager!, tokenId: pos.id.toString(), gauge: null, chainId }, owner));
+      else if (pos.staked) calls.push(...buildUnstakeCalls(pos, owner).map((c) => ({ ...c, label: 'Unstake' })));
+      calls.push(...buildMigrateCalls(pos, owner, target));
+      const { lastHash } = await runCalls(config, { account: owner, calls, label: `Move ${pair} to Aero`, track, chainId });
+      setBusy('Finishing');
+      const receipt = lastHash ? await client.getTransactionReceipt({ hash: lastHash }).catch(() => null) : null;
+      const newId = receipt ? migratedTokenId(receipt.logs) : null;
+      // The old position is burned; its job has nothing left to watch.
+      if (autoJobId) { const token = await session.ensure().catch(() => null); if (token) await stop({ sessionToken: token, id: autoJobId }).catch(() => null); }
+      setDone(`Moved to Aero${newId != null ? ` as position #${newId}` : ''}.${autoWallet ? ' Turn on auto-rebalance for it to keep it managed.' : ''}`);
+      await onChanged();
+    } catch (e) { setErr(readableError(e, 'The move did not go through.')); }
+    finally { setBusy(null); }
+  }
+
+  const range = target ? (target.tickLower === pos.tickLower && target.tickUpper === pos.tickUpper ? 'the same price range' : 'the same price range, rounded to the new pool') : '';
+  return (
+    <div style={{ marginTop: 12, borderRadius: 14, border: '1px solid rgba(var(--amber-rgb), 0.3)', background: 'rgba(var(--amber-rgb), 0.06)', padding: '10px 12px' }}>
+      <div style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>Aero no longer supports old Aerodrome pools</div>
+      <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.45 }}>
+        Aerodrome became Aero on Oct 22. This pool&apos;s rewards have stopped and its traders are moving to Aero.{' '}
+        {target === undefined ? 'Finding the Aero pool for this pair…'
+          : target ? `Move it to the Aero ${pair} pool in one step, with ${range}. Uncollected fees come with it.`
+          : `Aero has no ${pair} pool with liquidity yet. You can keep this position or withdraw it.`}
+      </div>
+      {done ? <div style={{ color: btb.green, fontSize: 12, fontWeight: 700, marginTop: 8 }}>{done}</div> : (
+        <button type="button" disabled={!target || !!busy} onClick={move}
+          style={{ marginTop: 10, width: '100%', minHeight: 36, borderRadius: 12, border: '1px solid rgba(var(--green-rgb), 0.4)', background: 'rgba(var(--green-rgb), 0.12)', color: !target || busy ? btb.textDim : btb.green, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, cursor: !target || busy ? 'default' : 'pointer' }}>
+          {busy ?? 'Move to Aero'}
+        </button>
+      )}
+      {err && <div style={{ color: btb.loss, fontSize: 11.5, marginTop: 6 }}>{err}</div>}
+    </div>
   );
 }
 
