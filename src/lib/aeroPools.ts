@@ -19,6 +19,7 @@ export const AERO_NETWORKS: { chainId: number; chain: string; gecko: string; dex
   { chainId: 1, chain: 'Ethereum', gecko: 'eth', dexId: 'aero-ethereum' },
   { chainId: 42161, chain: 'Arbitrum', gecko: 'arbitrum', dexId: 'aero-arbitrum' },
   { chainId: 57073, chain: 'Ink', gecko: 'ink', dexId: 'aero-ink' },
+  { chainId: 4663, chain: 'Robinhood Chain', gecko: 'robinhood', dexId: 'aero-slipstream-robinhood' },
 ];
 
 /** Pages of 20 per network, best 24h volume first. */
