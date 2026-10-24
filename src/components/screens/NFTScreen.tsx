@@ -5,7 +5,7 @@ import { useConnection, useReadContracts, useWriteContract, useConfig } from 'wa
 import { useAction } from 'convex/react';
 import { parseEther, formatUnits, encodeFunctionData } from 'viem';
 import { useTx } from '@/lib/TxTracker';
-import { runCalls, type Call } from '@/lib/txRunner';
+import { runCalls, ensureTargetChain, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
@@ -74,10 +74,10 @@ function MintTab({ address }: { address?: string }) {
 
   const { data, refetch, isLoading } = useReadContracts({
     contracts: [
-      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, functionName: 'totalMinted'     },
-      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, functionName: 'pricePerNFT'     },
-      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, functionName: 'remainingSupply' },
-      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, functionName: 'balanceOf', args: [addr] },
+      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, chainId: 1, functionName: 'totalMinted'     },
+      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, chainId: 1, functionName: 'pricePerNFT'     },
+      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, chainId: 1, functionName: 'remainingSupply' },
+      { address: CONTRACTS.BEAR_NFT, abi: BEAR_NFT_ABI, chainId: 1, functionName: 'balanceOf', args: [addr] },
     ] as const,
     query: { refetchInterval: 20_000 },
   });
@@ -96,6 +96,7 @@ function MintTab({ address }: { address?: string }) {
 
   const awardTxXp = useAction(api.xpActions.awardTxXp);
   const showXp = useXpToast();
+  const config = useConfig();
   const { writeContractAsync } = useWriteContract();
   const { track } = useTx();
   const [busy, setBusy] = useState(false);
@@ -108,7 +109,9 @@ function MintTab({ address }: { address?: string }) {
     setMintedQty(0);
     const n = qty;
     try {
+      await ensureTargetChain(config, 1);
       const hash = await writeContractAsync({
+        chainId: 1,
         address: CONTRACTS.BEAR_NFT,
         abi: BEAR_NFT_ABI,
         functionName: 'buyNFT',
@@ -292,11 +295,11 @@ function StakeTab({ address }: { address?: string }) {
   // Pool stats + user info in one batch
   const { data, refetch, isLoading } = useReadContracts({
     contracts: [
-      { address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'getStats'         },
-      { address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'getUserInfo',       args: [addr] },
-      { address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'pendingRewardsNet', args: [addr] },
-      { address: CONTRACTS.BEAR_NFT,     abi: BEAR_NFT_ABI,     functionName: 'balanceOf',         args: [addr] },
-      { address: CONTRACTS.BEAR_NFT,     abi: BEAR_NFT_ABI,     functionName: 'isApprovedForAll',  args: [addr, CONTRACTS.BEAR_STAKING] },
+      { address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, chainId: 1, functionName: 'getStats'         },
+      { address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, chainId: 1, functionName: 'getUserInfo',       args: [addr] },
+      { address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, chainId: 1, functionName: 'pendingRewardsNet', args: [addr] },
+      { address: CONTRACTS.BEAR_NFT,     abi: BEAR_NFT_ABI,     chainId: 1, functionName: 'balanceOf',         args: [addr] },
+      { address: CONTRACTS.BEAR_NFT,     abi: BEAR_NFT_ABI,     chainId: 1, functionName: 'isApprovedForAll',  args: [addr, CONTRACTS.BEAR_STAKING] },
     ] as const,
     query: { refetchInterval: 15_000 },
   });
@@ -331,6 +334,7 @@ function StakeTab({ address }: { address?: string }) {
     contracts: Array.from({ length: Math.min(myBalance, STAKE_BATCH) }, (_, i) => ({
       address: CONTRACTS.BEAR_NFT,
       abi: BEAR_NFT_ABI,
+      chainId: 1,
       functionName: 'tokenOfOwnerByIndex' as const,
       args: [addr, BigInt(i)] as [`0x${string}`, bigint],
     })),
@@ -351,6 +355,7 @@ function StakeTab({ address }: { address?: string }) {
     if (!address) return;
     setBusy(true); setWriteErr(null);
     try {
+      await ensureTargetChain(config, 1);
       const hash = await submit();
       const { done } = track({ hash, label, onConfirmed: () => refetch() });
       const res = await done;
@@ -377,6 +382,7 @@ function StakeTab({ address }: { address?: string }) {
       });
       await runCalls(config, {
         account: address as `0x${string}`,
+        chainId: 1,
         calls,
         label: `${isApproved ? 'Stake' : 'Approve & stake'} ${stakeIds.length} NFT${stakeIds.length > 1 ? 's' : ''}`,
         track,
@@ -389,11 +395,11 @@ function StakeTab({ address }: { address?: string }) {
 
   function doUnstake() {
     void runSingle(`Unstake ${cappedUnstake} NFT${cappedUnstake > 1 ? 's' : ''}`, () =>
-      writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'unstake', args: [BigInt(cappedUnstake)] }));
+      writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, chainId: 1, functionName: 'unstake', args: [BigInt(cappedUnstake)] }));
   }
   function doClaim() {
     void runSingle('Claim BTBB rewards', () =>
-      writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, functionName: 'claim', args: [] }));
+      writeContractAsync({ address: CONTRACTS.BEAR_STAKING, abi: BEAR_STAKING_ABI, chainId: 1, functionName: 'claim', args: [] }));
   }
 
   return (

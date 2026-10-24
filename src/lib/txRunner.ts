@@ -47,7 +47,7 @@ export async function waitForChainState(check: ChainStateCheck): Promise<void> {
 }
 
 /** Switch the connected wallet and wait until wagmi observes the new chain. */
-async function ensureTargetChain(config: Config, chainId?: number): Promise<void> {
+export async function ensureTargetChain(config: Config, chainId?: number): Promise<void> {
   if (!chainId) return;
   const target = chainId as SupportedChainId;
   if (getAccount(config).chainId !== chainId) {

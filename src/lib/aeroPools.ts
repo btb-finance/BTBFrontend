@@ -5,7 +5,8 @@ import { STABLES, type EarnPool } from './pools';
 /**
  * Aero's pools for Discover. Aero (the Aerodrome and Velodrome merger, live 2026-10-22) runs new pools on every
  * network it covers; DeFiLlama and DexPaprika still list only the old Aerodrome and Velodrome ones, while GeckoTerminal
- * indexes Aero per network as "aero-<network>". Each pool's fee APR comes from its 24h volume, its fee (in the pool
+ * indexes Aero per network as "aero-slipstream-<network>" (concentrated) and, where it has them, "aero-volatile-<network>"
+ * (basic). Each pool's fee APR comes from its 24h volume, its fee (in the pool
  * name) and its TVL. Concentrated or basic is read on chain: only a concentrated pool answers tickSpacing(), and a
  * concentrated pool's fee is its live fee() (Aero's dynamic fee hook moves it; 0.0085% on a pool named 0.02%).
  *
@@ -13,13 +14,14 @@ import { STABLES, type EarnPool } from './pools';
  * sAERO holders voting for the pool, so the APR shown is the fees side only.
  */
 
-export const AERO_NETWORKS: { chainId: number; chain: string; gecko: string; dexId: string }[] = [
-  { chainId: 8453, chain: 'Base', gecko: 'base', dexId: 'aero-base' },
-  { chainId: 10, chain: 'Optimism', gecko: 'optimism', dexId: 'aero-optimism' },
-  { chainId: 1, chain: 'Ethereum', gecko: 'eth', dexId: 'aero-ethereum' },
-  { chainId: 42161, chain: 'Arbitrum', gecko: 'arbitrum', dexId: 'aero-arbitrum' },
-  { chainId: 57073, chain: 'Ink', gecko: 'ink', dexId: 'aero-ink' },
-  { chainId: 4663, chain: 'Robinhood Chain', gecko: 'robinhood', dexId: 'aero-slipstream-robinhood' },
+/** GeckoTerminal's dex ids, checked 2026-10-24 (an id it does not know answers 404, so a wrong one lists nothing). */
+export const AERO_NETWORKS: { chainId: number; chain: string; gecko: string; dexIds: string[] }[] = [
+  { chainId: 8453, chain: 'Base', gecko: 'base', dexIds: ['aero-slipstream-base', 'aero-volatile-base'] },
+  { chainId: 10, chain: 'Optimism', gecko: 'optimism', dexIds: ['aero-slipstream-optimism'] },
+  { chainId: 1, chain: 'Ethereum', gecko: 'eth', dexIds: ['aero-slipstream-ethereum'] },
+  { chainId: 42161, chain: 'Arbitrum', gecko: 'arbitrum', dexIds: ['aero-slipstream-arbitrum'] },
+  { chainId: 57073, chain: 'Ink', gecko: 'ink', dexIds: ['aero-slipstream-ink'] },
+  { chainId: 4663, chain: 'Robinhood Chain', gecko: 'robinhood', dexIds: ['aero-slipstream-robinhood'] },
 ];
 
 /** Pages of 20 per network, best 24h volume first. */
@@ -36,10 +38,12 @@ export async function ingestAeroPools(clientFor: (chainId: number) => PublicClie
   const out: EarnPool[] = [];
   for (const net of AERO_NETWORKS) {
     const rows = [];
-    for (let page = 1; page <= PAGES; page++) {
-      const batch = await fetchDexTopPools(net.gecko, net.dexId, page).catch(() => []);
-      rows.push(...batch);
-      if (batch.length < 20) break;
+    for (const dexId of net.dexIds) {
+      for (let page = 1; page <= PAGES; page++) {
+        const batch = await fetchDexTopPools(net.gecko, dexId, page).catch(() => []);
+        rows.push(...batch);
+        if (batch.length < 20) break;
+      }
     }
     const listed = rows.filter((r) => r.tvlUsd >= MIN_TVL_USD && r.feePct != null);
     if (listed.length === 0) continue;
