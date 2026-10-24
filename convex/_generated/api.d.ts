@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as aeroVote from "../aeroVote.js";
 import type * as agent from "../agent.js";
 import type * as agentChat from "../agentChat.js";
 import type * as alertMessages from "../alertMessages.js";
@@ -57,7 +56,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  aeroVote: typeof aeroVote;
   agent: typeof agent;
   agentChat: typeof agentChat;
   alertMessages: typeof alertMessages;

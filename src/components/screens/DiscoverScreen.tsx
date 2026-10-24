@@ -97,6 +97,8 @@ function OldBadge() {
 }
 
 function canSimulatePool(pool: EarnPool): boolean {
+  // The simulator models a concentrated range; Metric's oracle priced bins do not have one.
+  if (pool.project === 'metric') return false;
   const chainId = discoverChainId(pool.chain, pool.chainId);
   const pair = pool.underlyingTokens;
   return !!chainId && !!KYBER_CHAINS[chainId] && !!pair?.[0] && !!pair[1]
