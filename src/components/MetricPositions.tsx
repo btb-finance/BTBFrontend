@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useConnection, useConfig } from 'wagmi';
-import { getPublicClient } from 'wagmi/actions';
+import { useConnection, useConfig, usePublicClient } from 'wagmi';
 import { formatUnits, type PublicClient } from 'viem';
 import { Glass } from './Glass';
 import { Portal } from './Portal';
@@ -129,7 +128,7 @@ function MetricWithdrawSheet({ pos, info, owner, onClose, onDone }: {
   const { width: sidebarWidth } = useSidebar();
   const config = useConfig();
   const { track } = useTx();
-  const client = getPublicClient(config, { chainId: pos.chainId as SupportedChainId }) as PublicClient | undefined;
+  const client = usePublicClient({ chainId: pos.chainId as SupportedChainId }) as PublicClient | undefined;
   const [pct, setPct] = useState(100);
   // The preview for the percentage it was read for; another choice shows nothing until its own lands.
   const [read, setRead] = useState<{ pct: number; plan?: MetricWithdrawPlan; err?: string } | null>(null);

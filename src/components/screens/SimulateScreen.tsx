@@ -1444,7 +1444,7 @@ export function SimulateScreen() {
   const [mintFee, setMintFee] = useState<FoundPool | null>(null);
   // Metric pools (oracle priced bins) arrive as linked market rows: they deposit through their own sheet, and their
   // APR is Metric's own 7 day figure, read from its API since the market search has none.
-  const [metricFee, setMetricFee] = useState<FoundPool | null>(null);
+  const [metricFee, setMetricFee] = useState<{ pool: FoundPool; simulate: boolean } | null>(null);
   const isMetricRow = (f: FoundPool) => isMetricChain(chainId) && /^metric\b/i.test(f.dexLabel ?? f.external?.dexLabel ?? '') && !!f.address && isAddress(f.address);
   const metricAddrs = useMemo(() => (isMetricChain(chainId) ? (found ?? [])
     .filter(f => /^metric\b/i.test(f.dexLabel ?? f.external?.dexLabel ?? '') && !!f.address && isAddress(f.address))
@@ -1899,13 +1899,12 @@ export function SimulateScreen() {
                     </div>
                     {f.external && isMetricRow(f) ? (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
-                        <Button variant="success" size="sm" onClick={() => setMetricFee(f)} style={{ height: 38, fontSize: 12.5, borderRadius: 12, boxShadow: 'none' }}>
+                        <Button variant="success" size="sm" onClick={() => setMetricFee({ pool: f, simulate: false })} style={{ height: 38, fontSize: 12.5, borderRadius: 12, boxShadow: 'none' }}>
                           Add LP
                         </Button>
-                        <a href={f.external.url} target="_blank" rel="noreferrer" style={{
-                          height: 38, borderRadius: 12, border: btb.borderSoft, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: btb.textMuted, fontSize: 12.5, fontWeight: 700, textDecoration: 'none', background: 'rgba(var(--fg-rgb), 0.06)',
-                        }}>View</a>
+                        <Button variant="ghost" size="sm" onClick={() => setMetricFee({ pool: f, simulate: true })} style={{ height: 38, fontSize: 12.5, borderRadius: 12, border: btb.borderSoft }}>
+                          Simulate
+                        </Button>
                       </div>
                     ) : f.external ? (
                       <a href={f.external.url} target="_blank" rel="noreferrer" style={{
@@ -1957,13 +1956,12 @@ export function SimulateScreen() {
                   </span>
                   {f.external && isMetricRow(f) ? (
                     <div style={{ display: 'flex', gap: 6, justifySelf: 'end' }}>
-                      <Button variant="success" size="sm" onClick={() => setMetricFee(f)} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
+                      <Button variant="success" size="sm" onClick={() => setMetricFee({ pool: f, simulate: false })} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
                         Add LP
                       </Button>
-                      <a href={f.external.url} target="_blank" rel="noreferrer" style={{
-                        height: 32, width: 92, borderRadius: 14, border: btb.borderSoft, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        color: btb.textMuted, fontSize: 12, fontWeight: 700, textDecoration: 'none', background: 'rgba(var(--fg-rgb), 0.06)',
-                      }}>View</a>
+                      <Button variant="ghost" size="sm" onClick={() => setMetricFee({ pool: f, simulate: true })} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
+                        Simulate
+                      </Button>
                     </div>
                   ) : f.external ? (
                     <a href={f.external.url} target="_blank" rel="noreferrer" style={{
@@ -2005,8 +2003,8 @@ export function SimulateScreen() {
         />
       )}
 
-      {metricFee?.address && isMetricChain(chainId) && (
-        <MetricDepositSheet chainId={chainId} pool={metricFee.address} onClose={() => setMetricFee(null)} onDone={() => setMetricFee(null)}/>
+      {metricFee?.pool.address && isMetricChain(chainId) && (
+        <MetricDepositSheet key={`${metricFee.pool.address}:${metricFee.simulate}`} chainId={chainId} pool={metricFee.pool.address} simulate={metricFee.simulate} onClose={() => setMetricFee(null)} onDone={() => setMetricFee(null)}/>
       )}
 
       {sheetFee && sheetMeta && tokenA && tokenB && (

@@ -344,7 +344,9 @@ export async function planMetricDeposit(
     return limit != null && limit < c ? limit : c;
   };
   const max0 = cap(need0, have?.token0), max1 = cap(need1, have?.token1);
-  return { weightDeltas: additionPlanToPoolLiquidityDelta(deltas), bounds, need0, need1, max0, max1, needs0, needs1, short0: max0 < need0, short1: max1 < need1 };
+  // Rounding leaves the need a few base units over a typed MAX; the adder scales that down, so only a real gap is short.
+  const short = (need: bigint, max: bigint) => max + (need * CAP_BUFFER_BPS) / 10_000n + BigInt(bins.length) < need;
+  return { weightDeltas: additionPlanToPoolLiquidityDelta(deltas), bounds, need0, need1, max0, max1, needs0, needs1, short0: short(need0, max0), short1: short(need1, max1) };
 }
 
 /**

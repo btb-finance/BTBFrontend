@@ -411,8 +411,9 @@ export function DiscoverScreen() {
   const { setThemeChainId } = useChainTheme();
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Metric pools deposit through their own sheet: bins around the oracle price, not a tick range.
-  const [metricSheet, setMetricSheet] = useState<EarnPool | null>(null);
-  const addLp = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet(pool) : openPool(pool, false));
+  const [metricSheet, setMetricSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
+  const addLp = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet({ pool, simulate: false }) : openPool(pool, false));
+  const simulatePool = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet({ pool, simulate: true }) : openSimulator(pool));
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
   const [directMint, setDirectMint] = useState<{ tokenA?: `0x${string}`; tokenB?: `0x${string}`; v4PoolId?: `0x${string}`; chainId: 1 | 4663 | 8453 | 56 | 5042 } | null>(null);
 
@@ -746,7 +747,7 @@ export function DiscoverScreen() {
       key: 'actions', label: '', align: 'right', width: '210px',
       render: p => {
         const mintable = mintTarget(p) !== null || isMetricPool(p);
-        const simulatable = canSimulatePool(p);
+        const simulatable = canSimulatePool(p) || isMetricPool(p);
         return (
           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
             {mintable && (
@@ -755,7 +756,7 @@ export function DiscoverScreen() {
                 <Icon name="plus" size={11} /> Add LP
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+            <Button variant="ghost" size="sm" onClick={() => simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
               style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
               {simulatable ? 'Simulate' : 'View'}
             </Button>
@@ -773,9 +774,9 @@ export function DiscoverScreen() {
             const [addr0, addr1] = p.underlyingTokens ?? [];
             const pct = p.apyChange1d ?? priceChange[p.id];
             const mintable = mintTarget(p) !== null || isMetricPool(p);
-            const simulatable = canSimulatePool(p);
+            const simulatable = canSimulatePool(p) || isMetricPool(p);
             return (
-              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? addLp(p) : simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
+              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? addLp(p) : simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ display: 'flex', flexShrink: 0 }}>
                     <TokenIcon symbol={s0} size={26} logoUrl={p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined)} />
@@ -832,7 +833,7 @@ export function DiscoverScreen() {
                       <Icon name="plus" size={12} /> Add LP
                     </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => simulatable ? openSimulator(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+                  <Button variant="ghost" size="sm" onClick={() => simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
                     style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
                     {simulatable ? 'Simulate' : 'View'}
                   </Button>
@@ -925,7 +926,7 @@ export function DiscoverScreen() {
                   rowKey={p => `${p.chain}-${p.id}`}
                   loading={false}
                   emptyMessage=""
-                  onRowClick={p => isMetricPool(p) ? setMetricSheet(p) : canSimulatePool(p)
+                  onRowClick={p => isMetricPool(p) ? setMetricSheet({ pool: p, simulate: true }) : canSimulatePool(p)
                     ? openSimulator(p)
                     : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
                 />
@@ -950,7 +951,7 @@ export function DiscoverScreen() {
               // Volume, not TVL. Sorting by TVL is what put pools holding nine
               // figures with no trades at the top of the table.
               defaultSortKey="volume"
-              onRowClick={p => isMetricPool(p) ? setMetricSheet(p) : canSimulatePool(p)
+              onRowClick={p => isMetricPool(p) ? setMetricSheet({ pool: p, simulate: true }) : canSimulatePool(p)
                 ? openSimulator(p)
                 : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
             />
@@ -1027,8 +1028,8 @@ export function DiscoverScreen() {
           onDone={closeSheet}
         />
       )}
-      {metricSheet && metricSheet.chainId != null && isMetricChain(metricSheet.chainId) && /^0x[0-9a-fA-F]{40}$/.test(metricSheet.id) && (
-        <MetricDepositSheet chainId={metricSheet.chainId} pool={getAddress(metricSheet.id)} onClose={() => setMetricSheet(null)} onDone={() => setMetricSheet(null)}/>
+      {metricSheet && metricSheet.pool.chainId != null && isMetricChain(metricSheet.pool.chainId) && /^0x[0-9a-fA-F]{40}$/.test(metricSheet.pool.id) && (
+        <MetricDepositSheet key={`${metricSheet.pool.id}:${metricSheet.simulate}`} chainId={metricSheet.pool.chainId} pool={getAddress(metricSheet.pool.id)} simulate={metricSheet.simulate} onClose={() => setMetricSheet(null)} onDone={() => setMetricSheet(null)}/>
       )}
       {!sheet && directMint && (
         <CreatePosition
