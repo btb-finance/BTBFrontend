@@ -25,6 +25,7 @@ import { fetchMerklPoolRewards, MERKL_CHAINS } from "../src/lib/merkl";
 import { loadLiveRpcs } from "./liveRpcs";
 import { loadDiscover, saveDiscover } from "./discoverStore";
 import { ingestAeroPools } from "../src/lib/aeroPools";
+import { ingestMetricPools } from "../src/lib/metricPools";
 import { rpcUrls } from "../src/lib/chainRpc";
 
 // Multicall3-capable public RPCs — same proven set as balances.ts.
@@ -76,7 +77,7 @@ export const refresh = internalAction({
     if (previous) {
       try {
         const prev = previous;
-        carried = (prev.pools ?? []).filter((p) => (isConcentratedPool(p) || p.project === "aero") && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
+        carried = (prev.pools ?? []).filter((p) => (isConcentratedPool(p) || p.project === "aero" || p.project === "metric") && !baseKeys.has(`${p.chain}:${p.id.toLowerCase()}`));
       } catch { /* unreadable previous snapshot: start clean */ }
     }
     await saveDiscover(ctx, { version: 2, pools: [...withRange, ...carried], priceChange });
@@ -90,6 +91,8 @@ export const refresh = internalAction({
     }
     // Aero's pools on every network it runs on, in the slot after the last chain's coverage.
     await ctx.scheduler.runAfter(DISCOVERY_CHAINS.length * 4 * 60_000, internal.discoverRefresh.coverAero, {});
+    // Metric's pools: one keyless API call, so it shares Aero's slot a minute later.
+    await ctx.scheduler.runAfter(DISCOVERY_CHAINS.length * 4 * 60_000 + 60_000, internal.discoverRefresh.coverMetric, {});
     // Token logos once the coverage passes have landed.
     await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 2) * 4 * 60_000, internal.discoverRefresh.fillTokenLogos, {});
     await ctx.scheduler.runAfter((DISCOVERY_CHAINS.length + 2) * 4 * 60_000 + 60_000, internal.discoverRefresh.fillMerkl, {});
@@ -138,6 +141,20 @@ export const coverAero = internalAction({
     // wiping its rows then left 12 of 81 pools after one run.
     const answered = new Set(pools.map((p) => p.chainId));
     await saveDiscover(ctx, { ...current, pools: [...current.pools.filter((p) => p.project !== "aero" || !answered.has(p.chainId)), ...pools] });
+  },
+});
+
+/** Metric's pools (src/lib/metricPools.ts), replacing the previous pass's Metric rows. */
+export const coverMetric = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const pools = await ingestMetricPools().catch((e) => { console.warn("metric pools", e); return [] as EarnPool[]; });
+    console.log(`metric: ${pools.length} pools`);
+    // An empty answer is a failed call, not a delisting: keep the last pass's rows.
+    if (pools.length === 0) return;
+    const current = await loadDiscover(ctx);
+    if (!current) return;
+    await saveDiscover(ctx, { ...current, pools: [...current.pools.filter((p) => p.project !== "metric"), ...pools] });
   },
 });
 

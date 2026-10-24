@@ -26,7 +26,7 @@ const MORE: { id: Tab; label: string }[] = [
 export const TOP_NAV_HEIGHT = 60;
 
 export function TopNav({
-  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onVote, onConnect, onViewAddress,
+  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onConnect, onViewAddress,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
@@ -35,7 +35,6 @@ export function TopNav({
   onViewAddress: (addr: string | undefined) => void;
   onDisconnect: () => void;
   onDocs: () => void;
-  onVote: () => void;
   onConnect: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
@@ -116,9 +115,6 @@ export function TopNav({
                 );
               })}
               <div style={{ height: 1, background: 'rgba(var(--fg-rgb), 0.07)', margin: '4px 6px' }} />
-              <div onClick={() => { onVote(); setMoreOpen(false); }} style={{ ...itemStyle(false), height: 38, borderRadius: 10 }}>
-                <span>Vote with sAERO</span>
-              </div>
               <div onClick={() => { onDocs(); setMoreOpen(false); }} style={{ ...itemStyle(false), height: 38, borderRadius: 10 }}>
                 <span>Docs</span>
               </div>

@@ -15,6 +15,8 @@ import { DexLogo } from '../DexLogo';
 import { btb } from '../design-tokens';
 import { SimulatorPage } from '../simulator/SimulatorPage';
 import { CreatePosition } from '../CreatePosition';
+import { MetricDepositSheet } from '../MetricDepositSheet';
+import { fetchMetricPools, isMetricChain } from '@/protocols/dexs/metric';
 import { aerodromeDeploymentsFor, aeroDeploymentFor } from '@/protocols/dexs/aerodrome';
 import { GIGA_V3_DEPLOYMENT, RAMSES_V3_DEPLOYMENT, UP_V3_DEPLOYMENT, ALANDALE_CL_DEPLOYMENT } from '@/protocols/dexs/robinhood';
 import { fetchAlgebraPool } from '@/protocols/dexs/uniswap/v3/pool';
@@ -1440,6 +1442,26 @@ export function SimulateScreen() {
   const [sheetFee, setSheetFee] = useState<FoundPool | null>(null);
   // Add LP straight from a finder row, skipping the simulator.
   const [mintFee, setMintFee] = useState<FoundPool | null>(null);
+  // Metric pools (oracle priced bins) arrive as linked market rows: they deposit through their own sheet, and their
+  // APR is Metric's own 7 day figure, read from its API since the market search has none.
+  const [metricFee, setMetricFee] = useState<{ pool: FoundPool; simulate: boolean } | null>(null);
+  const isMetricRow = (f: FoundPool) => isMetricChain(chainId) && /^metric\b/i.test(f.dexLabel ?? f.external?.dexLabel ?? '') && !!f.address && isAddress(f.address);
+  const metricAddrs = useMemo(() => (isMetricChain(chainId) ? (found ?? [])
+    .filter(f => /^metric\b/i.test(f.dexLabel ?? f.external?.dexLabel ?? '') && !!f.address && isAddress(f.address))
+    .map(f => f.address!.toLowerCase()).sort().join(',') : ''), [found, chainId]);
+  const [metricApr, setMetricApr] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!metricAddrs || !isMetricChain(chainId)) return;
+    let live = true;
+    fetchMetricPools(chainId, metricAddrs.split(','))
+      .then(m => { if (live) setMetricApr(prev => ({ ...prev, ...Object.fromEntries([...m].map(([k, v]) => [k, v.apr7d])) })); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [metricAddrs, chainId]);
+  const withMetricApr = (f: FoundPool): FoundPool => {
+    const apr = isMetricRow(f) ? metricApr[f.address!.toLowerCase()] : undefined;
+    return apr == null ? f : { ...f, apy: apr, aprIsUnranged: false, aprLabel: "Metric's 7 day APR: the LPs' share of the spread after fees. It leaves out price moves." };
+  };
   // Aerodrome runs several Slipstream deployments; a pool's factory tells
   // which one, so old-deployment pools can be labelled as such.
   const [aeroLabelByPool, setAeroLabelByPool] = useState<Record<string, string>>({});
@@ -1849,7 +1871,8 @@ export function SimulateScreen() {
           {isMobile ? (
             // Stacked cards — the 5-column comparison grid doesn't fit a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 10px 12px' }}>
-              {found.map((f, i) => {
+              {found.map((f0, i) => {
+                const f = withMetricApr(f0);
                 const label = rowLabel(f);
                 const feeLabel = f.feeTier > 0 ? fmtFeeTier(f.feeTier) : '—';
                 return (
@@ -1874,7 +1897,16 @@ export function SimulateScreen() {
                         <div style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 15, fontWeight: 800, marginTop: 1 }}>{foundAprText(f).replace('†', '')}</div>
                       </div>
                     </div>
-                    {f.external ? (
+                    {f.external && isMetricRow(f) ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
+                        <Button variant="success" size="sm" onClick={() => setMetricFee({ pool: f, simulate: false })} style={{ height: 38, fontSize: 12.5, borderRadius: 12, boxShadow: 'none' }}>
+                          Add LP
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setMetricFee({ pool: f, simulate: true })} style={{ height: 38, fontSize: 12.5, borderRadius: 12, border: btb.borderSoft }}>
+                          Simulate
+                        </Button>
+                      </div>
+                    ) : f.external ? (
                       <a href={f.external.url} target="_blank" rel="noreferrer" style={{
                         height: 38, marginTop: 10, borderRadius: 12, border: btb.borderSoft,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1904,7 +1936,8 @@ export function SimulateScreen() {
                 <span key={h} style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3 }}>{h}</span>
               ))}
             </div>
-            {found.map((f, i) => {
+            {found.map((f0, i) => {
+              const f = withMetricApr(f0);
               const label = rowLabel(f);
               return (
                 <div key={foundPoolKey(f)} style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr 1fr 1fr 1fr', alignItems: 'center', padding: '12px 18px', borderBottom: '1px solid rgba(var(--fg-rgb), 0.04)', background: i === 0 ? 'rgba(var(--green-rgb), 0.05)' : undefined }}>
@@ -1921,7 +1954,16 @@ export function SimulateScreen() {
                   >
                     {foundAprText(f)}
                   </span>
-                  {f.external ? (
+                  {f.external && isMetricRow(f) ? (
+                    <div style={{ display: 'flex', gap: 6, justifySelf: 'end' }}>
+                      <Button variant="success" size="sm" onClick={() => setMetricFee({ pool: f, simulate: false })} style={{ height: 32, fontSize: 12, width: 84, boxShadow: 'none' }}>
+                        Add LP
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setMetricFee({ pool: f, simulate: true })} style={{ height: 32, fontSize: 12, border: btb.borderSoft, width: 92 }}>
+                        Simulate
+                      </Button>
+                    </div>
+                  ) : f.external ? (
                     <a href={f.external.url} target="_blank" rel="noreferrer" style={{
                       height: 32, width: 100, justifySelf: 'end', borderRadius: 14, border: btb.borderSoft,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -1959,6 +2001,10 @@ export function SimulateScreen() {
           fees24hUsd={mintFee.fees24hUsd}
           onClose={() => setMintFee(null)}
         />
+      )}
+
+      {metricFee?.pool.address && isMetricChain(chainId) && (
+        <MetricDepositSheet key={`${metricFee.pool.address}:${metricFee.simulate}`} chainId={chainId} pool={metricFee.pool.address} simulate={metricFee.simulate} onClose={() => setMetricFee(null)} onDone={() => setMetricFee(null)}/>
       )}
 
       {sheetFee && sheetMeta && tokenA && tokenB && (

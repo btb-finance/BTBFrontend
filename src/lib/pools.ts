@@ -72,7 +72,7 @@ export interface EarnPool {
   aprRange?: number;
   /** APY change over the last 24h, in percentage points — DeFiLlama-sourced pools only. */
   apyChange1d?: number;
-  source: 'uniswap' | 'defillama' | 'dexscreener';
+  source: 'uniswap' | 'defillama' | 'dexscreener' | 'metric';
 }
 
 interface BlockscoutTokensPage {

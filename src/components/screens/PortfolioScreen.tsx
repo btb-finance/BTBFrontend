@@ -13,6 +13,7 @@ import { useConnection } from 'wagmi';
 import { useProfileWallets, shortAddr } from '../../lib/profile';
 import { LinkWalletSheet } from '../LinkWalletSheet';
 import { MerklRewards } from '../MerklRewards';
+import { MetricPositions } from '../MetricPositions';
 import { TokenLpPicker } from '../TokenLpPicker';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
@@ -393,6 +394,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
       <div style={{ display: tab === 'lps' ? 'flex' : 'none', flexDirection: 'column', gap: 16 }}>
         <MerklRewards address={walletAddress} />
         <LpPositions showEmpty onSummary={setLp} />
+        <MetricPositions address={walletAddress} />
       </div>
       {tab === 'tokens' && (isMobile ? (
         // Phone: one card per token. A table can't fit balance, price and

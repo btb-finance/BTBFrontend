@@ -44,8 +44,6 @@ if (process.env.DISABLE_CRONS !== "1") {
 
   // Test every public RPC (chainlist.org plus our own lists) for each chain and keep the best, ranked (convex/rpcHealth.ts).
   crons.interval("refresh tested RPC lists", { hours: 6 }, internal.rpcHealth.refreshAll);
-  // Rank the pools sAERO holders can vote for on Aero (convex/aeroVote.ts); idle until Aero's Base addresses are set.
-  crons.interval("rank Aero vote pools", { hours: 1 }, internal.aeroVote.refresh);
 
   // Daily cleanup (convex/cleanup.ts): notifications older than 90 days, chat beyond 200 messages a wallet, expired
   // sign-ins, and everything about wallets with no check-in and no XP for 90 days.
