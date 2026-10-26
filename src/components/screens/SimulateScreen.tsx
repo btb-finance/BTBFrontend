@@ -49,6 +49,7 @@ import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { useDiscoverPools, waitForDiscoverPools } from '../../lib/discoverPools';
 import { useXpToast } from '../../lib/XpToast';
+import { focusOnOpen } from '../../lib/focusOnOpen';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
 type SimulateMode = 'single' | 'cross-chain';
@@ -544,7 +545,7 @@ function TokenPickerButton({ label, token, onPick, tokens, onImportAddress }: {
                 <div style={{ color: btb.text, fontSize: 18, fontWeight: 800, marginBottom: 12 }}>Select {label.toLowerCase()}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(var(--fg-rgb), 0.06)', border: btb.borderSoft, borderRadius: 14, padding: '10px 14px', marginBottom: 8 }}>
                   <Icon name="search" size={16} color={btb.textMuted} />
-                  <input autoFocus value={q} onChange={e => { setQ(e.target.value); setImportError(null); }} placeholder="Search name, symbol, or paste address…"
+                  <input autoFocus={focusOnOpen()} value={q} onChange={e => { setQ(e.target.value); setImportError(null); }} placeholder="Search name, symbol, or paste address…"
                     style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 15, fontFamily: 'inherit' }} />
                 </div>
               </div>
@@ -806,7 +807,7 @@ function ResearchTokenPicker({ label, selected, options, selectedChainIds, loadi
                 <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 3 }}>{options.length.toLocaleString()} token symbols across {selectedChainCount} selected chain{selectedChainCount === 1 ? '' : 's'}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, borderRadius: 13, border: btb.borderSoft, background: btb.surfaceSoft, padding: '0 12px' }}>
                   <Icon name="search" size={15} color={btb.textMuted}/>
-                  <input autoFocus aria-label={`Search ${label.toLowerCase()}`} value={query} onChange={event => { setQuery(event.target.value); setImportError(null); }} placeholder="Search name, symbol, or paste address…" style={{ height: 42, flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 13 }}/>
+                  <input autoFocus={focusOnOpen()} aria-label={`Search ${label.toLowerCase()}`} value={query} onChange={event => { setQuery(event.target.value); setImportError(null); }} placeholder="Search name, symbol, or paste address…" style={{ height: 42, flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 13 }}/>
                 </div>
               </div>
               <div style={{ overflowY: 'auto', padding: '0 10px 16px' }}>

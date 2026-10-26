@@ -16,7 +16,7 @@ import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap, planSwapToFit, planZapToFit, type FitPlan, type ZapPlan } from '../lib/swapGap';
 import { useTokenStore, useTokenLogos, type Token } from '../lib/TokenStore';
 import { useSignedCall } from '../lib/alerts';
-import { PickerSheet } from './PickerSheet';
+import { PickerSheet, PickerTokenRow } from './PickerSheet';
 import { readableError } from '../lib/errorText';
 import { getTokenPricesUsd } from '../lib/defillama';
 import { getFeeSplit, type FeeSwitchProtocol } from '../lib/protocolFees';
@@ -1194,11 +1194,15 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           const sym = k === 0 ? sym0 : sym1;
           const dec = k === 0 ? pool.decimals0 : pool.decimals1;
           return (
-            <div key={k} style={{ marginBottom: 8, padding: '9px 12px', borderRadius: 14, background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${fitShort[k] ? 'rgba(var(--loss-rgb), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}` }}>
+            <div key={k} style={{ marginBottom: 8, padding: '10px 12px', borderRadius: 14, background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${fitShort[k] ? 'rgba(var(--loss-rgb), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 11.5 }}>
+                <span style={{ color: btb.textMuted, fontWeight: 700 }}>You put in</span>
+                <span style={{ color: fitShort[k] ? btb.loss : btb.textDim }}>Bal: {fmtAmt(k === 0 ? effBal0 : effBal1, dec)}</span>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input value={fitStr[k]} onChange={(e) => { const v = e.target.value.replace(/[^0-9.]/g, ''); setFitStr((f) => (k === 0 ? [v, f[1]] : [f[0], v])); }} inputMode="decimal" placeholder="0"
                   style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '4px 8px 4px 5px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.08)' }}>
                   <TokenIcon symbol={sym} size={20} logoUrl={sideLogo(k)} />
                   {wethSide === k && !isV4 ? (
                     <div style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(var(--fg-rgb), 0.08)' }}>
@@ -1209,48 +1213,72 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                   ) : <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{sym}</span>}
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 11 }}>
-                <span style={{ color: btb.textDim }}>{fitBudget[k] > 0n && usd(k, fitBudget[k]) > 0 ? money(usd(k, fitBudget[k])) : ''}</span>
-                <span style={{ color: fitShort[k] ? btb.loss : btb.textMuted }}>
-                  {fmtAmt(k === 0 ? effBal0 : effBal1, dec)}
-                  <span onClick={() => { const v = spend(k); if (v > 0n) setFitStr((f) => (k === 0 ? [formatUnits(v, dec), f[1]] : [f[0], formatUnits(v, dec)])); else if (fitNative(k)) setFitErr('Not enough ETH to also pay the gas.'); }} style={{ color: btb.green, fontWeight: 800, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
-                </span>
+              <div style={{ color: btb.textDim, fontSize: 11, marginTop: 3, minHeight: 15 }}>{fitBudget[k] > 0n && usd(k, fitBudget[k]) > 0 ? money(usd(k, fitBudget[k])) : ''}</div>
+              <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                {[25, 50, 75, 100].map((pct) => (
+                  <button key={pct} type="button" onClick={() => {
+                    const v = (spend(k) * BigInt(pct)) / 100n;
+                    if (v > 0n) setFitStr((f) => (k === 0 ? [formatUnits(v, dec), f[1]] : [f[0], formatUnits(v, dec)]));
+                    else if (fitNative(k)) setFitErr('Not enough ETH to also pay the gas.');
+                  }} style={{ flex: 1, height: 24, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, background: 'rgba(var(--fg-rgb), 0.05)', color: pct === 100 ? btb.green : btb.textMuted }}>{pct === 100 ? 'MAX' : `${pct}%`}</button>
+                ))}
               </div>
             </div>
           );
         })}
         <div style={{ color: btb.textMuted, fontSize: 11, margin: '0 2px 8px' }}>Put in either token, or both. Part of it is swapped so all of it fits your range, nothing left over.</div>
         {payTok ? (
-          <div style={{ marginBottom: 8, padding: '9px 12px', borderRadius: 14, background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${payShort ? 'rgba(var(--loss-rgb), 0.6)' : 'rgba(var(--green-rgb), 0.35)'}` }}>
-            <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, marginBottom: 4 }}>PAY WITH</div>
+          <div style={{ marginBottom: 8, padding: '10px 12px', borderRadius: 14, background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${payShort ? 'rgba(var(--loss-rgb), 0.6)' : 'rgba(var(--green-rgb), 0.35)'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 11.5 }}>
+              <span style={{ color: btb.textMuted, fontWeight: 700 }}>You pay with</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: payShort ? btb.loss : btb.textDim }}>Bal: {fmtAmt(payBal, payTok.decimals)}</span>
+                <button type="button" aria-label="Stop paying with this token" onClick={() => { setPayTok(null); setPayStr(''); setZapPlan(null); }} style={{ width: 20, height: 20, borderRadius: 6, border: 'none', background: 'rgba(var(--fg-rgb), 0.08)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="close" size={10} color={btb.textMuted}/>
+                </button>
+              </span>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input value={payStr} onChange={(e) => setPayStr(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" placeholder="0"
                 style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: btb.text, fontSize: 20, fontWeight: 700, fontFamily: 'inherit' }}/>
-              <button type="button" onClick={() => { setPayQuery(''); setPayPicker(true); }} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, height: 30, padding: '0 8px', borderRadius: 10, border: 'none', background: 'rgba(var(--fg-rgb), 0.08)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              <button type="button" onClick={() => { setPayQuery(''); setPayPicker(true); }} style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '4px 8px 4px 5px', borderRadius: 10, border: 'none', background: 'rgba(var(--fg-rgb), 0.08)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 <TokenIcon symbol={payTok.symbol} size={20} logoUrl={payTok.logoURI ?? logoFor(payTok.address, chainId, payTok.symbol)} />
                 <span style={{ color: btb.text, fontSize: 14, fontWeight: 700 }}>{payTok.symbol}</span>
                 <Icon name="down" size={12} color={btb.textMuted}/>
               </button>
-              <button type="button" aria-label="Stop paying with this token" onClick={() => { setPayTok(null); setPayStr(''); setZapPlan(null); }} style={{ width: 26, height: 26, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="close" size={12} color={btb.textMuted}/>
-              </button>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3, fontSize: 11 }}>
-              <span style={{ color: btb.textDim }}>{payRaw > 0n && payTok.usdPrice ? money(parseFloat(formatUnits(payRaw, payTok.decimals)) * payTok.usdPrice) : ''}</span>
-              <span style={{ color: payShort ? btb.loss : btb.textMuted }}>
-                {fmtAmt(payBal, payTok.decimals)}
-                <span onClick={() => { const keep = payAddr === 'ETH' ? gasKeep : 0n; const v = payBal > keep ? payBal - keep : 0n; if (v > 0n) setPayStr(formatUnits(v, payTok.decimals)); }} style={{ color: btb.green, fontWeight: 800, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
-              </span>
+            <div style={{ color: btb.textDim, fontSize: 11, marginTop: 3, minHeight: 15 }}>{payRaw > 0n && payTok.usdPrice ? money(parseFloat(formatUnits(payRaw, payTok.decimals)) * payTok.usdPrice) : ''}</div>
+            <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+              {[25, 50, 75, 100].map((pct) => (
+                <button key={pct} type="button" onClick={() => {
+                  const keep = payAddr === 'ETH' ? gasKeep : 0n;
+                  const v = ((payBal > keep ? payBal - keep : 0n) * BigInt(pct)) / 100n;
+                  if (v > 0n) setPayStr(formatUnits(v, payTok.decimals));
+                }} style={{ flex: 1, height: 24, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800, background: 'rgba(var(--fg-rgb), 0.05)', color: pct === 100 ? btb.green : btb.textMuted }}>{pct === 100 ? 'MAX' : `${pct}%`}</button>
+              ))}
             </div>
           </div>
         ) : payChoices.length > 0 && (
-          <button type="button" onClick={() => { setPayQuery(''); setPayPicker(true); }} style={{ width: '100%', marginBottom: 8, padding: '10px 12px', borderRadius: 14, border: '1px dashed rgba(var(--fg-rgb), 0.22)', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-            <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800 }}>Pay with another token</span>
-            <span style={{ color: btb.textMuted, fontSize: 11 }}>{payChoices.slice(0, 3).map((t) => t.symbol).join(', ')}{payChoices.length > 3 ? '…' : ''}</span>
+          <button type="button" onClick={() => { setPayQuery(''); setPayPicker(true); }} style={{ width: '100%', marginBottom: 8, padding: '10px 12px', borderRadius: 14, border: '1px solid rgba(var(--fg-rgb), 0.1)', background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.08), rgba(var(--fg-rgb), 0.03))', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}>
+            <span style={{ width: 32, height: 32, borderRadius: 10, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--green-rgb), 0.15)' }}>
+              <Icon name="swap" size={15} color={btb.green}/>
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: 'block', color: btb.text, fontSize: 13, fontWeight: 800 }}>Pay with another token</span>
+              <span style={{ display: 'block', color: btb.textDim, fontSize: 11 }}>Swapped into both sides for you</span>
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              {payChoices.slice(0, 3).map((t, i) => (
+                <span key={t.address} style={{ marginLeft: i === 0 ? 0 : -6 }}><TokenIcon symbol={t.symbol} size={20} logoUrl={t.logoURI ?? logoFor(t.address, chainId, t.symbol)}/></span>
+              ))}
+              {payChoices.length > 3 && <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700, marginLeft: 5 }}>+{payChoices.length - 3}</span>}
+              <Icon name="down" size={12} color={btb.textMuted}/>
+            </span>
           </button>
         )}
         {zapping && zapPlan && (
-          <div style={{ marginBottom: 10, padding: '9px 12px', borderRadius: 12, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ marginBottom: 10, padding: '12px 14px', borderRadius: 14, background: 'rgba(var(--green-rgb), 0.06)', border: '1px solid rgba(var(--green-rgb), 0.2)', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 700 }}>What happens</div>
             {([0, 1] as const).map((k) => (k === 0 ? zapPlan.in0 : zapPlan.in1) > 0n && (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
                 <span style={{ color: btb.textMuted }}>Swap</span>
@@ -1264,28 +1292,26 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 {usd(0, zapPlan.final0) + usd(1, zapPlan.final1) > 0 ? ` (${money(usd(0, zapPlan.final0) + usd(1, zapPlan.final1))})` : ''}
               </span>
             </div>
-            <div style={{ color: btb.textDim, fontSize: 10.5 }}>Via KyberSwap{zapPlan.route ? ` (${zapPlan.route})` : ''}, 1% BTB fee included{zapPlan.priceImpact > 0.5 ? `, price impact ${zapPlan.priceImpact.toFixed(2)}%` : ''}.</div>
+            <div style={{ color: btb.textDim, fontSize: 10.5, paddingTop: 6, borderTop: '1px solid rgba(var(--fg-rgb), 0.08)' }}>Via KyberSwap{zapPlan.route ? ` (${zapPlan.route})` : ''}, 1% BTB fee included{zapPlan.priceImpact > 0.5 ? `, price impact ${zapPlan.priceImpact.toFixed(2)}%` : ''}.</div>
           </div>
         )}
         {payPicker && (
-          <PickerSheet title="Pay with" query={payQuery} onQuery={setPayQuery} placeholder="Search your tokens" onClose={() => setPayPicker(false)}>
+          <PickerSheet title="Pay with" query={payQuery} onQuery={setPayQuery} placeholder="Search your tokens" onClose={() => setPayPicker(false)}
+            footer="Any token you hold here. It is swapped into both sides of the range for you.">
             {payChoices.filter((t) => !payQuery || t.symbol.toLowerCase().includes(payQuery.toLowerCase()) || t.name.toLowerCase().includes(payQuery.toLowerCase())).map((t) => (
-              <button key={t.address} type="button" onClick={() => { setPayTok(t); setPayStr(''); setZapPlan(null); setPayPicker(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 8px', border: 'none', borderRadius: 12, background: payTok?.address === t.address ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                <TokenIcon symbol={t.symbol} size={28} logoUrl={t.logoURI ?? logoFor(t.address, chainId, t.symbol)} />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: 'block', color: btb.text, fontSize: 14, fontWeight: 800 }}>{t.symbol}</span>
-                  <span style={{ display: 'block', color: btb.textDim, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</span>
-                </span>
-                <span style={{ textAlign: 'right' }}>
-                  <span style={{ display: 'block', color: btb.text, fontSize: 13, fontWeight: 700 }}>{t.balanceRaw ? fmtAmt(BigInt(t.balanceRaw), t.decimals) : t.balance}</span>
-                  {t.usdValue ? <span style={{ display: 'block', color: btb.textDim, fontSize: 11 }}>{money(t.usdValue)}</span> : null}
-                </span>
-              </button>
+              <PickerTokenRow key={t.address}
+                icon={<TokenIcon symbol={t.symbol} size={32} logoUrl={t.logoURI ?? logoFor(t.address, chainId, t.symbol)} />}
+                symbol={t.symbol} name={t.name}
+                balance={t.balanceRaw ? fmtAmt(BigInt(t.balanceRaw), t.decimals) : t.balance}
+                usd={t.usdValue ? money(t.usdValue) : undefined}
+                selected={payTok?.address === t.address}
+                onClick={() => { setPayTok(t); setPayStr(''); setZapPlan(null); setPayPicker(false); }}/>
             ))}
           </PickerSheet>
         )}
         {!zapping && fitPlan && (
-          <div style={{ marginBottom: 10, padding: '9px 12px', borderRadius: 12, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.2)', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ marginBottom: 10, padding: '12px 14px', borderRadius: 14, background: 'rgba(var(--green-rgb), 0.06)', border: '1px solid rgba(var(--green-rgb), 0.2)', display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 700 }}>What happens</div>
             {fitPlan.sellSide !== null ? (
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12 }}>
                 <span style={{ color: btb.textMuted }}>Swap</span>
@@ -1299,7 +1325,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 {usd(0, fitPlan.final0) + usd(1, fitPlan.final1) > 0 ? ` (${money(usd(0, fitPlan.final0) + usd(1, fitPlan.final1))})` : ''}
               </span>
             </div>
-            {fitPlan.sellSide !== null && <div style={{ color: btb.textDim, fontSize: 10.5 }}>Via KyberSwap{fitPlan.route ? ` (${fitPlan.route})` : ''}, 1% BTB fee included{fitPlan.priceImpact > 0.5 ? `, price impact ${fitPlan.priceImpact.toFixed(2)}%` : ''}. Two confirmations: the swap, then the add.</div>}
+            {fitPlan.sellSide !== null && <div style={{ color: btb.textDim, fontSize: 10.5, paddingTop: 6, borderTop: '1px solid rgba(var(--fg-rgb), 0.08)' }}>Via KyberSwap{fitPlan.route ? ` (${fitPlan.route})` : ''}, 1% BTB fee included{fitPlan.priceImpact > 0.5 ? `, price impact ${fitPlan.priceImpact.toFixed(2)}%` : ''}. Two confirmations: the swap, then the add.</div>}
           </div>
         )}
         {fitErr && <div style={{ color: 'var(--btb-amber)', fontSize: 11.5, marginBottom: 8 }}>{fitErr}</div>}
@@ -1322,26 +1348,32 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     const unitUsd = side === 0 ? tokenUsd?.p0 : tokenUsd?.p1;
     const num = parseFloat(value);
     const usdVal = unitUsd && isFinite(num) ? num * unitUsd : 0;
-    // Compact Orca-style card: amount + token on one row, $value + balance below.
+    // Paying in ETH keeps enough back for the gas of the approvals and the add.
+    const spendableBal = ethMode && nativeSide === side ? (bal > gasKeep ? bal - gasKeep : 0n) : bal;
+    const setTyped = (str: string) => {
+      if (splitRange) setSplitAmt((v) => side === 0 ? { ...v, str0: str } : { ...v, str1: str });
+      else { setAmt({ side, str }); setSwapPreview(null); }
+    };
+    // Wind Swap style card: what it is and the balance, the amount beside a token chip, then quick amounts.
     return (
       <div key={side} style={{
-        marginBottom: 8, padding: '9px 12px', borderRadius: 14,
+        marginBottom: 8, padding: '10px 12px', borderRadius: 14,
         background: disabled ? 'rgba(var(--fg-rgb), 0.02)' : 'rgba(var(--fg-rgb), 0.05)',
-        border: '1px solid rgba(var(--fg-rgb), 0.1)',
+        border: `1px solid ${isShort && !splitRange ? 'rgba(var(--loss-rgb, 239,68,68), 0.5)' : 'rgba(var(--fg-rgb), 0.1)'}`,
       }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 11.5 }}>
+          <span style={{ color: disabled ? btb.textDim : btb.textMuted, fontWeight: 700 }}>{disabled ? 'Not needed for this range' : 'You deposit'}</span>
+          <span style={{ color: btb.textDim }}>Bal: {fmtAmt(bal, dec)}</span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             value={value}
             disabled={disabled}
-            onChange={(e) => {
-              const str = e.target.value.replace(/[^0-9.]/g, '');
-              if (splitRange) setSplitAmt((v) => side === 0 ? { ...v, str0: str } : { ...v, str1: str });
-              else { setAmt({ side, str }); setSwapPreview(null); }
-            }}
-            inputMode="decimal" placeholder={disabled ? 'Not needed for this range' : '0'}
+            onChange={(e) => setTyped(e.target.value.replace(/[^0-9.]/g, ''))}
+            inputMode="decimal" placeholder="0"
             title={disabled ? `Your range sits ${need === 'token0' ? 'above' : 'below'} the current price, so it only takes ${need === 'token0' ? sym0 : sym1}. Widen the range to deposit both.` : undefined}
             style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', padding: 0, color: disabled ? btb.textDim : btb.text, fontSize: disabled ? 13 : 20, fontWeight: 700, fontFamily: 'inherit', cursor: disabled ? 'not-allowed' : 'text' }}/>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: '4px 8px 4px 5px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.08)' }}>
             <TokenIcon symbol={sym} size={20} logoUrl={sideLogo(side)} />
             {wethSide === side && !isV4 ? (
               <div aria-label="Choose ETH or WETH" style={{ display: 'flex', padding: 2, borderRadius: 8, background: 'rgba(var(--fg-rgb), 0.08)' }}>
@@ -1358,26 +1390,22 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
-          <span style={{ color: btb.textDim, fontSize: 11 }}>
-            {usdVal > 0 ? `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : disabled ? 'not needed in this range' : ''}
-          </span>
-          <span style={{ color: btb.textMuted, fontSize: 11 }}>
-            {fmtAmt(bal, dec)}
-            {isShort && !splitRange && (
-              <span onClick={() => applySmartFit()} style={{ color: 'var(--btb-green)', fontWeight: 800, marginLeft: 8, cursor: 'pointer', padding: '3px 6px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.13)' }}>FIT RANGE</span>
-            )}
-            {!disabled && (
-              <span onClick={() => {
-                // Paying in ETH: keep enough back for the gas of the approvals and the add.
-                const max = ethMode && nativeSide === side ? (bal > gasKeep ? bal - gasKeep : 0n) : bal;
-                const str = formatUnits(max, dec);
-                if (splitRange) setSplitAmt((v) => side === 0 ? { ...v, str0: str } : { ...v, str1: str });
-                else { setAmt({ side, str }); setSwapPreview(null); }
-              }} style={{ color: btb.red, fontWeight: 700, marginLeft: 6, cursor: 'pointer' }}>MAX</span>
-            )}
-          </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3, minHeight: 15 }}>
+          <span style={{ color: btb.textDim, fontSize: 11 }}>{usdVal > 0 ? `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : ''}</span>
+          {isShort && !splitRange && (
+            <span onClick={() => applySmartFit()} style={{ color: 'var(--btb-green)', fontSize: 11, fontWeight: 800, cursor: 'pointer', padding: '2px 6px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.13)' }}>FIT RANGE</span>
+          )}
         </div>
+        {!disabled && spendableBal > 0n && (
+          <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+            {[25, 50, 75, 100].map((pct) => (
+              <button key={pct} type="button" onClick={() => setTyped(formatUnits((spendableBal * BigInt(pct)) / 100n, dec))} style={{
+                flex: 1, height: 24, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800,
+                background: 'rgba(var(--fg-rgb), 0.05)', color: pct === 100 ? btb.green : btb.textMuted,
+              }}>{pct === 100 ? 'MAX' : `${pct}%`}</button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -1626,7 +1654,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                     <span style={{ color: autoOn ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{autoOn ? intervalLabel(autoInterval) : 'off'}</span>
                   </div>
                 )}
-                <Button variant="success" size="sm" onClick={() => (swapFit ? mintFit() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, fontWeight: 800, fontSize: 13 }}>
+                <Button variant="success" size="md" onClick={() => (swapFit ? mintFit() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, minHeight: 48, borderRadius: 14, fontWeight: 800, fontSize: 15 }}>
                   {busy ? (stepMsg || 'Confirming…')
                     : swapFit ? (payShort ? `Not enough ${payTok?.symbol}` : zapping ? (fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : zapPlan ? 'Swap & add LP' : 'Getting a price') : fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : fitBudget[0] > 0n || fitBudget[1] > 0n ? (fitPlan ? (fitPlan.sellSide !== null ? 'Swap & add LP' : 'Add LP') : 'Getting a price') : 'Enter an amount')
                     : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
@@ -1639,25 +1667,43 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     <Portal>
     <div onScroll={fitFormCol} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
       <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? `12px ${MOBILE_GUTTER}px 96px` : '16px 24px 88px' }}>
-        {/* Compact single-row header: back chevron + title, pair/dex as an
-            inline subtitle — keeps the tap-to-go-back affordance without the
-            tall "Back to Discover" stack eating the top of small screens. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, minWidth: 0 }}>
-          <div onClick={onClose} title="Back to Discover" style={{
-            width: 28, height: 28, borderRadius: 999, flexShrink: 0, cursor: 'pointer',
-            background: 'rgba(var(--fg-rgb), 0.08)', border: btb.borderSoft,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Icon name="back" size={13} color={btb.textMuted}/>
+        {/* Header in Wind Swap's style: an icon tile, the title and what it does, a square close on the right. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(var(--green-rgb), 0.25), rgba(var(--green-rgb), 0.06))', border: '1px solid rgba(var(--green-rgb), 0.25)' }}>
+              <Icon name={simOnly ? 'chart' : 'plus'} size={18} color={btb.green}/>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ color: btb.text, fontSize: isMobile ? 18 : 20, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate' : 'Add liquidity'}</div>
+              <div style={{ color: btb.textMuted, fontSize: 12 }}>{simOnly ? 'Try a deposit and see what it earns' : 'Deposit tokens to earn fees'}</div>
+            </div>
           </div>
-          {/* One line: what this is, then the pool. The fee and DEX already say which pool; tick spacing is left to the chart. */}
-          <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 8, overflow: 'hidden', whiteSpace: 'nowrap' }}>
-            <span style={{ color: btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3, flexShrink: 0 }}>{simOnly ? 'Simulate' : 'Add liquidity'}</span>
-            <span style={{ color: btb.textMuted, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {pool ? `${flip ? pool.symbol1 : pool.symbol0} / ${flip ? pool.symbol0 : pool.symbol1} · ${perPoolFee ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)} · ${dexLabel}` : `${dexLabel} · ${chainLabel}`}
-            </span>
+          <div onClick={onClose} title="Close" style={{
+            width: 40, height: 40, borderRadius: 12, flexShrink: 0, cursor: 'pointer',
+            background: 'rgba(var(--fg-rgb), 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Icon name="close" size={15} color={btb.textMuted}/>
           </div>
         </div>
+        {pool && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, padding: '8px 12px', borderRadius: 12, background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.1), rgba(var(--fg-rgb), 0.03))', border: '1px solid rgba(var(--green-rgb), 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexShrink: 0 }}>
+                <TokenIcon symbol={flip ? sym1 : sym0} size={20} logoUrl={sideLogo(flip ? 1 : 0)}/>
+                <div style={{ marginLeft: -6 }}><TokenIcon symbol={flip ? sym0 : sym1} size={20} logoUrl={sideLogo(flip ? 0 : 1)}/></div>
+              </div>
+              <span style={{ color: btb.text, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{flip ? pool.symbol1 : pool.symbol0}/{flip ? pool.symbol0 : pool.symbol1}</span>
+              <span style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: 'rgba(var(--fg-rgb), 0.08)', whiteSpace: 'nowrap' }}>{perPoolFee ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)}</span>
+              <span style={{ color: btb.textDim, fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dexLabel} · {chainLabel}</span>
+            </div>
+            {price > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, color: btb.textMuted, fontSize: 11.5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: btb.green }}/>
+                {!isMobile && `1 ${qBase} = `}{dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })}{!isMobile && ` ${qQuote}`}
+              </span>
+            )}
+          </div>
+        )}
 
         {loadingPool ? (
           <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Checking pool…</div>
@@ -1782,18 +1828,12 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             )}
             {/* Smart strategy — fit the chosen width to what the wallet holds,
                 so step 2 never dead-ends on "insufficient balance". */}
-            {!simOnly && !splitRange && address && (
+            {/* The balances are on the token boxes; this only shows when there is a choice, a swap or a note. */}
+            {!simOnly && !splitRange && address && (((effBal0 <= 0n) !== (effBal1 <= 0n)) || swapPreview || smartNote) && (
               <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: '1px solid rgba(var(--fg-rgb), 0.08)', borderRadius: 12, padding: '10px 12px', marginBottom: 12 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ color: btb.textDim, fontSize: 10 }}>You hold</div>
-                  <div style={{ color: btb.text, fontSize: 12, fontWeight: 700, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {fmtAmt(effBal0, pool.decimals0)} {sym0} + {fmtAmt(effBal1, pool.decimals1)} {sym1}
-                  </div>
-                </div>
-
                 {/* Single-token wallets: segmented Balanced / Single-sided choice. */}
                 {((effBal0 <= 0n) !== (effBal1 <= 0n)) && (
-                  <div style={{ display: 'flex', marginTop: 8, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 9, padding: 2 }}>
+                  <div style={{ display: 'flex', background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 9, padding: 2 }}>
                     {([['balanced', 'Balanced'], ['single', 'Single-sided']] as const).map(([val, title]) => (
                       <button key={val} onClick={() => { setSmartStrategy(val); applySmartFit(val); }} style={{
                         flex: 1, height: 28, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,

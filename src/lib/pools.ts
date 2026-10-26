@@ -73,6 +73,8 @@ export interface EarnPool {
   /** APY change over the last 24h, in percentage points — DeFiLlama-sourced pools only. */
   apyChange1d?: number;
   source: 'uniswap' | 'defillama' | 'dexscreener' | 'metric';
+  /** Looked at by dropUnbackedTvl (src/lib/tvlCheck.ts): its TVL is backed by real money, or could not be measured. */
+  tvlChecked?: boolean;
 }
 
 interface BlockscoutTokensPage {

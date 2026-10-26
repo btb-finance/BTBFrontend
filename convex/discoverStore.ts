@@ -14,6 +14,8 @@ import { internal } from "./_generated/api";
 import { gzipSync, gunzipSync, strToU8, strFromU8 } from "fflate";
 import { packSnapshot, unpackSnapshotNode } from "../src/lib/snapshotCodec";
 import type { EarnPool } from "../src/lib/pools";
+import { dropUnbackedTvl } from "../src/lib/tvlCheck";
+import { getChainClient } from "../src/lib/chainClient";
 
 export type DiscoverSnap = { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
 
@@ -42,7 +44,11 @@ function slim(p: EarnPool): EarnPool {
 const busy = (p: EarnPool) => p.volume24hUsd ?? p.tvlUsd / 100;
 
 export async function saveDiscover(ctx: ActionCtx, snap: DiscoverSnap): Promise<void> {
-  const pools = snap.pools.map(slim);
+  // Pools whose TVL no real money backs (a token priced from its own pool) are dropped here, where every refresh
+  // step saves; rows already checked are skipped, and a failed check saves the list as it was.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const backed = await dropUnbackedTvl(snap.pools, (chainId) => getChainClient(chainId) as any).catch(() => snap.pools);
+  const pools = backed.map(slim);
   const byChain = new Map<string, EarnPool[]>();
   for (const p of pools) byChain.set(p.chain, [...(byChain.get(p.chain) ?? []), p]);
   const chains = await Promise.all([...byChain].map(async ([chain, list]) => {

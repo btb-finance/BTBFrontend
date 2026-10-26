@@ -33,6 +33,7 @@ import { CHAIN_META, type SupportedChainId } from '../../lib/wagmi';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { KYBER_CHAINS } from '../../lib/kyberswap';
+import { focusOnOpen } from '../../lib/focusOnOpen';
 
 /** Fee-based estimate used when the indexer doesn't report real 24h fees (DeFiLlama-sourced rows). */
 function estFees24h(p: EarnPool): number {
@@ -99,6 +100,25 @@ function OldBadge() {
 }
 
 const isMetricPool = (pool: EarnPool) => pool.project === 'metric';
+
+/** One pair on one chain, whichever way round its tokens are listed; symbols when a row has no addresses. */
+function pairKey(p: EarnPool): string {
+  const tokens = (p.underlyingTokens ?? []).slice(0, 2).map((t) => t.toLowerCase());
+  const ids = tokens.length === 2 ? tokens : p.pair.toUpperCase().split(/[-/]/);
+  return `${p.chainId ?? p.chain}:${[...ids].sort().join('|')}`;
+}
+
+/** Pools grouped by pair, in the order given: the first pool of each pair leads it. */
+function groupByPair(pools: EarnPool[]): EarnPool[][] {
+  const at = new Map<string, number>();
+  const out: EarnPool[][] = [];
+  for (const p of pools) {
+    const k = pairKey(p);
+    const i = at.get(k);
+    if (i == null) { at.set(k, out.length); out.push([p]); } else out[i].push(p);
+  }
+  return out;
+}
 
 function canSimulatePool(pool: EarnPool): boolean {
   // The simulator models a concentrated range; Metric's oracle priced bins do not have one.
@@ -253,7 +273,7 @@ function DiscoverChainSelect({ chains, value, onChange, mobile }: {
           <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
             <input
-              autoFocus
+              autoFocus={focusOnOpen()}
               value={query}
               onChange={event => setQuery(event.target.value)}
               onKeyDown={event => event.stopPropagation()}
@@ -385,7 +405,7 @@ function DiscoverDexSelect({ dexes, value, onChange, mobile, logos }: {
           <div style={{ height: 38, marginBottom: 5, padding: '0 9px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .055)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Icon name="search" size={13} color={btb.textMuted}/>
             <input
-              autoFocus
+              autoFocus={focusOnOpen()}
               value={query}
               onChange={event => setQuery(event.target.value)}
               onKeyDown={event => event.stopPropagation()}
@@ -608,12 +628,17 @@ export function DiscoverScreen() {
       .sort((a, b) => holdScore(b) - holdScore(a) || (b.volume24hUsd ?? 0) - (a.volume24hUsd ?? 0));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, held, search]);
-  const forYou = showAllForYou ? forYouAll : forYouAll.slice(0, FOR_YOU_MAX);
-  const forYouKeys = useMemo(() => new Set(forYou.map(p => `${p.chain}-${p.id}`)), [forYou]);
-  const rest = useMemo(() => filtered.filter(p => !forYouKeys.has(`${p.chain}-${p.id}`)), [filtered, forYouKeys]);
-  // Phones get cards by TVL, drawn a batch at a time: all ~3,700 at once kept a phone busy for half a minute.
-  const restByTvl = useMemo(() => [...rest].sort((a, b) => b.tvlUsd - a.tvlUsd), [rest]);
-  const mobilePage = useGrowingList(restByTvl.length, 30);
+  // Pairs, not pools: the top pairs for the wallet, each with every pool it has, so a pair is never split
+  // between this section and All pools.
+  const forYouGroups = useMemo(() => groupByPair(forYouAll), [forYouAll]);
+  const forYouPairs = useMemo(() => new Set((showAllForYou ? forYouGroups : forYouGroups.slice(0, FOR_YOU_MAX)).map(g => pairKey(g[0]))), [forYouGroups, showAllForYou]);
+  const forYou = useMemo(() => forYouAll.filter(p => forYouPairs.has(pairKey(p))), [forYouAll, forYouPairs]);
+  const rest = useMemo(() => filtered.filter(p => !forYouPairs.has(pairKey(p))), [filtered, forYouPairs]);
+  // Phones get cards by TVL, a pair to a card, drawn a batch at a time: all ~3,700 at once kept a phone busy for half a minute.
+  const restGroups = useMemo(() => groupByPair([...rest].sort((a, b) => b.tvlUsd - a.tvlUsd)), [rest]);
+  const forYouCardGroups = useMemo(() => groupByPair(forYou), [forYou]);
+  const mobilePage = useGrowingList(restGroups.length, 30);
+  const [openPairs, setOpenPairs] = useState<Set<string>>(new Set());
 
   const chains = useMemo(() => {
     const byName = new Map<string, DiscoverChain>();
@@ -768,6 +793,31 @@ export function DiscoverScreen() {
 
   const columns = allColumns.filter(c => c.key !== 'volume' || hasVolumeData);
 
+  const renderMobileGroup = (group: EarnPool[]) => {
+    const key = pairKey(group[0]);
+    const isOpen = openPairs.has(key);
+    const more = group.length - 1;
+    return (
+      <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {renderMobileCard(group[0])}
+        {more > 0 && (
+          <button type="button" onClick={() => setOpenPairs(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })}
+            style={{ alignSelf: 'flex-start', marginLeft: 12, height: 28, padding: '0 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5,
+              border: isOpen ? '1px solid rgba(var(--green-rgb), 0.45)' : '1px solid rgba(var(--fg-rgb), 0.12)',
+              background: isOpen ? 'rgba(var(--green-rgb), 0.15)' : 'rgba(var(--fg-rgb), 0.05)', color: isOpen ? btb.text : btb.textMuted }}>
+            {isOpen ? 'Hide other pools' : `${more} more pool${more === 1 ? '' : 's'} for this pair`}
+            <Icon name={isOpen ? 'up' : 'down'} size={10} color={btb.textMuted}/>
+          </button>
+        )}
+        {isOpen && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 12, borderLeft: '2px solid rgba(var(--green-rgb), 0.25)', marginLeft: 6 }}>
+            {group.slice(1).map(renderMobileCard)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderMobileCard = (p: EarnPool) => {
             const [s0, s1] = splitPair(p);
             const mine = heldSyms(p);
@@ -884,18 +934,18 @@ export function DiscoverScreen() {
           {!loading && forYou.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 4px 0' }}>
               <span style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3 }}>Pools for your holdings</span>
-              {forYouAll.length > FOR_YOU_MAX && (
+              {forYouGroups.length > FOR_YOU_MAX && (
                 <button onClick={() => setShowAllForYou(v => !v)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {showAllForYou ? 'Show fewer' : `Show all ${forYouAll.length}`}
+                  {showAllForYou ? 'Show fewer' : `Show all ${forYouGroups.length}`}
                 </button>
               )}
             </div>
           )}
-          {!loading && forYou.map(renderMobileCard)}
+          {!loading && forYouCardGroups.map(renderMobileGroup)}
           {!loading && forYou.length > 0 && rest.length > 0 && (
             <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, letterSpacing: -0.3, padding: '8px 4px 0' }}>All pools</div>
           )}
-          {!loading && restByTvl.slice(0, mobilePage.count).map(renderMobileCard)}
+          {!loading && restGroups.slice(0, mobilePage.count).map(renderMobileGroup)}
           {!loading && mobilePage.left > 0 && (
             <div ref={mobilePage.sentinel} style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
               <button type="button" onClick={mobilePage.more} style={{ height: 36, padding: '0 18px', borderRadius: 999, border: btb.borderSoft, background: 'transparent', color: btb.textMuted, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -913,9 +963,9 @@ export function DiscoverScreen() {
                   <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Pools for your holdings</span>
                   <span style={{ color: btb.textDim, fontSize: 12, marginLeft: 10 }}>ranked by what you already hold, both sides first</span>
                 </div>
-                {forYouAll.length > FOR_YOU_MAX && (
+                {forYouGroups.length > FOR_YOU_MAX && (
                   <button onClick={() => setShowAllForYou(v => !v)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {showAllForYou ? 'Show fewer' : `Show all ${forYouAll.length}`}
+                    {showAllForYou ? 'Show fewer' : `Show all ${forYouGroups.length}`}
                   </button>
                 )}
               </div>
@@ -924,6 +974,7 @@ export function DiscoverScreen() {
                   columns={columns}
                   rows={forYou}
                   rowKey={p => `${p.chain}-${p.id}`}
+                  groupBy={pairKey}
                   loading={false}
                   emptyMessage=""
                   onRowClick={p => isMetricPool(p) ? setMetricSheet({ pool: p, simulate: true }) : canSimulatePool(p)
@@ -946,6 +997,7 @@ export function DiscoverScreen() {
               rows={rest}
               pageSize={60}
               rowKey={p => `${p.chain}-${p.id}`}
+              groupBy={pairKey}
               loading={loading}
               emptyMessage="No pools found"
               // Volume, not TVL. Sorting by TVL is what put pools holding nine

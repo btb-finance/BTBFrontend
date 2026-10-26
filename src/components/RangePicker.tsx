@@ -103,78 +103,102 @@ export function RangePicker({
       </div>
     </div>
   );
+  // Min and max, laid out like Wind Swap's: a coloured label with the distance from the price, then minus, the price, plus.
   const card = (which: 'min' | 'max') => {
     const v = which === 'min' ? safeLow : safeHigh;
+    const color = which === 'min' ? btb.loss : btb.green;
+    const rgb = which === 'min' ? 'var(--loss-rgb, 239,68,68)' : 'var(--green-rgb)';
     return (
-      <div style={{ flex: 1, minWidth: 0, padding: '10px 12px', borderRadius: 14, background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.1)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, fontSize: 11 }}>
-          <span style={{ color: btb.textDim, fontWeight: 700 }}>{which === 'min' ? 'Min price' : 'Max price'}</span>
-          {!isFull && <span style={{ color: tone, fontWeight: 800 }}>{dist(v)}</span>}
+      <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 6, fontSize: 11.5 }}>
+          <span style={{ color, fontWeight: 700 }}>{which === 'min' ? 'Min price' : 'Max price'}</span>
+          {!isFull && <span style={{ color, fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 6, background: `rgba(${rgb}, 0.16)` }}>{dist(v)}</span>}
         </div>
-        <input value={isFull ? (which === 'min' ? '0' : '∞') : which === 'min' ? minStr : maxStr} inputMode="decimal" readOnly={isFull}
-          onChange={(e) => (which === 'min' ? onMinStr : onMaxStr)(e.target.value)}
-          style={{ width: '100%', boxSizing: 'border-box', marginTop: 4, padding: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, fontSize: 17, fontWeight: 800, fontFamily: 'inherit' }}/>
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          <button type="button" disabled={isFull} onClick={() => onNudge(which, -1)} style={{ ...smallBtn, flex: 1, height: 28 }} aria-label="Lower">-</button>
-          <button type="button" disabled={isFull} onClick={() => onNudge(which, 1)} style={{ ...smallBtn, flex: 1, height: 28 }} aria-label="Higher">+</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button type="button" disabled={isFull} onClick={() => onNudge(which, -1)} style={stepBtn} aria-label={`${which === 'min' ? 'Min' : 'Max'} price down`}>-</button>
+          <input value={isFull ? (which === 'min' ? '0' : '∞') : which === 'min' ? minStr : maxStr} inputMode="decimal" readOnly={isFull}
+            onChange={(e) => (which === 'min' ? onMinStr : onMaxStr)(e.target.value)}
+            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', height: 34, padding: '0 4px', textAlign: 'center', borderRadius: 10, border: '1px solid rgba(var(--fg-rgb), 0.1)', outline: 'none', background: 'transparent', color: btb.text, fontSize: 16, fontWeight: 800, fontFamily: 'inherit' }}/>
+          <button type="button" disabled={isFull} onClick={() => onNudge(which, 1)} style={stepBtn} aria-label={`${which === 'min' ? 'Min' : 'Max'} price up`}>+</button>
         </div>
       </div>
     );
   };
+  const stepBtn = { ...smallBtn, width: 32, height: 32, borderRadius: 10, fontSize: 17, flexShrink: 0, background: 'rgba(var(--fg-rgb), 0.1)', border: 'none', color: btb.text } as const;
+  // No Custom chip: dragging the band or typing a price already makes the range custom.
+  const allPresets = presets.map((p) => ({ label: p.label, go: () => onPreset(p.pct) }));
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <button type="button" onClick={onFlip} title="Flip which token prices are quoted in" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, padding: 0, border: 'none', background: 'transparent', color: btb.text, fontSize: 13, fontWeight: 750, cursor: 'pointer', fontFamily: 'inherit' }}>
+      {/* Your range: price, depth chart with the draggable band, then min and max. */}
+      <div style={{ padding: 14, borderRadius: 16, background: 'rgba(var(--fg-rgb), 0.04)', border: '1px solid rgba(var(--fg-rgb), 0.1)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700 }}>Your range</span>
+          <span style={{ flexShrink: 0, color: tone, fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 7, background: `linear-gradient(90deg, rgba(${toneRgb}, 0.22), rgba(${toneRgb}, 0.1))`, border: `1px solid rgba(${toneRgb}, 0.3)` }}>
+            {isFull ? 'Full range' : inRange ? 'In range' : 'Out of range'}
+          </span>
+        </div>
+        <button type="button" onClick={onFlip} title="Flip which token prices are quoted in" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0, padding: 0, border: 'none', background: 'transparent', color: btb.text, fontSize: 12.5, fontWeight: 750, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start', maxWidth: '100%' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: btb.green, flexShrink: 0 }}/>
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{priceLabel}</span>
-          <Icon name="swap" size={13} color={btb.textMuted}/>
+          <Icon name="swap" size={12} color={btb.textMuted}/>
         </button>
-        <span style={{ flexShrink: 0, color: tone, fontSize: 11.5, fontWeight: 800, padding: '3px 8px', borderRadius: 999, background: `rgba(${toneRgb}, 0.12)` }}>
-          {isFull ? 'Full range' : inRange ? 'In range' : 'Out of range'}
-        </span>
+
+        <div style={{ position: 'relative', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.03)', overflow: 'hidden' }}>
+          <div onPointerMove={move} onPointerUp={end} onPointerCancel={end} style={{ position: 'relative', height: 108, touchAction: 'none' }}>
+            <svg viewBox={`0 0 ${COLS} 100`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+              {cols.map((c, i) => c > 0 && (
+                <rect key={i} x={i + 0.12} y={100 - (c / maxCol) * 78} width={0.76} height={(c / maxCol) * 78}
+                  fill={(i + 0.5) / COLS * 100 >= left && (i + 0.5) / COLS * 100 <= right ? `rgba(${toneRgb}, 0.5)` : 'rgba(var(--fg-rgb), 0.16)'}/>
+              ))}
+            </svg>
+            <div onPointerDown={(e) => begin(e, 'band')} title="Drag to move the range"
+              style={{ position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${Math.max(0.5, right - left)}%`, background: `linear-gradient(180deg, rgba(${toneRgb}, 0.06), rgba(${toneRgb}, 0.18))`, cursor: 'grab', touchAction: 'none' }}/>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${now}% - 1px)`, width: 2, background: btb.text, opacity: 0.85, pointerEvents: 'none' }}/>
+            <span style={{ position: 'absolute', top: 4, left: `calc(${now}% + 5px)`, color: btb.textDim, fontSize: 9.5, fontWeight: 700, pointerEvents: 'none' }}>Current</span>
+            {!isFull && handle(left, 'low')}
+            {!isFull && handle(right, 'high')}
+          </div>
+          <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
+            <button type="button" onClick={() => setZoom((z) => Math.min(8, z * 1.6))} style={smallBtn} aria-label="Zoom out">-</button>
+            <button type="button" onClick={() => setZoom((z) => Math.max(0.25, z / 1.6))} style={smallBtn} aria-label="Zoom in">+</button>
+            {zoom !== 1 && <button type="button" onClick={() => setZoom(1)} style={{ ...smallBtn, width: 'auto', padding: '0 8px', fontSize: 11 }}>Reset</button>}
+          </div>
+        </div>
+        {/* A thin bar under the chart: the range as a green to chain gradient, like Wind Swap's slider track. */}
+        <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.1)' }}>
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${Math.max(1, right - left)}%`, borderRadius: 999, background: inRange ? 'linear-gradient(90deg, var(--btb-green), var(--chain-accent, var(--btb-green)))' : btb.amber }}/>
+          <div style={{ position: 'absolute', top: -3, width: 3, height: 12, borderRadius: 2, left: `calc(${now}% - 1.5px)`, background: btb.text }}/>
+        </div>
+
+        {inRangePct != null && !isFull && (
+          <div style={{ color: btb.textMuted, fontSize: 11.5 }}>
+            In range <b style={{ color: inRangePct >= 70 ? btb.green : inRangePct >= 40 ? btb.amber : btb.loss }}>{Math.round(inRangePct)}%</b> of the last {inRangeDays ?? 30} days
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 14, marginTop: 2 }}>
+          {card('min')}
+          {card('max')}
+        </div>
       </div>
 
-      {/* Chart: depth histogram, the band with its two handles, the live price. */}
-      <div style={{ position: 'relative', borderRadius: 14, background: 'rgba(var(--fg-rgb), 0.035)', border: '1px solid rgba(var(--fg-rgb), 0.07)', overflow: 'hidden' }}>
-        <div onPointerMove={move} onPointerUp={end} onPointerCancel={end} style={{ position: 'relative', height: 112, touchAction: 'none' }}>
-          <svg viewBox={`0 0 ${COLS} 100`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-            {cols.map((c, i) => c > 0 && (
-              <rect key={i} x={i + 0.12} y={100 - (c / maxCol) * 78} width={0.76} height={(c / maxCol) * 78}
-                fill={(i + 0.5) / COLS * 100 >= left && (i + 0.5) / COLS * 100 <= right ? `rgba(${toneRgb}, 0.45)` : 'rgba(var(--fg-rgb), 0.16)'}/>
-            ))}
-          </svg>
-          <div onPointerDown={(e) => begin(e, 'band')} title="Drag to move the range"
-            style={{ position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${Math.max(0.5, right - left)}%`, background: `rgba(${toneRgb}, 0.12)`, cursor: 'grab', touchAction: 'none' }}/>
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${now}% - 1px)`, width: 2, background: btb.text, opacity: 0.85, pointerEvents: 'none' }}/>
-          {!isFull && handle(left, 'low')}
-          {!isFull && handle(right, 'high')}
+      {/* Presets under the range card, one compact row; the lit one gets the green gradient. Scrolls sideways if six do not fit. */}
+      <div>
+        <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Range</div>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+          {allPresets.map((p) => {
+            const on = activePreset === p.label;
+            return (
+              <button key={p.label} type="button" onClick={p.go} style={{
+                flex: '1 0 auto', minWidth: 52, padding: '0 10px', height: 34, borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap',
+                background: on ? 'linear-gradient(135deg, rgba(var(--green-rgb), 0.28), rgba(var(--green-rgb), 0.08))' : 'rgba(var(--fg-rgb), 0.05)',
+                border: on ? '1px solid rgba(var(--green-rgb), 0.5)' : '1px solid rgba(var(--fg-rgb), 0.1)',
+                color: on ? btb.text : btb.textMuted,
+              }}>{p.label}</button>
+            );
+          })}
         </div>
-        <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
-          <button type="button" onClick={() => setZoom((z) => Math.min(8, z * 1.6))} style={smallBtn} aria-label="Zoom out">-</button>
-          <button type="button" onClick={() => setZoom((z) => Math.max(0.25, z / 1.6))} style={smallBtn} aria-label="Zoom in">+</button>
-          {zoom !== 1 && <button type="button" onClick={() => setZoom(1)} style={{ ...smallBtn, width: 'auto', padding: '0 8px', fontSize: 11 }}>Reset</button>}
-        </div>
-      </div>
-
-      {inRangePct != null && !isFull && (
-        <div style={{ color: btb.textMuted, fontSize: 12 }}>
-          In range <b style={{ color: inRangePct >= 70 ? btb.green : inRangePct >= 40 ? btb.amber : btb.loss }}>{Math.round(inRangePct)}%</b> of the last {inRangeDays ?? 30} days
-        </div>
-      )}
-
-      {/* Chips share the row while they fit and scroll sideways when they do not (six on a small phone). */}
-      <div style={{ display: 'flex', gap: 4, padding: 3, borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.05)', overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {[...presets.map((p) => ({ label: p.label, go: () => onPreset(p.pct) })), { label: 'Custom', go: () => onRange(safeLow, safeHigh) }].map((p) => {
-          const on = activePreset === p.label;
-          return (
-            <button key={p.label} type="button" onClick={p.go} style={{ flex: '1 0 auto', padding: '0 10px', height: 30, borderRadius: 9, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, whiteSpace: 'nowrap', background: on ? `rgba(${toneRgb}, 0.18)` : 'transparent', color: on ? tone : btb.textMuted }}>{p.label}</button>
-          );
-        })}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8 }}>
-        {card('min')}
-        {card('max')}
       </div>
     </div>
   );
