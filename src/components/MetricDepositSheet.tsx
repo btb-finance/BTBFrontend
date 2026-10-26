@@ -217,7 +217,11 @@ export function MetricDepositSheet({ chainId, pool, salt: existingSalt, simulate
               const amt = amounts[k];
               const shown = inputSide === k ? amtStr : amt > 0n ? String(Number(Number(formatUnits(amt, decOf(k))).toPrecision(6))) : '';
               return (
-                <div key={k} style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${short[k] ? 'rgba(var(--loss-rgb, 239,68,68), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}`, borderRadius: 16, padding: '12px 14px', marginBottom: 8 }}>
+                <div key={k} style={{ background: 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${short[k] ? 'rgba(var(--loss-rgb, 239,68,68), 0.6)' : 'rgba(var(--fg-rgb), 0.1)'}`, borderRadius: 14, padding: '10px 12px', marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, fontSize: 11.5 }}>
+                    <span style={{ color: btb.textMuted, fontWeight: 700 }}>You deposit</span>
+                    {address && <span style={{ color: short[k] ? btb.loss : btb.textDim }}>Bal: {bal ? fmtAmt(spendable(k), decOf(k)) : '…'}</span>}
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <input value={shown} onChange={(e) => { setEdited(k); setAmtStr(e.target.value.replace(/[^0-9.]/g, '')); }} inputMode="decimal" placeholder="0" disabled={!mixNow}
                       style={{ flex: 1, minWidth: 0, background: 'transparent', border: 'none', color: btb.text, fontSize: 24, fontWeight: 700, fontFamily: 'inherit', outline: 'none', padding: 0 }}/>
@@ -228,17 +232,24 @@ export function MetricDepositSheet({ chainId, pool, salt: existingSalt, simulate
                           return <button key={t} type="button" onClick={() => setUseNative(i === 0)} style={{ height: 28, padding: '0 10px', borderRadius: 999, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800, background: on ? btb.text : 'transparent', color: on ? 'rgba(var(--bg-rgb), 1)' : btb.textMuted }}>{t}</button>;
                         })}
                       </div>
-                    ) : <span style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>{sym(k)}</span>}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 12 }}>
-                    <span style={{ color: btb.textDim }}>{amt > 0n && usdOf(k, amt) > 0 ? money(usdOf(k, amt)) : ''}</span>
-                    {address && (
-                      <span style={{ color: short[k] ? btb.loss : btb.textMuted }}>
-                        Balance {bal ? fmtAmt(spendable(k), decOf(k)) : '…'}
-                        <span onClick={() => { const b = spendable(k); if (b > 0n) { setEdited(k); setAmtStr(formatUnits(b, decOf(k))); } }} style={{ color: btb.green, fontWeight: 800, marginLeft: 8, cursor: 'pointer' }}>MAX</span>
+                    ) : (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 4px 5px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.08)' }}>
+                        <TokenIcon symbol={sym(k)} size={20} logoUrl={k === 0 ? info.logo0 : info.logo1}/>
+                        <span style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>{sym(k)}</span>
                       </span>
                     )}
                   </div>
+                  <div style={{ color: btb.textDim, fontSize: 11, marginTop: 3, minHeight: 15 }}>{amt > 0n && usdOf(k, amt) > 0 ? money(usdOf(k, amt)) : ''}</div>
+                  {address && spendable(k) > 0n && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                      {[25, 50, 75, 100].map((pct) => (
+                        <button key={pct} type="button" onClick={() => { setEdited(k); setAmtStr(formatUnits((spendable(k) * BigInt(pct)) / 100n, decOf(k))); }} style={{
+                          flex: 1, height: 24, borderRadius: 7, border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 10.5, fontWeight: 800,
+                          background: 'rgba(var(--fg-rgb), 0.05)', color: pct === 100 ? btb.green : btb.textMuted,
+                        }}>{pct === 100 ? 'MAX' : `${pct}%`}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -264,12 +275,12 @@ export function MetricDepositSheet({ chainId, pool, salt: existingSalt, simulate
             {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 10 }}>{err}</div>}
 
             {simMode ? (
-              <Button variant="success" size="md" onClick={() => setSimMode(false)} disabled={!!blocked} style={{ marginTop: 16, fontWeight: 800, width: '100%' }}>
+              <Button variant="success" size="md" onClick={() => setSimMode(false)} disabled={!!blocked} style={{ marginTop: 16, minHeight: 48, borderRadius: 14, fontWeight: 800, fontSize: 15, width: '100%' }}>
                 Add liquidity
               </Button>
             ) : (
               <Button variant="success" size="md" onClick={() => { if (!busy && hasAmount && !short[0] && !short[1] && !blocked && address) void deposit(); }}
-                disabled={busy || !hasAmount || short[0] || short[1] || !!blocked || !address} style={{ marginTop: 16, fontWeight: 800, width: '100%' }}>
+                disabled={busy || !hasAmount || short[0] || short[1] || !!blocked || !address} style={{ marginTop: 16, minHeight: 48, borderRadius: 14, fontWeight: 800, fontSize: 15, width: '100%' }}>
                 {busy ? 'Confirm in your wallet' : !address ? 'Connect a wallet' : short[0] || short[1] ? `Not enough ${short[0] ? sym(0) : sym(1)}` : hasAmount ? (existingSalt != null ? 'Increase liquidity' : 'Add liquidity') : 'Enter an amount'}
               </Button>
             )}

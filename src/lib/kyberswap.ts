@@ -71,6 +71,7 @@ export async function getKyberQuote(
   const rs = json.data?.routeSummary;
   const amountOut = rs?.amountOut ?? '0';
   const amountOutNum = parseInt(amountOut) / Math.pow(10, decimalsOut);
+  const amountInNum = parseInt(rs?.amountIn ?? '0') / Math.pow(10, options.decimalsIn ?? 18);
 
   const paths: string[] = [];
   for (const route of (rs?.route ?? [])) {
@@ -83,9 +84,8 @@ export async function getKyberQuote(
     amountOut,
     amountOutFormatted: amountOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 }),
     amountOutUsd:  parseFloat(rs?.amountOutUsd ?? '0'),
-    rate:          parseFloat(rs?.amountInUsd ?? '1') > 0
-                   ? amountOutNum / (parseInt(rs?.amountIn ?? '1') / Math.pow(10, options.decimalsIn ?? 18))
-                   : 0,
+    // Out per in, from the amounts alone: a token Kyber has no USD price for still has a rate.
+    rate:          amountInNum > 0 ? amountOutNum / amountInNum : 0,
     priceImpact:   parseFloat(rs?.priceImpact ?? '0'),
     gasUsd:        parseFloat(rs?.gasUsd ?? '0'),
     route:         paths.slice(0, 3).join(' · ') || 'KyberSwap',

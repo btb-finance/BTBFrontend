@@ -93,6 +93,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   const [sendToken, setSendToken]     = useState<Token | undefined>();
   const [swapToken, setSwapToken]     = useState<Token | undefined>();
   const [swapKey, setSwapKey]         = useState(0);
+  // A new screen starts at the top: without this, Get BTB from low on the Stake page opened Swap scrolled down.
+  useEffect(() => { window.scrollTo({ top: 0 }); }, [screen, overlay, swapKey]);
 
   // Warm the BearNFT/BearStaking reads while the user is anywhere in the app so
   // the NFT/Agent tab is instant when they open it.
