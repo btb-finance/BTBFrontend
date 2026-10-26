@@ -1,65 +1,57 @@
 'use client';
-/** Forward-model horizon picker. It intentionally shows assumptions, not a
- * made-up future portfolio value. */
+/** The forward model by period, in plain columns: the fees the position should earn, what a typical price move
+ * costs it against just holding, the net of the two, and the chance it is still in range. Shown inside the price
+ * risk section; tapping a period sets the page's horizon. */
 import { btb } from '../../design-tokens';
-import { Section, fmtUsd, fmtSignedPct, chart } from '../ui';
+import { fmtUsd, fmtSignedPct } from '../ui';
 import type { Sim } from '../simState';
 
-export function Timeline({ sim, setHorizonDays, isMobile }: {
+export function TimelineRows({ sim, setHorizonDays, isMobile }: {
   sim: Sim;
   setHorizonDays: (d: number) => void;
   isMobile: boolean;
 }) {
+  const steps = sim.timeline.filter((s) => s.days > 0);
+  const th = { textAlign: 'right' as const, padding: '8px 10px', color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4, borderBottom: btb.borderSoft, whiteSpace: 'nowrap' as const };
+  const td = { textAlign: 'right' as const, padding: '9px 10px', fontSize: isMobile ? 12 : 12.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const };
   return (
-    <Section
-      kicker="Forward model"
-      title="Range coverage over time"
-      subtitle="A scenario based on trailing daily volatility and average pool fees—not future data. Tap a period to set the horizon for the model above."
-    >
-      <div style={{ position: 'relative', paddingLeft: 22 }}>
-        {/* spine */}
-        <div style={{ position: 'absolute', left: 7, top: 8, bottom: 8, width: 2, borderRadius: 2, background: 'rgba(var(--fg-rgb), 0.1)' }} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {sim.timeline.map((step) => {
-            const selected = step.days === sim.horizonDays;
-            const clickable = step.days > 0;
-            return (
-              <div key={step.label} onClick={clickable ? () => setHorizonDays(step.days) : undefined} style={{
-                position: 'relative', borderRadius: 14, padding: '10px 13px',
-                cursor: clickable ? 'pointer' : 'default',
-                background: selected ? 'rgba(var(--green-rgb), 0.09)' : 'rgba(var(--fg-rgb), 0.03)',
-                border: `1px solid ${selected ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.07)'}`,
-              }}>
-                {/* node on the spine */}
-                <div style={{
-                  position: 'absolute', left: -19.5, top: 16, width: 9, height: 9, borderRadius: 999,
-                  background: selected ? 'var(--btb-green)' : 'rgba(var(--fg-rgb), 0.3)',
-                  boxShadow: selected ? '0 0 8px rgba(var(--green-rgb), 0.7)' : 'none',
-                }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <span style={{ color: selected ? 'var(--btb-green)' : btb.text, fontSize: 13, fontWeight: 800, width: 68, flexShrink: 0 }}>
-                    {step.label}
-                  </span>
-                  {step.days === 0 ? (
-                    <span style={{ color: btb.textMuted, fontSize: 12 }}>Deposit {fmtUsd(sim.depositUsd)} · position opens</span>
-                  ) : (
-                    <div style={{ display: 'flex', gap: isMobile ? 10 : 18, flexWrap: 'wrap', flex: 1, fontSize: 11.5 }}>
-                      <span style={{ color: chart.fees, fontWeight: 700 }}>est. fees {fmtUsd(step.feesUsd)}</span>
-                      <span style={{ color: chart.il, fontWeight: 700 }}>
-                        LP vs hold {fmtSignedPct(step.ilAtMinus1s * 100, 1)} to {fmtSignedPct(step.ilAtPlus1s * 100, 1)}
-                      </span>
-                      <span style={{ color: btb.textMuted, fontWeight: 700 }}>model coverage {Math.round(step.inRangeProb * 100)}%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+    <>
+      <div style={{ overflowX: 'auto', border: btb.borderSoft, borderRadius: 12 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={{ ...th, textAlign: 'left' }}>After</th>
+              <th style={th}>Fees</th>
+              <th style={th}>Price-move loss</th>
+              <th style={th}>Net</th>
+              <th style={th}>Still in range</th>
+            </tr>
+          </thead>
+          <tbody>
+            {steps.map((step) => {
+              const on = step.days === sim.horizonDays;
+              const feesPct = sim.depositUsd > 0 ? (step.feesUsd / sim.depositUsd) * 100 : 0;
+              // A typical move either way over the period; the worse of the two directions.
+              const lossPct = Math.min(step.ilAtMinus1s, step.ilAtPlus1s) * 100;
+              const netPct = feesPct + lossPct;
+              return (
+                <tr key={step.label} onClick={() => setHorizonDays(step.days)} style={{ cursor: 'pointer', background: on ? 'rgba(var(--green-rgb), 0.09)' : 'transparent' }}>
+                  <td style={{ ...td, textAlign: 'left', color: on ? btb.green : btb.text, fontWeight: 800 }}>{step.label}</td>
+                  <td style={{ ...td, color: btb.green }}>{fmtUsd(step.feesUsd)}</td>
+                  <td style={{ ...td, color: lossPct < -0.05 ? btb.amber : btb.textMuted }}>{fmtSignedPct(lossPct, 1)}</td>
+                  <td style={{ ...td, color: netPct >= 0 ? btb.green : btb.loss }}>{fmtSignedPct(netPct, 1)}</td>
+                  <td style={{ ...td, color: btb.textMuted }}>{Math.round(step.inRangeProb * 100)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-      <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.45 }}>
-        Estimated fees use trailing average pool fees × your estimated liquidity share × modelled time in range. LP vs hold shows the result at one standard-deviation price moves in either direction. It is not a prediction, APR, or future portfolio value.
+      <div style={{ color: btb.textDim, fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+        Fees: what your {fmtUsd(sim.depositUsd)} should earn, counting only the time it stays in range. Price-move loss: how far behind just holding the
+        tokens you would be after a typical price move for that period, up or down. Net: fees plus that loss as a share of your deposit. Still in range:
+        the chance the price is inside your range at the end. Estimates from recent fees and volatility, not forecasts.
       </div>
-    </Section>
+    </>
   );
 }

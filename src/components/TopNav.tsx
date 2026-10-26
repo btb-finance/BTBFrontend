@@ -1,4 +1,5 @@
 'use client';
+import { useUiLock } from '../lib/uiLock';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { btb } from './design-tokens';
@@ -37,6 +38,7 @@ export function TopNav({
   onDocs: () => void;
   onConnect: () => void;
 }) {
+  const { signing } = useUiLock();
   const [moreOpen, setMoreOpen] = useState(false);
   // iPad portrait and half-screen windows: tighter tabs and no wordmark, so nothing overlaps.
   const { forceCollapsed: tight } = useSidebar();
@@ -80,7 +82,8 @@ export function TopNav({
       </div>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
-      <nav style={{
+      <nav aria-disabled={signing || undefined} style={{
+        ...(signing ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
         position: 'relative', display: 'flex', alignItems: 'center', gap: 2, padding: 4, borderRadius: 999,
         background: btb.glass, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: btb.shadow,
       }}>

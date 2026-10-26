@@ -205,7 +205,10 @@ export function usePoolExtras(
     const ratio = last > 0 && price > 0 ? price / last : 1;
     const closes = bars.map((b) => b.close * ratio);
 
-    const feeFraction = feeTier > 0 ? feeTier / 1_000_000 : 0;
+    // The pool's live fee when it reports one: Aero's dynamic fee runs well under the tier in its name (0.0085% on
+    // a pool named 0.02%), and charging the nominal tier would overstate every replayed day.
+    const feePips = pool.poolFeePips ?? feeTier;
+    const feeFraction = feePips > 0 ? feePips / 1_000_000 : 0;
     if (feeFraction <= 0) return { fallbackCloses: closes, estimatedHistory: null };
 
     const todayBucket = Math.floor(Date.now() / 1000 / 86400) * 86400;
@@ -221,7 +224,9 @@ export function usePoolExtras(
       }))
       .filter((d) => d.date > 0 && d.date < todayBucket);
 
-    return { fallbackCloses: closes, estimatedHistory: days.length >= 5 ? days : null };
+    // Two complete days are enough to replay: a pool a few days old (Aero's, launched 2026-10-22) gets a short
+    // replay over what it has instead of none. The volatility and range statistics keep their own minimums.
+    return { fallbackCloses: closes, estimatedHistory: days.length >= 2 ? days : null };
   }, [barsData, pool, price, feeTier]);
 
   const poolCreatedAt = pool ? statsQ.data?.[pool.address.toLowerCase()]?.createdAt ?? null : null;

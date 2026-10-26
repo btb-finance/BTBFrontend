@@ -1,5 +1,5 @@
 'use client';
-/** Section 1 — Position Summary. The at-a-glance hero AND the primary control:
+/** Position summary. The at-a-glance hero AND the primary control:
  * the range bar is draggable, so setting the range here re-derives every
  * section below it against the pool's real on-chain state and fee history. */
 import { useEffect, useRef, useState } from 'react';
@@ -13,8 +13,10 @@ import type { Sim } from '../simState';
 
 type DragKind = 'lo' | 'hi' | 'band';
 
-export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositStr, setDepositStr, feeOptions, feeTier, setFeeTier, feeLocked, compound, setCompound }: {
+export function PositionSummary({ sim, logos, onToggleFlip, onRange, isMobile, depositStr, setDepositStr, feeOptions, feeTier, setFeeTier, feeLocked, compound, setCompound }: {
   sim: Sim;
+  /** Logos for the base and quote token, in display order. */
+  logos?: (string | undefined)[];
   onToggleFlip: () => void;
   /** Commit a new range in DISPLAY price space. Drives the whole page. */
   onRange: (lo: number, hi: number) => void;
@@ -113,8 +115,8 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 7 : 10, flexWrap: isMobile ? 'nowrap' : 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex' }}>
-              <TokenIcon symbol={sim.dispBase} size={isMobile ? 22 : 26} />
-              <div style={{ marginLeft: isMobile ? -7 : -8 }}><TokenIcon symbol={sim.dispQuote} size={isMobile ? 22 : 26} /></div>
+              <TokenIcon symbol={sim.dispBase} size={isMobile ? 22 : 26} logoUrl={logos?.[0]} />
+              <div style={{ marginLeft: isMobile ? -7 : -8 }}><TokenIcon symbol={sim.dispQuote} size={isMobile ? 22 : 26} logoUrl={logos?.[1]} /></div>
             </div>
             <span style={{ color: btb.text, fontSize: isMobile ? 14 : 17, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
               {sim.dispBase} / {sim.dispQuote}
@@ -124,26 +126,20 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               fontSize: 10, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.07)', border: btb.borderSoft, color: btb.textMuted,
             }}>⇄</button>
           </div>
-          <span title="Live pool data" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 800, color: btb.green,
-            background: 'rgba(var(--green-rgb), 0.1)', border: '1px solid rgba(var(--green-rgb), 0.35)', borderRadius: 999, padding: '4px 9px',
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: btb.green, boxShadow: '0 0 6px #52E3A4' }} />
-            {isMobile ? null : 'LIVE POOL DATA'}
-          </span>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ color: btb.textDim, fontSize: isMobile ? 8.5 : 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>{isMobile ? 'Price' : 'Live Price'}</div>
+            <div style={{ color: btb.textDim, fontSize: isMobile ? 9 : 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Price now</div>
             <div style={{ color: btb.text, fontSize: isMobile ? 14 : 16, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
-              {fmtPrice(sim.dispPrice)} <span style={{ color: btb.textDim, fontSize: isMobile ? 9.5 : 11, fontWeight: 600 }}>{sim.dispQuote}</span>
+              <span style={{ color: btb.textMuted, fontSize: isMobile ? 11 : 12.5, fontWeight: 600 }}>1 {sim.dispBase} = </span>
+              {fmtPrice(sim.dispPrice)} <span style={{ color: btb.textMuted, fontSize: isMobile ? 11 : 12.5, fontWeight: 600 }}>{sim.dispQuote}</span>
             </div>
           </div>
         </div>
 
         {/* Real pool numbers, straight from chain + indexer */}
         <div style={{
-          display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)', gap: 8, marginTop: 14,
+          display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 14,
         }}>
-          {[
+          {([
             { label: 'Pool TVL', value: sim.tvlUsd != null ? fmtCompactUsd(sim.tvlUsd) : '—', note: 'on chain' },
             { label: '7D volume', value: sim.poolVolume7dUsd != null ? fmtCompactUsd(sim.poolVolume7dUsd) : '—', note: 'indexed swaps' },
             { label: 'Vol / TVL', value: sim.volumeToTvl7d != null ? `${(sim.volumeToTvl7d * 100).toFixed(0)}%` : '—', note: '7 day turnover' },
@@ -155,7 +151,7 @@ export function PositionSummary({ sim, onToggleFlip, onRange, isMobile, depositS
               value: sim.poolAgeDays != null ? (sim.poolAgeDays < 1 ? 'new' : sim.poolAgeDays < 90 ? `${sim.poolAgeDays}d` : `${Math.round(sim.poolAgeDays / 30)}mo`) : '—',
               note: sim.poolAgeDays != null && sim.poolAgeDays < 14 ? 'new pool — early APR is often inflated' : 'since creation',
             },
-          ].map((s) => (
+          ] as { label: string; value: string; note: string }[]).filter((s) => s.value !== '—').map((s) => (
             <div key={s.label} style={{ background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '8px 11px', minWidth: 0 }}>
               <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.label}</div>
               <div style={{ color: btb.text, fontSize: 14, fontWeight: 800, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.value}</div>

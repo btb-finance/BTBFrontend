@@ -81,7 +81,6 @@ export interface TimelineStep {
   inRangeProb: number;      // model terminal coverage at this step
 }
 
-export interface RiskAxis { name: string; risk: number; note: string }
 
 export interface Sim {
   // identity + orientation
@@ -149,7 +148,6 @@ export interface Sim {
   netAprPct: number;
   health: Health;
   timeline: TimelineStep[];
-  risk: RiskAxis[];
   /** Historical daily-snapshot replay for this range. Null when no subgraph history. */
   backtest: BacktestResult | null;
   /** Real daily closes in DISPLAY space with in-range flags, for the backtest chart. */
@@ -160,8 +158,6 @@ export interface Sim {
   tvlUsd: number | null;
   gasUsd: number;
 }
-
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
 export function deriveSim(i: SimInputs): Sim | null {
   const { pool, tokenUsd, depositUsd } = i;
@@ -390,24 +386,6 @@ export function deriveSim(i: SimInputs): Sim | null {
     };
   });
 
-  // ── Risk radar (0 = calm, 100 = risky) ─────────────────────────────────────
-  const feeCv = (() => {
-    const vals = dailyFeeSeries.map((d) => d.feesUsd).filter((v) => v > 0);
-    if (vals.length < 5) return null;
-    const m = vals.reduce((s, v) => s + v, 0) / vals.length;
-    const sd = Math.sqrt(vals.reduce((s, v) => s + (v - m) ** 2, 0) / (vals.length - 1));
-    return m > 0 ? sd / m : null;
-  })();
-  const oneSided = Math.abs(value0Usd / depositUsd - 0.5) * 2;
-  const risk: RiskAxis[] = [
-    { name: 'Volatility', risk: Math.round(clamp01((sigmaDaily - 0.005) / 0.075) * 100), note: `Pair moves about ${(sigmaDaily * 100).toFixed(1)}% a day.` },
-    { name: 'Liquidity', risk: Math.round((1 - (i.tvlUsd == null ? 0.5 : clamp01((Math.log10(Math.max(i.tvlUsd, 1)) - 4) / 3))) * 100), note: i.tvlUsd != null ? `Pool TVL ${i.tvlUsd >= 1e6 ? `$${(i.tvlUsd / 1e6).toFixed(1)}M` : `$${Math.round(i.tvlUsd / 1e3)}k`}.` : 'Pool TVL unknown.' },
-    { name: 'Range', risk: Math.round(clamp01(1 - halfWidthLog / (2 * Math.max(sH, 1e-6))) * 100), note: 'How narrow your range is vs how far this pair typically moves.' },
-    { name: 'Fees', risk: feeCv == null ? 50 : Math.round(clamp01(feeCv / 1.5) * 100), note: feeCv == null ? 'Not enough fee history to judge steadiness.' : 'How much daily fee income swings day to day.' },
-    { name: 'Exposure', risk: Math.round(oneSided * 100), note: `Entry is ${Math.round((value0Usd / depositUsd) * 100)}% ${pool.symbol0} / ${Math.round((value1Usd / depositUsd) * 100)}% ${pool.symbol1}.` },
-    { name: 'IL', risk: Math.round(clamp01(Math.abs(expectedIlFraction) / 0.1) * 100), note: `Expected impermanent loss about ${(expectedIlFraction * 100).toFixed(1)}% at the horizon.` },
-  ];
-
   const netAprPct = ((expectedFeesUsd + depositUsd * expectedIlFraction - i.gasUsd) / depositUsd) * (365 / H) * 100;
 
   // ── Adverse selection (LVR) — the rebalancing benchmark LPs quote ──────────
@@ -464,7 +442,7 @@ export function deriveSim(i: SimInputs): Sim | null {
     hodlUsd, lpUsd, ilFraction, feesTo, netUsd, dispToPool, poolToDisp,
     movePct: i.movePct, endPrice, dispEndPrice,
     waterfall, comparison, scenarios, worstUsd, bestUsd, probPositive, expectedIlFraction,
-    netAprPct, health, timeline, risk,
+    netAprPct, health, timeline,
     backtest, backtestDays,
     histCloses, horizonDays: H, tvlUsd: i.tvlUsd, gasUsd: i.gasUsd,
   };

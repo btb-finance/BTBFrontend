@@ -1,5 +1,5 @@
 'use client';
-/** Section 5 — Impermanent Loss. The concentrated-range IL curve across price
+/** Price risk and time in range. The concentrated-range IL curve across price
  * moves, drawn against expected fee income so the crossover (where LPing beats
  * holding) is the visible story. Hover anywhere for the full breakdown. */
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import type { Sim } from '../simState';
 const W = 640, H = 230, PADX = 34, PADY = 14, AXIS = 20;
 const MOVES = { min: -60, max: 60 };
 
-export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
+export function ILPanel({ sim, isMobile, children }: { sim: Sim; isMobile?: boolean; children?: React.ReactNode }) {
   const [hoverMove, setHoverMove] = useState<number | null>(null);
 
   // All three series as % of the deposit, per display-space move.
@@ -46,9 +46,8 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
 
   return (
     <Section
-      kicker="Section 5"
-      title="Impermanent Loss"
-      subtitle={`IL for YOUR range, not the generic curve: a concentrated range loses faster inside the band, then flattens once the price exits (the position becomes 100% one token). Fees assume a steady move over ${sim.horizonDays} days.`}
+      title="Price risk and time in range"
+      subtitle={`Impermanent loss for your range, not the generic curve: a concentrated range loses faster inside the band, then flattens once the price exits (the position becomes 100% one token). Fees assume a steady move over ${sim.horizonDays} days.`}
     >
       <div style={{ background: 'rgba(var(--fg-rgb), 0.03)', border: btb.borderSoft, borderRadius: 14, padding: '10px 8px 2px', position: 'relative' }}>
         <svg
@@ -128,16 +127,6 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
           <Stat label="IL at range edge" value={fmtSignedPct(sim.ilAtEdge * 100)} sub="loss vs holding at a boundary" />
         </div>
       )}
-      {/* Adverse selection benchmark: the modern academic yardstick for LP
-          performance — can fees beat simply rebalancing the same capital? */}
-      {sim.lvrDailyPct != null && sim.feeDailyPct != null && (
-        <div style={{ marginTop: 10, color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-          Adverse-selection benchmark (LVR): while in range, arbitrage against this position costs about{' '}
-          <b style={{ color: btb.loss }}>−{sim.lvrDailyPct.toFixed(2)}%/day</b> against fee income of{' '}
-          <b style={{ color: sim.feeDailyPct > sim.lvrDailyPct ? btb.green : btb.loss }}>+{sim.feeDailyPct.toFixed(2)}%/day</b> —{' '}
-          {sim.feeDailyPct > sim.lvrDailyPct ? 'fees currently beat the benchmark.' : 'the benchmark currently beats these fees.'}
-        </div>
-      )}
       {/* legend (three series, also direct-labeled on chart) */}
       <div style={{ display: 'flex', gap: 14, marginTop: 10, flexWrap: 'wrap' }}>
         {[[chart.fees, 'Fees earned'], [chart.il, 'Impermanent loss'], [chart.net, 'Net vs just holding']].map(([c, l]) => (
@@ -146,6 +135,12 @@ export function ILPanel({ sim, isMobile }: { sim: Sim; isMobile?: boolean }) {
           </span>
         ))}
       </div>
+      {children && (
+        <div style={{ marginTop: 18 }}>
+          <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>By period (tap one to set the horizon)</div>
+          {children}
+        </div>
+      )}
     </Section>
   );
 }

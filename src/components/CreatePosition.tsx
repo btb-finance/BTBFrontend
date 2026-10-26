@@ -8,6 +8,8 @@ import { Icon } from './Icon';
 import { Portal } from './Portal';
 import { Button } from './Button';
 import { TokenIcon } from './TokenIcon';
+import { useSheetOpen } from '../lib/uiLock';
+import { ChainLogo } from './ChainLogo';
 import { btb, MOBILE_GUTTER } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
@@ -160,6 +162,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   /** Rebalancing by hand: the old position's tag, moved to the position this mints. */
   carryTag?: { key: string; tag: string };
 }) {
+  // A full page sheet: the phone's bottom menu stays out of its way while it is open.
+  useSheetOpen(true);
   const { width: sidebarWidth, isMobile } = useSidebar();
   const { address } = useConnection();
   const config = useConfig();
@@ -281,15 +285,17 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const [flipManual, setFlipManual] = useState<boolean | null>(null);
 
   const isV4 = v4PoolId !== undefined;
-  // Auto-orientation: quote the volatile token in the stablecoin
-  // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH") — the way people read a
-  // pair. Only kicks in when exactly one side is a stablecoin; else pool order.
+  // Auto-orientation, the same rule as the simulator beside it: quote the volatile token in the stablecoin
+  // ("1 WETH = 2,000 USDC", not "1 USDC = 0.0005 WETH"); with no stablecoin (or two), the way that reads as a number
+  // of at least 1 ("1 cbBTC = 116,144 AERO", not 0.0000086).
   const autoFlip = useMemo(() => {
     const p = pools?.[fee];
     if (!p) return false;
     const s0 = STABLES.has((p.symbol0 ?? '').toUpperCase());
     const s1 = STABLES.has((p.symbol1 ?? '').toUpperCase());
-    return s0 && !s1; // token0 stable → base the volatile token1
+    if (s0 !== s1) return s0; // token0 stable → base the volatile token1
+    const raw = ((Number(p.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (p.decimals0 - p.decimals1);
+    return raw > 0 && raw < 1;
   }, [pools, fee]);
   const flip = flipManual ?? autoFlip;
   const dexLabel = dex === 'aerodrome' ? (deployment.label ?? 'Aerodrome') : dex === 'pancakeswap' ? 'PancakeSwap V3' : dex === 'aero' || dex === 'giga' || dex === 'ramses' || dex === 'up' || dex === 'sushiswap' || dex === 'alandale' ? (deployment.label ?? dex) : `Uniswap ${isV4 ? 'V4' : 'V3'}`;
@@ -550,6 +556,19 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     const above = aboveLower < ticks.tickUpper ? { tickLower: aboveLower, tickUpper: ticks.tickUpper } : null;
     return { below, above };
   }, [pool, ticks, spacing, isV4]);
+
+  // One-sided LP, as on Wind Swap: a range covering 10% of price that starts just past the live price, so it takes
+  // only one token. Above the price it holds token0, below it token1; the same one-tick gap as the split ranges.
+  const oneSided = useMemo(() => {
+    if (!pool || !spacing) return null;
+    const width = Math.ceil(Math.log(1.1) / Math.log(1.0001) / spacing) * spacing;
+    const aboveLower = Math.ceil((pool.tick + 1) / spacing) * spacing;
+    const belowUpper = Math.floor((pool.tick - 1) / spacing) * spacing;
+    return {
+      above: { tickLower: aboveLower, tickUpper: aboveLower + width },
+      below: { tickLower: belowUpper - width, tickUpper: belowUpper },
+    };
+  }, [pool, spacing]);
 
   // Keep the min/max price inputs (display space) in sync with the preset / smart fit.
   useEffect(() => {
@@ -1667,15 +1686,32 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     <Portal>
     <div onScroll={fitFormCol} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
       <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? `12px ${MOBILE_GUTTER}px 96px` : '16px 24px 88px' }}>
-        {/* Header in Wind Swap's style: an icon tile, the title and what it does, a square close on the right. */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        {/* One header that says what this is and for which pool: the pair's logos with the chain on them, "Add
+            liquidity" and the pair, then the fee, DEX and chain. Replaces a generic icon tile plus a separate pool strip. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, rgba(var(--green-rgb), 0.25), rgba(var(--green-rgb), 0.06))', border: '1px solid rgba(var(--green-rgb), 0.25)' }}>
-              <Icon name={simOnly ? 'chart' : 'plus'} size={18} color={btb.green}/>
-            </div>
+            {pool ? (
+              <div style={{ position: 'relative', display: 'flex', flexShrink: 0, paddingRight: 4 }}>
+                <TokenIcon symbol={flip ? sym1 : sym0} size={isMobile ? 34 : 40} logoUrl={sideLogo(flip ? 1 : 0)}/>
+                <div style={{ marginLeft: isMobile ? -12 : -14 }}><TokenIcon symbol={flip ? sym0 : sym1} size={isMobile ? 34 : 40} logoUrl={sideLogo(flip ? 0 : 1)}/></div>
+                <span style={{ position: 'absolute', right: -2, bottom: -3, borderRadius: '50%', padding: 2, background: btb.bg, display: 'inline-flex' }}>
+                  <ChainLogo chainId={chainId} size={16}/>
+                </span>
+              </div>
+            ) : (
+              <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--green-rgb), 0.12)' }}>
+                <Icon name={simOnly ? 'chart' : 'plus'} size={18} color={btb.green}/>
+              </div>
+            )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ color: btb.text, fontSize: isMobile ? 18 : 20, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate' : 'Add liquidity'}</div>
-              <div style={{ color: btb.textMuted, fontSize: 12 }}>{simOnly ? 'Try a deposit and see what it earns' : 'Deposit tokens to earn fees'}</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0, whiteSpace: 'nowrap' }}>
+                <span style={{ color: btb.text, fontSize: isMobile ? 18 : 21, fontWeight: 800, letterSpacing: -0.4 }}>{simOnly ? 'Simulate' : 'Add liquidity'}</span>
+                {pool && <span style={{ color: btb.textMuted, fontSize: isMobile ? 14 : 16, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>{flip ? pool.symbol1 : pool.symbol0} / {flip ? pool.symbol0 : pool.symbol1}</span>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, minWidth: 0 }}>
+                {pool && <span style={{ color: btb.green, fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 6, background: 'rgba(var(--green-rgb), 0.12)', flexShrink: 0 }}>{perPoolFee ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)}</span>}
+                <span style={{ color: btb.textMuted, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dexLabel} on {chainLabel}</span>
+              </div>
             </div>
           </div>
           <div onClick={onClose} title="Close" style={{
@@ -1685,25 +1721,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             <Icon name="close" size={15} color={btb.textMuted}/>
           </div>
         </div>
-        {pool && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, padding: '8px 12px', borderRadius: 12, background: 'linear-gradient(90deg, rgba(var(--green-rgb), 0.1), rgba(var(--fg-rgb), 0.03))', border: '1px solid rgba(var(--green-rgb), 0.2)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <div style={{ display: 'flex', flexShrink: 0 }}>
-                <TokenIcon symbol={flip ? sym1 : sym0} size={20} logoUrl={sideLogo(flip ? 1 : 0)}/>
-                <div style={{ marginLeft: -6 }}><TokenIcon symbol={flip ? sym0 : sym1} size={20} logoUrl={sideLogo(flip ? 0 : 1)}/></div>
-              </div>
-              <span style={{ color: btb.text, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>{flip ? pool.symbol1 : pool.symbol0}/{flip ? pool.symbol0 : pool.symbol1}</span>
-              <span style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: 'rgba(var(--fg-rgb), 0.08)', whiteSpace: 'nowrap' }}>{perPoolFee ? fmtFeeTier(pool.poolFeePips ?? 0) : fmtFeeTier(fee)}</span>
-              <span style={{ color: btb.textDim, fontSize: 11.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dexLabel} · {chainLabel}</span>
-            </div>
-            {price > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0, color: btb.textMuted, fontSize: 11.5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: btb.green }}/>
-                {!isMobile && `1 ${qBase} = `}{dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })}{!isMobile && ` ${qQuote}`}
-              </span>
-            )}
-          </div>
-        )}
 
         {loadingPool ? (
           <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Checking pool…</div>
@@ -1819,6 +1836,34 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
               priceLabel={`1 ${qBase} = ${dispPrice(price).toLocaleString('en-US', { maximumSignificantDigits: 6 })} ${qQuote}`}
               onFlip={toggleFlip}
             />
+            {oneSided && !isV4 && (
+              <div style={{ margin: '-2px 0 12px' }}>
+                <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 6 }}>One-sided LP (10% range)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {/* Shown in the order the price reads on screen: flipping the quote swaps which token sits above. */}
+                  {([
+                    { key: 'above' as const, ticks: oneSided.above, sym: sym0 },
+                    { key: 'below' as const, ticks: oneSided.below, sym: sym1 },
+                  ]).map((o) => ({ ...o, up: flip ? o.key === 'below' : o.key === 'above' })).sort((a, b) => Number(b.up) - Number(a.up)).map((o) => {
+                    const on = rangeMode !== null && typeof rangeMode === 'object' && rangeMode.tickLower === o.ticks.tickLower && rangeMode.tickUpper === o.ticks.tickUpper;
+                    const rgb = o.up ? 'var(--green-rgb)' : 'var(--loss-rgb, 239,68,68)';
+                    return (
+                      <button key={o.key} type="button" onClick={() => { rangeTouched.current = true; setRangeMode(o.ticks); setSmartNote(null); setSwapPreview(null); }} style={{
+                        padding: '9px 10px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'center',
+                        background: `linear-gradient(90deg, rgba(${rgb}, ${on ? 0.22 : 0.1}), rgba(${rgb}, 0.04))`,
+                        border: `1px solid rgba(${rgb}, ${on ? 0.6 : 0.3})`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: o.up ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800 }}>
+                          <Icon name={o.up ? 'up' : 'down'} size={12} color={o.up ? btb.green : btb.loss}/>
+                          {o.up ? 'Above price' : 'Below price'}
+                        </div>
+                        <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 2 }}>Only {o.sym}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {suggested && (
               <div style={{ color: btb.textDim, fontSize: 11.5, lineHeight: 1.5, margin: '8px 2px 12px' }}>
                 {onSuggested ? 'Set from' : `${HISTORY_LABEL}:`} the last {suggested.days} days, when the price moved between{' '}

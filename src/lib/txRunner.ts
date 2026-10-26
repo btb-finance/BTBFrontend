@@ -2,6 +2,7 @@ import type { Config } from 'wagmi';
 import { getAccount, getCapabilities, getPublicClient, sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
 import { decodeFunctionData, erc20Abi } from 'viem';
 import type { TrackFn } from './TxTracker';
+import { whileSigning } from './uiLock';
 import type { SupportedChainId } from './wagmi';
 
 // A single call in a (possibly batched) action.
@@ -51,7 +52,7 @@ export async function ensureTargetChain(config: Config, chainId?: number): Promi
   if (!chainId) return;
   const target = chainId as SupportedChainId;
   if (getAccount(config).chainId !== chainId) {
-    const switchedChain = await switchChain(config, { chainId: target });
+    const switchedChain = await whileSigning(() => switchChain(config, { chainId: target }));
     if (switchedChain.id !== chainId) {
       throw new Error(`Wallet switched to chain ${switchedChain.id}, but chain ${chainId} is required.`);
     }
@@ -102,11 +103,11 @@ export async function runCalls(
   if (pendingCalls.length > 1) {
     try {
       await ensureTargetChain(config, chainId);
-      const { id } = await sendCalls(config, {
+      const { id } = await whileSigning(() => sendCalls(config, {
         account,
         chainId: chainId as SupportedChainId | undefined,
         calls: pendingCalls.map(c => ({ to: c.to, data: c.data, value: c.value })),
-      });
+      }));
       const { done } = track({ callsId: id, label, chainId });
       const res = await done;
       if (res.status !== 'confirmed') throw new Error(res.error ?? 'Batch failed');
@@ -130,7 +131,7 @@ export async function runCalls(
     await ensureTargetChain(config, chainId);
     const actionLabel = c.label ?? label;
     const stepLabel = pendingCalls.length > 1 ? `${actionLabel} (${i + 1}/${pendingCalls.length})` : actionLabel;
-    const hash = await sendTransaction(config, { account, chainId: chainId as SupportedChainId | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas });
+    const hash = await whileSigning(() => sendTransaction(config, { account, chainId: chainId as SupportedChainId | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas }));
     lastHash = hash;
     hashes.push(hash);
     const { done } = track({ hash, label: stepLabel, chainId });

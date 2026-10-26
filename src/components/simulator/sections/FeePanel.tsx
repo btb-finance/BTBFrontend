@@ -1,7 +1,6 @@
 'use client';
-/** Section 4 — Fee Generation. Your share of the pool's REAL daily fees as
- * bars (or cumulative), with the summary stats that make the income stream
- * judgeable: average, median, best, worst, and the volume needed to sustain it. */
+/** Fees. Your share of the pool's daily fees as bars (or cumulative), the average, and the pool volume needed to
+ * sustain it. */
 import { useMemo, useState } from 'react';
 import { btb } from '../../design-tokens';
 import { fmtCompactUsd } from '../../../lib/pools';
@@ -18,13 +17,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
   const stats = useMemo(() => {
     const vals = series.map((d) => d.feesUsd);
     if (vals.length === 0) return null;
-    const sorted = [...vals].sort((a, b) => a - b);
-    return {
-      avg: vals.reduce((s, v) => s + v, 0) / vals.length,
-      median: sorted[Math.floor(sorted.length / 2)],
-      max: sorted[sorted.length - 1],
-      min: sorted[0],
-    };
+    return { avg: vals.reduce((s, v) => s + v, 0) / vals.length };
   }, [series]);
 
   // Daily pool volume required to sustain the current fee estimate at this tier.
@@ -81,8 +74,7 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
 
   return (
     <Section
-      kicker="Section 4"
-      title="Fee Generation"
+      title="Fees"
       subtitle={series.length > 0
         ? 'Your share of the fees this pool actually earned each day, at your deposit and range.'
         : 'Fee estimate for your deposit and range. Day by day history needs subgraph data, which is not available for this pool.'}
@@ -116,13 +108,10 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(5, 1fr)', gap: 8, marginTop: 12 }}>
-        <Stat label="Average Daily Fee" value={stats ? fmtUsd(stats.avg) : fmtUsd(sim.dailyFeeUsd)} color={chart.fees} />
-        <Stat label="Median Fee" value={stats ? fmtUsd(stats.median) : '—'} />
-        <Stat label="Highest Fee" value={stats ? fmtUsd(stats.max) : '—'} />
-        <Stat label="Lowest Fee" value={stats ? fmtUsd(stats.min) : '—'} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
+        <Stat label="Average daily fee" value={stats ? fmtUsd(stats.avg) : fmtUsd(sim.dailyFeeUsd)} color={chart.fees} sub="your share, at this deposit" />
         <Stat
-          label="Volume Needed"
+          label="Volume needed"
           value={volumeNeeded != null ? `${fmtCompactUsd(volumeNeeded)}/day` : '—'}
           sub="pool volume to sustain this"
         />

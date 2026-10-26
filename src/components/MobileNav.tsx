@@ -1,4 +1,5 @@
 'use client';
+import { useUiLock } from '../lib/uiLock';
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -34,6 +35,8 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
   onViewAddress: (addr: string | undefined) => void;
 }) {
   const [sheet, setSheet] = useState(false);
+  // Hidden under an open sheet; dimmed and untappable while the wallet asks you to sign.
+  const { sheetOpen, signing } = useUiLock();
   const { mode, toggleMode } = useChainTheme();
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : undefined;
   const moreActive = MORE_TABS.some(i => i.id === tab);
@@ -118,6 +121,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
 
       <div style={{
         position: 'fixed', left: 12, right: 12, bottom: 'calc(10px + env(safe-area-inset-bottom))', zIndex: 400,
+        ...(sheetOpen ? { display: 'none' } : {}), ...(signing ? { opacity: 0.5, pointerEvents: 'none' as const } : {}),
         padding: 4, borderRadius: 999,
         background: btb.glass, border: btb.border, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur, boxShadow: btb.shadow,
         display: 'flex', alignItems: 'stretch', gap: 2,

@@ -1,5 +1,5 @@
 'use client';
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { btb } from './design-tokens';
 import { Icon } from './Icon';
 
@@ -7,7 +7,7 @@ export type RangePreset = { label: string; pct: number | null };
 
 /**
  * The one range picker every LP screen shares: live price with a flip, a depth
- * chart with a draggable band, zoom, time in range, presets and min/max cards.
+ * strip and slider (Wind Swap style) with draggable handles and band, time in range, presets and min/max cards.
  * All prices are in display space (whatever direction the caller quotes in);
  * the caller turns them into ticks.
  */
@@ -39,7 +39,6 @@ export function RangePicker({
   priceLabel: string;
   onFlip: () => void;
 }) {
-  const [zoom, setZoom] = useState(1);
   const drag = useRef<{ id: number; target: 'low' | 'high' | 'band'; startX: number; dLow: number; dHigh: number; low: number; high: number } | null>(null);
 
   if (!(current > 0)) {
@@ -53,7 +52,7 @@ export function RangePicker({
   const width = cHigh - cLow;
   const pad = Math.max(width * 0.6, Math.log(1.02));
   const mid = (cLow + cHigh) / 2;
-  const half = ((width / 2) + pad) * zoom;
+  const half = (width / 2) + pad;
   const dLow = Math.exp(mid - half), dHigh = Math.exp(mid + half);
   const span = Math.log(dHigh / dLow) || 1;
   const pct = (v: number) => Math.max(0, Math.min(100, (Math.log(v / dLow) / span) * 100));
@@ -64,7 +63,7 @@ export function RangePicker({
   const dist = (v: number) => { const d = (v / current - 1) * 100; return `${d >= 0 ? '+' : '-'}${Math.abs(d).toFixed(Math.abs(d) < 1 ? 2 : 1)}%`; };
 
   // Histogram: bucket the depth into 60 columns across the visible window.
-  const COLS = 60;
+  const COLS = 36;
   const cols = new Array<number>(COLS).fill(0);
   for (const d of depth ?? []) {
     if (!(d.price > dLow && d.price < dHigh)) continue;
@@ -93,14 +92,11 @@ export function RangePicker({
   const end = (e: ReactPointerEvent<HTMLDivElement>) => { if (drag.current?.id === e.pointerId) drag.current = null; };
 
   const smallBtn = { width: 26, height: 26, borderRadius: 8, border: '1px solid rgba(var(--fg-rgb), 0.12)', background: 'rgba(var(--fg-rgb), 0.06)', color: btb.textMuted, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 } as const;
-  const handle = (at: number, which: 'low' | 'high') => (
+  // A round slider thumb, as on Wind Swap: white with the range colour as its rim, a wide invisible grab area.
+  const thumb = (at: number, which: 'low' | 'high') => (
     <div onPointerDown={(e) => begin(e, which)} aria-label={which === 'low' ? 'Lower price bound' : 'Upper price bound'}
-      style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${at}% - 14px)`, width: 28, cursor: 'ew-resize', touchAction: 'none', display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: 2, height: '100%', background: tone }}/>
-      <div style={{ position: 'absolute', bottom: 6, width: 18, height: 28, borderRadius: 7, background: tone, boxShadow: '0 2px 8px rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-        <span style={{ width: 1.5, height: 12, background: 'rgba(0,0,0,0.45)', borderRadius: 1 }}/>
-        <span style={{ width: 1.5, height: 12, background: 'rgba(0,0,0,0.45)', borderRadius: 1 }}/>
-      </div>
+      style={{ position: 'absolute', top: 0, left: `calc(${at}% - 16px)`, width: 32, height: 32, cursor: 'ew-resize', touchAction: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#fff', border: `3px solid ${tone}`, boxShadow: '0 2px 8px rgba(0,0,0,0.3)', boxSizing: 'border-box' }}/>
     </div>
   );
   // Min and max, laid out like Wind Swap's: a coloured label with the distance from the price, then minus, the price, plus.
@@ -144,31 +140,37 @@ export function RangePicker({
           <Icon name="swap" size={12} color={btb.textMuted}/>
         </button>
 
-        <div style={{ position: 'relative', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.03)', overflow: 'hidden' }}>
-          <div onPointerMove={move} onPointerUp={end} onPointerCancel={end} style={{ position: 'relative', height: 108, touchAction: 'none' }}>
-            <svg viewBox={`0 0 ${COLS} 100`} preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-              {cols.map((c, i) => c > 0 && (
-                <rect key={i} x={i + 0.12} y={100 - (c / maxCol) * 78} width={0.76} height={(c / maxCol) * 78}
-                  fill={(i + 0.5) / COLS * 100 >= left && (i + 0.5) / COLS * 100 <= right ? `rgba(${toneRgb}, 0.5)` : 'rgba(var(--fg-rgb), 0.16)'}/>
-              ))}
-            </svg>
-            <div onPointerDown={(e) => begin(e, 'band')} title="Drag to move the range"
-              style={{ position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${Math.max(0.5, right - left)}%`, background: `linear-gradient(180deg, rgba(${toneRgb}, 0.06), rgba(${toneRgb}, 0.18))`, cursor: 'grab', touchAction: 'none' }}/>
-            <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${now}% - 1px)`, width: 2, background: btb.text, opacity: 0.85, pointerEvents: 'none' }}/>
-            <span style={{ position: 'absolute', top: 4, left: `calc(${now}% + 5px)`, color: btb.textDim, fontSize: 9.5, fontWeight: 700, pointerEvents: 'none' }}>Current</span>
-            {!isFull && handle(left, 'low')}
-            {!isFull && handle(right, 'high')}
+        {/* Wind Swap style: a short strip of liquidity bars (yours in colour, the current price in white), then a
+            slider under it whose round handles and filled band set the range. Both share one drag surface. */}
+        <div onPointerMove={move} onPointerUp={end} onPointerCancel={end} style={{ position: 'relative', touchAction: 'none', userSelect: 'none' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', gap: 2, height: 46, padding: '0 1px' }}>
+            {cols.map((c, i) => {
+              const mid = ((i + 0.5) / COLS) * 100;
+              const isNow = Math.abs(mid - now) <= 50 / COLS;
+              const inBand = mid >= left && mid <= right;
+              return (
+                <div key={i} style={{
+                  flex: 1, height: `${c > 0 ? Math.max(8, (c / maxCol) * 100) : 4}%`, borderRadius: 2,
+                  background: isNow ? btb.text : inBand ? `rgba(${toneRgb}, 0.75)` : 'rgba(var(--fg-rgb), 0.14)',
+                }}/>
+              );
+            })}
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${now}%`, width: 1, background: 'rgba(var(--fg-rgb), 0.5)', pointerEvents: 'none' }}/>
           </div>
-          <div style={{ position: 'absolute', top: 6, right: 6, display: 'flex', gap: 4 }}>
-            <button type="button" onClick={() => setZoom((z) => Math.min(8, z * 1.6))} style={smallBtn} aria-label="Zoom out">-</button>
-            <button type="button" onClick={() => setZoom((z) => Math.max(0.25, z / 1.6))} style={smallBtn} aria-label="Zoom in">+</button>
-            {zoom !== 1 && <button type="button" onClick={() => setZoom(1)} style={{ ...smallBtn, width: 'auto', padding: '0 8px', fontSize: 11 }}>Reset</button>}
+
+          <div style={{ position: 'relative', height: 44, marginTop: 6 }}>
+            <div style={{ position: 'absolute', left: 0, right: 0, top: 12, height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.1)' }}/>
+            <div onPointerDown={(e) => begin(e, 'band')} title="Drag to move the range" style={{
+              position: 'absolute', top: 12, height: 8, borderRadius: 999, cursor: 'grab', touchAction: 'none',
+              left: `${left}%`, width: `${Math.max(1, right - left)}%`,
+              background: inRange ? 'linear-gradient(90deg, var(--btb-green), var(--chain-accent, var(--btb-green)))' : btb.amber,
+            }}/>
+            <div style={{ position: 'absolute', left: `${now}%`, top: 7, width: 3, height: 18, marginLeft: -1.5, borderRadius: 2, background: btb.text, pointerEvents: 'none' }}>
+              <span style={{ position: 'absolute', top: 22, left: '50%', transform: 'translateX(-50%)', color: btb.textDim, fontSize: 9.5, fontWeight: 700, whiteSpace: 'nowrap' }}>Current</span>
+            </div>
+            {!isFull && thumb(left, 'low')}
+            {!isFull && thumb(right, 'high')}
           </div>
-        </div>
-        {/* A thin bar under the chart: the range as a green to chain gradient, like Wind Swap's slider track. */}
-        <div style={{ position: 'relative', height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.1)' }}>
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${left}%`, width: `${Math.max(1, right - left)}%`, borderRadius: 999, background: inRange ? 'linear-gradient(90deg, var(--btb-green), var(--chain-accent, var(--btb-green)))' : btb.amber }}/>
-          <div style={{ position: 'absolute', top: -3, width: 3, height: 12, borderRadius: 2, left: `calc(${now}% - 1.5px)`, background: btb.text }}/>
         </div>
 
         {inRangePct != null && !isFull && (
@@ -177,7 +179,8 @@ export function RangePicker({
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 14, marginTop: 2 }}>
+        {/* Side by side when there is room, stacked on a narrow phone so the steppers never run off the card. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginTop: 2 }}>
           {card('min')}
           {card('max')}
         </div>

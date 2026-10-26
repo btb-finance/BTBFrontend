@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import { useSheetOpen } from './uiLock';
 
 let locks = 0;
 let saved: { html: string; body: string } | null = null;
@@ -9,6 +10,8 @@ let saved: { html: string; body: string } | null = null;
  * page under it. Counted, so two open sheets keep the page frozen until both close.
  */
 export function useScrollLock(active: boolean) {
+  // A sheet that freezes the page is a sheet the bottom menu must not cover.
+  useSheetOpen(active);
   useEffect(() => {
     if (!active || typeof document === 'undefined') return;
     const html = document.documentElement, body = document.body;

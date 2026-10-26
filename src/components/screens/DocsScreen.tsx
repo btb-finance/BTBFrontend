@@ -5,7 +5,10 @@ import { Icon } from '../Icon';
 import { Screen } from '../Screen';
 import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
-import { DOCS, FAQS, LINKS, type DocBlock, type DocSection } from './docsContent';
+import { PickerSheet } from '../PickerSheet';
+import { ValueFlowDiagram } from '../docs/ValueFlowDiagram';
+import { TxFlow } from '../docs/TxFlow';
+import { DOCS, FAQS, LINKS, flowText, type DocBlock, type DocSection } from './docsContent';
 
 const ALL_SECTIONS: DocSection[] = DOCS.flatMap(g => g.sections);
 
@@ -56,11 +59,13 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
   const q = search.trim().toLowerCase();
   const matches = useMemo(() => {
     if (!q) return null;
-    const hit = (s: DocSection) => [s.title, s.summary, ...s.blocks.flatMap(b => [b.text ?? '', ...(b.items ?? []), ...(b.rows?.flat() ?? [])])].some(t => t.toLowerCase().includes(q));
+    const hit = (s: DocSection) => [s.title, s.summary, ...s.blocks.flatMap(b => [b.text ?? '', ...(b.items ?? []), ...(b.rows?.flat() ?? []), ...(b.flow ? flowText(b.flow) : [])])].some(t => t.toLowerCase().includes(q));
     return ALL_SECTIONS.filter(hit);
   }, [q]);
   const faqs = q ? FAQS.filter(f => f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q)) : FAQS;
 
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetQuery, setSheetQuery] = useState('');
   const goto = (id: string) => { setActive(id); setSearch(''); if (typeof window !== 'undefined') history.replaceState(null, '', `#${id}`); };
   const section = ALL_SECTIONS.find(s => s.id === active) ?? ALL_SECTIONS[0];
   const idx = ALL_SECTIONS.indexOf(section);
@@ -120,13 +125,57 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'minmax(0, 1fr)' : '230px minmax(0, 1fr)', gap: 18, alignItems: 'start' }}>
           {isMobile ? (
-            // Stays at the top while reading, so any section is one tap away from anywhere on the page.
-            <div style={{ position: 'sticky', top: 'env(safe-area-inset-top, 0px)', zIndex: 5, display: 'flex', gap: 6, padding: '8px 0', background: btb.bg }}>
-              <button type="button" aria-label="Previous section" disabled={idx === 0} onClick={() => goto(ALL_SECTIONS[idx - 1].id)} style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: idx === 0 ? btb.textDim : btb.text, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{'<'}</button>
-              <select className="btb-select" value={active} onChange={e => goto(e.target.value)} style={{ flex: 1, minWidth: 0, height: 44, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: btb.text, padding: '0 12px', fontFamily: 'inherit', fontSize: 16 }}>
-                {DOCS.map(g => <optgroup key={g.title} label={g.title}>{g.sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}</optgroup>)}
-              </select>
-              <button type="button" aria-label="Next section" disabled={idx === ALL_SECTIONS.length - 1} onClick={() => goto(ALL_SECTIONS[idx + 1].id)} style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, border: btb.border, background: btb.surfaceSoft, color: idx === ALL_SECTIONS.length - 1 ? btb.textDim : btb.text, fontSize: 18, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{'>'}</button>
+            // Stays at the top while reading, so any section is one tap away from anywhere on the page: previous and
+            // next on the ends, the current section in the middle opening the full list as a sheet.
+            <div style={{ position: 'sticky', top: 'env(safe-area-inset-top, 0px)', zIndex: 5, padding: '8px 0', background: btb.bg }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, borderRadius: 16, border: '1px solid rgba(var(--fg-rgb), 0.1)', background: btb.surfaceSoft }}>
+                <button type="button" aria-label="Previous section" disabled={idx === 0} onClick={() => goto(ALL_SECTIONS[idx - 1].id)} style={navArrow(idx === 0)}>
+                  <Icon name="back" size={15} color={idx === 0 ? btb.textDim : btb.text}/>
+                </button>
+                <button type="button" onClick={() => setSheetOpen(true)} aria-label="All sections" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', color: btb.textDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {DOCS.find(g => g.sections.includes(section))?.title} · {idx + 1} of {ALL_SECTIONS.length}
+                    </span>
+                    <span style={{ display: 'block', color: btb.text, fontSize: 15, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{section.title}</span>
+                  </span>
+                  <Icon name="down" size={14} color={btb.textMuted}/>
+                </button>
+                <button type="button" aria-label="Next section" disabled={idx === ALL_SECTIONS.length - 1} onClick={() => goto(ALL_SECTIONS[idx + 1].id)} style={navArrow(idx === ALL_SECTIONS.length - 1)}>
+                  <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><Icon name="back" size={15} color={idx === ALL_SECTIONS.length - 1 ? btb.textDim : btb.text}/></span>
+                </button>
+              </div>
+              {sheetOpen && (
+                <PickerSheet title="Sections" query={sheetQuery} onQuery={setSheetQuery} placeholder="Find a section" onClose={() => { setSheetOpen(false); setSheetQuery(''); }}>
+                  {DOCS.map(g => {
+                    const q = sheetQuery.trim().toLowerCase();
+                    const list = g.sections.filter(s => !q || s.title.toLowerCase().includes(q) || s.summary.toLowerCase().includes(q));
+                    if (list.length === 0) return null;
+                    return (
+                      <div key={g.title} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+                        <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', padding: '8px 12px 4px' }}>{g.title}</div>
+                        {list.map(s => {
+                          const on = s.id === active;
+                          const n = ALL_SECTIONS.indexOf(s) + 1;
+                          return (
+                            <button key={s.id} type="button" onClick={() => { goto(s.id); setSheetOpen(false); setSheetQuery(''); }} style={{
+                              display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '10px 12px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                              border: on ? '1px solid rgba(var(--green-rgb), 0.35)' : '1px solid transparent', background: on ? 'rgba(var(--green-rgb), 0.1)' : 'transparent',
+                            }}>
+                              <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 800, background: on ? btb.green : 'rgba(var(--fg-rgb), 0.07)', color: on ? '#fff' : btb.textMuted }}>{n}</span>
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ display: 'block', color: btb.text, fontSize: 14.5, fontWeight: on ? 800 : 650 }}>{s.title}</span>
+                                <span style={{ display: 'block', color: btb.textDim, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.summary}</span>
+                              </span>
+                              {on && <Icon name="check" size={15} color={btb.green}/>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                </PickerSheet>
+              )}
             </div>
           ) : (
             <div ref={navRef} style={{ position: 'sticky', top: 76, maxHeight: 'calc(100vh - 92px)', overflowY: 'auto', overscrollBehavior: 'contain', paddingRight: 4 }}>{nav}</div>
@@ -187,6 +236,11 @@ export function DocsScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+/** Previous / next on the phone bar: a square button, dimmed at either end of the docs. */
+function navArrow(disabled: boolean): React.CSSProperties {
+  return { width: 42, height: 42, flexShrink: 0, borderRadius: 12, border: 'none', background: disabled ? 'transparent' : 'rgba(var(--fg-rgb), 0.07)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: disabled ? 'default' : 'pointer', padding: 0 };
+}
+
 function NavLink({ onClick, label, dir }: { onClick: () => void; label: string; dir: 'prev' | 'next' }) {
   return (
     <div onClick={onClick} style={{ cursor: 'pointer', color: btb.textMuted, fontSize: 12.5, display: 'flex', flexDirection: 'column', alignItems: dir === 'next' ? 'flex-end' : 'flex-start', gap: 2 }}>
@@ -199,6 +253,8 @@ function NavLink({ onClick, label, dir }: { onClick: () => void; label: string; 
 function Block({ b }: { b: DocBlock }) {
   const p: React.CSSProperties = { color: btb.textMuted, fontSize: 14, lineHeight: 1.6, margin: 0 };
   if (b.type === 'p') return <p style={p}>{b.text}</p>;
+  if (b.type === 'flow' && b.flow) return <TxFlow f={b.flow}/>;
+  if (b.type === 'diagram' && b.diagram === 'value') return <ValueFlowDiagram/>;
   if (b.type === 'note') return <div style={{ ...p, background: 'rgba(var(--green-rgb), 0.07)', border: '1px solid rgba(var(--green-rgb), 0.25)', borderRadius: 12, padding: '10px 14px', color: btb.text, fontSize: 13.5 }}>{b.text}</div>;
   if (b.type === 'list') return <ul style={{ ...p, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 6 }}>{b.items!.map((t, i) => <li key={i}>{t}</li>)}</ul>;
   if (b.type === 'steps') return (
@@ -224,3 +280,4 @@ function Block({ b }: { b: DocBlock }) {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
 'use client';
-/** Section 12 — Deploy Summary. Sticky footer with the six numbers that
+/** Deploy summary. Sticky footer with the six numbers that
  * matter, always visible, plus the button that turns the simulation into a
  * real position (the existing CreatePosition mint flow, prefilled). */
 import { btb } from '../../design-tokens';

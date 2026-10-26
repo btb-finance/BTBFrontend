@@ -5,9 +5,36 @@
  * (BTB_SWAP_FEE_BPS), supported chains and DEXes (protocols/lpChains.ts).
  */
 import { CONTRACTS } from '../../lib/contractAddresses';
-import { V6, V6_REGISTRY, REBALANCE_AGENT } from '../../../convex/autoRebalanceConfig';
+import type { Asset } from '../docs/palette';
+import { V6, V6_REGISTRY, REBALANCE_AGENT, CHECK_BTB, REBALANCE_USD, rebalanceBtb } from '../../../convex/autoRebalanceConfig';
 
-export interface DocBlock { type: 'p' | 'steps' | 'list' | 'table' | 'note'; text?: string; items?: string[]; rows?: string[][]; head?: string[] }
+/** One amount on a flow card: `out` leaves the place (red, minus), `in` arrives (green, plus); `asset` colours it (palette.ts). */
+export interface FlowLine { amount?: string; tone?: 'out' | 'in'; text: string; asset?: Asset }
+/** A box in a flow: where (YOUR WALLET), what happens there (Deposit), and the amounts. */
+export interface FlowCard { where: string; action: string; lines: FlowLine[] }
+/**
+ * A transaction drawn as a flow, in the style of Arcadia's Txn flow: where tokens come from on the left, what BTB
+ * builds for you to sign in the middle, where they end up on the right, with a Table view of the same steps and an
+ * optional before and after. Amounts are an example, labelled as one.
+ */
+export interface DocFlow {
+  title: string;
+  from: FlowCard[];
+  via: { where: string; steps: { action: string; text: string }[] };
+  to: FlowCard[];
+  /** Before and after, e.g. ['Debt', '0', '0.5']. */
+  impact?: { title: string; rows: [string, string, string][] };
+  note?: string;
+}
+
+/** `diagram`: a drawn map (src/components/docs); its `text` is what search reads, it is not shown. */
+export interface DocBlock { type: 'p' | 'steps' | 'list' | 'table' | 'note' | 'flow' | 'diagram'; text?: string; items?: string[]; rows?: string[][]; head?: string[]; flow?: DocFlow; diagram?: 'value' }
+
+/** Every word in a flow, for search. */
+export function flowText(f: DocFlow): string[] {
+  const card = (c: FlowCard) => [c.where, c.action, ...c.lines.map((l) => `${l.amount ?? ''} ${l.text}`)];
+  return [f.title, ...f.from.flatMap(card), f.via.where, ...f.via.steps.flatMap((x) => [x.action, x.text]), ...f.to.flatMap(card), f.note ?? '', ...(f.impact?.rows.flat() ?? [])];
+}
 export interface DocSection { id: string; title: string; summary: string; blocks: DocBlock[] }
 export interface DocGroup { title: string; sections: DocSection[] }
 
@@ -27,6 +54,14 @@ export const DOCS: DocGroup[] = [
             ['Portfolio', 'Every token and LP position you hold, with claim, stake, rebalance and remove.'],
             ['Swap', 'Best price across DEXes on 17 chains, plus bridging between them.'],
           ] },
+        ],
+      },
+      {
+        id: 'value-flows', title: 'How value flows', summary: 'Where your tokens go, what you earn, and how the Friday payout is funded.',
+        blocks: [
+          { type: 'p', text: 'One map of the whole loop. Your liquidity always sits in the DEX pool or your own auto wallet; BTB builds the transactions and never holds your positions. What BTB earns, it pays back to the people using it every Friday.' },
+          { type: 'diagram', diagram: 'value', text: 'You add liquidity into DEX pools and earn swap fees. Positions you move into your auto wallet are rebalanced by the BTB agent. Swaps and bridges route through KyberSwap and LI.FI with a 1% swap fee to the treasury. BTB token fees go to the treasury, are turned into BTB and split by your weekly points into the Friday pot. Your BTB balance pays for the agent, alerts and auto-rebalance.' },
+          { type: 'note', text: 'Green lines carry LP positions, blue lines trading fees, gold lines BTB. A dashed line is a signal, not a transfer: your points set your share of the pot, and the agent acts on positions in your auto wallet without taking them.' },
         ],
       },
       {
@@ -80,9 +115,10 @@ export const DOCS: DocGroup[] = [
           { type: 'p', text: 'Pick two tokens on a chain (or arrive from Discover) and Simulate probes every supported DEX and fee tier on-chain, then ranks the pools it finds. Open one for the full simulator.' },
           { type: 'list', items: [
             'Position summary: deposit size, range as prices, share of in-range liquidity, estimated fees and APR.',
-            '30-day backtest on the pool\'s own price history: fees earned, impermanent loss, net versus holding.',
+            'The verdict first: whether expected fees cover the expected impermanent loss over your horizon, time in range, chance of profit, fee APR against incentives, and whether the pool\'s volume looks real.',
+            'Historical replay on the pool\'s own price history: days in range, fees earned, net versus holding.',
             'Liquidity depth: where other LPs sit. Drag the range lines directly on the chart.',
-            'Fee, IL, PnL waterfall, comparison against holding, risk radar, sensitivity to a price move, scenarios and timeline.',
+            'Fees, then What if the price moves (scenario bands, a price slider, where the result comes from, and the comparison with just holding), then price risk and time in range by period.',
             'Deploy: the same range goes straight into the Add liquidity sheet.',
           ] },
           { type: 'p', text: 'Cross-chain research runs one pair across several chains at once and ranks the winners by volume, TVL or APR, with Add LP on any row the app can mint on.' },
@@ -104,6 +140,37 @@ export const DOCS: DocGroup[] = [
             'Optional: Split range mints two one-sided positions either side of the price; Swap and add balances your tokens first.',
             'Confirm. Approvals and the mint are batched when your wallet supports it; otherwise they run in order.',
           ] },
+          { type: 'flow', flow: {
+            title: 'Add liquidity with exact amounts',
+            from: [{ where: 'Your wallet', action: 'Deposit', lines: [{ amount: '- 0.50', tone: 'out', text: 'WETH', asset: 'token' }, { amount: '- 1,250', tone: 'out', text: 'USDC', asset: 'token' }] }],
+            via: { where: 'BTB builds, you sign', steps: [
+              { action: 'Approve', text: 'Each token once. Skipped when the DEX already has your approval.' },
+              { action: 'Mint', text: 'The DEX opens the position at your range, with slippage minimums (0.5% by default).' },
+              { action: 'Stake (optional)', text: 'On Aerodrome, UP and Giga the new position can go straight into the gauge or MasterChef.' },
+            ] },
+            to: [{ where: 'Your wallet', action: 'Receive', lines: [{ amount: '+ 1', tone: 'in', text: 'WETH/USDC position NFT at your range', asset: 'lp' }, { text: 'Anything that did not fit the range stays in your wallet.' }] }],
+            note: 'Example amounts on a WETH/USDC pool. Batched into one confirmation when your wallet supports it; otherwise the approvals run first, then the mint.',
+          } },
+          { type: 'flow', flow: {
+            title: 'Swap to fit, or pay with another token',
+            from: [{ where: 'Your wallet', action: 'Put in', lines: [{ amount: '- 1.00', tone: 'out', text: 'WETH, all of it', asset: 'token' }] }],
+            via: { where: 'BTB builds, you sign', steps: [
+              { action: 'Swap', text: 'KyberSwap sells part of it (here about 0.48 WETH for about 1,190 USDC) so both sides fit the range. 1% BTB fee on the swap.' },
+              { action: 'Mint', text: 'What the swap returned and the rest of your WETH go into the position.' },
+            ] },
+            to: [{ where: 'Your wallet', action: 'Receive', lines: [{ amount: '+ 1', tone: 'in', text: 'WETH/USDC position NFT, nothing left over', asset: 'lp' }] }],
+            note: 'Example amounts. Two confirmations: the swap, then the add. Paying with a third token (Pay with another token) swaps it into both pool tokens first.',
+          } },
+          { type: 'flow', flow: {
+            title: 'Add liquidity on Metric',
+            from: [{ where: 'Your wallet', action: 'Deposit', lines: [{ amount: '- 0.004', tone: 'out', text: 'WETH (or ETH)', asset: 'token' }, { amount: '- 10', tone: 'out', text: 'USDG', asset: 'token' }] }],
+            via: { where: "Metric's liquidity adder", steps: [
+              { action: 'Spread', text: 'Equal value across the bins of the range you picked, around the oracle price.' },
+              { action: 'Guard', text: 'Will not go through if the pool price moves more than 0.5% before it lands. Unused ETH is refunded.' },
+            ] },
+            to: [{ where: 'Your Metric position', action: 'Hold', lines: [{ amount: '+ shares', tone: 'in', asset: 'lp', text: 'in each bin. The range follows the oracle price; earnings compound inside, nothing to claim.' }] }],
+            note: 'Example amounts on a Metric WETH/USDG pool. Withdraw from Portfolio sends the tokens, earnings included, straight back to your wallet.',
+          } },
           { type: 'p', text: 'The live tick matters. The sheet re-reads the pool price every 12 seconds while open and once more right before you sign, so the amounts and slippage minimums match the chain at that moment. Tick spacing is read from the pool itself, which is what makes minting on forks such as Aerodrome, Ramses and UP reliable.' },
           { type: 'p', text: 'On desktop the full simulator sits to the left of the form and follows your range and amount. Drag on its depth chart to move the range.' },
           { type: 'list', items: [
@@ -133,7 +200,43 @@ export const DOCS: DocGroup[] = [
             'Closed LP history lists finished positions with what was deposited, withdrawn and earned.',
             'Merkl rewards: incentives third parties pay to LPs in campaign pools (Aerodrome stock pairs on Base, Robinhood equity pairs, Arc launch pools). Portfolio lists what your wallet can claim per chain with one Claim button; nothing to stake or register.',
           ] },
+          { type: 'flow', flow: {
+            title: 'Rebalance a position that left its range',
+            from: [{ where: 'Your position', action: 'Out of range', lines: [{ amount: '- 0.60', tone: 'out', text: 'WETH', asset: 'lp' }, { amount: '- 900', tone: 'out', text: 'USDC, plus its unclaimed fees', asset: 'lp' }] }],
+            via: { where: 'BTB builds, you sign', steps: [
+              { action: 'Unstake', text: 'Only when it was staked in a gauge or MasterChef.' },
+              { action: 'Remove', text: 'Takes the liquidity and the fees out to your wallet, slippage protected.' },
+              { action: 'Add', text: 'Opens Add liquidity on a range of the same width that fits those tokens with no swap, or any range you choose.' },
+            ] },
+            to: [{ where: 'Your wallet', action: 'Receive', lines: [{ amount: '+ 1', tone: 'in', text: 'new position NFT, earning again', asset: 'lp' }, { text: 'The old NFT stays in your wallet, empty. Restake is a toggle.' }] }],
+            note: 'Example amounts.',
+          } },
           { type: 'note', text: 'Every write is verified after confirmation by re-reading the chain (owner, liquidity, fees). If an RPC lags, the app tells you to retry instead of showing a stale state.' },
+        ],
+      },
+      {
+        id: 'auto-rebalance', title: 'Auto-rebalance', summary: 'Your position moves back into range by itself, from your own wallet.',
+        blocks: [
+          { type: 'p', text: 'Turn on Auto-rebalance when adding liquidity, or on any position on Base or Robinhood Chain. The position moves into your auto wallet, a smart account only you own, and the BTB agent checks it on a schedule you pick. When the price leaves the range, the agent moves it back.' },
+          { type: 'flow', flow: {
+            title: 'What happens when the price leaves your range',
+            from: [
+              { where: 'Your auto wallet', action: 'Holds', lines: [{ amount: '1', text: 'position NFT, now out of range', asset: 'lp' }] },
+              { where: 'Your BTB balance', action: 'Pays', lines: [{ amount: `- ${CHECK_BTB}`, tone: 'out', text: `BTB per check`, asset: 'btb' }, { amount: `- ${rebalanceBtb(8453).toLocaleString('en-US')}`, tone: 'out', text: `BTB per rebalance on Base ($${REBALANCE_USD[8453].toFixed(2)})`, asset: 'btb' }] },
+            ],
+            via: { where: 'The BTB agent', steps: [
+              { action: 'Check', text: 'Reads the position every hour by default; you pick 5 minutes to 1 day.' },
+              { action: 'Guard', text: "Compares the price with the pool's recent average first, so a pushed price cannot trigger a move." },
+              { action: 'Rebalance', text: 'Unstakes if staked, takes the liquidity out, swaps only what the new range needs, and opens a new range around the current price, restaked.' },
+            ] },
+            to: [{ where: 'Your auto wallet', action: 'Holds', lines: [{ amount: '+ 1', tone: 'in', text: 'new position NFT, in range and earning', asset: 'lp' }, { amount: '+ 100', tone: 'in', text: 'XP for the week', asset: 'points' }] }],
+            note: `A rebalance costs ${rebalanceBtb(8453).toLocaleString('en-US')} BTB on Base and ${rebalanceBtb(4663).toLocaleString('en-US')} BTB on Robinhood Chain, charged only when one happens. Take the position out at any time: it goes straight back to your wallet.`,
+          } },
+          { type: 'list', items: [
+            'Only you control the auto wallet. The agent can rebalance and compound the positions in it, nothing else, and only through contracts on the BTB registry.',
+            'Fees in range can be compounded the same way, only once they are worth five times what compounding costs.',
+            'With nothing left in your BTB balance (or unclaimed weekly rewards) the position pauses until you top up. It stays where it is.',
+          ] },
         ],
       },
       {
@@ -172,9 +275,30 @@ export const DOCS: DocGroup[] = [
         id: 'swap', title: 'Swap and bridge', summary: 'Best price on 17 chains, one tap, and cross-chain transfers.',
         blocks: [
           { type: 'p', text: 'Swap routes through KyberSwap across every DEX on the chosen chain. Pick any token you hold on any chain and the app switches network for you. Rate, route, price impact and the BTB fee are folded into a details box.' },
+          { type: 'flow', flow: {
+            title: 'Swap',
+            from: [{ where: 'Your wallet', action: 'Pay', lines: [{ amount: '- 1.00', tone: 'out', text: 'ETH', asset: 'token' }] }],
+            via: { where: 'KyberSwap, built by BTB', steps: [
+              { action: 'Route', text: 'Best price across every DEX on the network.' },
+              { action: 'Fee', text: '1% of the token you receive goes to BTB, shown before you confirm.' },
+              { action: 'Slippage', text: 'Auto by default: 0.5%, raised with the price impact up to 5%. Set your own under the gear.' },
+            ] },
+            to: [{ where: 'Your wallet', action: 'Receive', lines: [{ amount: '+ 2,450', tone: 'in', text: 'USDC, after the fee', asset: 'token' }] }],
+            note: 'Example amounts. Picking a token you hold on another network moves the swap there.',
+          } },
+          { type: 'flow', flow: {
+            title: 'Bridge',
+            from: [{ where: 'Your wallet on Base', action: 'Pay', lines: [{ amount: '- 100', tone: 'out', text: 'USDC', asset: 'token' }] }],
+            via: { where: 'LI.FI, built by BTB', steps: [
+              { action: 'Route', text: 'Picks the fastest bridge between the two networks.' },
+              { action: 'Fees', text: 'Route fees come out of the amount and are shown before you confirm.' },
+            ] },
+            to: [{ where: 'Your wallet on Arbitrum', action: 'Receive', lines: [{ amount: '+ 99.8', tone: 'in', text: 'USDC, in seconds to a few minutes', asset: 'token' }, { text: 'No gas needed on the destination.' }] }],
+            note: 'Example amounts.',
+          } },
           { type: 'list', items: [
             'Fee: 1% of the swap, shown before you confirm.',
-            'Slippage is set from the header and applies per swap.',
+            'Slippage: Auto, 0.5%, 1%, 3% or your own, under the gear on the swap card.',
             'Bridge uses LI.FI. Source and destination chain pickers list the four LP chains first.',
           ] },
         ],
@@ -190,6 +314,18 @@ export const DOCS: DocGroup[] = [
             'Claim it. Send it to your wallet with no gas (from 5,000 BTB), or add any amount to your BTB balance to pay for alerts, the agent and auto-rebalance. Do it before the next Friday: an untouched share goes back into the pot.',
           ] },
           { type: 'p', text: 'Where the pot comes from: BTB shares 100% of its revenue with the people who use it. That revenue is the token fees (the OPOS transfer tax), turned into BTB and paid out every Friday. Nothing to buy and nothing to stake: holding BTB only adds bonus points at check-in.' },
+          { type: 'flow', flow: {
+            title: 'How the Friday payout reaches you',
+            from: [
+              { where: 'BTB token fees', action: 'Collected all week', lines: [{ text: "The week's token fees: 100% of BTB's revenue.", asset: 'btb' }] },
+              { where: 'You', action: 'Earn points', lines: [{ amount: '+ XP', tone: 'in', text: 'check-ins, swaps, simulations, LP, auto-rebalance, invites', asset: 'points' }] },
+            ],
+            via: { where: 'Friday 00:00 UTC', steps: [
+              { action: 'Convert', text: 'The fees are turned into BTB: that is the pot.' },
+              { action: 'Split', text: "By points: with 2% of the week's points you get 2% of the pot." },
+            ] },
+            to: [{ where: 'Your share', action: 'Claim', lines: [{ amount: '+ BTB', tone: 'in', text: 'to your wallet with no gas (from 5,000 BTB), or any amount to your BTB balance', asset: 'btb' }, { text: 'Untouched by the next Friday, it goes back into the pot.' }] }],
+          } },
           { type: 'p', text: 'Every action credits XP to the current week. Weeks run Friday 00:00 UTC to Friday 00:00 UTC. On Friday the week\'s revenue is split across everyone in proportion to the XP they earned that week and paid in BTB.' },
           { type: 'p', text: 'Claim your share to your wallet with no gas from 5,000 BTB, or add any amount to your BTB balance in the app, where it pays for alerts, the agent and auto-rebalance. A share left untouched by the next Friday goes back into the pot.' },
           { type: 'table', head: ['Action', 'XP'], rows: [

@@ -17,6 +17,8 @@ import { LiquidityDepthChart } from '../LiquidityDepthChart';
 import { useSidebar } from '../../lib/SidebarContext';
 import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
 import { STABLES } from '../../lib/pools';
+import { useTokenLogos } from '../../lib/TokenStore';
+import { useDiscoverPools } from '../../lib/discoverPools';
 import {
   nearestUsableTick, fmtFeeTier, isNativeCurrency, uniswapV3DeploymentForChain,
   type V4MintPool,
@@ -28,15 +30,11 @@ import { estimateSigmaDaily } from './math/probability';
 import { Section } from './ui';
 import { PositionSummary } from './sections/PositionSummary';
 import { RealBacktest } from './sections/RealBacktest';
-import { PriceDistribution } from './sections/PriceDistribution';
 import { FeePanel } from './sections/FeePanel';
 import { ILPanel } from './sections/ILPanel';
-import { PnlWaterfall } from './sections/PnlWaterfall';
-import { ComparisonPanel } from './sections/ComparisonPanel';
-import { RiskRadar } from './sections/RiskRadar';
-import { SensitivityPanel } from './sections/SensitivityPanel';
-import { ScenarioCards } from './sections/ScenarioCards';
-import { Timeline } from './sections/Timeline';
+import { PriceMoves } from './sections/PriceMoves';
+import { TimelineRows } from './sections/Timeline';
+import { Verdict } from './sections/Verdict';
 import { DeployFooter } from './sections/DeployFooter';
 import type { ChainDataNetwork } from '../../lib/chainDataNetworks';
 
@@ -183,9 +181,29 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     if (!pool) return false;
     const s0 = STABLES.has((pool.symbol0 ?? '').toUpperCase());
     const s1 = STABLES.has((pool.symbol1 ?? '').toUpperCase());
-    return s0 && !s1;
+    if (s0 !== s1) return s0;
+    // No stablecoin (or two): quote the way that reads as a number of at least 1, so AERO / cbBTC shows
+    // "1 cbBTC = 116,144 AERO" rather than 0.0000086.
+    const raw = ((Number(pool.sqrtPriceX96) / 2 ** 96) ** 2) * 10 ** (pool.decimals0 - pool.decimals1);
+    return raw > 0 && raw < 1;
   }, [pool]);
   const flip = flipManual ?? autoFlip;
+
+  const logoFor = useTokenLogos();
+  const { pools: discoverPools } = useDiscoverPools();
+  const snapshotLogos = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of discoverPools ?? []) {
+      if (p.chainId == null || !p.tokenLogos) continue;
+      (p.underlyingTokens ?? []).forEach((t, k) => { const l = p.tokenLogos?.[k]; if (l) m.set(`${p.chainId}:${t.toLowerCase()}`, l); });
+    }
+    return m;
+  }, [discoverPools]);
+  const tokenLogo = (address?: string, symbol?: string) => address
+    ? logoFor(address, chainId, symbol) ?? snapshotLogos.get(`${chainId}:${address.toLowerCase()}`)
+    : undefined;
+  const logo0 = tokenLogo(pool?.token0, pool?.symbol0);
+  const logo1 = tokenLogo(pool?.token1, pool?.symbol1);
 
   const histCloses = useMemo(
     () => (history && history.length > 1 ? history.map((d) => d.price0) : fallbackCloses ?? []),
@@ -302,8 +320,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           </div>
         ) : (
           <>
+            <Verdict sim={sim} selected={selected} {...sectionProps} />
             <RealBacktest sim={sim} {...sectionProps} />
-            <PriceDistribution sim={sim} />
             {dispTickLiq && dispTickLiq.length > 0 && (
               <Section
                 kicker="Liquidity depth"
@@ -314,13 +332,10 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
               </Section>
             )}
             <FeePanel sim={sim} {...sectionProps} />
-            <ILPanel sim={sim} isMobile={isMobile} />
-            <PnlWaterfall sim={sim} />
-            <ComparisonPanel sim={sim} />
-            <RiskRadar sim={sim} {...sectionProps} />
-            <SensitivityPanel sim={sim} movePct={movePct} setMovePct={setMovePct} {...sectionProps} />
-            <ScenarioCards sim={sim} setMovePct={setMovePct} {...sectionProps} />
-            <Timeline sim={sim} setHorizonDays={setHorizonDays} {...sectionProps} />
+            <PriceMoves sim={sim} movePct={movePct} setMovePct={setMovePct} {...sectionProps} />
+            <ILPanel sim={sim} isMobile={isMobile}>
+              <TimelineRows sim={sim} setHorizonDays={setHorizonDays} {...sectionProps} />
+            </ILPanel>
           </>
         )}
       </div>
@@ -389,7 +404,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                           borderRadius: 8, padding: '3px 8px',
                         }}
                       >
-                        {sym}{s.top10Share != null ? ` · top10 ${(s.top10Share * 100).toFixed(0)}%` : ''}{s.holders != null ? ` · ${s.holders.toLocaleString('en-US')} holders` : ''}{flags.length > 0 ? ` · ${flags.join(' · ')}` : ''}
+                        {sym}: {flags.length > 0 ? flags.join(' · ') : warm ? `top 10 hold ${(s.top10Share! * 100).toFixed(0)}%` : 'no warnings'}
+                        {s.holders != null ? ` · ${s.holders.toLocaleString('en-US')} holders` : ''}
                       </span>
                     );
                   })}
@@ -398,6 +414,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
               {sim && (
                 <PositionSummary
                   sim={sim}
+                  logos={flip ? [logo1, logo0] : [logo0, logo1]}
                   onToggleFlip={() => setFlipManual(!flip)}
                   onRange={onDispRange}
                   depositStr={depositStr}
@@ -417,11 +434,11 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                 </div>
               )}
 
+              {sim && <Verdict sim={sim} selected={selected} {...sectionProps} />}
               {sim && <RealBacktest sim={sim} {...sectionProps} />}
 
               {sim && (
                 <>
-                  <PriceDistribution sim={sim} />
                   {dispTickLiq && dispTickLiq.length > 0 && (
                     <Section
                       kicker="Liquidity depth"
@@ -438,13 +455,10 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                     </Section>
                   )}
                   <FeePanel sim={sim} {...sectionProps} />
-                  <ILPanel sim={sim} isMobile={isMobile} />
-                  <PnlWaterfall sim={sim} />
-                  <ComparisonPanel sim={sim} />
-                  <RiskRadar sim={sim} {...sectionProps} />
-                  <SensitivityPanel sim={sim} movePct={movePct} setMovePct={setMovePct} {...sectionProps} />
-                  <ScenarioCards sim={sim} setMovePct={setMovePct} {...sectionProps} />
-                  <Timeline sim={sim} setHorizonDays={setHorizonDays} {...sectionProps} />
+                  <PriceMoves sim={sim} movePct={movePct} setMovePct={setMovePct} {...sectionProps} />
+                  <ILPanel sim={sim} isMobile={isMobile}>
+                    <TimelineRows sim={sim} setHorizonDays={setHorizonDays} {...sectionProps} />
+                  </ILPanel>
                   <div style={{ color: btb.textDim, fontSize: 10.5, lineHeight: 1.55, padding: '0 4px' }}>
                     Free LP simulator, no wallet needed. Estimates use this pool&apos;s recent fees, your share of in range liquidity, and a lognormal price model
                     fitted to the pair&apos;s own volatility{sim.usingFallbackHistory ? ' (approximate trend data for this pool)' : ''}. USD figures treat {sim.dispQuote} as the stable side of the pair.
