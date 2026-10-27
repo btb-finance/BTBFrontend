@@ -18,6 +18,7 @@ import { useSidebar } from '../../lib/SidebarContext';
 import { sushiV3DeploymentForChain } from '@/protocols/dexs/sushiswap';
 import { STABLES } from '../../lib/pools';
 import { useTokenLogos } from '../../lib/TokenStore';
+import { useSheetOpen } from '../../lib/uiLock';
 import { useDiscoverPools } from '../../lib/discoverPools';
 import {
   nearestUsableTick, fmtFeeTier, isNativeCurrency, uniswapV3DeploymentForChain,
@@ -85,6 +86,8 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
   onClose: () => void;
   embed?: SimulatorEmbed;
 }) {
+  // Open on its own (not inside Add liquidity), it covers the page: the phone's bottom menu stays out of its way.
+  useSheetOpen(!embed);
   const { width: sidebarWidth, isMobile } = useSidebar();
   const isV4 = selected.protocol === 'uniswap-v4';
   const dex = selected.protocol === 'pancakeswap-v3' ? 'pancakeswap' : 'uniswap';

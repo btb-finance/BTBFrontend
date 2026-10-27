@@ -219,7 +219,7 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
         {canSimulate && (
           <Button variant="success" size="sm" fullWidth={isMobile} onClick={() => openLpFor(t)}
             style={{ height: h, gap: 5, fontSize: 12, boxShadow: 'none', borderRadius: 10 }}>
-            <Icon name="plus" size={12} /> LP
+            Add LP
           </Button>
         )}
       </div>

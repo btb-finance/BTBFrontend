@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useUiLock } from '../lib/uiLock';
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { useConnection, useDisconnect, useConfig } from 'wagmi';
@@ -130,7 +131,12 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
 
   // Switching tabs also closes any overlay (Docs) so navigation always
   // does something visible — especially important for the mobile bottom nav.
-  const goto = (t: Tab) => { if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
+  // Where Back on a full-height screen (Swap on a phone) returns to.
+  const cameFrom = useRef<Tab>('home');
+  // On a phone, Swap gets the whole screen (it has its own Back), as does any open sheet.
+  const { sheetOpen } = useUiLock();
+  const navHidden = isMobile && (sheetOpen || (screen === 'swap' && !overlay));
+  const goto = (t: Tab) => { if (t !== screen) cameFrom.current = screen; if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
   const openOverlay = (o: Exclude<Overlay, null>) => { setOverlay(o); syncUrl(screen, o); };
   const closeOverlay = () => { setOverlay(null); syncUrl(screen, null); };
 
@@ -151,6 +157,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
     // A fresh swap screen reads the new pair from the URL, even when the swap tab is already open.
     setSwapKey((k) => k + 1);
     setOverlay(null);
+    if (screen !== 'swap') cameFrom.current = screen;
     setScreen('swap');
     const q = new URLSearchParams();
     if (opts?.from) q.set('from', opts.from.address);
@@ -173,7 +180,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
                           onBuyBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
-      case 'swap':      return <SwapScreen key={swapKey} initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}/>;
+      case 'swap':      return <SwapScreen key={swapKey} initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}
+                          onBack={isMobile ? () => goto(cameFrom.current === 'swap' ? 'home' : cameFrom.current) : undefined}/>;
       case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate} viewAddress={effectiveAddress} onViewAddress={onViewAddress}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
@@ -205,11 +213,13 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
       <div style={{
         flex: 1, minWidth: 0,
         width: '100%', maxWidth: isMobile ? undefined : 1360, margin: isMobile ? undefined : '0 auto',
-        padding: isMobile ? `14px ${MOBILE_GUTTER}px calc(86px + env(safe-area-inset-bottom))` : '28px clamp(16px, 3vw, 40px) 60px',
+        // The bottom menu's room is only kept while the menu shows.
+        // Swap pins its button where the menu was, so it keeps about the same room.
+        padding: isMobile ? `14px ${MOBILE_GUTTER}px calc(${navHidden ? (screen === 'swap' && !overlay ? 84 : 24) : 86}px + env(safe-area-inset-bottom))` : '28px clamp(16px, 3vw, 40px) 60px',
       }}>
         {overlayContent ?? content}
       </div>
-      {isMobile && (
+      {isMobile && !navHidden && (
         <MobileNav
           tab={screen}
           setTab={goto}

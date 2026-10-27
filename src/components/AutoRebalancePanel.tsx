@@ -41,12 +41,21 @@ function inTime(ms: number | null): string {
 
 const OWNER_OF_ABI = parseAbi(['function ownerOf(uint256 tokenId) view returns (address)']);
 
-/** One plain sentence and a colour for where the job stands. */
-function statusOf(j: Job): { text: string; tone: string } {
+/**
+ * One plain sentence and a colour for where the job stands. The live position wins over the last check's note: with
+ * a daily check the note can be a day old, and the card above already reads the chain ("Out of range" there and "In
+ * range" here was the result).
+ */
+function statusOf(j: Job, pos?: { inRange: boolean }): { text: string; tone: string } {
   if (!j.active) return { text: j.note ?? 'Paused', tone: btb.amber };
   if (j.status === 'short') return { text: j.note ?? 'Out of range. Top up to let it rebalance.', tone: btb.amber };
   if (j.status === 'waiting') return { text: j.note ?? 'Out of range, waiting for the price to settle.', tone: btb.amber };
   if (j.lastCheckedAt == null) return { text: 'Starting. The first check runs in a few seconds.', tone: btb.textMuted };
+  if (pos && !pos.inRange) {
+    const next = inTime(j.nextCheckAt);
+    return { text: `Out of range. The next check${next ? ` ${next}` : ''} moves it back.`, tone: btb.amber };
+  }
+  if (pos?.inRange) return { text: 'In range and earning fees.', tone: btb.green };
   if (j.note && j.lastInRange === false) return { text: j.note, tone: btb.textMuted };
   if (j.lastInRange === false) return { text: 'Out of range. The next check will rebalance it.', tone: btb.amber };
   return { text: 'In range and earning fees.', tone: btb.green };
@@ -171,7 +180,7 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const status = statusOf(job);
+  const status = statusOf(job, pos);
   const id = job.id as Id<'autoRebalances'>;
   // Re-render every 30 s so "checked 3 min ago" stays true.
   const [, tick] = useState(0);
@@ -276,18 +285,19 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
     finally { setBusy(null); }
   }
 
-  const btn = (label: string, onClick: () => void, tone: string = btb.text, wide = false) => (
-    <button type="button" disabled={!!busy || !canTransact} onClick={onClick} style={{
-      gridColumn: wide ? '1 / -1' : undefined, minHeight: 36, padding: '6px 10px', borderRadius: 12, fontFamily: 'inherit', fontSize: 12.5, fontWeight: 800,
+  const btn = (label: string, onClick: () => void, tone: string = btb.text, wide: boolean | number = false, title?: string) => (
+    <button type="button" title={title} disabled={!!busy || !canTransact} onClick={onClick} style={{
+      gridColumn: wide === true ? '1 / -1' : typeof wide === 'number' ? `span ${wide}` : undefined, minHeight: 32, padding: '5px 8px', borderRadius: 10, fontFamily: 'inherit', fontSize: 12, fontWeight: 800,
       lineHeight: 1.2, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, cursor: busy || !canTransact ? 'default' : 'pointer', color: busy || !canTransact ? btb.textDim : tone,
       background: 'rgba(var(--fg-rgb), 0.05)', border: '1px solid rgba(var(--fg-rgb), 0.1)',
     }}>{label}</button>
   );
   const limitWarning = !!limit && limit.used >= limit.max * 0.75;
-  // Buttons before Withdraw leftover; when that makes it the odd one out, it takes the whole row.
+  // Buttons before Leftover. Leftover takes one cell and Withdraw the rest of that row, so the two share it.
   const gridCount = [onAdd && pos, true, true, !isStaked || rewardsOk, pos?.stakeable && !pos.staked, pos?.staked && pos.staked.earned > 0n,
     pos?.staked || (job.gauge && !pos?.stakeable), limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning].filter(Boolean).length;
-  const oddButtons = gridCount % 2 === 0;
+  const used = (gridCount + 1) % 3;
+  const withdrawSpan = used === 0 ? 3 : 3 - used;
   const compoundText = isStaked && !rewardsOk
     ? 'Compounding staking rewards is not available on this chain yet.'
     : isStaked
@@ -332,19 +342,19 @@ export function AutoJobControls({ job, pos, address, canTransact, onChanged, onA
       {/* Viewing someone else's wallet: no controls at all. The server refuses them anyway (signed owner only). */}
       {!canTransact && <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 8 }}>Viewing only. Only the owner's wallet can change this.</div>}
       {canTransact && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 10 }}>
-          {onAdd && pos && btn('Increase liquidity', onAdd, btb.green)}
-          {btn(editing ? 'Done' : 'Change interval', () => setEditing((e) => !e))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, marginTop: 10 }}>
+          {onAdd && pos && btn('Add more', onAdd, btb.green)}
+          {btn(editing ? 'Done' : 'Interval', () => setEditing((e) => !e))}
           {job.active
             ? btn('Pause', () => withSession('Pausing', (t) => setActive({ sessionToken: t, id, active: false })), btb.amber)
             : btn('Resume', () => withSession('Resuming', (t) => setActive({ sessionToken: t, id, active: true })), btb.green)}
-          {(!isStaked || rewardsOk) && btn(`Compound: ${job.compound ? 'on' : 'off'}`, toggleCompound, job.compound ? btb.green : btb.textMuted)}
-          {pos?.stakeable && !pos.staked && btn(`Stake for ${pos.stakeable.rewardSymbol ?? 'rewards'}`, () => gauge('stake'), btb.green)}
+          {(!isStaked || rewardsOk) && btn('Compound', toggleCompound, job.compound ? btb.green : btb.textMuted, false, `Auto-compound is ${job.compound ? 'on' : 'off'}. Tap to turn it ${job.compound ? 'off' : 'on'}.`)}
+          {pos?.stakeable && !pos.staked && btn(`Stake ${pos.stakeable.rewardSymbol ?? ''}`.trim(), () => gauge('stake'), btb.green)}
           {pos?.staked && pos.staked.earned > 0n && btn(`Claim ${pos.staked.rewardSymbol}`, () => gauge('claim'), btb.green)}
           {(pos?.staked || (job.gauge && !pos?.stakeable)) && btn('Unstake', () => gauge('unstake'), btb.amber)}
-          {limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning && btn(`Raise daily limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
-          {btn('Withdraw leftover', sweep, btb.textMuted, oddButtons)}
-          {btn('Withdraw LP and stop auto', takeOut, btb.loss, true)}
+          {limit && limit.max < MAX_ACTIONS_PER_DAY && limitWarning && btn(`Limit to ${MAX_ACTIONS_PER_DAY}`, raiseLimit, btb.green)}
+          {btn('Leftover', sweep, btb.textMuted, false, 'Withdraw leftover tokens from the auto wallet')}
+          {btn('Withdraw LP and stop auto', takeOut, btb.loss, withdrawSpan === 3 ? true : withdrawSpan)}
         </div>
       )}
       {busy && <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 6 }}>{busy}</div>}

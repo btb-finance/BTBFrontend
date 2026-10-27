@@ -9,6 +9,7 @@ import { Portal } from './Portal';
 import { Button } from './Button';
 import { TokenIcon } from './TokenIcon';
 import { useSheetOpen } from '../lib/uiLock';
+import { useDragToClose } from '../lib/useDragToClose';
 import { ChainLogo } from './ChainLogo';
 import { btb, MOBILE_GUTTER } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
@@ -164,6 +165,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
 }) {
   // A full page sheet: the phone's bottom menu stays out of its way while it is open.
   useSheetOpen(true);
+  // On a phone, pulling the header down closes the sheet, no need to reach for the close button.
+  const pull = useDragToClose(onClose);
   const { width: sidebarWidth, isMobile } = useSidebar();
   const { address } = useConnection();
   const config = useConfig();
@@ -557,18 +560,25 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     return { below, above };
   }, [pool, ticks, spacing, isV4]);
 
-  // One-sided LP, as on Wind Swap: a range covering 10% of price that starts just past the live price, so it takes
-  // only one token. Above the price it holds token0, below it token1; the same one-tick gap as the split ranges.
+  // One-sided LP, as on Wind Swap: the range you picked with its other side cut off, so it starts just past the live
+  // price and takes only one token. Pick 1%, tap Above, and you get the price to +1%. When the range has nothing on
+  // that side, it mirrors the other side; full range, or no range yet, falls back to 10%. Above the price it holds
+  // token0, below it token1; the same one-tick gap as the split ranges.
   const oneSided = useMemo(() => {
     if (!pool || !spacing) return null;
-    const width = Math.ceil(Math.log(1.1) / Math.log(1.0001) / spacing) * spacing;
     const aboveLower = Math.ceil((pool.tick + 1) / spacing) * spacing;
     const belowUpper = Math.floor((pool.tick - 1) / spacing) * spacing;
+    const fallback = Math.ceil(Math.log(1.1) / Math.log(1.0001) / spacing) * spacing;
+    const up = ticks && rangeMode !== null ? ticks.tickUpper - pool.tick : 0;
+    const down = ticks && rangeMode !== null ? pool.tick - ticks.tickLower : 0;
+    const snap = (w: number) => Math.max(spacing, Math.ceil(w / spacing) * spacing);
+    const upW = up > spacing ? snap(up) : down > spacing ? snap(down) : fallback;
+    const downW = down > spacing ? snap(down) : up > spacing ? snap(up) : fallback;
     return {
-      above: { tickLower: aboveLower, tickUpper: aboveLower + width },
-      below: { tickLower: belowUpper - width, tickUpper: belowUpper },
+      above: { tickLower: aboveLower, tickUpper: Math.max(aboveLower + spacing, Math.floor((pool.tick + upW) / spacing) * spacing) },
+      below: { tickLower: Math.min(belowUpper - spacing, Math.ceil((pool.tick - downW) / spacing) * spacing), tickUpper: belowUpper },
     };
-  }, [pool, spacing]);
+  }, [pool, spacing, ticks, rangeMode]);
 
   // Keep the min/max price inputs (display space) in sync with the preset / smart fit.
   useEffect(() => {
@@ -1459,8 +1469,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     const inSym = need === 'token0' ? sym0 : sym1;   // token deposited now
     const outSym = need === 'token0' ? sym1 : sym0;   // token you end up holding
     return (
-      <div style={{ color: 'var(--btb-amber)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
-        Current price is outside this range — this is a single-sided {inSym} position. It deposits {inSym} only and earns no fees until the price reaches the range. Once it does, your {inSym} is swapped into {outSym} as the price passes through — you&apos;d finish holding {outSym}, not {inSym}. Only place this if you actually want to convert {inSym}→{outSym}.
+      // One short line; the hover keeps the longer why.
+      <div title={`No fees until the price reaches your range. As it passes through, your ${inSym} turns into ${outSym}.`} style={{ color: 'var(--btb-amber)', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+        Out of range: {inSym} only, no fees until the price gets here, then it turns into {outSym}.
       </div>
     );
   }
@@ -1600,17 +1611,35 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const showActionBar = !simOnly && pool?.exists && !loadingPool && !poolErr;
   const actionBar =       (
         <div style={{
-          position: 'sticky', zIndex: 5, pointerEvents: 'none',
-          bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0,
+          position: 'sticky', zIndex: 5, pointerEvents: isMobile ? 'auto' : 'none',
+          // Phone: the bottom menu is hidden while this sheet is open, so the bar takes its place, flush with the
+          // screen's bottom edge like a nav bar, full width.
+          bottom: 0,
           display: 'block',
-          padding: isMobile ? '0 0 10px' : '12px 0 0',
+          ...(isMobile ? {
+            padding: `8px ${MOBILE_GUTTER}px calc(8px + env(safe-area-inset-bottom, 0px))`,
+            background: 'rgba(var(--bg-rgb), 0.96)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            borderTop: '1px solid rgba(var(--fg-rgb), 0.1)',
+          } : { padding: '12px 0 0' }),
         }}>
           {wantsAuto && (
             <div style={{
               pointerEvents: 'auto', marginBottom: 6, background: 'rgba(var(--bg-rgb), 0.96)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(var(--green-rgb), 0.3)', borderRadius: 14, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 4,
+              border: '1px solid rgba(var(--green-rgb), 0.3)', borderRadius: 14, padding: isMobile ? '6px 10px' : '8px 12px', display: 'flex', flexDirection: 'column', gap: 4,
             }}>
-              {/* Kept to two short lines: this sits in the sticky bar, over the form. The full cost is one tap away. */}
+              {/* Phone: one slim line, since this sits in the sticky bar over the form. The full cost is one tap away. */}
+              {isMobile ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <select value={autoInterval} disabled={busy} onChange={(e) => setAutoInterval(Number(e.target.value))} aria-label="Check interval"
+                    style={{ flexShrink: 0, height: 28, borderRadius: 8, border: '1px solid rgba(var(--green-rgb), 0.35)', background: 'rgba(var(--green-rgb), 0.1)', color: btb.green, fontFamily: 'inherit', fontSize: 16, fontWeight: 800, padding: '0 4px' }}>
+                    {CHECK_INTERVALS.map((m) => <option key={m} value={m}>{intervalLabel(m)}</option>)}
+                  </select>
+                  <span style={{ flex: 1, minWidth: 0, color: btb.textMuted, fontSize: 11.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {autoFree > 0 ? `${autoFree} free, then ` : ''}1 BTB a check
+                  </span>
+                  <button type="button" onClick={() => setAutoInfo((v) => !v)} style={{ flexShrink: 0, padding: 0, border: 'none', background: 'transparent', color: btb.green, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{autoInfo ? 'Less' : 'More'}</button>
+                </div>
+              ) : (<>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 800, flex: 1, minWidth: 0 }}>Auto-rebalance, check every</span>
                 <select value={autoInterval} disabled={busy} onChange={(e) => setAutoInterval(Number(e.target.value))} aria-label="Check interval"
@@ -1624,23 +1653,28 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 </span>
                 <button type="button" onClick={() => setAutoInfo((v) => !v)} style={{ flexShrink: 0, padding: 0, border: 'none', background: 'transparent', color: btb.green, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>{autoInfo ? 'Less' : 'More'}</button>
               </div>
+              </>)}
               {autoInfo && (
                 <div style={{ color: btb.textMuted, fontSize: 11.5, lineHeight: 1.5 }}>
-                  About {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day at this interval. A rebalance is only charged when it happens, from your BTB balance{autoFree > 0 ? `; your next ${autoFree} rebalances or compounds and their checks are free` : ''}. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
+                  {isMobile ? `${rebalanceBtb(chainId).toLocaleString('en-US')} BTB per rebalance. ` : ''}About {dailyCheckBtb(autoInterval).toLocaleString('en-US')} BTB a day at this interval. A rebalance is only charged when it happens, from your BTB balance{autoFree > 0 ? `; your next ${autoFree} rebalances or compounds and their checks are free` : ''}. After adding, one more confirmation moves the position into your own auto wallet{stakeAfterMint && canStake ? ` and stakes it there for ${rewardSymbol}` : ''}.
                 </div>
               )}
             </div>
           )}
           <div style={{
-            pointerEvents: 'auto', display: 'flex', alignItems: 'stretch', gap: 8, minWidth: 0,
-            background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 14, padding: 8,
+            pointerEvents: 'auto', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'stretch', gap: 8, minWidth: 0,
+            ...(isMobile ? {} : {
+              background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+              border: '1px solid rgba(var(--fg-rgb), 0.1)', borderRadius: 14, padding: 8,
+            }),
           }}>
+                {/* Phone: the toggles share one row and the button gets the full width below, so nothing runs off screen. */}
+                <div style={{ display: 'flex', gap: isMobile ? 6 : 8, minWidth: 0 }}>
                 <div
                   onClick={() => { const opts = [50, 100, 250, 500]; const i = opts.indexOf(slippageBps); setSlippageBps(opts[(i + 1) % opts.length]); }}
                   title="Tap to change liquidity slippage"
                   style={{
-                    flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                    flex: isMobile ? '1 1 0' : '0 0 auto', minWidth: 0, minHeight: isMobile ? 36 : undefined, cursor: 'pointer', borderRadius: 10, padding: isMobile ? '4px 6px' : '4px 10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
                     background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
                     display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                   }}>
@@ -1652,7 +1686,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                     onClick={() => setStakeAfterMint((v) => !v)}
                     title={`Stake the new position to earn ${rewardSymbol}`}
                     style={{
-                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                      flex: isMobile ? '1 1 0' : '0 0 auto', minWidth: 0, minHeight: isMobile ? 36 : undefined, cursor: 'pointer', borderRadius: 10, padding: isMobile ? '4px 6px' : '4px 10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
                       background: stakeAfterMint ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${stakeAfterMint ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                       display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                     }}>
@@ -1665,7 +1699,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                     onClick={() => setAutoOn((v) => !v)}
                     title="Rebalance this position automatically when the price leaves the range"
                     style={{
-                      flexShrink: 0, cursor: 'pointer', borderRadius: 10, padding: '4px 10px', textAlign: 'center',
+                      flex: isMobile ? '1 1 0' : '0 0 auto', minWidth: 0, minHeight: isMobile ? 36 : undefined, cursor: 'pointer', borderRadius: 10, padding: isMobile ? '4px 6px' : '4px 10px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden',
                       background: autoOn ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${autoOn ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.12)'}`,
                       display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.1,
                     }}>
@@ -1673,7 +1707,8 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                     <span style={{ color: autoOn ? btb.green : btb.text, fontSize: 12, fontWeight: 800 }}>{autoOn ? intervalLabel(autoInterval) : 'off'}</span>
                   </div>
                 )}
-                <Button variant="success" size="md" onClick={() => (swapFit ? mintFit() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, minHeight: 48, borderRadius: 14, fontWeight: 800, fontSize: 15 }}>
+                </div>
+                <Button variant="success" size="md" onClick={() => (swapFit ? mintFit() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, width: isMobile ? '100%' : undefined, minHeight: isMobile ? 44 : 48, borderRadius: 14, fontWeight: 800, fontSize: 15 }}>
                   {busy ? (stepMsg || 'Confirming…')
                     : swapFit ? (payShort ? `Not enough ${payTok?.symbol}` : zapping ? (fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : zapPlan ? 'Swap & add LP' : 'Getting a price') : fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : fitBudget[0] > 0n || fitBudget[1] > 0n ? (fitPlan ? (fitPlan.sellSide !== null ? 'Swap & add LP' : 'Add LP') : 'Getting a price') : 'Enter an amount')
                     : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
@@ -1684,11 +1719,11 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
 
   return (
     <Portal>
-    <div onScroll={fitFormCol} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto' }}>
-      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? `12px ${MOBILE_GUTTER}px 96px` : '16px 24px 88px' }}>
+    <div onScroll={fitFormCol} style={{ ...(isMobile ? pull.sheetStyle : {}), position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 340, background: btb.bg, overflowY: 'auto', overflowX: 'hidden' }}>
+      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: isMobile ? `12px ${MOBILE_GUTTER}px 16px` : '16px 24px 88px' }}>
         {/* One header that says what this is and for which pool: the pair's logos with the chain on them, "Add
             liquidity" and the pair, then the fee, DEX and chain. Replaces a generic icon tile plus a separate pool strip. */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14 }}>
+        <div {...(isMobile ? pull.dragProps : {})} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, touchAction: isMobile ? 'none' : undefined }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             {pool ? (
               <div style={{ position: 'relative', display: 'flex', flexShrink: 0, paddingRight: 4 }}>
@@ -1699,8 +1734,9 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 </span>
               </div>
             ) : (
-              <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--green-rgb), 0.12)' }}>
-                <Icon name={simOnly ? 'chart' : 'plus'} size={18} color={btb.green}/>
+              // Still loading: two blank circles where the logos land, so nothing jumps when they arrive.
+              <div style={{ display: 'flex', flexShrink: 0, paddingRight: 4 }}>
+                {[0, 1].map((i) => <span key={i} style={{ width: isMobile ? 34 : 40, height: isMobile ? 34 : 40, borderRadius: '50%', marginLeft: i ? (isMobile ? -12 : -14) : 0, background: 'rgba(var(--fg-rgb), 0.08)', border: `2px solid ${btb.bg}` }}/>)}
               </div>
             )}
             <div style={{ minWidth: 0 }}>
@@ -1838,7 +1874,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             />
             {oneSided && !isV4 && (
               <div style={{ margin: '-2px 0 12px' }}>
-                <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 6 }}>One-sided LP (10% range)</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   {/* Shown in the order the price reads on screen: flipping the quote swaps which token sits above. */}
                   {([
@@ -1854,7 +1889,6 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                         border: `1px solid rgba(${rgb}, ${on ? 0.6 : 0.3})`,
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: o.up ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 800 }}>
-                          <Icon name={o.up ? 'up' : 'down'} size={12} color={o.up ? btb.green : btb.loss}/>
                           {o.up ? 'Above price' : 'Below price'}
                         </div>
                         <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 2 }}>Only {o.sym}</div>

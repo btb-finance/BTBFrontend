@@ -103,24 +103,27 @@ export function RangePicker({
   const card = (which: 'min' | 'max') => {
     const v = which === 'min' ? safeLow : safeHigh;
     const color = which === 'min' ? btb.loss : btb.green;
-    const rgb = which === 'min' ? 'var(--loss-rgb, 239,68,68)' : 'var(--green-rgb)';
     return (
       <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 6, fontSize: 11.5 }}>
           <span style={{ color, fontWeight: 700 }}>{which === 'min' ? 'Min price' : 'Max price'}</span>
-          {!isFull && <span style={{ color, fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 6, background: `rgba(${rgb}, 0.16)` }}>{dist(v)}</span>}
+          {/* The chip follows its sign, not its side: a max below the price is still a drop. */}
+          {!isFull && (() => {
+            const up = v >= current;
+            return <span style={{ color: up ? btb.green : btb.loss, fontSize: 10.5, fontWeight: 800, padding: '1px 6px', borderRadius: 6, background: `rgba(${up ? 'var(--green-rgb)' : 'var(--loss-rgb, 239,68,68)'}, 0.16)` }}>{dist(v)}</span>;
+          })()}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button type="button" disabled={isFull} onClick={() => onNudge(which, -1)} style={stepBtn} aria-label={`${which === 'min' ? 'Min' : 'Max'} price down`}>-</button>
           <input value={isFull ? (which === 'min' ? '0' : '∞') : which === 'min' ? minStr : maxStr} inputMode="decimal" readOnly={isFull}
             onChange={(e) => (which === 'min' ? onMinStr : onMaxStr)(e.target.value)}
-            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', height: 34, padding: '0 4px', textAlign: 'center', borderRadius: 10, border: '1px solid rgba(var(--fg-rgb), 0.1)', outline: 'none', background: 'transparent', color: btb.text, fontSize: 16, fontWeight: 800, fontFamily: 'inherit' }}/>
+            style={{ flex: 1, minWidth: 0, boxSizing: 'border-box', height: 34, padding: '0 2px', textAlign: 'center', borderRadius: 10, border: '1px solid rgba(var(--fg-rgb), 0.1)', outline: 'none', background: 'transparent', color: btb.text, fontSize: 16, fontWeight: 800, fontFamily: 'inherit' }}/>
           <button type="button" disabled={isFull} onClick={() => onNudge(which, 1)} style={stepBtn} aria-label={`${which === 'min' ? 'Min' : 'Max'} price up`}>+</button>
         </div>
       </div>
     );
   };
-  const stepBtn = { ...smallBtn, width: 32, height: 32, borderRadius: 10, fontSize: 17, flexShrink: 0, background: 'rgba(var(--fg-rgb), 0.1)', border: 'none', color: btb.text } as const;
+  const stepBtn = { ...smallBtn, width: 28, height: 34, borderRadius: 9, fontSize: 17, flexShrink: 0, background: 'rgba(var(--fg-rgb), 0.1)', border: 'none', color: btb.text } as const;
   // No Custom chip: dragging the band or typing a price already makes the range custom.
   const allPresets = presets.map((p) => ({ label: p.label, go: () => onPreset(p.pct) }));
 
@@ -179,8 +182,8 @@ export function RangePicker({
           </div>
         )}
 
-        {/* Side by side when there is room, stacked on a narrow phone so the steppers never run off the card. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginTop: 2 }}>
+        {/* Always side by side: slim steppers leave the price enough room even on a narrow phone. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 2 }}>
           {card('min')}
           {card('max')}
         </div>
@@ -188,7 +191,6 @@ export function RangePicker({
 
       {/* Presets under the range card, one compact row; the lit one gets the green gradient. Scrolls sideways if six do not fit. */}
       <div>
-        <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Range</div>
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {allPresets.map((p) => {
             const on = activePreset === p.label;

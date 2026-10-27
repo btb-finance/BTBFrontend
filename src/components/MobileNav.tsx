@@ -1,5 +1,6 @@
 'use client';
 import { useUiLock } from '../lib/uiLock';
+import { useDragToClose } from '../lib/useDragToClose';
 import { useState } from 'react';
 import { Icon } from './Icon';
 import { Button } from './Button';
@@ -35,6 +36,8 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
   onViewAddress: (addr: string | undefined) => void;
 }) {
   const [sheet, setSheet] = useState(false);
+  // Nothing in the More sheet scrolls, so the whole sheet is the handle: pull it down to close.
+  const drag = useDragToClose(() => setSheet(false));
   // Hidden under an open sheet; dimmed and untappable while the wallet asks you to sign.
   const { sheetOpen, signing } = useUiLock();
   const { mode, toggleMode } = useChainTheme();
@@ -62,7 +65,8 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
           background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
           display: 'flex', alignItems: 'flex-end',
         }}>
-          <div onClick={e => e.stopPropagation()} style={{
+          <div onClick={e => e.stopPropagation()} {...drag.dragProps} style={{
+            ...drag.sheetStyle, touchAction: 'none',
             width: '100%', background: btb.glassStrong, backdropFilter: btb.blur, WebkitBackdropFilter: btb.blur,
             border: btb.border, borderBottom: 'none',
             borderRadius: '24px 24px 0 0', padding: '16px 16px calc(90px + env(safe-area-inset-bottom))',

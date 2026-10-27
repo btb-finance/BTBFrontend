@@ -5,6 +5,7 @@ import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { useScrollLock } from '../lib/useScrollLock';
 import { useSidebar } from '../lib/SidebarContext';
+import { useDragToClose } from '../lib/useDragToClose';
 
 /**
  * A picker with a title, a search box and a scrolling list, laid out like Wind Swap's token selector: a sheet from
@@ -22,22 +23,27 @@ export function PickerSheet({ title, query, onQuery, placeholder, onClose, child
 }) {
   useScrollLock(true);
   const { isMobile } = useSidebar();
+  // The list scrolls, so only the top (handle and title) pulls the sheet down to close.
+  const drag = useDragToClose(onClose);
   return (
     <Portal>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}/>
       <div role="dialog" aria-label={title} style={{
+        ...(isMobile ? drag.sheetStyle : {}),
         position: 'fixed', zIndex: 401, display: 'flex', flexDirection: 'column',
         background: 'rgba(var(--bg-rgb), .99)', border: '1px solid rgba(var(--fg-rgb), .12)', boxShadow: '0 24px 60px rgba(0,0,0,.55)',
         ...(isMobile
           ? { left: 0, right: 0, bottom: 0, maxHeight: '82dvh', borderRadius: '24px 24px 0 0', borderBottom: 'none', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }
           : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', width: 'min(440px, calc(100vw - 32px))', maxHeight: '80vh', borderRadius: 24 }),
       }}>
+        <div {...(isMobile ? drag.dragProps : {})} style={{ touchAction: isMobile ? 'none' : undefined }}>
         {isMobile && <div style={{ width: 44, height: 4, borderRadius: 99, background: 'rgba(var(--fg-rgb), .2)', margin: '8px auto 0' }}/>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isMobile ? '10px 18px 12px' : '20px 22px 14px' }}>
           <span style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.3 }}>{title}</span>
           <button type="button" onClick={onClose} aria-label="Close" style={{ width: 36, height: 36, borderRadius: 11, border: 'none', background: 'rgba(var(--fg-rgb), .06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
             <Icon name="close" size={14} color={btb.textMuted}/>
           </button>
+        </div>
         </div>
         <div style={{ margin: isMobile ? '0 18px 12px' : '0 22px 14px', height: 46, padding: '0 14px', borderRadius: 14, border: '1px solid rgba(var(--fg-rgb), .1)', background: 'rgba(var(--fg-rgb), .05)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="search" size={15} color={btb.textMuted}/>

@@ -80,24 +80,21 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
         <span style={{ color: btb.textDim, fontSize: 11.5 }}>{p.symbol1}/{p.symbol0}{fullRange ? ' · full range' : ''}</span>
-        <span style={{ color: tone, fontSize: 14, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
+        <span style={{ color: tone, fontSize: 13.5, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
       </div>
-      <div style={{ position: 'relative', height: 36, marginTop: 8, borderRadius: 10, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
-        {/* liquidity depth: where the other LPs sit */}
-        <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-          {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.16)" />)}
-        </svg>
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--amber-rgb), 0.14)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--amber-rgb), 0.45)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--amber-rgb), 0.45)'}` }} />
-        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
-        <div style={{ position: 'absolute', top: 4, left: `calc(${mark}% - 5px)`, width: 10, height: 10, borderRadius: 999, background: tone, boxShadow: `0 0 0 3px ${p.inRange ? 'rgba(var(--green-rgb), 0.25)' : 'rgba(var(--amber-rgb), 0.25)'}` }} />
-      </div>
-      {/* Min and max sit under the bar, where the price marker can never cover them. */}
-      {!fullRange && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 5, color: btb.textMuted, fontSize: 10.5 }}>
-          <span>Min {fmtPrice(pLow)}</span>
-          <span>Max {fmtPrice(pHigh)}</span>
+      {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}>{fmtPrice(pLow)}</span>}
+        <div style={{ position: 'relative', flex: 1, height: 18, borderRadius: 6, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
+          {/* liquidity depth: where the other LPs sit */}
+          <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+            {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.16)" />)}
+          </svg>
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.16)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}` }} />
+          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
         </div>
-      )}
+        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}>{fmtPrice(pHigh)}</span>}
+      </div>
     </div>
   );
 }

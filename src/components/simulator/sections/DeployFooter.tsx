@@ -28,7 +28,8 @@ export function DeployFooter({ sim, onDeploy, canDeploy, isMobile }: {
 
   return (
     <div style={{
-      position: 'sticky', bottom: isMobile ? 'calc(64px + env(safe-area-inset-bottom, 0px))' : 0, zIndex: 20,
+      // The bottom menu is hidden while the simulator is open, so the footer sits at the screen's edge.
+      position: 'sticky', bottom: isMobile ? 'calc(8px + env(safe-area-inset-bottom, 0px))' : 0, zIndex: 20,
       padding: isMobile ? '0 0 10px' : '0 0 14px',
     }}>
       <div style={{

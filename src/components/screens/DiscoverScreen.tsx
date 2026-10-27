@@ -778,7 +778,7 @@ export function DiscoverScreen() {
             {mintable && (
               <Button variant="success" size="sm" onClick={() => addLp(p)}
                 style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, boxShadow: 'none', whiteSpace: 'nowrap' }}>
-                <Icon name="plus" size={11} /> Add LP
+                Add LP
               </Button>
             )}
             <Button variant="ghost" size="sm" onClick={() => simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
@@ -880,7 +880,7 @@ export function DiscoverScreen() {
                   {mintable && (
                     <Button variant="success" size="sm" onClick={() => addLp(p)}
                       style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
-                      <Icon name="plus" size={12} /> Add LP
+                      Add LP
                     </Button>
                   )}
                   <Button variant="ghost" size="sm" onClick={() => simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}

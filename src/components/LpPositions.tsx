@@ -172,6 +172,15 @@ function krystalMatches(p: LiquidityPosition, item: { chainId: number; tokenId: 
   return p.protocol === 'aerodrome-cl' ? key.includes('aerodrome') : key === KRYSTAL_PROTOCOL[p.protocol];
 }
 
+/** The shape every chip on a position card shares. */
+/** A fee tier to two significant digits for the narrow chip row: 0.0225% reads 0.023%. */
+function shortFee(fee: number): string {
+  const pct = fee / 10_000;
+  return `${pct >= 0.1 ? Number(pct.toFixed(2)) : Number(pct.toPrecision(2))}%`;
+}
+
+const chipBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, height: 22, padding: '0 9px', borderRadius: 999, fontSize: 11, fontWeight: 750, whiteSpace: 'nowrap', boxSizing: 'border-box' };
+
 function LpChainLogo({ chainId, chainName }: { chainId: number; chainName: string }) {
   return (
     <span title={chainName} aria-label={chainName} style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
@@ -947,6 +956,29 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   // Everything waiting to be claimed: trading fees, plus the gauge rewards staked positions earn instead of fees.
   const unclaimedUsd = pendingFeesUsd + positions.reduce((s, p) => s + rewardsValueOf(p), 0);
   const inRangeCount = positions.filter((p) => p.inRange && p.liquidity > 0n).length;
+  // The pool's APR from the Discover snapshot, for cards whose live read has none (many staked or forked pools):
+  // matched by chain and token pair, the closest fee tier first, the deepest pool on a tie.
+  const poolAprOf = (p: LiquidityPosition): number | null => {
+    const cid = p.chainId ?? 1;
+    const pair = [p.token0.toLowerCase(), p.token1.toLowerCase()].sort().join('|');
+    const hits = (discoverPools ?? []).filter((d) => (d.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === d.chain)?.chainId) === cid
+      && (d.underlyingTokens ?? []).slice(0, 2).map((t) => t.toLowerCase()).sort().join('|') === pair);
+    if (hits.length === 0) return null;
+    const best = [...hits].sort((a, b) => Math.abs((a.feeTier ?? p.fee) - p.fee) - Math.abs((b.feeTier ?? p.fee) - p.fee) || b.tvlUsd - a.tvlUsd)[0];
+    const apr = p.staked ? (best.apyReward > 0 ? best.apyReward : best.apy) : (best.apyBase > 0 ? best.apyBase : best.apy);
+    return apr > 0 ? apr : null;
+  };
+  /** The APR a card shows, and where it came from. */
+  const cardAprOf = (p: LiquidityPosition): { apr: number; source: string } | null => {
+    const live = liveApr[posKey(p)];
+    if (live != null && live > 0) return { apr: live, source: `Your live ${p.staked ? `${p.staked.rewardSymbol} reward` : 'fee'} APR: the pool's 24h ${p.staked ? 'rewards' : 'fees'} times your share of in-range liquidity` };
+    const k = analyticsOf(p);
+    if (k && k.feeApr > 0) return { apr: k.feeApr, source: 'Fee APR of this position, from Krystal' };
+    const pool = poolAprOf(p);
+    if (pool != null) return { apr: pool, source: `The pool's ${p.staked ? 'reward' : 'fee'} APR from Discover; yours depends on your range` };
+    return null;
+  };
+
   // What each position earns: the live APR (fees, or the gauge reward when staked) spread over a day, and the totals.
   const aprOf = (p: LiquidityPosition) => liveApr[posKey(p)] ?? analyticsOf(p)?.feeApr ?? 0;
   const dailyOf = (p: LiquidityPosition) => (valueOf(p) * aprOf(p)) / 100 / 365;
@@ -1209,21 +1241,37 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         <input autoFocus value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} onBlur={() => void commitTag(p)} onKeyDown={(e) => { if (e.key === 'Enter') void commitTag(p); if (e.key === 'Escape') setEditingTag(null); }} maxLength={24} placeholder="Tag"
           style={{ height: 22, padding: '0 8px', borderRadius: 999, border: btb.borderSoft, background: btb.surfaceSoft, color: btb.text, fontSize: 11, fontFamily: 'inherit', outline: 'none', width: 120 }}/>
       ) : (
-        <span onClick={() => { if (address) { setEditingTag(tagKeyOf(p)); setTagDraft(tags[tagKeyOf(p)] ?? ''); } }} title="Tag this position" style={{ cursor: address ? 'pointer' : 'default', fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, border: tags[tagKeyOf(p)] ? '1px solid rgba(var(--green-rgb), 0.35)' : btb.borderSoft, background: tags[tagKeyOf(p)] ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: tags[tagKeyOf(p)] ? btb.green : btb.textDim }}>
-          {tags[tagKeyOf(p)] ?? '+ tag'}
+        <span onClick={() => { if (address) { setEditingTag(tagKeyOf(p)); setTagDraft(tags[tagKeyOf(p)] ?? ''); } }} title="Tag this position" style={{ ...chipBase, cursor: address ? 'pointer' : 'default', border: tags[tagKeyOf(p)] ? '1px solid rgba(var(--green-rgb), 0.35)' : '1px dashed rgba(var(--fg-rgb), 0.25)', background: tags[tagKeyOf(p)] ? 'rgba(var(--green-rgb), 0.1)' : 'transparent', color: tags[tagKeyOf(p)] ? btb.green : btb.textDim }}>
+          {tags[tagKeyOf(p)] ?? (isMobile ? '+' : '+ tag')}
         </span>
       )
     );
-    const feeEl = <Badge size="sm" color={btb.textMuted} bg={btb.surfaceSoft} border="none" style={{ fontSize: 11, padding: '2px 7px' }}>{fmtFeeTier(p.fee)}</Badge>;
-    const stakedEl = <Badge size="sm" border="none" bg="rgba(var(--amber-rgb), 0.14)" color={btb.amber} style={{ whiteSpace: 'nowrap', padding: isMobile ? '2px 7px' : '3px 9px' }}>Staked</Badge>;
+    // One set of chips, all the same height and shape: status first, then the pool (chain, DEX and fee in one),
+    // Staked, and the tag. Desktop shows the position number instead of the fee, which it shows elsewhere.
+    const tone = p.inRange ? { fg: btb.green, rgb: 'var(--green-rgb)' } : { fg: btb.amber, rgb: 'var(--amber-rgb)' };
+    const cardApr = cardAprOf(p);
+    const feeEl = <span style={{ ...chipBase, color: btb.textMuted, background: 'rgba(var(--fg-rgb), 0.06)' }}>{fmtFeeTier(p.fee)}</span>;
+    const stakedEl = (
+      <span title={`Staked${p.staked ? ` for ${p.staked.rewardSymbol}` : ''}`} style={{ ...chipBase, color: btb.textMuted, background: 'rgba(var(--fg-rgb), 0.06)', padding: isMobile ? '0 7px' : chipBase.padding }}>
+        <Icon name="lock" size={10} color={btb.textMuted}/>{!isMobile && 'Staked'}
+      </span>
+    );
     const metaEl = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: isMobile ? 8 : 4, flexWrap: 'wrap' }}>
-      {isMobile ? feeEl : <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>}
-      <Badge size="sm" border="none" bg={p.inRange ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--amber-rgb), 0.14)'} color={p.inRange ? btb.green : btb.amber} style={{ whiteSpace: 'nowrap' }}>
-        {p.inRange ? 'In range' : 'Out of range'}
-      </Badge>
-      <LpChainLogo chainId={p.chainId ?? 1} chainName={p.chainName ?? 'Ethereum'}/>
-      <Badge size="sm" color={PROTOCOL_BADGE[p.protocol].color} bg={`${PROTOCOL_BADGE[p.protocol].color}1f`} border="none" style={{ fontSize: 10, padding: '1px 6px' }}>{protocolBadgeLabel(p)}</Badge>
+      <span style={{ ...chipBase, color: tone.fg, background: `rgba(${tone.rgb}, 0.13)` }}>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone.fg }}/>{p.inRange ? 'In range' : 'Out of range'}
+      </span>
+      {cardApr && (
+        <span title={p.inRange ? cardApr.source : `${cardApr.source}. Earned only while in range.`} style={{ ...chipBase, color: p.inRange ? btb.green : btb.textMuted, background: p.inRange ? 'rgba(var(--green-rgb), 0.13)' : 'rgba(var(--fg-rgb), 0.06)' }}>
+          APR {cardApr.apr >= 100 ? Math.round(cardApr.apr).toLocaleString('en-US') : cardApr.apr.toFixed(1)}%
+        </span>
+      )}
+      <span title={p.chainName ?? 'Ethereum'} style={{ ...chipBase, color: btb.textMuted, background: 'rgba(var(--fg-rgb), 0.06)', paddingLeft: 3 }}>
+        <ChainLogo chainId={p.chainId ?? 1} size={16}/>
+        <span style={{ color: PROTOCOL_BADGE[p.protocol].color }}>{protocolBadgeLabel(p)}</span>
+        {isMobile && <span>{shortFee(p.fee)}</span>}
+      </span>
+      {!isMobile && <span style={{ color: btb.textDim, fontSize: 11.5 }}>#{p.id.toString()}</span>}
       {isMobile && p.staked && stakedEl}
       {isMobile && tagEl}
     </div>
@@ -1252,18 +1300,13 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             {v > 0 && <div style={{ color: btb.text, fontSize: isMobile ? 16 : 19, fontWeight: 800 }}>{money(v)}</div>}
-            {liveApr[posKey(p)] != null && (
-              <div title="Pool's 24h fees times your share of in-range liquidity, annualised" style={{ color: liveApr[posKey(p)] > 0 ? btb.green : btb.textDim, fontSize: 11.5, fontWeight: 800, marginTop: 2 }}>
-                {liveApr[posKey(p)] > 0 ? `${liveApr[posKey(p)].toFixed(1)}% ${p.staked ? `${p.staked.rewardSymbol} APR` : 'fee APR'}` : 'Earning 0% now'}
-              </div>
-            )}
             {p.staked && !isMobile && <div style={{ marginTop: v > 0 ? 4 : 0 }}>{stakedEl}</div>}
           </div>
         </div>
         {/* Phone: the badges get the full card width, under the pair and value. */}
         {isMobile && metaEl}
 
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 8, marginTop: isMobile ? 10 : 14 }}>
           <div style={box}>
             <div style={boxLabel}><TokenIcon symbol={p.symbol0} size={16} logoUrl={logo0}/>{p.symbol0}</div>
             <div style={boxValue}>{fmtAmt(p.amount0, p.decimals0)}</div>
@@ -1272,28 +1315,14 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
             <div style={boxLabel}><TokenIcon symbol={p.symbol1} size={16} logoUrl={logo1}/>{p.symbol1}</div>
             <div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div>
           </div>
-          {p.staked && isMobile ? (
-            <div style={{ ...box, gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '9px 12px', background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
-              <span style={{ color: btb.textMuted, fontSize: 12 }}>Rewards to claim</span>
-              <span style={{ color: btb.amber, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{fmtAmt(p.staked.earned, 18)} {p.staked.rewardSymbol}</span>
-            </div>
-          ) : isMobile ? (
-            // Phone: fees as one slim row, the same shape as the rewards row.
-            <div style={{ ...box, gridColumn: '1 / -1', padding: '9px 12px', background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ color: btb.textMuted, fontSize: 12 }}>Unclaimed fees</span>
-                <span style={{ color: hasFees ? btb.green : btb.textDim, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</span>
+          {isMobile ? (
+            // Phone: the third box of the same row, as compact as the two token boxes; the breakdown is a tooltip.
+            <div title={p.staked ? `${p.staked.rewardSymbol} rewards to claim` : hasFees ? `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0} + ${fmtAmt(p.fees1, p.decimals1)} ${p.symbol1}${collectGasUsd[posKey(p)] != null ? `, gas to collect ~$${collectGasUsd[posKey(p)].toFixed(2)}` : ''}` : 'No fees yet'}
+              style={{ ...box, background: p.staked ? 'rgba(var(--amber-rgb), 0.07)' : hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: p.staked ? '1px solid rgba(var(--amber-rgb), 0.22)' : hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
+              <div style={boxLabel}>{p.staked ? p.staked.rewardSymbol : 'Fees'}</div>
+              <div style={{ ...boxValue, color: p.staked ? btb.amber : hasFees ? btb.green : btb.textDim }}>
+                {p.staked ? fmtAmt(p.staked.earned, 18) : hasFees ? (f > 0 ? money(f) : fmtAmt(p.fees0, p.decimals0)) : 'None'}
               </div>
-              {hasFees && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 3, fontSize: 10.5 }}>
-                  <span style={{ color: 'rgba(var(--green-rgb), 0.75)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}</span>
-                  {collectGasUsd[posKey(p)] != null && (
-                    <span style={{ color: f > 0 && collectGasUsd[posKey(p)] > f ? btb.amber : btb.textDim, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      {f > 0 && collectGasUsd[posKey(p)] > f ? `gas ~$${collectGasUsd[posKey(p)].toFixed(2)}, let grow` : `gas ~$${collectGasUsd[posKey(p)].toFixed(2)}`}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
           ) : p.staked ? (
             <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>

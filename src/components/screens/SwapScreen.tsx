@@ -14,6 +14,7 @@ import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
 import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
+import { useDragToClose } from '../../lib/useDragToClose';
 import { Screen } from '../Screen';
 import { ChainLogo } from '../ChainLogo';
 import { useTokenStore, Token, PROTOCOL_TOKENS } from '../../lib/TokenStore';
@@ -225,7 +226,9 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
   held?: Token[];
   chainId?: number;
 }) {
-  const { width: sidebarWidth } = useSidebar();
+  const { width: sidebarWidth, isMobile } = useSidebar();
+  // Pull the header down to close the list on a phone.
+  const pull = useDragToClose(onClose);
   const [q, setQ] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -290,8 +293,8 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
   return (
     <Portal>
     <div onClick={onClose} style={{ position: 'fixed', top: 0, left: sidebarWidth, right: 0, bottom: 0, zIndex: 300, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }}>
-      <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, minWidth: 0, maxHeight: '82vh', background: 'rgba(var(--bg-rgb), 0.99)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 24, boxShadow: '0 24px 60px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '20px 22px 0' }}>
+      <div onClick={e => e.stopPropagation()} style={{ ...(isMobile ? pull.sheetStyle : {}), width: '100%', maxWidth: 440, minWidth: 0, maxHeight: '82vh', background: 'rgba(var(--bg-rgb), 0.99)', border: '1px solid rgba(var(--fg-rgb), 0.12)', borderRadius: 24, boxShadow: '0 24px 60px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column' }}>
+        <div {...(isMobile ? pull.dragProps : {})} style={{ padding: '20px 22px 0', touchAction: isMobile ? 'none' : undefined }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <span style={{ color: btb.text, fontSize: 19, fontWeight: 800, letterSpacing: -0.3 }}>Select token</span>
             <button type="button" onClick={onClose} aria-label="Close" style={{ width: 36, height: 36, borderRadius: 11, border: 'none', background: 'rgba(var(--fg-rgb), .06)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
@@ -388,6 +391,46 @@ function InfoRow({ label, value, last }: { label: string; value: React.ReactNode
       <span style={{ color: btb.textMuted, fontSize: 12.5 }}>{label}</span>
       <span style={{ color: btb.text, fontSize: 12.5, fontWeight: 600, textAlign: 'right' }}>{value}</span>
     </div>
+  );
+}
+
+/**
+ * The main button: in the card on a wide screen; on a phone pinned to the bottom edge where the menu was, as on Add
+ * liquidity. The page keeps the room for it at its end (MiniApp), so nothing hides behind it.
+ */
+function PinnedAction({ children }: { children: React.ReactNode }) {
+  const { isMobile } = useSidebar();
+  if (!isMobile) return <>{children}</>;
+  return (
+    <>
+      <div style={{
+        position: 'fixed', left: 12, right: 12, bottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', zIndex: 60,
+        padding: 6, borderRadius: 20, background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(var(--fg-rgb), 0.1)', boxShadow: '0 -6px 24px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column',
+      }}>{children}</div>
+    </>
+  );
+}
+
+/** The top of Swap on a phone: Back, then the tabs; pulling this area down goes back, like tapping Back. */
+function PullBack({ onBack, children }: { onBack?: () => void; children: React.ReactNode }) {
+  const pull = useDragToClose(() => onBack?.());
+  if (!onBack) return <>{children}</>;
+  return (
+    <div {...pull.dragProps} style={{ ...pull.sheetStyle, touchAction: 'none', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <BackRow onBack={onBack}/>
+      {children}
+    </div>
+  );
+}
+
+/** Back, on a phone, where the bottom menu is hidden so the swap gets the screen. */
+function BackRow({ onBack }: { onBack: () => void }) {
+  return (
+    <button type="button" onClick={onBack} style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px 0 10px', borderRadius: 999, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.05)', color: btb.text, fontFamily: 'inherit', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+      <Icon name="back" size={14} color={btb.textMuted}/>
+      Back
+    </button>
   );
 }
 
@@ -528,14 +571,14 @@ type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'erro
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function SwapScreen({ initialFrom, onConnectWallet }: { initialFrom?: Token; onConnectWallet?: () => void } = {}) {
+export function SwapScreen({ initialFrom, onConnectWallet, onBack }: { initialFrom?: Token; onConnectWallet?: () => void; /** A phone's way out: the bottom menu is hidden on Swap. */ onBack?: () => void } = {}) {
   const [mode, setMode] = useState<'swap' | 'bridge'>('swap');
   return mode === 'bridge'
-    ? <BridgeSwap onStandardSwap={() => setMode('swap')} onConnectWallet={onConnectWallet}/>
-    : <SameChainSwap initialFrom={initialFrom} onBridge={() => setMode('bridge')} onConnectWallet={onConnectWallet}/>;
+    ? <BridgeSwap onStandardSwap={() => setMode('swap')} onConnectWallet={onConnectWallet} onBack={onBack}/>
+    : <SameChainSwap initialFrom={initialFrom} onBridge={() => setMode('bridge')} onConnectWallet={onConnectWallet} onBack={onBack}/>;
 }
 
-function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom?: Token; onConnectWallet?: () => void; onBridge: () => void }) {
+function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { initialFrom?: Token; onConnectWallet?: () => void; onBridge: () => void; onBack?: () => void }) {
   const { tokens, positions } = useTokenStore();
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
@@ -902,7 +945,9 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       {/* One swap card in Wind Swap's layout: the header row, You pay and You receive as inset boxes with the
           flip between them, the quote's details, then the button. The network is also set by picking a token
           you hold on another chain, so the header stays compact. */}
-      <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
+      <PullBack onBack={onBack}>
+        <SwapModeTabs mode="swap" onSwap={() => {}} onBridge={onBridge}/>
+      </PullBack>
       <div style={{
         borderRadius: 24, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
         background: 'linear-gradient(180deg, rgba(var(--fg-rgb), 0.055), rgba(var(--fg-rgb), 0.02))',
@@ -1002,6 +1047,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
         </div>
       )}
 
+      <PinnedAction>
       <Button
         // One tap: the quote line above is the review. The wallet's own
         // confirmation is the second look; progress shows on the next screen.
@@ -1013,6 +1059,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
       >
         {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : !address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? `Swap ${fromToken.symbol} for ${toToken.symbol}` : quoteErr ? 'No route found' : 'Enter amount'}
       </Button>
+      </PinnedAction>
       </div>
 
       {picker && (
@@ -1049,7 +1096,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge }: { initialFrom
   // ── Confirm / sending step ─────────────────────────────────────────────────
 }
 
-function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () => void; onConnectWallet?: () => void }) {
+function BridgeSwap({ onStandardSwap, onConnectWallet, onBack }: { onStandardSwap: () => void; onConnectWallet?: () => void; onBack?: () => void }) {
   const { positions } = useTokenStore();
   const { address, chainId: walletChainId } = useConnection();
   const config = useConfig();
@@ -1251,7 +1298,9 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
 
   if (step === 'form') return (
     <Screen gap={16} style={{ width: '100%', maxWidth: 520, margin: '0 auto' }}>
-      <SwapModeTabs mode="bridge" onSwap={onStandardSwap} onBridge={() => {}}/>
+      <PullBack onBack={onBack}>
+        <SwapModeTabs mode="bridge" onSwap={onStandardSwap} onBridge={() => {}}/>
+      </PullBack>
       {/* The same card as Swap: title, You pay on one network, You receive on another, details, then the button. */}
       <div style={{
         borderRadius: 24, padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
@@ -1315,7 +1364,9 @@ function BridgeSwap({ onStandardSwap, onConnectWallet }: { onStandardSwap: () =>
         <InfoRow label="Route" last value={route}/>
       </QuoteDetails>}
       {quoteErr && <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(var(--loss-rgb), 0.08)', border: '1px solid rgba(var(--loss-rgb), 0.3)', color: btb.red, fontSize: 13 }}>{quoteErr}</div>}
+      <PinnedAction>
       <Button onClick={() => !address ? onConnectWallet?.() : canReview && execute()} disabled={!!address && !canReview} style={{ minHeight: 56, borderRadius: 16, fontSize: 17 }}>{!address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficient ? `Insufficient ${fromToken.symbol}` : quoting ? 'Finding fastest bridge…' : quote ? `Bridge ${fromToken.symbol} to ${CHAIN_META[toChainId]?.name ?? 'destination'}` : quoteErr ? 'No route found' : 'Enter amount'}</Button>
+      </PinnedAction>
       </div>
       {picker && (
         <TokenPicker tokens={picker === 'from' ? fromTokens : toTokens} loading={picker === 'from' ? loadingFrom : loadingTo} selected={picker === 'from' ? fromToken.address : toToken.address} onSelect={token => { picker === 'from' ? setFromToken(token) : setToToken(token); setFromAmt(''); setQuote(null); }} onImport={tokenAddress => importToken(tokenAddress, picker === 'from' ? fromChainId : toChainId)} onClose={() => setPicker(null)}/>
