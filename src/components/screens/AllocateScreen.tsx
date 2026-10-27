@@ -26,7 +26,7 @@ import {
   AERO, AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, allocateAbi, allocateCall, allocateErrorText, aprPct, claimCall, claimRewardsAbi, cooldownLeft, planFor,
   readEarned, readPositions, returnAllCall, type Earned, type SaeroPosition,
 } from '../../lib/aero/allocator';
-import { claimCalls, priceRewards, type RewardLine, type SellTarget } from '../../lib/aero/claimSell';
+import { claimCalls, dropFailingSales, priceRewards, type RewardLine, type SellTarget } from '../../lib/aero/claimSell';
 import { ClaimTokenPicker, COMMON_TARGETS } from '../ClaimTokenPicker';
 import type { AllocatorSnapshot, SnapGauge } from '../../lib/aero/allocatorSnapshot';
 
@@ -165,7 +165,9 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
         const c = claimCall(position.tokenId, rewards.earned, address as Address);
         await client!.simulateContract({ address: AERO.voter, abi: claimRewardsAbi, functionName: 'claimRewards', args: c.args, account: address as Address });
       } catch { throw new Error('The claim would fail. Refresh and try again.'); }
-      const { calls, sold, kept } = await claimCalls(position.tokenId, rewards.earned, rewards.lines, address as Address, sell ? target : null);
+      const built = await claimCalls(position.tokenId, rewards.earned, rewards.lines, address as Address, sell ? target : null);
+      // A sale that would fail is left out (its token kept) so it cannot undo the claim in an all-or-nothing batch.
+      const { calls, sold, kept } = sell ? await dropFailingSales(client!, address as Address, built) : built;
       await runCalls(config, {
         account: address as `0x${string}`,
         calls,

@@ -114,7 +114,8 @@ export async function buildKyberTx(
   return {
     data:  d.data,
     to:    (d.routerAddress ?? routerAddress) as `0x${string}`,
-    value: d.value ?? '0',
+    // The build response names it transactionValue (the ETH to send when selling native ETH); `value` is the older name.
+    value: d.transactionValue ?? d.value ?? '0',
     gas:   d.gas,
   };
 }
