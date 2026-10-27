@@ -32,6 +32,7 @@ export function Icon({ name, size = 22, color = 'var(--btb-text)' }: IconProps) 
     case 'refresh': return <svg viewBox="0 0 24 24" {...s}><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9A9 9 0 0 1 20 8M20.5 15A9 9 0 0 1 4 16"/></svg>;
     case 'layers':  return <svg viewBox="0 0 24 24" {...s}><path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg>;
     case 'image':   return <svg viewBox="0 0 24 24" {...s}><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>;
+    case 'copy':    return <svg viewBox="0 0 24 24" {...s}><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>;
     case 'doc':     return <svg viewBox="0 0 24 24" {...s}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>;
     case 'discord': return <svg viewBox="0 0 24 24" {...s}><path d="M20.3 4.4A18 18 0 0 0 16 3a12 12 0 0 0-.5 1.1 16.6 16.6 0 0 0-7 0A12 12 0 0 0 8 3 18 18 0 0 0 3.7 4.4 19 19 0 0 0 1 18.1a18.2 18.2 0 0 0 5.5 2.8 13.7 13.7 0 0 0 1.2-1.9 11.8 11.8 0 0 1-1.9-1l.5-.4a13 13 0 0 0 11.4 0l.5.4a11.8 11.8 0 0 1-1.9 1 13.7 13.7 0 0 0 1.2 1.9 18.2 18.2 0 0 0 5.5-2.8A19 19 0 0 0 20.3 4.4zM8.5 15.4c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3zm7 0c-1.1 0-2-1-2-2.3s.9-2.3 2-2.3 2 1 2 2.3-.9 2.3-2 2.3z"/></svg>;
     // The X wordmark, not a cross — the two strokes of an ✕ are a different

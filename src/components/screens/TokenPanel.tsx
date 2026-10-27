@@ -29,8 +29,6 @@ const OPOS_TREASURY_ABI = parseAbi(['function treasury() view returns (address)'
 const shortAddr = `${BTB_ADDRESS.slice(0, 6)}…${BTB_ADDRESS.slice(-4)}`;
 
 const MS_PER_DAY = 86_400_000;
-/** When the current week settles (Friday 00:00 UTC), from the shared schedule. */
-const nextSettleAt = (at: number) => epochWindow(epochIdAt(at)).endsAt;
 
 /** Parse a wei string without letting one malformed row take down the render. */
 function toWei(raw: string | null | undefined): bigint {
@@ -49,17 +47,6 @@ function formatBtb(raw: string | null | undefined) {
   } catch {
     return '0';
   }
-}
-
-
-function countdown(ms: number) {
-  if (ms <= 0) return 'settling now';
-  const d = Math.floor(ms / MS_PER_DAY);
-  const h = Math.floor((ms % MS_PER_DAY) / 3_600_000);
-  const m = Math.floor((ms % MS_PER_DAY % 3_600_000) / 60_000);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 
@@ -170,14 +157,14 @@ const EARN_ROWS: { icon: string; label: string; detail: string; href: string; ac
 
 /** The three-beat story: use → enter → claim. */
 const STEPS: { title: string; detail: string }[] = [
-  { title: 'Earn points', detail: 'Check in daily, hold BTB, swap, simulate, mint and auto-rebalance. Points land on their own, no forms.' },
-  { title: 'Friday split', detail: "Everyone with points is in automatically. The week's revenue is shared by points." },
+  { title: 'Earn XP', detail: 'Check in daily, hold BTB, swap, simulate, mint and auto-rebalance. XP lands on its own, no forms.' },
+  { title: 'Friday split', detail: "Everyone with XP is in automatically. The week's revenue is shared by XP." },
   { title: 'Claim or use it', detail: `Claim to your wallet with no gas (from ${MIN_CLAIM_BTB.toLocaleString('en-US')} BTB), or add any amount to your BTB balance. Untouched shares go back to the pot next Friday.` },
 ];
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const LABEL_STYLE = { color: btb.textDim, fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.5 };
+const LABEL_STYLE = { color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.5 };
 const CARD_STYLE = { background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 14, padding: '11px 13px', minWidth: 0 };
 
 /** Small stat tile used across the hero and proof grids. `row`: label left, value right, for a phone, where three
@@ -188,7 +175,7 @@ function StatTile({ label, value, sub, color, row = false }: { label: string; va
       <div style={LABEL_STYLE}>{label}</div>
       <div style={{ textAlign: 'right', minWidth: 0 }}>
         <div style={{ color: color ?? btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>{value}</div>
-        {sub && <div style={{ color: btb.textDim, fontSize: 10, marginTop: 1 }}>{sub}</div>}
+        {sub && <div style={{ color: btb.textDim, fontSize: 11, marginTop: 1 }}>{sub}</div>}
       </div>
     </div>
   );
@@ -196,7 +183,7 @@ function StatTile({ label, value, sub, color, row = false }: { label: string; va
     <div style={CARD_STYLE}>
       <div style={{ ...LABEL_STYLE, lineHeight: 1.3 }}>{label}</div>
       <div style={{ color: color ?? btb.text, fontSize: 17, fontWeight: 800, marginTop: 3, letterSpacing: -0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
-      {sub && <div style={{ color: btb.textDim, fontSize: 10, marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
@@ -304,7 +291,6 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     return () => clearInterval(timer);
   }, [hasStatus]);
 
-  const endsIn = status ? status.endsAt - now : 0;
   const sharePct = status && status.myPoints > 0 && status.requestedPointsTotal > 0
     ? (status.myPoints / status.requestedPointsTotal) * 100
     : null;
@@ -415,16 +401,6 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── header: only for visitors; a connected wallet goes straight to its balance card ── */}
-      {!address && (
-        <div style={{ padding: '0 4px' }}>
-          <div style={{ color: btb.text, fontSize: 22, fontWeight: 800, letterSpacing: -0.5 }}>Get paid every Friday</div>
-          <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
-            {status ? `Week ${status.epochId} · settles in ${countdown(endsIn)}` : 'Settles Friday 00:00 UTC'}
-          </div>
-        </div>
-      )}
-
       {/* ── BTB balance and top up, first thing on the page ── */}
       {address && (
         <div style={{
@@ -445,7 +421,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                   <span style={{ color: btb.text, fontSize: isMobile ? 22 : 26, fontWeight: 800, letterSpacing: -0.6, lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fmtBtb(b.value)}</span>
                   <span style={{ color: btb.green, fontSize: 13, fontWeight: 800 }}>BTB</span>
                 </div>
-                <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 5, lineHeight: 1.4 }}>{b.note}</div>
+                <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 5, lineHeight: 1.4 }}>{b.note}</div>
               </div>
             ))}
           </div>
@@ -457,94 +433,8 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         </div>
       )}
 
-      {/* ── when this week's pot is shared out, to the second (inside "This week" once connected) ── */}
-      {!address && <EpochTimer epochId={status?.epochId ?? epochIdAt(now)}/>}
-
-      {/* ── this week, all in one place: the flip countdown, your numbers, and the split ── */}
+      {/* ── daily check-in: the one thing people do every day, so it comes first ── */}
       {address && (
-        <div style={panelStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>This week's split</span>
-            {(status?.myPoints ?? 0) > 0
-              ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.4)', borderRadius: 999, padding: '5px 10px', color: btb.green, fontSize: 11, fontWeight: 800 }}><Icon name="check" size={12} color={btb.green}/>You are in</span>
-              : <span style={{ color: btb.textDim, fontSize: 12 }}>{countdown(endsIn)} left</span>}
-          </div>
-
-          <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare/>
-
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
-            <StatTile label="Points this week" value={status ? status.myPoints.toLocaleString('en-US') : '—'} color={status && status.myPoints > 0 ? btb.green : undefined} sub={checkedIn ? 'checked in today' : `+${todayXp} on check-in`}/>
-            <StatTile label="Your share" value={sharePct != null ? `≈ ${sharePct.toFixed(1)}%` : '—'} sub={status ? `${status.requesterCount} wallets earning` : undefined}/>
-            <StatTile label="Est. Friday payout" value={estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : '—'} color={estPayout != null ? btb.green : undefined} sub={estPayout != null ? "at last week's pot" : undefined}/>
-            <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min(100, sharePct ?? 0)}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${btb.green}, rgba(var(--green-rgb), 0.7))`, transition: 'width .4s' }}/>
-            </div>
-            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: isMobile ? 4 : 8, color: btb.textDim, fontSize: isMobile ? 12 : 10.5 }}>
-              <span title="Treasury BTB plus its OPOS at 1,000,000 OPOS per BTB (burned to BTB on Friday), less shares still owed" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span>Pot so far</span>
-                <b style={{ color: btb.text }}>{livePot != null ? '≈ ' : ''}{formatBtb(currentPot.toString()).split('.')[0]} BTB</b>
-              </span>
-              {estPayout != null && (
-                <span title="Your share applied to last week's pot" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                  <span>Your est. payout</span>
-                  <b style={{ color: btb.green }}>≈ {formatBtb(estPayout.toString()).split('.')[0]} BTB</b>
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div style={{ color: btb.textDim, fontSize: 10.5, lineHeight: 1.5 }}>
-            {(status?.myPoints ?? 0) > 0
-              ? 'Every point you earn this week counts. Friday, the pot is split by points and your share is waiting here: claim it or add it to your BTB balance before the next Friday.'
-              : 'Earn points this week and you are in automatically. Friday, the pot is split by points.'}
-          </div>
-          {error && <div style={{ color: btb.loss, fontSize: 11.5 }}>{error}</div>}
-          {/* Last week's result, as the card's footer. While a share is waiting, the claim card above shows it instead. */}
-          {showLastAward && claimable.length === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 12, borderTop: '1px solid rgba(var(--fg-rgb), 0.07)' }}>
-              <Icon name="receive" size={14} color={btb.green}/>
-              <span style={{ color: btb.textMuted, fontSize: 12 }}>Last week you were paid</span>
-              <b style={{ marginLeft: 'auto', color: btb.green, fontSize: 13 }}>{formatBtb(lastAward).split('.')[0]} BTB</b>
-            </div>
-          )}
-        </div>
-      )}
-
-
-      {/* ── ready to claim — only when there is BTB waiting ── */}
-      {claimable.map(row => { const canSend = BigInt(row.amountRaw) >= BigInt(MIN_CLAIM_BTB) * 10n ** 18n; return (
-        <div key={row.payoutId} style={{ borderRadius: 24, padding: '18px 20px', border: '1px solid rgba(var(--green-rgb), 0.45)', background: 'rgba(var(--green-rgb), 0.10)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ ...LABEL_STYLE, color: 'rgba(var(--green-rgb), 0.8)' }}>Week {row.epochId} · ready</div>
-            <div style={{ color: btb.green, fontSize: 24, fontWeight: 800, letterSpacing: -0.5, marginTop: 3 }}>{formatBtb(row.amountRaw)} BTB</div>
-            <div style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2 }}>
-              {canSend
-                ? 'Claim it to your wallet (no gas) or add it to your BTB balance for the agent, alerts and auto-rebalance.'
-                : `Add it to your BTB balance for the agent, alerts and auto-rebalance. Sending to a wallet starts at ${MIN_CLAIM_BTB.toLocaleString('en-US')} BTB.`}
-              {' '}Untouched by next Friday, it goes back into the pot for everyone.
-            </div>
-          </div>
-          {!isOwnWallet ? (
-            <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700 }}>Connect this wallet to claim it</div>
-          ) : <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Button size="sm" variant="successSoft" fullWidth={false} disabled={busy != null} loading={busy === 'balance'} onClick={() => doAddToBalance(row.payoutId)}>
-              Add to BTB balance
-            </Button>
-            {canSend && (
-              <Button size="sm" variant="success" fullWidth={false} disabled={busy != null} loading={busy === 'claim'} onClick={() => doClaim(row.payoutId)}>
-                Claim to wallet
-              </Button>
-            )}
-          </div>}
-        </div>
-      ); })}
-
-      {/* ── daily check-in hero ── */}
-      {address ? (
         <div style={heroStyle}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ minWidth: 0 }}>
@@ -581,7 +471,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                   <div style={{ ...box, width: '100%', height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 800 }}>
                     {d.state === 'done' ? <Icon name="check" size={14} color={btb.green}/> : `+${d.xp}`}
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: d.state === 'today' ? btb.text : d.bonus && d.state === 'future' ? btb.amber : btb.textDim }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: d.state === 'today' ? btb.text : d.bonus && d.state === 'future' ? btb.amber : btb.textDim }}>
                     {d.bonus && d.state === 'future' ? 'Bonus' : d.label}
                   </span>
                 </div>
@@ -597,23 +487,100 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             </Button>
           )}
         </div>
-      ) : (
+      )}
+
+      {/* ── this week, all in one place: the flip countdown, your numbers, and the split ── */}
+      {address && (
+        <div style={panelStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ color: btb.text, fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>This week's split</span>
+            {(status?.myPoints ?? 0) > 0
+              && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(var(--green-rgb), 0.12)', border: '1px solid rgba(var(--green-rgb), 0.4)', borderRadius: 999, padding: '5px 10px', color: btb.green, fontSize: 11, fontWeight: 800 }}><Icon name="check" size={12} color={btb.green}/>You are in</span>}
+          </div>
+
+          <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare/>
+
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+            <StatTile label="XP this week" value={status ? status.myPoints.toLocaleString('en-US') : '...'} color={status && status.myPoints > 0 ? btb.green : undefined} sub={checkedIn ? 'checked in today' : `+${todayXp} on check-in`}/>
+            <StatTile label="Your share" value={sharePct != null ? `≈ ${sharePct.toFixed(1)}%` : '...'} sub={status ? `${status.requesterCount} wallets earning` : undefined}/>
+            <StatTile label="Est. Friday payout" value={estPayout != null ? `${formatBtb(estPayout.toString()).split('.')[0]} BTB` : '...'} color={estPayout != null ? btb.green : undefined} sub={estPayout != null ? "at last week's pot" : undefined}/>
+            <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ height: 8, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.08)', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, sharePct ?? 0)}%`, height: '100%', borderRadius: 999, background: `linear-gradient(90deg, ${btb.green}, rgba(var(--green-rgb), 0.7))`, transition: 'width .4s' }}/>
+            </div>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', gap: isMobile ? 4 : 8, color: btb.textDim, fontSize: 12 }}>
+              <span title="BTB from this week's token fees, less shares still owed" style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span>Pot so far</span>
+                <b style={{ color: btb.text }}>{livePot != null ? '≈ ' : ''}{formatBtb(currentPot.toString()).split('.')[0]} BTB</b>
+              </span>
+            </div>
+          </div>
+
+          <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5 }}>
+            {(status?.myPoints ?? 0) > 0 ? 'Friday the pot is split by XP. Your share waits here.' : 'Earn XP this week and you are in.'}
+          </div>
+          {error && <div style={{ color: btb.loss, fontSize: 11.5 }}>{error}</div>}
+          {/* Last week's result, as the card's footer. While a share is waiting, the claim card above shows it instead. */}
+          {showLastAward && claimable.length === 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 12, borderTop: '1px solid rgba(var(--fg-rgb), 0.07)' }}>
+              <Icon name="receive" size={14} color={btb.green}/>
+              <span style={{ color: btb.textMuted, fontSize: 12 }}>Last week you were paid</span>
+              <b style={{ marginLeft: 'auto', color: btb.green, fontSize: 13 }}>{formatBtb(lastAward).split('.')[0]} BTB</b>
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* ── ready to claim — only when there is BTB waiting ── */}
+      {claimable.map(row => { const canSend = BigInt(row.amountRaw) >= BigInt(MIN_CLAIM_BTB) * 10n ** 18n; return (
+        <div key={row.payoutId} style={{ borderRadius: 24, padding: '18px 20px', border: '1px solid rgba(var(--green-rgb), 0.45)', background: 'rgba(var(--green-rgb), 0.10)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...LABEL_STYLE, color: 'rgba(var(--green-rgb), 0.8)' }}>Week {row.epochId} · ready</div>
+            <div style={{ color: btb.green, fontSize: 24, fontWeight: 800, letterSpacing: -0.5, marginTop: 3 }}>{formatBtb(row.amountRaw)} BTB</div>
+            <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2 }}>
+              {canSend ? 'Claim free, or add to your balance.' : `Add to your balance. Claims start at ${MIN_CLAIM_BTB.toLocaleString('en-US')} BTB.`}
+              {' '}Unclaimed by next Friday, it returns to the pot.
+            </div>
+          </div>
+          {!isOwnWallet ? (
+            <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700 }}>Connect this wallet to claim it</div>
+          ) : <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button size="sm" variant="successSoft" fullWidth={false} disabled={busy != null} loading={busy === 'balance'} onClick={() => doAddToBalance(row.payoutId)}>
+              Add to BTB balance
+            </Button>
+            {canSend && (
+              <Button size="sm" variant="success" fullWidth={false} disabled={busy != null} loading={busy === 'claim'} onClick={() => doClaim(row.payoutId)}>
+                Claim to wallet
+              </Button>
+            )}
+          </div>}
+        </div>
+      ); })}
+
+      {/* ── visitors: what this is and how to join ── */}
+      {!address && (
         <div style={heroStyle}>
           <div>
             <div style={{ color: btb.text, fontSize: 28, fontWeight: 800, letterSpacing: -0.7, lineHeight: 1.1 }}>Use BTB. Get paid every Friday.</div>
             <div style={{ color: btb.textMuted, fontSize: 13.5, lineHeight: 1.5, marginTop: 8 }}>
-              BTB shares its weekly revenue with the people who use it. Swaps, liquidity and a daily check-in all earn points. Points become BTB.
+              BTB shares its weekly revenue with the people who use it. Swaps, liquidity and a daily check-in all earn XP. XP becomes BTB.
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 9 }}>
-            <StatTile row={isMobile} label="This week's pot" value={epochs ? `${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '—'}/>
-            <StatTile row={isMobile} label="Paid last week" value={epochs ? `${epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0}${isMobile ? ' wallets' : ''}` : '—'} sub={isMobile ? undefined : 'wallets'}/>
-            <StatTile row={isMobile} label="Settles in" value={countdown(nextSettleAt(now) - now)} sub="Friday 00:00 UTC"/>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: isMobile ? 6 : 9 }}>
+            <StatTile row={isMobile} label="This week's pot" value={epochs ? `${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '...'}/>
+            <StatTile row={isMobile} label="Paid last week" value={epochs ? `${epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0}${isMobile ? ' wallets' : ''}` : '...'} sub={isMobile ? undefined : 'wallets'}/>
           </div>
           <Button size="md" variant="success" icon="wallet" onClick={onConnect}>Connect and check in</Button>
-          <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center' }}>Your first check-in is worth +10 XP the moment you connect.</div>
+          <div style={{ color: btb.textDim, fontSize: 12, textAlign: 'center' }}>Your first check-in is worth +10 XP the moment you connect.</div>
         </div>
       )}
+
+      {/* ── visitors: when this week's pot is shared out, to the second (inside "This week" once connected) ── */}
+      {!address && <EpochTimer epochId={status?.epochId ?? epochIdAt(now)}/>}
 
       {/* ── how it works: only until the wallet has earned something; after that it is noise ── */}
       {isNew && (
@@ -627,7 +594,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               <span style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: 'rgba(var(--green-rgb), 0.18)', color: btb.green, fontSize: 12, fontWeight: 800, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>{step.title}</span>
-                <span style={{ color: btb.textMuted, fontSize: isMobile ? 12 : 10.5, lineHeight: 1.45 }}>{step.detail}</span>
+                <span style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.45 }}>{step.detail}</span>
               </span>
             </div>
           ))}
@@ -639,7 +606,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
       {/* ── ways to earn ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <SectionHeader title={isNew ? 'Ways to earn' : 'Earn more points'}/>
+        <SectionHeader title={isNew ? 'Ways to earn' : 'Earn more XP'}/>
         <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0,1fr))', gap: 8 }}>
           {EARN_ROWS.map(row => (
             <a
@@ -660,7 +627,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
               </span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: 'block', color: btb.text, fontSize: 14, fontWeight: 700 }}>{row.label}</span>
-                <span style={{ display: 'block', color: btb.textMuted, fontSize: 11, marginTop: 2 }}>{row.detail}</span>
+                <span style={{ display: 'block', color: btb.textMuted, fontSize: 12, marginTop: 2 }}>{row.detail}</span>
               </span>
               <Icon name="arrow" size={14} color={btb.textDim}/>
             </a>
@@ -692,7 +659,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                   </span>
                   <div>
                     <div style={{ color: btb.green, fontSize: 13.5, fontWeight: 800 }}>+{formatBtb(p.amountRaw)} BTB</div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 1 }}>Week {p.epochId} · {shortDate(p.createdAt)}</div>
+                    <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 1 }}>Week {p.epochId} · {shortDate(p.createdAt)}</div>
                   </div>
                 </div>
                 {p.txHash && (
@@ -719,7 +686,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
                   <div style={{ color: btb.text, fontSize: 13, fontWeight: 750 }}>
                     Week {e.epochId} · {toWei(e.btbPotRaw) > 0n ? `${formatBtb(e.btbPotRaw)} BTB pot` : 'no pot'}
                   </div>
-                  <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 1 }}>
+                  <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 1 }}>
                     {e.settledAt ? `settled ${shortDate(e.settledAt)}` : 'open'} · {e.requesterCount ?? 0} entered
                   </div>
                 </div>
@@ -738,7 +705,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
         : { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Button
           size="sm" variant="successSoft" fullWidth={!isMobile ? false : true}
-          icon={copied ? 'check' : 'wallet'}
+          icon={copied ? 'check' : 'copy'}
           onClick={copyAddress}
           title="Copy contract address"
           style={{ fontFamily: 'monospace', letterSpacing: 0 }}
@@ -784,8 +751,8 @@ function InviteFriends({ address }: { address: string }) {
   return (
     <div style={{ borderRadius: 18, padding: '14px 16px', border: '1px solid rgba(var(--green-rgb), 0.22)', background: 'rgba(var(--green-rgb), 0.05)', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div>
-        <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Invite friends, earn {pct}% of their points</div>
-        <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.5 }}>Every point a friend earns adds {pct}% for you, on top. They lose nothing, and it counts toward your Friday BTB.</div>
+        <div style={{ color: btb.text, fontSize: 15, fontWeight: 800 }}>Invite friends, earn {pct}% of their XP</div>
+        <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 2, lineHeight: 1.5 }}>Every XP a friend earns adds {pct}% for you, on top. They lose nothing, and it counts toward your Friday BTB.</div>
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0, height: 38, display: 'flex', alignItems: 'center', padding: '0 12px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.05)', color: btb.textMuted, fontSize: 12.5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'all' }}>{link}</div>
