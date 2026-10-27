@@ -14,7 +14,8 @@ const TAB_META: Record<string, { title: string; description: string }> = {
   nft:       { title: 'BTB Bear NFT', description: 'Mint and stake BTB Bears to earn BTBB rewards.' },
   agent:     { title: 'Agent', description: 'Your personal AI agent that reads your portfolio and flags risks.' },
   'opos-seed': { title: 'OPOS pair seeding', description: 'Treasury tool.' },
-  vote:      { title: 'Vote with sAERO', description: 'Point your staked AERO at the Aero pools that pay the most per vote, and allocate in one step.' },
+  allocate:  { title: 'Allocate sAERO', description: 'See which Aero pools pay your sAERO the most per day, get the best split, and allocate in one step.' },
+  vote:      { title: 'Allocate sAERO', description: 'See which Aero pools pay your sAERO the most per day, get the best split, and allocate in one step.' },
   'opos-pairs': { title: 'OPOS pairs', description: 'BTB held in every OPOS pair and the fees it has earned.' },
   docs:      { title: 'Docs: the BTB manual', description: 'How to find pools, simulate a range, add liquidity, claim, stake, rebalance and remove positions, swap, and earn the Friday BTB payout.' },
 };

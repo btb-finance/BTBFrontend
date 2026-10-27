@@ -36,9 +36,9 @@ const UNMEASURED_MAX_USD = 5_000_000;
 const Q96 = 2n ** 96n;
 const ZERO = '0x0000000000000000000000000000000000000000';
 
-type LlamaCoin = { price?: number; decimals?: number; confidence?: number };
+export type LlamaCoin = { price?: number; decimals?: number; confidence?: number };
 
-async function llamaPrices(keys: string[]): Promise<Map<string, LlamaCoin>> {
+export async function llamaPrices(keys: string[]): Promise<Map<string, LlamaCoin>> {
   const out = new Map<string, LlamaCoin>();
   for (let i = 0; i < keys.length; i += 80) {
     const batch = keys.slice(i, i + 80);
