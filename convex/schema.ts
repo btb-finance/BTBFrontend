@@ -201,6 +201,14 @@ export default defineSchema({
   }),
   // Discover, split so no document nears Convex's 1 MB limit: `top` is the first screen (the busiest pools, packed),
   // each chain's full list is a gzip file in storage (convex/discoverStore.ts).
+  // Aero allocator (convex/aeroAllocator.ts): "snapshot" is every Base gauge with what it pays, read by the Allocate
+  // page; "ledger" is the hourly fee record the pace is measured from, read only by the job.
+  aeroAllocator: defineTable({
+    key: v.string(),
+    json: v.string(),
+    updatedAt: v.float64(),
+  }).index("by_key", ["key"]),
+
   discoverIndex: defineTable({
     top: v.string(),
     chains: v.array(v.object({ chain: v.string(), file: v.id("_storage"), count: v.float64() })),

@@ -30,6 +30,10 @@ if (process.env.DISABLE_CRONS !== "1") {
   crons.interval("refresh discover pools", { hours: 6 }, internal.discoverRefresh.refresh);
 
 
+  // Aero allocator (convex/aeroAllocator.ts): every Base gauge with what it pays. The fee pace is read from the last hour of
+  // fee releases on top of a stored record, so an hourly run is a few dozen calls.
+  crons.interval("refresh aero allocator", { hours: 1 }, internal.aeroAllocator.refresh, {});
+
   // Drop expired memo-cache rows (simulator pool/token lookups) so the table
   // stays bounded — the sweep is batched, so it runs often.
   crons.interval("purge expired cache", { minutes: 30 }, internal.cacheFill.purge);

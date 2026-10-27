@@ -21,6 +21,7 @@ const PRIMARY: { id: Tab; label: string; icon: string }[] = [
 
 const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'simulate', label: 'Simulate',  icon: 'layers' },
+  { id: 'allocate', label: 'Allocate',  icon: 'vote' },
   { id: 'nft',      label: 'NFT',       icon: 'nft' },
   { id: 'stake',    label: 'Agent',     icon: 'bolt' },
 ];

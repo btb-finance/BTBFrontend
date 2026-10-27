@@ -52,6 +52,8 @@ const StakeScreen     = dynamic(() => screenLoader.stake().then(m => m.StakeScre
 const DocsScreen      = dynamic(() => screenLoader.docs().then(m => m.DocsScreen), { ssr: false, loading: ScreenLoading });
 // Treasury only tool: never warmed, fetched only when someone opens it.
 const OposSeedScreen  = dynamic(() => import('./screens/OposSeedScreen').then(m => m.OposSeedScreen), { ssr: false, loading: ScreenLoading });
+const AeroNudge = dynamic(() => import('./AeroNudge').then(m => m.AeroNudge), { ssr: false });
+const AllocateScreen = dynamic(() => import('./screens/AllocateScreen').then(m => m.AllocateScreen), { ssr: false, loading: ScreenLoading });
 const OposPairsScreen = dynamic(() => import('./screens/OposPairsScreen').then(m => m.OposPairsScreen), { ssr: false, loading: ScreenLoading });
 const ConnectScreen   = dynamic(() => screenLoader.connect().then(m => m.ConnectScreen), { ssr: false });
 const AgentDock       = dynamic(() => screenLoader.agentDock().then(m => m.AgentDock), { ssr: false });
@@ -185,6 +187,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
       case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate} viewAddress={effectiveAddress} onViewAddress={onViewAddress}/>;
       case 'nft':       return <NFTScreen/>;
       case 'stake':     return <StakeScreen onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
+      case 'allocate':  return <AllocateScreen onConnectWallet={() => setShowConnect(true)}/>;
     }
   })();
 
@@ -231,6 +234,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
           onDisconnect={handleLeave}
         />
       )}
+      {/* sAERO holders: a nudge when a position could earn noticeably more. Not on Allocate itself or over a sheet. */}
+      {screen !== 'allocate' && !overlay && !sheetOpen && !navHidden && <AeroNudge address={isReadOnly ? undefined : effectiveAddress} onOpen={() => goto('allocate')}/>}
       <AgentDock hidden={screen === 'stake' || !!overlay} onConnect={() => setShowConnect(true)} onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>
       {showReceive && <ReceiveModal address={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => setShowReceive(false)}/>}
       {showSend    && <SendModal fromAddress={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => { setShowSend(false); setSendToken(undefined); }} initialToken={sendToken}/>}

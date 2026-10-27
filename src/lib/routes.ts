@@ -15,6 +15,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   portfolio: '/portfolio',
   nft: '/nft',
   stake: '/agent',
+  allocate: '/allocate',
 };
 
 export function pathFor(screen: Tab, overlay: Overlay): string {
@@ -26,6 +27,8 @@ export function parsePath(path: string): { screen: Tab; overlay: Overlay } {
   if (seg === 'docs' || seg === 'opos-seed' || seg === 'opos-pairs') return { screen: 'home', overlay: seg };
   // /token folded into Home; the old path still resolves rather than 404ing
   // for anyone holding a link to it.
+  // The earlier sAERO page lived at /vote; its links now open Allocate.
+  if (seg === 'vote') return { screen: 'allocate', overlay: null };
   if (seg === '' || seg === 'home' || seg === 'dashboard' || seg === 'token') return { screen: 'home', overlay: null };
   const entry = (Object.entries(TAB_PATHS) as [Tab, string][]).find(([, p]) => p === `/${seg}`);
   return entry ? { screen: entry[0], overlay: null } : { screen: 'home', overlay: null };

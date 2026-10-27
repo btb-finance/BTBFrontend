@@ -20,6 +20,7 @@ const PRIMARY: { id: Tab; label: string }[] = [
 
 /** Everything outside the LP loop lives behind one More menu. */
 const MORE: { id: Tab; label: string }[] = [
+  { id: 'allocate', label: 'Allocate' },
   { id: 'nft',    label: 'NFT' },
   { id: 'stake',  label: 'Agent' },
 ];
