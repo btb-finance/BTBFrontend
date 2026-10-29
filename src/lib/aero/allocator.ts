@@ -31,6 +31,26 @@ export const AERO = {
   legacyVe: '0xeBf418Fe2512e7E6bd9b87a8F0f294aCDC67e6B4',
 } as const satisfies Record<string, Address>;
 
+/**
+ * Every chain Aero runs gauges on (Dromos-Labs/metadex-public deployment-addresses/leaf-<chain>.json, checked live
+ * 2026-10-27). Base is the root: allocations and claims are sent there and reach the others as messages. The leaf voter
+ * has the same address on every chain; each chain has its own FactoryRegistry. Arc is left out (no public RPC answered).
+ */
+export type AeroChain = { id: number; name: string; registry: Address; llama: string };
+export const AERO_CHAINS: AeroChain[] = [
+  { id: 8453, name: 'Base', registry: '0x7b2A2c12dC5Ea2a31455952a05031C3E4BB28F3E', llama: 'base' },
+  { id: 4663, name: 'Robinhood', registry: '0xdd1705e23762F4D6e44D8C31BD8Ea80c54612239', llama: 'robinhood' },
+  { id: 1, name: 'Ethereum', registry: '0xdd1705e23762F4D6e44D8C31BD8Ea80c54612239', llama: 'ethereum' },
+  { id: 42161, name: 'Arbitrum', registry: '0x9E635b2c689fC52201DF7eF1C9FA607c2F58f666', llama: 'arbitrum' },
+  { id: 10, name: 'OP', registry: '0xb6F9705A631CC1C0E8570FFde48882C95E2Df408', llama: 'optimism' },
+  { id: 57073, name: 'Ink', registry: '0xdd1705e23762F4D6e44D8C31BD8Ea80c54612239', llama: 'ink' },
+];
+export const chainName = (id: number) => AERO_CHAINS.find((c) => c.id === id)?.name ?? `Chain ${id}`;
+/** Base's message orchestrator: knows each chain's adapter, which quotes the ETH a message there costs. */
+const ROOT_ORCHESTRATOR: Address = '0x4F347Fec2aEb8fdB569045AF4D0806eE7f7F6194';
+/** The leaf orchestrator (same address on every leaf chain): the only caller a leaf voter takes a claim message from. */
+const LEAF_ORCHESTRATOR: Address = '0x7EA1079604af6dA2282B80f4cDc6Cea7b07914fe';
+
 /** The cooldown at launch, used until the live one is read. */
 export const DEFAULT_COOLDOWN_SEC = 169_200;
 /** BTB a user pays, from their in-app balance, to rebuild the gauge data now instead of waiting for the hourly run. */
@@ -138,6 +158,7 @@ export function allocateErrorText(e: unknown): string | null {
 // ── Gauges ─────────────────────────────────────────────────────────────────
 
 export type GaugeInfo = {
+  chainId: number;
   gauge: Address;
   pool: Address;
   rewards: Address;
@@ -178,9 +199,9 @@ function poolKind(tickSpacing: number | null, symbol: string | null, feePips: nu
 
 const ok = <T,>(r: { status: string; result?: unknown }): T | null => (r.status === 'success' ? (r.result as T) : null);
 
-/** Every Aero gauge on Base with its pool, weight, cap and live incentives. About a dozen multicalls. */
-export async function readGauges(client: PublicClient, nowSec = Math.floor(Date.now() / 1000)): Promise<GaugeInfo[]> {
-  const reg = AERO.registry;
+/** Every Aero gauge on one chain with its pool, weight, cap and live incentives. About a dozen multicalls. */
+export async function readGauges(client: PublicClient, nowSec = Math.floor(Date.now() / 1000), chain: AeroChain = AERO_CHAINS[0]): Promise<GaugeInfo[]> {
+  const reg = chain.registry;
   const factories = await client.readContract({ address: reg, abi: registryAbi, functionName: 'gaugeFactories' });
   const lists = await Promise.all(factories.map((f) => client.readContract({ address: reg, abi: registryAbi, functionName: 'factoryToGauges', args: [f] })));
   const gauges = [...new Set(lists.flat())];
@@ -239,7 +260,7 @@ export async function readGauges(client: PublicClient, nowSec = Math.floor(Date.
     if (!t0 || !t1) return [];
     const k = poolKind(ok<number>(poolReads[i * 5 + 2]), ok<string>(poolReads[i * 5 + 4]), ok<number>(poolReads[i * 5 + 3]));
     return [{
-      gauge: r.gauge, pool: r.pool, rewards: r.rewards, token0: t0, token1: t1,
+      chainId: chain.id, gauge: r.gauge, pool: r.pool, rewards: r.rewards, token0: t0, token1: t1,
       symbol0: symbolOf.get(t0) ?? '?', symbol1: symbolOf.get(t1) ?? '?',
       ...k,
       weight: weightNow(r.point, nowSec),
@@ -387,12 +408,17 @@ export type SaeroPosition = {
   lastAllocatedSec: number;
   /** Set when another address (an Autopilot, a manager) may allocate this position. */
   operator: Address | null;
-  /** Where the position's Base power sits now. */
-  current: { gauge: Address; amountRaw: bigint }[];
+  /** Where the position's power sits now, on every chain. */
+  current: { chainId: number; gauge: Address; amountRaw: bigint }[];
+  /** Power booked on each chain other than Base, base units. */
+  elsewhere: { chainId: number; amountRaw: bigint }[];
 };
 
-/** Every sAERO position `owner` holds on Base, with what each has where (up to 20). */
-export async function readPositions(client: PublicClient, owner: Address): Promise<SaeroPosition[]> {
+/**
+ * Every sAERO position `owner` holds (they live on Base), with what each has where: idle, on Base, and on any other Aero
+ * chain, down to the gauges. `clientFor` gives a client for another chain; without one, that chain's gauges are skipped.
+ */
+export async function readPositions(client: PublicClient, owner: Address, clientFor?: (chainId: number) => PublicClient | null): Promise<SaeroPosition[]> {
   const n = Number(await client.readContract({ address: AERO.escrow, abi: escrowAbi, functionName: 'balanceOf', args: [owner] }));
   if (n === 0) return [];
   const ids = await client.multicall({
@@ -424,10 +450,39 @@ export async function readPositions(client: PublicClient, owner: Address): Promi
       onBaseRaw: ok<bigint>(reads[i * 6 + 3]) ?? 0n,
       lastAllocatedSec: leaf ? Number(leaf[1]) : 0,
       operator: op && !/^0x0+$/.test(op) ? op : null,
-      current: (ok<Address[]>(reads[i * 6 + 5]) ?? []).map((gauge) => ({ gauge, amountRaw: 0n })),
+      current: (ok<Address[]>(reads[i * 6 + 5]) ?? []).map((gauge) => ({ chainId: AERO_CHAIN_ID, gauge, amountRaw: 0n })),
+      elsewhere: [],
     };
   });
-  const amountCalls = out.flatMap((p) => p.current.map((c) => ({ p, c })));
+  // Power on the other chains: the root voter books it per chain; the gauges are read on that chain's leaf voter.
+  const others = AERO_CHAINS.filter((c) => c.id !== AERO_CHAIN_ID);
+  const booked = await client.multicall({
+    allowFailure: true,
+    contracts: out.flatMap((p) => others.map((c) => ({ address: AERO.voter, abi: voterAbi, functionName: 'allocationChainAmounts', args: [p.tokenId, BigInt(c.id)] }) as const)),
+  });
+  out.forEach((p, pi) => others.forEach((c, ci) => {
+    const n = ok<bigint>(booked[pi * others.length + ci]) ?? 0n;
+    if (n > 0n) p.elsewhere.push({ chainId: c.id, amountRaw: n });
+  }));
+  if (clientFor) {
+    await Promise.all(others.map(async (c) => {
+      const holders = out.filter((p) => p.elsewhere.some((e) => e.chainId === c.id));
+      const leaf = holders.length ? clientFor(c.id) : null;
+      if (!leaf) return;
+      const lists = await leaf.multicall({
+        allowFailure: true,
+        contracts: holders.map((p) => ({ address: AERO.leafVoter, abi: leafVoterAbi, functionName: 'allocatedGauges', args: [p.tokenId] }) as const),
+      });
+      const pairs = holders.flatMap((p, i) => (ok<Address[]>(lists[i]) ?? []).map((gauge) => ({ p, gauge })));
+      if (!pairs.length) return;
+      const amts = await leaf.multicall({
+        allowFailure: true,
+        contracts: pairs.map(({ p, gauge }) => ({ address: AERO.leafVoter, abi: leafVoterAbi, functionName: 'allocations', args: [p.tokenId, gauge] }) as const),
+      });
+      pairs.forEach(({ p, gauge }, i) => p.current.push({ chainId: c.id, gauge, amountRaw: ok<bigint>(amts[i]) ?? 0n }));
+    }).map((x) => x.catch(() => {})));
+  }
+  const amountCalls = out.flatMap((p) => p.current.filter((c) => c.chainId === AERO_CHAIN_ID).map((c) => ({ p, c })));
   if (amountCalls.length) {
     const amts = await client.multicall({
       allowFailure: true,
@@ -439,7 +494,8 @@ export async function readPositions(client: PublicClient, owner: Address): Promi
 }
 
 /** What a position earns per day where it sits now, and the best split for it, from the snapshot's gauges. */
-export type PlanGauge = { gauge: Address; weight: number; activated: boolean; feesPerDay: number | null; incentivesPerDay: number };
+export type PlanGauge = { chainId: number; gauge: Address; weight: number; activated: boolean; feesPerDay: number | null; incentivesPerDay: number };
+const gkey = (chainId: number, gauge: string) => `${chainId}:${gauge.toLowerCase()}`;
 
 export const ratePerDayOf = (g: Pick<PlanGauge, 'feesPerDay' | 'incentivesPerDay'>) => (g.feesPerDay ?? 0) + g.incentivesPerDay;
 
@@ -447,29 +503,35 @@ export const ratePerDayOf = (g: Pick<PlanGauge, 'feesPerDay' | 'incentivesPerDay
  * Every rankable gauge with what `amount` earns there, best first, and the best split. A position already in a gauge is
  * part of its weight, so its own amount is taken out first; otherwise it would look like it dilutes itself.
  */
-export function planFor<G extends PlanGauge>(gauges: G[], position: Pick<SaeroPosition, 'current'> | null, amount: number) {
+export function planFor<G extends PlanGauge>(gauges: G[], position: Pick<SaeroPosition, 'current'> | null, amount: number, splitChains: number[] = [AERO_CHAIN_ID]) {
   const own = new Map<string, number>();
-  for (const c of position?.current ?? []) own.set(c.gauge.toLowerCase(), Number(c.amountRaw) / 1e18);
+  for (const c of position?.current ?? []) own.set(gkey(c.chainId, c.gauge), Number(c.amountRaw) / 1e18);
   const ranked = gauges
     .filter((g) => g.activated && g.feesPerDay != null && ratePerDayOf(g) > 0)
     .map((g) => {
-      const weight = Math.max(0, g.weight - (own.get(g.gauge.toLowerCase()) ?? 0));
+      const weight = Math.max(0, g.weight - (own.get(gkey(g.chainId, g.gauge)) ?? 0));
       return { g, weight, earn: earnPerDay({ ratePerDay: ratePerDayOf(g), weight }, amount) };
     })
     .filter((r) => r.weight >= MIN_RANK_WEIGHT)
     .sort((a, b) => b.earn - a.earn);
-  const split = bestSplit(ranked.map((r) => ({ gauge: r.g.gauge, ratePerDay: ratePerDayOf(r.g), weight: r.weight })), amount);
-  const byGauge = new Map(gauges.map((g) => [g.gauge.toLowerCase(), g]));
+  // The split only uses chains an allocation can reach from here (Base for now); the ranking shows every chain.
+  const split = bestSplit(ranked.filter((r) => splitChains.includes(r.g.chainId)).map((r) => ({ gauge: r.g.gauge, ratePerDay: ratePerDayOf(r.g), weight: r.weight })), amount);
+  const byGauge = new Map(gauges.map((g) => [gkey(g.chainId, g.gauge), g]));
+  // What the position earns now: in total, and on the chains the split can move (the fair thing to compare it with).
   let current: number | null = null;
+  let currentMovable: number | null = null;
   if (position) {
-    current = 0;
+    current = 0; currentMovable = 0;
     for (const c of position.current) {
-      const g = byGauge.get(c.gauge.toLowerCase());
+      const g = byGauge.get(gkey(c.chainId, c.gauge));
       const mine = Number(c.amountRaw) / 1e18;
-      if (g && mine > 0) current += earnPerDay({ ratePerDay: ratePerDayOf(g), weight: Math.max(0, g.weight - mine) }, mine);
+      if (!g || mine <= 0) continue;
+      const usd = earnPerDay({ ratePerDay: ratePerDayOf(g), weight: Math.max(0, g.weight - mine) }, mine);
+      current += usd;
+      if (splitChains.includes(c.chainId)) currentMovable += usd;
     }
   }
-  return { ranked, split, splitUsd: split.reduce((s, p) => s + p.usdPerDay, 0), current };
+  return { ranked, split, splitUsd: split.reduce((s, p) => s + p.usdPerDay, 0), current, currentMovable };
 }
 
 /** A move worth suggesting: at least this much more a day, and this share more than now, since each move restarts the wait. */
@@ -508,6 +570,7 @@ export const claimRewardsAbi = [{
 
 export type RewardGauge = { rewards: Address; token0: Address; token1: Address; programs: { id: number; token: Address }[] };
 export type Earned = {
+  chainId: number;
   /** Rewards contracts with fees to claim. */
   feeFrom: Address[];
   /** Incentive programs with something to claim. */
@@ -519,7 +582,7 @@ export type Earned = {
 /**
  * What a position has earned and not claimed, across every gauge (also ones it has since left), in two multicalls.
  */
-export async function readEarned(client: PublicClient, tokenId: bigint, gauges: RewardGauge[]): Promise<Earned> {
+export async function readEarned(client: PublicClient, tokenId: bigint, gauges: RewardGauge[], chainId = AERO_CHAIN_ID): Promise<Earned> {
   const fees = await client.multicall({
     allowFailure: true,
     contracts: gauges.map((g) => ({ address: g.rewards, abi: rewardsAbi, functionName: 'earnedFees', args: [tokenId, MAX_CHECKPOINTS] }) as const),
@@ -529,7 +592,7 @@ export async function readEarned(client: PublicClient, tokenId: bigint, gauges: 
     allowFailure: true,
     contracts: progs.map(({ g, p }) => ({ address: g.rewards, abi: rewardsAbi, functionName: 'earnedIncentives', args: [tokenId, BigInt(p.id), MAX_CHECKPOINTS] }) as const),
   }) : [];
-  const out: Earned = { feeFrom: [], incentiveFrom: [], byToken: new Map() };
+  const out: Earned = { chainId, feeFrom: [], incentiveFrom: [], byToken: new Map() };
   const add = (t: Address, n: bigint) => out.byToken.set(t.toLowerCase(), (out.byToken.get(t.toLowerCase()) ?? 0n) + n);
   gauges.forEach((g, i) => {
     const r = ok<readonly [bigint, bigint]>(fees[i]);
@@ -547,18 +610,53 @@ export async function readEarned(client: PublicClient, tokenId: bigint, gauges: 
   return out;
 }
 
-/** Claims everything in `earned` to `recipient`. On Base the voter delivers it in the same transaction, so no ETH is sent. */
-export function claimCall(tokenId: bigint, earned: Earned, recipient: Address) {
-  const args = [
-    tokenId,
-    [{
-      chainId: BigInt(AERO_CHAIN_ID), gasLimit: 0n, value: 0n, recipient,
-      feeClaims: earned.feeFrom.map((r) => ({ votingRewardsManager: r, maxCheckpoints: MAX_CHECKPOINTS })),
-      incentiveClaims: earned.incentiveFrom.map((x) => ({ votingRewardsManager: x.rewards, programId: BigInt(x.id), maxCheckpoints: MAX_CHECKPOINTS })),
-    }],
-    recipient,
-  ] as const;
-  return { to: AERO.voter as Address, data: encodeFunctionData({ abi: claimRewardsAbi, functionName: 'claimRewards', args }), value: 0n, args };
+const hasClaims = (e: Earned) => e.feeFrom.length > 0 || e.incentiveFrom.length > 0;
+const feeClaimsOf = (e: Earned) => e.feeFrom.map((r) => ({ votingRewardsManager: r, maxCheckpoints: MAX_CHECKPOINTS }));
+const incentiveClaimsOf = (e: Earned) => e.incentiveFrom.map((x) => ({ votingRewardsManager: x.rewards, programId: BigInt(x.id), maxCheckpoints: MAX_CHECKPOINTS }));
+
+/** What one chain's part of a claim needs: the gas its message may use there and the ETH that message costs. 0 on Base. */
+export type ClaimCost = { chainId: number; gasLimit: bigint; value: bigint };
+
+const leafClaimAbi = parseAbi([
+  'function claimRewards(uint256 tokenId, address recipient, (address votingRewardsManager, uint256 maxCheckpoints)[] feeClaims, (address votingRewardsManager, uint256 programId, uint256 maxCheckpoints)[] incentiveClaims)',
+]);
+const orchestratorAbi = parseAbi(['function adapters(uint256 chainId) view returns (address)']);
+const adapterAbi = parseAbi(['function quoteMessage(bytes message, uint256 gasLimit, address refundRecipient) view returns (uint256)']);
+
+/**
+ * The cost of claiming `earned` on another chain: the claim's gas there, measured by running it as the leaf orchestrator
+ * would, with room for the message handling around it; then the ETH Base's adapter for that chain charges to carry a
+ * message with that much gas. Too little gas would strand the claim, so this errs high (a little more ETH, nothing lost).
+ */
+export async function claimCost(base: PublicClient, leaf: PublicClient, tokenId: bigint, earned: Earned, recipient: Address): Promise<ClaimCost> {
+  if (earned.chainId === AERO_CHAIN_ID) return { chainId: AERO_CHAIN_ID, gasLimit: 0n, value: 0n };
+  const used = await leaf.estimateGas({
+    account: LEAF_ORCHESTRATOR,
+    to: AERO.leafVoter,
+    data: encodeFunctionData({ abi: leafClaimAbi, functionName: 'claimRewards', args: [tokenId, recipient, feeClaimsOf(earned), incentiveClaimsOf(earned)] }),
+  });
+  const gasLimit = (used * 3n) / 2n + 200_000n;
+  const adapter = await base.readContract({ address: ROOT_ORCHESTRATOR, abi: orchestratorAbi, functionName: 'adapters', args: [BigInt(earned.chainId)] });
+  // The fee is priced on destination gas, not message bytes, so a placeholder of a claim's size quotes it.
+  const value = await base.readContract({ address: adapter, abi: adapterAbi, functionName: 'quoteMessage', args: [`0x${'00'.repeat(480)}`, gasLimit, recipient] });
+  return { chainId: earned.chainId, gasLimit, value };
+}
+
+/**
+ * Claims everything in `earned` (one entry per chain) to `recipient`, in one transaction on Base. Base's part is paid out
+ * in the same transaction; each other chain's part goes as a message and pays out there a few minutes later, with its
+ * cost (from claimCost) sent along as ETH.
+ */
+export function claimCall(tokenId: bigint, earned: Earned[], recipient: Address, costs: ClaimCost[] = []) {
+  const parts = earned.filter(hasClaims).sort((a, b) => a.chainId - b.chainId);
+  const costOf = (id: number) => costs.find((c) => c.chainId === id) ?? { gasLimit: 0n, value: 0n };
+  const params = parts.map((e) => ({
+    chainId: BigInt(e.chainId), gasLimit: costOf(e.chainId).gasLimit, value: costOf(e.chainId).value, recipient,
+    feeClaims: feeClaimsOf(e), incentiveClaims: incentiveClaimsOf(e),
+  }));
+  const value = params.reduce((s, p) => s + p.value, 0n);
+  const args = [tokenId, params, recipient] as const;
+  return { to: AERO.voter as Address, data: encodeFunctionData({ abi: claimRewardsAbi, functionName: 'claimRewards', args }), value, args };
 }
 
 // ── Allocate ───────────────────────────────────────────────────────────────

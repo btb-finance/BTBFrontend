@@ -14,6 +14,7 @@ import { btb } from './design-tokens';
 import { Icon } from './Icon';
 import { useSidebar } from '../lib/SidebarContext';
 import { AERO, AERO_CHAIN_ID, cooldownLeft, planFor, readPositions, worthMoving, type SaeroPosition } from '../lib/aero/allocator';
+import { getChainClient } from '../lib/chainClient';
 import type { AllocatorSnapshot } from '../lib/aero/allocatorSnapshot';
 
 const HIDE_MS = 24 * 3600_000;
@@ -37,7 +38,7 @@ export function AeroNudge({ address, onOpen }: { address?: string; onOpen: () =>
     let live = true;
     client.readContract({ address: AERO.legacyVe, abi: erc20Abi, functionName: 'balanceOf', args: [address as Address] })
       .then((n) => { if (live) setOldLocks(Number(n)); }).catch(() => {});
-    readPositions(client, address as Address)
+    readPositions(client, address as Address, (id) => getChainClient(id))
       .then((list) => { if (live) setPositions(list.filter((p) => p.staked > 0 && p.idleRaw + p.onBaseRaw > 0n)); })
       .catch(() => {});
     return () => { live = false; };
@@ -45,16 +46,21 @@ export function AeroNudge({ address, onOpen }: { address?: string; onOpen: () =>
 
   // The gauge snapshot is only fetched for wallets that hold sAERO.
   const row = useQuery(api.aeroAllocator.snapshot, positions && positions.length > 0 ? {} : 'skip');
-  const snap = useMemo(() => (row ? (JSON.parse(row.json) as AllocatorSnapshot) : null), [row]);
+  const snap = useMemo(() => {
+    if (!row) return null;
+    const s = JSON.parse(row.json) as AllocatorSnapshot;
+    return { ...s, gauges: s.gauges.map((g) => ({ ...g, chainId: g.chainId ?? AERO_CHAIN_ID })) };
+  }, [row]);
 
   const better = useMemo(() => {
     if (!snap || !positions) return null;
     let best: { id: string; now: number; could: number } | null = null;
     for (const p of positions) {
       if (cooldownLeft(p.lastAllocatedSec, snap.cooldownSec, nowSec) > 0) continue;
-      const plan = planFor(snap.gauges, p, p.power);
-      if (worthMoving(plan.current, plan.splitUsd) && (!best || plan.splitUsd - plan.current! > best.could - best.now)) {
-        best = { id: p.tokenId.toString(), now: plan.current!, could: plan.splitUsd };
+      // Only the part an allocation from here can move (idle and Base), compared with what that part earns now.
+      const plan = planFor(snap.gauges, p, Number(p.idleRaw + p.onBaseRaw) / 1e18);
+      if (worthMoving(plan.currentMovable, plan.splitUsd) && (!best || plan.splitUsd - plan.currentMovable! > best.could - best.now)) {
+        best = { id: p.tokenId.toString(), now: plan.currentMovable!, could: plan.splitUsd };
       }
     }
     return best;

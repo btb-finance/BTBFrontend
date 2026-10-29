@@ -6,12 +6,12 @@ import { type ActionCtx, internalAction, internalMutation, internalQuery, mutati
 import { addCredit, spendCredit } from "./credit";
 import { sessionWallet } from "./sessions";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { PublicClient } from "viem";
 import { loadLiveRpcs } from "./liveRpcs";
 import { getChainClient } from "../src/lib/chainClient";
-import { AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, type FeeLedger } from "../src/lib/aero/allocator";
-import { baseLogClient, buildSnapshot } from "../src/lib/aero/allocatorSnapshot";
+import { AERO_CHAINS, AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, type FeeLedger } from "../src/lib/aero/allocator";
+import { buildChain, logClientFor, readCooldown, type AllocatorSnapshot, type SnapGauge } from "../src/lib/aero/allocatorSnapshot";
 
 /** The page's data: `json` is an AllocatorSnapshot. */
 export const snapshot = query({
@@ -22,10 +22,13 @@ export const snapshot = query({
   },
 });
 
+/** Each chain keeps its own fee record; Base's is the original "ledger" row. */
+const ledgerKey = (chainId: number) => (chainId === AERO_CHAIN_ID ? "ledger" : `ledger:${chainId}`);
+
 export const getLedger = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const row = await ctx.db.query("aeroAllocator").withIndex("by_key", (q) => q.eq("key", "ledger")).first();
+  args: { key: v.optional(v.string()) },
+  handler: async (ctx, { key }) => {
+    const row = await ctx.db.query("aeroAllocator").withIndex("by_key", (q) => q.eq("key", key ?? "ledger")).first();
     return row?.json ?? null;
   },
 });
@@ -104,13 +107,37 @@ export const refresh = internalAction({
   },
 });
 
+/**
+ * Every Aero chain, in parallel: its gauges, what they pay, and its fee record brought up to date. A chain whose nodes
+ * fail this run keeps its gauges from the last snapshot rather than dropping out of the page.
+ */
 async function build(ctx: ActionCtx) {
-    await loadLiveRpcs(ctx);
-    const client = getChainClient(AERO_CHAIN_ID);
-    if (!client) throw new Error("No Base client");
-    const raw = await ctx.runQuery(internal.aeroAllocator.getLedger, {});
-    const ledger = raw ? (JSON.parse(raw) as FeeLedger) : null;
-    const built = await buildSnapshot(client as PublicClient, baseLogClient(), ledger);
-    await ctx.runMutation(internal.aeroAllocator.save, { key: "ledger", json: JSON.stringify(built.ledger) });
-    await ctx.runMutation(internal.aeroAllocator.save, { key: "snapshot", json: JSON.stringify(built.snapshot) });
+  await loadLiveRpcs(ctx);
+  const base = getChainClient(AERO_CHAIN_ID);
+  if (!base) throw new Error("No Base client");
+  const prevRow = await ctx.runQuery(api.aeroAllocator.snapshot, {});
+  const prev = prevRow ? (JSON.parse(prevRow.json) as AllocatorSnapshot) : null;
+  const results = await Promise.all(AERO_CHAINS.map(async (chain) => {
+    try {
+      const client = getChainClient(chain.id);
+      if (!client) throw new Error(`No client for ${chain.name}`);
+      const raw = await ctx.runQuery(internal.aeroAllocator.getLedger, { key: ledgerKey(chain.id) });
+      const built = await buildChain(chain, client as PublicClient, logClientFor(chain.id), raw ? (JSON.parse(raw) as FeeLedger) : null);
+      await ctx.runMutation(internal.aeroAllocator.save, { key: ledgerKey(chain.id), json: JSON.stringify(built.ledger) });
+      return { chain, gauges: built.gauges, aeroUsd: built.aeroUsd, ok: true };
+    } catch (e) {
+      console.warn(`aero allocator: ${chain.name} failed this run`, (e as Error).message);
+      // Base must read: everything is allocated through it.
+      if (chain.id === AERO_CHAIN_ID) throw e;
+      const kept: SnapGauge[] = (prev?.gauges ?? []).filter((g) => (g.chainId ?? AERO_CHAIN_ID) === chain.id);
+      return { chain, gauges: kept, aeroUsd: null, ok: false };
+    }
+  }));
+  const snapshot: AllocatorSnapshot = {
+    generatedAt: Date.now(),
+    aeroUsd: results.find((r) => r.chain.id === AERO_CHAIN_ID)?.aeroUsd ?? prev?.aeroUsd ?? null,
+    cooldownSec: await readCooldown(base as PublicClient),
+    gauges: results.flatMap((r) => r.gauges),
+  };
+  await ctx.runMutation(internal.aeroAllocator.save, { key: "snapshot", json: JSON.stringify(snapshot) });
 }

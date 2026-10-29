@@ -6,7 +6,7 @@
 import { encodeFunctionData, erc20Abi, parseAbi, type Address, type PublicClient } from 'viem';
 import { buildKyberTx, getKyberQuote } from '../kyberswap';
 import type { Call } from '../txRunner';
-import { AERO_CHAIN_ID, claimCall, type Earned } from './allocator';
+import { AERO_CHAIN_ID, AERO_CHAINS, claimCall, type ClaimCost, type Earned } from './allocator';
 
 export const BASE_USDC: Address = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 /** WETH on Base. Aero pays WETH fee rewards out as native ETH, so a WETH reward arrives as ETH (checked on Base, 2026-10-27). */
@@ -23,16 +23,20 @@ const MIN_SELL_USD = 0.1;
  */
 const SELL_SLIPPAGE_BPS = 200;
 
-export type RewardLine = { token: Address; symbol: string; decimals: number; raw: bigint; amount: number; usd: number | null };
+export type RewardLine = { chainId: number; token: Address; symbol: string; decimals: number; raw: bigint; amount: number; usd: number | null };
 
-/** Symbol, decimals and USD value for each earned token, from DefiLlama, with the chain filling in what it does not know. */
+/**
+ * Symbol, decimals and USD value for each token earned on one chain (`client` is that chain's), from DefiLlama, with the
+ * chain filling in what it does not know.
+ */
 export async function priceRewards(client: PublicClient, earned: Earned): Promise<RewardLine[]> {
   const tokens = [...earned.byToken.keys()];
   if (tokens.length === 0) return [];
-  const res = await fetch(`https://coins.llama.fi/prices/current/${tokens.map((t) => `base:${t}`).join(',')}`, { signal: AbortSignal.timeout(12_000) })
+  const slug = AERO_CHAINS.find((c) => c.id === earned.chainId)?.llama ?? 'base';
+  const res = await fetch(`https://coins.llama.fi/prices/current/${tokens.map((t) => `${slug}:${t}`).join(',')}`, { signal: AbortSignal.timeout(12_000) })
     .then((r) => r.json() as Promise<{ coins?: Record<string, { price?: number; decimals?: number; symbol?: string }> }>)
     .catch(() => ({ coins: {} as Record<string, { price?: number; decimals?: number; symbol?: string }> }));
-  const coin = (t: string) => Object.entries(res.coins ?? {}).find(([k]) => k.toLowerCase() === `base:${t}`)?.[1];
+  const coin = (t: string) => Object.entries(res.coins ?? {}).find(([k]) => k.toLowerCase() === `${slug}:${t}`)?.[1];
   const missing = tokens.filter((t) => coin(t)?.decimals == null || !coin(t)?.symbol);
   const meta = new Map<string, { symbol: string; decimals: number }>();
   if (missing.length) {
@@ -53,30 +57,32 @@ export async function priceRewards(client: PublicClient, earned: Earned): Promis
     const raw = earned.byToken.get(t) ?? 0n;
     const amount = Number(raw) / 10 ** decimals;
     const symbol = t === BASE_WETH.toLowerCase() ? 'ETH' : c?.symbol ?? m?.symbol ?? t.slice(0, 6);
-    return { token: t as Address, symbol, decimals, raw, amount, usd: c?.price ? amount * c.price : null };
+    return { chainId: earned.chainId, token: t as Address, symbol, decimals, raw, amount, usd: c?.price ? amount * c.price : null };
   }).sort((a, b) => (b.usd ?? -1) - (a.usd ?? -1));
 }
 
 /**
- * The calls for "claim", or "claim and sell into `target`": the claim, then for every token worth selling an approval
- * and a KyberSwap swap of exactly the amount the claim pays (it pays at least what was read). A token with no route is
- * kept, so one odd reward never blocks the rest.
+ * The calls for "claim", or "claim and sell into `target`": one claim for every chain (other chains' parts carry their
+ * message cost), then for every Base token worth selling an approval and a KyberSwap swap of exactly the amount the
+ * claim pays (it pays at least what was read). A token with no route is kept, so one odd reward never blocks the rest.
+ * Rewards on other chains arrive there minutes later by message, so they cannot be sold in this batch.
  */
 export async function claimCalls(
   tokenId: bigint,
-  earned: Earned,
+  earned: Earned[],
+  costs: ClaimCost[],
   lines: RewardLine[],
   owner: Address,
   target: SellTarget | null,
 ): Promise<{ calls: Call[]; sold: string[]; kept: string[] }> {
-  const claim = claimCall(tokenId, earned, owner);
-  const calls: Call[] = [{ to: claim.to, data: claim.data, value: 0n, label: 'Claim rewards' }];
+  const claim = claimCall(tokenId, earned, owner, costs);
+  const calls: Call[] = [{ to: claim.to, data: claim.data, value: claim.value, label: 'Claim rewards' }];
   const sold: string[] = [];
   const kept: string[] = [];
   if (!target) return { calls, sold, kept };
   const toEth = target.address.toLowerCase() === NATIVE.toLowerCase();
   const out = toEth ? 'ETH' : target.address;
-  for (const l of lines) {
+  for (const l of lines.filter((x) => x.chainId === AERO_CHAIN_ID)) {
     // A WETH reward is paid as ETH: it is sold as ETH (sent with the swap, no approval), and is already there when the target is ETH.
     const paidAsEth = l.token.toLowerCase() === BASE_WETH.toLowerCase();
     if (paidAsEth ? toEth : l.token.toLowerCase() === target.address.toLowerCase()) continue;
