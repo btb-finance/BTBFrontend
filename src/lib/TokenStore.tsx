@@ -3,12 +3,13 @@ import { useXpToast } from './XpToast';
 import { usePolledQuery } from './polledQuery';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, ReactNode } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { useReadContracts } from 'wagmi';
+import { useConnection, useReadContracts } from 'wagmi';
 import { erc20Abi, formatUnits } from 'viem';
 import { api } from '../../convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { useOtherChainBalances } from './useOtherChainBalances';
 import { pendingReferral } from './referral';
+import { turnstileToken } from './turnstile';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,7 @@ const NO_SNAPSHOT: FunctionReturnType<typeof api.users.getBalanceSnapshot> = [];
 export function TokenStoreProvider({ children, walletAddress }: { children: ReactNode; walletAddress?: string }) {
   const registerOrGet     = useMutation(api.users.registerOrGet);
   const checkIn           = useAction(api.checkInActions.checkIn);
+  const { address: connected } = useConnection();
   const showXp            = useXpToast();
   const seedIfEmpty       = useAction(api.tokens.seedIfEmpty);
   const seedPricesIfEmpty = useAction(api.prices.seedPricesIfEmpty);
@@ -248,24 +250,32 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
   // Trigger one fetch on wallet connect — only if the snapshot is empty.
   // After that, refreshes are explicit.
   const triggeredForRef = useRef<string>('');
+  // The wallet reconnects a moment after a reload, so "connected" is part of the key: viewing first, then connected,
+  // runs again and checks in.
+  const isOwn = !!connected && !!walletAddress && connected.toLowerCase() === walletAddress.toLowerCase();
   useEffect(() => {
     if (!walletAddress) return;
-    if (triggeredForRef.current === walletAddress) return;
-    triggeredForRef.current = walletAddress;
+    const key = `${walletAddress}:${isOwn}`;
+    if (triggeredForRef.current === key) return;
+    triggeredForRef.current = key;
 
     void Promise.all([
       // Check-in is automatic on connect — the server is the judge of whether
       // today already counted, so a second visit the same day is a no-op and
       // the streak still needs one visit per day to survive.
-      registerOrGet({ walletAddress, ref: pendingReferral(walletAddress) })
-        .then(() => checkIn({ walletAddress }))
+      // Only for the wallet actually connected: a wallet someone is just viewing must not be registered, linked to an
+      // invite or checked in, or anyone could farm check-ins by pasting addresses.
+      (isOwn
+        ? registerOrGet({ walletAddress, ref: pendingReferral(walletAddress) })
+          .then(async () => checkIn({ walletAddress, turnstileToken: await turnstileToken() }))
+        : Promise.resolve(null))
         .then(r => { if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
         .catch(() => {}),
       seedIfEmpty().catch(() => {}),
       seedPricesIfEmpty().catch(() => {}),
     ]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletAddress]);
+  }, [walletAddress, isOwn]);
 
   // First-fetch guard — only run the server multicall if Convex has no snapshot yet.
   const firstFetchRef = useRef<string>('');

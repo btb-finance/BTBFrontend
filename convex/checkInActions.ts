@@ -55,16 +55,43 @@ async function btbBalanceAtRandomBlock(wallet: `0x${string}`): Promise<bigint | 
   return null;
 }
 
+/** Hosts the check-in widget runs on; a token minted anywhere else is refused. */
+const TURNSTILE_HOSTS = new Set(["btb.finance", "www.btb.finance"]);
+
+/**
+ * Cloudflare Turnstile: true when `token` came from a real browser on our site, just now (a token works once).
+ * Without TURNSTILE_SECRET (a local deployment) every check-in passes.
+ */
+async function humanCheck(token: string | undefined): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET;
+  if (!secret) return true;
+  if (!token) return false;
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret, response: token }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const r = (await res.json()) as { success?: boolean; hostname?: string; action?: string };
+    return !!r.success && (!r.hostname || TURNSTILE_HOSTS.has(r.hostname)) && (!r.action || r.action === "checkin");
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Daily check-in. Reads the wallet's BTB on-chain so the holder bonus rests on
  * the chain, never on a number the client sends. A failed read still checks
  * in; it just earns no bonus today.
  */
 export const checkIn = action({
-  args: { walletAddress: v.string() },
-  handler: async (ctx, { walletAddress }): Promise<{ alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number }> => {
-    await loadLiveRpcs(ctx);
+  // turnstileToken: proof from Cloudflare Turnstile that a real browser asked, so a script cannot check in a list of addresses.
+  args: { walletAddress: v.string(), turnstileToken: v.optional(v.string()) },
+  handler: async (ctx, { walletAddress, turnstileToken }): Promise<{ alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number }> => {
     if (!isAddress(walletAddress)) throw new Error("Invalid wallet address");
+    if (!(await humanCheck(turnstileToken))) throw new Error("Could not confirm this browser. Refresh the page and check in again.");
+    await loadLiveRpcs(ctx);
     const [raw, snap] = await Promise.all([
       btbBalanceOf(walletAddress as `0x${string}`),
       btbBalanceAtRandomBlock(walletAddress as `0x${string}`),

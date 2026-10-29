@@ -21,6 +21,7 @@ import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { inviteLink } from '../../lib/referral';
+import { turnstileToken } from '../../lib/turnstile';
 import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
@@ -269,9 +270,10 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
   const doCheckIn = async () => {
     if (!address || busy) return;
+    if (!isOwnWallet) { setError('Connect this wallet to check in for it.'); return; }
     setBusy('checkin'); setError(null);
     try {
-      const r = await checkInNow({ walletAddress: address });
+      const r = await checkInNow({ walletAddress: address, turnstileToken: await turnstileToken() });
       if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`);
     } catch (e) {
       setError(readableError(e, 'Could not check in; try again'));
