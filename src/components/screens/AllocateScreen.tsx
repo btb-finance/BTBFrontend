@@ -21,9 +21,11 @@ import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useTokenLogos } from '../../lib/TokenStore';
 import { useTx } from '../../lib/TxTracker';
+import { getChainClient } from '../../lib/chainClient';
+import { ChainLogo } from '../ChainLogo';
 import { runCalls } from '../../lib/txRunner';
 import {
-  AERO, AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, allocateAbi, allocateCall, allocateErrorText, aprPct, claimCall, claimRewardsAbi, cooldownLeft, planFor,
+  AERO, AERO_CHAINS, AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, allocateAbi, chainName, claimCost, type ClaimCost, allocateCall, allocateErrorText, aprPct, claimCall, claimRewardsAbi, cooldownLeft, planFor,
   readEarned, readPositions, returnAllCall, type Earned, type SaeroPosition,
 } from '../../lib/aero/allocator';
 import { claimCalls, dropFailingSales, priceRewards, type RewardLine, type SellTarget } from '../../lib/aero/claimSell';
@@ -48,7 +50,12 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
   const { track } = useTx();
   const logo = useTokenLogos();
   const row = useQuery(api.aeroAllocator.snapshot, {});
-  const snap = useMemo(() => (row ? (JSON.parse(row.json) as AllocatorSnapshot) : null), [row]);
+  const snap = useMemo(() => {
+    if (!row) return null;
+    const s = JSON.parse(row.json) as AllocatorSnapshot;
+    // Rows from before other chains were read carry no chain: they are Base.
+    return { ...s, gauges: s.gauges.map((g) => ({ ...g, chainId: g.chainId ?? AERO_CHAIN_ID })) };
+  }, [row]);
 
   const [positions, setPositions] = useState<SaeroPosition[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -82,34 +89,49 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
       setAmountStr((s) => (s === '' && total >= 1 ? String(Math.floor(total)) : s));
     }).catch(() => setAeroBal(0));
     try {
-      const list = (await readPositions(client, address as Address)).filter((p) => p.staked > 0);
+      const list = (await readPositions(client, address as Address, (id) => getChainClient(id))).filter((p) => p.staked > 0);
       setPositions(list);
       const first = list[0];
       setSelected((s) => (s && list.some((p) => p.tokenId.toString() === s) ? s : first ? first.tokenId.toString() : null));
-      if (first) setAmountStr(String(Math.floor(first.power)));
     } catch { setPositions([]); }
   };
   useEffect(() => { void loadPositions(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [address, client != null]);
 
   const position = positions?.find((p) => p.tokenId.toString() === selected) ?? null;
-  const amount = position ? position.power : Math.max(0, parseFloat(amountStr.replace(/,/g, '')) || 0);
+  // A position's split covers what an allocation from here can move: its idle power and its power on Base. Power on another
+  // chain stays where it is (moving it between chains is not built yet).
+  const baseBudget = position ? Number(position.idleRaw + position.onBaseRaw) / 1e18 : 0;
+  const elsewhereNote = position?.elsewhere.map((e) => `${num(Number(e.amountRaw) / 1e18)} on ${chainName(e.chainId)}`).join(', ') ?? '';
+  const amount = position ? baseBudget : Math.max(0, parseFloat(amountStr.replace(/,/g, '')) || 0);
   const plan = useMemo(() => (snap ? planFor(snap.gauges, position, amount) : null), [snap, position, amount]);
   const ranked = plan?.ranked ?? [];
   const split = plan?.split ?? [];
   const splitUsd = plan?.splitUsd ?? 0;
   const currentUsd = plan?.current ?? null;
-  const byGauge = useMemo(() => new Map(snap?.gauges.map((g) => [g.gauge.toLowerCase(), g]) ?? []), [snap]);
+  const currentBaseUsd = plan?.currentMovable ?? null;
+  const byGauge = useMemo(() => new Map(snap?.gauges.map((g) => [`${g.chainId}:${g.gauge.toLowerCase()}`, g]) ?? []), [snap]);
   const bestSingle = ranked[0]?.earn ?? 0;
 
   // Rewards the selected position has earned and not claimed, across every gauge (ones it left too).
-  const [earned, setEarned] = useState<{ id: string; earned: Earned; lines: RewardLine[] } | null>(null);
+  // Read on every Aero chain: rewards stay on the chain they were earned on, also after the position moves away.
+  const [earned, setEarned] = useState<{ id: string; earned: Earned[]; lines: RewardLine[]; costs: ClaimCost[] } | null>(null);
   const loadEarned = async () => {
-    if (!position || !client || !snap) { setEarned(null); return; }
+    if (!position || !client || !snap || !address) { setEarned(null); return; }
     const id = position.tokenId.toString();
-    try {
-      const e = await readEarned(client, position.tokenId, snap.gauges);
-      setEarned({ id, earned: e, lines: await priceRewards(client, e) });
-    } catch { setEarned(null); }
+    const parts = await Promise.all(AERO_CHAINS.map(async (ch) => {
+      const c = ch.id === AERO_CHAIN_ID ? client : getChainClient(ch.id);
+      const gauges = snap.gauges.filter((g) => g.chainId === ch.id);
+      if (!c || gauges.length === 0) return null;
+      try {
+        const e = await readEarned(c, position.tokenId, gauges, ch.id);
+        if (e.byToken.size === 0) return null;
+        // What sending this chain's part of the claim costs, shown before the user taps.
+        const cost = await claimCost(client, c, position.tokenId, e, address as Address).catch(() => null);
+        return { e, lines: await priceRewards(c, e), cost };
+      } catch { return null; }
+    }));
+    const got = parts.filter((x): x is NonNullable<typeof x> => !!x);
+    setEarned({ id, earned: got.map((x) => x.e), lines: got.flatMap((x) => x.lines), costs: got.flatMap((x) => (x.cost ? [x.cost] : [])) });
   };
   useEffect(() => { void loadEarned(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [selected, snap != null, client != null]);
   const rewards = earned && earned.id === selected ? earned : null;
@@ -158,14 +180,16 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
 
   async function claim(sell: boolean) {
     if (!position || !address || !rewards) return;
+    const claimable = rewards.earned.filter((e) => e.chainId === AERO_CHAIN_ID || rewards.costs.some((c) => c.chainId === e.chainId));
     setMsg(null);
     setBusy(sell ? 'sell' : 'claim');
     try {
       try {
-        const c = claimCall(position.tokenId, rewards.earned, address as Address);
-        await client!.simulateContract({ address: AERO.voter, abi: claimRewardsAbi, functionName: 'claimRewards', args: c.args, account: address as Address });
+        // A chain whose cost could not be read is left out rather than sent without enough gas.
+        const c = claimCall(position.tokenId, claimable, address as Address, rewards.costs);
+        await client!.simulateContract({ address: AERO.voter, abi: claimRewardsAbi, functionName: 'claimRewards', args: c.args, account: address as Address, value: c.value });
       } catch { throw new Error('The claim would fail. Refresh and try again.'); }
-      const built = await claimCalls(position.tokenId, rewards.earned, rewards.lines, address as Address, sell ? target : null);
+      const built = await claimCalls(position.tokenId, claimable, rewards.costs, rewards.lines, address as Address, sell ? target : null);
       // A sale that would fail is left out (its token kept) so it cannot undo the claim in an all-or-nothing batch.
       const { calls, sold, kept } = sell ? await dropFailingSales(client!, address as Address, built) : built;
       await runCalls(config, {
@@ -175,9 +199,11 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
         track,
         chainId: AERO_CHAIN_ID,
       });
-      setMsg({ ok: true, text: sell
+      const done = sell
         ? `Claimed${sold.length ? ` and sold ${sold.join(', ')} for ${target.symbol}` : ''}.${kept.length ? ` Kept ${kept.join(', ')} (too small to sell or no route).` : ''}`
-        : 'Rewards claimed to your wallet.' });
+        : 'Rewards claimed to your wallet.';
+      const away = [...new Set(claimable.filter((e) => e.chainId !== AERO_CHAIN_ID).map((e) => chainName(e.chainId)))];
+      setMsg({ ok: true, text: `${done}${away.length ? ` Rewards on ${away.join(', ')} arrive there in a few minutes.` : ''}` });
       await loadEarned();
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message.split('\n')[0] });
@@ -186,10 +212,13 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
     }
   }
 
+  const [chainFilter, setChainFilter] = useState<number | null>(null);
+  const chainsShown = useMemo(() => AERO_CHAINS.filter((c) => ranked.some((r) => r.g.chainId === c.id)), [ranked]);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return q ? ranked.filter((r) => `${r.g.symbol0}/${r.g.symbol1} ${r.g.symbol1}/${r.g.symbol0}`.toLowerCase().includes(q)) : ranked;
-  }, [ranked, query]);
+    return ranked.filter((r) => (chainFilter == null || r.g.chainId === chainFilter)
+      && (!q || `${r.g.symbol0}/${r.g.symbol1} ${r.g.symbol1}/${r.g.symbol0}`.toLowerCase().includes(q)));
+  }, [ranked, query, chainFilter]);
 
   const cooldown = snap && position ? cooldownLeft(position.lastAllocatedSec, snap.cooldownSec, now) : 0;
   const canAllocate = !!position && !!address && cooldown === 0 && split.length > 0 && position.idleRaw + position.onBaseRaw > 0n;
@@ -225,9 +254,11 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
   }
 
   const pair = (g: SnapGauge, size = 26) => (
-    <span style={{ display: 'inline-flex', flexShrink: 0 }}>
-      <TokenIcon symbol={g.symbol0} size={size} logoUrl={logo(g.token0, AERO_CHAIN_ID, g.symbol0)}/>
-      <span style={{ marginLeft: -size * 0.35 }}><TokenIcon symbol={g.symbol1} size={size} logoUrl={logo(g.token1, AERO_CHAIN_ID, g.symbol1)}/></span>
+    <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0, paddingRight: 3 }}>
+      <TokenIcon symbol={g.symbol0} size={size} logoUrl={logo(g.token0, g.chainId, g.symbol0)}/>
+      <span style={{ marginLeft: -size * 0.35 }}><TokenIcon symbol={g.symbol1} size={size} logoUrl={logo(g.token1, g.chainId, g.symbol1)}/></span>
+      {/* Which Aero chain the pool is on */}
+      <span style={{ position: 'absolute', right: -2, bottom: -3, borderRadius: '50%', padding: 1.5, background: btb.bg, display: 'inline-flex' }}><ChainLogo chainId={g.chainId} size={Math.round(size * 0.45)}/></span>
     </span>
   );
   const kindChip = (g: SnapGauge) => (
@@ -299,7 +330,10 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
             {positions.map((p) => {
               const on = p.tokenId.toString() === selected;
               const left = snap ? cooldownLeft(p.lastAllocatedSec, snap.cooldownSec, now) : 0;
-              const placed = p.staked > 0 ? Math.round((Number(p.onBaseRaw) / 1e18 / p.power) * 100) : 0;
+              // Where its power sits: Base and each other chain, as a share of the whole.
+              const where = [{ id: AERO_CHAIN_ID, raw: p.onBaseRaw }, ...p.elsewhere.map((e) => ({ id: e.chainId, raw: e.amountRaw }))]
+                .filter((x) => x.raw > 0n)
+                .map((x) => `${chainName(x.id)} ${Math.min(100, Math.round((Number(x.raw) / 1e18 / Math.max(p.power, 1)) * 100))}%`);
               return (
                 <button key={p.tokenId.toString()} type="button" onClick={() => { setSelected(p.tokenId.toString()); setMsg(null); }} style={{
                   display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
@@ -309,7 +343,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
                     <div style={{ color: btb.text, fontSize: 14, fontWeight: 800 }}>#{p.tokenId.toString()} <span style={{ color: btb.textMuted, fontWeight: 700 }}>{num(p.power)} power</span></div>
                     <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 2 }}>
                       {p.isPermanent ? 'Permanent lock' : `Unlocks ${new Date(p.endSec * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
-                      {' · '}{p.idleRaw + p.onBaseRaw === 0n ? 'On another chain' : placed > 0 ? `${Math.min(100, placed)}% in Base pools` : 'Idle'}
+                      {' · '}{where.length ? where.join(', ') : 'Idle'}
                     </div>
                   </div>
                   <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, padding: '3px 8px', borderRadius: 8, color: left === 0 ? btb.green : btb.amber, background: left === 0 ? 'rgba(var(--green-rgb), 0.12)' : 'rgba(var(--amber-rgb), 0.12)' }}>
@@ -330,14 +364,21 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
                   <span style={{ color: btb.green, fontSize: 16, fontWeight: 800 }}>{usd(rewardsUsd)}</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {rewards.lines.slice(0, 5).map((l) => (
-                    <span key={l.token} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px', borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.06)', fontSize: 11.5, color: btb.textMuted, fontWeight: 700 }}>
-                      <TokenIcon symbol={l.symbol} size={16} logoUrl={logo(l.token, AERO_CHAIN_ID, l.symbol)}/>
+                  {rewards.lines.slice(0, 6).map((l) => (
+                    <span key={`${l.chainId}:${l.token}`} title={chainName(l.chainId)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px', borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.06)', fontSize: 11.5, color: btb.textMuted, fontWeight: 700 }}>
+                      <TokenIcon symbol={l.symbol} size={16} logoUrl={logo(l.token, l.chainId, l.symbol)}/>
+                      {l.chainId !== AERO_CHAIN_ID && <ChainLogo chainId={l.chainId} size={12}/>}
                       {l.amount < 0.01 ? '<0.01' : l.amount.toLocaleString('en-US', { maximumFractionDigits: l.amount >= 100 ? 0 : 3 })} {l.symbol}
                     </span>
                   ))}
-                  {rewards.lines.length > 5 && <span style={{ color: btb.textDim, fontSize: 11.5, alignSelf: 'center' }}>+{rewards.lines.length - 5} more</span>}
+                  {rewards.lines.length > 6 && <span style={{ color: btb.textDim, fontSize: 11.5, alignSelf: 'center' }}>+{rewards.lines.length - 6} more</span>}
                 </div>
+                {rewards.costs.some((c) => c.chainId !== AERO_CHAIN_ID) && (
+                  <div style={{ color: btb.textDim, fontSize: 11.5, lineHeight: 1.45 }}>
+                    One claim covers every chain. {[...new Set(rewards.costs.filter((c) => c.chainId !== AERO_CHAIN_ID).map((c) => chainName(c.chainId)))].join(', ')} rewards arrive there a few minutes later
+                    (about {(Number(rewards.costs.reduce((x, c) => x + c.value, 0n)) / 1e18).toFixed(5)} ETH to send) and stay as they are; Claim as only sells Base rewards.
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 8 }}>
                   <Button variant="ghost" size="sm" disabled={busy != null} loading={busy === 'claim'} onClick={() => claim(false)}>Claim</Button>
                   <div style={{ display: 'flex', gap: 4 }}>
@@ -364,7 +405,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
       <div style={{ ...card, border: '1px solid rgba(var(--green-rgb), 0.3)', background: 'radial-gradient(110% 140% at 100% 0%, rgba(var(--green-rgb), 0.12), transparent 60%), rgba(var(--fg-rgb), 0.03)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <div style={label}>{amount > 0 ? `Best split for ${num(amount)} ${position ? 'sAERO' : 'AERO'}` : 'Best split'}</div>
+            <div style={label}>{amount > 0 ? `Best split on Base for ${num(amount)} ${position ? 'sAERO' : 'AERO'}` : 'Best split'}</div>
             {amount > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
               <span style={{ color: btb.green, fontSize: 26, fontWeight: 800, letterSpacing: -0.6 }}>{snap ? `${usd(splitUsd)}` : '...'}</span>
               <span style={{ color: btb.textMuted, fontSize: 13, fontWeight: 700 }}>a day</span>
@@ -373,10 +414,14 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
             {snap && split.length > 1 && bestSingle > 0 && (
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3 }}>{usd(bestSingle)} a day in the single best pool</div>
             )}
-            {currentUsd != null && position && position.current.length > 0 && (
+            {currentBaseUsd != null && position && position.current.length > 0 && (
               <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 3 }}>
-                Now earning {usd(currentUsd)} a day{splitUsd > currentUsd ? <>, <b style={{ color: btb.green }}>+{usd(splitUsd - currentUsd)}</b> with this split</> : ', already near the best'}
+                Base part earns {usd(currentBaseUsd)} a day now{splitUsd > currentBaseUsd ? <>, <b style={{ color: btb.green }}>+{usd(splitUsd - currentBaseUsd)}</b> with this split</> : ', already near the best'}
+                {currentUsd != null && currentUsd > currentBaseUsd + 0.005 && <> · {usd(currentUsd)} a day on all chains</>}
               </div>
+            )}
+            {elsewhereNote && (
+              <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3 }}>{elsewhereNote} stays where it is; moving power between chains is coming next.</div>
             )}
           </div>
         </div>
@@ -385,7 +430,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
           {snap && !(amount > 0) && <div style={{ color: btb.textDim, fontSize: 12.5 }}>Enter an amount to see the best split.</div>}
           {!snap && <div style={{ color: btb.textDim, fontSize: 12.5 }}>{row === null ? 'Pool data is being prepared. Check back in a few minutes.' : 'Loading pools...'}</div>}
           {split.map((p) => {
-            const g = byGauge.get(p.gauge.toLowerCase());
+            const g = byGauge.get(`${AERO_CHAIN_ID}:${p.gauge.toLowerCase()}`);
             if (!g) return null;
             return (
               <div key={p.gauge} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -427,6 +472,23 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
             <input value={query} onChange={(e) => { setQuery(e.target.value); setShown(PAGE); }} placeholder="Search a token"
               style={{ width: isMobile ? 150 : 220, height: 34, padding: '0 12px', borderRadius: 10, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.04)', color: btb.text, fontSize: 16, fontFamily: 'inherit', outline: 'none' }}/>
           </div>
+          {chainsShown.length > 1 && (
+            <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', padding: '0 4px' }}>
+              {[null, ...chainsShown.map((c) => c.id)].map((id) => {
+                const on = chainFilter === id;
+                return (
+                  <button key={id ?? 'all'} type="button" onClick={() => { setChainFilter(id); setShown(PAGE); }} style={{
+                    flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 12.5, fontWeight: 800, color: on ? btb.text : btb.textMuted,
+                    background: on ? 'rgba(var(--green-rgb), 0.14)' : 'rgba(var(--fg-rgb), 0.05)', border: `1px solid ${on ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+                  }}>
+                    {id != null && <ChainLogo chainId={id} size={14}/>}
+                    {id == null ? 'All chains' : chainName(id)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {!isMobile && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 90px', gap: 10, padding: '0 14px', ...label }}>
               <span>Pool</span><span style={{ textAlign: 'right' }}>You earn a day</span><span style={{ textAlign: 'right' }}>APR</span>
@@ -437,7 +499,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
             const apr = aprPct(earn, amount, snap.aeroUsd);
             const thin = g.feeHours < 12;
             return isMobile ? (
-              <div key={g.gauge} style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={`${g.chainId}:${g.gauge}`} style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
                 {pair(g)}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -454,7 +516,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
                 </div>
               </div>
             ) : (
-              <div key={g.gauge} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 90px', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: 14, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+              <div key={`${g.chainId}:${g.gauge}`} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 90px', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: 14, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   {pair(g)}
                   <span style={{ color: btb.text, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.symbol0}/{g.symbol1}</span>
