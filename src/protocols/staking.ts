@@ -121,6 +121,64 @@ export async function withStakeTargets(client: PublicClient, d: V3Deployment, po
   });
 }
 
+/** The reward a deployment's gauges or farm pay (AERO, GIGA, UP...), or null where there is no staking. */
+export function venueReward(d: V3Deployment): { rewardToken: `0x${string}`; rewardSymbol: string } | null {
+  const v = venueFor(d);
+  return v ? { rewardToken: v.rewardToken, rewardSymbol: v.rewardSymbol } : null;
+}
+
+const FARM_USER_ABI = [
+  { name: 'userPositionInfos', type: 'function', stateMutability: 'view', inputs: [{ name: 'tokenId', type: 'uint256' }],
+    outputs: [{ type: 'uint128' }, { type: 'int24' }, { type: 'int24' }, { type: 'uint256' }, { type: 'uint256' }, { name: 'user', type: 'address' }, { type: 'uint256' }, { type: 'uint40' }] },
+] as const;
+
+/**
+ * Stake and rewards for positions an auto wallet holds, in three multicalls whatever their number: the pools' gauges or
+ * farm (withStakeTargets), then for each whether the wallet staked it and what it has earned. Each position comes back
+ * with `staked` (and its rewards) or `stakeable`, like the wallet's own positions. Replaces a chain of reads per position,
+ * which kept rewards at the last check's snapshot (often 0) for many seconds with many auto positions.
+ */
+export async function withAutoStakes(client: PublicClient, d: V3Deployment, wallet: `0x${string}`, positions: LiquidityPosition[]): Promise<LiquidityPosition[]> {
+  const venue = venueFor(d);
+  if (!venue || venue.closed || positions.length === 0) return positions;
+  const targeted = await withStakeTargets(client, d, positions);
+  const withTarget = targeted.filter((p) => p.stakeable);
+  if (withTarget.length === 0) return targeted;
+  const chef = venue.kind === 'masterchef';
+  const reads = await withSafeMulticall(client).multicall({
+    // Mixed ABIs in one batch: typed loosely here, decoded by index below.
+    contracts: withTarget.flatMap((p): { address: `0x${string}`; abi: readonly unknown[]; functionName: string; args: readonly unknown[] }[] => {
+      const t = p.stakeable!.gauge;
+      if (chef) return [
+        { address: t, abi: FARM_USER_ABI, functionName: 'userPositionInfos' as const, args: [p.id] as const },
+        { address: t, abi: MASTERCHEF_V3_ABI, functionName: 'pendingReward' as const, args: [p.id] as const },
+      ];
+      return [
+        { address: t, abi: CL_GAUGE_ABI, functionName: 'stakedContains' as const, args: [wallet, p.id] as const },
+        // Aero's gauges take a list of ids; the older ones one id.
+        venue.aero
+          ? { address: t, abi: AERO_GAUGE_ABI, functionName: 'earned' as const, args: [wallet, [p.id]] as const }
+          : { address: t, abi: CL_GAUGE_ABI, functionName: 'earned' as const, args: [wallet, p.id] as const },
+      ];
+    }) as never,
+    allowFailure: true,
+  }) as { status: string; result?: unknown }[];
+  const byId = new Map(withTarget.map((p, i) => {
+    const [a, b] = [reads[i * 2], reads[i * 2 + 1]];
+    const staked = chef
+      ? a?.status === 'success' && String((a.result as readonly unknown[])[5]).toLowerCase() === wallet.toLowerCase()
+      : a?.status === 'success' && a.result === true;
+    const earned = b?.status === 'success' ? (b.result as bigint) : 0n;
+    return [p.id, { staked, earned, target: p.stakeable!.gauge }] as const;
+  }));
+  return targeted.map((p) => {
+    const s = byId.get(p.id);
+    if (!s || !s.staked) return p;
+    const { stakeable: _gone, ...rest } = p;
+    return { ...rest, staked: { kind: venue.kind, gauge: s.target, earned: s.earned, rewardToken: venue.rewardToken, rewardSymbol: venue.rewardSymbol } };
+  });
+}
+
 /** Every position the wallet has staked at this venue, with claimable rewards.
  * Gauges: every pool the voter lists, stakedValues(owner) each (one multicall
  * round). MasterChef: the chef enumerates per owner. */

@@ -26,7 +26,7 @@ import {
   fmtFeeTier, tickToPrice, NATIVE_CURRENCY, type LiquidityPosition, type V3Deployment,
 } from '@/protocols/dexs/uniswap';
 import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, aeroDeploymentFor, CL_GAUGE_ABI } from '@/protocols/dexs/aerodrome';
-import { AERO_GAUGE_ABI, withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls, stakeTargetForPool } from '@/protocols/staking';
+import { AERO_GAUGE_ABI, venueReward, withAutoStakes, withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
 import { RangeStrip } from './RangeStrip';
@@ -325,6 +325,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
   const [topUpOpen, setTopUpOpen] = useState(false);
   const credit = useAlertCredit(connectedAddress, { withTreasury: topUpOpen });
   const [autoPositions, setAutoPositions] = useState<LiquidityPosition[]>([]);
+  // Auto cards whose fees (and, if staked, rewards) come from a live read rather than the last check's snapshot.
+  const [autoLive, setAutoLive] = useState<Set<string>>(new Set());
   /** Auto jobs whose position is no longer in the auto wallet (taken out, waiting for the checker to notice). */
   const [autoLeft, setAutoLeft] = useState<Set<string>>(new Set());
   // Anything that changes what the position looks like on-chain re-reads it:
@@ -350,51 +352,104 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
       return place(rows);
     });
     (async () => {
-      await Promise.all(autoJobs.map(async (j) => {
-        const found = autoDeployment(j.chainId, j.positionManager);
-        const client = getPublicClient(config, { chainId: j.chainId as never });
+      // One batched read per auto wallet and position manager, not a chain of reads per position: with many auto
+      // positions the one-by-one reads queued behind each other on the RPC, and fees sat at the last check's
+      // snapshot (often 0) for a long time, or until the next refresh when a read failed.
+      const groups = new Map<string, AutoJob[]>();
+      for (const j of autoJobs) {
+        const g = `${j.chainId}:${j.positionManager.toLowerCase()}:${j.wallet.toLowerCase()}`;
+        groups.set(g, [...(groups.get(g) ?? []), j]);
+      }
+      const markLive = (keys: string[]) => { if (live && keys.length) setAutoLive((prev) => new Set([...prev, ...keys])); };
+      await Promise.all([...groups.values()].map(async (jobs) => {
+        const j0 = jobs[0];
+        const found = autoDeployment(j0.chainId, j0.positionManager);
+        const client = getPublicClient(config, { chainId: j0.chainId as never });
         if (!found || !client) return;
-        try {
-          // Only while the auto wallet still holds it, directly or staked in its gauge or farm; a position the owner
-          // took out shows as their own again, not as a stale auto row.
-          const holder = (await client.readContract({ address: j.positionManager as `0x${string}`, abi: AUTO_OWNER_OF_ABI, functionName: 'ownerOf', args: [BigInt(j.tokenId)] }).catch(() => null))?.toLowerCase();
-          // A gauge the job has not recorded yet (a Safe's stake lands after its co-owners sign) still counts when
-          // that holder says the auto wallet staked it. Display only; the checker verifies it against the registry.
-          const stakedByWallet = !!holder && holder !== j.wallet.toLowerCase() && holder !== j.gauge?.toLowerCase()
-            && await client.readContract({ address: holder as `0x${string}`, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false);
-          if (holder && holder !== j.wallet.toLowerCase() && holder !== j.gauge?.toLowerCase() && !stakedByWallet) {
+        const wallet = j0.wallet.toLowerCase();
+        const read = async () => {
+          const farm = isFarmManager(j0.chainId, j0.positionManager);
+          const aero = found.deployment.protocol === 'aero-cl';
+          // The gauge or farm each job already records (Convex knows where it staked): its rewards need no lookup.
+          const recorded = jobs.filter((j) => j.gauge);
+          // Who holds each position, every position with its live fees, and the recorded stakes' rewards: three reads
+          // at the same time, so the cards fill in about one round trip instead of one per step.
+          const [owners, read, stakes] = await Promise.all([
+            client.multicall({
+              contracts: jobs.map((j) => ({ address: j.positionManager as `0x${string}`, abi: AUTO_OWNER_OF_ABI, functionName: 'ownerOf' as const, args: [BigInt(j.tokenId)] as const })),
+              allowFailure: true,
+            }),
+            fetchV3Positions(client as never, j0.wallet as `0x${string}`, found.deployment, jobs.map((j) => BigInt(j.tokenId))),
+            recorded.length === 0 ? Promise.resolve([]) : client.multicall({
+              // Mixed ABIs in one batch: typed loosely here, decoded by index below.
+              contracts: recorded.flatMap((j): { address: `0x${string}`; abi: readonly unknown[]; functionName: string; args: readonly unknown[] }[] => {
+                const g = j.gauge as `0x${string}`, id = BigInt(j.tokenId);
+                return farm ? [
+                  { address: g, abi: AUTO_FARM_ABI, functionName: 'userPositionInfos', args: [id] },
+                  { address: g, abi: AUTO_FARM_ABI, functionName: 'pendingReward', args: [id] },
+                ] : [
+                  { address: g, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, id] },
+                  // Aero's gauges take a list of ids; the older ones one id.
+                  aero
+                    ? { address: g, abi: AERO_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, [id]] }
+                    : { address: g, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, id] },
+                ];
+              }) as never,
+              allowFailure: true,
+            }) as Promise<{ status: string; result?: unknown }[]>,
+          ]);
+
+          // Only positions the auto wallet still holds, directly or staked in its gauge or farm, stay auto rows; one
+          // the owner took out shows as their own again.
+          const kept = new Set<string>();
+          await Promise.all(jobs.map(async (j, i) => {
+            const holder = owners[i]?.status === 'success' ? String(owners[i].result).toLowerCase() : null;
+            if (!holder || holder === wallet || holder === j.gauge?.toLowerCase()) { kept.add(j.tokenId); return; }
+            // A gauge the job has not recorded yet (a Safe's stake lands after its co-owners sign) still counts when
+            // that holder says the auto wallet staked it. Display only; the checker verifies it against the registry.
+            const stakedByWallet = await client.readContract({ address: holder as `0x${string}`, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false);
+            if (stakedByWallet) { kept.add(j.tokenId); return; }
             if (live) { setAutoLeft((prev) => new Set(prev).add(keyOf(j))); setAutoPositions((prev) => prev.filter((x) => posKey(x) !== keyOf(j))); }
-            return;
-          }
-          const [p] = await fetchV3Positions(client as never, j.wallet as `0x${string}`, found.deployment, [BigInt(j.tokenId)]);
-          if (!p) return;
-          const pos: LiquidityPosition = { ...p, protocol: found.protocol, chainId: j.chainId, chainName: AUTO_CHAIN_NAMES[j.chainId], positionManager: j.positionManager as `0x${string}` };
-          // Staked from the wallet, or stakeable in its pool's gauge: the same
-          // fields the rest of the list uses, so badges and rewards just show.
-          if (stakingSupported(found.deployment)) {
-            const target = await stakeTargetForPool(client as never, found.deployment, p.token0, p.token1, p.tickSpacing ?? p.fee).catch(() => null);
-            if (target && target.kind === 'gauge') {
-              const [staked, earned] = await Promise.all([
-                client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'stakedContains', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] }).catch(() => false),
-                // Aero's gauges take a list of ids; the older ones one id.
-                (found.deployment.protocol === 'aero-cl'
-                  ? client.readContract({ address: target.contract, abi: AERO_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, [BigInt(j.tokenId)]] })
-                  : client.readContract({ address: target.contract, abi: CL_GAUGE_ABI, functionName: 'earned', args: [j.wallet as `0x${string}`, BigInt(j.tokenId)] })).catch(() => 0n),
-              ]);
-              if (staked) pos.staked = { kind: 'gauge', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
-              else pos.stakeable = { kind: 'gauge', gauge: target.contract, rewardSymbol: target.rewardSymbol };
-            } else if (target && target.kind === 'masterchef' && isFarmManager(j.chainId, j.positionManager)) {
-              // Giga's farm: the wallet is the staker when the farm records it as the position's user.
-              const [info, earned] = await Promise.all([
-                client.readContract({ address: target.contract, abi: AUTO_FARM_ABI, functionName: 'userPositionInfos', args: [BigInt(j.tokenId)] }).catch(() => null),
-                client.readContract({ address: target.contract, abi: AUTO_FARM_ABI, functionName: 'pendingReward', args: [BigInt(j.tokenId)] }).catch(() => 0n),
-              ]);
-              if (info && info[5].toLowerCase() === j.wallet.toLowerCase()) pos.staked = { kind: 'masterchef', gauge: target.contract, earned: earned as bigint, rewardToken: target.rewardToken, rewardSymbol: target.rewardSymbol };
-              else pos.stakeable = { kind: 'masterchef', gauge: target.contract, rewardSymbol: target.rewardSymbol };
+          }));
+
+          const stakeOf = new Map(recorded.map((j, i) => {
+            const [a, b] = [stakes[i * 2], stakes[i * 2 + 1]];
+            const on = farm
+              ? a?.status === 'success' && String((a.result as readonly unknown[])[5]).toLowerCase() === wallet
+              : a?.status === 'success' && a.result === true;
+            return [j.tokenId, on ? { gauge: j.gauge as `0x${string}`, earned: b?.status === 'success' ? (b.result as bigint) : 0n } : null] as const;
+          }));
+          const reward = venueReward(found.deployment);
+          const fresh = read.filter((p) => kept.has(p.id.toString())).map((p): LiquidityPosition => {
+            const pos: LiquidityPosition = { ...p, protocol: found.protocol, chainId: j0.chainId, chainName: AUTO_CHAIN_NAMES[j0.chainId], positionManager: j0.positionManager as `0x${string}` };
+            const st = stakeOf.get(p.id.toString());
+            if (st && reward) pos.staked = { kind: farm ? 'masterchef' : 'gauge', gauge: st.gauge, earned: st.earned, rewardToken: reward.rewardToken, rewardSymbol: reward.rewardSymbol };
+            return pos;
+          });
+          if (live) setAutoPositions((prev) => {
+            const rows = new Map(prev.map((p) => [posKey(p), p] as const));
+            for (const p of fresh) {
+              const before = rows.get(posKey(p));
+              // A card whose stake was not recorded keeps what was drawn until the lookup below says otherwise.
+              rows.set(posKey(p), p.staked ? p : { ...p, ...(before?.staked ? { staked: before.staked } : {}), ...(before?.stakeable ? { stakeable: before.stakeable } : {}) });
             }
-          }
-          if (live) setAutoPositions((prev) => place(new Map([...prev.map((p) => [posKey(p), p] as const), [posKey(pos), pos]])));
-        } catch { /* the snapshot stays; the next job refresh retries */ }
+            return place(rows);
+          });
+          markLive(fresh.filter((p) => p.staked || !stakingSupported(found.deployment)).map(posKey));
+
+          // Positions with no recorded stake: look up their pool's gauge or farm (for the Stake button, or a stake the
+          // job has not caught up with). Not on the path to showing fees or rewards above.
+          const rest = fresh.filter((p) => !p.staked);
+          if (!rest.length || !stakingSupported(found.deployment)) { markLive(rest.map(posKey)); return; }
+          const looked = await withAutoStakes(client as never, found.deployment, j0.wallet as `0x${string}`, rest).catch(() => rest);
+          if (live) setAutoPositions((prev) => place(new Map([...prev.map((x) => [posKey(x), x] as const), ...looked.map((x) => [posKey(x), x] as const)])));
+          markLive(looked.map(posKey));
+        };
+        // One retry after a short pause: a failed read used to leave the stale snapshot up until the next refresh.
+        try { await read(); } catch {
+          await new Promise((r) => setTimeout(r, 1500));
+          await read().catch(() => { /* the snapshot stays; the next job refresh retries */ });
+        }
       }));
     })().catch(() => { /* a failed read leaves what is shown as it was */ });
     return () => { live = false; };
@@ -1181,6 +1236,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const busy = busyId === posKey(p);
     const v = valueOf(p);
     const f = feesValueOf(p);
+    // An auto card drawn from the last check's snapshot, before its live read lands: its fees and rewards there can be
+    // a day old (often 0), so show that they are loading rather than "None yet".
+    const waiting = autoByKey.has(posKey(p)) && !autoLive.has(posKey(p));
     const a = analyticsOf(p);
     const alertRow = alerts.list?.find((r) => r.chainId === (p.chainId ?? 1) && r.protocol === p.protocol && r.tokenId === p.id.toString());
     const money = (n: number) => `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
@@ -1321,20 +1379,20 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
               style={{ ...box, background: p.staked ? 'rgba(var(--amber-rgb), 0.07)' : hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: p.staked ? '1px solid rgba(var(--amber-rgb), 0.22)' : hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
               <div style={boxLabel}>{p.staked ? p.staked.rewardSymbol : 'Fees'}</div>
               <div style={{ ...boxValue, color: p.staked ? btb.amber : hasFees ? btb.green : btb.textDim }}>
-                {p.staked ? fmtAmt(p.staked.earned, 18) : hasFees ? (f > 0 ? money(f) : fmtAmt(p.fees0, p.decimals0)) : 'None'}
+                {waiting ? '...' : p.staked ? fmtAmt(p.staked.earned, 18) : hasFees ? (f > 0 ? money(f) : fmtAmt(p.fees0, p.decimals0)) : 'None'}
               </div>
             </div>
           ) : p.staked ? (
             <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: 'rgba(var(--amber-rgb), 0.07)', border: '1px solid rgba(var(--amber-rgb), 0.22)' }}>
               <div style={boxLabel}>Rewards</div>
-              <div style={{ ...boxValue, color: btb.amber }}>{fmtAmt(p.staked.earned, 18)}</div>
+              <div style={{ ...boxValue, color: btb.amber }}>{waiting ? '...' : fmtAmt(p.staked.earned, 18)}</div>
               <div style={{ color: 'rgba(var(--amber-rgb), 0.7)', fontSize: 11.5, marginTop: 2 }}>{p.staked.rewardSymbol} to claim</div>
             </div>
           ) : (
             <div style={{ ...box, gridColumn: isMobile ? '1 / -1' : undefined, background: hasFees ? 'rgba(var(--green-rgb), 0.07)' : box.background, border: hasFees ? '1px solid rgba(var(--green-rgb), 0.22)' : box.border }}>
               <div style={boxLabel}>Unclaimed fees</div>
-              <div style={{ ...boxValue, color: hasFees ? btb.green : btb.textDim }}>{hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
-              {hasFees && (
+              <div style={{ ...boxValue, color: hasFees && !waiting ? btb.green : btb.textDim }}>{waiting ? '...' : hasFees ? (f > 0 ? money(f) : `${fmtAmt(p.fees0, p.decimals0)} ${p.symbol0}`) : 'None yet'}</div>
+              {hasFees && !waiting && (
                 <div style={{ color: 'rgba(var(--green-rgb), 0.75)', fontSize: 11.5, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {fmtAmt(p.fees0, p.decimals0)} {p.symbol0} + {fmtAmt(p.fees1, p.decimals1)} {p.symbol1}
                 </div>
