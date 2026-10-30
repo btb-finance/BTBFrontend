@@ -96,8 +96,10 @@ export function AutoRebalanceSheet({ pos, account, onClose, onDone }: {
         if (!res.ok && /sign-in expired/i.test(res.reason)) session.forget();
       }
       if (!res.ok) throw new Error(res.reason);
-      await onDone();
+      // The job exists now: close straight away. Reloading every position (onDone) can take several seconds across
+      // chains and used to keep the sheet on "Starting" the whole time; the list refreshes behind it instead.
       onClose();
+      void Promise.resolve(onDone()).catch(() => {});
     } catch (e) {
       setErr(readableError(e, 'Could not turn on auto-rebalance.'));
     } finally {

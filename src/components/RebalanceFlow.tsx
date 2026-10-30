@@ -145,7 +145,8 @@ export function RebalanceFlow({ pos, account, carryTag, onClose, onDone }: {
         initialTicks={useSuggested && suggested ? { tickLower: suggested.tickLower, tickUpper: suggested.tickUpper } : undefined}
         stakeByDefault={!!pos.staked}
         carryTag={carryTag}
-        onClose={async () => { await onDone(); onClose(); }}
+        // Close at once; the positions reload behind it instead of holding the sheet open for several seconds.
+        onClose={() => { onClose(); void Promise.resolve(onDone()).catch(() => {}); }}
         onDone={() => {}}
       />
     );
