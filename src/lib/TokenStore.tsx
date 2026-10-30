@@ -9,7 +9,7 @@ import { api } from '../../convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { useOtherChainBalances } from './useOtherChainBalances';
 import { pendingReferral } from './referral';
-import { turnstileToken } from './turnstile';
+import { checkInNow } from './checkin';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,7 +103,6 @@ const NO_SNAPSHOT: FunctionReturnType<typeof api.users.getBalanceSnapshot> = [];
 
 export function TokenStoreProvider({ children, walletAddress }: { children: ReactNode; walletAddress?: string }) {
   const registerOrGet     = useMutation(api.users.registerOrGet);
-  const checkIn           = useAction(api.checkInActions.checkIn);
   const { address: connected } = useConnection();
   const showXp            = useXpToast();
   const seedIfEmpty       = useAction(api.tokens.seedIfEmpty);
@@ -267,7 +266,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       // invite or checked in, or anyone could farm check-ins by pasting addresses.
       (isOwn
         ? registerOrGet({ walletAddress, ref: pendingReferral(walletAddress) })
-          .then(async () => checkIn({ walletAddress, turnstileToken: await turnstileToken() }))
+          .then(() => checkInNow(walletAddress))
         : Promise.resolve(null))
         .then(r => { if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
         .catch(() => {}),

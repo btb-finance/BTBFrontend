@@ -54,6 +54,7 @@ const DocsScreen      = dynamic(() => screenLoader.docs().then(m => m.DocsScreen
 const OposSeedScreen  = dynamic(() => import('./screens/OposSeedScreen').then(m => m.OposSeedScreen), { ssr: false, loading: ScreenLoading });
 const AeroNudge = dynamic(() => import('./AeroNudge').then(m => m.AeroNudge), { ssr: false });
 const AllocateScreen = dynamic(() => import('./screens/AllocateScreen').then(m => m.AllocateScreen), { ssr: false, loading: ScreenLoading });
+const CheckinsScreen = dynamic(() => import('./screens/CheckinsScreen').then(m => m.CheckinsScreen), { ssr: false, loading: ScreenLoading });
 const OposPairsScreen = dynamic(() => import('./screens/OposPairsScreen').then(m => m.OposPairsScreen), { ssr: false, loading: ScreenLoading });
 const ConnectScreen   = dynamic(() => screenLoader.connect().then(m => m.ConnectScreen), { ssr: false });
 const AgentDock       = dynamic(() => screenLoader.agentDock().then(m => m.AgentDock), { ssr: false });
@@ -197,6 +198,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
     ? <OposSeedScreen/>
     : overlay === 'opos-pairs'
     ? <OposPairsScreen/>
+    : overlay === 'checkins'
+    ? <CheckinsScreen/>
     : null;
 
   return (

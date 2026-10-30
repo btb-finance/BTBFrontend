@@ -301,6 +301,21 @@ export default defineSchema({
     createdAt: v.float64(),
   }).index("by_wallet_day_key", ["walletAddress", "day", "key"]),
 
+  // What each check-in came from, for spotting one person with many wallets (convex/sybil.ts). Hashes only: the IP
+  // and its network are salted SHA-256, the device id is random per browser, the fingerprint is a hash of browser traits.
+  checkInSignals: defineTable({
+    walletAddress: v.string(),         // lowercase
+    epochId: v.float64(),
+    day: v.float64(),                  // unix day
+    at: v.float64(),
+    ipHash: v.optional(v.string()),
+    netHash: v.optional(v.string()),   // the IPv4 /24 or IPv6 /48 it came from
+    deviceId: v.optional(v.string()),
+    fpHash: v.optional(v.string()),
+  }).index("by_epoch", ["epochId"])
+    .index("by_wallet_day", ["walletAddress", "day"])
+    .index("by_day", ["day"]),
+
   // Per-epoch XP ledger. `users.points` stays a lifetime vanity counter; the
   // weekly BTB split is decided purely by what a wallet earned inside one
   // Friday→Friday window, so every award site writes here too.
@@ -341,6 +356,9 @@ export default defineSchema({
     requestedAt: v.float64(),
     pointsAtSettle: v.optional(v.float64()),
     awardedRaw: v.optional(v.string()),
+    // XP the split counted after the multi-wallet and real-wallet rules (convex/sybil.ts), and why it differs.
+    pointsCounted: v.optional(v.float64()),
+    note: v.optional(v.string()),
   }).index("by_epoch_wallet", ["epochId", "walletAddress"])
     .index("by_epoch", ["epochId"])
     .index("by_wallet", ["walletAddress"]),

@@ -257,8 +257,10 @@ export const settleEpoch = internalMutation({
     oposBurnedRaw: v.string(),
     potRaw: v.string(),
     burnTxHash: v.optional(v.string()),
+    // XP each wallet counts after the multi-wallet and real-wallet rules (rewardsActions.settle); absent, raw XP counts.
+    counted: v.optional(v.array(v.object({ wallet: v.string(), points: v.float64(), note: v.optional(v.string()) }))),
   },
-  handler: async (ctx, { epochId, oposBurnedRaw, potRaw, burnTxHash }) => {
+  handler: async (ctx, { epochId, oposBurnedRaw, potRaw, burnTxHash, counted }) => {
     const epoch = await ctx.db
       .query("rewardEpochs").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).unique();
     if (!epoch) throw new Error(`Epoch ${epochId} not found`);
@@ -283,13 +285,27 @@ export const settleEpoch = internalMutation({
     const earners = await ctx.db
       .query("epochPoints").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect();
 
-    const weighted: { wallet: string; points: bigint; raw: number }[] = [];
+    const countedBy = new Map((counted ?? []).map((c) => [c.wallet, c]));
+    const weighted: { wallet: string; points: bigint; raw: number; note?: string }[] = [];
     let totalPoints = 0n;
+    const sidelined: { wallet: string; raw: number; note: string }[] = [];
     for (const row of earners) {
-      const points = BigInt(Math.max(0, Math.round(row.points)));
-      if (points === 0n) continue;
-      weighted.push({ wallet: row.walletAddress, points, raw: row.points });
+      const c = countedBy.get(row.walletAddress);
+      const points = BigInt(Math.max(0, Math.round(c ? c.points : row.points)));
+      if (points === 0n) {
+        // Kept on record with the reason, so Home and the admin page can say why there was no share.
+        if (c?.note && row.points > 0) sidelined.push({ wallet: row.walletAddress, raw: row.points, note: c.note });
+        continue;
+      }
+      weighted.push({ wallet: row.walletAddress, points, raw: row.points, note: c?.note });
       totalPoints += points;
+    }
+    for (const s of sidelined) {
+      const existing = await ctx.db.query("rewardRequests")
+        .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", s.wallet)).unique();
+      const fields = { pointsAtSettle: s.raw, pointsCounted: 0, awardedRaw: "0", note: s.note };
+      if (existing) await ctx.db.patch(existing._id, fields);
+      else await ctx.db.insert("rewardRequests", { epochId, walletAddress: s.wallet, pointsAtRequest: s.raw, requestedAt: Date.now(), ...fields });
     }
 
     const now = Date.now();
@@ -310,8 +326,9 @@ export const settleEpoch = internalMutation({
       // (Home reads it for "last week you were paid").
       const existing = await ctx.db.query("rewardRequests")
         .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", entry.wallet)).unique();
-      if (existing) await ctx.db.patch(existing._id, { pointsAtSettle: entry.raw, awardedRaw: amount.toString() });
-      else await ctx.db.insert("rewardRequests", { epochId, walletAddress: entry.wallet, pointsAtRequest: entry.raw, requestedAt: now, pointsAtSettle: entry.raw, awardedRaw: amount.toString() });
+      const record = { pointsAtSettle: entry.raw, pointsCounted: Number(entry.points), awardedRaw: amount.toString(), ...(entry.note ? { note: entry.note } : {}) };
+      if (existing) await ctx.db.patch(existing._id, record);
+      else await ctx.db.insert("rewardRequests", { epochId, walletAddress: entry.wallet, pointsAtRequest: entry.raw, requestedAt: now, ...record });
       if (amount === 0n) continue;
       distributed += amount;
       queued += 1;

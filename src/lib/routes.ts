@@ -5,7 +5,7 @@ import type { Tab } from '@/components/types';
 // back button works. The [tab] route renders the same shell; MiniApp reads the
 // path on load and pushes history entries as the user navigates.
 
-export type Overlay = 'docs' | 'opos-seed' | 'opos-pairs' | null;
+export type Overlay = 'docs' | 'opos-seed' | 'opos-pairs' | 'checkins' | null;
 
 export const TAB_PATHS: Record<Tab, string> = {
   home: '/',
@@ -24,7 +24,7 @@ export function pathFor(screen: Tab, overlay: Overlay): string {
 
 export function parsePath(path: string): { screen: Tab; overlay: Overlay } {
   const seg = path.split('/').filter(Boolean)[0]?.toLowerCase() ?? '';
-  if (seg === 'docs' || seg === 'opos-seed' || seg === 'opos-pairs') return { screen: 'home', overlay: seg };
+  if (seg === 'docs' || seg === 'opos-seed' || seg === 'opos-pairs' || seg === 'checkins') return { screen: 'home', overlay: seg };
   // /token folded into Home; the old path still resolves rather than 404ing
   // for anyone holding a link to it.
   // The earlier sAERO page lived at /vote; its links now open Allocate.
