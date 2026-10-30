@@ -1904,7 +1904,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
           { label: 'Earning', value: estDailyUsd > 0 ? `~${perDay(estDailyUsd)}` : '$0/day', color: estDailyUsd > 0 ? btb.green : btb.textDim },
           { label: 'Avg APR', value: `${avgApr.toFixed(1)}%`, color: avgApr > 0 ? btb.green : btb.textDim },
           { label: 'In range', value: `${inRangeCount} / ${positions.length}`, color: allIn ? btb.text : btb.amber },
-          { label: 'Unclaimed', value: money(unclaimedUsd), color: unclaimedUsd >= 0.01 ? btb.green : btb.textDim },
+          { label: 'To claim', value: money(unclaimedUsd), color: unclaimedUsd >= 0.01 ? btb.green : btb.textDim },
         ];
         return (
           <div style={{ borderRadius: 16, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', padding: 14 }}>
@@ -1914,7 +1914,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
                     <span style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, whiteSpace: 'nowrap' }}>{t.label}</span>
                     {/* Collecting lives on the unclaimed total itself, only when there is something to collect. */}
-                    {t.label === 'Unclaimed' && canCollect && (
+                    {t.label === 'To claim' && canCollect && (
                       <button type="button" onClick={collectAll} disabled={collectingAll || !!busyId} style={{ flexShrink: 0, padding: 0, border: 'none', background: 'transparent', color: btb.green, fontFamily: 'inherit', fontSize: 11, fontWeight: 800, cursor: collectingAll || busyId ? 'default' : 'pointer' }}>
                         {collectingAll ? '…' : 'Collect'}
                       </button>

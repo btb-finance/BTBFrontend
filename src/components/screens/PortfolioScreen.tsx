@@ -262,19 +262,32 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
                 </div>
               )}
             </div>
-            {!isMobile && <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
+            {/* What net worth is made of, on phones too: tokens, LP positions, and the fees and rewards waiting to be claimed. */}
+            <div style={isMobile
+              ? { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, marginTop: 10 }
+              : { display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
               {([
                 { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
                 { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
-                { label: 'Unclaimed', value: lp.feesUsd, dot: btb.green, color: btb.green },
-              ] as const).map(b => (
-                <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: 4, background: b.dot, flexShrink: 0 }}/>
-                  <span style={{ color: btb.textMuted }}>{b.label}</span>
-                  <span style={{ color: b.color, fontWeight: 700 }}>{b.value > 0 && b.value < 0.01 ? '<$0.01' : `$${fmt(b.value)}`}</span>
-                </div>
-              ))}
-            </div>}
+                { label: 'Rewards to claim', value: lp.feesUsd, dot: btb.green, color: btb.green },
+              ] as const).map(b => {
+                const amount = b.value > 0 && b.value < 0.01 ? '<$0.01' : `$${fmt(b.value)}`;
+                return isMobile ? (
+                  <div key={b.label} style={{ minWidth: 0, padding: '7px 9px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: btb.textMuted, fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: 3, background: b.dot, flexShrink: 0 }}/>{b.label}
+                    </div>
+                    <div style={{ color: b.color, fontSize: 14, fontWeight: 800, marginTop: 2 }}>{amount}</div>
+                  </div>
+                ) : (
+                  <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: 4, background: b.dot, flexShrink: 0 }}/>
+                    <span style={{ color: btb.textMuted }}>{b.label}</span>
+                    <span style={{ color: b.color, fontWeight: 700 }}>{amount}</span>
+                  </div>
+                );
+              })}
+            </div>
             {allTokensWithBalance.length > trustedTokens.length && (
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 6 }}>
                 {allTokensWithBalance.length - trustedTokens.length} unverified quotes excluded from net worth
