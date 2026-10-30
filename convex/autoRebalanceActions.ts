@@ -22,6 +22,7 @@ import {
   AGENT_BATCH_ABI, GROW_OBSERVATIONS_ABI, MIN_OBSERVATIONS, encodeAgentBatch, hasPriceHistory, isFarmManager, observationsNext, type AgentStep, sweepStep, lpConfig, packPosition, unpackPosition, rebalanceBtb, rebalanceParams, stakeAdapterFor,
 } from "./autoRebalanceConfig";
 import { loadLiveRpcs } from "./liveRpcs";
+import { firstGood, freshClients, receiptAnywhere } from "../src/lib/freshReads";
 
 /** Reads or sends that fail this many times in a row pause the row. */
 const MAX_FAILURES = 6;
@@ -1083,12 +1084,15 @@ async function verifyOnChain(owner: string, a: EnableArgs): Promise<{ ok: true; 
     const pm = a.positionManager as `0x${string}`;
     const tokenId = BigInt(a.tokenId);
 
-    const wallet = (await client.readContract({ address: V6.factory, abi: FACTORY_ABI, functionName: "accountOf", args: [owner as `0x${string}`] })).toLowerCase();
+    // The wallet, its settings and the move were often made seconds ago: ask several RPCs, and the first that already
+    // shows each new state wins (a node can lag behind, never run ahead).
+    const fresh = [client, ...freshClients(a.chainId, 3)];
+    const wallet = (await firstGood(fresh, (c) => c.readContract({ address: V6.factory, abi: FACTORY_ABI, functionName: "accountOf", args: [owner as `0x${string}`] }), (w) => !/^0x0{40}$/.test(w))).toLowerCase();
     if (/^0x0{40}$/.test(wallet)) return { ok: false, reason: "Your auto wallet is not created on this chain yet." };
     const [agentUntil, adapterHash, holder] = await Promise.all([
-      client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: "agentExpiry", args: [REBALANCE_AGENT as `0x${string}`] }),
-      client.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: "adapterCodeHash", args: [adapter] }),
-      client.readContract({ address: pm, abi: NFT_ABI, functionName: "ownerOf", args: [tokenId] }).catch(() => null),
+      firstGood(fresh, (c) => c.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: "agentExpiry", args: [REBALANCE_AGENT as `0x${string}`] }), (t) => Number(t) * 1000 > Date.now()),
+      firstGood(fresh, (c) => c.readContract({ address: wallet as `0x${string}`, abi: WALLET_ABI, functionName: "adapterCodeHash", args: [adapter] }), (h) => !/^0x0{64}$/.test(h)),
+      firstGood(fresh, (c) => c.readContract({ address: pm, abi: NFT_ABI, functionName: "ownerOf", args: [tokenId] }).catch(() => null), (o) => o?.toLowerCase() === wallet).catch(() => null),
     ]);
     if (Number(agentUntil) * 1000 < Date.now() + 24 * 60 * 60_000) return { ok: false, reason: "The BTB agent is not allowed in your auto wallet." };
     if (/^0x0{64}$/.test(adapterHash)) return { ok: false, reason: "This DEX is not turned on in your auto wallet." };
@@ -1126,10 +1130,12 @@ export const enable = action({
  * arriving in the wallet from the owner, or minted there while the wallet itself was acting (its own action). No
  * history index is involved: a stranger cannot produce such a receipt.
  */
-async function movedInByOwner(client: PublicClient, txHash: string | undefined, pm: `0x${string}`, tokenId: bigint, wallet: string, owner: string): Promise<boolean> {
+/** True when the move was the owner's; "pending" when no RPC has the receipt yet (worth asking again, not a refusal). */
+async function movedInByOwner(clients: PublicClient[], txHash: string | undefined, pm: `0x${string}`, tokenId: bigint, wallet: string, owner: string): Promise<boolean | "pending"> {
   if (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) return false;
-  const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` }).catch(() => null);
-  if (!receipt || receipt.status !== "success") return false;
+  const receipt = await receiptAnywhere(clients, txHash as `0x${string}`);
+  if (!receipt) return "pending";
+  if (receipt.status !== "success") return false;
   const w = wallet.toLowerCase();
   const into = parseEventLogs({ abi: NFT_ABI, eventName: "Transfer", logs: receipt.logs })
     .filter((l) => l.address.toLowerCase() === pm.toLowerCase() && l.args.tokenId === tokenId && l.args.to.toLowerCase() === w);
@@ -1160,9 +1166,16 @@ export const enableNew = action({
     // TEMPORARY: the app released before this check sends no txHashes. Until the new app is live everywhere, such a
     // request is handled as before; remove this line once it is (every current client sends the hashes).
     let proven = a.txHashes === undefined;
+    let pending = false;
+    const clients = [...(client ? [client] : []), ...freshClients(a.chainId, 3)];
     for (const h of (a.txHashes ?? []).slice(0, 8)) {
-      if (client && (await movedInByOwner(client, h, a.positionManager as `0x${string}`, BigInt(a.tokenId), v.wallet, a.owner))) { proven = true; break; }
+      const r = await movedInByOwner(clients, h, a.positionManager as `0x${string}`, BigInt(a.tokenId), v.wallet, a.owner);
+      if (r === true) { proven = true; break; }
+      if (r === "pending") pending = true;
     }
+    // A receipt no RPC has yet is the chain catching up, not a stranger's move: the app asks again in a moment
+    // instead of asking for a signature.
+    if (!proven && pending) return { ok: false, reason: "The move is not visible yet." };
     if (!proven) {
       return { ok: false, reason: "This position was not moved in by you. Start it from the app with a signature." };
     }

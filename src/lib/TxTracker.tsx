@@ -1,7 +1,9 @@
 'use client';
 import { createContext, useCallback, useContext, useRef, useState, ReactNode } from 'react';
 import { useConfig } from 'wagmi';
-import { waitForTransactionReceipt, waitForCallsStatus } from 'wagmi/actions';
+import { getConnectorClient, waitForCallsStatus } from 'wagmi/actions';
+import { createPublicClient, custom, type PublicClient, type TransactionReceipt } from 'viem';
+import { freshClients, receiptAnywhere } from './freshReads';
 import { Icon } from '@/components/Icon';
 import { btb } from '@/components/design-tokens';
 import { SUPPORTED_CHAINS, type SupportedChainId } from './wagmi';
@@ -13,32 +15,33 @@ import { markLpSnapshotsStale } from './appData';
 // fire-and-forget (with `onConfirmed`) or `await` the returned `done` promise
 // to sequence follow-up calls.
 
-const POLL_MS = 1_000;       // fast chains settle quickly; surface reverts promptly
-const TIMEOUT_MS = 180_000;  // give up after 3 min
+const POLL_MS = 500;         // Base and the other L2s confirm in about 2 s; ask twice a second
+const TIMEOUT_MS = 180_000;  // stop watching after 3 min
 
 /**
- * A receipt wait that survives a lagging RPC. viem's wait asks for the block a transaction landed in, and a node a
- * block or two behind answers "block not found": that is not a failure, so ask again until the overall timeout. On
- * 2026-10-22 a top-up that confirmed on Base was shown as failed (and not credited) this way.
+ * The receipt, from whoever has it first: the wallet's own RPC (it sent the transaction, so it usually knows first)
+ * and three public RPCs, asked together twice a second. One public node a block or two behind used to hold a
+ * confirmed transaction at "Confirming" for many seconds, or past the timeout so it showed as failed.
  */
-async function receiptSurvivingLag(config: Parameters<typeof waitForTransactionReceipt>[0], hash: `0x${string}`, chainId: SupportedChainId | undefined) {
+async function fastReceipt(config: Parameters<typeof getConnectorClient>[0], hash: `0x${string}`, chainId: SupportedChainId | undefined): Promise<TransactionReceipt> {
+  const clients: PublicClient[] = chainId ? freshClients(chainId, 3) : [];
+  try {
+    const wallet = await getConnectorClient(config, chainId ? { chainId } : undefined);
+    clients.unshift(createPublicClient({ chain: wallet.chain, transport: custom({ request: wallet.request }) }) as unknown as PublicClient);
+  } catch { /* no wallet client: the public ones alone */ }
   const end = Date.now() + TIMEOUT_MS;
   for (;;) {
-    try {
-      return await waitForTransactionReceipt(config, { hash, chainId, pollingInterval: POLL_MS, timeout: Math.max(1_000, end - Date.now()) });
-    } catch (e) {
-      const name = (e as { name?: string })?.name ?? '';
-      const lag = /BlockNotFound|TransactionNotFound|TransactionReceiptNotFound/.test(name) || /could not be found/i.test((e as Error)?.message ?? '');
-      if (!lag || Date.now() > end) throw e;
-      await new Promise((r) => setTimeout(r, POLL_MS * 2));
-    }
+    const r = await receiptAnywhere(clients, hash);
+    if (r) return r;
+    if (Date.now() > end) throw new Error('Not seen after 3 minutes. It may still confirm: check the explorer.');
+    await new Promise((res) => setTimeout(res, POLL_MS));
   }
 }
 const DISMISS_MS = 6_000;    // auto-hide settled pills
 
 export type TxStatus = 'pending' | 'confirmed' | 'failed';
 export type TxRecord = { id: string; label: string; status: TxStatus; hash?: `0x${string}`; chainId?: number; error?: string };
-export type Settled = { status: 'confirmed' | 'failed'; error?: string; hash?: `0x${string}` };
+export type Settled = { status: 'confirmed' | 'failed'; error?: string; hash?: `0x${string}`; blockNumber?: bigint };
 
 type TrackArgs = {
   label: string;
@@ -87,21 +90,24 @@ export function TxProvider({ children }: { children: ReactNode }) {
       try {
         let ok = false;
         let settledHash = hash;
+        let blockNumber: bigint | undefined;
         if (callsId) {
           const res = await waitForCallsStatus(config, { id: callsId, pollingInterval: POLL_MS, timeout: TIMEOUT_MS });
           ok = res.status === 'success';
-          const last = res.receipts?.[res.receipts.length - 1]?.transactionHash;
-          if (last) { patch(id, { hash: last }); settledHash = last; }
+          const lastReceipt = res.receipts?.[res.receipts.length - 1];
+          if (lastReceipt?.transactionHash) { patch(id, { hash: lastReceipt.transactionHash }); settledHash = lastReceipt.transactionHash; }
+          blockNumber = lastReceipt?.blockNumber;
         } else if (hash) {
-          const receipt = await receiptSurvivingLag(config, hash, chainId as SupportedChainId | undefined);
+          const receipt = await fastReceipt(config, hash, chainId as SupportedChainId | undefined);
           ok = receipt.status === 'success';
+          blockNumber = receipt.blockNumber;
         }
         if (ok) {
           patch(id, { status: 'confirmed' });
           markLpSnapshotsStale();
           onConfirmed?.();
           scheduleDismiss(id);
-          return { status: 'confirmed' as const, hash: settledHash };
+          return { status: 'confirmed' as const, hash: settledHash, blockNumber };
         }
         patch(id, { status: 'failed', error: 'Reverted on-chain' });
         scheduleDismiss(id);
