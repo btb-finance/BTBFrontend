@@ -1,4 +1,4 @@
-import { action } from "./_generated/server";
+import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { createPublicClient, erc20Abi, formatUnits, http, isAddress } from "viem";
@@ -62,7 +62,7 @@ const TURNSTILE_HOSTS = new Set(["btb.finance", "www.btb.finance"]);
  * Cloudflare Turnstile: true when `token` came from a real browser on our site, just now (a token works once).
  * Without TURNSTILE_SECRET (a local deployment) every check-in passes.
  */
-async function humanCheck(token: string | undefined): Promise<boolean> {
+export async function humanCheck(token: string | undefined, remoteip?: string): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET;
   if (!secret) return true;
   if (!token) return false;
@@ -70,7 +70,7 @@ async function humanCheck(token: string | undefined): Promise<boolean> {
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret, response: token }),
+      body: new URLSearchParams({ secret, response: token, ...(remoteip ? { remoteip } : {}) }),
       signal: AbortSignal.timeout(10_000),
     });
     const r = (await res.json()) as { success?: boolean; hostname?: string; action?: string };
@@ -85,12 +85,10 @@ async function humanCheck(token: string | undefined): Promise<boolean> {
  * the chain, never on a number the client sends. A failed read still checks
  * in; it just earns no bonus today.
  */
-export const checkIn = action({
-  // turnstileToken: proof from Cloudflare Turnstile that a real browser asked, so a script cannot check in a list of addresses.
-  args: { walletAddress: v.string(), turnstileToken: v.optional(v.string()) },
-  handler: async (ctx, { walletAddress, turnstileToken }): Promise<{ alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number }> => {
-    if (!isAddress(walletAddress)) throw new Error("Invalid wallet address");
-    if (!(await humanCheck(turnstileToken))) throw new Error("Could not confirm this browser. Refresh the page and check in again.");
+export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number };
+
+/** The check-in itself, after the caller has checked the address and the human proof. Shared by the action and /checkin. */
+export async function runCheckIn(ctx: ActionCtx, walletAddress: string): Promise<CheckInResult> {
     await loadLiveRpcs(ctx);
     const [raw, snap] = await Promise.all([
       btbBalanceOf(walletAddress as `0x${string}`),
@@ -101,5 +99,18 @@ export const checkIn = action({
     const r = await ctx.runMutation(internal.users.recordCheckIn, { walletAddress, btbBalance, btbSnapshot });
     if (r.alreadyCheckedIn) return { alreadyCheckedIn: true };
     return { alreadyCheckedIn: false, dailyXp: r.dailyXp, weekMilestone: r.weekMilestone, holdBonus: r.holdBonus, newStreak: r.newStreak };
+}
+
+/**
+ * The older way in, kept while pages from before /checkin (convex/http.ts) are still open; it records no device or IP.
+ * Remove once every visitor runs the new code.
+ */
+export const checkIn = action({
+  // turnstileToken: proof from Cloudflare Turnstile that a real browser asked, so a script cannot check in a list of addresses.
+  args: { walletAddress: v.string(), turnstileToken: v.optional(v.string()) },
+  handler: async (ctx, { walletAddress, turnstileToken }): Promise<CheckInResult> => {
+    if (!isAddress(walletAddress)) throw new Error("Invalid wallet address");
+    if (!(await humanCheck(turnstileToken))) throw new Error("Could not confirm this browser. Refresh the page and check in again.");
+    return runCheckIn(ctx, walletAddress);
   },
 });

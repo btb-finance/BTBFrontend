@@ -21,7 +21,8 @@ import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { inviteLink } from '../../lib/referral';
-import { turnstileToken } from '../../lib/turnstile';
+import { checkInNow } from '../../lib/checkin';
+import { getChainClient } from '../../lib/chainClient';
 import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
@@ -215,7 +216,6 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   const claim = useMutation(api.rewards.claimReward);
   // Check-in already fires on connect (TokenStore); the hero button is for a
   // session left open past midnight, where the automatic one has not re-run.
-  const checkInNow = useAction(api.checkInActions.checkIn);
   // BTB in the wallet (drives the check-in bonus) and the in-app BTB balance
   // (pays fast alerts and agent messages; weekly rewards top it up).
   const { tokens } = useTokenStore();
@@ -236,6 +236,25 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   // signed session, and the server checks it owns the share. The address shown can be a watch-only one.
   const { address: connectedAddress } = useConnection();
   const isOwnWallet = !!address && !!connectedAddress && connectedAddress.toLowerCase() === address.toLowerCase();
+  // Friday's split only counts wallets with some on-chain history (convex/sybil.ts). Say so before Friday, not after.
+  const [noHistory, setNoHistory] = useState(false);
+  useEffect(() => {
+    setNoHistory(false);
+    if (!address) return;
+    let live = true;
+    (async () => {
+      for (const id of [1, 8453, 4663, 42161, 10]) {
+        const c = getChainClient(id);
+        if (!c) continue;
+        try {
+          const [n, code] = await Promise.all([c.getTransactionCount({ address: address as `0x${string}` }), c.getCode({ address: address as `0x${string}` })]);
+          if (n > 0 || (code && code !== '0x')) return;
+        } catch { return; /* unsure: say nothing */ }
+      }
+      if (live) setNoHistory(true);
+    })();
+    return () => { live = false; };
+  }, [address]);
   const session = useWalletSession(isOwnWallet ? connectedAddress : undefined);
 
   const doClaim = async (payoutId: string) => {
@@ -273,7 +292,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     if (!isOwnWallet) { setError('Connect this wallet to check in for it.'); return; }
     setBusy('checkin'); setError(null);
     try {
-      const r = await checkInNow({ walletAddress: address, turnstileToken: await turnstileToken() });
+      const r = await checkInNow(address);
       if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`);
     } catch (e) {
       setError(readableError(e, 'Could not check in; try again'));
@@ -523,6 +542,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
 
           <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5 }}>
             {(status?.myPoints ?? 0) > 0 ? 'Friday the pot is split by XP. Your share waits here.' : 'Earn XP this week and you are in.'}
+            {noHistory && <span style={{ display: 'block', color: btb.amber, marginTop: 4 }}>To share Friday&apos;s pot, this wallet needs one transaction on any chain: a swap here counts. Your XP keeps counting meanwhile.</span>}
           </div>
           {error && <div style={{ color: btb.loss, fontSize: 11.5 }}>{error}</div>}
           {/* Last week's result, as the card's footer. While a share is waiting, the claim card above shows it instead. */}

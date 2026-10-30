@@ -15,6 +15,37 @@ import { privateKeyToAccount } from "viem/accounts";
 import type { Doc, Id } from "./_generated/dataModel";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { loadLiveRpcs } from "./liveRpcs";
+import { getChainClient } from "../src/lib/chainClient";
+import { clusterWallets, countedPoints } from "./sybil";
+
+/** Chains where one transaction (or a deployed smart wallet) makes a wallet real for the Friday split. */
+const HISTORY_CHAINS = [1, 8453, 4663, 42161, 10];
+
+/**
+ * Whether each wallet has any on-chain history: a sent transaction, or code (a smart wallet such as a Safe), on any of
+ * HISTORY_CHAINS. Undefined when no chain could be read, which the split treats as eligible: an RPC outage must not
+ * cost anyone their share.
+ */
+async function onChainHistory(wallets: string[]): Promise<Map<string, boolean | undefined>> {
+  const out = new Map<string, boolean | undefined>();
+  await Promise.all(wallets.map(async (w) => {
+    let read = false;
+    for (const id of HISTORY_CHAINS) {
+      const c = getChainClient(id);
+      if (!c) continue;
+      try {
+        const [nonce, code] = await Promise.all([
+          c.getTransactionCount({ address: w as `0x${string}` }),
+          c.getCode({ address: w as `0x${string}` }),
+        ]);
+        read = true;
+        if (nonce > 0 || (code && code !== "0x")) { out.set(w, true); return; }
+      } catch { /* try the next chain */ }
+    }
+    out.set(w, read ? false : undefined);
+  }));
+  return out;
+}
 
 // BTB and OPOSSUM both live on Ethereum mainnet — not the Robinhood chain the
 // trading agents in this folder use. Addresses mirror CONTRACTS in
@@ -143,11 +174,19 @@ export const settle = internalAction({
         address: BTB, abi: ERC20_ABI, functionName: "balanceOf", args: [account.address],
       });
 
+      // One person, one share (convex/sybil.ts): wallets that look like one person share one person's XP, and a
+      // wallet with no on-chain history anywhere sits this week out.
+      const earners = await ctx.runQuery(internal.sybil.epochEarners, { epochId });
+      const signals = await ctx.runQuery(internal.sybil.epochSignals, { epochId });
+      const history = await onChainHistory(earners.map((e) => e.walletAddress));
+      const counted = countedPoints(earners, clusterWallets(signals), (w) => history.get(w) !== false);
+
       return await ctx.runMutation(internal.rewards.settleEpoch, {
         epochId,
         oposBurnedRaw: burnable >= MIN_OPOS_BURN ? burnable.toString() : "0",
         potRaw: pot.toString(),
         burnTxHash,
+        counted: [...counted].map(([wallet, c]) => ({ wallet, points: c.points, ...(c.note ? { note: c.note } : {}) })),
       });
     } catch (reason) {
       await ctx.runMutation(internal.rewards.markEpochFailed, { epochId, error: messageOf(reason) });
