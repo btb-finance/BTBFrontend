@@ -1,6 +1,7 @@
 import type { Config } from 'wagmi';
 import { getAccount, getCapabilities, getPublicClient, sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
-import { decodeFunctionData, erc20Abi } from 'viem';
+import { decodeFunctionData, erc20Abi, type PublicClient } from 'viem';
+import { firstGood, freshClients } from './freshReads';
 import type { TrackFn } from './TxTracker';
 import { whileSigning } from './uiLock';
 import type { SupportedChainId } from './wagmi';
@@ -137,9 +138,22 @@ export async function runCalls(
     const { done } = track({ hash, label: stepLabel, chainId });
     const res = await done;
     if (res.status !== 'confirmed') throw new Error(res.error ?? 'Transaction failed');
+    // The next step's checks and the wallet's gas estimate read the chain: let the app's RPC reach this block first.
+    if (i + 1 < pendingCalls.length && res.blockNumber != null) await caughtUp(config, chainId, res.blockNumber);
   }
   if (verify) await waitForChainState(verify);
   return { lastHash, hashes };
+}
+
+/** Wait (at most about 6 s) until the app's RPC for the chain has reached `block`, so reads after a step see it. */
+async function caughtUp(config: Config, chainId: number | undefined, block: bigint): Promise<void> {
+  const client = getPublicClient(config, chainId ? { chainId: chainId as SupportedChainId } : undefined);
+  if (!client) return;
+  for (let i = 0; i < 20; i++) {
+    const head = await client.getBlockNumber({ cacheTime: 0 }).catch(() => null);
+    if (head != null && head >= block) return;
+    await new Promise((r) => setTimeout(r, 300));
+  }
 }
 
 async function isSatisfiedApproval(config: Config, owner: `0x${string}`, call: Call, chainId?: number): Promise<boolean> {
@@ -150,12 +164,15 @@ async function isSatisfiedApproval(config: Config, owner: `0x${string}`, call: C
     const [spender, required] = decoded.args;
     const client = getPublicClient(config, chainId ? { chainId: chainId as SupportedChainId } : undefined);
     if (!client) return false;
-    const allowance = await client.readContract({
+    // Asked of several RPCs at once: right after an approval confirms, one node a block behind still reads the old
+    // allowance, and the app would ask for the same approval again.
+    const clients = [client as PublicClient, ...(chainId ? freshClients(chainId, 3) : [])];
+    const allowance = await firstGood(clients, (c) => c.readContract({
       address: call.to,
       abi: erc20Abi,
       functionName: 'allowance',
       args: [owner, spender],
-    });
+    }), (a) => a >= required);
     return allowance >= required;
   } catch {
     // Non-standard tokens and malformed calldata must retain their original

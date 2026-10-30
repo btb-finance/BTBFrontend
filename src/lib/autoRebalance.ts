@@ -123,8 +123,10 @@ export async function enableWhenVisible<R extends { ok: boolean; reason?: string
   const attempt = () => start().catch((e: unknown) => ({ ok: false, reason: e instanceof Error ? e.message : String(e) }) as unknown as R);
   let res = await attempt();
   // Retry the chain lagging behind the move, and a flaky RPC read (which used to leave a moved position unmanaged).
-  for (let i = 0; i < 6 && !res.ok && /yet|not in your auto wallet|not created|rpc|request failed|timed? ?out|fetch|network|rate limit/i.test(res.reason ?? ''); i++) {
-    await new Promise((r) => setTimeout(r, 3000));
+  // Every 1.5 s for up to about 20 s: the server now reads several RPCs at once, so a moved position shows within a
+  // block or two and a long wait only ever covers a real outage.
+  for (let i = 0; i < 12 && !res.ok && /yet|not in your auto wallet|not created|rpc|request failed|timed? ?out|fetch|network|rate limit/i.test(res.reason ?? ''); i++) {
+    await new Promise((r) => setTimeout(r, 1500));
     res = await attempt();
   }
   return res;
