@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { btb } from './design-tokens';
-import { fmtPrice } from './LpCardParts';
 import { tickToPrice } from '@/protocols/dexs/uniswap/shared';
 import type { LiquidityPosition } from '@/protocols/types';
 import { deploymentOfPosition, v4DeploymentOfPosition } from '@/protocols/lpChains';
@@ -94,18 +93,10 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const priceAbove = pNow > pHigh, priceBelow = pNow < pLow;
   const awayPct = priceAbove ? (pNow / pHigh - 1) * 100 : priceBelow ? (1 - pNow / pLow) * 100 : 0;
   const away = awayPct >= 10 ? awayPct.toFixed(0) : awayPct >= 0.1 ? awayPct.toFixed(1) : awayPct.toFixed(2);
-  // The range's size the way the Add LP presets say it: ±X% means min = middle × (1 - X), max = middle × (1 + X), so X is half
-  // the width over the middle. (Half the width on a ratio scale read ±12% for a ±10% range.) The pool's tick spacing rounds
-  // each end, so a ±10% range on a 200-spacing pool comes out about ±11%.
-  const halfWidth = pLow + pHigh > 0 ? ((pHigh - pLow) / (pHigh + pLow)) * 100 : 0;
   const pctText = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 0.1 ? v.toFixed(1) : v.toFixed(2));
   // Each end's distance from the price now, signed: how far the price can move before it leaves the range.
   const fromNow = (end: number) => (pNow > 0 ? (end / pNow - 1) * 100 : 0);
   const signed = (v: number) => `${v > 0 ? '+' : ''}${pctText(v)}%`;
-  // How to say the range's size depends on its shape around the price now: "±10%" only fits a range centred on it.
-  const down = fromNow(pLow), up = fromNow(pHigh);
-  const centred = down < 0 && up > 0 && Math.abs(down) / up > 0.75 && Math.abs(down) / up < 1.33;
-  const sizeText = centred ? `±${pctText(halfWidth)}%` : `${signed(down)} / ${signed(up)}`;
 
   // Depth bars inside the window, normalised to the tallest.
   const bars = useMemo(() => {
@@ -125,14 +116,12 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   );
   return (
     <div>
-      {/* One line: the price, and the range's size as a small chip. */}
+      {/* The price; how far each end of the range is from it is written at the ends of the bar. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <span title={`Prices in ${quote} per ${base}`} style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
           1 {base} = {fmtSig(pNow)} {quote}
         </span>
-        <span title={fullRange ? 'Full range' : 'Range ends, from the price now'} style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 7, background: 'rgba(var(--fg-rgb), 0.06)' }}>
-          {fullRange ? 'Full range' : sizeText}
-        </span>
+        {fullRange && <span style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontWeight: 800 }}>Full range</span>}
       </div>
       <div style={{ position: 'relative', height: 32, marginTop: 8, borderRadius: 8, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
         {/* liquidity depth: where the other LPs sit */}
