@@ -72,9 +72,11 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
 
   // Window: the range plus a quarter each side (full range: a wide band around price).
   const span = fullRange ? 20_000 : Math.max(1, p.tickUpper - p.tickLower);
-  // A margin either side of the range wide enough for the min and max labels inside the bar, even on a phone.
-  const winLo = fullRange ? p.currentTick - span / 2 : p.tickLower - span * 0.45;
-  const winHi = fullRange ? p.currentTick + span / 2 : p.tickUpper + span * 0.45;
+  // The bar is the range itself, edge to edge. Out of range it stretches only toward the price (plus a little room
+  // for the marker), so the grey gap is how far outside the price is.
+  const pad = span * 0.06;
+  const winLo = fullRange ? p.currentTick - span / 2 : Math.min(p.tickLower, p.currentTick - pad * Number(p.currentTick < p.tickLower));
+  const winHi = fullRange ? p.currentTick + span / 2 : Math.max(p.tickUpper, p.currentTick + pad * Number(p.currentTick >= p.tickUpper));
   const raw = (tick: number) => Math.max(0, Math.min(100, ((tick - winLo) / (winHi - winLo)) * 100));
   const tone = p.inRange ? btb.green : btb.amber;
   const rawNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
@@ -107,10 +109,10 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depth, winLo, winHi]);
 
-  const edge = (label: string, price: number, right: boolean) => (
-    <span style={{ position: 'absolute', [right ? 'right' : 'left']: 7, top: '50%', transform: 'translateY(-50%)', textAlign: right ? 'right' : 'left', lineHeight: 1.2, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
-      <span style={{ display: 'block', color: btb.textDim, fontSize: 9.5, fontWeight: 600 }}>{label}</span>
-      <span style={{ color: btb.textMuted, fontSize: 11, fontWeight: 700 }}>{fmtSig(price)}</span>
+  // Min and max under the bar, each under its end of the range.
+  const edgeAt = (pos: number, label: string, price: number) => (
+    <span style={{ position: 'absolute', top: 0, left: `${pos}%`, transform: pos < 50 ? 'none' : 'translateX(-100%)', whiteSpace: 'nowrap', fontSize: 10.5, color: btb.textMuted }}>
+      <span style={{ color: btb.textDim }}>{label} </span><b style={{ fontWeight: 700 }}>{fmtSig(price)}</b>
     </span>
   );
   return (
@@ -145,9 +147,13 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           </div>
         ))}
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
-        {!fullRange && edge('min', pLow, false)}
-        {!fullRange && edge('max', pHigh, true)}
       </div>
+      {!fullRange && (
+        <div style={{ position: 'relative', height: 15, marginTop: 3 }}>
+          {edgeAt(bandL, 'min', pLow)}
+          {edgeAt(bandR, 'max', pHigh)}
+        </div>
+      )}
       {/* Out of range, what that means; in range the green badge already says it. */}
       {!fullRange && !p.inRange && (
         <div style={{ color: btb.amber, fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>
