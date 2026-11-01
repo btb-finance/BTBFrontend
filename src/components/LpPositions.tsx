@@ -29,7 +29,7 @@ import { fetchAerodromeStakedByIds, BASE_CHAIN_ID, aerodromeDeploymentsFor, aero
 import { AERO_GAUGE_ABI, venueReward, withAutoStakes, withStakeTargets, fetchStakedPositions, stakingSupported, stakingDeploymentsFor, buildStakeCalls, buildUnstakeCalls, buildClaimCalls } from '@/protocols/staking';
 import { LP_CHAINS, LP_CHAIN_NAMES, v3DeploymentFor, v4DeploymentFor, v4DeployBlockFor, deploymentOfPosition, v4DeploymentOfPosition, canActOnPosition, wrappedNativeFor, lpSlippageBps, type LpChainId, type LpDex } from '@/protocols/lpChains';
 import { LpButton, lpBox, lpBoxLabel, lpBoxValue, fmtPrice } from './LpCardParts';
-import { RangeStrip } from './RangeStrip';
+import { RangeStrip, rangeSideRgb } from './RangeStrip';
 import { FastAlertsPanel, TopUpModal, fmtBtb } from './FastAlerts';
 import { useAlertCredit } from '../lib/alerts';
 import { STABLES, DISCOVERY_CHAINS } from '../lib/pools';
@@ -1236,6 +1236,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
     const busy = busyId === posKey(p);
     const v = valueOf(p);
     const f = feesValueOf(p);
+    const sides = rangeSideRgb(p);
     // An auto card drawn from the last check's snapshot, before its live read lands: its fees and rewards there can be
     // a day old (often 0), so show that they are loading rather than "None yet".
     const waiting = autoByKey.has(posKey(p)) && !autoLive.has(posKey(p));
@@ -1365,11 +1366,12 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         {isMobile && metaEl}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 8, marginTop: isMobile ? 10 : 14 }}>
-          <div style={box}>
+          {/* Each token box wears its colour on the range strip below, so the strip needs no labels. */}
+          <div style={{ ...box, background: `rgba(${sides.rgb0}, 0.08)`, border: `1px solid rgba(${sides.rgb0}, 0.28)` }}>
             <div style={boxLabel}><TokenIcon symbol={p.symbol0} size={16} logoUrl={logo0}/>{p.symbol0}</div>
             <div style={boxValue}>{fmtAmt(p.amount0, p.decimals0)}</div>
           </div>
-          <div style={box}>
+          <div style={{ ...box, background: `rgba(${sides.rgb1}, 0.08)`, border: `1px solid rgba(${sides.rgb1}, 0.28)` }}>
             <div style={boxLabel}><TokenIcon symbol={p.symbol1} size={16} logoUrl={logo1}/>{p.symbol1}</div>
             <div style={boxValue}>{fmtAmt(p.amount1, p.decimals1)}</div>
           </div>
