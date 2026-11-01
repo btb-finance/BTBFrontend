@@ -19,6 +19,10 @@ import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
  * your range as a band, and the live price as a marker. Depth is read lazily
  * per card.
  */
+/** The two sides of a range: what it holds below the price (quote token) and above it (base token). */
+const QUOTE_RGB = '59, 130, 246';
+const BASE_RGB = '139, 92, 246';
+
 export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const config = useConfig();
   const [depth, setDepth] = useState<TickLiquidityPoint[] | null>(null);
@@ -120,7 +124,20 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
             {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.16)" />)}
           </svg>
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.16)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}` }} />
+          {/* Your range in two colours: below the price it holds the quote token (it buys the base as the price falls),
+              above the price the base token (it sells it as the price rises). Out of range it is all one of them. */}
+          {[
+            { from: bandL, to: Math.min(bandR, Math.max(bandL, mark)), rgb: QUOTE_RGB, sym: quote },
+            { from: Math.max(bandL, Math.min(bandR, mark)), to: bandR, rgb: BASE_RGB, sym: base },
+          ].filter((seg) => seg.to - seg.from > 0.2).map((seg) => (
+            <div key={seg.sym} style={{
+              position: 'absolute', top: 0, bottom: 0, left: `${seg.from}%`, width: `${seg.to - seg.from}%`,
+              background: `rgba(${seg.rgb}, 0.22)`, borderLeft: `1px solid rgba(${seg.rgb}, 0.55)`, borderRight: `1px solid rgba(${seg.rgb}, 0.55)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+            }}>
+              {seg.to - seg.from >= 14 && <span style={{ color: `rgb(${seg.rgb})`, fontSize: 9.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{seg.sym}</span>}
+            </div>
+          ))}
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
         </div>
         {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>max {signed(fromNow(pHigh))}</span>{fmtPrice(pHigh)}</span>}
