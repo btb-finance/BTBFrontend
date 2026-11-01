@@ -78,8 +78,10 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const priceAbove = pNow > pHigh, priceBelow = pNow < pLow;
   const awayPct = priceAbove ? (pNow / pHigh - 1) * 100 : priceBelow ? (1 - pNow / pLow) * 100 : 0;
   const away = awayPct >= 10 ? awayPct.toFixed(0) : awayPct >= 0.1 ? awayPct.toFixed(1) : awayPct.toFixed(2);
-  // The range's size the way presets say it (±5%): half its width around its middle, on the price scale.
-  const halfWidth = pLow > 0 ? (Math.sqrt(pHigh / pLow) - 1) * 100 : 0;
+  // The range's size the way the Add LP presets say it: ±X% means min = middle × (1 - X), max = middle × (1 + X), so X is half
+  // the width over the middle. (Half the width on a ratio scale read ±12% for a ±10% range.) The pool's tick spacing rounds
+  // each end, so a ±10% range on a 200-spacing pool comes out about ±11%.
+  const halfWidth = pLow + pHigh > 0 ? ((pHigh - pLow) / (pHigh + pLow)) * 100 : 0;
   const pctText = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 0.1 ? v.toFixed(1) : v.toFixed(2));
   // Each end's distance from the price now, signed: how far the price can move before it leaves the range.
   const fromNow = (end: number) => (pNow > 0 ? (end / pNow - 1) * 100 : 0);
@@ -98,7 +100,7 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : <>Your range <b style={{ color: btb.text }}>±{pctText(halfWidth)}%</b>, in {quote} per {base}</>}</span>
+        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : <>Your range <b style={{ color: btb.text }}>±{pctText(halfWidth)}%</b> <span title="Total width, min to max">({pctText(halfWidth * 2)}% wide)</span>, in {quote} per {base}</>}</span>
         <span style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>1 {base} = {fmtPrice(pNow)} {quote}</span>
       </div>
       {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
