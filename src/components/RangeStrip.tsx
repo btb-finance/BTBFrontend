@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
 import { btb } from './design-tokens';
-import { fmtPrice } from './LpCardParts';
 import { tickToPrice } from '@/protocols/dexs/uniswap/shared';
 import type { LiquidityPosition } from '@/protocols/types';
 import { deploymentOfPosition, v4DeploymentOfPosition } from '@/protocols/lpChains';
@@ -19,6 +18,21 @@ import { STATE_VIEW_ABI } from '@/protocols/dexs/uniswap/v4/abis';
  * your range as a band, and the live price as a marker. Depth is read lazily
  * per card.
  */
+/** The two sides of a range: what it holds below the price (quote token) and above it (base token). */
+const QUOTE_RGB = '59, 130, 246';
+const BASE_RGB = '139, 92, 246';
+
+/** The colour each token of a position gets on its range strip, so the card's token boxes can wear the same one. */
+export function rangeSideRgb(p: LiquidityPosition): { rgb0: string; rgb1: string } {
+  const v = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
+  const flip = v > 0 && v < 1;
+  // Unflipped, token0 is the base (above the price) and token1 the quote (below it); flipped, the other way round.
+  return flip ? { rgb0: QUOTE_RGB, rgb1: BASE_RGB } : { rgb0: BASE_RGB, rgb1: QUOTE_RGB };
+}
+
+/** Five significant digits: 137.09, 0.0041523, 2,214.5. */
+const fmtSig = (v: number) => (v >= 1000 ? v.toLocaleString('en-US', { maximumFractionDigits: 1 }) : Number(v.toPrecision(5)).toString());
+
 export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const config = useConfig();
   const [depth, setDepth] = useState<TickLiquidityPoint[] | null>(null);
@@ -58,13 +72,32 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
 
   // Window: the range plus a quarter each side (full range: a wide band around price).
   const span = fullRange ? 20_000 : Math.max(1, p.tickUpper - p.tickLower);
-  const winLo = fullRange ? p.currentTick - span / 2 : p.tickLower - span * 0.25;
-  const winHi = fullRange ? p.currentTick + span / 2 : p.tickUpper + span * 0.25;
-  const pct = (tick: number) => Math.max(0, Math.min(100, ((tick - winLo) / (winHi - winLo)) * 100));
-  const bandL = fullRange ? 0 : pct(p.tickLower), bandR = fullRange ? 100 : pct(p.tickUpper), mark = pct(p.currentTick);
+  // The bar is the range itself, edge to edge. Out of range it stretches only toward the price (plus a little room
+  // for the marker), so the grey gap is how far outside the price is.
+  const pad = span * 0.06;
+  const winLo = fullRange ? p.currentTick - span / 2 : Math.min(p.tickLower, p.currentTick - pad * Number(p.currentTick < p.tickLower));
+  const winHi = fullRange ? p.currentTick + span / 2 : Math.max(p.tickUpper, p.currentTick + pad * Number(p.currentTick >= p.tickUpper));
+  const raw = (tick: number) => Math.max(0, Math.min(100, ((tick - winLo) / (winHi - winLo)) * 100));
   const tone = p.inRange ? btb.green : btb.amber;
-  const pNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
-  const pLow = tickToPrice(p.tickLower, p.decimals0, p.decimals1), pHigh = tickToPrice(p.tickUpper, p.decimals0, p.decimals1);
+  const rawNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
+  // Quote the price the way people read it, at 1 or more: "1 AMZNc = 241 USDC", not "1 USDC = 0.00415 AMZNc". Flipped,
+  // the strip is mirrored too, so a higher price is always to the right.
+  const flip = rawNow > 0 && rawNow < 1;
+  const pct = (tick: number) => (flip ? 100 - raw(tick) : raw(tick));
+  const base = flip ? p.symbol1 : p.symbol0, quote = flip ? p.symbol0 : p.symbol1;
+  const priceAt = (tick: number) => { const v = tickToPrice(tick, p.decimals0, p.decimals1); return flip ? (v > 0 ? 1 / v : 0) : v; };
+  const pNow = priceAt(p.currentTick);
+  const [pLow, pHigh] = flip ? [priceAt(p.tickUpper), priceAt(p.tickLower)] : [priceAt(p.tickLower), priceAt(p.tickUpper)];
+  const bandL = fullRange ? 0 : Math.min(pct(p.tickLower), pct(p.tickUpper)), bandR = fullRange ? 100 : Math.max(pct(p.tickLower), pct(p.tickUpper)), mark = pct(p.currentTick);
+  // Out of range, the position holds only one token: below the range (in pool terms) token0, above it token1.
+  const below = p.currentTick < p.tickLower, above = p.currentTick >= p.tickUpper;
+  const heldSymbol = below ? p.symbol0 : above ? p.symbol1 : null;
+  const priceAbove = pNow > pHigh, priceBelow = pNow < pLow;
+  const awayPct = priceAbove ? (pNow / pHigh - 1) * 100 : priceBelow ? (1 - pNow / pLow) * 100 : 0;
+  const away = awayPct >= 10 ? awayPct.toFixed(0) : awayPct >= 0.1 ? awayPct.toFixed(1) : awayPct.toFixed(2);
+  const pctText = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 0.1 ? v.toFixed(1) : v.toFixed(2));
+  // Each end's distance from the price now, signed: how far the price can move before it leaves the range.
+  const fromNow = (end: number) => (pNow > 0 ? (end / pNow - 1) * 100 : 0);
 
   // Depth bars inside the window, normalised to the tallest.
   const bars = useMemo(() => {
@@ -76,25 +109,66 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depth, winLo, winHi]);
 
+  // Min and max under the bar, each under its end of the range.
+  // Each token's share of what the position is worth now, in the quote token: what "USDC 14%, WETH 86%" means.
+  const amt0 = Number(p.amount0) / 10 ** p.decimals0, amt1 = Number(p.amount1) / 10 ** p.decimals1;
+  const [amtBase, amtQuote] = flip ? [amt1, amt0] : [amt0, amt1];
+  const worthBase = amtBase * pNow, worth = worthBase + amtQuote;
+  const shareBase = worth > 0 ? (worthBase / worth) * 100 : 0;
+  const share = (v: number) => (v >= 99.5 || v <= 0.5 ? v.toFixed(0) : v >= 10 ? v.toFixed(0) : v.toFixed(1));
+  const edgeAt = (pos: number, label: string, price: number) => (
+    <span style={{ position: 'absolute', top: 0, left: `${pos}%`, transform: pos < 50 ? 'none' : 'translateX(-100%)', whiteSpace: 'nowrap', fontSize: 10.5, color: btb.textMuted }}>
+      <span style={{ color: btb.textDim }}>{label} </span><b style={{ fontWeight: 700 }}>{fmtSig(price)}</b>
+      {/* How far this end is from the price now, so the % never sits where it could read as a share. */}
+      <span style={{ color: btb.textDim }}> ({fromNow(price) > 0 ? '+' : ''}{pctText(fromNow(price))}%)</span>
+    </span>
+  );
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{p.symbol1}/{p.symbol0}{fullRange ? ' · full range' : ''}</span>
-        <span style={{ color: tone, fontSize: 13.5, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
+      {/* The price; how far each end of the range is from it is written at the ends of the bar. */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <span title={`Prices in ${quote} per ${base}`} style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+          1 {base} = {fmtSig(pNow)} {quote}
+        </span>
+        {fullRange && <span style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontWeight: 800 }}>Full range</span>}
       </div>
-      {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}>{fmtPrice(pLow)}</span>}
-        <div style={{ position: 'relative', flex: 1, height: 18, borderRadius: 6, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
-          {/* liquidity depth: where the other LPs sit */}
-          <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-            {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.16)" />)}
-          </svg>
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.16)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}` }} />
-          <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
+      <div style={{ position: 'relative', height: 32, marginTop: 8, borderRadius: 8, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
+        {/* liquidity depth: where the other LPs sit */}
+        <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+          {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.14)" />)}
+        </svg>
+        {/* Your range in two colours, the same as the token boxes above: below the price it holds the quote token, above
+            it the base token. Out of range it is all one of them. */}
+        {[
+          // Each part says its token and, in range, how far it reaches from the price (cbLTC 6.7%, WETH 16%).
+          // Each part names its token and its share of the position's value now (USDC 14%, WETH 86%).
+          { from: bandL, to: Math.min(bandR, Math.max(bandL, mark)), rgb: QUOTE_RGB, k: 'q', sym: quote, part: worth > 0 ? 100 - shareBase : null },
+          { from: Math.max(bandL, Math.min(bandR, mark)), to: bandR, rgb: BASE_RGB, k: 'b', sym: base, part: worth > 0 ? shareBase : null },
+        ].filter((seg) => seg.to - seg.from > 0.2).map((seg) => (
+          <div key={seg.k} style={{ position: 'absolute', top: 0, bottom: 0, left: `${seg.from}%`, width: `${seg.to - seg.from}%`, background: `rgba(${seg.rgb}, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {/* The token over its reach, stacked so a narrow part still fits both; nothing in a sliver. */}
+            {seg.to - seg.from >= 10 && (
+              <span style={{ color: `rgb(${seg.rgb})`, textAlign: 'center', lineHeight: 1.15, whiteSpace: 'nowrap' }}>
+                <span style={{ display: 'block', fontSize: 10, fontWeight: 800 }}>{seg.sym}</span>
+                {seg.part != null && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800 }}>{share(seg.part)}%</span>}
+              </span>
+            )}
+          </div>
+        ))}
+        <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
+      </div>
+      {!fullRange && (
+        <div style={{ position: 'relative', height: 15, marginTop: 3 }}>
+          {edgeAt(bandL, 'min', pLow)}
+          {edgeAt(bandR, 'max', pHigh)}
         </div>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}>{fmtPrice(pHigh)}</span>}
-      </div>
+      )}
+      {/* Out of range, what that means; in range the green badge already says it. */}
+      {!fullRange && !p.inRange && (
+        <div style={{ color: btb.amber, fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>
+          The price is {priceAbove ? 'above' : 'below'} your range by {away}%: it is all {heldSymbol} and earns no fees until the price comes back.
+        </div>
+      )}
     </div>
   );
 }
