@@ -28,6 +28,9 @@ import { firstGood, freshClients, receiptAnywhere } from "../src/lib/freshReads"
 const MAX_FAILURES = 6;
 /** A failed read is retried after this long, not a full interval. */
 const RETRY_MS = 5 * 60_000;
+/** Ticks this close to the end of the V3 price scale (887272) mean a pool's price was pushed off the map, not traded there. */
+const EDGE_TICK = 880_000;
+const POOL_LIQUIDITY_ABI = [{ name: "liquidity", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint128" }] }] as const;
 
 const robinhood = defineChain({
   id: 4663,
@@ -1000,6 +1003,20 @@ export const check = internalAction({
           : "Out of range. This pool does not record enough price history to rebalance safely, so it is left as it is.";
         if (job.note !== note && !grown) await push(ctx, job.address, job.label, "auto", "Cannot rebalance this pool", `${job.label}: ${note}`);
         await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: grown ? Math.min(intervalMs, 5 * 60_000) : intervalMs });
+        return;
+      }
+      // A pool whose price was pushed to the edge of the price scale, or with no liquidity at its current price, has no
+      // real price to move next to: someone swapped one side out (seen 2026-10-30 on Giga WETH/USDG 0.005%, at tick
+      // -887272 while the 0.01% and 0.05% pools traded normally). The rebalance reverts there, and should: re-minting at
+      // that price would be nonsense. Wait for the pool to recover instead, without counting a failure.
+      const activeLiquidity = await client.readContract({ address: pool, abi: POOL_LIQUIDITY_ABI, functionName: "liquidity" }).catch(() => null);
+      const atEdge = Math.abs(position.currentTick) >= EDGE_TICK;
+      if (atEdge || activeLiquidity === 0n) {
+        const note = atEdge
+          ? "Out of range, but this pool's price was pushed to the very edge (one side was swapped out). Your position is safe and untouched; BTB waits for the pool to recover instead of moving next to a broken price."
+          : "Out of range, but this pool has no liquidity at its current price, so it has no real price to move next to. Your position is safe and untouched; BTB checks again later.";
+        if (job.note !== note) await push(ctx, job.address, job.label, "auto", "Pool price is broken", `${job.label}: ${note}`);
+        await ctx.runMutation(internal.autoRebalance.settle, { id, gen, status: "waiting", note, nextInMs: intervalMs });
         return;
       }
     }
