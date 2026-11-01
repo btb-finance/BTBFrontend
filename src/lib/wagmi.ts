@@ -5,7 +5,7 @@ import {
   unichain, zkSync,
 } from 'wagmi/chains';
 import { defineChain, fallback, http } from 'viem';
-import { injected, coinbaseWallet, walletConnect, metaMask, safe } from '@wagmi/connectors';
+import { injected, coinbaseWallet, walletConnect, metaMask, safe } from 'wagmi/connectors';
 import { chainTransport } from './chainRpc';
 import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
