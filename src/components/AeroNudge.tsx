@@ -26,20 +26,25 @@ function isHidden(key: string) {
 export function AeroNudge({ address, onOpen }: { address?: string; onOpen: () => void }) {
   const config = useConfig();
   const { isMobile } = useSidebar();
-  const [positions, setPositions] = useState<SaeroPosition[] | null>(null);
-  const [oldLocks, setOldLocks] = useState(0);
+  // Kept with the wallet they were read for, so switching wallets shows nothing stale and needs no reset.
+  const [read, setRead] = useState<{ addr: string; positions?: SaeroPosition[]; oldLocks?: number } | null>(null);
+  const mine = read && address && read.addr === address.toLowerCase() ? read : null;
+  const positions = mine?.positions ?? null;
+  const oldLocks = mine?.oldLocks ?? 0;
   const [, setTick] = useState(0);
   const [nowSec] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    setPositions(null); setOldLocks(0);
     const client = getPublicClient(config, { chainId: AERO_CHAIN_ID }) as PublicClient | undefined;
     if (!address || !client) return;
+    const addr = address.toLowerCase();
     let live = true;
+    const put = (patch: { positions?: SaeroPosition[]; oldLocks?: number }) =>
+      setRead((prev) => ({ ...(prev?.addr === addr ? prev : {}), addr, ...patch }));
     client.readContract({ address: AERO.legacyVe, abi: erc20Abi, functionName: 'balanceOf', args: [address as Address] })
-      .then((n) => { if (live) setOldLocks(Number(n)); }).catch(() => {});
+      .then((n) => { if (live) put({ oldLocks: Number(n) }); }).catch(() => {});
     readPositions(client, address as Address, (id) => getChainClient(id))
-      .then((list) => { if (live) setPositions(list.filter((p) => p.staked > 0 && p.idleRaw + p.onBaseRaw > 0n)); })
+      .then((list) => { if (live) put({ positions: list.filter((p) => p.staked > 0 && p.idleRaw + p.onBaseRaw > 0n) }); })
       .catch(() => {});
     return () => { live = false; };
   }, [address, config]);

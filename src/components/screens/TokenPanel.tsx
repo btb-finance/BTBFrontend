@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useConnection, useReadContract, useReadContracts } from 'wagmi';
 import { erc20Abi, parseAbi } from 'viem';
 import { api } from '../../../convex/_generated/api';
@@ -237,12 +237,13 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   const { address: connectedAddress } = useConnection();
   const isOwnWallet = !!address && !!connectedAddress && connectedAddress.toLowerCase() === address.toLowerCase();
   // Friday's split only counts wallets with some on-chain history (convex/sybil.ts). Say so before Friday, not after.
-  const [noHistory, setNoHistory] = useState(false);
+  // The wallet found to have no history, so the note follows the wallet shown and needs no reset.
+  const [noHistoryFor, setNoHistoryFor] = useState<string | null>(null);
+  const noHistory = !!address && noHistoryFor === address.toLowerCase();
   useEffect(() => {
-    setNoHistory(false);
     if (!address) return;
     let live = true;
-    (async () => {
+    void (async () => {
       for (const id of [1, 8453, 4663, 42161, 10]) {
         const c = getChainClient(id);
         if (!c) continue;
@@ -251,7 +252,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           if (n > 0 || (code && code !== '0x')) return;
         } catch { return; /* unsure: say nothing */ }
       }
-      if (live) setNoHistory(true);
+      if (live) setNoHistoryFor(address.toLowerCase());
     })();
     return () => { live = false; };
   }, [address]);

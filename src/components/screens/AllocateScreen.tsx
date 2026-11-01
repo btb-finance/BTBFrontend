@@ -104,8 +104,9 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
   const elsewhereNote = position?.elsewhere.map((e) => `${num(Number(e.amountRaw) / 1e18)} on ${chainName(e.chainId)}`).join(', ') ?? '';
   const amount = position ? baseBudget : Math.max(0, parseFloat(amountStr.replace(/,/g, '')) || 0);
   const plan = useMemo(() => (snap ? planFor(snap.gauges, position, amount) : null), [snap, position, amount]);
-  const ranked = plan?.ranked ?? [];
-  const split = plan?.split ?? [];
+  // Stable empty lists while the plan loads, so the memos below do not rerun on every render.
+  const ranked = useMemo(() => plan?.ranked ?? [], [plan]);
+  const split = useMemo(() => plan?.split ?? [], [plan]);
   const splitUsd = plan?.splitUsd ?? 0;
   const currentUsd = plan?.current ?? null;
   const currentBaseUsd = plan?.currentMovable ?? null;
