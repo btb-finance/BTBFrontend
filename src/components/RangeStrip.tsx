@@ -110,9 +110,17 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   }, [depth, winLo, winHi]);
 
   // Min and max under the bar, each under its end of the range.
+  // Each token's share of what the position is worth now, in the quote token: what "USDC 14%, WETH 86%" means.
+  const amt0 = Number(p.amount0) / 10 ** p.decimals0, amt1 = Number(p.amount1) / 10 ** p.decimals1;
+  const [amtBase, amtQuote] = flip ? [amt1, amt0] : [amt0, amt1];
+  const worthBase = amtBase * pNow, worth = worthBase + amtQuote;
+  const shareBase = worth > 0 ? (worthBase / worth) * 100 : 0;
+  const share = (v: number) => (v >= 99.5 || v <= 0.5 ? v.toFixed(0) : v >= 10 ? v.toFixed(0) : v.toFixed(1));
   const edgeAt = (pos: number, label: string, price: number) => (
     <span style={{ position: 'absolute', top: 0, left: `${pos}%`, transform: pos < 50 ? 'none' : 'translateX(-100%)', whiteSpace: 'nowrap', fontSize: 10.5, color: btb.textMuted }}>
       <span style={{ color: btb.textDim }}>{label} </span><b style={{ fontWeight: 700 }}>{fmtSig(price)}</b>
+      {/* How far this end is from the price now, so the % never sits where it could read as a share. */}
+      <span style={{ color: btb.textDim }}> ({fromNow(price) > 0 ? '+' : ''}{pctText(fromNow(price))}%)</span>
     </span>
   );
   return (
@@ -133,15 +141,16 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
             it the base token. Out of range it is all one of them. */}
         {[
           // Each part says its token and, in range, how far it reaches from the price (cbLTC 6.7%, WETH 16%).
-          { from: bandL, to: Math.min(bandR, Math.max(bandL, mark)), rgb: QUOTE_RGB, k: 'q', sym: quote, reach: p.inRange ? Math.abs(fromNow(pLow)) : null },
-          { from: Math.max(bandL, Math.min(bandR, mark)), to: bandR, rgb: BASE_RGB, k: 'b', sym: base, reach: p.inRange ? Math.abs(fromNow(pHigh)) : null },
+          // Each part names its token and its share of the position's value now (USDC 14%, WETH 86%).
+          { from: bandL, to: Math.min(bandR, Math.max(bandL, mark)), rgb: QUOTE_RGB, k: 'q', sym: quote, part: worth > 0 ? 100 - shareBase : null },
+          { from: Math.max(bandL, Math.min(bandR, mark)), to: bandR, rgb: BASE_RGB, k: 'b', sym: base, part: worth > 0 ? shareBase : null },
         ].filter((seg) => seg.to - seg.from > 0.2).map((seg) => (
           <div key={seg.k} style={{ position: 'absolute', top: 0, bottom: 0, left: `${seg.from}%`, width: `${seg.to - seg.from}%`, background: `rgba(${seg.rgb}, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
             {/* The token over its reach, stacked so a narrow part still fits both; nothing in a sliver. */}
             {seg.to - seg.from >= 10 && (
               <span style={{ color: `rgb(${seg.rgb})`, textAlign: 'center', lineHeight: 1.15, whiteSpace: 'nowrap' }}>
                 <span style={{ display: 'block', fontSize: 10, fontWeight: 800 }}>{seg.sym}</span>
-                {seg.reach != null && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800 }}>{pctText(seg.reach)}%</span>}
+                {seg.part != null && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800 }}>{share(seg.part)}%</span>}
               </span>
             )}
           </div>
