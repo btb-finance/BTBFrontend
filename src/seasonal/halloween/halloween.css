@@ -1,0 +1,95 @@
+/* Halloween theme — see HalloweenTheme.tsx for how to remove it.
+   The chain theme writes its colours as inline styles on <html>; !important
+   is what lets these win while the class is present. */
+
+html.btb-halloween[data-mode="dark"],
+html.btb-halloween:not([data-mode]) {
+  --chain-accent: #FF7A1F !important;
+  --chain-accent-2: #B266FF !important;
+  --chain-accent-soft: rgba(255, 122, 31, .10) !important;
+  --chain-bg: #0E0814 !important;
+  --bg-rgb: 14, 8, 20 !important;
+  --chain-border: 1px solid rgba(255, 150, 70, .14) !important;
+  --chain-gradient: linear-gradient(135deg, #FFA24D, #FF6A00) !important;
+  /* The moon is painted into the background so it always sits behind the cards. */
+  --chain-app-background:
+    radial-gradient(circle 34px at calc(100% - 70px) 110px, #FFE9B0 0 30px, rgba(255, 217, 138, .25) 32px, rgba(255, 210, 120, .08) 60px, transparent 90px),
+    radial-gradient(900px 500px at 85% -10%, rgba(255, 122, 31, .16), transparent 60%),
+    radial-gradient(800px 600px at 0% 100%, rgba(140, 60, 220, .16), transparent 60%),
+    #0E0814 !important;
+}
+
+html.btb-halloween[data-mode="light"] {
+  --chain-accent: #E8641B !important;
+  --chain-accent-2: #7A3FD0 !important;
+  --chain-accent-soft: rgba(232, 100, 27, .10) !important;
+  --chain-app-background:
+    radial-gradient(900px 500px at 85% -10%, rgba(255, 140, 50, .22), transparent 60%),
+    radial-gradient(800px 600px at 0% 100%, rgba(150, 90, 220, .14), transparent 60%),
+    #F2ECE6 !important;
+}
+
+/* Decorations: never catch a tap, sit under sheets and modals. */
+.btb-hw-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.btb-hw-web {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 130px;
+  height: 130px;
+  color: rgba(var(--fg-rgb, 255, 255, 255), .18);
+}
+.btb-hw-spider { fill: rgba(var(--fg-rgb, 255, 255, 255), .45); color: rgba(var(--fg-rgb, 255, 255, 255), .45); animation: btb-hw-dangle 5s ease-in-out infinite; transform-origin: 58px 20px; }
+
+.btb-hw-bat {
+  position: absolute;
+  left: -80px;
+  width: 44px;
+  fill: rgba(var(--fg-rgb, 255, 255, 255), .32);
+  animation: btb-hw-fly 26s linear infinite, btb-hw-flap .35s ease-in-out infinite alternate;
+}
+.btb-hw-bat1 { top: 14vh; }
+.btb-hw-bat2 { top: 26vh; width: 30px; animation-delay: -9s, 0s; animation-duration: 34s, .3s; }
+.btb-hw-bat3 { top: 8vh; width: 24px; animation-delay: -19s, 0s; animation-duration: 40s, .28s; }
+
+.btb-hw-pumpkin {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  width: 54px;
+  opacity: .9;
+  filter: drop-shadow(0 0 14px rgba(255, 140, 40, .45));
+  animation: btb-hw-glow 3.2s ease-in-out infinite;
+}
+/* Phones: the bottom menu owns that corner, and the screen is small. */
+@media (max-width: 768px) {
+  .btb-hw-pumpkin { display: none; }
+  .btb-hw-web { width: 90px; height: 90px; }
+}
+
+@keyframes btb-hw-fly {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(30vw, 4vh); }
+  50%  { transform: translate(60vw, -2vh); }
+  75%  { transform: translate(90vw, 5vh); }
+  100% { transform: translate(calc(100vw + 160px), 0); }
+}
+@keyframes btb-hw-flap { from { scale: 1 1; } to { scale: 1 .55; } }
+@keyframes btb-hw-dangle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(10px); } }
+@keyframes btb-hw-glow {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(255, 140, 40, .35)); }
+  50%      { filter: drop-shadow(0 0 20px rgba(255, 140, 40, .65)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btb-hw-bat, .btb-hw-spider, .btb-hw-pumpkin { animation: none; }
+  .btb-hw-bat1 { transform: translateX(70vw); }
+  .btb-hw-bat2, .btb-hw-bat3 { display: none; }
+}
