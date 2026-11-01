@@ -78,6 +78,12 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const priceAbove = pNow > pHigh, priceBelow = pNow < pLow;
   const awayPct = priceAbove ? (pNow / pHigh - 1) * 100 : priceBelow ? (1 - pNow / pLow) * 100 : 0;
   const away = awayPct >= 10 ? awayPct.toFixed(0) : awayPct >= 0.1 ? awayPct.toFixed(1) : awayPct.toFixed(2);
+  // The range's size the way presets say it (±5%): half its width around its middle, on the price scale.
+  const halfWidth = pLow > 0 ? (Math.sqrt(pHigh / pLow) - 1) * 100 : 0;
+  const pctText = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 0.1 ? v.toFixed(1) : v.toFixed(2));
+  // Each end's distance from the price now, signed: how far the price can move before it leaves the range.
+  const fromNow = (end: number) => (pNow > 0 ? (end / pNow - 1) * 100 : 0);
+  const signed = (v: number) => `${v > 0 ? '+' : ''}${pctText(v)}%`;
 
   // Depth bars inside the window, normalised to the tallest.
   const bars = useMemo(() => {
@@ -92,12 +98,12 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : `Your range, in ${quote} per ${base}`}</span>
+        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : <>Your range <b style={{ color: btb.text }}>±{pctText(halfWidth)}%</b>, in {quote} per {base}</>}</span>
         <span style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>1 {base} = {fmtPrice(pNow)} {quote}</span>
       </div>
       {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap', textAlign: 'right' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>min</span>{fmtPrice(pLow)}</span>}
+        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap', textAlign: 'right' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>min {signed(fromNow(pLow))}</span>{fmtPrice(pLow)}</span>}
         <div style={{ position: 'relative', flex: 1, height: 18, borderRadius: 6, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
           {/* liquidity depth: where the other LPs sit */}
           <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
@@ -106,7 +112,7 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.16)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}` }} />
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
         </div>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>max</span>{fmtPrice(pHigh)}</span>}
+        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>max {signed(fromNow(pHigh))}</span>{fmtPrice(pHigh)}</span>}
       </div>
       {/* What the picture means, in one sentence. */}
       <div style={{ color: p.inRange || fullRange ? btb.textMuted : btb.amber, fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>
