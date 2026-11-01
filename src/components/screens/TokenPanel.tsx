@@ -242,7 +242,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     setNoHistory(false);
     if (!address) return;
     let live = true;
-    (async () => {
+    void (async () => {
       for (const id of [1, 8453, 4663, 42161, 10]) {
         const c = getChainClient(id);
         if (!c) continue;
