@@ -86,6 +86,15 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   // Each end's distance from the price now, signed: how far the price can move before it leaves the range.
   const fromNow = (end: number) => (pNow > 0 ? (end / pNow - 1) * 100 : 0);
   const signed = (v: number) => `${v > 0 ? '+' : ''}${pctText(v)}%`;
+  // How to say the range's size depends on its shape around the price now: "±10%" only fits a range centred on it.
+  const down = fromNow(pLow), up = fromNow(pHigh);
+  const centred = down < 0 && up > 0 && Math.abs(down) / up > 0.75 && Math.abs(down) / up < 1.33;
+  const sizeText = centred
+    ? <>Your range <b style={{ color: btb.text }}>±{pctText(halfWidth)}%</b> ({pctText(halfWidth * 2)}% wide)</>
+    : down >= 0 || up <= 0
+      // One-sided, or a range the price has left: all of it on one side.
+      ? <>Your range <b style={{ color: btb.text }}>{signed(down)} to {signed(up)}</b>, all {down >= 0 ? 'above' : 'below'} the price</>
+      : <>Your range <b style={{ color: btb.text }}>{signed(down)} to {signed(up)}</b></>;
 
   // Depth bars inside the window, normalised to the tallest.
   const bars = useMemo(() => {
@@ -100,7 +109,7 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : <>Your range <b style={{ color: btb.text }}>±{pctText(halfWidth)}%</b> <span title="Total width, min to max">({pctText(halfWidth * 2)}% wide)</span>, in {quote} per {base}</>}</span>
+        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : <>{sizeText}, in {quote} per {base}</>}</span>
         <span style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>1 {base} = {fmtPrice(pNow)} {quote}</span>
       </div>
       {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
