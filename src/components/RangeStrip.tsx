@@ -60,11 +60,24 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const span = fullRange ? 20_000 : Math.max(1, p.tickUpper - p.tickLower);
   const winLo = fullRange ? p.currentTick - span / 2 : p.tickLower - span * 0.25;
   const winHi = fullRange ? p.currentTick + span / 2 : p.tickUpper + span * 0.25;
-  const pct = (tick: number) => Math.max(0, Math.min(100, ((tick - winLo) / (winHi - winLo)) * 100));
-  const bandL = fullRange ? 0 : pct(p.tickLower), bandR = fullRange ? 100 : pct(p.tickUpper), mark = pct(p.currentTick);
+  const raw = (tick: number) => Math.max(0, Math.min(100, ((tick - winLo) / (winHi - winLo)) * 100));
   const tone = p.inRange ? btb.green : btb.amber;
-  const pNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
-  const pLow = tickToPrice(p.tickLower, p.decimals0, p.decimals1), pHigh = tickToPrice(p.tickUpper, p.decimals0, p.decimals1);
+  const rawNow = tickToPrice(p.currentTick, p.decimals0, p.decimals1);
+  // Quote the price the way people read it, at 1 or more: "1 AMZNc = 241 USDC", not "1 USDC = 0.00415 AMZNc". Flipped,
+  // the strip is mirrored too, so a higher price is always to the right.
+  const flip = rawNow > 0 && rawNow < 1;
+  const pct = (tick: number) => (flip ? 100 - raw(tick) : raw(tick));
+  const base = flip ? p.symbol1 : p.symbol0, quote = flip ? p.symbol0 : p.symbol1;
+  const priceAt = (tick: number) => { const v = tickToPrice(tick, p.decimals0, p.decimals1); return flip ? (v > 0 ? 1 / v : 0) : v; };
+  const pNow = priceAt(p.currentTick);
+  const [pLow, pHigh] = flip ? [priceAt(p.tickUpper), priceAt(p.tickLower)] : [priceAt(p.tickLower), priceAt(p.tickUpper)];
+  const bandL = fullRange ? 0 : Math.min(pct(p.tickLower), pct(p.tickUpper)), bandR = fullRange ? 100 : Math.max(pct(p.tickLower), pct(p.tickUpper)), mark = pct(p.currentTick);
+  // Out of range, the position holds only one token: below the range (in pool terms) token0, above it token1.
+  const below = p.currentTick < p.tickLower, above = p.currentTick >= p.tickUpper;
+  const heldSymbol = below ? p.symbol0 : above ? p.symbol1 : null;
+  const priceAbove = pNow > pHigh, priceBelow = pNow < pLow;
+  const awayPct = priceAbove ? (pNow / pHigh - 1) * 100 : priceBelow ? (1 - pNow / pLow) * 100 : 0;
+  const away = awayPct >= 10 ? awayPct.toFixed(0) : awayPct >= 0.1 ? awayPct.toFixed(1) : awayPct.toFixed(2);
 
   // Depth bars inside the window, normalised to the tallest.
   const bars = useMemo(() => {
@@ -79,12 +92,12 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{p.symbol1}/{p.symbol0}{fullRange ? ' · full range' : ''}</span>
-        <span style={{ color: tone, fontSize: 13.5, fontWeight: 800 }}>{fmtPrice(pNow)}</span>
+        <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : `Your range, in ${quote} per ${base}`}</span>
+        <span style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>1 {base} = {fmtPrice(pNow)} {quote}</span>
       </div>
       {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}>{fmtPrice(pLow)}</span>}
+        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap', textAlign: 'right' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>min</span>{fmtPrice(pLow)}</span>}
         <div style={{ position: 'relative', flex: 1, height: 18, borderRadius: 6, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
           {/* liquidity depth: where the other LPs sit */}
           <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
@@ -93,7 +106,13 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${bandL}%`, width: `${bandR - bandL}%`, background: p.inRange ? 'rgba(var(--green-rgb), 0.18)' : 'rgba(var(--amber-rgb), 0.16)', borderLeft: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}`, borderRight: `1px solid ${p.inRange ? 'rgba(var(--green-rgb), 0.5)' : 'rgba(var(--amber-rgb), 0.5)'}` }} />
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
         </div>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}>{fmtPrice(pHigh)}</span>}
+        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>max</span>{fmtPrice(pHigh)}</span>}
+      </div>
+      {/* What the picture means, in one sentence. */}
+      <div style={{ color: p.inRange || fullRange ? btb.textMuted : btb.amber, fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>
+        {fullRange || p.inRange
+          ? 'The price is inside your range, so it earns fees.'
+          : `The price is ${priceAbove ? 'above' : 'below'} your range by ${away}%: it is all ${heldSymbol} and earns no fees until the price comes back.`}
       </div>
     </div>
   );
