@@ -4,6 +4,8 @@
  *
  * TO REMOVE: delete src/seasonal/halloween/ and the two lines marked
  * "HALLOWEEN" in src/components/AppShell.tsx. Nothing else references it.
+ * (design-tokens.ts reads an optional --btb-cta-gradient that this theme sets;
+ * once the theme is gone it falls back to the normal green, so it can stay.)
  */
 import { useEffect } from 'react';
 import './halloween.css';

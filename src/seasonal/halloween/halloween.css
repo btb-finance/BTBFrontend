@@ -4,30 +4,59 @@
 
 html.btb-halloween[data-mode="dark"],
 html.btb-halloween:not([data-mode]) {
+  /* Ink: a warm candle-light white instead of pure white, for all text and lines. */
+  --fg-rgb: 255, 236, 214 !important;
+  --btb-text: #FFF1E2 !important;
+  --btb-text-muted: rgba(255, 228, 200, .62) !important;
+  --btb-text-dim: rgba(255, 220, 190, .40) !important;
+  /* Paper: deep haunted purple. */
+  --bg-rgb: 16, 8, 24 !important;
+  --chain-bg: #100818 !important;
   --chain-accent: #FF7A1F !important;
   --chain-accent-2: #B266FF !important;
-  --chain-accent-soft: rgba(255, 122, 31, .10) !important;
-  --chain-bg: #0E0814 !important;
-  --bg-rgb: 14, 8, 20 !important;
-  --chain-border: 1px solid rgba(255, 150, 70, .14) !important;
-  --chain-gradient: linear-gradient(135deg, #FFA24D, #FF6A00) !important;
-  /* The moon is painted into the background so it always sits behind the cards. */
+  --chain-accent-soft: rgba(255, 122, 31, .12) !important;
+  /* Cards: purple glass with pumpkin-orange edges and a faint orange glow. */
+  --chain-surface: rgba(170, 100, 255, .075) !important;
+  --chain-surface-strong: rgba(170, 100, 255, .11) !important;
+  --chain-surface-soft: rgba(170, 100, 255, .045) !important;
+  --chain-border: 1px solid rgba(255, 140, 50, .22) !important;
+  --chain-border-soft: 1px solid rgba(255, 140, 50, .12) !important;
+  --chain-shadow: 0 8px 32px rgba(0, 0, 0, .45), 0 0 24px rgba(255, 110, 20, .07), 0 1px 0 rgba(255, 190, 120, .08) inset !important;
+  /* Buttons: the main green buttons and the white primary ones turn pumpkin orange. */
+  --btb-cta-gradient: linear-gradient(135deg, #FF9A3C, #E8520F) !important;
+  --chain-gradient: linear-gradient(135deg, #FFB461, #FF7A1F) !important;
+  --btb-reward: #C89BFF !important;
+  --reward-rgb: 200, 155, 255 !important;
   --chain-app-background:
-    radial-gradient(circle 34px at calc(100% - 70px) 110px, #FFE9B0 0 30px, rgba(255, 217, 138, .25) 32px, rgba(255, 210, 120, .08) 60px, transparent 90px),
-    radial-gradient(900px 500px at 85% -10%, rgba(255, 122, 31, .16), transparent 60%),
-    radial-gradient(800px 600px at 0% 100%, rgba(140, 60, 220, .16), transparent 60%),
-    #0E0814 !important;
+    radial-gradient(900px 500px at 85% -10%, rgba(255, 122, 31, .18), transparent 60%),
+    radial-gradient(800px 600px at 0% 100%, rgba(140, 60, 220, .20), transparent 60%),
+    #100818 !important;
 }
 
 html.btb-halloween[data-mode="light"] {
+  --fg-rgb: 40, 18, 52 !important;
+  --btb-text: #28123A !important;
+  --btb-text-muted: rgba(40, 18, 58, .70) !important;
+  --btb-text-dim: rgba(40, 18, 58, .52) !important;
+  --bg-rgb: 246, 236, 226 !important;
+  --chain-bg: #F6ECE2 !important;
   --chain-accent: #E8641B !important;
   --chain-accent-2: #7A3FD0 !important;
   --chain-accent-soft: rgba(232, 100, 27, .10) !important;
+  --chain-surface: rgba(255, 250, 244, .62) !important;
+  --chain-surface-strong: rgba(255, 250, 244, .85) !important;
+  --chain-surface-soft: rgba(255, 250, 244, .40) !important;
+  --chain-border: 1px solid rgba(200, 90, 20, .20) !important;
+  --chain-border-soft: 1px solid rgba(200, 90, 20, .11) !important;
+  --btb-cta-gradient: linear-gradient(135deg, #FF8A2B, #D9480F) !important;
+  --chain-gradient: linear-gradient(135deg, #3A1A52, #5B2A80) !important;
   --chain-app-background:
-    radial-gradient(900px 500px at 85% -10%, rgba(255, 140, 50, .22), transparent 60%),
-    radial-gradient(800px 600px at 0% 100%, rgba(150, 90, 220, .14), transparent 60%),
-    #F2ECE6 !important;
+    radial-gradient(900px 500px at 85% -10%, rgba(255, 140, 50, .24), transparent 60%),
+    radial-gradient(800px 600px at 0% 100%, rgba(150, 90, 220, .16), transparent 60%),
+    #F6ECE2 !important;
 }
+
+html.btb-halloween ::selection { background: rgba(255, 122, 31, .45); color: #fff; }
 
 /* Decorations: never catch a tap, sit under sheets and modals. */
 .btb-hw-layer {
