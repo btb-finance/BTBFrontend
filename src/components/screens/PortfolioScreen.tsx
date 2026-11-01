@@ -262,32 +262,23 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
                 </div>
               )}
             </div>
-            {/* What net worth is made of, on phones too: tokens, LP positions, and the fees and rewards waiting to be claimed. */}
-            <div style={isMobile
-              ? { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, marginTop: 10 }
-              : { display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
-              {([
-                { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
-                { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
-                { label: 'Rewards to claim', value: lp.feesUsd, dot: btb.green, color: btb.green },
-              ] as const).map(b => {
-                const amount = b.value > 0 && b.value < 0.01 ? '<$0.01' : `$${fmt(b.value)}`;
-                return isMobile ? (
-                  <div key={b.label} style={{ minWidth: 0, padding: '7px 9px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: btb.textMuted, fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 3, background: b.dot, flexShrink: 0 }}/>{b.label}
-                    </div>
-                    <div style={{ color: b.color, fontSize: 14, fontWeight: 800, marginTop: 2 }}>{amount}</div>
-                  </div>
-                ) : (
+            {/* What net worth is made of. Desktop only: on a phone the Tokens and LPs tiles below already say it, and the
+                rewards to claim sit on the Collect row. */}
+            {!isMobile && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, fontSize: 12 }}>
+                {([
+                  { label: 'Tokens', value: tokensUsd, dot: 'var(--btb-text)', color: btb.text },
+                  { label: 'LP positions', value: lp.valueUsd, dot: '#94A3B8', color: btb.text },
+                  { label: 'Rewards to claim', value: lp.feesUsd, dot: btb.green, color: btb.green },
+                ] as const).map(b => (
                   <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ width: 7, height: 7, borderRadius: 4, background: b.dot, flexShrink: 0 }}/>
                     <span style={{ color: btb.textMuted }}>{b.label}</span>
-                    <span style={{ color: b.color, fontWeight: 700 }}>{amount}</span>
+                    <span style={{ color: b.color, fontWeight: 700 }}>{b.value > 0 && b.value < 0.01 ? '<$0.01' : `$${fmt(b.value)}`}</span>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
             {allTokensWithBalance.length > trustedTokens.length && (
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 6 }}>
                 {allTokensWithBalance.length - trustedTokens.length} unverified quotes excluded from net worth
@@ -336,6 +327,8 @@ export function PortfolioScreen({ onSend, onSwap, onSimulate, viewAddress, onVie
               return (
                 <>
                   {!isMobile && lp.dailyUsd > 0 && pill(`~$${lp.dailyUsd < 0.01 ? '<0.01' : fmt(lp.dailyUsd)}/day · ${lp.apr.toFixed(1)}% APR`, btb.green, 'var(--green-rgb)')}
+                  {/* Phone: what is waiting to be claimed, next to the button that claims it. */}
+                  {isMobile && lp.feesUsd >= 0.01 && pill(`$${fmt(lp.feesUsd)} to claim`, btb.green, 'var(--green-rgb)')}
                   <span style={{ flex: 1 }}/>
                   {lp.canCollect && lp.collect && (
                     <button type="button" onClick={lp.collect} disabled={lp.collecting} style={{ height: 28, padding: '0 12px', borderRadius: 999, border: 'none', background: btb.green, color: '#000', fontFamily: 'inherit', fontSize: 12, fontWeight: 800, cursor: lp.collecting ? 'default' : 'pointer', opacity: lp.collecting ? 0.6 : 1 }}>
