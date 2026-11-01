@@ -116,10 +116,9 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
         <span style={{ color: btb.textDim, fontSize: 11.5 }}>{fullRange ? 'Full range' : <>{sizeText}, in {quote} per {base}</>}</span>
         <span style={{ color: tone, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>1 {base} = {fmtPrice(pNow)} {quote}</span>
       </div>
-      {/* One slim row: min, the bar, max. The ends sit beside the bar, so it never needs a row of its own. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap', textAlign: 'right' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>min {signed(fromNow(pLow))}</span>{fmtPrice(pLow)}</span>}
-        <div style={{ position: 'relative', flex: 1, height: 18, borderRadius: 6, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
+      {/* The bar takes the full width; min and max sit inside it, in the margins either side of the range. */}
+      <div style={{ marginTop: 6 }}>
+        <div style={{ position: 'relative', height: 34, borderRadius: 8, overflow: 'hidden', background: 'rgba(var(--fg-rgb), 0.04)' }}>
           {/* liquidity depth: where the other LPs sit */}
           <svg viewBox="0 0 100 44" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
             {bars.map((b, i) => <rect key={i} x={b.x - 0.6} y={44 - b.h * 40} width={1.2} height={b.h * 40} fill="rgba(var(--fg-rgb), 0.16)" />)}
@@ -135,12 +134,21 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
               background: `rgba(${seg.rgb}, 0.22)`, borderLeft: `1px solid rgba(${seg.rgb}, 0.55)`, borderRight: `1px solid rgba(${seg.rgb}, 0.55)`,
               display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
             }}>
-              {seg.to - seg.from >= 14 && <span style={{ color: `rgb(${seg.rgb})`, fontSize: 9.5, fontWeight: 800, whiteSpace: 'nowrap' }}>{seg.sym}</span>}
+              {seg.to - seg.from >= 22 && <span style={{ color: `rgb(${seg.rgb})`, fontSize: 10, fontWeight: 800, whiteSpace: 'nowrap' }}>{seg.sym}</span>}
             </div>
           ))}
           <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
+          {!fullRange && (
+            <>
+              <span style={{ position: 'absolute', left: 6, top: 3, color: btb.textMuted, fontSize: 10.5, fontWeight: 700, lineHeight: 1.25, whiteSpace: 'nowrap', pointerEvents: 'none' }}>
+                <span style={{ display: 'block', color: btb.textDim, fontSize: 9.5, fontWeight: 600 }}>min {signed(fromNow(pLow))}</span>{fmtPrice(pLow)}
+              </span>
+              <span style={{ position: 'absolute', right: 6, top: 3, color: btb.textMuted, fontSize: 10.5, fontWeight: 700, lineHeight: 1.25, whiteSpace: 'nowrap', textAlign: 'right', pointerEvents: 'none' }}>
+                <span style={{ display: 'block', color: btb.textDim, fontSize: 9.5, fontWeight: 600 }}>max {signed(fromNow(pHigh))}</span>{fmtPrice(pHigh)}
+              </span>
+            </>
+          )}
         </div>
-        {!fullRange && <span style={{ color: btb.textMuted, fontSize: 10.5, whiteSpace: 'nowrap' }}><span style={{ display: 'block', color: btb.textDim, fontSize: 9.5 }}>max {signed(fromNow(pHigh))}</span>{fmtPrice(pHigh)}</span>}
       </div>
       {/* What the picture means, in one sentence. */}
       <div style={{ color: p.inRange || fullRange ? btb.textMuted : btb.amber, fontSize: 11.5, marginTop: 6, lineHeight: 1.4 }}>
