@@ -96,7 +96,6 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
   const pctText = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : Math.abs(v) >= 0.1 ? v.toFixed(1) : v.toFixed(2));
   // Each end's distance from the price now, signed: how far the price can move before it leaves the range.
   const fromNow = (end: number) => (pNow > 0 ? (end / pNow - 1) * 100 : 0);
-  const signed = (v: number) => `${v > 0 ? '+' : ''}${pctText(v)}%`;
 
   // Depth bars inside the window, normalised to the tallest.
   const bars = useMemo(() => {
@@ -131,14 +130,23 @@ export function RangeStrip({ p }: { p: LiquidityPosition }) {
         {/* Your range in two colours, the same as the token boxes above: below the price it holds the quote token, above
             it the base token. Out of range it is all one of them. */}
         {[
-          { from: bandL, to: Math.min(bandR, Math.max(bandL, mark)), rgb: QUOTE_RGB, k: 'q' },
-          { from: Math.max(bandL, Math.min(bandR, mark)), to: bandR, rgb: BASE_RGB, k: 'b' },
+          // Each part says its token and, in range, how far it reaches from the price (cbLTC 6.7%, WETH 16%).
+          { from: bandL, to: Math.min(bandR, Math.max(bandL, mark)), rgb: QUOTE_RGB, k: 'q', sym: quote, reach: p.inRange ? Math.abs(fromNow(pLow)) : null },
+          { from: Math.max(bandL, Math.min(bandR, mark)), to: bandR, rgb: BASE_RGB, k: 'b', sym: base, reach: p.inRange ? Math.abs(fromNow(pHigh)) : null },
         ].filter((seg) => seg.to - seg.from > 0.2).map((seg) => (
-          <div key={seg.k} style={{ position: 'absolute', top: 0, bottom: 0, left: `${seg.from}%`, width: `${seg.to - seg.from}%`, background: `rgba(${seg.rgb}, 0.2)` }}/>
+          <div key={seg.k} style={{ position: 'absolute', top: 0, bottom: 0, left: `${seg.from}%`, width: `${seg.to - seg.from}%`, background: `rgba(${seg.rgb}, 0.2)`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {/* The token over its reach, stacked so a narrow part still fits both; nothing in a sliver. */}
+            {seg.to - seg.from >= 10 && (
+              <span style={{ color: `rgb(${seg.rgb})`, textAlign: 'center', lineHeight: 1.15, whiteSpace: 'nowrap' }}>
+                <span style={{ display: 'block', fontSize: 10, fontWeight: 800 }}>{seg.sym}</span>
+                {seg.reach != null && <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800 }}>{pctText(seg.reach)}%</span>}
+              </span>
+            )}
+          </div>
         ))}
         <div style={{ position: 'absolute', top: 0, bottom: 0, left: `calc(${mark}% - 1px)`, width: 2, background: tone }} />
-        {!fullRange && edge(`min ${signed(fromNow(pLow))}`, pLow, false)}
-        {!fullRange && edge(`max ${signed(fromNow(pHigh))}`, pHigh, true)}
+        {!fullRange && edge('min', pLow, false)}
+        {!fullRange && edge('max', pHigh, true)}
       </div>
       {/* Out of range, what that means; in range the green badge already says it. */}
       {!fullRange && !p.inRange && (
