@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { useConnection, useReadContract, useReadContracts } from 'wagmi';
 import { erc20Abi, parseAbi } from 'viem';
 import { api } from '../../../convex/_generated/api';
