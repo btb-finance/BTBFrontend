@@ -138,7 +138,9 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   const cameFrom = useRef<Tab>('home');
   // On a phone, Swap gets the whole screen (it has its own Back), as does any open sheet.
   const { sheetOpen } = useUiLock();
-  const navHidden = isMobile && (sheetOpen || (screen === 'swap' && !overlay));
+  const navHidden = isMobile && sheetOpen;
+  // Swap pins its button just above the bottom menu, so the page keeps room for both.
+  const swapPinned = isMobile && screen === 'swap' && !overlay;
   const goto = (t: Tab) => { if (t !== screen) cameFrom.current = screen; if (t === 'swap') setSwapToken(undefined); setOverlay(null); setScreen(t); syncUrl(t, null); };
   const openOverlay = (o: Exclude<Overlay, null>) => { setOverlay(o); syncUrl(screen, o); };
   const closeOverlay = () => { setOverlay(null); syncUrl(screen, null); };
@@ -219,9 +221,8 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
       <div style={{
         flex: 1, minWidth: 0,
         width: '100%', maxWidth: isMobile ? undefined : 1360, margin: isMobile ? undefined : '0 auto',
-        // The bottom menu's room is only kept while the menu shows.
-        // Swap pins its button where the menu was, so it keeps about the same room.
-        padding: isMobile ? `14px ${MOBILE_GUTTER}px calc(${navHidden ? (screen === 'swap' && !overlay ? 84 : 24) : 86}px + env(safe-area-inset-bottom))` : '28px clamp(16px, 3vw, 40px) 60px',
+        // The bottom menu's room is only kept while the menu shows; Swap adds its pinned button on top of that.
+        padding: isMobile ? `14px ${MOBILE_GUTTER}px calc(${navHidden ? 24 : swapPinned ? 164 : 86}px + env(safe-area-inset-bottom))` : '28px clamp(16px, 3vw, 40px) 60px',
       }}>
         {overlayContent ?? content}
       </div>
@@ -238,7 +239,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
         />
       )}
       {/* sAERO holders: a nudge when a position could earn noticeably more. Not on Allocate itself or over a sheet. */}
-      {screen !== 'allocate' && !overlay && !sheetOpen && !navHidden && <AeroNudge address={isReadOnly ? undefined : effectiveAddress} onOpen={() => goto('allocate')}/>}
+      {screen !== 'allocate' && !swapPinned && !overlay && !sheetOpen && !navHidden && <AeroNudge address={isReadOnly ? undefined : effectiveAddress} onOpen={() => goto('allocate')}/>}
       <AgentDock hidden={screen === 'stake' || !!overlay} onConnect={() => setShowConnect(true)} onGetBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>
       {showReceive && <ReceiveModal address={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => setShowReceive(false)}/>}
       {showSend    && <SendModal fromAddress={effectiveAddress ?? '0x0000000000000000000000000000000000000000'} onClose={() => { setShowSend(false); setSendToken(undefined); }} initialToken={sendToken}/>}

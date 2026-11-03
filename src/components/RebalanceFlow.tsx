@@ -10,7 +10,7 @@ import { CreatePosition } from './CreatePosition';
 import { btb } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls, supportsAtomicBatch } from '../lib/txRunner';
+import { runCalls, supportsAtomicBatch, txStepText, useTxStep } from '../lib/txRunner';
 import { buildRemove, fetchV3Positions, fetchV4Positions, buildV4Remove, poolIdOf, SLIPPAGE_BPS, swapFreeRange, rebalancePlan, type LiquidityPosition, type PoolKey } from '@/protocols/dexs/uniswap';
 import { tickToPrice } from '@/protocols/dexs/uniswap/shared';
 import { fmtPrice } from './LpCardParts';
@@ -51,6 +51,7 @@ export function RebalanceFlow({ pos, account, carryTag, onClose, onDone }: {
   const { track } = useTx();
   const [phase, setPhase] = useState<'confirm' | 'withdrawing' | 'add'>('confirm');
   const [stepMsg, setStepMsg] = useState('');
+  const txStep = useTxStep();
   const [err, setErr] = useState<string | null>(null);
 
   const chainId = pos.chainId ?? 1;
@@ -187,7 +188,7 @@ export function RebalanceFlow({ pos, account, carryTag, onClose, onDone }: {
 
           <div style={{ marginTop: 16 }}>
             <Button variant="success" size="md" onClick={withdraw} loading={busy} disabled={busy}>
-              {busy ? (stepMsg || 'Confirming…') : pos.staked ? 'Unstake, withdraw & choose range' : 'Withdraw & choose new range'}
+              {busy ? txStepText(txStep, stepMsg || 'Confirming…') : pos.staked ? 'Unstake, withdraw & choose range' : 'Withdraw & choose new range'}
             </Button>
           </div>
           <div style={{ color: btb.textDim, fontSize: 10.5, marginTop: 10, lineHeight: 1.5 }}>

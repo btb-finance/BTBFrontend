@@ -8,6 +8,8 @@ import { Icon } from '@/components/Icon';
 import { btb } from '@/components/design-tokens';
 import { SUPPORTED_CHAINS, type SupportedChainId } from './wagmi';
 import { markLpSnapshotsStale } from './appData';
+import { readableError } from './errorText';
+import { useTxStep } from './txRunner';
 
 // One global place that watches every pending on-chain action (mint, swap,
 // stake, approve, claim, unstake), polls confirmation every 5s, and surfaces a
@@ -33,11 +35,12 @@ async function fastReceipt(config: Parameters<typeof getConnectorClient>[0], has
   for (;;) {
     const r = await receiptAnywhere(clients, hash);
     if (r) return r;
-    if (Date.now() > end) throw new Error('Not seen after 3 minutes. It may still confirm: check the explorer.');
+    if (Date.now() > end) throw new Error('Still not confirmed after 3 minutes. It may yet go through, so check the explorer before trying again.');
     await new Promise((res) => setTimeout(res, POLL_MS));
   }
 }
-const DISMISS_MS = 6_000;    // auto-hide settled pills
+const DISMISS_MS = 6_000;    // auto-hide a confirmed pill
+const DISMISS_FAIL_MS = 14_000; // a failure stays long enough to read
 
 export type TxStatus = 'pending' | 'confirmed' | 'failed';
 export type TxRecord = { id: string; label: string; status: TxStatus; hash?: `0x${string}`; chainId?: number; error?: string };
@@ -78,8 +81,8 @@ export function TxProvider({ children }: { children: ReactNode }) {
     if (t) { clearTimeout(t); delete timers.current[id]; }
   }, []);
 
-  const scheduleDismiss = useCallback((id: string) => {
-    timers.current[id] = setTimeout(() => dismiss(id), DISMISS_MS);
+  const scheduleDismiss = useCallback((id: string, failed = false) => {
+    timers.current[id] = setTimeout(() => dismiss(id), failed ? DISMISS_FAIL_MS : DISMISS_MS);
   }, [dismiss]);
 
   const track: TrackFn = useCallback(({ label, hash, callsId, chainId, onConfirmed }) => {
@@ -109,13 +112,14 @@ export function TxProvider({ children }: { children: ReactNode }) {
           scheduleDismiss(id);
           return { status: 'confirmed' as const, hash: settledHash, blockNumber };
         }
-        patch(id, { status: 'failed', error: 'Reverted on-chain' });
-        scheduleDismiss(id);
-        return { status: 'failed' as const, error: 'Reverted on-chain' };
+        const reverted = 'The network rejected it. Your tokens did not move; only the network fee was spent.';
+        patch(id, { status: 'failed', error: reverted });
+        scheduleDismiss(id, true);
+        return { status: 'failed' as const, error: reverted };
       } catch (e) {
-        const error = (e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Confirmation failed';
+        const error = readableError(e, 'Could not confirm it. Check the explorer before trying again.');
         patch(id, { status: 'failed', error });
-        scheduleDismiss(id);
+        scheduleDismiss(id, true);
         return { status: 'failed' as const, error };
       }
     })();
@@ -132,43 +136,71 @@ export function TxProvider({ children }: { children: ReactNode }) {
 }
 
 function TxPill({ records, dismiss }: { records: TxRecord[]; dismiss: (id: string) => void }) {
-  if (records.length === 0) return null;
+  // While the wallet is asking, say so and say what for: every action gets this from the runner, no screen sets it.
+  const step = useTxStep();
+  const signing = step?.phase === 'sign';
+  if (records.length === 0 && !signing) return null;
   const shown = records.slice(-3).reverse();
   return (
     <div style={{
+      // Top of the screen, clear of the pinned action buttons and the bottom menu.
       position: 'fixed', left: 0, right: 0,
-      bottom: 'calc(env(safe-area-inset-bottom, 0px) + 92px)',
+      top: 'calc(env(safe-area-inset-top, 0px) + 12px)',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-      zIndex: 2000, pointerEvents: 'none', padding: '0 16px',
+      zIndex: 2000, pointerEvents: 'none', padding: '0 12px',
     }}>
+      {signing && (
+        <div style={{
+          pointerEvents: 'auto', width: '100%', maxWidth: 380, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 12,
+          background: 'rgba(var(--bg-rgb), 0.96)', backdropFilter: 'blur(20px) saturate(140%)', WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+          border: '1px solid rgba(var(--green-rgb), 0.35)', borderRadius: 18, padding: '12px 14px', boxShadow: '0 12px 36px rgba(0,0,0,0.35)',
+        }}>
+          <span style={{ width: 32, height: 32, borderRadius: 999, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--green-rgb), 0.14)' }}>
+            <Icon name="wallet" size={15} color={btb.green}/>
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{step.label}</div>
+            <div style={{ color: btb.green, fontSize: 12, fontWeight: 600, marginTop: 2 }}>
+              {step.approve ? `Allow the app to use your ${step.token ?? 'token'}. Confirm in your wallet` : 'Confirm in your wallet'}
+            </div>
+          </div>
+        </div>
+      )}
       {shown.map(r => {
-        const color = r.status === 'confirmed' ? btb.green : r.status === 'failed' ? btb.loss : '#fff';
-        const explorer = r.chainId ? SUPPORTED_CHAINS.find(chain => chain.id === r.chainId)?.blockExplorers?.default.url : undefined;
+        const chain = r.chainId ? SUPPORTED_CHAINS.find(c => c.id === r.chainId) : undefined;
+        const explorer = chain?.blockExplorers?.default.url;
+        const ok = r.status === 'confirmed', bad = r.status === 'failed';
+        const tone = ok ? 'var(--green-rgb)' : bad ? 'var(--loss-rgb)' : 'var(--fg-rgb)';
         return (
-          <div key={r.id} onClick={() => dismiss(r.id)} style={{
-            pointerEvents: 'auto', cursor: 'pointer', width: '100%', maxWidth: 360,
-            display: 'flex', alignItems: 'center', gap: 11,
-            background: 'rgba(18,18,26,0.86)', backdropFilter: 'blur(20px) saturate(140%)',
-            border: `1px solid ${r.status === 'pending' ? 'rgba(var(--fg-rgb), 0.16)' : color + '66'}`,
-            borderRadius: 14, padding: '10px 14px', boxShadow: '0 10px 30px rgba(0,0,0,0.45)',
+          <div key={r.id} style={{
+            pointerEvents: 'auto', width: '100%', maxWidth: 380, boxSizing: 'border-box',
+            display: 'flex', alignItems: bad ? 'flex-start' : 'center', gap: 12,
+            background: 'rgba(var(--bg-rgb), 0.96)', backdropFilter: 'blur(20px) saturate(140%)', WebkitBackdropFilter: 'blur(20px) saturate(140%)',
+            border: `1px solid rgba(${tone}, ${r.status === 'pending' ? 0.14 : 0.4})`,
+            borderRadius: 18, padding: '12px 12px 12px 14px', boxShadow: '0 12px 36px rgba(0,0,0,0.35)',
           }}>
-            {r.status === 'pending'
-              ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(var(--fg-rgb), 0.25)', borderTopColor: '#fff', animation: 'spin 0.8s linear infinite', flexShrink: 0 }}/>
-              : <div style={{ flexShrink: 0, display: 'flex' }}><Icon name={r.status === 'confirmed' ? 'check' : 'close'} size={16} color={color}/></div>}
+            <span style={{ width: 32, height: 32, borderRadius: 999, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: ok ? btb.green : bad ? `rgba(${tone}, 0.14)` : 'rgba(var(--fg-rgb), 0.06)' }}>
+              {r.status === 'pending'
+                ? <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(var(--fg-rgb), 0.18)', borderTopColor: 'var(--btb-text)', animation: 'spin 0.8s linear infinite' }}/>
+                : <Icon name={ok ? 'check' : 'close'} size={15} color={ok ? '#04140c' : btb.loss}/>}
+            </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ color: 'var(--btb-text)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</div>
-              <div style={{ color, fontSize: 11, fontWeight: 600 }}>
-                {r.status === 'pending' ? 'Confirming…' : r.status === 'confirmed' ? 'Confirmed' : (r.error ?? 'Failed')}
+              <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.label}</div>
+              <div style={{ color: ok ? btb.green : bad ? btb.loss : btb.textMuted, fontSize: 12, fontWeight: 600, lineHeight: 1.4, marginTop: 2 }}>
+                {r.status === 'pending' ? `Waiting for ${chain?.name ?? 'the network'} to confirm` : ok ? `Done on ${chain?.name ?? 'chain'}` : (r.error ?? 'It did not go through.')}
               </div>
             </div>
             {r.hash && (
-              <a href={`${explorer ?? 'https://etherscan.io'}/tx/${r.hash}`} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                style={{ flexShrink: 0, color: btb.textMuted, fontSize: 11, fontFamily: 'monospace', textDecoration: 'none' }}>tx</a>
+              <a href={`${explorer ?? 'https://etherscan.io'}/tx/${r.hash}`} target="_blank" rel="noreferrer"
+                style={{ flexShrink: 0, alignSelf: 'center', height: 28, padding: '0 10px', borderRadius: 999, display: 'flex', alignItems: 'center', background: 'rgba(var(--fg-rgb), 0.06)', color: btb.textMuted, fontSize: 11.5, fontWeight: 800, textDecoration: 'none' }}>View</a>
             )}
+            <button type="button" onClick={() => dismiss(r.id)} aria-label="Dismiss"
+              style={{ flexShrink: 0, alignSelf: 'center', width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', padding: 0 }}>
+              <Icon name="close" size={12} color={btb.textDim}/>
+            </button>
           </div>
         );
       })}
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
