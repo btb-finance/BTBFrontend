@@ -14,7 +14,7 @@ import { ChainLogo } from './ChainLogo';
 import { btb, MOBILE_GUTTER } from './design-tokens';
 import { useSidebar } from '../lib/SidebarContext';
 import { useTx } from '../lib/TxTracker';
-import { runCalls, supportsAtomicBatch, type Call } from '../lib/txRunner';
+import { runCalls, supportsAtomicBatch, txStepText, useTxStep, type Call } from '../lib/txRunner';
 import { withSafeMulticall } from '@/lib/safeMulticall';
 import { buildSwapGap, planSwapToFit, planZapToFit, type FitPlan, type ZapPlan } from '../lib/swapGap';
 import { useTokenStore, useTokenLogos, type Token } from '../lib/TokenStore';
@@ -247,6 +247,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   const logoFor = useTokenLogos();
   const [busy, setBusy] = useState(false);
   const [stepMsg, setStepMsg] = useState('');
+  const txStep = useTxStep();
   const [err, setErr] = useState<string | null>(null);
   const [bal0, setBal0] = useState(0n);
   const [bal1, setBal1] = useState(0n);
@@ -842,7 +843,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
       onDone?.();
       onClose();
     } catch (e) {
-      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
+      setErr(readableError(e, 'Liquidity was not added. Try again.'));
     } finally { setBusy(false); }
   }
 
@@ -875,7 +876,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
       onDone?.();
       onClose();
     } catch (e) {
-      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
+      setErr(readableError(e, 'Liquidity was not added. Try again.'));
     } finally { setBusy(false); }
   }
 
@@ -1113,7 +1114,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
       onDone?.();
       onClose();
     } catch (e) {
-      setErr((e as { shortMessage?: string })?.shortMessage ?? (e as Error)?.message ?? 'Failed');
+      setErr(readableError(e, 'Liquidity was not added. Try again.'));
     } finally { setBusy(false); setStepMsg(''); }
   }
 
@@ -1709,7 +1710,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 )}
                 </div>
                 <Button variant="success" size="md" onClick={() => (swapFit ? mintFit() : swapPreview ? mintBalanced() : mint())} disabled={!canMint} style={{ flex: 1, width: isMobile ? '100%' : undefined, minHeight: isMobile ? 44 : 48, borderRadius: 14, fontWeight: 800, fontSize: 15 }}>
-                  {busy ? (stepMsg || 'Confirming…')
+                  {busy ? txStepText(txStep, stepMsg || 'Confirming…')
                     : swapFit ? (payShort ? `Not enough ${payTok?.symbol}` : zapping ? (fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : zapPlan ? 'Swap & add LP' : 'Getting a price') : fitShort[0] || fitShort[1] ? `Not enough ${fitShort[0] ? sym0 : sym1}` : fitBudget[0] > 0n || fitBudget[1] > 0n ? (fitPlan ? (fitPlan.sellSide !== null ? 'Swap & add LP' : 'Add LP') : 'Getting a price') : 'Enter an amount')
                     : splitRange ? (short0 || short1 ? 'Insufficient balance' : 'Add split LPs') : swapPreview ? 'Swap & add LP' : (short0 || short1) ? 'Insufficient balance' : 'Add LP'}
                 </Button>
@@ -1975,7 +1976,13 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
             {isMobile && !splitRange && renderEarnings()}
             {isMobile && !splitRange && renderBacktest()}
 
-            {err && <div style={{ color: btb.loss, fontSize: 12, marginTop: 12 }}>{err}</div>}
+            {err && (
+              <div role="alert" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 12, padding: '11px 12px', borderRadius: 14, background: 'rgba(var(--loss-rgb), 0.08)', border: '1px solid rgba(var(--loss-rgb), 0.3)' }}>
+                <span style={{ width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--loss-rgb), 0.14)' }}><Icon name="close" size={11} color={btb.loss}/></span>
+                <span style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 12.5, lineHeight: 1.45 }}>{err}</span>
+                <button type="button" onClick={() => setErr(null)} style={{ background: 'none', border: 'none', color: btb.textMuted, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, padding: 0 }}>Dismiss</button>
+              </div>
+            )}
 
             {/* Deposit action lives at the end of the (shorter) right column,
                 not below the full-width chart, so it's always right under the

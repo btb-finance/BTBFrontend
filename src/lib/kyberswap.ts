@@ -82,7 +82,10 @@ export async function getKyberQuote(
 
   return {
     amountOut,
-    amountOutFormatted: amountOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 }),
+    // Below 0.001 keep four significant digits, so a tiny output reads 0.0000004373 and not 0.
+    amountOutFormatted: amountOutNum > 0 && amountOutNum < 0.001
+      ? amountOutNum.toLocaleString('en-US', { maximumSignificantDigits: 4 })
+      : amountOutNum.toLocaleString('en-US', { maximumFractionDigits: 6 }),
     amountOutUsd:  parseFloat(rs?.amountOutUsd ?? '0'),
     // Out per in, from the amounts alone: a token Kyber has no USD price for still has a rate.
     rate:          amountInNum > 0 ? amountOutNum / amountInNum : 0,
