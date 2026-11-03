@@ -201,6 +201,7 @@ function balanceNum(t: Token): number {
 }
 
 function realUsdValue(t: Token): number {
+  if (t.suspiciousQuote) return 0;
   return balanceNum(t) * (t.usdPrice ?? 0);
 }
 
@@ -281,7 +282,7 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
             <div style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>
               {bal.toLocaleString('en-US', { maximumFractionDigits: 4 })}
             </div>
-            {t.usdValue != null && t.usdValue > 0 && (
+            {!t.suspiciousQuote && t.usdValue != null && t.usdValue > 0 && (
               <div style={{ color: btb.textMuted, fontSize: 11 }}>${t.usdValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
             )}
           </div>

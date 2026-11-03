@@ -84,8 +84,11 @@ export function useOtherChainBalances(walletAddress?: string) {
             const decimals = typeof token.decimals === 'number' && Number.isFinite(token.decimals) ? token.decimals : 18;
             const isNative = token.address.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
               || token.address.toLowerCase() === '0x0000000000000000000000000000000000000000';
+            // A price with no market price and no timestamp is Krystal's stale
+            // last-seen value. The API route replaces it when DexScreener finds a
+            // pool with real liquidity, so one still stale here has no market
+            // behind it (dust airdrops priced off a few cents of LP). Any size.
             const suspiciousQuote = !isNative && tag !== 'VERIFIED'
-              && (quote?.value ?? 0) >= 100
               && (quote?.timestamp ?? 0) <= 0
               && (quote?.marketPrice ?? 0) <= 0;
             result.push({
