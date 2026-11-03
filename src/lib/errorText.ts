@@ -51,6 +51,15 @@ export function readableError(reason: unknown, fallback: string): string {
   // The wallet's own "user rejected the request" is a choice, not a failure.
   if (/user (rejected|denied)|rejected the request|denied (transaction|message) signature/i.test(raw)) return 'Cancelled in your wallet.';
 
+  // Too little ETH left for the network fee: the most common failure, and the raw text never says so plainly.
+  if (/insufficient funds for (gas|intrinsic)|exceeds the balance of the account|gas required exceeds allowance/i.test(raw)) return 'Not enough ETH to pay the network fee. Add a little ETH and try again.';
+  // Slippage guards from routers and position managers: the price moved between the quote and the block.
+  if (/too little received|return amount is not enough|price slippage check|slippage|insufficient output amount|INSUFFICIENT_OUTPUT_AMOUNT/i.test(raw)) return 'The price moved more than your slippage allows, so nothing went through. Try again for a fresh price.';
+  // The wallet is on another network than the one the action needs.
+  if (/chain mismatch|does not match the target chain|switch chain/i.test(raw)) return 'Your wallet is on a different network. Switch networks and try again.';
+  // A transfer the token refused: usually an approval or balance that changed after the quote.
+  if (/\bSTF\b|transfer amount exceeds (balance|allowance)|ERC20: insufficient/i.test(raw)) return 'The token could not be moved. Check your balance and approval, then try again.';
+
   // Viem's catch-all when the wallet answers with an error it does not explain.
   if (/unknown rpc error/i.test(raw)) return 'Your wallet could not send this. Try again, or use a smaller amount if the token has thin liquidity.';
 

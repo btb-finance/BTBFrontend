@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import type { Config } from 'wagmi';
 import { getAccount, getCapabilities, getPublicClient, sendCalls, sendTransaction, switchChain } from 'wagmi/actions';
 import { decodeFunctionData, erc20Abi, type PublicClient } from 'viem';
@@ -15,6 +16,29 @@ export type Call = {
   /** Human-readable action shown when a wallet requires sequential confirmations. */
   label?: string;
 };
+
+/**
+ * The step a running action is on, shared app wide: the popup and any button read it, so no screen keeps its own
+ * "approving" or "swapping" state. `phase` is `sign` while the wallet asks, `confirm` while the network confirms.
+ */
+export type TxStep = { label: string; approve: boolean; token?: string; phase: 'sign' | 'confirm'; index: number; total: number };
+let currentStep: TxStep | null = null;
+const stepListeners = new Set<() => void>();
+function setTxStep(step: TxStep | null) { currentStep = step; stepListeners.forEach((l) => l()); }
+export function useTxStep(): TxStep | null {
+  return useSyncExternalStore((cb) => { stepListeners.add(cb); return () => { stepListeners.delete(cb); }; }, () => currentStep, () => null);
+}
+/** A busy button's text: "Approving USDC..." during an approval, else the screen's own wording. */
+export function txStepText(step: TxStep | null, fallback: string): string {
+  return step?.approve ? `Approving ${step.token ?? 'token'}…` : fallback;
+}
+
+const isApproveCall = (c: Call) => !!c.data?.startsWith('0x095ea7b3');
+/** The approved token's symbol, read once per approval; an approval then labels itself on every screen. */
+async function approveToken(config: Config, c: Call, chainId?: number): Promise<string | undefined> {
+  const client = getPublicClient(config, chainId ? { chainId: chainId as SupportedChainId } : undefined);
+  return client?.readContract({ address: c.to, abi: erc20Abi, functionName: 'symbol' }).then(String).catch(() => undefined);
+}
 
 /** `hashes`: every transaction the action sent, in order (one for a batch); `lastHash` is the final one. */
 export type RunResult = { lastHash?: `0x${string}`; hashes?: `0x${string}`[] };
@@ -82,6 +106,14 @@ export async function ensureTargetChain(config: Config, chainId?: number): Promi
  */
 export async function runCalls(
   config: Config,
+  args: { account: `0x${string}`; calls: Call[]; label: string; track: TrackFn; chainId?: number; verify?: ChainStateCheck },
+): Promise<RunResult> {
+  try { return await runCallsInner(config, args); }
+  finally { setTxStep(null); }
+}
+
+async function runCallsInner(
+  config: Config,
   { account, calls, label, track, chainId, verify }: { account: `0x${string}`; calls: Call[]; label: string; track: TrackFn; chainId?: number; verify?: ChainStateCheck },
 ): Promise<RunResult> {
   if (calls.length === 0) return {};
@@ -104,11 +136,13 @@ export async function runCalls(
   if (pendingCalls.length > 1) {
     try {
       await ensureTargetChain(config, chainId);
+      setTxStep({ label, approve: false, phase: 'sign', index: 1, total: 1 });
       const { id } = await whileSigning(() => sendCalls(config, {
         account,
         chainId: chainId as SupportedChainId | undefined,
         calls: pendingCalls.map(c => ({ to: c.to, data: c.data, value: c.value })),
       }));
+      setTxStep({ label, approve: false, phase: 'confirm', index: 1, total: 1 });
       const { done } = track({ callsId: id, label, chainId });
       const res = await done;
       if (res.status !== 'confirmed') throw new Error(res.error ?? 'Batch failed');
@@ -130,11 +164,16 @@ export async function runCalls(
     // another tab, or a just-indexed batch may already have satisfied it.
     if (await isSatisfiedApproval(config, account, c, chainId)) continue;
     await ensureTargetChain(config, chainId);
-    const actionLabel = c.label ?? label;
+    const approve = isApproveCall(c);
+    const token = approve ? await approveToken(config, c, chainId) : undefined;
+    const actionLabel = c.label ?? (approve ? `Approve ${token ?? 'token'}` : label);
     const stepLabel = pendingCalls.length > 1 ? `${actionLabel} (${i + 1}/${pendingCalls.length})` : actionLabel;
+    const step = { label: stepLabel, approve, token, index: i + 1, total: pendingCalls.length };
+    setTxStep({ ...step, phase: 'sign' });
     const hash = await whileSigning(() => sendTransaction(config, { account, chainId: chainId as SupportedChainId | undefined, to: c.to, data: c.data, value: c.value, gas: c.gas }));
     lastHash = hash;
     hashes.push(hash);
+    setTxStep({ ...step, phase: 'confirm' });
     const { done } = track({ hash, label: stepLabel, chainId });
     const res = await done;
     if (res.status !== 'confirmed') throw new Error(res.error ?? 'Transaction failed');

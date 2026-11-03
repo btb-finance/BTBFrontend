@@ -6,9 +6,10 @@ import { getPublicClient } from 'wagmi/actions';
 import { useAction } from 'convex/react';
 import { erc20Abi, encodeFunctionData, formatUnits, isAddress, isHex, parseUnits } from 'viem';
 import { useTx } from '@/lib/TxTracker';
-import { runCalls, type Call } from '@/lib/txRunner';
+import { runCalls, txStepText, useTxStep, type Call } from '@/lib/txRunner';
 import { Glass } from '../Glass';
 import { Button } from '../Button';
+import { readableError } from '../../lib/errorText';
 import { Icon } from '../Icon';
 import { Portal } from '../Portal';
 import { TokenIcon } from '../TokenIcon';
@@ -22,7 +23,6 @@ import { BTB_SWAP_FEE_PERCENT, buildKyberTx, getKyberQuote, KYBER_CHAINS, type K
 import { CHAIN_META, SUPPORTED_CHAINS, type SupportedChainId } from '../../lib/wagmi';
 import { api } from '../../../convex/_generated/api';
 import { useChainTheme } from '../../lib/ChainThemeContext';
-import { SWAP_XP } from '../../../convex/xpRules';
 import { focusOnOpen } from '../../lib/focusOnOpen';
 
 const NATIVE_ADDRESSES = new Set([
@@ -404,7 +404,8 @@ function PinnedAction({ children }: { children: React.ReactNode }) {
   return (
     <>
       <div style={{
-        position: 'fixed', left: 12, right: 12, bottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', zIndex: 60,
+        // Just above the bottom menu (10px gap plus a 60px pill), so both stay visible.
+        position: 'fixed', left: 12, right: 12, bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', zIndex: 60,
         padding: 6, borderRadius: 20, background: 'rgba(var(--bg-rgb), 0.94)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         border: '1px solid rgba(var(--fg-rgb), 0.1)', boxShadow: '0 -6px 24px rgba(0,0,0,0.18)', display: 'flex', flexDirection: 'column',
       }}>{children}</div>
@@ -567,7 +568,7 @@ function nativeEthForChain(chainId: number): Token {
   return { address: 'ETH', symbol: meta.symbol, name: meta.name, decimals: 18, chainId };
 }
 
-type SwapStep = 'form' | 'confirm' | 'approving' | 'sending' | 'success' | 'error';
+type SwapStep = 'form' | 'confirm' | 'sending' | 'success' | 'error';
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
@@ -865,7 +866,6 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
       // ERC-20: approve the router first if the allowance is short. Batched with
       // the swap below so supporting wallets confirm both at once; otherwise the
       // runner approves, WAITS for it to confirm, then swaps.
-      let needsApprove = false;
       if (!isNativeFrom) {
         const amountInRaw = BigInt(activeQuote.routeSummary.amountIn ?? '0');
         const client = getPublicClient(config, { chainId: chainId as SupportedChainId });
@@ -876,7 +876,6 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
           args: [address, activeQuote.routerAddress as `0x${string}`],
         }).catch(() => 0n) : 0n;
         if (currentAllowance < amountInRaw) {
-          needsApprove = true;
           calls.push({
             to: fromToken.address as `0x${string}`,
             data: encodeFunctionData({
@@ -899,11 +898,11 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
         gas: tx.gas ? BigInt(tx.gas) : undefined,
       });
 
-      setStep(needsApprove ? 'approving' : 'sending');
+      setStep('sending');
       const { lastHash } = await runCalls(config, {
         account: address,
         calls,
-        label: `Swap ${fromToken.symbol} to ${toToken.symbol}`,
+        label: `Swap ${fromAmt} ${fromToken.symbol} for ${bestOutFormatted} ${toToken.symbol}`,
         track, chainId,
       });
 
@@ -915,7 +914,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
       // The server reads the transaction and decides the XP; no hash, no award.
       if (address && lastHash) awardTxXp({ walletAddress: address, chainId, txHash: lastHash, kind: 'swap' }).then(r => showXp(r.awarded, 'Swap')).catch(() => {});
     } catch (e: any) {
-      setErrMsg(e?.shortMessage ?? e?.message ?? 'Transaction failed');
+      setErrMsg(readableError(e, 'The swap did not go through. Try again.'));
       setStep('error');
     }
   }
@@ -939,7 +938,8 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
 
   // Everything happens on this one screen: progress in the button, the
   // result as a banner above it. No review, progress, or result pages.
-  const busy = step === 'approving' || step === 'sending';
+  const busy = step === 'sending';
+  const txStep = useTxStep();
   return (
     <Screen gap={16} style={{ width: '100%', maxWidth: 520, margin: '0 auto' }}>
       {/* One swap card in Wind Swap's layout: the header row, You pay and You receive as inset boxes with the
@@ -1034,7 +1034,6 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
           <Icon name="check" size={16} color={btb.green}/>
           <div style={{ flex: 1, minWidth: 0, color: btb.text, fontSize: 13, fontWeight: 700 }}>
             Swapped{lastSwap ? ` ${lastSwap.amount} ${lastSwap.from} for ${lastSwap.out} ${lastSwap.to}` : ''}
-            <span style={{ color: btb.textMuted, fontWeight: 500 }}> · +{SWAP_XP} XP</span>
           </div>
           {txHash && <a href={`${chainExplorer}/tx/${txHash}`} target="_blank" rel="noreferrer" style={{ color: btb.textMuted, fontSize: 12, flexShrink: 0 }}>tx</a>}
         </div>
@@ -1057,7 +1056,7 @@ function SameChainSwap({ initialFrom, onConnectWallet, onBridge, onBack }: { ini
         icon={address && canSwap && !busy ? 'swap' : undefined}
         style={{ minHeight: 56, borderRadius: 16, fontSize: 17 }}
       >
-        {step === 'approving' ? 'Approving…' : step === 'sending' ? 'Swapping…' : !address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? `Swap ${fromToken.symbol} for ${toToken.symbol}` : quoteErr ? 'No route found' : 'Enter amount'}
+        {busy ? txStepText(txStep, 'Swapping…') : !address ? 'Connect wallet' : !fromAmt ? 'Enter amount' : insufficientBalance ? `Insufficient ${fromToken.symbol}` : quoting ? 'Getting best price…' : quote ? `Swap ${fromToken.symbol} for ${toToken.symbol}` : quoteErr ? 'No route found' : 'Enter amount'}
       </Button>
       </PinnedAction>
       </div>
@@ -1124,6 +1123,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet, onBack }: { onStandardSwa
   const [quoting, setQuoting] = useState(false);
   const [quoteErr, setQuoteErr] = useState<string | null>(null);
   const [step, setStep] = useState<SwapStep>('form');
+  const txStep = useTxStep();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
   const [errMsg, setErrMsg] = useState('');
   const quoteSeq = useRef(0);
@@ -1255,19 +1255,17 @@ function BridgeSwap({ onStandardSwap, onConnectWallet, onBack }: { onStandardSwa
       const tx = active.transactionRequest;
       if (tx.chainId !== fromChainId || tx.from.toLowerCase() !== address.toLowerCase() || !isAddress(tx.to) || !isHex(tx.data) || tx.data === '0x') throw new Error('The bridge returned unsafe transaction data');
       const calls: Call[] = [];
-      let needsApprove = false;
       const amountIn = BigInt(active.estimate.fromAmount);
       if (!isNativeToken(fromToken.address)) {
         if (!isAddress(active.estimate.approvalAddress)) throw new Error('The bridge returned an invalid approval target');
         const client = getPublicClient(config, { chainId: fromChainId as SupportedChainId });
         const allowance = client ? await client.readContract({ address: fromToken.address as `0x${string}`, abi: erc20Abi, functionName: 'allowance', args: [address, active.estimate.approvalAddress as `0x${string}`] }).catch(() => 0n) : 0n;
         if (allowance < amountIn) {
-          needsApprove = true;
           calls.push({ to: fromToken.address as `0x${string}`, data: encodeFunctionData({ abi: erc20Abi, functionName: 'approve', args: [active.estimate.approvalAddress as `0x${string}`, amountIn] }) });
         }
       }
       calls.push({ to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: BigInt(tx.value || '0'), gas: tx.gasLimit ? BigInt(tx.gasLimit) : undefined });
-      setStep(needsApprove ? 'approving' : 'sending');
+      setStep('sending');
       const { lastHash } = await runCalls(config, { account: address, calls, label: `Bridge ${fromToken.symbol} to ${toToken.symbol}`, track, chainId: fromChainId });
       if (lastHash) setTxHash(lastHash);
       setStep('success');
@@ -1276,7 +1274,7 @@ function BridgeSwap({ onStandardSwap, onConnectWallet, onBack }: { onStandardSwa
       const rawMessage = (error as { shortMessage?: string; message?: string }).shortMessage ?? (error as Error).message ?? 'Transfer failed';
       setErrMsg(rawMessage.toLowerCase().includes('return amount is not enough')
         ? 'The bridge price moved past the protected minimum. No funds were sent. Try again for a fresh quote.'
-        : rawMessage);
+        : readableError(error, 'The transfer did not go through. Try again.'));
       setStep('error');
     }
   }
@@ -1374,12 +1372,12 @@ function BridgeSwap({ onStandardSwap, onConnectWallet, onBack }: { onStandardSwa
     </Screen>
   );
 
-  if (step === 'confirm' || step === 'approving' || step === 'sending') return (
+  if (step === 'confirm' || step === 'sending') return (
     <Screen gap={16} style={{ width: '100%', maxWidth: 520, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><button onClick={() => setStep('form')} style={{ width: 36, height: 36, borderRadius: 12, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), .08)', color: btb.text, cursor: 'pointer' }}>←</button><div><div style={{ color: btb.text, fontSize: 22, fontWeight: 850 }}>Confirm bridge</div><div style={{ color: btb.textMuted, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}><ChainLogo chainId={fromChainId} size={16}/>{CHAIN_META[fromChainId]?.name}<span>to</span><ChainLogo chainId={toChainId} size={16}/>{CHAIN_META[toChainId]?.name}</div></div></div>
       <Glass padding={18} radius={22} strong><div style={{ color: btb.textMuted, fontSize: 12 }}>You pay</div><div style={{ color: btb.text, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{Number(fromAmt).toLocaleString('en-US', { maximumFractionDigits: 8 })} {fromToken.symbol}</div><div style={{ height: 1, background: 'rgba(var(--fg-rgb), .08)', margin: '16px 0' }}/><div style={{ color: btb.textMuted, fontSize: 12 }}>You receive on {CHAIN_META[toChainId]?.name}</div><div style={{ color: btb.green, fontSize: 21, fontWeight: 850, marginTop: 4 }}>{outFormatted} {toToken.symbol}</div></Glass>
       <Glass padding={14} radius={18} soft><InfoRow label="Arrival" value={duration <= 5 ? '≈ a few seconds' : `≈ ${Math.ceil(duration / 60)} min`}/><InfoRow label="Destination gas" value="Not required"/><InfoRow label="Minimum received" value={`${quote ? Number(formatUnits(BigInt(quote.estimate.toAmountMin), toToken.decimals)).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'} ${toToken.symbol}`}/><InfoRow label="Route fees" value={routeFeeUsd > 0 ? `~ $${routeFeeUsd.toFixed(2)} · from amount` : 'None'}/>{lifiFeePercent > 0 && <InfoRow label="LI.FI service fee" value={`${lifiFeePercent.toFixed(2)}%`}/>}<InfoRow label="BTB fee" value={btbFeePercent > 0 ? `${btbFeePercent}%` : 'Free'}/><InfoRow label="Route" last value={route}/></Glass>
-      <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'approving' || step === 'sending'} loading={step === 'approving' || step === 'sending'} style={{ flex: 2 }}>{step === 'approving' ? 'Approving…' : step === 'sending' ? 'Starting transfer…' : 'Confirm'}</Button></div>
+      <div style={{ display: 'flex', gap: 10 }}><Button variant="ghost" size="md" onClick={() => setStep('form')} style={{ flex: 1 }}>Cancel</Button><Button size="md" onClick={execute} disabled={step === 'sending'} loading={step === 'sending'} style={{ flex: 2 }}>{step === 'sending' ? txStepText(txStep, 'Starting transfer…') : 'Confirm'}</Button></div>
     </Screen>
   );
 
