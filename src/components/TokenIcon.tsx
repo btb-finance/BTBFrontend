@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 
 const TOKEN_MAP: Record<string, { bg: string; glyph: string }> = {
   ETH:  { bg: 'linear-gradient(135deg,#627EEA,#3C5AE0)', glyph: 'E' },
@@ -20,18 +21,28 @@ const TOKEN_MAP: Record<string, { bg: string; glyph: string }> = {
 /** BTB's own token always shows the app logo, whatever a list or indexer carries. */
 const BTB_LOGO = '/btblogo.jpg';
 
+/** Used when a list or balance source sends ETH or WETH without a logo (Robinhood's native balance does). */
+const ETH_LOGO = 'https://assets.coingecko.com/coins/images/279/small/ethereum.png';
+
 export function TokenIcon({ symbol, size = 36, logoUrl }: { symbol: string; size?: number; logoUrl?: string }) {
-  if (symbol?.toUpperCase() === 'BTB') logoUrl = BTB_LOGO;
-  if (logoUrl) {
+  const sym = symbol?.toUpperCase();
+  if (sym === 'BTB') logoUrl = BTB_LOGO;
+  // Logos to try in order; a broken one moves to the next, and the letter badge comes last.
+  const candidates = [logoUrl, sym === 'ETH' || sym === 'WETH' ? ETH_LOGO : undefined]
+    .filter((u, i, a): u is string => Boolean(u) && a.indexOf(u) === i);
+  const [failed, setFailed] = useState<string[]>([]);
+  const src = candidates.find(u => !failed.includes(u));
+  if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={logoUrl}
+        key={src}
+        src={src}
         alt={symbol}
         width={size}
         height={size}
         style={{ borderRadius: size, flexShrink: 0, objectFit: 'cover', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
-        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        onError={() => setFailed(f => [...f, src])}
       />
     );
   }
