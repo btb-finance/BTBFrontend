@@ -200,6 +200,11 @@ function balanceNum(t: Token): number {
   return !bal || !isFinite(bal) ? 0 : bal;
 }
 
+function fmtUsd(v: number): string {
+  if (v < 0.01) return '<$0.01';
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function realUsdValue(t: Token): number {
   if (t.suspiciousQuote) return 0;
   return balanceNum(t) * (t.usdPrice ?? 0);
@@ -277,14 +282,15 @@ function TokenPicker({ tokens, selected, loading, onSelect, onImport, onClose, h
       {(() => {
         const bal = parseFloat(t.balance ?? '0');
         if (!bal || !isFinite(bal)) return null;
+        // Dollar value leads (the list is sorted by it); the amount sits under it.
+        const usd = realUsdValue(t);
+        const amount = bal.toLocaleString('en-US', { maximumFractionDigits: 4 });
         return (
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>
-              {bal.toLocaleString('en-US', { maximumFractionDigits: 4 })}
+            <div style={{ color: usd > 0 ? btb.text : btb.textDim, fontSize: 14, fontWeight: 700 }}>
+              {usd > 0 ? fmtUsd(usd) : t.suspiciousQuote ? 'No price' : '$0'}
             </div>
-            {!t.suspiciousQuote && t.usdValue != null && t.usdValue > 0 && (
-              <div style={{ color: btb.textMuted, fontSize: 11 }}>${t.usdValue.toLocaleString('en-US', { maximumFractionDigits: 2 })}</div>
-            )}
+            <div style={{ color: btb.textMuted, fontSize: 11 }}>{amount} {t.symbol}</div>
           </div>
         );
       })()}

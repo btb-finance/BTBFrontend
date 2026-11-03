@@ -92,7 +92,9 @@ export function useOtherChainBalances(walletAddress?: string) {
               && (quote?.timestamp ?? 0) <= 0
               && (quote?.marketPrice ?? 0) <= 0;
             result.push({
-              address: token.address.toLowerCase(),
+              // 'ETH' is the app's native-coin address on every chain; Krystal's 0xeeee form
+              // would sit next to the mainnet snapshot's 'ETH' as a second row.
+              address: isNative ? 'ETH' : token.address.toLowerCase(),
               symbol: token.symbol,
               name: token.name || token.symbol,
               decimals,
