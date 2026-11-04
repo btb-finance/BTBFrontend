@@ -142,6 +142,12 @@ export const daily = internalAction({
       if (!r.cursor) break;
       state = { cursor: r.cursor, wallet: r.wallet, kept: r.kept };
     }
+    let scans = 0;
+    for (let i = 0; i < MAX_ROUNDS; i++) {
+      const r = await ctx.runMutation(internal.tokenScan.dropOld, {});
+      scans += r.deleted;
+      if (!r.more) break;
+    }
     let walletCursor: string | null = null;
     for (let i = 0; i < MAX_ROUNDS; i++) {
       const r: { deleted: number; cursor: string | null } = await ctx.runMutation(internal.cleanup.dropInactiveWallets, { cursor: walletCursor });
@@ -149,6 +155,6 @@ export const daily = internalAction({
       if (!r.cursor) break;
       walletCursor = r.cursor;
     }
-    console.log(`cleanup: ${alerts} old notifications, ${sessions} expired sessions, ${messages} old chat messages, ${wallets} wallets inactive 90 days deleted`);
+    console.log(`cleanup: ${alerts} old notifications, ${sessions} expired sessions, ${messages} old chat messages, ${scans} old token scans, ${wallets} wallets inactive 90 days deleted`);
   },
 });

@@ -137,7 +137,7 @@ function ticksFromPrices(minStr: string, maxStr: string, pool: MintPool, spacing
  * when only one token is held. The step-2 "insufficient balance" warning
  * offers the same fix inline.
  */
-export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initialTicks, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, stakeByDefault = true, carryTag, onClose, onDone }: {
+export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initialTicks, initialRangePct, noHooks = false, fees24hUsd, tokenPricesUsd, v4PoolId, simulate, dex = 'uniswap', chainId = 1, stakeByDefault = true, carryTag, onClose, onDone }: {
   /** V3 mint: the (unsorted) token pair. Ignored when `v4PoolId` is set. */
   tokenA?: `0x${string}`; tokenB?: `0x${string}`;
   /** Which V3-architecture DEX a token-pair mint targets (V4 is Uniswap-only). */
@@ -148,6 +148,10 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   initialPool?: string;
   /** Exact starting range (e.g. handed over from the simulator page). */
   initialTicks?: { tickLower: number; tickUpper: number };
+  /** Starting range as percent moves of `token`'s price (Token Scan handoff), e.g. -14 and +6. Placed once the pool loads. */
+  initialRangePct?: { token: string; lowerPct: number; upperPct: number };
+  /** V4: refuse a pool with a hook (callers that cannot see the hook before opening, like Token Scan). */
+  noHooks?: boolean;
   /** Pool's recent daily LP fees (USD) — earnings fallback when no Graph key. */
   fees24hUsd?: number;
   /** Chain-native address-keyed quotes, used when global price APIs lack the token. */
@@ -541,10 +545,29 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
   // default, so a stable pair opens on a tight band and a volatile one on a band it would actually have stayed in.
   const suggested = useMemo(() => (pool?.exists && recentCloses ? historyRange(recentCloses, pool, spacing) : null), [pool, recentCloses, spacing]);
   const rangeTouched = useRef(false);
+  // A Token Scan range is in percent of the scanned token's price. Pool ticks price token1 in token0, so when the
+  // scanned token is token1 its moves invert. Applied once, before the history suggestion can take the slot.
+  const scanRangeApplied = useRef(false);
   useEffect(() => {
-    if (!suggested || rangeTouched.current || initialTicks || rangeMode !== 5) return;
+    if (!initialRangePct || scanRangeApplied.current || rangeTouched.current || !pool?.exists || !spacing) return;
+    scanRangeApplied.current = true;
+    const lo = 1 + initialRangePct.lowerPct / 100, hi = 1 + initialRangePct.upperPct / 100;
+    if (!(lo > 0 && hi > lo)) return;
+    const isToken0 = pool.token0.toLowerCase() === initialRangePct.token.toLowerCase();
+    const [fLo, fHi] = isToken0 ? [lo, hi] : [1 / hi, 1 / lo];
+    const step = Math.log(1.0001);
+    const tickLower = Math.max(nearestUsableTick(MIN_TICK, spacing), Math.floor((pool.tick + Math.log(fLo) / step) / spacing) * spacing);
+    const tickUpper = Math.min(nearestUsableTick(MAX_TICK, spacing), Math.ceil((pool.tick + Math.log(fHi) / step) / spacing) * spacing);
+    if (tickUpper > tickLower) setRangeMode({ tickLower, tickUpper });
+  }, [initialRangePct, pool, spacing]);
+  useEffect(() => {
+    if (!noHooks || !v4Pool?.hooks || /^0x0+$/.test(v4Pool.hooks)) return;
+    setPoolErr('This pool runs a hook, which can change fees in ways we cannot preview. Pick another pool for this token.');
+  }, [noHooks, v4Pool]);
+  useEffect(() => {
+    if (!suggested || rangeTouched.current || initialTicks || initialRangePct || rangeMode !== 5) return;
     setRangeMode({ tickLower: suggested.tickLower, tickUpper: suggested.tickUpper });
-  }, [suggested, rangeMode, initialTicks]);
+  }, [suggested, rangeMode, initialTicks, initialRangePct]);
   const onSuggested = !!suggested && rangeMode !== null && typeof rangeMode === 'object' && rangeMode.tickLower === suggested.tickLower && rangeMode.tickUpper === suggested.tickUpper;
   const tightPair = !!suggested && Math.max(Math.abs(suggested.downPct), suggested.upPct) < 1;
   const presets = [...(suggested ? [{ label: HISTORY_LABEL, pct: HISTORY_PRESET }] : []), ...(tightPair ? TIGHT_PRESETS : RANGE_PRESETS)];

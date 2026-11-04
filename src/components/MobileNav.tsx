@@ -26,12 +26,14 @@ const MORE_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'stake',    label: 'Agent',     icon: 'bolt' },
 ];
 
-export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect, onDisconnect, onViewAddress }: {
+export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onScan, scanActive = false, onConnect, onDisconnect, onViewAddress }: {
   tab: Tab;
   setTab: (t: Tab) => void;
   address?: string;
   isReadOnly: boolean;
   onDocs: () => void;
+  onScan: () => void;
+  scanActive?: boolean;
   onConnect: () => void;
   onDisconnect: () => void;
   onViewAddress: (addr: string | undefined) => void;
@@ -43,7 +45,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
   const { sheetOpen, signing } = useUiLock();
   const { mode, toggleMode } = useChainTheme();
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : undefined;
-  const moreActive = MORE_TABS.some(i => i.id === tab);
+  const moreActive = scanActive || MORE_TABS.some(i => i.id === tab);
 
   // Glass pill like the desktop bar; icon over label since mobile is narrow.
   const item = (active: boolean, icon: string, label: string, onClick: () => void) => (
@@ -78,7 +80,8 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onConnect,
             {/* remaining tabs + overlays */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
               {[
-                ...MORE_TABS.map(i => ({ ...i, onClick: () => { setTab(i.id); setSheet(false); }, active: tab === i.id })),
+                ...MORE_TABS.map(i => ({ ...i, onClick: () => { setTab(i.id); setSheet(false); }, active: !scanActive && tab === i.id })),
+                { id: 'scan', label: 'Scan', icon: 'shield', onClick: () => { onScan(); setSheet(false); }, active: scanActive },
                 { id: 'docs', label: 'Docs', icon: 'doc', onClick: () => { onDocs(); setSheet(false); }, active: false },
               ].map(i => (
                 <div key={i.id} onClick={i.onClick} style={{
