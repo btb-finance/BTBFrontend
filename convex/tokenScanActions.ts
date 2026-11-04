@@ -21,11 +21,23 @@ function usd(n: number): string {
   return `$${n.toFixed(0)}`;
 }
 
+/**
+ * GeckoTerminal's data (pool fees, daily prices, recent trades). Its free API limits by IP address, and Convex's
+ * shared servers are always over that limit, so from here it answers 429. With COINGECKO_API_KEY set, the same
+ * endpoints go through CoinGecko's on-chain API, limited per key instead. COINGECKO_PLAN=pro uses the paid host.
+ */
+function gecko(path: string): [string, Record<string, string>] {
+  const key = process.env.COINGECKO_API_KEY;
+  if (!key) return [`https://api.geckoterminal.com/api/v2${path}`, UA];
+  const pro = process.env.COINGECKO_PLAN === "pro";
+  return [`https://${pro ? "pro-api" : "api"}.coingecko.com/api/v3/onchain${path}`, { ...UA, [pro ? "x-cg-pro-api-key" : "x-cg-demo-api-key"]: key }];
+}
+
 /** GET as JSON, or null. A 429 (GeckoTerminal allows about 30 calls a minute) is retried twice after a short wait. */
-async function getJson<T>(url: string): Promise<T | null> {
+async function getJson<T>(url: string, headers: Record<string, string> = UA): Promise<T | null> {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(url, { headers: UA, signal: AbortSignal.timeout(12_000) });
+      const res = await fetch(url, { headers, signal: AbortSignal.timeout(12_000) });
       if (res.status === 429 && attempt < 2) { await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); continue; }
       return res.ok ? (await res.json()) as T : null;
     } catch { return null; }
@@ -121,6 +133,10 @@ export const scan = action({
 
     const result = await computeScan(chainId, t, previous);
     if (!result) return { ok: false, reason: `No DEX pools found for this token on ${chain.name}. Nothing was charged.` };
+    // Fee rates, prices and trades all come from GeckoTerminal. If every one of them is missing, the scan would be
+    // half empty, so it is not saved and nothing is charged.
+    const geckoDown = !(result.lp.pools ?? []).some((p) => p.feePct != null) && !result.history?.length && !result.flow;
+    if (geckoDown) return { ok: false, reason: "Our market data source is not answering right now, so this scan would miss fees, prices and trades. Nothing was charged. Try again in a few minutes." };
     return await ctx.runMutation(internal.tokenScan.save, {
       chainId, token: t, symbol: result.symbol, score: result.grade.score, data: JSON.stringify(result), wallet,
       rescan: !!rescan, seenAt: seenAt ?? null,
@@ -147,16 +163,16 @@ export async function computeScan(chainId: number, t: string, previous: ScanResu
   // From the deepest pool: 30 days of daily closes and volume priced in this token, and its latest 300 swaps.
   // Holders: a second Blockscout page, so ranks 51 to 100 are known.
   const deepest = [...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0];
-  const gecko = `https://api.geckoterminal.com/api/v2/networks/${chain.gecko}/pools/${deepest.pairAddress}`;
+  const poolPath = `/networks/${chain.gecko}/pools/${deepest.pairAddress}`;
   const next = (bsHolders as { next_page_params?: Record<string, string | number> | null } | null)?.next_page_params;
   const [ohlcv, trades, holders2, poolInfo] = await Promise.all([
-    getJson<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(`${gecko}/ohlcv/day?limit=30&currency=usd&token=${t}`),
-    getJson<{ data?: { attributes: GeckoTrade }[] }>(`${gecko}/trades`),
+    getJson<{ data?: { attributes?: { ohlcv_list?: number[][] } } }>(...gecko(`${poolPath}/ohlcv/day?limit=30&currency=usd&token=${t}`)),
+    getJson<{ data?: { attributes: GeckoTrade }[] }>(...gecko(`${poolPath}/trades`)),
     next && chain.blockscout
       ? getJson<{ items?: BsHolder[] }>(`${chain.blockscout}/api/v2/tokens/${t}/holders?${new URLSearchParams(Object.entries(next).map(([k, v]) => [k, String(v)]))}`)
       : Promise.resolve(null),
-    getJson<{ data?: { attributes: { address: string; pool_fee_percentage?: string | null } }[] }>(
-      `https://api.geckoterminal.com/api/v2/networks/${chain.gecko}/pools/multi/${[...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0)).slice(0, 10).map((p) => p.pairAddress).join(",")}`),
+    getJson<{ data?: { attributes: { address: string; pool_fee_percentage?: string | null } }[] }>(...gecko(
+      `/networks/${chain.gecko}/pools/multi/${[...pairs].sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0)).slice(0, 10).map((p) => p.pairAddress).join(",")}`)),
   ]);
   const days = (ohlcv?.data?.attributes?.ohlcv_list ?? [])
     .filter((r) => Number.isFinite(r[0]) && Number.isFinite(r[4]) && r[4] > 0)

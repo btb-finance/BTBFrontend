@@ -97,6 +97,68 @@ function readUrl(): { chainId: number; token: string } | null {
   return chainId && /^0x[0-9a-fA-F]{40}$/.test(token) ? { chainId, token: token.toLowerCase() } : null;
 }
 
+// ── Filling gaps in older scans ─────────────────────────────────────────────
+
+type Fill = { key: string; fees: Record<string, number>; history: [number, number][]; volumes: [number, number][] };
+
+/**
+ * Scans saved before fee rates and price history were added, or whose GeckoTerminal calls were refused, are missing
+ * them. While the page is open those are fetched live (free, from the reader's browser) and merged in, so Steps 2
+ * and 3 and the backtest work without a rescan. `filling` is true until the fetch settles.
+ */
+function useFilledScan(d: ScanResult | null): { data: ScanResult | null; filling: boolean } {
+  const pools = useMemo(() => (d ? d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []) : []), [d]);
+  const key = d ? `${d.chainId}:${d.token}` : '';
+  // Fees are fetched only when the scan has no fee for its own pool; history only when it has none at all.
+  const needFees = !!d && d.lp.feePct == null && pools.some((p) => p.feePct == null);
+  const needHistory = !!d && !(d.history?.length) && pools.length > 0;
+  const [fill, setFill] = useState<Fill | null>(null);
+  useEffect(() => {
+    if (!d || (!needFees && !needHistory)) return;
+    const net = SCAN_CHAINS[d.chainId]?.gecko;
+    if (!net) return;
+    let live = true;
+    const base = `https://api.geckoterminal.com/api/v2/networks/${net}/pools`;
+    const get = (u: string) => fetch(u, { signal: AbortSignal.timeout(12_000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    void Promise.all([
+      needFees ? get(`${base}/multi/${pools.slice(0, 10).map((p) => p.pair).join(',')}`) : Promise.resolve(null),
+      needHistory ? get(`${base}/${pools[0].pair}/ohlcv/day?limit=30&currency=usd&token=${d.token}`) : Promise.resolve(null),
+    ]).then(([multi, ohlcv]) => {
+      if (!live) return;
+      const fees: Record<string, number> = {};
+      for (const x of (multi?.data ?? []) as { attributes: { address: string; pool_fee_percentage?: string | null } }[]) {
+        const f = Number(x.attributes.pool_fee_percentage);
+        if (Number.isFinite(f) && f > 0) fees[x.attributes.address.toLowerCase()] = f;
+      }
+      const rows = ((ohlcv?.data?.attributes?.ohlcv_list ?? []) as number[][]).filter((r) => r[4] > 0).sort((a, b) => a[0] - b[0]);
+      setFill({ key, fees, history: rows.map((r) => [r[0], r[4]]), volumes: rows.map((r) => [r[0], r[5] || 0]) });
+    });
+    return () => { live = false; };
+  }, [d, key, needFees, needHistory, pools]);
+
+  const data = useMemo<ScanResult | null>(() => {
+    if (!d || !fill || fill.key !== key) return d;
+    const withFees = pools.map((p) => {
+      const f = p.feePct ?? fill.fees[p.pair.toLowerCase()] ?? null;
+      return { ...p, feePct: f, feeApr: p.feeApr ?? (f != null && p.liquidityUsd > 0 ? (p.volume24hUsd * (f / 100) / p.liquidityUsd) * 365 : null) };
+    });
+    const floor = Math.max(25_000, (withFees[0]?.liquidityUsd ?? 0) * 0.1);
+    const best = withFees.filter((p) => p.feeApr != null && p.liquidityUsd >= floor && p.dex !== 'aerodrome' && p.dex !== 'velodrome')
+      .sort((a, b) => (b.feeApr ?? 0) - (a.feeApr ?? 0))[0];
+    const current = withFees.find((p) => p.pair === d.lp.pool?.pair);
+    const pool = current?.feePct != null ? current : best ?? current ?? d.lp.pool;
+    const history = d.history?.length ? d.history : fill.history.length ? fill.history : undefined;
+    const volumeHistory = d.volumeHistory?.length ? d.volumeHistory : fill.volumes.length ? fill.volumes : undefined;
+    const merged: ScanResult = {
+      ...d, history, volumeHistory,
+      lp: { ...d.lp, pools: withFees, pool: pool ?? null, feePct: d.lp.feePct ?? pool?.feePct ?? null, bestPair: d.lp.bestPair ?? best?.pair ?? null },
+    };
+    return withPool({ ...merged, lp: { ...merged.lp, pool: withFees[0] ?? merged.lp.pool, volumeScale: 1 } }, pool?.pair ?? null);
+  }, [d, fill, key, pools]);
+
+  return { data, filling: !!d && (needFees || needHistory) && fill?.key !== key };
+}
+
 // ── Screen ──────────────────────────────────────────────────────────────────
 
 export function ScanScreen({ onConnect }: { onConnect: () => void }) {
@@ -163,10 +225,11 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
     } finally { setBusy(false); }
   }
 
-  const data = useMemo<ScanResult | null>(() => {
+  const stored = useMemo<ScanResult | null>(() => {
     if (!scanRow?.fresh || !scanRow.data) return null;
     try { return JSON.parse(scanRow.data) as ScanResult; } catch { return null; }
   }, [scanRow]);
+  const { data, filling } = useFilledScan(stored);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1180, margin: '0 auto', width: '100%' }}>
@@ -199,7 +262,7 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
       )}
 
       {data && scanRow && <ScanView key={`${data.chainId}:${data.token}:${scanRow.createdAt}`} d={data} createdAt={scanRow.createdAt} onLp={(t, simulate, range) => setLpSheet({ target: t, simulate, range })}
-        refresh={{ onClick: rescan, busy, err, canPay: !address || credit.total >= RESCAN_BTB }}/>}
+        refresh={{ onClick: rescan, busy, err, canPay: !address || credit.total >= RESCAN_BTB }} filling={filling}/>}
 
       {recent && recent.length > 0 && (
         <div>
@@ -481,9 +544,11 @@ function PaywallCard({ target, last, address, balance, busy, onPay }: {
 
 // ── The readout ─────────────────────────────────────────────────────────────
 
-function ScanView({ d, createdAt, onLp: openLp, refresh }: {
+function ScanView({ d, createdAt, onLp: openLp, refresh, filling }: {
   d: ScanResult; createdAt: number; onLp: (t: LpTarget, simulate: boolean, range: Range) => void;
   refresh: { onClick: () => void; busy: boolean; err: string | null; canPay: boolean };
+  /** Older scans: fee rates or price history are being fetched live. */
+  filling: boolean;
 }) {
   const { isMobile } = useSidebar();
   // The range the reader is looking at: the suggested one until they drag the chart lines or pick a row in Step 2.
@@ -492,7 +557,9 @@ function ScanView({ d, createdAt, onLp: openLp, refresh }: {
   // ScanView is keyed by token and scan time, so a new scan starts again from its own suggested range.
   const [range, setRange] = useState<Range>(suggested);
   // The pool picked in Step 1 (the best one to start). `base` is the scan seen through that pool; `view` adds the range.
-  const [pair, setPair] = useState<string | null>(d.lp.pool?.pair ?? null);
+  // Null until the reader taps a pool, so the default follows the data (it can change once missing fees arrive).
+  const [picked, setPair] = useState<string | null>(null);
+  const pair = picked ?? d.lp.pool?.pair ?? null;
   const base = useMemo(() => withPool(d, pair), [d, pair]);
   const view = useMemo<ScanResult>(() => ({ ...base, lp: { ...base.lp, lowerPct: range.lowerPct, upperPct: range.upperPct } }), [base, range]);
   const custom = range.lowerPct !== suggested.lowerPct || range.upperPct !== suggested.upperPct;
@@ -563,10 +630,10 @@ function ScanView({ d, createdAt, onLp: openLp, refresh }: {
       {/* LP plan */}
       <LpPlan d={view} lpTarget={lpTarget} onLp={onLp} custom={custom} onReset={() => setRange(suggested)}/>
       <Card><PoolsTable d={d} onLp={onLp} picked={base.lp.pool?.pair ?? null} onPick={setPair}/></Card>
-      <Card><RangeCompare d={base} range={range} setRange={setRange}/></Card>
+      <Card><RangeCompare d={base} range={range} setRange={setRange} filling={filling}/></Card>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 14, alignItems: 'stretch' }}>
-        <Card padding={20}><Earnings d={view}/></Card>
-        <Card><Backtest d={view}/></Card>
+        <Card padding={20}><Earnings d={view} filling={filling}/></Card>
+        <Card><Backtest d={view} filling={filling}/></Card>
       </div>
 
       {/* Key numbers */}
@@ -1326,7 +1393,7 @@ function ScanHistory({ d }: { d: ScanResult }) {
 }
 
 /** What the suggested range could earn on a deposit the reader picks, the risk at each edge, and how it is worked out. */
-function Earnings({ d }: { d: ScanResult }) {
+function Earnings({ d, filling }: { d: ScanResult; filling: boolean }) {
   const [amount, setAmount] = useState('1000');
   const [how, setHow] = useState(false);
   const deposit = Math.max(0, Number(amount.replace(/[^0-9.]/g, '')) || 0);
@@ -1336,7 +1403,7 @@ function Earnings({ d }: { d: ScanResult }) {
     return (
       <>
         <SectionTitle step={3} title="What you could earn"/>
-        <div style={{ color: btb.textMuted, fontSize: 13.5 }}>The pool's fee rate was not available for this scan, so there is no estimate. The next scan will try again.</div>
+        <MissingNote filling={filling} what="this pool's fee rate"/>
       </>
     );
   }
@@ -1432,7 +1499,7 @@ function Definitions({ items }: { items: [string, string][] }) {
 const pctText = (x: number, digits = 0) => `${x > 0 ? '+' : ''}${(x * 100).toFixed(digits)}%`;
 
 /** The suggested range against one half as wide and one twice as wide: what each earns and what each risks. */
-function RangeCompare({ d, range, setRange }: { d: ScanResult; range: Range; setRange: (r: Range) => void }) {
+function RangeCompare({ d, range, setRange, filling }: { d: ScanResult; range: Range; setRange: (r: Range) => void; filling: boolean }) {
   const { isMobile } = useSidebar();
   const ranges = [
     { name: 'Narrow', note: 'Most fees, needs watching', lowerPct: Math.max(-90, Math.round(d.lp.lowerPct / 2)), upperPct: Math.max(1, Math.round(d.lp.upperPct / 2)) },
@@ -1446,7 +1513,7 @@ function RangeCompare({ d, range, setRange }: { d: ScanResult; range: Range; set
     return (
       <>
         <SectionTitle step={2} title="Pick a range" sub="Narrow, suggested and wide"/>
-        <div style={{ color: btb.textMuted, fontSize: 13.5 }}>Needs the pool's fee rate, which was not available for this scan.</div>
+        <MissingNote filling={filling} what="this pool's fee rate"/>
       </>
     );
   }
@@ -1529,7 +1596,7 @@ function RangeCompare({ d, range, setRange }: { d: ScanResult; range: Range; set
 }
 
 /** What a deposit in the suggested range would have done over the stored days, drawn against holding the tokens. */
-function Backtest({ d }: { d: ScanResult }) {
+function Backtest({ d, filling }: { d: ScanResult; filling: boolean }) {
   const deposit = 1000;
   const b = lpBacktest(d, deposit);
   const [ref, width] = useWidth<HTMLDivElement>();
@@ -1538,7 +1605,7 @@ function Backtest({ d }: { d: ScanResult }) {
     return (
       <>
         <SectionTitle title="Did it work lately?" sub="The last 30 days, replayed"/>
-        <div style={{ color: btb.textMuted, fontSize: 13.5 }}>Needs price history and the pool's fee rate, which were not both available for this scan.</div>
+        <MissingNote filling={filling} what={!d.history?.length ? 'the price history' : "this pool's fee rate"}/>
       </>
     );
   }
@@ -1767,6 +1834,24 @@ function RescanButton({ createdAt, onClick, busy, err, canPay }: { createdAt: nu
       </button>
       {wait === 0 && !busy && <span style={{ color: btb.textDim, fontSize: 12 }}>Fresh data now, shared free with everyone for 24h</span>}
       {err && <span style={{ color: btb.loss, fontSize: 12.5, fontWeight: 650 }}>{err}</span>}
+    </div>
+  );
+}
+
+/** What a card says when it lacks data: loading while the page fetches it, else why, and what to do. */
+function MissingNote({ filling, what }: { filling: boolean; what: string }) {
+  if (filling) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: btb.textMuted, fontSize: 13.5, padding: '18px 0' }}>
+        <span style={{ width: 14, height: 14, borderRadius: 7, border: `2px solid ${btb.textDim}`, borderTopColor: btb.text, animation: 'scanSpin 0.8s linear infinite', flexShrink: 0 }}/>
+        <style>{'@keyframes scanSpin{to{transform:rotate(360deg)}}'}</style>
+        Loading pool data…
+      </div>
+    );
+  }
+  return (
+    <div style={{ color: btb.textMuted, fontSize: 13.5, lineHeight: 1.5 }}>
+      GeckoTerminal has no data on {what}, so this can't be worked out. Pick another pool in Step 1, or rescan for fresh data.
     </div>
   );
 }
