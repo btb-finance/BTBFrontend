@@ -69,6 +69,19 @@ export default defineSchema({
   // Every credit ever made. `ref` is the deposit tx hash, or `payout:<id>`
   // for weekly rewards moved in; the unique lookup is what stops a pasted
   // transaction from being credited twice.
+  // Token Scan results (convex/tokenScan.ts). One row per paid scan; the newest
+  // row of a token is shown to everyone for 24 hours. `data` is the ScanResult
+  // as JSON (a few KB). Rows older than 90 days are deleted by the daily cleanup.
+  tokenScans: defineTable({
+    chainId: v.float64(),
+    token: v.string(),          // lowercase 0x…
+    symbol: v.string(),
+    score: v.float64(),
+    data: v.string(),
+    by: v.string(),             // wallet that paid
+    createdAt: v.float64(),
+  }).index("by_token", ["chainId", "token", "createdAt"]).index("by_created", ["createdAt"]),
+
   alertDeposits: defineTable({
     ref: v.string(),
     address: v.string(),

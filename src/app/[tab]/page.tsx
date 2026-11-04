@@ -18,6 +18,7 @@ const TAB_META: Record<string, { title: string; description: string }> = {
   vote:      { title: 'Allocate sAERO', description: 'See which Aero pools pay your sAERO the most per day, get the best split, and allocate in one step.' },
   checkins:  { title: 'Check-ins', description: 'Admin: daily check-ins and multi-wallet clusters.' },
   'opos-pairs': { title: 'OPOS pairs', description: 'BTB held in every OPOS pair and the fees it has earned.' },
+  scan:      { title: 'Token Scan', description: 'Grade any token on safety, liquidity, holders and flow, and get the LP range it calls for.' },
   docs:      { title: 'Docs: the BTB manual', description: 'How to find pools, simulate a range, add liquidity, claim, stake, rebalance and remove positions, swap, and earn the Friday BTB payout.' },
 };
 

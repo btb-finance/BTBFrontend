@@ -28,7 +28,7 @@ const MORE: { id: Tab; label: string }[] = [
 export const TOP_NAV_HEIGHT = 60;
 
 export function TopNav({
-  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onConnect, onViewAddress,
+  tab, setTab, address, isReadOnly, onDisconnect, onDocs, onScan, scanActive = false, onConnect, onViewAddress,
 }: {
   tab: Tab;
   setTab: (t: Tab) => void;
@@ -37,6 +37,9 @@ export function TopNav({
   onViewAddress: (addr: string | undefined) => void;
   onDisconnect: () => void;
   onDocs: () => void;
+  /** Opens Token Scan (an overlay, so it is not one of the tabs). */
+  onScan: () => void;
+  scanActive?: boolean;
   onConnect: () => void;
 }) {
   const { signing } = useUiLock();
@@ -48,7 +51,7 @@ export function TopNav({
   const userRef = useRef<HTMLDivElement>(null);
   const { mode, toggleMode } = useChainTheme();
   const shortAddr = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : undefined;
-  const moreActive = MORE.some(m => m.id === tab);
+  const moreActive = !scanActive && MORE.some(m => m.id === tab);
 
   useEffect(() => {
     if (!moreOpen && !userOpen) return;
@@ -90,13 +93,16 @@ export function TopNav({
       }}>
         <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--fg-rgb), 0.45), transparent)', pointerEvents: 'none', borderRadius: 999 }} />
         {PRIMARY.map(item => {
-          const active = tab === item.id;
+          const active = !scanActive && tab === item.id;
           return (
             <div key={item.id} onClick={() => setTab(item.id)} style={itemStyle(active)}>
               <span>{item.label}</span>
             </div>
           );
         })}
+        <div onClick={onScan} style={itemStyle(scanActive)}>
+          <span>Scan</span>
+        </div>
         <div ref={moreRef} style={{ position: 'relative' }}>
           <div onClick={() => setMoreOpen(o => !o)} style={itemStyle(moreActive)}>
             <span>{moreActive ? MORE.find(m => m.id === tab)?.label : 'More'}</span>

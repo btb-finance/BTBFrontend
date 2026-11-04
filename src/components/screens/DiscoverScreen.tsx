@@ -26,6 +26,9 @@ import { Glass } from '../Glass';
 import { Spinner } from '../Spinner';
 import { btb } from '../design-tokens';
 import { CreatePosition } from '../CreatePosition';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
+import { SCAN_CHAINS, letterFor } from '../../../convex/tokenScanConfig';
 import { MetricDepositSheet } from '../MetricDepositSheet';
 import { isMetricChain } from '@/protocols/dexs/metric';
 import { useSidebar } from '../../lib/SidebarContext';
@@ -63,6 +66,19 @@ function aprContext(p: EarnPool): { label: string; title: string } | null {
 }
 
 type DiscoverChain = { name: string; chainId?: number; logo?: string };
+
+/** Quote-side tokens: a pool is scanned by its other token. */
+const SCAN_SKIP = new Set(['USDC', 'USDT', 'DAI', 'WETH', 'ETH', 'WBTC', 'CBBTC', 'USDBC', 'USDS', 'USDE', 'BTC', 'WBNB', 'BNB', 'USDC.E']);
+
+/** The token a Scan of this pool looks at: the side that is not a stablecoin or wrapped major, else the first. */
+function scanTokenOf(p: EarnPool): string | null {
+  const tokens = p.underlyingTokens ?? [];
+  if (tokens.length < 2) return null;
+  const [s0, s1] = p.pair.split(/[-/]/).map((s) => s.trim().toUpperCase());
+  const i = SCAN_SKIP.has(s0) && !SCAN_SKIP.has(s1 ?? '') ? 1 : 0;
+  const t = tokens[i]?.toLowerCase() ?? '';
+  return /^0x[0-9a-f]{40}$/.test(t) ? t : null;
+}
 
 function discoverChainId(name: string, explicitId?: number): number | undefined {
   if (explicitId && CHAIN_META[explicitId]) return explicitId;
@@ -432,6 +448,28 @@ export function DiscoverScreen() {
   const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Metric pools deposit through their own sheet: bins around the oracle price, not a tick range.
   const [metricSheet, setMetricSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
+  // Token Scan: a fresh scan (anyone's, last 24 hours) shows its grade on the button; otherwise the button opens the scan page.
+  const recentScans = useQuery(api.tokenScan.recent, {});
+  const scanGrade = useMemo(() => new Map((recentScans ?? []).map((s) => [`${s.chainId}:${s.token}`, s.score])), [recentScans]);
+  const scanFor = (p: EarnPool) => {
+    const chainId = discoverChainId(p.chain, p.chainId);
+    const token = scanTokenOf(p);
+    return chainId && SCAN_CHAINS[chainId] && token ? { chainId, token, score: scanGrade.get(`${chainId}:${token}`) } : null;
+  };
+  const openScan = (s: { chainId: number; token: string }) => {
+    window.history.pushState(null, '', `/scan?chain=${SCAN_CHAINS[s.chainId].slug}&token=${s.token}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+  const scanButton = (p: EarnPool, style: React.CSSProperties) => {
+    const s = scanFor(p);
+    if (!s) return null;
+    return (
+      <Button variant="ghost" size="sm" onClick={() => openScan(s)} title={s.score != null ? 'Scanned in the last 24 hours, free to read' : 'Grade this token'}
+        style={{ ...style, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
+        {s.score != null ? `${letterFor(s.score)} ${s.score}` : 'Scan'}
+      </Button>
+    );
+  };
   const addLp = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet({ pool, simulate: false }) : openPool(pool, false));
   const simulatePool = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet({ pool, simulate: true }) : openSimulator(pool));
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
@@ -769,7 +807,7 @@ export function DiscoverScreen() {
       render: p => (p.source !== 'dexscreener' || p.feeTier != null) && p.tvlUsd > 0 ? `${((estFees24h(p) / p.tvlUsd) * 100).toFixed(3)}%` : '—',
     },
     {
-      key: 'actions', label: '', align: 'right', width: '210px',
+      key: 'actions', label: '', align: 'right', width: '270px',
       render: p => {
         const mintable = mintTarget(p) !== null || isMetricPool(p);
         const simulatable = canSimulatePool(p) || isMetricPool(p);
@@ -785,6 +823,7 @@ export function DiscoverScreen() {
               style={{ height: 30, padding: '0 12px', gap: 4, fontSize: 11.5, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
               {simulatable ? 'Simulate' : 'View'}
             </Button>
+            {scanButton(p, { height: 30, padding: '0 12px', fontSize: 11.5 })}
           </div>
         );
       },
@@ -887,6 +926,7 @@ export function DiscoverScreen() {
                     style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
                     {simulatable ? 'Simulate' : 'View'}
                   </Button>
+                  {scanButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
                 </div>
               </Glass>
             );
