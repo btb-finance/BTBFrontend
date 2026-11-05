@@ -34,7 +34,8 @@ export const AERO = {
 /**
  * Every chain Aero runs gauges on (Dromos-Labs/metadex-public deployment-addresses/leaf-<chain>.json, checked live
  * 2026-10-27). Base is the root: allocations and claims are sent there and reach the others as messages. The leaf voter
- * has the same address on every chain; each chain has its own FactoryRegistry. Arc is left out (no public RPC answered).
+ * has the same address on every chain; each chain has its own FactoryRegistry. Arc joined 2026-11-05 once its public RPC
+ * answered (registry from github.com/araxis33/aero-vote-radar, checked live).
  */
 export type AeroChain = { id: number; name: string; registry: Address; llama: string };
 export const AERO_CHAINS: AeroChain[] = [
@@ -44,6 +45,7 @@ export const AERO_CHAINS: AeroChain[] = [
   { id: 42161, name: 'Arbitrum', registry: '0x9E635b2c689fC52201DF7eF1C9FA607c2F58f666', llama: 'arbitrum' },
   { id: 10, name: 'OP', registry: '0xb6F9705A631CC1C0E8570FFde48882C95E2Df408', llama: 'optimism' },
   { id: 57073, name: 'Ink', registry: '0xdd1705e23762F4D6e44D8C31BD8Ea80c54612239', llama: 'ink' },
+  { id: 5042, name: 'Arc', registry: '0xCe44907DC45D3BFa3f5f6035B0e6E8B22D780A42', llama: 'arc' },
 ];
 export const chainName = (id: number) => AERO_CHAINS.find((c) => c.id === id)?.name ?? `Chain ${id}`;
 /** Base's message orchestrator: knows each chain's adapter, which quotes the ETH a message there costs. */
@@ -78,6 +80,7 @@ export const leafVoterAbi = parseAbi([
   'function tokenStates(uint256) view returns (address operator, uint48 lastAllocated, bool canVoteForZeroCapGauges, uint128 chainAllocation)',
   'function allocatedGauges(uint256) view returns (address[])',
   'function allocations(uint256, address) view returns (uint128)',
+  'function accumulatedCooldownReduction(uint256) view returns (uint256)',
   'function allocationCooldown() view returns (uint48)',
 ]);
 export const voterAbi = parseAbi([
@@ -175,8 +178,8 @@ export type GaugeInfo = {
   activated: boolean;
   /** AERO emission cap per week; 0 when none is set. */
   capPerWeek: number;
-  /** Incentive programs streaming now. */
-  incentives: { token: Address; perSec: number }[];
+  /** Incentive programs streaming now, with when each ends (unix seconds). */
+  incentives: { token: Address; perSec: number; end: number }[];
   /** Every incentive program on the gauge, ended ones too: a position can still have unclaimed rewards in them. */
   programs: { id: number; token: Address }[];
 };
@@ -251,7 +254,7 @@ export async function readGauges(client: PublicClient, nowSec = Math.floor(Date.
     if (!p) return;
     programs[progCalls[i].gi].push({ id: Number(progCalls[i].id), token: p.token });
     if (p.start > nowSec || p.end <= nowSec || p.rate === 0n) return;
-    incentives[progCalls[i].gi].push({ token: p.token, perSec: Number(p.rate) / 1e18 });
+    incentives[progCalls[i].gi].push({ token: p.token, perSec: Number(p.rate) / 1e18, end: Number(p.end) });
   });
 
   return rows.flatMap((r, i): GaugeInfo[] => {
@@ -321,6 +324,45 @@ export function feePace(byHour: Record<string, number> | undefined, firstHour: n
   if (after.length === 0 || hours < 3) return null;
   const usd = after.reduce((s, h) => s + byHour[h], 0);
   return { usdPerDay: (usd / (hours * 3600)) * DAY, hours };
+}
+
+/** Hours in one stretch of the steadiness and usual-level reads. */
+export const SHAPE_BUCKET_HOURS = 12;
+/** A fee pace this many times the gauge's usual level is a spike: ranked at the usual level, since bursts fade. */
+export const SPIKE_RATIO = 3;
+/** A stretch counts as paying when it released at least this share of the gauge's average stretch. */
+const PAYING_SHARE = 0.5;
+const MIN_STEADY_BUCKETS = 3;
+const MIN_USUAL_BUCKETS = 4;
+
+/**
+ * How evenly a gauge's fees came in: the record cut into complete half-days (only ones after its first release, which
+ * covers unknown time before it), how many of them paid at least half the average, and the usual level (the median
+ * half-day, scaled to a day). Null parts when the record is too short to say.
+ */
+export function feeShape(byHour: Record<string, number> | undefined, firstHour: number | undefined, nowHour: number): { steady: { paying: number; buckets: number } | null; usualPerDay: number | null } {
+  if (!byHour) return { steady: null, usualPerDay: null };
+  const seen = Object.keys(byHour).map(Number);
+  if (seen.length === 0) return { steady: null, usualPerDay: null };
+  const start = Math.max(Math.min(...seen), firstHour ?? -Infinity);
+  const buckets: number[] = [];
+  for (let to = nowHour; to - SHAPE_BUCKET_HOURS > start && to - SHAPE_BUCKET_HOURS >= nowHour - LEDGER_HOURS; to -= SHAPE_BUCKET_HOURS) {
+    let usd = 0;
+    for (let h = to - SHAPE_BUCKET_HOURS; h < to; h++) usd += byHour[h] ?? 0;
+    buckets.push(usd);
+  }
+  const mean = buckets.reduce((a, b) => a + b, 0) / (buckets.length || 1);
+  const steady = buckets.length >= MIN_STEADY_BUCKETS && mean > 0
+    ? { paying: buckets.filter((b) => b >= mean * PAYING_SHARE).length, buckets: buckets.length }
+    : null;
+  let usualPerDay: number | null = null;
+  if (buckets.length >= MIN_USUAL_BUCKETS) {
+    const sorted = [...buckets].sort((a, b) => a - b);
+    const mid = sorted.length >> 1;
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    usualPerDay = median * (24 / SHAPE_BUCKET_HOURS);
+  }
+  return { steady, usualPerDay };
 }
 
 // ── Ranking and split ──────────────────────────────────────────────────────
@@ -406,6 +448,8 @@ export type SaeroPosition = {
   onBaseRaw: bigint;
   /** Last gauge allocation on Base, unix seconds; 0 if never. */
   lastAllocatedSec: number;
+  /** Seconds taken off this position's wait on Base (the leaf voter's accumulatedCooldownReduction); 0 for most. */
+  cooldownCutSec: number;
   /** Set when another address (an Autopilot, a manager) may allocate this position. */
   operator: Address | null;
   /** Where the position's power sits now, on every chain. */
@@ -449,11 +493,19 @@ export async function readPositions(client: PublicClient, owner: Address, client
       idleRaw: ok<bigint>(reads[i * 6 + 2]) ?? 0n,
       onBaseRaw: ok<bigint>(reads[i * 6 + 3]) ?? 0n,
       lastAllocatedSec: leaf ? Number(leaf[1]) : 0,
+      cooldownCutSec: 0,
       operator: op && !/^0x0+$/.test(op) ? op : null,
       current: (ok<Address[]>(reads[i * 6 + 5]) ?? []).map((gauge) => ({ chainId: AERO_CHAIN_ID, gauge, amountRaw: 0n })),
       elsewhere: [],
     };
   });
+  // The wait is lastAllocated + cooldown - accumulatedCooldownReduction (ILeafVoter); the reduction is 0 for every position
+  // checked on 2026-11-05, but a position given one could otherwise be held back longer than the contract does.
+  const cuts = await client.multicall({
+    allowFailure: true,
+    contracts: out.map((p) => ({ address: AERO.leafVoter, abi: leafVoterAbi, functionName: 'accumulatedCooldownReduction', args: [p.tokenId] }) as const),
+  }).catch(() => []);
+  out.forEach((p, i) => { p.cooldownCutSec = Number(ok<bigint>(cuts[i] ?? { status: 'failure' }) ?? 0n); });
   // Power on the other chains: the root voter books it per chain; the gauges are read on that chain's leaf voter.
   const others = AERO_CHAINS.filter((c) => c.id !== AERO_CHAIN_ID);
   const booked = await client.multicall({
@@ -494,28 +546,81 @@ export async function readPositions(client: PublicClient, owner: Address, client
 }
 
 /** What a position earns per day where it sits now, and the best split for it, from the snapshot's gauges. */
-export type PlanGauge = { chainId: number; gauge: Address; weight: number; activated: boolean; feesPerDay: number | null; incentivesPerDay: number };
+export type PlanGauge = {
+  chainId: number; gauge: Address; weight: number; activated: boolean; feesPerDay: number | null; incentivesPerDay: number;
+  /** The fee level the gauge usually runs at (median half-day); null or missing when the record is too short. */
+  usualFeesPerDay?: number | null;
+  /** Each priced incentive program: USD per day now and when it ends. Missing on snapshots from before 2026-11-05. */
+  incentiveStreams?: { perDay: number; end: number }[];
+};
 const gkey = (chainId: number, gauge: string) => `${chainId}:${gauge.toLowerCase()}`;
 
-export const ratePerDayOf = (g: Pick<PlanGauge, 'feesPerDay' | 'incentivesPerDay'>) => (g.feesPerDay ?? 0) + g.incentivesPerDay;
+/** The clock and the wait that estimates look across: a position stays where it is put for the whole wait. */
+export type RateClock = { nowSec: number; waitSec: number };
+const clockNow = (): RateClock => ({ nowSec: Math.floor(Date.now() / 1000), waitSec: DEFAULT_COOLDOWN_SEC });
+
+/** True when the fee pace is a burst: SPIKE_RATIO times the gauge's usual level or more. */
+export const isSpike = (g: Pick<PlanGauge, 'feesPerDay' | 'usualFeesPerDay'>) =>
+  g.feesPerDay != null && g.usualFeesPerDay != null && g.usualFeesPerDay > 0 && g.feesPerDay >= g.usualFeesPerDay * SPIKE_RATIO;
+
+/** Incentives per day averaged over the wait: a program that ends inside it pays only until then. */
+export function incentivesOverWait(g: Pick<PlanGauge, 'incentivesPerDay' | 'incentiveStreams'>, c: RateClock): number {
+  if (!g.incentiveStreams) return g.incentivesPerDay;
+  return g.incentiveStreams.reduce((s, p) => s + p.perDay * (Math.min(Math.max(0, p.end - c.nowSec), c.waitSec) / c.waitSec), 0);
+}
+
+/** When incentives that stop inside the wait take at least this share off them, the pool says so. */
+const ENDING_LOSS = 0.05;
+
+/** Seconds until incentives stop inside the wait: `all` when every program does, else the first one; null when none matter. */
+export function incentivesEnding(g: Pick<PlanGauge, 'incentivesPerDay' | 'incentiveStreams'>, c: RateClock): { all: boolean; inSec: number } | null {
+  const live = g.incentiveStreams?.filter((p) => p.end > c.nowSec) ?? [];
+  if (live.length === 0 || incentivesOverWait(g, c) >= g.incentivesPerDay * (1 - ENDING_LOSS)) return null;
+  const last = Math.max(...live.map((p) => p.end));
+  if (last - c.nowSec <= c.waitSec) return { all: true, inSec: last - c.nowSec };
+  return { all: false, inSec: Math.min(...live.map((p) => p.end)) - c.nowSec };
+}
+
+/** What a gauge pays per day across the wait, for ranking: a fee spike at the usual level, incentives averaged over the wait. */
+export const ratePerDayOf = (g: PlanGauge, c: RateClock = clockNow()) =>
+  (isSpike(g) ? g.usualFeesPerDay! : g.feesPerDay ?? 0) + incentivesOverWait(g, c);
+
+/** The low case: fees at the lower of the recent pace and the usual level, incentives averaged over the wait. */
+export const lowRatePerDayOf = (g: PlanGauge, c: RateClock = clockNow()) =>
+  Math.min(g.feesPerDay ?? 0, g.usualFeesPerDay ?? Infinity) + incentivesOverWait(g, c);
+
+/**
+ * What the Steady column says: a gauge paid mostly by incentives is steady by construction (they stream at a fixed rate),
+ * unless they end inside the wait; otherwise how many recent half-days paid fees.
+ */
+export function steadyOf(g: PlanGauge & { steady?: { paying: number; buckets: number } | null }, c: RateClock = clockNow()): { kind: 'incentives'; ending: boolean } | { kind: 'fees'; paying: number; buckets: number } | null {
+  const total = (g.feesPerDay ?? 0) + g.incentivesPerDay;
+  if (total > 0 && g.incentivesPerDay / total >= 0.5) return { kind: 'incentives', ending: incentivesEnding(g, c) != null };
+  return g.steady ? { kind: 'fees', ...g.steady } : null;
+}
 
 /**
  * Every rankable gauge with what `amount` earns there, best first, and the best split. A position already in a gauge is
  * part of its weight, so its own amount is taken out first; otherwise it would look like it dilutes itself.
  */
-export function planFor<G extends PlanGauge>(gauges: G[], position: Pick<SaeroPosition, 'current'> | null, amount: number, splitChains: number[] = [AERO_CHAIN_ID]) {
+export function planFor<G extends PlanGauge>(gauges: G[], position: Pick<SaeroPosition, 'current'> | null, amount: number, splitChains: number[] = [AERO_CHAIN_ID], clock: RateClock = clockNow()) {
+  const rate = (g: G) => ratePerDayOf(g, clock);
   const own = new Map<string, number>();
   for (const c of position?.current ?? []) own.set(gkey(c.chainId, c.gauge), Number(c.amountRaw) / 1e18);
   const ranked = gauges
-    .filter((g) => g.activated && g.feesPerDay != null && ratePerDayOf(g) > 0)
+    .filter((g) => g.activated && g.feesPerDay != null && rate(g) > 0)
     .map((g) => {
       const weight = Math.max(0, g.weight - (own.get(gkey(g.chainId, g.gauge)) ?? 0));
-      return { g, weight, earn: earnPerDay({ ratePerDay: ratePerDayOf(g), weight }, amount) };
+      return {
+        g, weight,
+        earn: earnPerDay({ ratePerDay: rate(g), weight }, amount),
+        low: earnPerDay({ ratePerDay: lowRatePerDayOf(g, clock), weight }, amount),
+      };
     })
     .filter((r) => r.weight >= MIN_RANK_WEIGHT)
     .sort((a, b) => b.earn - a.earn);
   // The split only uses chains an allocation can reach from here (Base for now); the ranking shows every chain.
-  const split = bestSplit(ranked.filter((r) => splitChains.includes(r.g.chainId)).map((r) => ({ gauge: r.g.gauge, ratePerDay: ratePerDayOf(r.g), weight: r.weight })), amount);
+  const split = bestSplit(ranked.filter((r) => splitChains.includes(r.g.chainId)).map((r) => ({ gauge: r.g.gauge, ratePerDay: rate(r.g), weight: r.weight })), amount);
   const byGauge = new Map(gauges.map((g) => [gkey(g.chainId, g.gauge), g]));
   // What the position earns now: in total, and on the chains the split can move (the fair thing to compare it with).
   let current: number | null = null;
@@ -526,7 +631,7 @@ export function planFor<G extends PlanGauge>(gauges: G[], position: Pick<SaeroPo
       const g = byGauge.get(gkey(c.chainId, c.gauge));
       const mine = Number(c.amountRaw) / 1e18;
       if (!g || mine <= 0) continue;
-      const usd = earnPerDay({ ratePerDay: ratePerDayOf(g), weight: Math.max(0, g.weight - mine) }, mine);
+      const usd = earnPerDay({ ratePerDay: rate(g), weight: Math.max(0, g.weight - mine) }, mine);
       current += usd;
       if (splitChains.includes(c.chainId)) currentMovable += usd;
     }
@@ -540,9 +645,67 @@ export const NUDGE_MIN_SHARE = 0.05;
 export const worthMoving = (current: number | null, best: number) =>
   current != null && best - current >= NUDGE_MIN_USD && best >= current * (1 + NUDGE_MIN_SHARE);
 
-/** Seconds until a position can be allocated again; 0 when it can now. */
-export function cooldownLeft(lastAllocatedSec: number, cooldownSec: number, nowSec: number): number {
-  return lastAllocatedSec > 0 ? Math.max(0, lastAllocatedSec + cooldownSec - nowSec) : 0;
+/** Seconds until a position can be allocated again; 0 when it can now. `cutSec` is the position's cooldown reduction. */
+export function cooldownLeft(lastAllocatedSec: number, cooldownSec: number, nowSec: number, cutSec = 0): number {
+  return lastAllocatedSec > 0 ? Math.max(0, lastAllocatedSec + Math.max(0, cooldownSec - cutSec) - nowSec) : 0;
+}
+
+/**
+ * What a hand-picked split earns: each pick's share of `amount` joins its pool's weight (the position's own power taken out
+ * first, as in planFor). A pick whose pool is not in the data earns 0 here.
+ */
+export function customSplit<G extends PlanGauge>(gauges: G[], position: Pick<SaeroPosition, 'current'> | null, amount: number, picks: { chainId: number; gauge: Address; pct: number }[], clock: RateClock = clockNow()) {
+  const own = new Map<string, number>();
+  for (const c of position?.current ?? []) own.set(gkey(c.chainId, c.gauge), Number(c.amountRaw) / 1e18);
+  const byKey = new Map(gauges.map((g) => [gkey(g.chainId, g.gauge), g]));
+  const parts = picks.map((p) => {
+    const g = byKey.get(gkey(p.chainId, p.gauge));
+    const part = (amount * Math.max(0, p.pct)) / 100;
+    const usdPerDay = g ? earnPerDay({ ratePerDay: ratePerDayOf(g, clock), weight: Math.max(0, g.weight - (own.get(gkey(g.chainId, g.gauge)) ?? 0)) }, part) : 0;
+    return { ...p, known: !!g, usdPerDay };
+  });
+  return { parts, usd: parts.reduce((s, x) => s + x.usdPerDay, 0), pct: picks.reduce((s, x) => s + Math.max(0, x.pct), 0) };
+}
+
+/** Where some positions' power sits on every chain, as shares of what each has placed, and when each last moved. */
+export type PlacedSplit = { split: { chainId: number; gauge: Address; share: number }[]; lastMovedSec: number };
+export async function readSplits(clientFor: (chainId: number) => PublicClient | null, ids: bigint[]): Promise<Map<string, PlacedSplit>> {
+  const parts = new Map<string, { chainId: number; gauge: Address; amount: number }[]>(ids.map((id) => [id.toString(), []]));
+  const moved = new Map<string, number>(ids.map((id) => [id.toString(), 0]));
+  await Promise.all(AERO_CHAINS.map(async (c) => {
+    const leaf = clientFor(c.id);
+    if (!leaf || ids.length === 0) return;
+    const first = await leaf.multicall({
+      allowFailure: true,
+      contracts: ids.flatMap((id) => [
+        { address: AERO.leafVoter, abi: leafVoterAbi, functionName: 'allocatedGauges', args: [id] },
+        { address: AERO.leafVoter, abi: leafVoterAbi, functionName: 'tokenStates', args: [id] },
+      ] as const),
+    });
+    const pairs = ids.flatMap((id, i) => {
+      const st = ok<readonly [Address, number, boolean, bigint]>(first[i * 2 + 1]);
+      if (st) moved.set(id.toString(), Math.max(moved.get(id.toString()) ?? 0, Number(st[1])));
+      return (ok<Address[]>(first[i * 2]) ?? []).filter((g) => !/^0x0+$/.test(g)).map((gauge) => ({ id, gauge }));
+    });
+    if (!pairs.length) return;
+    const amts = await leaf.multicall({
+      allowFailure: true,
+      contracts: pairs.map(({ id, gauge }) => ({ address: AERO.leafVoter, abi: leafVoterAbi, functionName: 'allocations', args: [id, gauge] }) as const),
+    });
+    pairs.forEach(({ id, gauge }, i) => {
+      const a = Number(ok<bigint>(amts[i]) ?? 0n) / 1e18;
+      if (a > 0) parts.get(id.toString())!.push({ chainId: c.id, gauge, amount: a });
+    });
+  }));
+  const out = new Map<string, PlacedSplit>();
+  for (const [id, list] of parts) {
+    const total = list.reduce((s, x) => s + x.amount, 0);
+    out.set(id, {
+      split: total > 0 ? list.map((x) => ({ chainId: x.chainId, gauge: x.gauge, share: x.amount / total })).sort((a, b) => b.share - a.share) : [],
+      lastMovedSec: moved.get(id) ?? 0,
+    });
+  }
+  return out;
 }
 
 // ── Rewards ────────────────────────────────────────────────────────────────

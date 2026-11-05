@@ -61,9 +61,9 @@ export function AeroNudge({ address, onOpen }: { address?: string; onOpen: () =>
     if (!snap || !positions) return null;
     let best: { id: string; now: number; could: number } | null = null;
     for (const p of positions) {
-      if (cooldownLeft(p.lastAllocatedSec, snap.cooldownSec, nowSec) > 0) continue;
+      if (cooldownLeft(p.lastAllocatedSec, snap.cooldownSec, nowSec, p.cooldownCutSec) > 0) continue;
       // Only the part an allocation from here can move (idle and Base), compared with what that part earns now.
-      const plan = planFor(snap.gauges, p, Number(p.idleRaw + p.onBaseRaw) / 1e18);
+      const plan = planFor(snap.gauges, p, Number(p.idleRaw + p.onBaseRaw) / 1e18, undefined, { nowSec, waitSec: snap.cooldownSec });
       if (worthMoving(plan.currentMovable, plan.splitUsd) && (!best || plan.splitUsd - plan.currentMovable! > best.could - best.now)) {
         best = { id: p.tokenId.toString(), now: plan.currentMovable!, could: plan.splitUsd };
       }

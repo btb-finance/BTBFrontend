@@ -12,12 +12,22 @@ import { loadLiveRpcs } from "./liveRpcs";
 import { getChainClient } from "../src/lib/chainClient";
 import { AERO_CHAINS, AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, type FeeLedger } from "../src/lib/aero/allocator";
 import { buildChain, logClientFor, readCooldown, type AllocatorSnapshot, type SnapGauge } from "../src/lib/aero/allocatorSnapshot";
+import { buildTopAllocators } from "../src/lib/aero/topAllocators";
 
 /** The page's data: `json` is an AllocatorSnapshot. */
 export const snapshot = query({
   args: {},
   handler: async (ctx) => {
     const row = await ctx.db.query("aeroAllocator").withIndex("by_key", (q) => q.eq("key", "snapshot")).first();
+    return row ? { json: row.json, updatedAt: row.updatedAt } : null;
+  },
+});
+
+/** Where the best allocators sit now (src/lib/aero/topAllocators.ts): `json` is a TopAllocators. */
+export const topAllocators = query({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db.query("aeroAllocator").withIndex("by_key", (q) => q.eq("key", "top")).first();
     return row ? { json: row.json, updatedAt: row.updatedAt } : null;
   },
 });
@@ -140,4 +150,11 @@ async function build(ctx: ActionCtx) {
     gauges: results.flatMap((r) => r.gauges),
   };
   await ctx.runMutation(internal.aeroAllocator.save, { key: "snapshot", json: JSON.stringify(snapshot) });
+  // The top allocators list is extra: a failed read keeps the last one rather than failing the run.
+  try {
+    const top = await buildTopAllocators((id) => getChainClient(id) as PublicClient | null);
+    if (top.positions.length) await ctx.runMutation(internal.aeroAllocator.save, { key: "top", json: JSON.stringify(top) });
+  } catch (e) {
+    console.warn("aero allocator: top allocators failed this run", (e as Error).message);
+  }
 }
