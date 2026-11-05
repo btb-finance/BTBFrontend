@@ -25,7 +25,8 @@ export const btb = {
   blur:        'blur(32px) saturate(140%)',
   // Shared gradients — keep button/CTA fills consistent in one place.
   gradPrimary: 'var(--chain-gradient, linear-gradient(135deg,rgba(var(--fg-rgb, 255,255,255),0.95),rgba(200,210,220,0.9)))',
-  gradGreen:   'linear-gradient(135deg,#52E3A4,#1aad77)', // solid brand fill with white text, same in both modes
+  // Solid brand fill with white text, same in both modes. --btb-cta-gradient lets a seasonal theme recolour it; unset, it is the brand green.
+  gradGreen:   'var(--btb-cta-gradient, linear-gradient(135deg,#52E3A4,#1aad77))',
 } as const;
 
 /** Side margin of every page on a phone. One number, so every screen matches; change it here only. */
