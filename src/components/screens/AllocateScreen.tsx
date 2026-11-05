@@ -26,17 +26,33 @@ import { ChainLogo } from '../ChainLogo';
 import { runCalls } from '../../lib/txRunner';
 import {
   AERO, AERO_CHAINS, AERO_CHAIN_ID, REFRESH_BTB, REFRESH_MIN_AGE_MS, allocateAbi, chainName, claimCost, type ClaimCost, allocateCall, allocateErrorText, aprPct, claimCall, claimRewardsAbi, cooldownLeft, planFor,
+  incentivesEnding, isSpike, steadyOf, customSplit, type RateClock,
   readEarned, readPositions, returnAllCall, type Earned, type SaeroPosition,
 } from '../../lib/aero/allocator';
 import { claimCalls, dropFailingSales, priceRewards, type RewardLine, type SellTarget } from '../../lib/aero/claimSell';
 import { ClaimTokenPicker, COMMON_TARGETS } from '../ClaimTokenPicker';
 import type { AllocatorSnapshot, SnapGauge } from '../../lib/aero/allocatorSnapshot';
+import type { TopAllocators } from '../../lib/aero/topAllocators';
 
 const PAGE = 25;
 
 const usd = (n: number) => (n >= 1000 ? `$${Math.round(n).toLocaleString('en-US')}` : `$${n.toFixed(2)}`);
 const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e4 ? `${(n / 1e3).toFixed(1)}K` : Math.round(n).toLocaleString('en-US'));
+/** Hours left, short: "under 1 h", "31 h". */
+const hrs = (sec: number) => (sec < 3600 ? 'under 1 h' : `${Math.round(sec / 3600)} h`);
 const pct = (n: number | null) => (n == null ? '...' : `${n >= 100 ? Math.round(n) : n.toFixed(1)}%`);
+/** A share typed by hand: "12.5" or "12,5"; anything else counts as 0. */
+const pctOf = (s: string) => Math.max(0, parseFloat(s.replace(',', '.')) || 0);
+/** Equal shares that add up to exactly 100, to one decimal. */
+function evenShares(n: number): string[] {
+  if (n === 0) return [];
+  const each = Math.floor(1000 / n) / 10;
+  return Array.from({ length: n }, (_, i) => (i === 0 ? +(100 - each * (n - 1)).toFixed(1) : each).toString());
+}
+function ago(sec: number) {
+  const h = Math.floor(sec / 3600);
+  return h >= 48 ? `${Math.floor(h / 24)} days ago` : h >= 1 ? `${h} h ago` : 'just now';
+}
 function wait(sec: number) {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -103,7 +119,10 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
   const baseBudget = position ? Number(position.idleRaw + position.onBaseRaw) / 1e18 : 0;
   const elsewhereNote = position?.elsewhere.map((e) => `${num(Number(e.amountRaw) / 1e18)} on ${chainName(e.chainId)}`).join(', ') ?? '';
   const amount = position ? baseBudget : Math.max(0, parseFloat(amountStr.replace(/,/g, '')) || 0);
-  const plan = useMemo(() => (snap ? planFor(snap.gauges, position, amount) : null), [snap, position, amount]);
+  // Estimates look across the wait a position stays put for. The clock is taken when the data or the amount changes,
+  // so ranking and the "ends in" labels agree with each other.
+  const clock = useMemo<RateClock | null>(() => (snap ? { nowSec: Math.floor(Date.now() / 1000), waitSec: snap.cooldownSec } : null), [snap, amount]);
+  const plan = useMemo(() => (snap && clock ? planFor(snap.gauges, position, amount, undefined, clock) : null), [snap, clock, position, amount]);
   // Stable empty lists while the plan loads, so the memos below do not rerun on every render.
   const ranked = useMemo(() => plan?.ranked ?? [], [plan]);
   const split = useMemo(() => plan?.split ?? [], [plan]);
@@ -221,8 +240,48 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
       && (!q || `${r.g.symbol0}/${r.g.symbol1} ${r.g.symbol1}/${r.g.symbol0}`.toLowerCase().includes(q)));
   }, [ranked, query, chainFilter]);
 
-  const cooldown = snap && position ? cooldownLeft(position.lastAllocatedSec, snap.cooldownSec, now) : 0;
-  const canAllocate = !!position && !!address && cooldown === 0 && split.length > 0 && position.idleRaw + position.onBaseRaw > 0n;
+  // The user's own split (Base pools only, since allocating reaches Base): null shows the best split instead.
+  const [custom, setCustom] = useState<{ gauge: Address; pct: string }[] | null>(null);
+  const mine = useMemo(() => (snap && clock && custom
+    ? customSplit(snap.gauges, position, amount, custom.map((c) => ({ chainId: AERO_CHAIN_ID, gauge: c.gauge, pct: pctOf(c.pct) })), clock)
+    : null), [snap, clock, custom, position, amount]);
+  const inCustom = (gauge: string) => !!custom?.some((c) => c.gauge.toLowerCase() === gauge.toLowerCase());
+  const toggleCustom = (gauge: Address) => {
+    setMsg(null);
+    setCustom((cur) => {
+      const list = cur ?? [];
+      const next = list.some((c) => c.gauge.toLowerCase() === gauge.toLowerCase())
+        ? list.filter((c) => c.gauge.toLowerCase() !== gauge.toLowerCase())
+        : [...list, { gauge, pct: '0' }];
+      const shares = evenShares(next.length);
+      return next.map((c, i) => ({ ...c, pct: shares[i] }));
+    });
+  };
+  const editSplit = () => { setMsg(null); setCustom(split.map((p) => ({ gauge: p.gauge, pct: (+p.pct.toFixed(1)).toString() }))); };
+  const picks = custom ? custom.map((c) => ({ gauge: c.gauge, pct: pctOf(c.pct) })).filter((c) => c.pct > 0) : split.map((p) => ({ gauge: p.gauge, pct: p.pct }));
+  const picksPct = picks.reduce((s, p) => s + p.pct, 0);
+  const shownUsd = mine ? mine.usd : splitUsd;
+
+  // Where the best allocators sit now, for "use this split" (their Base part; allocating reaches Base only).
+  const topRow = useQuery(api.aeroAllocator.topAllocators, {});
+  const top = useMemo(() => (topRow ? (JSON.parse(topRow.json) as TopAllocators) : null), [topRow]);
+  const topPlans = useMemo(() => (top?.positions ?? []).map((t) => {
+    const baseParts = t.split.filter((x) => x.chainId === AERO_CHAIN_ID);
+    const baseShare = baseParts.reduce((s, x) => s + x.share, 0);
+    const shares = baseParts.map((x) => ({ gauge: x.gauge, pct: +((x.share / baseShare) * 100).toFixed(1) }));
+    if (shares.length) shares[0].pct = +(100 - shares.slice(1).reduce((s, x) => s + x.pct, 0)).toFixed(1);
+    const est = snap && clock && amount > 0 && shares.length ? customSplit(snap.gauges, position, amount, shares.map((x) => ({ chainId: AERO_CHAIN_ID, ...x })), clock).usd : null;
+    return { t, shares, baseShare, est };
+  }), [top, snap, clock, position, amount]);
+  const applyTopSplit = (shares: { gauge: Address; pct: number }[]) => {
+    setMsg(null);
+    setCustom(shares.map((x) => ({ gauge: x.gauge, pct: x.pct.toString() })));
+    if (typeof window !== 'undefined') document.getElementById('aero-split')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const cooldown = snap && position ? cooldownLeft(position.lastAllocatedSec, snap.cooldownSec, now, position.cooldownCutSec) : 0;
+  const picksOk = picks.length > 0 && picksPct <= 100.0001;
+  const canAllocate = !!position && !!address && cooldown === 0 && picksOk && position.idleRaw + position.onBaseRaw > 0n;
 
   async function send(kind: 'allocate' | 'return') {
     if (!position || !address || !client) return;
@@ -230,7 +289,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
     setBusy(kind);
     try {
       const call = kind === 'allocate'
-        ? allocateCall(position, split.map((p) => ({ gauge: p.gauge, pct: p.pct })), address as Address)
+        ? allocateCall(position, picks, address as Address)
         : returnAllCall(position, address as Address);
       // Simulate first, so a refusal reads as a reason instead of a failed transaction.
       try {
@@ -330,7 +389,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
             <div style={label}>Your sAERO</div>
             {positions.map((p) => {
               const on = p.tokenId.toString() === selected;
-              const left = snap ? cooldownLeft(p.lastAllocatedSec, snap.cooldownSec, now) : 0;
+              const left = snap ? cooldownLeft(p.lastAllocatedSec, snap.cooldownSec, now, p.cooldownCutSec) : 0;
               // Where its power sits: Base and each other chain, as a share of the whole.
               const where = [{ id: AERO_CHAIN_ID, raw: p.onBaseRaw }, ...p.elsewhere.map((e) => ({ id: e.chainId, raw: e.amountRaw }))]
                 .filter((x) => x.raw > 0n)
@@ -403,21 +462,24 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
       </div>
 
       {/* Best split */}
-      <div style={{ ...card, border: '1px solid rgba(var(--green-rgb), 0.3)', background: 'radial-gradient(110% 140% at 100% 0%, rgba(var(--green-rgb), 0.12), transparent 60%), rgba(var(--fg-rgb), 0.03)' }}>
+      <div id="aero-split" style={{ ...card, scrollMarginTop: 80, border: '1px solid rgba(var(--green-rgb), 0.3)', background: 'radial-gradient(110% 140% at 100% 0%, rgba(var(--green-rgb), 0.12), transparent 60%), rgba(var(--fg-rgb), 0.03)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <div style={label}>{amount > 0 ? `Best split on Base for ${num(amount)} ${position ? 'sAERO' : 'AERO'}` : 'Best split'}</div>
+            <div style={label}>{amount > 0 ? `${custom ? 'Your split' : 'Best split'} on Base for ${num(amount)} ${position ? 'sAERO' : 'AERO'}` : custom ? 'Your split' : 'Best split'}</div>
             {amount > 0 && <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
-              <span style={{ color: btb.green, fontSize: 26, fontWeight: 800, letterSpacing: -0.6 }}>{snap ? `${usd(splitUsd)}` : '...'}</span>
+              <span style={{ color: btb.green, fontSize: 26, fontWeight: 800, letterSpacing: -0.6 }}>{snap ? `${usd(shownUsd)}` : '...'}</span>
               <span style={{ color: btb.textMuted, fontSize: 13, fontWeight: 700 }}>a day</span>
-              {snap && <span style={{ color: btb.green, fontSize: 12, fontWeight: 800, padding: '2px 8px', borderRadius: 8, background: 'rgba(var(--green-rgb), 0.12)' }}>{pct(aprPct(splitUsd, amount, snap.aeroUsd))} APR</span>}
+              {snap && <span style={{ color: btb.green, fontSize: 12, fontWeight: 800, padding: '2px 8px', borderRadius: 8, background: 'rgba(var(--green-rgb), 0.12)' }}>{pct(aprPct(shownUsd, amount, snap.aeroUsd))} APR</span>}
             </div>}
-            {snap && split.length > 1 && bestSingle > 0 && (
+            {snap && custom && amount > 0 && splitUsd > shownUsd + 0.005 && (
+              <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3 }}>The best split pays {usd(splitUsd)} a day</div>
+            )}
+            {snap && !custom && split.length > 1 && bestSingle > 0 && (
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3 }}>{usd(bestSingle)} a day in the single best pool</div>
             )}
             {currentBaseUsd != null && position && position.current.length > 0 && (
               <div style={{ color: btb.textMuted, fontSize: 12, marginTop: 3 }}>
-                Base part earns {usd(currentBaseUsd)} a day now{splitUsd > currentBaseUsd ? <>, <b style={{ color: btb.green }}>+{usd(splitUsd - currentBaseUsd)}</b> with this split</> : ', already near the best'}
+                Base part earns {usd(currentBaseUsd)} a day now{shownUsd > currentBaseUsd ? <>, <b style={{ color: btb.green }}>+{usd(shownUsd - currentBaseUsd)}</b> with this split</> : custom ? '' : ', already near the best'}
                 {currentUsd != null && currentUsd > currentBaseUsd + 0.005 && <> · {usd(currentUsd)} a day on all chains</>}
               </div>
             )}
@@ -425,12 +487,50 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
               <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3 }}>{elsewhereNote} stays where it is; moving power between chains is coming next.</div>
             )}
           </div>
+          {snap && (
+            <button type="button" onClick={() => (custom ? setCustom(null) : editSplit())} style={{
+              height: 30, padding: '0 12px', borderRadius: 10, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 800,
+              color: btb.text, background: 'rgba(var(--fg-rgb), 0.06)', border: '1px solid rgba(var(--fg-rgb), 0.12)',
+            }}>{custom ? 'Use best split' : 'Pick my own'}</button>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
           {snap && !(amount > 0) && <div style={{ color: btb.textDim, fontSize: 12.5 }}>Enter an amount to see the best split.</div>}
           {!snap && <div style={{ color: btb.textDim, fontSize: 12.5 }}>{row === null ? 'Pool data is being prepared. Check back in a few minutes.' : 'Loading pools...'}</div>}
-          {split.map((p) => {
+          {custom && custom.length === 0 && (
+            <div style={{ color: btb.textDim, fontSize: 12.5 }}>Add Base pools from the list below with the + button.</div>
+          )}
+          {custom && custom.map((c, i) => {
+            const g = byGauge.get(`${AERO_CHAIN_ID}:${c.gauge.toLowerCase()}`);
+            const part = mine?.parts[i];
+            return (
+              <div key={c.gauge} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {g ? pair(g, 24) : <span style={{ width: 27 }}/>}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: btb.text, fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g ? `${g.symbol0}/${g.symbol1}` : `${c.gauge.slice(0, 6)}...${c.gauge.slice(-4)}`}</span>
+                  {g && !isMobile && kindChip(g)}
+                </div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+                  <input value={c.pct} inputMode="decimal" aria-label="Share in percent" onChange={(e) => { const v = e.target.value; setCustom((cur) => cur && cur.map((x, j) => (j === i ? { ...x, pct: v } : x))); }}
+                    style={{ width: 52, height: 30, padding: '0 6px', borderRadius: 8, border: btb.border, background: 'transparent', color: btb.text, fontSize: 16, fontWeight: 800, fontFamily: 'inherit', textAlign: 'right', outline: 'none' }}/>
+                  <span style={{ color: btb.textMuted, fontSize: 12.5, fontWeight: 800 }}>%</span>
+                </span>
+                <span style={{ color: btb.green, fontSize: 12.5, fontWeight: 700, width: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{part && part.known ? usd(part.usdPerDay) : '...'}</span>
+                <button type="button" onClick={() => toggleCustom(c.gauge)} aria-label="Remove" title="Remove" style={{ flexShrink: 0, width: 28, height: 28, borderRadius: 8, border: 'none', background: 'rgba(var(--fg-rgb), 0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="close" size={12} color={btb.textMuted}/>
+                </button>
+              </div>
+            );
+          })}
+          {custom && custom.length > 0 && (
+            <div style={{ color: picksPct > 100.0001 ? btb.loss : btb.textDim, fontSize: 11.5 }}>
+              {picksPct > 100.0001 ? `Shares add up to ${+picksPct.toFixed(1)}%. Bring them down to 100%.`
+                : picksPct < 99.95 ? `${+picksPct.toFixed(1)}% placed; the other ${+(100 - picksPct).toFixed(1)}% stays idle on Base and earns nothing.`
+                : 'Shares add up to 100%.'}
+            </div>
+          )}
+          {!custom && split.map((p) => {
             const g = byGauge.get(`${AERO_CHAIN_ID}:${p.gauge.toLowerCase()}`);
             if (!g) return null;
             return (
@@ -460,10 +560,52 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
         {msg && <div style={{ color: msg.ok ? btb.green : btb.loss, fontSize: 12.5, marginTop: 10 }}>{msg.text}</div>}
         {snap && (
           <div style={{ color: btb.textDim, fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
-            Estimates from the last two days of fee releases plus incentives streaming now. After allocating, a position can change again in {Math.round(snap.cooldownSec / 3600)} hours.
+            Estimates from the last two days of fee releases plus incentives, averaged over the {Math.round(snap.cooldownSec / 3600)} hour wait a position stays put for, so incentives that end sooner count for less. A pool whose fees spiked is ranked at its usual level. After allocating, a position can change again in {Math.round(snap.cooldownSec / 3600)} hours.
           </div>
         )}
       </div>
+
+      {/* Where the best allocators sit now */}
+      {snap && top && topPlans.length > 0 && (
+        <div style={card}>
+          <div style={{ color: btb.text, fontSize: 17, fontWeight: 800 }}>Top allocators</div>
+          <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3, lineHeight: 1.5 }}>
+            The sAERO positions that earned the most per sAERO over 7 days (ranking by dromos.kitchen), and where they sit now. A position that moved recently holds a split that has not earned its rank yet.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+            {topPlans.map(({ t, shares, baseShare, est }) => {
+              const recent = t.lastMovedSec > 0 && now - t.lastMovedSec < 7 * 86_400;
+              const names = t.split.slice(0, 3).map((x) => {
+                const g = byGauge.get(`${x.chainId}:${x.gauge.toLowerCase()}`);
+                return `${g ? `${g.symbol0}/${g.symbol1}` : `${x.gauge.slice(0, 6)}...`}${x.chainId !== AERO_CHAIN_ID ? ` (${chainName(x.chainId)})` : ''} ${Math.round(x.share * 100)}%`;
+              });
+              return (
+                <div key={t.id} style={{ display: 'flex', alignItems: isMobile ? 'flex-start' : 'center', gap: 10, flexDirection: isMobile ? 'column' : 'row', padding: '10px 12px', borderRadius: 14, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ color: btb.textMuted, fontSize: 12, fontWeight: 800 }}>{t.rank}.</span>
+                      <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800 }}>#{t.id}</span>
+                      <span style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700 }}>{num(t.size)} sAERO</span>
+                      <span style={{ color: btb.green, fontSize: 12, fontWeight: 800 }}>{pct(t.apr7d)} APR 7d</span>
+                    </div>
+                    <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 3, lineHeight: 1.45 }}>
+                      {t.split.length ? `${names.join(', ')}${t.split.length > 3 ? `, +${t.split.length - 3} more` : ''}` : 'Not placed anywhere now'}
+                      {recent && <span style={{ color: btb.amber, fontWeight: 700 }}> · moved {ago(now - t.lastMovedSec)}</span>}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    {est != null && <span title={baseShare < 0.999 ? 'Its Base part, scaled to your amount' : 'This split at your amount'} style={{ color: btb.green, fontSize: 12.5, fontWeight: 800 }}>{usd(est)} a day</span>}
+                    <Button variant="ghost" size="sm" fullWidth={false} disabled={shares.length === 0} onClick={() => applyTopSplit(shares)}
+                      title={shares.length === 0 ? 'Nothing of it is on Base, and allocating here reaches Base only' : baseShare < 0.999 ? `Uses its Base part (${Math.round(baseShare * 100)}%), scaled to 100%` : undefined}>
+                      {shares.length === 0 ? 'Not on Base' : baseShare < 0.999 ? 'Use Base part' : 'Use this split'}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Every pool, best for your amount first */}
       {snap && (
@@ -491,44 +633,77 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
             </div>
           )}
           {!isMobile && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 90px', gap: 10, padding: '0 14px', ...label }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 80px 90px 30px', gap: 10, padding: '0 14px', ...label }}>
               <span>Pool</span><span style={{ textAlign: 'right' }}>You earn a day</span><span style={{ textAlign: 'right' }}>APR</span>
-              <span style={{ textAlign: 'right' }}>Fees a day</span><span style={{ textAlign: 'right' }}>Incentives</span><span style={{ textAlign: 'right' }}>Power in</span>
+              <span style={{ textAlign: 'right' }}>Fees a day</span><span style={{ textAlign: 'right' }}>Incentives</span><span style={{ textAlign: 'right' }}>Steady</span><span style={{ textAlign: 'right' }}>Power in</span><span/>
             </div>
           )}
-          {filtered.slice(0, shown).map(({ g, weight, earn }) => {
+          {filtered.slice(0, shown).map(({ g, weight, earn, low }) => {
             const apr = aprPct(earn, amount, snap.aeroUsd);
             const thin = g.feeHours < 12;
+            const spike = isSpike(g);
+            const ending = clock ? incentivesEnding(g, clock) : null;
+            const endText = ending ? `${ending.all ? 'Incentives end' : 'Some incentives end'} in ${hrs(ending.inSec)}` : null;
+            const steady = clock ? steadyOf(g, clock) : null;
+            const steadyText = !steady ? 'new' : steady.kind === 'incentives' ? (steady.ending ? 'ending' : 'incentives') : `${steady.paying}/${steady.buckets}`;
+            const steadyFull = !steady || (steady.kind === 'incentives' ? !steady.ending : steady.paying === steady.buckets);
+            const steadyTip = steady?.kind === 'incentives'
+              ? (steady.ending ? 'Paid mostly by incentives, and some end inside the wait' : 'Paid mostly by incentives, which stream at a fixed rate until they end')
+              : 'Recent half-days that paid at least half the average in fees';
+            const showLow = low < earn * 0.95;
+            const added = inCustom(g.gauge);
+            const addBtn = g.chainId === AERO_CHAIN_ID ? (
+              <button type="button" onClick={() => toggleCustom(g.gauge)} aria-label={added ? 'Remove from your split' : 'Add to your split'} title={added ? 'Remove from your split' : 'Add to your split'} style={{
+                flexShrink: 0, width: 30, height: 30, borderRadius: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: added ? 'rgba(var(--green-rgb), 0.16)' : 'rgba(var(--fg-rgb), 0.06)', border: `1px solid ${added ? 'rgba(var(--green-rgb), 0.45)' : 'rgba(var(--fg-rgb), 0.1)'}`,
+              }}><Icon name={added ? 'check' : 'plus'} size={14} color={added ? btb.green : btb.textMuted}/></button>
+            ) : <span title="Allocating on other chains is coming" style={{ width: 30 }}/>;
+            const spikeChip = spike && (
+              <span title="Fees are running 3x or more above this pool's usual level. Ranked at its usual level, since bursts fade." style={{ color: btb.amber, fontSize: 10.5, fontWeight: 800 }}>spike</span>
+            );
             return isMobile ? (
-              <div key={`${g.chainId}:${g.gauge}`} style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={`${g.chainId}:${g.gauge}`} style={{ ...card, padding: 12, display: 'flex', alignItems: 'center', gap: 10, ...(added ? { border: '1px solid rgba(var(--green-rgb), 0.45)' } : {}) }}>
                 {pair(g)}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ color: btb.text, fontSize: 13.5, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.symbol0}/{g.symbol1}</span>
                     {kindChip(g)}
+                    {spikeChip}
                   </div>
                   <div style={{ color: btb.textDim, fontSize: 11.5, marginTop: 2 }}>
-                    Fees {usd(g.feesPerDay ?? 0)}{g.incentivesPerDay > 0 ? ` + ${usd(g.incentivesPerDay)} incentives` : ''} a day{thin ? ', new' : ''}
+                    Fees {usd(g.feesPerDay ?? 0)}{g.incentivesPerDay > 0 ? ` + ${usd(g.incentivesPerDay)} incentives` : ''} a day{thin ? ', new' : steady?.kind === 'fees' ? `, steady ${steadyText}` : ''}
                   </div>
+                  {endText && <div style={{ color: btb.amber, fontSize: 11.5, fontWeight: 700, marginTop: 2 }}>{endText}</div>}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ color: btb.green, fontSize: 14, fontWeight: 800 }}>{usd(earn)}</div>
                   <div style={{ color: btb.textMuted, fontSize: 11.5, fontWeight: 700 }}>{pct(apr)}</div>
+                  {showLow && <div title="If fees fall back to this pool's usual level" style={{ color: btb.textDim, fontSize: 11, fontWeight: 700 }}>low {usd(low)}</div>}
                 </div>
+                {addBtn}
               </div>
             ) : (
-              <div key={`${g.chainId}:${g.gauge}`} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 90px', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: 14, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
+              <div key={`${g.chainId}:${g.gauge}`} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 80px 100px 100px 80px 90px 30px', gap: 10, alignItems: 'center', padding: '10px 14px', borderRadius: 14, border: added ? '1px solid rgba(var(--green-rgb), 0.45)' : btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.03)', fontSize: 13, fontVariantNumeric: 'tabular-nums' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   {pair(g)}
                   <span style={{ color: btb.text, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.symbol0}/{g.symbol1}</span>
                   {kindChip(g)}
                   {thin && <span title="Less than 12 hours of fee history" style={{ color: btb.amber, fontSize: 10.5, fontWeight: 800 }}>new</span>}
+                  {spikeChip}
                 </div>
-                <span style={{ textAlign: 'right', color: btb.green, fontWeight: 800 }}>{usd(earn)}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: btb.green, fontWeight: 800 }}>{usd(earn)}</div>
+                  {showLow && <div title="If fees fall back to this pool's usual level" style={{ color: btb.textDim, fontSize: 11, fontWeight: 700 }}>low {usd(low)}</div>}
+                </div>
                 <span style={{ textAlign: 'right', color: btb.text, fontWeight: 700 }}>{pct(apr)}</span>
                 <span style={{ textAlign: 'right', color: btb.textMuted }}>{usd(g.feesPerDay ?? 0)}</span>
-                <span style={{ textAlign: 'right', color: g.incentivesPerDay > 0 ? btb.text : btb.textDim }}>{g.incentivesPerDay > 0 ? usd(g.incentivesPerDay) : 'none'}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ color: g.incentivesPerDay > 0 ? btb.text : btb.textDim }}>{g.incentivesPerDay > 0 ? usd(g.incentivesPerDay) : 'none'}</div>
+                  {endText && <div title={`${endText}. A program can be renewed, which this can't know.`} style={{ color: btb.amber, fontSize: 11, fontWeight: 700 }}>ends in {hrs(ending!.inSec)}</div>}
+                </div>
+                <span title={steady ? steadyTip : 'Not enough fee history yet'} style={{ textAlign: 'right', color: steady ? (steadyFull ? btb.text : btb.amber) : btb.textDim, fontWeight: 700 }}>{steadyText}</span>
                 <span style={{ textAlign: 'right', color: btb.textMuted }}>{num(weight)}</span>
+                {addBtn}
               </div>
             );
           })}

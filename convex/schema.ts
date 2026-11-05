@@ -215,7 +215,8 @@ export default defineSchema({
   // Discover, split so no document nears Convex's 1 MB limit: `top` is the first screen (the busiest pools, packed),
   // each chain's full list is a gzip file in storage (convex/discoverStore.ts).
   // Aero allocator (convex/aeroAllocator.ts): "snapshot" is every Base gauge with what it pays, read by the Allocate
-  // page; "ledger" is the hourly fee record the pace is measured from, read only by the job.
+  // page; "ledger" is the hourly fee record the pace is measured from, read only by the job; "top" is where the best
+  // allocators (dromos.kitchen's 7-day ranking) sit now.
   aeroAllocator: defineTable({
     key: v.string(),
     json: v.string(),

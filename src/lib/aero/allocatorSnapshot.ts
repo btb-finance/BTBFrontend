@@ -8,7 +8,7 @@ import { base } from 'viem/chains';
 import { llamaPrices } from '../tvlCheck';
 import {
   AERO, AERO_CHAIN_ID, DEFAULT_COOLDOWN_SEC, LEDGER_HOURS, type AeroChain, feePace, leafVoterAbi, notifyFeesEvent, pruneLedger, readGauges,
-  type FeeLedger, type GaugeInfo,
+  type FeeLedger, type GaugeInfo, feeShape,
 } from './allocator';
 
 export type SnapGauge = Omit<GaugeInfo, 'incentives'> & {
@@ -18,6 +18,12 @@ export type SnapGauge = Omit<GaugeInfo, 'incentives'> & {
   feeHours: number;
   /** Incentives streaming now, USD per day (unpriced tokens count as 0). */
   incentivesPerDay: number;
+  /** Each priced incentive program: USD per day and when it ends, so the page can average them over the wait. */
+  incentiveStreams?: { perDay: number; end: number }[];
+  /** The fee level the gauge usually runs at (median half-day, per day); null while the record is too short. */
+  usualFeesPerDay?: number | null;
+  /** Complete half-days in the record that paid at least half the average; null while the record is too short. */
+  steady?: { paying: number; buckets: number } | null;
 };
 
 export type AllocatorSnapshot = {
@@ -53,6 +59,8 @@ export const LOG_SOURCES: Record<number, LogSource> = {
   42161: { url: 'https://arb1.arbitrum.io/rpc', span: 9_000, addrs: 15, backfillHours: 24 },
   57073: { url: 'https://rpc-qnd.inkonchain.com', span: 9_000, addrs: 5, backfillHours: 24 },
   4663: { url: 'https://rpc.mainnet.chain.robinhood.com', span: 50_000, addrs: 20, backfillHours: 24 },
+  // Arc makes a block about every half second; its node refuses log ranges over 10,000 blocks (checked 2026-11-05).
+  5042: { url: 'https://rpc.mainnet.arc.io', span: 9_999, addrs: 10, backfillHours: LEDGER_HOURS },
 };
 
 /** A client that only reads logs, from the node that takes address lists on that chain. */
@@ -149,11 +157,16 @@ export async function buildChain(
   const out: SnapGauge[] = gauges.map(({ incentives, ...g }) => {
     const key = g.gauge.toLowerCase();
     const pace = feePace(nextLedger.hours[key], nextLedger.first[key], nowHour);
-    const incentivesPerDay = incentives.reduce((sum, p) => {
+    const incentiveStreams = incentives.flatMap((p) => {
       const pr = priceOf(p.token);
-      return pr ? sum + ((p.perSec * 86_400) / 10 ** pr.decimals) * pr.price : sum;
-    }, 0);
-    return { ...g, feesPerDay: pace?.usdPerDay ?? null, feeHours: pace?.hours ?? 0, incentivesPerDay };
+      return pr ? [{ perDay: ((p.perSec * 86_400) / 10 ** pr.decimals) * pr.price, end: p.end }] : [];
+    });
+    const incentivesPerDay = incentiveStreams.reduce((sum, p) => sum + p.perDay, 0);
+    const shape = feeShape(nextLedger.hours[key], nextLedger.first[key], nowHour);
+    return {
+      ...g, feesPerDay: pace?.usdPerDay ?? null, feeHours: pace?.hours ?? 0, incentivesPerDay, incentiveStreams,
+      usualFeesPerDay: shape.usualPerDay, steady: shape.steady,
+    };
   });
   return { gauges: out, ledger: nextLedger, aeroUsd: chain.id === AERO_CHAIN_ID ? priceOf(AERO.aero)?.price ?? null : null };
 }
