@@ -72,6 +72,10 @@ export interface EarnPool {
    *  `rangeYield` is set (src/lib/rangeYield.ts), otherwise estimated from 24h
    *  volume (addRangeAprs). */
   aprRange?: number;
+  /** The DEX's own cut of swap fees, % (Uniswap's fee switch, PancakeSwap's
+   *  treasury share, Ramses' voters), read from the pool. Fee figures on the
+   *  row are already after it. */
+  lpCutPct?: number;
   /** Set when aprRange is measured: what a ±5% band on this pool, reset once
    *  a day, really earned over the last `days`, from the pool's own fee
    *  counters (convex/rangeYieldActions.ts). */

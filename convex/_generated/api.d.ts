@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as adminCredit from "../adminCredit.js";
 import type * as aeroAllocator from "../aeroAllocator.js";
 import type * as agent from "../agent.js";
 import type * as agentChat from "../agentChat.js";
@@ -64,6 +65,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adminCredit: typeof adminCredit;
   aeroAllocator: typeof aeroAllocator;
   agent: typeof agent;
   agentChat: typeof agentChat;

@@ -75,9 +75,11 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
   return (
     <Section
       title="Fees"
-      subtitle={series.length > 0
-        ? 'Your share of the fees this pool actually earned each day, at your deposit and range.'
-        : 'Fee estimate for your deposit and range. Day by day history needs subgraph data, which is not available for this pool.'}
+      subtitle={sim.feeSource === 'measured'
+        ? `Fee rate measured from this pool's own fee counters over the last ${Math.max(1, Math.round(sim.feeMeasuredDays ?? 1))} days, after the DEX's cut, moved to your range and deposit.${series.length > 0 ? ' Bars follow each day\'s pool fees.' : ''}`
+        : series.length > 0
+          ? 'Your share of the fees this pool actually earned each day, at your deposit and range.'
+          : 'Fee estimate for your deposit and range. Day by day history needs subgraph data, which is not available for this pool.'}
       right={mode && series.length > 0 ? (
         <div style={{ display: 'flex', gap: 4, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 10, padding: 3 }}>
           {(['daily', 'cumulative'] as const).map((m) => (
@@ -102,7 +104,8 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
       {/* Very high turnover pools attract just-in-time LP bots that mint/burn
           around the largest swaps — research puts their take at up to ~40% of
           fee income in affected pools. Passive LPs eat that dilution. */}
-      {sim.volumeToTvl7d != null && sim.volumeToTvl7d / 7 > 1 && (
+      {/* A measured rate already lost those fees to the bots, so the warning is only for volume estimates. */}
+      {sim.feeSource === 'volume' && sim.volumeToTvl7d != null && sim.volumeToTvl7d / 7 > 1 && (
         <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 12, padding: '10px 12px', marginTop: 10 }}>
           This pool turns over roughly {(sim.volumeToTvl7d / 7).toFixed(0)}× its TVL per day. Heavy-turnover pools attract just-in-time LP bots that compete for the biggest swaps&apos; fees — treat these estimates as optimistic.
         </div>

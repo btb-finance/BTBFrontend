@@ -49,6 +49,10 @@ function headlineApr(p: EarnPool): number {
 
 /** Hover text for the APR cell when no gauge route explains it. */
 function rangeAprTitle(p: EarnPool): string {
+  return rangeAprText(p) + (p.lpCutPct ? ` After the DEX's ${p.lpCutPct}% cut of swap fees.` : '');
+}
+
+function rangeAprText(p: EarnPool): string {
   const y = p.rangeYield;
   if (y && p.aprRange != null) {
     const days = Math.max(1, Math.round(y.days));

@@ -48,13 +48,21 @@ const busy = (p: EarnPool) => p.volume24hUsd ?? p.tvlUsd / 100;
  * Put the measured ±5% range APR (convex/rangeYieldActions.ts) on each row it
  * covers: `aprRange` becomes what a ±5% band really earned, replacing the
  * volume estimate. A row whose measurement expired loses both.
+ *
+ * Rows nothing measured still show volume times fee tier, which ignores the
+ * DEX's own cut (Uniswap's fee switch, PancakeSwap's treasury share, Ramses'
+ * voters). Their fee figures are lowered to the share LPs keep, read from
+ * each pool. `lpCutPct` records the cut once applied, so a row saved again
+ * by a later refresh step is not cut twice.
  */
 async function applyRangeYields(ctx: ActionCtx, pools: EarnPool[]): Promise<void> {
   const rows = await ctx.runQuery(internal.rangeYield.allYields, {});
   const byChain = new Map(rows.map((r) => [r.chainId, JSON.parse(r.yields) as Record<string, YieldEntry>]));
+  const sharesByChain = new Map(rows.map((r) => [r.chainId, JSON.parse(r.lpShares) as Record<string, number>]));
   for (const p of pools) {
     const chainId = p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId;
-    const y = chainId != null ? byChain.get(chainId)?.[p.id.toLowerCase()] : undefined;
+    const id = p.id.toLowerCase();
+    const y = chainId != null ? byChain.get(chainId)?.[id] : undefined;
     if (y) {
       const [feeApr, netPct, days, inRange, scaled] = y;
       p.aprRange = feeApr;
@@ -63,6 +71,16 @@ async function applyRangeYields(ctx: ActionCtx, pools: EarnPool[]): Promise<void
       delete p.rangeYield;
       delete p.aprRange;
     }
+    const share = chainId != null ? sharesByChain.get(chainId)?.[id] : undefined;
+    if (share == null || p.lpCutPct != null || !(share >= 0 && share <= 1)) continue;
+    p.lpCutPct = Math.round((1 - share) * 1000) / 10;
+    // The measured figure is already net of the cut; only gross figures shrink.
+    if (share === 1) continue;
+    const feeOnly = !(p.apyReward > 0);
+    p.apyBase *= share;
+    if (feeOnly) p.apy *= share;
+    if (p.fees24hUsd != null) p.fees24hUsd *= share;
+    if (p.aprRange != null && !p.rangeYield) p.aprRange *= share;
   }
 }
 

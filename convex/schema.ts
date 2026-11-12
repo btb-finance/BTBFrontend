@@ -86,7 +86,7 @@ export default defineSchema({
     ref: v.string(),
     address: v.string(),
     amount: v.float64(),        // BTB
-    source: v.string(),         // "tx" | "rewards" | "payment"
+    source: v.string(),         // "tx" | "rewards" | "payment" | "grant"
     createdAt: v.float64(),
   }).index("by_ref", ["ref"]).index("by_address", ["address", "createdAt"]),
 
@@ -451,6 +451,7 @@ export default defineSchema({
     chainId: v.float64(),
     bandsFile: v.id("_storage"),
     yields: v.string(),
+    lpShares: v.optional(v.string()), // { poolId: share of swap fees LPs keep, 0..1 }
     updatedAt: v.float64(),
   }).index("by_chain", ["chainId"]),
 

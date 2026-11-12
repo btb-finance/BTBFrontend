@@ -228,6 +228,15 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
     return { tickLower, tickUpper };
   }, [pool, embed, customTicks, strategy, sigmaDaily, horizonDays, spacing]);
 
+  // Measured ±5% fee rate for this exact pool from the Discover snapshot
+  // (convex/rangeYieldActions.ts), matched by contract address or V4 pool id.
+  const measuredRange = useMemo(() => {
+    const id = (isV4 ? selected.v4PoolId : pool?.address)?.toLowerCase();
+    if (!id || /^0x0+$/.test(id)) return undefined;
+    const hit = (discoverPools ?? []).find((p) => p.chainId === chainId && p.id.toLowerCase() === id && p.rangeYield && p.aprRange != null);
+    return hit ? { aprPct: hit.aprRange!, inRangePct: hit.rangeYield!.inRangePct, days: hit.rangeYield!.days } : undefined;
+  }, [discoverPools, chainId, isV4, selected.v4PoolId, pool?.address]);
+
   const sim = useMemo(() => {
     if (!pool || !ticks) return null;
     return deriveSim({
@@ -240,8 +249,9 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
       rewardAprPct: selected.aprKind === 'gauge' ? selected.apy : undefined,
       rewardLabel: selected.aprLabel,
       compound,
+      measuredRange,
     });
-  }, [pool, feeTier, effectiveHistory, historyEstimated, poolCreatedAt, fallbackCloses, current, tokenUsd, depositUsd, ticks, horizonDays, movePct, flip, selected, compound]);
+  }, [pool, feeTier, effectiveHistory, historyEstimated, poolCreatedAt, fallbackCloses, current, tokenUsd, depositUsd, ticks, horizonDays, movePct, flip, selected, compound, measuredRange]);
 
   // Tick liquidity converted to display space (quote-asset orientation) for
   // the depth histogram.

@@ -61,6 +61,14 @@ export interface SimInputs {
   rewardLabel?: string;
   /** Reinvest fees into the position — geometric fee accumulation. */
   compound?: boolean;
+  /**
+   * What a ±5% range on this pool really earned, from the pool's own fee
+   * counters (convex/rangeYieldActions.ts): fee APR %, the share of time it was
+   * in range, and the days measured. When set, the fee rate comes from this
+   * instead of pool volume times the current-tick share: it is already after
+   * the DEX's cut and reflects the liquidity that really sat near the price.
+   */
+  measuredRange?: { aprPct: number; inRangePct?: number; days: number };
 }
 
 export interface WaterfallLeg {
@@ -106,6 +114,10 @@ export interface Sim {
   feeAprPct: number | null;
   dailyFeeSeries: { date: number; feesUsd: number }[];
   hasFeeData: boolean;
+  /** Where the fee rate came from: measured ±5% fee counters, or volume times share. */
+  feeSource: 'measured' | 'volume';
+  /** Days the measured rate covers (feeSource 'measured'). */
+  feeMeasuredDays: number | null;
   // model
   sigmaDaily: number; driftDaily: number;
   /** True when sigmaDaily was clamped up to the pair-type floor (junk/short
@@ -214,12 +226,29 @@ export function deriveSim(i: SimInputs): Sim | null {
   const poolDailyFeesUsd = recent.length > 0
     ? recent.reduce((s, d) => s + d.feesUsd, 0) / recent.length
     : i.fees24hUsd ?? 0;
-  const hasFeeData = poolDailyFeesUsd > 0;
-  const dailyFeeUsd = inRange ? poolDailyFeesUsd * liquidityShare : 0;
-  const feeAprPct = depositUsd > 0 && poolDailyFeesUsd > 0
-    ? (poolDailyFeesUsd * liquidityShare * 365 / depositUsd) * 100
-    : null;
-  const dailyFeeSeries = completeDays.map((d) => ({ date: d.date, feesUsd: d.feesUsd * liquidityShare }));
+  // Fee per day while in range. Measured: the ±5% band's real fee rate per
+  // unit of liquidity, divided by its in-range share (the APR counts days out
+  // of range too), moved to this range by how much capital a unit of
+  // liquidity needs here against ±5%, and diluted by this deposit. Otherwise:
+  // the pool's daily fees times this deposit's share of current-tick liquidity.
+  const volumeDay = poolDailyFeesUsd * liquidityShare;
+  const measuredDay = (() => {
+    const m = i.measuredRange;
+    if (!m || !(m.aprPct > 0)) return null;
+    const ua5 = unitAmounts(price, price * 0.95, price * 1.05);
+    const value5 = ua5.x * price + ua5.y;
+    if (!(value5 > 0)) return null;
+    const inRangeShare = m.inRangePct != null && m.inRangePct >= 20 ? m.inRangePct / 100 : 1;
+    return depositUsd * (m.aprPct / 100 / 365) / inRangeShare * (value5 / unitValueToken1) * (1 - liquidityShare);
+  })();
+  const feeSource: 'measured' | 'volume' = measuredDay != null ? 'measured' : 'volume';
+  const perDayShare = measuredDay ?? volumeDay; // fee/day while in range
+  const hasFeeData = perDayShare > 0;
+  const dailyFeeUsd = inRange ? perDayShare : 0;
+  const feeAprPct = depositUsd > 0 && perDayShare > 0 ? (perDayShare * 365 / depositUsd) * 100 : null;
+  // The daily history keeps its shape (busy days stay busy), scaled to the rate used.
+  const seriesScale = volumeDay > 0 ? perDayShare / volumeDay : 0;
+  const dailyFeeSeries = completeDays.map((d) => ({ date: d.date, feesUsd: d.feesUsd * liquidityShare * seriesScale }));
 
   // ── Volatility model ───────────────────────────────────────────────────────
   const histCloses = i.history && i.history.length > 1
@@ -249,7 +278,6 @@ export function deriveSim(i: SimInputs): Sim | null {
   const H = i.horizonDays;
   const coverage = rangeCoverage(price, priceLower, priceUpper, sigmaDaily, H);
   const timeInRange = expectedTimeInRange(price, priceLower, priceUpper, sigmaDaily, H);
-  const perDayShare = poolDailyFeesUsd * liquidityShare; // fee/day while in range
   // Compounding: fees reinvested at a constant daily rate r grow the stream
   // geometrically — ((1+r)^H − 1)/r in place of a flat H.
   const rDaily = depositUsd > 0 ? perDayShare / depositUsd : 0;
@@ -425,6 +453,7 @@ export function deriveSim(i: SimInputs): Sim | null {
     inRange, nearEdge,
     depositUsd, amount0, amount1, value0Usd, value1Usd, liquidityShare,
     poolDailyFeesUsd, poolVolume7dUsd, volumeToTvl7d, dailyFeeUsd, feeAprPct, dailyFeeSeries, hasFeeData,
+    feeSource, feeMeasuredDays: i.measuredRange?.days ?? null,
     sigmaDaily, sigmaAssumed, driftDaily, coverage, timeInRange, expectedFeesUsd, nearestEdgePct, usingFallbackHistory,
     historyEstimated: i.historyEstimated ?? false,
     poolAgeDays: i.poolCreatedAt != null ? Math.max(0, Math.round((Date.now() - i.poolCreatedAt) / 86_400_000)) : null,

@@ -1,3 +1,5 @@
+"use node";
+
 /**
  * Daily job: measure what a ±5% position really earned on every concentrated
  * pool Discover lists (the method is in src/lib/rangeYield.ts).
@@ -11,6 +13,9 @@
  *
  * A chain's first run also fills in the past week from historical blocks,
  * where its RPCs keep history, so a full week shows at once.
+ *
+ * Node runtime: Ethereum's bands plus the Discover snapshot outgrew the
+ * default runtime's 64 MB on the first seed.
  *
  * One action per chain, staggered, then the Discover snapshot is re-saved so
  * saveDiscover copies the new figures onto its rows.
@@ -128,13 +133,27 @@ async function closeBands(client: PublicClient, pools: YieldPool[], now: (PoolNo
   return closed;
 }
 
-/** Block number about `daysBack` days before `head`, from the chain's recent block rate. */
+/**
+ * The block about `daysBack` days before `head`. Starts from the recent block
+ * rate, then corrects against real timestamps: block times change (Base got
+ * faster mid-week), and a fixed rate put "7 days back" at 10.
+ */
 async function blockDaysBack(client: PublicClient, head: { number: bigint; timestamp: bigint }, daysBack: number) {
+  const target = Number(head.timestamp) - 86_400 * daysBack;
   const ref = await client.getBlock({ blockNumber: head.number - 10_000n });
-  const perSec = 10_000 / Number(head.timestamp - ref.timestamp);
-  const blockNumber = head.number - BigInt(Math.round(perSec * 86_400 * daysBack));
-  if (blockNumber <= 0n) return null;
-  return client.getBlock({ blockNumber }).catch(() => null);
+  let perSec = 10_000 / Number(head.timestamp - ref.timestamp);
+  let guess = head.number - BigInt(Math.round(perSec * 86_400 * daysBack));
+  for (let step = 0; step < 4; step++) {
+    if (guess <= 0n) return null;
+    const block = await client.getBlock({ blockNumber: guess }).catch(() => null);
+    if (!block) return null;
+    const off = Number(block.timestamp) - target;
+    if (Math.abs(off) < 900) return block;
+    // Rate over the span just measured, then step by the time still off.
+    perSec = Number(head.number - guess) / Math.max(1, Number(head.timestamp - block.timestamp));
+    guess -= BigInt(Math.round(off * perSec));
+  }
+  return client.getBlock({ blockNumber: guess }).catch(() => null);
 }
 
 /**
@@ -195,7 +214,7 @@ export async function measureChain(
   pools: YieldPool[],
   state: BandsFile,
   previous: Record<string, YieldEntry>,
-): Promise<{ yields: Record<string, YieldEntry>; opened: number; closed: number }> {
+): Promise<{ yields: Record<string, YieldEntry>; shares: Record<string, number>; opened: number; closed: number }> {
   const known = pools.map((p) => ({ ...p, tickSpacing: state[p.id]?.s }));
   const now = await readPoolsNow(client, known);
   await findV4Spacing(client, known, now);
@@ -203,6 +222,10 @@ export async function measureChain(
 
   const at = Date.now();
   const closed = await closeBands(client, known, now, state, at, MIN_BAND_AGE);
+  // Each pool's LP share of swap fees after the DEX's cut, for rows the
+  // measurement does not cover (their APR is still volume times fee tier).
+  const shares: Record<string, number> = {};
+  known.forEach((p, i) => { const sh = now[i]?.lpShare; if (sh != null) shares[p.id] = Number(sh.toFixed(4)); });
 
   const yields: Record<string, YieldEntry> = {};
   for (const p of known) {
@@ -231,7 +254,7 @@ export async function measureChain(
   const listed = new Set(known.map((p) => p.id));
   for (const id of Object.keys(state)) if (!listed.has(id)) delete state[id];
 
-  return { yields, opened, closed };
+  return { yields, shares, opened, closed };
 }
 
 type Ctx = ActionCtx;
@@ -249,10 +272,10 @@ async function loadChain(ctx: Ctx, chainId: number) {
   return { row, state, previous };
 }
 
-async function saveChain(ctx: Ctx, chainId: number, state: BandsFile, yields: Record<string, YieldEntry>) {
+async function saveChain(ctx: Ctx, chainId: number, state: BandsFile, yields: Record<string, YieldEntry>, shares?: Record<string, number>) {
   const bytes = gzipSync(strToU8(JSON.stringify(state)), { level: 9 });
   const bandsFile = await ctx.storage.store(new Blob([bytes as BlobPart], { type: "application/gzip" }));
-  await ctx.runMutation(internal.rangeYield.saveChain, { chainId, bandsFile, yields: JSON.stringify(yields) });
+  await ctx.runMutation(internal.rangeYield.saveChain, { chainId, bandsFile, yields: JSON.stringify(yields), ...(shares ? { lpShares: JSON.stringify(shares) } : {}) });
 }
 
 /** The chain's client and the pools to measure, or null when there is nothing to do. */
@@ -273,8 +296,8 @@ export const refreshChain = internalAction({
     if (!setup) return;
     const started = Date.now();
     const { row, state, previous } = await loadChain(ctx, chainId);
-    const { yields, opened, closed } = await measureChain(setup.client, setup.pools, state, previous);
-    await saveChain(ctx, chainId, state, yields);
+    const { yields, shares, opened, closed } = await measureChain(setup.client, setup.pools, state, previous);
+    await saveChain(ctx, chainId, state, yields, shares);
     const scaled = Object.values(yields).filter((y) => y[4] === 1).length;
     console.log(`range yield ${chainId}: ${setup.pools.length} pools, ${Object.keys(yields).length} measured (${scaled} scaled), ${closed} days closed, ${opened} bands opened, ${Math.round((Date.now() - started) / 1000)}s`);
     // First run on this chain: fill in the past week where the RPCs keep

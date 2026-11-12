@@ -39,6 +39,7 @@ const V3_ABI = parseAbi([
   'function tickBitmap(int16) view returns (uint256)',
   'function ticks(int24) view returns (uint128)',
   'function snapshotCumulativesInside(int24, int24) view returns (int56, uint160, uint32)',
+  'function unstakedFee() view returns (uint24)',
 ]);
 const V4_ABI = parseAbi([
   'function getSlot0(bytes32) view returns (uint160, int24, uint24, uint24)',
@@ -74,6 +75,35 @@ export interface PoolNow {
   sqrtP: number;
   /** 0 for a V4 pool whose spacing is not known yet: see findV4Spacing. */
   tickSpacing: number;
+  /** Share of swap fees the LP keeps after the DEX's own cut, 0..1 (see lpShareOf). */
+  lpShare?: number;
+}
+
+/**
+ * Share of swap fees an LP keeps, from the pool's own settings. Forks store
+ * the protocol cut in slot0's sixth word, each its own way:
+ *  - Uniswap V3 and Sushi: a byte, one nibble per token, the cut is 1/n
+ *    (0x44 = a quarter, 0x66 = a sixth, 0 = no cut).
+ *  - PancakeSwap V3 and Giga: two 16 bit halves, each the cut per 10,000
+ *    (3300 = 33%).
+ *  - Ramses V3: one number, the cut per 1,000,000.
+ * Slipstream has no cut in slot0; an unstaked LP gives up `unstakedFee` per
+ * 1,000,000. Uniswap V4 charges its protocol fee on top of the LP fee, so its
+ * LP fee rate is already what the LP keeps.
+ */
+export function lpShareOf(slot0Words: bigint[], unstakedFee: bigint | null): number | undefined {
+  if (slot0Words.length === 6) return unstakedFee != null && unstakedFee <= 1_000_000n ? 1 - Number(unstakedFee) / 1e6 : undefined;
+  if (slot0Words.length < 7) return undefined;
+  const fp = Number(slot0Words[5]);
+  if (fp === 0) return 1;
+  if (fp < 256) {
+    const cut = (n: number) => (n === 0 ? 0 : 1 / n);
+    return 1 - (cut(fp % 16) + cut(fp >> 4)) / 2;
+  }
+  const lo = fp % 65536, hi = Math.floor(fp / 65536);
+  if (lo <= 10_000 && hi <= 10_000) return 1 - (lo + hi) / 2 / 10_000;
+  if (fp <= 1_000_000) return 1 - fp / 1_000_000;
+  return undefined;
 }
 
 /** One open band: the fee counters inside it when it was opened. */
@@ -171,7 +201,13 @@ export async function readPoolsNow(client: PublicClient, pools: YieldPool[]): Pr
         { target: addr(p), callData: encodeFunctionData({ abi: V3_ABI, functionName: 'slot0' }) },
         { target: addr(p), callData: encodeFunctionData({ abi: V3_ABI, functionName: 'tickSpacing' }) },
       ]);
-  const res = await multiRaw(client, calls);
+  // Slipstream's unstaked LP fee, asked of every V3-style pool (the others revert).
+  const v3 = pools.map((p, i) => ({ p, i })).filter(({ p }) => !isV4(p));
+  const [res, unstaked] = await Promise.all([
+    multiRaw(client, calls),
+    multiRaw(client, v3.map(({ p }) => ({ target: addr(p), callData: encodeFunctionData({ abi: V3_ABI, functionName: 'unstakedFee' }) }))),
+  ]);
+  const unstakedOf = new Map(v3.map(({ i }, j) => [i, unstaked[j] ? words(unstaked[j]!)[0] ?? null : null]));
   return pools.map((p, i) => {
     const s = res[i * 2], k = res[i * 2 + 1];
     if (!s || !k) return null;
@@ -182,7 +218,8 @@ export async function readPoolsNow(client: PublicClient, pools: YieldPool[]): Pr
     const read = isV4(p) ? (kw.length >= 5 ? signed(kw[3]) : 0) : (kw.length >= 1 ? signed(kw[0]) : 0);
     const tickSpacing = read > 0 && read <= 20_000 ? read : p.tickSpacing ?? 0;
     if (!(sqrtP > 0) || (!isV4(p) && !(tickSpacing > 0))) return null;
-    return { tick, sqrtP, tickSpacing };
+    const lpShare = isV4(p) ? 1 : lpShareOf(sw, unstakedOf.get(i) ?? null);
+    return { tick, sqrtP, tickSpacing, ...(lpShare != null ? { lpShare } : {}) };
   });
 }
 
