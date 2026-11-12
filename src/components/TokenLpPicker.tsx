@@ -97,7 +97,8 @@ export function TokenLpPicker({ token, onClose }: { token: Token; onClose: () =>
                   <div style={{ color: btb.textMuted, fontSize: 10 }}>
                     {p.requiresStaking
                       ? `stake LP · ${(p.rewardTokenSymbols ?? ['gauge']).join(' + ')}`
-                      : p.aprRange !== undefined ? `±${RANGE_APR_PCT}% range APR` : 'pool APR'}
+                      : p.rangeYield ? `±${RANGE_APR_PCT}% earned · ${Math.max(1, Math.round(p.rangeYield.days))}d`
+                        : p.aprRange !== undefined ? `±${RANGE_APR_PCT}% range APR` : 'pool APR'}
                   </div>
                 </div>
                 <span style={{ color: btb.textDim, fontSize: 16, fontWeight: 700 }}>›</span>

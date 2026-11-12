@@ -13,9 +13,10 @@ import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { gzipSync, gunzipSync, strToU8, strFromU8 } from "fflate";
 import { packSnapshot, unpackSnapshotNode } from "../src/lib/snapshotCodec";
-import type { EarnPool } from "../src/lib/pools";
+import { DISCOVERY_CHAINS, type EarnPool } from "../src/lib/pools";
 import { dropUnbackedTvl } from "../src/lib/tvlCheck";
 import { getChainClient } from "../src/lib/chainClient";
+import type { YieldEntry } from "./rangeYield";
 
 export type DiscoverSnap = { version?: number; pools: EarnPool[]; priceChange?: Record<string, number> };
 
@@ -43,11 +44,34 @@ function slim(p: EarnPool): EarnPool {
 
 const busy = (p: EarnPool) => p.volume24hUsd ?? p.tvlUsd / 100;
 
+/**
+ * Put the measured ±5% range APR (convex/rangeYieldActions.ts) on each row it
+ * covers: `aprRange` becomes what a ±5% band really earned, replacing the
+ * volume estimate. A row whose measurement expired loses both.
+ */
+async function applyRangeYields(ctx: ActionCtx, pools: EarnPool[]): Promise<void> {
+  const rows = await ctx.runQuery(internal.rangeYield.allYields, {});
+  const byChain = new Map(rows.map((r) => [r.chainId, JSON.parse(r.yields) as Record<string, YieldEntry>]));
+  for (const p of pools) {
+    const chainId = p.chainId ?? DISCOVERY_CHAINS.find((c) => c.chain === p.chain)?.chainId;
+    const y = chainId != null ? byChain.get(chainId)?.[p.id.toLowerCase()] : undefined;
+    if (y) {
+      const [feeApr, netPct, days, inRange, scaled] = y;
+      p.aprRange = feeApr;
+      p.rangeYield = { days, netPct, ...(inRange >= 0 ? { inRangePct: inRange } : {}), ...(scaled ? { scaled: true } : {}) };
+    } else if (p.rangeYield) {
+      delete p.rangeYield;
+      delete p.aprRange;
+    }
+  }
+}
+
 export async function saveDiscover(ctx: ActionCtx, snap: DiscoverSnap): Promise<void> {
   // Pools whose TVL no real money backs (a token priced from its own pool) are dropped here, where every refresh
   // step saves; rows already checked are skipped, and a failed check saves the list as it was.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const backed = await dropUnbackedTvl(snap.pools, (chainId) => getChainClient(chainId) as any).catch(() => snap.pools);
+  await applyRangeYields(ctx, backed).catch((e) => console.warn("range yields", e));
   const pools = backed.map(slim);
   const byChain = new Map<string, EarnPool[]>();
   for (const p of pools) byChain.set(p.chain, [...(byChain.get(p.chain) ?? []), p]);

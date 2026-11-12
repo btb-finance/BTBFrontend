@@ -38,6 +38,8 @@ import type * as pushActions from "../pushActions.js";
 import type * as queries from "../queries.js";
 import type * as questCatalog from "../questCatalog.js";
 import type * as quests from "../quests.js";
+import type * as rangeYield from "../rangeYield.js";
+import type * as rangeYieldActions from "../rangeYieldActions.js";
 import type * as rewards from "../rewards.js";
 import type * as rewardsActions from "../rewardsActions.js";
 import type * as rpcHealth from "../rpcHealth.js";
@@ -92,6 +94,8 @@ declare const fullApi: ApiFromModules<{
   queries: typeof queries;
   questCatalog: typeof questCatalog;
   quests: typeof quests;
+  rangeYield: typeof rangeYield;
+  rangeYieldActions: typeof rangeYieldActions;
   rewards: typeof rewards;
   rewardsActions: typeof rewardsActions;
   rpcHealth: typeof rpcHealth;

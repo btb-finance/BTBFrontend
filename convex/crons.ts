@@ -30,6 +30,10 @@ if (process.env.DISABLE_CRONS !== "1") {
   crons.interval("refresh discover pools", { hours: 6 }, internal.discoverRefresh.refresh);
 
 
+  // Measured ±5% range APR (convex/rangeYieldActions.ts): what a ±5% band on each Discover pool really earned, read
+  // from the pools' own fee counters. One band opens per pool per day, so this runs daily.
+  crons.daily("measure range yields", { hourUTC: 2, minuteUTC: 40 }, internal.rangeYieldActions.refresh);
+
   // Aero allocator (convex/aeroAllocator.ts): every Base gauge with what it pays. The fee pace is read from the last hour of
   // fee releases on top of a stored record, so an hourly run is a few dozen calls.
   crons.interval("refresh aero allocator", { hours: 1 }, internal.aeroAllocator.refresh, {});
