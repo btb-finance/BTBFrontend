@@ -32,7 +32,8 @@ const MAX_DAILY_MESSAGES = 200;
 
 type Pool = {
   id: string; chain: string; chainId?: number; pair: string; dex: string; project?: string; version?: string; feeTier?: number;
-  tvlUsd: number; apy: number; apyBase?: number; apyReward?: number; aprRange?: number; volume24hUsd?: number; fees24hUsd?: number; stablecoin: boolean;
+  tvlUsd: number; apy: number; apyBase?: number; apyReward?: number; aprRange?: number;
+  rangeYield?: { days: number; netPct: number; inRangePct?: number; scaled?: boolean }; volume24hUsd?: number; fees24hUsd?: number; stablecoin: boolean;
   underlyingTokens?: string[]; merkl?: { apr: number; rewardSymbols: string[] };
 };
 
@@ -196,7 +197,11 @@ function poolLine(p: Pool): string {
     `id=${p.id}`, p.pair, `${p.chain}`, `${p.dex}${p.version ? " " + p.version : ""}`, `fee ${fee}`,
     `TVL $${p.tvlUsd >= 1e6 ? (p.tvlUsd / 1e6).toFixed(2) + "M" : Math.round(p.tvlUsd / 1e3) + "K"}`,
     `fee APR ${(p.apyBase ?? p.apy).toFixed(1)}%`,
-    p.aprRange != null ? `5%-range APR ${p.aprRange.toFixed(1)}%` : "",
+    p.aprRange != null
+      ? p.rangeYield
+        ? `5%-range APR ${p.aprRange.toFixed(1)}% (measured: a ±5% range reset daily, last ${Math.max(1, Math.round(p.rangeYield.days))}d, from the pool's fee counters${p.rangeYield.inRangePct != null ? `, in range ${p.rangeYield.inRangePct}%` : ""}${p.rangeYield.scaled ? ", scaled from a wider band" : ""}; with price moves vs holding ${p.rangeYield.netPct.toFixed(2)}% over that window)`
+        : `5%-range APR ${p.aprRange.toFixed(1)}% (estimate from 24h volume)`
+      : "",
     p.apyReward ? `gauge ${p.apyReward.toFixed(1)}%` : "",
     p.merkl?.apr ? `Merkl +${p.merkl.apr.toFixed(1)}% ${p.merkl.rewardSymbols.join("/")}` : "",
     p.volume24hUsd != null ? `24h vol $${Math.round(p.volume24hUsd / 1e3)}K` : "",
@@ -235,7 +240,8 @@ function estimateEarnings(pools: Pool[], a: Record<string, unknown>): string {
   const range = typeof a.rangePct === "number" ? a.rangePct : 5;
   if (!(deposit > 0)) return "depositUsd must be positive.";
   const fees24h = p.fees24hUsd ?? (p.tvlUsd * (p.apyBase ?? p.apy)) / 100 / 365;
-  // The snapshot's aprRange is the APR of a plus/minus 5% range measured
+  // The snapshot's aprRange is the APR of a plus/minus 5% range: measured
+  // from the pool's fee counters when rangeYield is set, otherwise estimated
   // against the pool's real in-range liquidity (concentrated pools already
   // hold most liquidity near the price, so a naive full-range multiplier
   // overstates by 10x). Scale that figure by width, within sane bounds.

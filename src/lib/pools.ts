@@ -68,8 +68,22 @@ export interface EarnPool {
   tokenPricesUsd?: Record<string, number>;
   token1Decimals?: number; // indexer pools only — needed for the range APR
   externalUrl?: string;
-  /** Estimated fee APR % for a ±RANGE_APR_PCT% concentrated position (see addRangeAprs). */
+  /** Fee APR % for a ±RANGE_APR_PCT% concentrated position: measured when
+   *  `rangeYield` is set (src/lib/rangeYield.ts), otherwise estimated from 24h
+   *  volume (addRangeAprs). */
   aprRange?: number;
+  /** Set when aprRange is measured: what a ±5% band on this pool, reset once
+   *  a day, really earned over the last `days`, from the pool's own fee
+   *  counters (convex/rangeYieldActions.ts). */
+  rangeYield?: {
+    days: number;
+    /** Fees plus each day's price move, against simply holding, over the window (%). */
+    netPct: number;
+    /** Share of the time the price was inside the band (V3-style pools). */
+    inRangePct?: number;
+    /** Measured on a wider band and scaled to ±5% (no liquidity edges near ±5%). */
+    scaled?: boolean;
+  };
   /** APY change over the last 24h, in percentage points — DeFiLlama-sourced pools only. */
   apyChange1d?: number;
   source: 'uniswap' | 'defillama' | 'dexscreener' | 'metric';
@@ -968,8 +982,9 @@ export const BAND_FACTOR = (1 - 1 / Math.sqrt(1 + RANGE_APR_PCT / 100)) + (1 - M
  * for a small position. Pools it can't price keep the whole-pool APR.
  */
 export async function addRangeAprs(client: PublicClient, pools: EarnPool[]): Promise<EarnPool[]> {
+  // Rows with a measured figure keep it: the estimate is only a stand-in.
   const targets = pools.filter((p) =>
-    p.source === 'uniswap' && (p.fees24hUsd ?? 0) > 0 &&
+    !p.rangeYield && p.source === 'uniswap' && (p.fees24hUsd ?? 0) > 0 &&
     p.token1Decimals !== undefined && (p.underlyingTokens?.length ?? 0) >= 2);
   if (targets.length === 0) return pools;
 

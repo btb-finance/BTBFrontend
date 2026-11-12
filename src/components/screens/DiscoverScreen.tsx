@@ -47,6 +47,27 @@ function headlineApr(p: EarnPool): number {
   return p.aprRange ?? p.apy;
 }
 
+/** Hover text for the APR cell when no gauge route explains it. */
+function rangeAprTitle(p: EarnPool): string {
+  const y = p.rangeYield;
+  if (y && p.aprRange != null) {
+    const days = Math.max(1, Math.round(y.days));
+    const span = `${days} ${days === 1 ? 'day' : 'days'}`;
+    const inRange = y.inRangePct != null ? ` In range ${y.inRangePct}% of the time.` : '';
+    const scaled = y.scaled ? ' Measured on the nearest liquidity edges and scaled to ±5%, so it assumes the price stayed within ±5%.' : '';
+    const net = `${y.netPct >= 0 ? '+' : ''}${y.netPct.toFixed(2)}%`;
+    return `What a ±5% range, reset once a day, really earned in fees over the last ${span}, read from the pool's fee counters.${inRange}${scaled} With each day's price move counted, against just holding: ${net} over the ${span}.`;
+  }
+  return p.aprRange != null ? '±5% range APR estimated from 24h volume' : 'Whole pool fees over TVL. No range data for this pool yet.';
+}
+
+/** Short tag under the APR: how the number was made. */
+function rangeAprTag(p: EarnPool): string | null {
+  const y = p.rangeYield;
+  if (!y) return null;
+  return `±5% · ${Math.max(1, Math.round(y.days))}d${y.scaled ? ' · scaled' : ''}`;
+}
+
 function aprContext(p: EarnPool): { label: string; title: string } | null {
   const reward = p.rewardTokenSymbols?.join(' + ') || 'gauge';
   if (p.yieldMode === 'stake-or-fees') {
@@ -768,11 +789,12 @@ export function DiscoverScreen() {
     {
       key: 'apr', label: 'APR', align: 'right', sortable: true, sortValue: headlineApr,
       render: p => p.source === 'dexscreener' && p.feeTier == null ? <span title="Fee tier data is not available from this source" style={{ color: btb.textDim }}>—</span> : (
-        <div title={aprContext(p)?.title ?? (p.aprRange != null ? '±5% concentrated-range APR at current volume' : 'Whole-pool fees/TVL APR — no range data available for this pool')}>
+        <div title={aprContext(p)?.title ?? rangeAprTitle(p)}>
           <div style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
             {fmtApr(headlineApr(p))}
           </div>
           {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
+          {!aprContext(p) && rangeAprTag(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2, whiteSpace: 'nowrap' }}>{rangeAprTag(p)}</div>}
           {p.merkl && p.merkl.apr > 0 && (
             <div title={`Merkl reward campaign paying ${p.merkl.rewardSymbols.join(', ') || 'rewards'} to LPs in this pool, on top of fees. Claim from Portfolio.`} style={{ display: 'inline-block', color: btb.reward, background: 'rgba(var(--reward-rgb, 196, 181, 253), 0.14)', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap' }}>
               +{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}

@@ -445,6 +445,15 @@ export default defineSchema({
 
 
 
+  // Measured ±5% range APR per chain (convex/rangeYield.ts): open fee bands in
+  // storage, latest measurement per pool as JSON.
+  rangeYield: defineTable({
+    chainId: v.float64(),
+    bandsFile: v.id("_storage"),
+    yields: v.string(),
+    updatedAt: v.float64(),
+  }).index("by_chain", ["chainId"]),
+
   // ── Shared pool-fact cache (server-written only) ───────────────────────────
   // Enrichment results (fee tier, AMM class, ±5% range APR) probed by the
   // server route. Clients READ these but can never write them — writes carry a
