@@ -96,3 +96,16 @@ export const top = query({
     return { updatedAt, lps: all.slice(0, Math.min(200, limit ?? 100)) };
   },
 });
+
+/** Smart LPs for several pools on one chain at once (a token's pools in Scan). */
+export const forPools = query({
+  args: { chainId: v.float64(), pools: v.array(v.string()) },
+  handler: async (ctx, { chainId, pools }) => {
+    const row = await ctx.db.query("smartLps").withIndex("by_chain", (q) => q.eq("chainId", chainId)).first();
+    if (!row) return {};
+    const all = JSON.parse(row.results) as Record<string, PoolSmartLps>;
+    const out: Record<string, PoolSmartLps> = {};
+    for (const p of pools.slice(0, 20)) { const hit = all[p.toLowerCase()]; if (hit) out[p.toLowerCase()] = hit; }
+    return out;
+  },
+});

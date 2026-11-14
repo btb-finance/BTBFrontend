@@ -700,6 +700,7 @@ function ScanView({ d, createdAt, onLp: openLp, refresh, filling }: {
       {/* LP plan */}
       <LpPlan d={view} lpTarget={lpTarget} onLp={onLp} custom={custom} onReset={() => setRange(suggested)}/>
       <Card><PoolsTable d={d} onLp={onLp} picked={base.lp.pool?.pair ?? null} onPick={setPair}/></Card>
+      <RealResults d={d} suggested={suggested} onUse={(pair, r) => { setPair(pair); setRange(r); }}/>
       <Card><RangeCompare d={base} range={range} setRange={setRange} filling={filling}/></Card>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 14, alignItems: 'stretch' }}>
         <Card padding={20}><Earnings d={view} filling={filling}/></Card>
@@ -1923,5 +1924,95 @@ function MissingNote({ filling, what }: { filling: boolean; what: string }) {
     <div style={{ color: btb.textMuted, fontSize: 13.5, lineHeight: 1.5 }}>
       GeckoTerminal has no data on {what}, so this can't be worked out. Pick another pool in Step 1, or rescan for fresh data.
     </div>
+  );
+}
+
+/**
+ * Paid-scan extra: how LPs really did on this token's pools, from BTB's own
+ * daily measurements. Per pool, what a ±5% range earned (src/lib/rangeYield.ts)
+ * and the DEX's cut; then the smart LPs here (src/lib/smartLps.ts), whose
+ * ranges can be applied to the plan above in one tap.
+ */
+function RealResults({ d, suggested, onUse }: { d: ScanResult; suggested: Range; onUse: (pair: string, r: Range) => void }) {
+  const { isMobile } = useSidebar();
+  const pools = useMemo(() => d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []), [d]);
+  const ids = useMemo(() => pools.map((p) => p.pair.toLowerCase()), [pools]);
+  const smart = useQuery(api.smartLps.forPools, ids.length ? { chainId: d.chainId, pools: ids } : 'skip');
+  const { pools: discover } = useDiscoverPools();
+  const rowOf = useMemo(() => {
+    const m = new Map<string, NonNullable<typeof discover>[number]>();
+    for (const p of discover ?? []) if (p.chainId === d.chainId) m.set(p.id.toLowerCase(), p);
+    return m;
+  }, [discover, d.chainId]);
+
+  // Smart LP ranges are moves of the pool's token0 price; turned into moves of this token's price.
+  const token = d.token.toLowerCase();
+  const asTokenRange = (pool: ScanPool, lowPct: number, highPct: number): Range => {
+    const isToken0 = token < pool.quoteAddress.toLowerCase();
+    return isToken0 ? { lowerPct: lowPct, upperPct: highPct } : { lowerPct: (1 / (1 + highPct / 100) - 1) * 100, upperPct: (1 / (1 + lowPct / 100) - 1) * 100 };
+  };
+  const lps = useMemo(() => pools.flatMap((p) => (smart?.[p.pair.toLowerCase()]?.top ?? []).map((x) => ({ p, x, r: asTokenRange(p, x.lowPct, x.highPct) })))
+    .sort((a, b) => b.x.netApr - a.x.netApr), [pools, smart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const measured = pools.map((p) => ({ p, row: rowOf.get(p.pair.toLowerCase()), s: smart?.[p.pair.toLowerCase()] }))
+    .filter((x) => x.row?.rangeYield || x.s || x.row?.lpCutPct != null);
+  if (measured.length === 0 && lps.length === 0) return null;
+
+  // Typical smart LP width against the plan's suggestion.
+  const widths = lps.map(({ r }) => r.upperPct - r.lowerPct).sort((a, b) => a - b);
+  const medianWidth = widths.length ? widths[Math.floor(widths.length / 2)] : null;
+  const ourWidth = suggested.upperPct - suggested.lowerPct;
+  const pct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+  return (
+    <Card>
+      <SectionTitle title="How LPs really did here" sub={`Measured by BTB from each pool's own fee counters, not estimated from volume. Only in a paid scan.`}/>
+      {measured.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {measured.map(({ p, row, s }) => {
+            const y = row?.rangeYield;
+            return (
+              <div key={p.pair} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.04)' }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+                  <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 850 }}>{d.symbol} / {p.quote} <span style={{ color: btb.textDim, fontWeight: 650, fontSize: 12 }}>· {dexName(p.dex)}</span></div>
+                  <div style={{ color: btb.textMuted, fontSize: 11.5, marginTop: 2 }}>
+                    {row?.lpCutPct ? `DEX keeps ${row.lpCutPct}% of swap fees` : row?.lpCutPct === 0 ? 'LPs keep all swap fees' : 'DEX cut not read yet'}
+                  </div>
+                </div>
+                <MiniStat label="±5% range earned" value={y && row?.aprRange != null ? `${row.aprRange.toFixed(row.aprRange < 10 ? 1 : 0)}% APR` : 'not measured yet'} tone={y ? 'good' : undefined}/>
+                {y && <MiniStat label="Over" value={`${Math.max(1, Math.round(y.days))}d${y.inRangePct != null ? ` · ${y.inRangePct}% in range` : ''}`}/>}
+                <MiniStat label="Smart LPs" value={s ? `${s.smart} of ${s.measured}` : 'none yet'} tone={s && s.smart > 0 ? 'good' : undefined}/>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {lps.length > 0 && (
+        <>
+          <div style={{ color: btb.text, fontSize: 14, fontWeight: 850, margin: '18px 2px 8px' }}>LPs beating holding on {d.symbol}</div>
+          {medianWidth != null && (
+            <div style={{ color: btb.textMuted, fontSize: 12.5, margin: '0 2px 10px', lineHeight: 1.5 }}>
+              The plan above suggests {pct(suggested.lowerPct)} to {pct(suggested.upperPct)} ({ourWidth.toFixed(0)}% wide). LPs winning here use about {medianWidth.toFixed(0)}% wide{medianWidth < ourWidth * 0.7 ? ', tighter, and they rebalance or stay near the price' : medianWidth > ourWidth * 1.4 ? ', wider, trading fees for fewer exits' : ', close to the plan'}.
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {lps.slice(0, isMobile ? 4 : 6).map(({ p, x, r }) => (
+              <div key={`${p.pair}:${x.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.04)' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: btb.text, fontSize: 13, fontWeight: 750 }}>
+                    {pct(r.lowerPct)} to {pct(r.upperPct)} <span style={{ color: btb.textDim, fontWeight: 600, fontSize: 11 }}>· {d.symbol} / {p.quote} · {Math.round(x.days)}d{x.inRangePct != null ? ` · ${x.inRangePct}% in range` : ''}</span>
+                  </div>
+                  <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 2 }}>
+                    fees {x.feeApr.toFixed(0)}% APR · vs hold <span style={{ color: x.netPct >= 0 ? btb.green : btb.loss, fontWeight: 750 }}>{x.netPct >= 0 ? '+' : ''}{x.netPct.toFixed(2)}%</span>{x.valueUsd != null ? ` · ${usd(x.valueUsd)}` : ''}
+                  </div>
+                </div>
+                <Button fullWidth={false} size="sm" variant="ghost" onClick={() => onUse(p.pair, r)} style={{ height: 30, padding: '0 12px', fontSize: 12 }}>Use this range</Button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
