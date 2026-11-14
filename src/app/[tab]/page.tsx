@@ -9,6 +9,7 @@ const TAB_META: Record<string, { title: string; description: string }> = {
   dashboard: { title: 'Dashboard', description: 'Your balances, positions, and daily check-in at a glance.' },
   discover:  { title: 'Discover Pools', description: 'Find the best performing liquidity pools with live APR, TVL, and fee data.' },
   simulate:  { title: 'Simulate LP Earnings', description: 'Compare fee tiers across Uniswap V3, V4, and PancakeSwap and estimate LP earnings.' },
+  'smart-lps': { title: 'Smart LPs', description: 'The LPs who stayed in range and beat just holding, on every pool we track. Copy any range in one tap.' },
   swap:      { title: 'Swap', description: 'Trade tokens instantly at the best available price.' },
   portfolio: { title: 'Portfolio', description: 'Track your tokens, LP positions, and Earn balances in one place.' },
   nft:       { title: 'BTB Bear NFT', description: 'Mint and stake BTB Bears to earn BTBB rewards.' },

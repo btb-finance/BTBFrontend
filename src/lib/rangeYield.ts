@@ -147,12 +147,12 @@ export interface Measured {
   highPct: number;
 }
 
-type Call = { target: `0x${string}`; callData: `0x${string}` };
-type Ret = `0x${string}` | null;
+export type Call = { target: `0x${string}`; callData: `0x${string}` };
+export type Ret = `0x${string}` | null;
 
 /** Raw Multicall3 reads, chunked and retried. Answers are raw bytes so the
  *  caller can tell fork layouts apart by size. */
-async function multiRaw(client: PublicClient, calls: Call[], chunk = 200): Promise<Ret[]> {
+export async function multiRaw(client: PublicClient, calls: Call[], chunk = 200): Promise<Ret[]> {
   const out: Ret[] = new Array(calls.length).fill(null);
   const chunks: number[] = [];
   for (let i = 0; i < calls.length; i += chunk) chunks.push(i);
@@ -180,7 +180,7 @@ async function multiRaw(client: PublicClient, calls: Call[], chunk = 200): Promi
   return out;
 }
 
-const words = (hex: `0x${string}`) => {
+export const words = (hex: `0x${string}`) => {
   const body = hex.slice(2);
   const n = Math.floor(body.length / 64);
   return Array.from({ length: n }, (_, i) => BigInt('0x' + body.slice(i * 64, i * 64 + 64)));

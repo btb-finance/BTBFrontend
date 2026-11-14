@@ -56,6 +56,7 @@ const AeroNudge = dynamic(() => import('./AeroNudge').then(m => m.AeroNudge), { 
 const AllocateScreen = dynamic(() => import('./screens/AllocateScreen').then(m => m.AllocateScreen), { ssr: false, loading: ScreenLoading });
 const CheckinsScreen = dynamic(() => import('./screens/CheckinsScreen').then(m => m.CheckinsScreen), { ssr: false, loading: ScreenLoading });
 const OposPairsScreen = dynamic(() => import('./screens/OposPairsScreen').then(m => m.OposPairsScreen), { ssr: false, loading: ScreenLoading });
+const SmartLpsScreen = dynamic(() => import('./screens/SmartLpsScreen').then(m => m.SmartLpsScreen), { ssr: false, loading: ScreenLoading });
 const ScanScreen = dynamic(() => import('./screens/ScanScreen').then(m => m.ScanScreen), { ssr: false, loading: ScreenLoading });
 const ConnectScreen   = dynamic(() => screenLoader.connect().then(m => m.ConnectScreen), { ssr: false });
 const AgentDock       = dynamic(() => screenLoader.agentDock().then(m => m.AgentDock), { ssr: false });
@@ -186,6 +187,7 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
                           onBuyBtb={() => openSwap({ toAddress: CONTRACTS.BTB })}/>;
       case 'discover':  return <DiscoverScreen/>;
       case 'simulate':  return <SimulateScreen/>;
+      case 'smartlps':  return <SmartLpsScreen/>;
       case 'swap':      return <SwapScreen key={swapKey} initialFrom={swapToken} onConnectWallet={() => setShowConnect(true)}
                           onBack={isMobile ? () => goto(cameFrom.current === 'swap' ? 'home' : cameFrom.current) : undefined}/>;
       case 'portfolio': return <PortfolioScreen onSend={requireWallet(() => setShowSend(true))} onSwap={(t) => openSwap({ from: t })} onSimulate={openSimulate} viewAddress={effectiveAddress} onViewAddress={onViewAddress}/>;

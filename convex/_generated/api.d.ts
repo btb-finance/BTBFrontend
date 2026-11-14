@@ -46,6 +46,8 @@ import type * as rewardsActions from "../rewardsActions.js";
 import type * as rpcHealth from "../rpcHealth.js";
 import type * as sessionActions from "../sessionActions.js";
 import type * as sessions from "../sessions.js";
+import type * as smartLps from "../smartLps.js";
+import type * as smartLpsActions from "../smartLpsActions.js";
 import type * as sybil from "../sybil.js";
 import type * as tokenScan from "../tokenScan.js";
 import type * as tokenScanActions from "../tokenScanActions.js";
@@ -103,6 +105,8 @@ declare const fullApi: ApiFromModules<{
   rpcHealth: typeof rpcHealth;
   sessionActions: typeof sessionActions;
   sessions: typeof sessions;
+  smartLps: typeof smartLps;
+  smartLpsActions: typeof smartLpsActions;
   sybil: typeof sybil;
   tokenScan: typeof tokenScan;
   tokenScanActions: typeof tokenScanActions;
