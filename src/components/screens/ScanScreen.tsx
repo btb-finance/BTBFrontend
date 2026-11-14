@@ -19,6 +19,10 @@ import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useAlertCredit, useSignedCall } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
+import { useDiscoverPools } from '../../lib/discoverPools';
+import { useTokenStore } from '../../lib/TokenStore';
+import { fmtCompactUsd } from '../../lib/pools';
+import { buildScanIndex, searchScanIndex, searchDexScreener, type ScanHit } from '../../lib/scanSearch';
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -192,10 +196,38 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── Search: symbol, name or address, from data the app already has, then DexScreener ──
+  const { pools } = useDiscoverPools();
+  const { tokens, positions } = useTokenStore();
+  const index = useMemo(() => buildScanIndex({ pools, tokens, positions, recent: recent ?? [] }), [pools, tokens, positions, recent]);
+  const local = useMemo(() => searchScanIndex(index, input), [index, input]);
+  const [remote, setRemote] = useState<{ q: string; hits: ScanHit[] }>({ q: '', hits: [] });
+  useEffect(() => {
+    const q = input.trim();
+    if (q.length < 2 || /^0x[0-9a-fA-F]{40}$/.test(q) || local.length >= 6) return;
+    const ctl = new AbortController();
+    const t = setTimeout(() => { searchDexScreener(q, ctl.signal).then((hits) => setRemote({ q, hits })).catch(() => {}); }, 300);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [input, local.length]);
+  const suggestions = useMemo(() => {
+    const seen = new Set(local.map((h) => `${h.chainId}:${h.address}`));
+    const extra = remote.q === input.trim() ? remote.hits.filter((h) => !seen.has(`${h.chainId}:${h.address}`)) : [];
+    return [...local, ...extra].slice(0, 8);
+  }, [local, remote, input]);
+
+  function pick(h: ScanHit) { open({ chainId: h.chainId, token: h.address }); }
+
   function submit() {
-    const token = input.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(token)) { setErr('Paste a token contract address (0x followed by 40 characters).'); return; }
-    open({ chainId, token: token.toLowerCase() });
+    const token = input.trim().toLowerCase();
+    if (/^0x[0-9a-f]{40}$/.test(token)) {
+      // A pasted address the app knows on one chain opens there; otherwise on the chain picked.
+      const known = [...index.values()].filter((h) => h.address === token);
+      const here = known.find((h) => h.chainId === chainId);
+      open({ chainId: here || known.length !== 1 ? chainId : known[0].chainId, token });
+      return;
+    }
+    if (suggestions[0]) { pick(suggestions[0]); return; }
+    setErr(token ? 'No token found. Try its contract address.' : 'Search a token by name, symbol or address.');
   }
 
   /** Fresh data for a token whose scan is still open. Pays RESCAN_BTB; free if someone else just refreshed it. */
@@ -234,7 +266,7 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1180, margin: '0 auto', width: '100%' }}>
       {!target ? (
-        <Landing search={<SearchBar bare chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err}/>}/>
+        <Landing search={<SearchBar bare chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err} suggestions={suggestions} onPick={pick}/>}/>
       ) : (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -249,7 +281,7 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
               <Chip>Free to read for 24h after</Chip>
             </div>
           </div>
-          <SearchBar chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err}/>
+          <SearchBar chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err} suggestions={suggestions} onPick={pick}/>
         </>
       )}
 
@@ -443,10 +475,25 @@ function ChainPicker({ chainId, setChainId, height }: { chainId: number; setChai
   );
 }
 
-function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare = false }: {
+function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare = false, suggestions = [], onPick }: {
   chainId: number; setChainId: (n: number) => void; input: string; setInput: (s: string) => void; onSubmit: () => void; err: string | null; bare?: boolean;
+  suggestions?: ScanHit[]; onPick?: (h: ScanHit) => void;
 }) {
   const { isMobile } = useSidebar();
+  const [focused, setFocused] = useState(false);
+  const [active, setActive] = useState(0);
+  useEffect(() => setActive(0), [input]);
+  const showList = focused && input.trim().length > 0 && suggestions.length > 0 && !!onPick;
+  const onKey = (e: React.KeyboardEvent) => {
+    if (showList && e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, suggestions.length - 1)); return; }
+    if (showList && e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); return; }
+    if (e.key === 'Escape') { setFocused(false); return; }
+    if (e.key === 'Enter') {
+      const typedAddress = /^0x[0-9a-fA-F]{40}$/.test(input.trim());
+      if (showList && !typedAddress && suggestions[active]) { onPick!(suggestions[active]); setFocused(false); return; }
+      onSubmit();
+    }
+  };
   const H = bare ? 54 : 48;
   const field: CSSProperties = { height: H, borderRadius: 16, border: btb.borderSoft, background: btb.surface, color: btb.text, fontFamily: 'inherit', fontSize: 14.5 };
   const body = (
@@ -457,9 +504,32 @@ function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare =
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ position: 'absolute', left: 14, top: H / 2 - 8, color: btb.textDim }}>
             <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
           </svg>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(); }}
-            placeholder="Paste a token address, 0x…" spellCheck={false} autoComplete="off"
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey}
+            onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)}
+            placeholder="Search a token: name, symbol or 0x address" spellCheck={false} autoComplete="off"
+            role="combobox" aria-expanded={showList} aria-autocomplete="list"
             style={{ ...field, width: '100%', padding: '0 14px 0 38px', boxSizing: 'border-box' }}/>
+          {showList && (
+            <div role="listbox" style={{ position: 'absolute', left: 0, right: 0, top: H + 6, zIndex: 60, background: btb.bg, border: btb.border, borderRadius: 16, boxShadow: btb.shadow, padding: 6, maxHeight: 380, overflowY: 'auto' }}>
+              {suggestions.map((h, i) => (
+                <div key={`${h.chainId}:${h.address}`} role="option" aria-selected={i === active}
+                  onMouseDown={(e) => { e.preventDefault(); onPick!(h); setFocused(false); }} onMouseEnter={() => setActive(i)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, cursor: 'pointer', background: i === active ? 'rgba(var(--fg-rgb), 0.06)' : 'transparent' }}>
+                  <TokenIcon symbol={h.symbol} size={28} logoUrl={h.logo}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {h.symbol}{h.name && h.name !== h.symbol ? <span style={{ color: btb.textDim, fontWeight: 550 }}> · {h.name}</span> : null}
+                    </div>
+                    <div style={{ color: btb.textDim, fontSize: 11, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {SCAN_CHAINS[h.chainId]?.name ?? h.chainId} · {h.address.slice(0, 6)}…{h.address.slice(-4)}
+                      {h.volumeUsd > 0 ? ` · ${fmtCompactUsd(h.volumeUsd)} vol` : ''}{h.held ? ' · you hold it' : ''}
+                    </div>
+                  </div>
+                  {h.score != null && <span title="Scanned in the last 24 hours, free to read" style={{ color: btb.green, fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{letterFor(h.score)} {h.score}</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <Button fullWidth={false} size="sm" onClick={onSubmit} style={{ height: H, padding: '0 22px' }}>Open</Button>
       </div>
@@ -487,7 +557,7 @@ function Landing({ search }: { search: ReactNode }) {
             Know a token<br/>before you LP it
           </div>
           <div style={{ color: btb.textMuted, fontSize: isMobile ? 14 : 16, lineHeight: 1.55, marginTop: 12, maxWidth: 520 }}>
-            Paste any token address. Get its grade, the red flags, and the range to provide liquidity in.
+            Search any token by name, symbol or address. Get its grade, the red flags, and the range to provide liquidity in.
           </div>
         </div>
       </div>
