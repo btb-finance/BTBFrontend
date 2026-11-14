@@ -14,9 +14,10 @@ import { useDragToClose } from '../lib/useDragToClose';
  */
 export function PickerSheet({ title, query, onQuery, placeholder, onClose, children, footer }: {
   title: string;
-  query: string;
-  onQuery: (q: string) => void;
-  placeholder: string;
+  /** Search box; left out (no `onQuery`) for a plain list. */
+  query?: string;
+  onQuery?: (q: string) => void;
+  placeholder?: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -45,12 +46,12 @@ export function PickerSheet({ title, query, onQuery, placeholder, onClose, child
           </button>
         </div>
         </div>
-        <div style={{ margin: isMobile ? '0 18px 12px' : '0 22px 14px', height: 46, padding: '0 14px', borderRadius: 14, border: '1px solid rgba(var(--fg-rgb), .1)', background: 'rgba(var(--fg-rgb), .05)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {onQuery && <div style={{ margin: isMobile ? '0 18px 12px' : '0 22px 14px', height: 46, padding: '0 14px', borderRadius: 14, border: '1px solid rgba(var(--fg-rgb), .1)', background: 'rgba(var(--fg-rgb), .05)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Icon name="search" size={15} color={btb.textMuted}/>
           {/* 16px text so iOS does not zoom the page when the box is tapped. */}
-          <input value={query} onChange={(e) => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder}
+          <input value={query ?? ''} onChange={(e) => onQuery(e.target.value)} placeholder={placeholder} aria-label={placeholder}
             style={{ width: '100%', minWidth: 0, border: 'none', outline: 'none', background: 'transparent', color: btb.text, fontFamily: 'inherit', fontSize: 16 }}/>
-        </div>
+        </div>}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', padding: isMobile ? '0 10px 10px' : '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>{children}</div>
         {footer && (
           <div style={{ borderTop: '1px solid rgba(var(--fg-rgb), .07)', padding: isMobile ? '12px 18px' : '14px 22px', color: btb.textDim, fontSize: 12, textAlign: 'center' }}>{footer}</div>

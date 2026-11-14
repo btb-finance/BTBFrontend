@@ -96,7 +96,7 @@ async function openBands(client: PublicClient, pools: YieldPool[], now: (PoolNow
 }
 
 /** A client that reads state as of `blockNumber`. Only readContract is used by the reader. */
-function atBlock(client: PublicClient, blockNumber: bigint): PublicClient {
+export function atBlock(client: PublicClient, blockNumber: bigint): PublicClient {
   return { readContract: (a: Parameters<PublicClient["readContract"]>[0]) => client.readContract({ ...a, blockNumber }) } as unknown as PublicClient;
 }
 
@@ -138,7 +138,7 @@ async function closeBands(client: PublicClient, pools: YieldPool[], now: (PoolNo
  * rate, then corrects against real timestamps: block times change (Base got
  * faster mid-week), and a fixed rate put "7 days back" at 10.
  */
-async function blockDaysBack(client: PublicClient, head: { number: bigint; timestamp: bigint }, daysBack: number) {
+export async function blockDaysBack(client: PublicClient, head: { number: bigint; timestamp: bigint }, daysBack: number) {
   const target = Number(head.timestamp) - 86_400 * daysBack;
   const ref = await client.getBlock({ blockNumber: head.number - 10_000n });
   let perSec = 10_000 / Number(head.timestamp - ref.timestamp);

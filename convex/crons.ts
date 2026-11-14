@@ -34,6 +34,9 @@ if (process.env.DISABLE_CRONS !== "1") {
   // from the pools' own fee counters. One band opens per pool per day, so this runs daily.
   crons.daily("measure range yields", { hourUTC: 2, minuteUTC: 40 }, internal.rangeYieldActions.refresh);
 
+  // Smart LPs (convex/smartLpsActions.ts): positions in the busiest pools that stayed in range and beat holding.
+  crons.daily("rank smart LPs", { hourUTC: 3, minuteUTC: 20 }, internal.smartLpsActions.refresh);
+
   // Aero allocator (convex/aeroAllocator.ts): every Base gauge with what it pays. The fee pace is read from the last hour of
   // fee releases on top of a stored record, so an hourly run is a few dozen calls.
   crons.interval("refresh aero allocator", { hours: 1 }, internal.aeroAllocator.refresh, {});

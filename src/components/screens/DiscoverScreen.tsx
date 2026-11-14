@@ -30,6 +30,7 @@ import { useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { SCAN_CHAINS, letterFor } from '../../../convex/tokenScanConfig';
 import { MetricDepositSheet } from '../MetricDepositSheet';
+import { SmartLpRows, SMART_LPS_NOTE } from '../simulator/sections/SmartLps';
 import { isMetricChain } from '@/protocols/dexs/metric';
 import { useSidebar } from '../../lib/SidebarContext';
 import { CHAIN_META, type SupportedChainId } from '../../lib/wagmi';
@@ -470,7 +471,7 @@ export function DiscoverScreen() {
   const [selectedChain, setSelectedChain] = useState('all');
   const [selectedDex, setSelectedDex] = useState('all');
   const { setThemeChainId } = useChainTheme();
-  const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
+  const [sheet, setSheet] = useState<{ pool: EarnPool; simulate: boolean; rangePct?: { token: string; lowerPct: number; upperPct: number } } | null>(null);
   // Metric pools deposit through their own sheet: bins around the oracle price, not a tick range.
   const [metricSheet, setMetricSheet] = useState<{ pool: EarnPool; simulate: boolean } | null>(null);
   // Token Scan: a fresh scan (anyone's, last 24 hours) shows its grade on the button; otherwise the button opens the scan page.
@@ -495,6 +496,19 @@ export function DiscoverScreen() {
       </Button>
     );
   };
+  // Smart LPs: shown only on pools the daily job ranked (convex/smartLpsActions.ts).
+  const smartCounts = useQuery(api.smartLps.counts, {});
+  const [smartSheet, setSmartSheet] = useState<EarnPool | null>(null);
+  const smartCount = (p: EarnPool) => {
+    const chainId = discoverChainId(p.chain, p.chainId);
+    return chainId ? smartCounts?.[`${chainId}:${p.id.toLowerCase()}`] ?? 0 : 0;
+  };
+  const smartButton = (p: EarnPool, style: React.CSSProperties) => smartCount(p) > 0 ? (
+    <Button variant="ghost" size="sm" onClick={() => setSmartSheet(p)} title="LPs in this pool who stayed in range and beat holding"
+      style={{ ...style, border: btb.borderSoft, whiteSpace: 'nowrap' }}>
+      Smart LPs
+    </Button>
+  ) : null;
   const addLp = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet({ pool, simulate: false }) : openPool(pool, false));
   const simulatePool = (pool: EarnPool) => (isMetricPool(pool) ? setMetricSheet({ pool, simulate: true }) : openSimulator(pool));
   // Direct open from a shared link's token addresses — permanent, independent of the pools list.
@@ -503,8 +517,8 @@ export function DiscoverScreen() {
   // Open a pool. Minting flows put a shareable URL in the address bar with the
   // token addresses carried in the query, so the link resolves forever even if
   // the pool later leaves the Discover list or its symbols are ambiguous.
-  const openPool = (pool: EarnPool, simulate: boolean) => {
-    setSheet({ pool, simulate });
+  const openPool = (pool: EarnPool, simulate: boolean, rangePct?: { token: string; lowerPct: number; upperPct: number }) => {
+    setSheet({ pool, simulate, ...(rangePct ? { rangePct } : {}) });
     if (simulate) return;
     const target = mintTarget(pool);
     const query = target?.tokenA && target?.tokenB
@@ -850,6 +864,7 @@ export function DiscoverScreen() {
               {simulatable ? 'Simulate' : 'View'}
             </Button>
             {scanButton(p, { height: 30, padding: '0 12px', fontSize: 11.5 })}
+            {smartButton(p, { height: 30, padding: '0 12px', fontSize: 11.5 })}
           </div>
         );
       },
@@ -953,6 +968,7 @@ export function DiscoverScreen() {
                     {simulatable ? 'Simulate' : 'View'}
                   </Button>
                   {scanButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
+                  {smartButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
                 </div>
               </Glass>
             );
@@ -1142,10 +1158,13 @@ export function DiscoverScreen() {
           fees24hUsd={sheet.pool.fees24hUsd ?? (sheet.pool.tvlUsd * sheet.pool.apyBase) / 100 / 365}
           tokenPricesUsd={sheet.pool.tokenPricesUsd}
           simulate={sheet.simulate}
+          initialRangePct={sheet.rangePct}
           onClose={closeSheet}
           onDone={closeSheet}
         />
       )}
+      {smartSheet && <SmartLpsSheet pool={smartSheet} chainId={discoverChainId(smartSheet.chain, smartSheet.chainId)} onClose={() => setSmartSheet(null)}
+        onUse={(rangePct) => { const p = smartSheet; setSmartSheet(null); openPool(p, false, rangePct); }} />}
       {metricSheet && metricSheet.pool.chainId != null && isMetricChain(metricSheet.pool.chainId) && /^0x[0-9a-fA-F]{40}$/.test(metricSheet.pool.id) && (
         <MetricDepositSheet key={`${metricSheet.pool.id}:${metricSheet.simulate}`} chainId={metricSheet.pool.chainId} pool={getAddress(metricSheet.pool.id)} simulate={metricSheet.simulate} onClose={() => setMetricSheet(null)} onDone={() => setMetricSheet(null)}/>
       )}
@@ -1162,5 +1181,31 @@ export function DiscoverScreen() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * A pool's smart LPs from Discover. Ranges are moves of the pool's first token
+ * (token0) price, which is also how "Use range" hands them to the Add LP sheet.
+ */
+function SmartLpsSheet({ pool, chainId, onClose, onUse }: {
+  pool: EarnPool;
+  chainId?: number;
+  onClose: () => void;
+  onUse: (rangePct: { token: string; lowerPct: number; upperPct: number }) => void;
+}) {
+  const data = useQuery(api.smartLps.forPool, chainId ? { chainId, pool: pool.id } : 'skip');
+  const [a, b] = (pool.underlyingTokens ?? []).map((t) => t.toLowerCase());
+  const token0 = a && b ? (a < b ? a : b) : undefined;
+  const symbols = pool.pair.split(/[-/]/);
+  const sym0 = token0 && a && token0 === a ? symbols[0] : symbols[1];
+  return (
+    <PickerSheet title={`Smart LPs · ${pool.pair}`} onClose={onClose}
+      footer={data ? `${data.smart} of ${data.measured} LPs here beat holding. Ranges are moves of ${sym0 ?? 'the first token'}'s price.` : undefined}>
+      <div style={{ color: btb.textMuted, fontSize: 12, lineHeight: 1.5, padding: '0 4px 8px' }}>{SMART_LPS_NOTE}</div>
+      {data === undefined ? <div style={{ padding: 16, display: 'flex', justifyContent: 'center' }}><Spinner /></div>
+        : !data || data.top.length === 0 ? <div style={{ color: btb.textDim, fontSize: 13, padding: 16 }}>No smart LPs in this pool yet.</div>
+        : <SmartLpRows top={data.top} flip={false} onUse={(x) => token0 && onUse({ token: token0, lowerPct: x.lowPct, upperPct: x.highPct })} />}
+    </PickerSheet>
   );
 }

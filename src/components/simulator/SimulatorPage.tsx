@@ -30,6 +30,7 @@ import { deriveSim, STRATEGY_SIGMA, type Strategy } from './simState';
 import { estimateSigmaDaily } from './math/probability';
 import { Section } from './ui';
 import { PositionSummary } from './sections/PositionSummary';
+import { SmartLps } from './sections/SmartLps';
 import { RealBacktest } from './sections/RealBacktest';
 import { FeePanel } from './sections/FeePanel';
 import { ILPanel } from './sections/ILPanel';
@@ -300,6 +301,19 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
 
   const sectionProps = { isMobile };
 
+  // "Use range" on a smart LP: its edges as tick offsets from the price it
+  // opened at, re-centred on today's tick and snapped to the pool's spacing.
+  const onUseRange = useCallback((dLo: number, dHi: number) => {
+    if (!pool) return;
+    const tickLower = nearestUsableTick(pool.tick + dLo, spacing);
+    let tickUpper = nearestUsableTick(pool.tick + dHi, spacing);
+    if (tickUpper <= tickLower) tickUpper = tickLower + spacing;
+    if (embed) { embed.onRange({ tickLower, tickUpper }); return; }
+    setCustomTicks({ tickLower, tickUpper });
+    setStrategy('custom');
+  }, [pool, spacing, embed]);
+  const smartLps = !isV4 && pool ? <SmartLps chainId={chainId} pool={pool.address} flip={flip} onUseRange={onUseRange} isMobile={isMobile} /> : null;
+
   const horizonPicker = (
     <div style={{ display: 'flex', gap: 4, background: 'rgba(var(--fg-rgb), 0.05)', borderRadius: 12, padding: 3, flexShrink: 0 }}>
       {[7, 30, 90, 180].map((d) => (
@@ -335,6 +349,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
           <>
             <Verdict sim={sim} selected={selected} {...sectionProps} />
             <RealBacktest sim={sim} {...sectionProps} />
+            {smartLps}
             {dispTickLiq && dispTickLiq.length > 0 && (
               <Section
                 kicker="Liquidity depth"
@@ -449,6 +464,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
 
               {sim && <Verdict sim={sim} selected={selected} {...sectionProps} />}
               {sim && <RealBacktest sim={sim} {...sectionProps} />}
+              {sim && smartLps}
 
               {sim && (
                 <>

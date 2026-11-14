@@ -11,6 +11,7 @@ export const TAB_PATHS: Record<Tab, string> = {
   home: '/',
   discover: '/discover',
   simulate: '/simulate',
+  smartlps: '/smart-lps',
   swap: '/swap',
   portfolio: '/portfolio',
   nft: '/nft',

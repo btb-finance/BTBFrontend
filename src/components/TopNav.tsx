@@ -14,6 +14,7 @@ const PRIMARY: { id: Tab; label: string }[] = [
   { id: 'home',      label: 'Dashboard' },
   { id: 'discover',  label: 'Discover' },
   { id: 'simulate',  label: 'Simulate' },
+  { id: 'smartlps',  label: 'Smart LPs' },
   { id: 'portfolio', label: 'Portfolio' },
   { id: 'swap',      label: 'Swap' },
 ];
