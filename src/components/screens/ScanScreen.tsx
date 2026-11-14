@@ -1559,7 +1559,15 @@ function LinkChip({ href, label }: { href: string; label: string }) {
   );
 }
 
-function Definitions({ items }: { items: [string, string][] }) {
+function Definitions({ items, folded = false }: { items: [string, string][]; folded?: boolean }) {
+  const [open, setOpen] = useState(!folded);
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ marginTop: 10, padding: 0, border: 'none', background: 'transparent', color: btb.textDim, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+        What these mean
+      </button>
+    );
+  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px 18px', marginTop: 14, padding: '12px 14px', borderRadius: 14, background: btb.surfaceSoft, border: btb.borderSoft }}>
       {items.map(([term, text]) => (
@@ -1739,8 +1747,12 @@ function Backtest({ d, filling }: { d: ScanResult; filling: boolean }) {
 /** Every pool of the token side by side, best fee rate marked, each with Add LP where the app can add there. */
 function PoolsTable({ d, onLp, picked, onPick, real }: { d: ScanResult; onLp: OnLp; picked: string | null; onPick: (pair: string) => void; real?: RealResults }) {
   const { isMobile } = useSidebar();
-  const pools = d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []);
-  if (pools.length === 0) return <SectionTitle step={1} title="Pick a pool" sub="No pools in this scan"/>;
+  const all = d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []);
+  const [showAll, setShowAll] = useState(false);
+  if (all.length === 0) return <SectionTitle step={1} title="Pick a pool" sub="No pools in this scan"/>;
+  // Three rows unless asked: the best, the picked one, then the deepest.
+  const firstThree = [...new Set([all.find((p) => p.pair === d.lp.bestPair), all.find((p) => p.pair === picked), ...all].filter((p): p is ScanPool => !!p))].slice(0, 3);
+  const pools = showAll ? all : all.filter((p) => firstThree.includes(p));
   const floor = Math.max(25_000, (pools[0]?.liquidityUsd ?? 0) * 0.1);
   const base = d.symbol.toLowerCase();
   const reason = (p: ScanPool): { text: string; tone?: Tone } | null => {
@@ -1755,7 +1767,7 @@ function PoolsTable({ d, onLp, picked, onPick, real }: { d: ScanResult; onLp: On
   const head: CSSProperties = { color: btb.textDim, fontSize: 11.5, fontWeight: 750, textAlign: 'right' };
   return (
     <>
-      <SectionTitle step={1} title="Pick a pool" sub={`Each pool is a separate market where ${d.symbol} trades against another token. Its traders pay a fee on every swap, and LPs share it. Tap a pool to use it in the steps below.`}/>
+      <SectionTitle step={1} title="Pick a pool" sub="Tap a pool to use it in the steps below."/>
       <div style={{ display: 'grid', gridTemplateColumns: cols, alignItems: 'stretch' }}>
         {!isMobile && <>
           <span style={{ ...head, textAlign: 'left', paddingBottom: 6 }}>Pool</span><span style={head}>Fee per trade</span><span style={head}>Money in pool</span><span style={head}>Traded today</span><span style={head}>Yearly fees</span><span/>
@@ -1777,19 +1789,19 @@ function PoolsTable({ d, onLp, picked, onPick, real }: { d: ScanResult; onLp: On
               </div>
               <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 650, marginTop: 2 }}>
                 {dexName(p.dex)}{p.version ? ` ${p.version.toUpperCase()}` : ''}{isMobile ? ` · ${p.feePct != null ? `${p.feePct}% fee` : 'fee unknown'} · ${usd(p.liquidityUsd)}` : ''}
+                {(() => {
+                  // Paid-scan extra: what a ±5% range really earned here, smart LPs, the DEX's cut. Else the short reason.
+                  const m = real?.byPool.get(p.pair.toLowerCase());
+                  const bits = m ? [
+                    m.apr != null ? `±5% earned ${m.apr.toFixed(m.apr < 10 ? 1 : 0)}%${m.days ? ` in ${m.days}d` : ''}` : null,
+                    m.smart ? `${m.smart} smart LP${m.smart === 1 ? '' : 's'}` : null,
+                    m.cut ? `DEX keeps ${m.cut}%` : null,
+                  ].filter(Boolean) : [];
+                  if (bits.length) return <span title="Measured by BTB from the pool's own fee counters" style={{ color: btb.green, fontWeight: 700 }}> · {bits.join(' · ')}</span>;
+                  const r = reason(p);
+                  return r ? <span style={{ color: r.tone ? TONE[r.tone] : btb.textDim, fontWeight: 700 }}> · {r.text}</span> : null;
+                })()}
               </div>
-              {(() => {
-                // Paid-scan extra, one line: what a ±5% range really earned here, smart LPs, the DEX's cut.
-                const m = real?.byPool.get(p.pair.toLowerCase());
-                if (!m) return null;
-                const bits = [
-                  m.apr != null ? `±5% earned ${m.apr.toFixed(m.apr < 10 ? 1 : 0)}%${m.days ? ` over ${m.days}d` : ''}` : null,
-                  m.smart ? `${m.smart} smart LP${m.smart === 1 ? '' : 's'}` : null,
-                  m.cut ? `DEX keeps ${m.cut}%` : null,
-                ].filter(Boolean);
-                return bits.length ? <div title="Measured by BTB from the pool's own fee counters" style={{ color: btb.green, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{bits.join(' · ')}</div> : null;
-              })()}
-              {(() => { const r = reason(p); return r && !best ? <div style={{ color: r.tone ? TONE[r.tone] : btb.textDim, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{r.text}</div> : r && best ? <div style={{ color: btb.green, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{r.text}</div> : null; })()}
             </div>
           );
           const action = (
@@ -1815,7 +1827,12 @@ function PoolsTable({ d, onLp, picked, onPick, real }: { d: ScanResult; onLp: On
           );
         })}
       </div>
-      <Definitions items={[
+      {all.length > 3 && (
+        <button onClick={() => setShowAll((v) => !v)} style={{ marginTop: 8, padding: '6px 0', border: 'none', background: 'transparent', color: btb.green, fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+          {showAll ? 'Show fewer pools' : `Show all ${all.length} pools`}
+        </button>
+      )}
+      <Definitions folded items={[
         ['Fee per trade', 'the share of every swap paid to LPs in this pool'],
         ['Money in pool', 'what all LPs have deposited, in dollars'],
         ['Traded today', 'how much changed hands here in the last 24 hours'],
