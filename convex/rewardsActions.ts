@@ -5,6 +5,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeFunctionData,
+  fallback,
   http,
   isAddress,
   type Address,
@@ -16,6 +17,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { loadLiveRpcs } from "./liveRpcs";
 import { getChainClient } from "../src/lib/chainClient";
+import { rpcUrls } from "../src/lib/chainRpc";
 import { clusterWallets, countedPoints } from "./sybil";
 
 /** Chains where one transaction (or a deployed smart wallet) makes a wallet real for the Friday split. */
@@ -83,7 +85,12 @@ function clients() {
   const account = treasuryAccount();
   const opos = process.env.OPOS_TOKEN_ADDRESS || OPOS;
   if (!isAddress(opos)) throw new Error("OPOS_TOKEN_ADDRESS is not a valid address");
-  const transport = http(process.env.MAINNET_RPC_URL || "https://ethereum-rpc.publicnode.com", { timeout: 20_000, retryCount: 2 });
+  // One RPC going down must not fail a payout: try MAINNET_RPC_URL first, then every tested Ethereum endpoint
+  // (convex/rpcHealth.ts, installed by loadLiveRpcs), then a known public one. The treasury signs locally, so a
+  // retry on another endpoint resends the same signed transaction and cannot pay twice.
+  const urls = [...new Set([process.env.MAINNET_RPC_URL, ...rpcUrls(1), "https://ethereum-rpc.publicnode.com"]
+    .filter((u): u is string => !!u))].slice(0, 6);
+  const transport = fallback(urls.map((url) => http(url, { timeout: 20_000, retryCount: 1 })), { retryCount: 1 });
   return {
     account,
     opos: opos as Address,
@@ -118,6 +125,14 @@ async function send(to: Address, data: Hex) {
 function messageOf(reason: unknown) {
   if (reason instanceof Error) return reason.message;
   return typeof reason === "string" && reason ? reason : "Rewards payout failed";
+}
+
+/** RPC and network trouble: worth retrying for hours, on other endpoints, before giving up. */
+function transientFailure(message: string) {
+  const value = message.toLowerCase();
+  return ["http request failed", "timed out", "timeout", "fetch failed", "econnreset", "socket", "network",
+    "rate limit", "too many requests", "status: 5", "status: 429", "internal error", "temporarily"]
+    .some((fragment) => value.includes(fragment));
 }
 
 /** Errors that will never succeed on retry — fail the payout instead of looping. */
@@ -234,7 +249,7 @@ export const drain = internalAction({
     } catch (reason) {
       const error = messageOf(reason).slice(0, 600);
       await ctx.runMutation(internal.rewards.releasePayout, {
-        payoutId: payout._id, workerId, error, terminal: terminalFailure(error),
+        payoutId: payout._id, workerId, error, terminal: terminalFailure(error), transient: transientFailure(error),
       });
       await ctx.scheduler.runAfter(Math.min(30_000, 2_000 * 2 ** Math.max(0, payout.attempts - 1)), internal.rewardsActions.drain, {});
       return { processed: true, payoutId: payout._id, error };
