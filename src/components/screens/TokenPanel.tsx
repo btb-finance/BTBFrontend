@@ -380,6 +380,11 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     ? (() => { const p = (holdings[0].result as bigint) + (holdings[1].result as bigint) / 1_000_000n - BigInt(owed); return p > 0n ? p : 0n; })()
     : null;
   const currentPot = livePot ?? toWei(currentEpoch?.btbPotRaw);
+  // Last week's shares still waiting to be claimed. livePot leaves them out because their owners may still claim; any
+  // left on Friday expire into this week's pot, so the tile shows them as the most that can be added.
+  const unclaimedNote = livePot != null && owed != null && BigInt(owed) >= 10n ** 18n
+    ? `+ up to ${formatBtb(owed).split('.')[0]} BTB if unclaimed by Friday`
+    : undefined;
   // The estimate uses last week's settled pot, not this week's running one:
   // early in the week the running pot is small and the estimate would look
   // like nothing. Falls back to the most recent week that had a pot.
@@ -492,7 +497,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
             <StatTile label="XP this week" value={status ? status.myPoints.toLocaleString('en-US') : '...'} color={status && status.myPoints > 0 ? btb.green : undefined} sub={status && status.myPoints > 0 && xpBtb(status.myPoints) != null ? `≈ ${fmtBtb(xpBtb(status.myPoints)!)} BTB` : undefined}/>
             <StatTile label="Your share" value={sharePct != null ? `≈ ${sharePct.toFixed(1)}%` : '...'} sub={status ? `${status.requesterCount} wallets earning` : undefined}/>
-            <StatTile label="Pot so far" value={`${livePot != null ? '≈ ' : ''}${formatBtb(currentPot.toString()).split('.')[0]} BTB`} sub="this week's fees"/>
+            <StatTile label="Pot so far" value={`${livePot != null ? '≈ ' : ''}${formatBtb(currentPot.toString()).split('.')[0]} BTB`} sub={unclaimedNote ?? "this week's fees"}/>
             <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
           </div>
 
@@ -525,7 +530,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: isMobile ? 6 : 9 }}>
-            <StatTile row={isMobile} label="This week's pot" value={epochs ? `${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '...'}/>
+            <StatTile row={isMobile} label="This week's pot" value={epochs ? `${livePot != null ? '≈ ' : ''}${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '...'} sub={unclaimedNote}/>
             <StatTile row={isMobile} label="Paid last week" value={epochs ? `${epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0}${isMobile ? ' wallets' : ''}` : '...'} sub={isMobile ? undefined : 'wallets'}/>
           </div>
           <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare/>
