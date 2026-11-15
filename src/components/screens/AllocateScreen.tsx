@@ -121,6 +121,7 @@ export function AllocateScreen({ onConnectWallet }: { onConnectWallet?: () => vo
   const amount = position ? baseBudget : Math.max(0, parseFloat(amountStr.replace(/,/g, '')) || 0);
   // Estimates look across the wait a position stays put for. The clock is taken when the data or the amount changes,
   // so ranking and the "ends in" labels agree with each other.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `amount` is deliberate: a new amount retakes the clock.
   const clock = useMemo<RateClock | null>(() => (snap ? { nowSec: Math.floor(Date.now() / 1000), waitSec: snap.cooldownSec } : null), [snap, amount]);
   const plan = useMemo(() => (snap && clock ? planFor(snap.gauges, position, amount, undefined, clock) : null), [snap, clock, position, amount]);
   // Stable empty lists while the plan loads, so the memos below do not rerun on every render.

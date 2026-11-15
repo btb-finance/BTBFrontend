@@ -46,13 +46,13 @@ export const DOCS: DocGroup[] = [
         id: 'overview', title: 'What BTB Finance is', summary: 'One app for the whole LP loop: find a pool, simulate it, add the position, manage it, and get paid for using the app.',
         blocks: [
           { type: 'p', text: 'BTB Finance is a liquidity provider app. Everything an LP does in a week happens in one place: discover pools with real volume, simulate a range before committing, add the position with one confirmation, claim fees, stake into gauges, rebalance out of range, and remove when done.' },
-          { type: 'p', text: 'The tools are free with no plan and no wallet limit. BTB shares 100% of its revenue, the token fees (the OPOS transfer tax), with the people who use it, every Friday, in BTB.' },
+          { type: 'p', text: 'The tools are free with no plan and no wallet limit. BTB shares 100% of its revenue, the 1% fee on every BTB trade, with the people who use it, every Friday, in BTB.' },
           { type: 'table', head: ['Tab', 'What it does'], rows: [
             ['Dashboard', 'Daily check-in, streak, XP and the weekly BTB payout.'],
             ['Discover', 'Pools ranked by APR, TVL and volume across supported chains, with your own holdings first.'],
             ['Simulate', 'Fee, impermanent loss and range analysis for any pair on any supported chain.'],
             ['Portfolio', 'Every token and LP position you hold, with claim, stake, rebalance and remove.'],
-            ['Swap', 'Best price across DEXes on 17 chains, plus bridging between them.'],
+            ['Swap', 'Best price across DEXes on 18 chains, plus bridging between them.'],
           ] },
         ],
       },
@@ -122,7 +122,7 @@ export const DOCS: DocGroup[] = [
             'Deploy: the same range goes straight into the Add liquidity sheet.',
           ] },
           { type: 'p', text: 'Cross-chain research runs one pair across several chains at once and ranks the winners by volume, TVL or APR, with Add LP on any row the app can mint on.' },
-          { type: 'note', text: 'Simulate pays XP: 100 for the first pool you check each day and 100 per chain in a cross-chain research run, up to 500 XP a day in all.' },
+          { type: 'note', text: 'Simulate pays XP to wallets with an open LP worth $1 or more: 100 for the first pool you check each day and 100 per chain in a cross-chain research run, up to 500 XP a day in all.' },
         ],
       },
     ],
@@ -272,7 +272,7 @@ export const DOCS: DocGroup[] = [
     title: 'Swap, earn, account',
     sections: [
       {
-        id: 'swap', title: 'Swap and bridge', summary: 'Best price on 17 chains, one tap, and cross-chain transfers.',
+        id: 'swap', title: 'Swap and bridge', summary: 'Best price on 18 chains, one tap, and cross-chain transfers.',
         blocks: [
           { type: 'p', text: 'Swap routes through KyberSwap across every DEX on the chosen chain. Pick any token you hold on any chain and the app switches network for you. Rate, route, price impact and the BTB fee are folded into a details box.' },
           { type: 'flow', flow: {
@@ -313,7 +313,7 @@ export const DOCS: DocGroup[] = [
             'At the flip, the week\'s pot is split by points. Your share is your points divided by everyone\'s points. With 2% of the week\'s points you get 2% of the pot.',
             'Claim it. Send it to your wallet with no gas (from 5,000 BTB), or add any amount to your BTB balance to pay for alerts, the agent and auto-rebalance. Do it before the next Friday: an untouched share goes back into the pot.',
           ] },
-          { type: 'p', text: 'Where the pot comes from: BTB shares 100% of its revenue with the people who use it. That revenue is the token fees (the OPOS transfer tax), turned into BTB and paid out every Friday. Nothing to buy and nothing to stake: holding BTB only adds bonus points at check-in.' },
+          { type: 'p', text: 'Where the pot comes from: BTB shares 100% of its revenue with the people who use it. That revenue is the 1% fee on every BTB trade, collected as BTB and paid out every Friday. Nothing to buy and nothing to stake: holding BTB only adds bonus points at check-in.' },
           { type: 'flow', flow: {
             title: 'How the Friday payout reaches you',
             from: [
@@ -340,6 +340,8 @@ export const DOCS: DocGroup[] = [
             ['Invite a friend', '10% of every point they earn, on top (they lose nothing). Share your link from the dashboard; a new wallet that opens it is linked to you as soon as it connects.'],
           ] },
           { type: 'p', text: 'Social and content quests (posts, threads, videos) pay more and are reviewed by hand. Lifetime XP is kept as a counter; only the current week\'s XP is used for the payout.' },
+          { type: 'p', text: 'Daily check-in and Simulate XP go to LPs: the wallet needs an open LP position worth $1 or more. Without one, check-ins still keep your streak and the holding bonus still pays.' },
+          { type: 'p', text: 'One person, one share: wallets that look like one person share one person\'s XP. A wallet that earned the holding bonus or had a position auto-rebalanced that week is always paid in full.' },
         ],
       },
       {
@@ -430,7 +432,7 @@ export const FAQS: { q: string; a: string }[] = [
   { q: 'Why is there no Add LP button on a pool?', a: 'Either the chain is Simulate only (Arbitrum, Optimism and the rest), the DEX is not one the app can mint on, or the row could be a V2 pool. The four LP chains and the DEX list above are the rule.' },
   { q: 'My mint reverted with a slippage error.', a: 'The price moved between quote and confirmation. The sheet now re-reads the pool right before signing; if it still reverts, raise slippage in the deposit bar or narrow the range less aggressively.' },
   { q: 'My staked Aerodrome position does not show.', a: 'Staked positions come from the gauge, not your wallet, and load after the wallet scan. Give it a few seconds; if it stays missing, the RPC is behind and a refresh fixes it.' },
-  { q: 'Is BTB free forever?', a: 'The LP tools are free and there is no plan to add a subscription. Revenue is the token fees (the OPOS transfer tax), and 100% of it is shared back with users every Friday.' },
+  { q: 'Is BTB free forever?', a: 'The LP tools are free and there is no plan to add a subscription. Revenue is the 1% fee on every BTB trade, and 100% of it is shared back with users every Friday.' },
   { q: 'Which wallet should I use?', a: 'Browser Wallet works with whatever extension you have (MetaMask, Rabby, Brave, OKX). WalletConnect and Coinbase Wallet work on mobile. Safe works as a Safe App.' },
   { q: 'Where does the price data come from?', a: 'Pool state (price, tick, liquidity, fees) is read from the chain through a pool of public RPCs with failover. Volume and TVL come from DeFiLlama, DexScreener, GeckoTerminal and DexPaprika. Token prices come from DexScreener and DeFiLlama.' },
 ];

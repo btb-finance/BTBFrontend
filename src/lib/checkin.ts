@@ -6,7 +6,8 @@
  */
 import { turnstileToken } from './turnstile';
 
-export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number };
+/** `needsLp`: the day counted but no daily XP was paid, because the wallet has no LP worth $1 (convex/lpGate.ts). */
+export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number; needsLp?: boolean };
 
 const SITE_URL = process.env.NEXT_PUBLIC_CONVEX_SITE_URL
   ?? (process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud').replace('.convex.cloud', '.convex.site');

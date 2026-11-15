@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig, useConnection } from 'wagmi';
-import { useMutation } from 'convex/react';
+import { useAction } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import { getPublicClient } from 'wagmi/actions';
 import { encodeAbiParameters, erc20Abi, isAddress, keccak256, parseAbiParameters, zeroAddress, type PublicClient } from 'viem';
@@ -48,7 +48,7 @@ import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
 import { useDiscoverPools, waitForDiscoverPools } from '../../lib/discoverPools';
-import { useXpToast } from '../../lib/XpToast';
+import { useXpToast, useNeedsLpNote } from '../../lib/XpToast';
 import { focusOnOpen } from '../../lib/focusOnOpen';
 
 type Protocol = 'uniswap-v3' | 'uniswap-v4' | 'pancakeswap-v3';
@@ -850,7 +850,8 @@ function CrossChainResearch({ chains, isMobile }: {
 }) {
   const config = useConfig();
   const { address } = useConnection();
-  const awardSimulateXp = useMutation(api.users.awardSimulateXp);
+  const awardSimulateXp = useAction(api.xpActions.awardSimulateXp);
+  const needsLpNote = useNeedsLpNote();
   const showXp = useXpToast();
   const { pools: earnPools } = useDiscoverPools();
   const defaultChainIds = [1, 8453, 4663, 5042].filter(id => chains.some(chain => chain.id === id));
@@ -1008,7 +1009,7 @@ function CrossChainResearch({ chains, isMobile }: {
       for (const selectedChainId of new Set(tasks.map(task => task.chainId))) {
         const chainName = chains.find(chain => chain.id === selectedChainId)?.name ?? 'chain';
         awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId })
-          .then(r => showXp(r.awarded, `${chainName} research`)).catch(() => {});
+          .then(r => { if (r.needsLp) needsLpNote(); showXp(r.awarded, `${chainName} research`); }).catch(() => {});
       }
     }
 
@@ -1393,7 +1394,8 @@ function CrossChainResearch({ chains, isMobile }: {
 export function SimulateScreen() {
   const config = useConfig();
   const { chainId: walletChainId, address } = useConnection();
-  const awardSimulateXp = useMutation(api.users.awardSimulateXp);
+  const awardSimulateXp = useAction(api.xpActions.awardSimulateXp);
+  const needsLpNote = useNeedsLpNote();
   const showXp = useXpToast();
   const { isMobile } = useSidebar();
   const { tokens, positions } = useTokenStore();
@@ -1514,7 +1516,7 @@ export function SimulateScreen() {
   // First pool checked each day pays 100 XP; the server ignores repeats.
   useEffect(() => {
     if (!sheetFee || !address) return;
-    awardSimulateXp({ walletAddress: address, kind: 'pool' }).then(r => showXp(r.awarded, 'Pool simulated')).catch(() => {});
+    awardSimulateXp({ walletAddress: address, kind: 'pool' }).then(r => { if (r.needsLp) needsLpNote(); showXp(r.awarded, 'Pool simulated'); }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetFee != null, address]);
   const appliedPair = useRef(false);
@@ -1783,12 +1785,12 @@ export function SimulateScreen() {
       } else if (pools.length === 0) {
         setError(`No pool found for ${tokenA.symbol}/${tokenB.symbol} on any DEX we track.`);
       } else if (failedChecks.length > 0) {
-        setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error) — results below may be incomplete. Try again to include them.`);
+        setError(`Couldn't check ${failedChecks.join(', ')} right now (RPC error), so results below may be incomplete. Try again to include them.`);
       }
       setFound(pools);
       setProgress('Comparison complete');
     } catch (e) {
-      setError(`Couldn't look up pools — ${(e as Error).message?.slice(0, 120)}`);
+      setError(`Couldn't look up pools: ${(e as Error).message?.slice(0, 120)}`);
       setProgress(null);
     } finally {
       setLoading(false);
@@ -1866,7 +1868,7 @@ export function SimulateScreen() {
           <div style={{ padding: '0 18px 10px', color: btb.textMuted, fontSize: 11.5 }}>
             {isMobile
               ? 'Sorted by TVL: bigger pools pay steadier fees.'
-              : <>Sorted by TVL — higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
+              : <>Sorted by TVL. Higher TVL usually means steadier, more reliable fee income; a high APR on a tiny pool can vanish fast.
                 {found.some(f => f.aprIsUnranged) && ' † = whole-pool APR (fallback data), not the ±5% range-adjusted figure used elsewhere.'}</>}
           </div>
           {isMobile ? (
@@ -1893,7 +1895,7 @@ export function SimulateScreen() {
                         <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>TVL</div>
                         <div style={{ color: btb.text, fontSize: 15, fontWeight: 800, marginTop: 1 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</div>
                       </div>
-                      <div style={{ padding: '7px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }} title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}>
+                      <div style={{ padding: '7px 10px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.04)' }} title={f.aprIsUnranged ? 'Whole-pool fees/TVL, not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}>
                         <div style={{ color: btb.textDim, fontSize: 10.5, fontWeight: 700 }}>APR{f.aprIsUnranged ? ', whole pool' : ''}</div>
                         <div style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 15, fontWeight: 800, marginTop: 1 }}>{foundAprText(f).replace('†', '')}</div>
                       </div>
@@ -1951,7 +1953,7 @@ export function SimulateScreen() {
                   <span style={{ color: btb.text, fontSize: 13, fontWeight: 600 }}>{f.tvlUsd != null ? fmtCompactUsd(f.tvlUsd) : '—'}</span>
                   <span
                     style={{ color: f.apy != null ? (f.aprIsUnranged ? btb.amber : btb.green) : btb.textDim, fontSize: 13, fontWeight: 700, fontStyle: f.aprIsUnranged ? 'italic' : 'normal' }}
-                    title={f.aprIsUnranged ? 'Whole-pool fees/TVL — not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
+                    title={f.aprIsUnranged ? 'Whole-pool fees/TVL, not the ±5% range-adjusted figure (this pool isn\'t in DeFiLlama\'s data)' : f.aprLabel ?? f.external?.aprLabel}
                   >
                     {foundAprText(f)}
                   </span>

@@ -40,7 +40,7 @@ export function RealBacktest({ sim, isMobile }: { sim: Sim; isMobile: boolean })
     ? `${b.historicalLiquidityDays} of ${b.daysInRange} in-range close days use indexed end-of-day liquidity${b.fallbackLiquidityDays ? `; ${b.fallbackLiquidityDays} use live liquidity because the historical snapshot was missing` : ''}.`
     : 'This index did not return historical liquidity snapshots, so fee share uses the live in-range liquidity.';
   const estimatedNote = sim.historyEstimated
-    ? 'No indexed fee history exists for this pool — daily fees are estimated as traded volume × fee tier, and liquidity uses the live snapshot. Treat the replay as a volume-based approximation, not recorded fees.'
+    ? 'No indexed fee history exists for this pool. Daily fees are estimated as traded volume × fee tier, and liquidity uses the live snapshot. Treat the replay as a volume-based approximation, not recorded fees.'
     : undefined;
 
   return (

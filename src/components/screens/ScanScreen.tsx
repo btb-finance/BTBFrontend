@@ -19,6 +19,11 @@ import { btb } from '../design-tokens';
 import { useSidebar } from '../../lib/SidebarContext';
 import { useAlertCredit, useSignedCall } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
+import { useDiscoverPools } from '../../lib/discoverPools';
+import { useTokenStore } from '../../lib/TokenStore';
+import { fmtCompactUsd } from '../../lib/pools';
+import { buildScanIndex, searchScanIndex, searchDexScreener, type ScanHit } from '../../lib/scanSearch';
+import type { SmartLp } from '../../lib/smartLps';
 
 // ── Formatting ──────────────────────────────────────────────────────────────
 
@@ -192,10 +197,38 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // ── Search: symbol, name or address, from data the app already has, then DexScreener ──
+  const { pools } = useDiscoverPools();
+  const { tokens, positions } = useTokenStore();
+  const index = useMemo(() => buildScanIndex({ pools, tokens, positions, recent: recent ?? [] }), [pools, tokens, positions, recent]);
+  const local = useMemo(() => searchScanIndex(index, input), [index, input]);
+  const [remote, setRemote] = useState<{ q: string; hits: ScanHit[] }>({ q: '', hits: [] });
+  useEffect(() => {
+    const q = input.trim();
+    if (q.length < 2 || /^0x[0-9a-fA-F]{40}$/.test(q) || local.length >= 6) return;
+    const ctl = new AbortController();
+    const t = setTimeout(() => { searchDexScreener(q, ctl.signal).then((hits) => setRemote({ q, hits })).catch(() => {}); }, 300);
+    return () => { clearTimeout(t); ctl.abort(); };
+  }, [input, local.length]);
+  const suggestions = useMemo(() => {
+    const seen = new Set(local.map((h) => `${h.chainId}:${h.address}`));
+    const extra = remote.q === input.trim() ? remote.hits.filter((h) => !seen.has(`${h.chainId}:${h.address}`)) : [];
+    return [...local, ...extra].slice(0, 8);
+  }, [local, remote, input]);
+
+  function pick(h: ScanHit) { open({ chainId: h.chainId, token: h.address }); }
+
   function submit() {
-    const token = input.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(token)) { setErr('Paste a token contract address (0x followed by 40 characters).'); return; }
-    open({ chainId, token: token.toLowerCase() });
+    const token = input.trim().toLowerCase();
+    if (/^0x[0-9a-f]{40}$/.test(token)) {
+      // A pasted address the app knows on one chain opens there; otherwise on the chain picked.
+      const known = [...index.values()].filter((h) => h.address === token);
+      const here = known.find((h) => h.chainId === chainId);
+      open({ chainId: here || known.length !== 1 ? chainId : known[0].chainId, token });
+      return;
+    }
+    if (suggestions[0]) { pick(suggestions[0]); return; }
+    setErr(token ? 'No token found. Try its contract address.' : 'Search a token by name, symbol or address.');
   }
 
   /** Fresh data for a token whose scan is still open. Pays RESCAN_BTB; free if someone else just refreshed it. */
@@ -234,7 +267,7 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1180, margin: '0 auto', width: '100%' }}>
       {!target ? (
-        <Landing search={<SearchBar bare chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err}/>}/>
+        <Landing search={<SearchBar bare chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err} suggestions={suggestions} onPick={pick}/>}/>
       ) : (
         <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -249,7 +282,7 @@ export function ScanScreen({ onConnect }: { onConnect: () => void }) {
               <Chip>Free to read for 24h after</Chip>
             </div>
           </div>
-          <SearchBar chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err}/>
+          <SearchBar chainId={chainId} setChainId={setChainId} input={input} setInput={setInput} onSubmit={submit} err={err} suggestions={suggestions} onPick={pick}/>
         </>
       )}
 
@@ -443,10 +476,26 @@ function ChainPicker({ chainId, setChainId, height }: { chainId: number; setChai
   );
 }
 
-function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare = false }: {
+function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare = false, suggestions = [], onPick }: {
   chainId: number; setChainId: (n: number) => void; input: string; setInput: (s: string) => void; onSubmit: () => void; err: string | null; bare?: boolean;
+  suggestions?: ScanHit[]; onPick?: (h: ScanHit) => void;
 }) {
   const { isMobile } = useSidebar();
+  const [focused, setFocused] = useState(false);
+  const [rawActive, setActive] = useState(0);
+  // Typing resets the highlight (see onChange); clamping covers a list that shrinks under it.
+  const active = Math.min(rawActive, Math.max(0, suggestions.length - 1));
+  const showList = focused && input.trim().length > 0 && suggestions.length > 0 && !!onPick;
+  const onKey = (e: React.KeyboardEvent) => {
+    if (showList && e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(active + 1, suggestions.length - 1)); return; }
+    if (showList && e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(active - 1, 0)); return; }
+    if (e.key === 'Escape') { setFocused(false); return; }
+    if (e.key === 'Enter') {
+      const typedAddress = /^0x[0-9a-fA-F]{40}$/.test(input.trim());
+      if (showList && !typedAddress && suggestions[active]) { onPick!(suggestions[active]); setFocused(false); return; }
+      onSubmit();
+    }
+  };
   const H = bare ? 54 : 48;
   const field: CSSProperties = { height: H, borderRadius: 16, border: btb.borderSoft, background: btb.surface, color: btb.text, fontFamily: 'inherit', fontSize: 14.5 };
   const body = (
@@ -457,9 +506,32 @@ function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare =
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ position: 'absolute', left: 14, top: H / 2 - 8, color: btb.textDim }}>
             <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
           </svg>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onSubmit(); }}
-            placeholder="Paste a token address, 0x…" spellCheck={false} autoComplete="off"
+          <input value={input} onChange={(e) => { setInput(e.target.value); setActive(0); }} onKeyDown={onKey}
+            onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)}
+            placeholder="Search a token: name, symbol or 0x address" spellCheck={false} autoComplete="off"
+            role="combobox" aria-expanded={showList} aria-autocomplete="list"
             style={{ ...field, width: '100%', padding: '0 14px 0 38px', boxSizing: 'border-box' }}/>
+          {showList && (
+            <div role="listbox" style={{ position: 'absolute', left: 0, right: 0, top: H + 6, zIndex: 60, background: btb.bg, border: btb.border, borderRadius: 16, boxShadow: btb.shadow, padding: 6, maxHeight: 380, overflowY: 'auto' }}>
+              {suggestions.map((h, i) => (
+                <div key={`${h.chainId}:${h.address}`} role="option" aria-selected={i === active}
+                  onMouseDown={(e) => { e.preventDefault(); onPick!(h); setFocused(false); }} onMouseEnter={() => setActive(i)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, cursor: 'pointer', background: i === active ? 'rgba(var(--fg-rgb), 0.06)' : 'transparent' }}>
+                  <TokenIcon symbol={h.symbol} size={28} logoUrl={h.logo}/>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ color: btb.text, fontSize: 13.5, fontWeight: 750, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {h.symbol}{h.name && h.name !== h.symbol ? <span style={{ color: btb.textDim, fontWeight: 550 }}> · {h.name}</span> : null}
+                    </div>
+                    <div style={{ color: btb.textDim, fontSize: 11, marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {SCAN_CHAINS[h.chainId]?.name ?? h.chainId} · {h.address.slice(0, 6)}…{h.address.slice(-4)}
+                      {h.volumeUsd > 0 ? ` · ${fmtCompactUsd(h.volumeUsd)} vol` : ''}{h.held ? ' · you hold it' : ''}
+                    </div>
+                  </div>
+                  {h.score != null && <span title="Scanned in the last 24 hours, free to read" style={{ color: btb.green, fontSize: 12, fontWeight: 800, flexShrink: 0 }}>{letterFor(h.score)} {h.score}</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <Button fullWidth={false} size="sm" onClick={onSubmit} style={{ height: H, padding: '0 22px' }}>Open</Button>
       </div>
@@ -487,7 +559,7 @@ function Landing({ search }: { search: ReactNode }) {
             Know a token<br/>before you LP it
           </div>
           <div style={{ color: btb.textMuted, fontSize: isMobile ? 14 : 16, lineHeight: 1.55, marginTop: 12, maxWidth: 520 }}>
-            Paste any token address. Get its grade, the red flags, and the range to provide liquidity in.
+            Search any token by name, symbol or address. Get its grade, the red flags, and the range to provide liquidity in.
           </div>
         </div>
       </div>
@@ -564,6 +636,7 @@ function ScanView({ d, createdAt, onLp: openLp, refresh, filling }: {
   const view = useMemo<ScanResult>(() => ({ ...base, lp: { ...base.lp, lowerPct: range.lowerPct, upperPct: range.upperPct } }), [base, range]);
   const custom = range.lowerPct !== suggested.lowerPct || range.upperPct !== suggested.upperPct;
   const onLp: OnLp = (t, simulate) => openLp(t, simulate, range);
+  const real = useRealResults(d);
   const fleet = useQuery(api.tokenScan.fleet, {});
   const [copied, setCopied] = useState(false);
   const chain = SCAN_CHAINS[d.chainId];
@@ -629,7 +702,10 @@ function ScanView({ d, createdAt, onLp: openLp, refresh, filling }: {
 
       {/* LP plan */}
       <LpPlan d={view} lpTarget={lpTarget} onLp={onLp} custom={custom} onReset={() => setRange(suggested)}/>
-      <Card><PoolsTable d={d} onLp={onLp} picked={base.lp.pool?.pair ?? null} onPick={setPair}/></Card>
+      <Card>
+        <PoolsTable d={d} onLp={onLp} picked={base.lp.pool?.pair ?? null} onPick={setPair} real={real}/>
+        <SmartLpsFold d={d} real={real} suggested={suggested} onUse={(pair, r) => { setPair(pair); setRange(r); }}/>
+      </Card>
       <Card><RangeCompare d={base} range={range} setRange={setRange} filling={filling}/></Card>
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1.25fr) minmax(0, 1fr)', gap: 14, alignItems: 'stretch' }}>
         <Card padding={20}><Earnings d={view} filling={filling}/></Card>
@@ -1484,7 +1560,15 @@ function LinkChip({ href, label }: { href: string; label: string }) {
   );
 }
 
-function Definitions({ items }: { items: [string, string][] }) {
+function Definitions({ items, folded = false }: { items: [string, string][]; folded?: boolean }) {
+  const [open, setOpen] = useState(!folded);
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} style={{ marginTop: 10, padding: 0, border: 'none', background: 'transparent', color: btb.textDim, fontSize: 12, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer' }}>
+        What these mean
+      </button>
+    );
+  }
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '6px 18px', marginTop: 14, padding: '12px 14px', borderRadius: 14, background: btb.surfaceSoft, border: btb.borderSoft }}>
       {items.map(([term, text]) => (
@@ -1662,10 +1746,14 @@ function Backtest({ d, filling }: { d: ScanResult; filling: boolean }) {
 }
 
 /** Every pool of the token side by side, best fee rate marked, each with Add LP where the app can add there. */
-function PoolsTable({ d, onLp, picked, onPick }: { d: ScanResult; onLp: OnLp; picked: string | null; onPick: (pair: string) => void }) {
+function PoolsTable({ d, onLp, picked, onPick, real }: { d: ScanResult; onLp: OnLp; picked: string | null; onPick: (pair: string) => void; real?: RealResults }) {
   const { isMobile } = useSidebar();
-  const pools = d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []);
-  if (pools.length === 0) return <SectionTitle step={1} title="Pick a pool" sub="No pools in this scan"/>;
+  const all = d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []);
+  const [showAll, setShowAll] = useState(false);
+  if (all.length === 0) return <SectionTitle step={1} title="Pick a pool" sub="No pools in this scan"/>;
+  // Three rows unless asked: the best, the picked one, then the deepest.
+  const firstThree = [...new Set([all.find((p) => p.pair === d.lp.bestPair), all.find((p) => p.pair === picked), ...all].filter((p): p is ScanPool => !!p))].slice(0, 3);
+  const pools = showAll ? all : all.filter((p) => firstThree.includes(p));
   const floor = Math.max(25_000, (pools[0]?.liquidityUsd ?? 0) * 0.1);
   const base = d.symbol.toLowerCase();
   const reason = (p: ScanPool): { text: string; tone?: Tone } | null => {
@@ -1680,7 +1768,7 @@ function PoolsTable({ d, onLp, picked, onPick }: { d: ScanResult; onLp: OnLp; pi
   const head: CSSProperties = { color: btb.textDim, fontSize: 11.5, fontWeight: 750, textAlign: 'right' };
   return (
     <>
-      <SectionTitle step={1} title="Pick a pool" sub={`Each pool is a separate market where ${d.symbol} trades against another token. Its traders pay a fee on every swap, and LPs share it. Tap a pool to use it in the steps below.`}/>
+      <SectionTitle step={1} title="Pick a pool" sub="Tap a pool to use it in the steps below."/>
       <div style={{ display: 'grid', gridTemplateColumns: cols, alignItems: 'stretch' }}>
         {!isMobile && <>
           <span style={{ ...head, textAlign: 'left', paddingBottom: 6 }}>Pool</span><span style={head}>Fee per trade</span><span style={head}>Money in pool</span><span style={head}>Traded today</span><span style={head}>Yearly fees</span><span/>
@@ -1702,8 +1790,19 @@ function PoolsTable({ d, onLp, picked, onPick }: { d: ScanResult; onLp: OnLp; pi
               </div>
               <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 650, marginTop: 2 }}>
                 {dexName(p.dex)}{p.version ? ` ${p.version.toUpperCase()}` : ''}{isMobile ? ` · ${p.feePct != null ? `${p.feePct}% fee` : 'fee unknown'} · ${usd(p.liquidityUsd)}` : ''}
+                {(() => {
+                  // Paid-scan extra: what a ±5% range really earned here, smart LPs, the DEX's cut. Else the short reason.
+                  const m = real?.byPool.get(p.pair.toLowerCase());
+                  const bits = m ? [
+                    m.apr != null ? `±5% earned ${m.apr.toFixed(m.apr < 10 ? 1 : 0)}%${m.days ? ` in ${m.days}d` : ''}` : null,
+                    m.smart ? `${m.smart} smart LP${m.smart === 1 ? '' : 's'}` : null,
+                    m.cut ? `DEX keeps ${m.cut}%` : null,
+                  ].filter(Boolean) : [];
+                  if (bits.length) return <span title="Measured by BTB from the pool's own fee counters" style={{ color: btb.green, fontWeight: 700 }}> · {bits.join(' · ')}</span>;
+                  const r = reason(p);
+                  return r ? <span style={{ color: r.tone ? TONE[r.tone] : btb.textDim, fontWeight: 700 }}> · {r.text}</span> : null;
+                })()}
               </div>
-              {(() => { const r = reason(p); return r && !best ? <div style={{ color: r.tone ? TONE[r.tone] : btb.textDim, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{r.text}</div> : r && best ? <div style={{ color: btb.green, fontSize: 11.5, fontWeight: 700, marginTop: 3 }}>{r.text}</div> : null; })()}
             </div>
           );
           const action = (
@@ -1729,7 +1828,12 @@ function PoolsTable({ d, onLp, picked, onPick }: { d: ScanResult; onLp: OnLp; pi
           );
         })}
       </div>
-      <Definitions items={[
+      {all.length > 3 && (
+        <button onClick={() => setShowAll((v) => !v)} style={{ marginTop: 8, padding: '6px 0', border: 'none', background: 'transparent', color: btb.green, fontSize: 12.5, fontWeight: 800, fontFamily: 'inherit', cursor: 'pointer' }}>
+          {showAll ? 'Show fewer pools' : `Show all ${all.length} pools`}
+        </button>
+      )}
+      <Definitions folded items={[
         ['Fee per trade', 'the share of every swap paid to LPs in this pool'],
         ['Money in pool', 'what all LPs have deposited, in dollars'],
         ['Traded today', 'how much changed hands here in the last 24 hours'],
@@ -1852,6 +1956,77 @@ function MissingNote({ filling, what }: { filling: boolean; what: string }) {
   return (
     <div style={{ color: btb.textMuted, fontSize: 13.5, lineHeight: 1.5 }}>
       GeckoTerminal has no data on {what}, so this can't be worked out. Pick another pool in Step 1, or rescan for fresh data.
+    </div>
+  );
+}
+
+type RealResults = {
+  byPool: Map<string, { apr: number | null; days: number | null; cut: number | null; smart: number }>;
+  lps: { p: ScanPool; x: SmartLp; r: Range }[];
+};
+
+/**
+ * Paid-scan extra: how LPs really did on this token's pools, from BTB's own
+ * daily measurements. Per pool, what a ±5% range earned (src/lib/rangeYield.ts),
+ * the DEX's cut and the smart LP count; and the smart LPs themselves
+ * (src/lib/smartLps.ts), their ranges turned into moves of this token's price.
+ */
+function useRealResults(d: ScanResult): RealResults {
+  const pools = useMemo(() => d.lp.pools ?? (d.lp.pool ? [d.lp.pool] : []), [d]);
+  const ids = useMemo(() => pools.map((p) => p.pair.toLowerCase()), [pools]);
+  const smart = useQuery(api.smartLps.forPools, ids.length ? { chainId: d.chainId, pools: ids } : 'skip');
+  const { pools: discover } = useDiscoverPools();
+  return useMemo(() => {
+    const rows = new Map((discover ?? []).filter((p) => p.chainId === d.chainId).map((p) => [p.id.toLowerCase(), p]));
+    const byPool: RealResults['byPool'] = new Map();
+    for (const p of pools) {
+      const id = p.pair.toLowerCase(), row = rows.get(id), s = smart?.[id];
+      const apr = row?.rangeYield && row.aprRange != null ? row.aprRange : null;
+      if (apr == null && !s?.smart && !row?.lpCutPct) continue;
+      byPool.set(id, { apr, days: row?.rangeYield ? Math.max(1, Math.round(row.rangeYield.days)) : null, cut: row?.lpCutPct ?? null, smart: s?.smart ?? 0 });
+    }
+    const token = d.token.toLowerCase();
+    const lps = pools.flatMap((p) => (smart?.[p.pair.toLowerCase()]?.top ?? []).map((x) => {
+      const isToken0 = token < p.quoteAddress.toLowerCase();
+      const r: Range = isToken0 ? { lowerPct: x.lowPct, upperPct: x.highPct } : { lowerPct: (1 / (1 + x.highPct / 100) - 1) * 100, upperPct: (1 / (1 + x.lowPct / 100) - 1) * 100 };
+      return { p, x, r };
+    })).sort((a, b) => b.x.netApr - a.x.netApr);
+    return { byPool, lps };
+  }, [pools, smart, discover, d.chainId, d.token]);
+}
+
+/** The LPs beating holding on this token, folded under the pools until asked for. */
+function SmartLpsFold({ d, real, suggested, onUse }: { d: ScanResult; real: RealResults; suggested: Range; onUse: (pair: string, r: Range) => void }) {
+  const [open, setOpen] = useState(false);
+  const { lps } = real;
+  if (lps.length === 0) return null;
+  const widths = lps.map(({ r }) => r.upperPct - r.lowerPct).sort((a, b) => a - b);
+  const median = widths[Math.floor(widths.length / 2)];
+  const ours = suggested.upperPct - suggested.lowerPct;
+  const pct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+  return (
+    <div style={{ marginTop: 12 }}>
+      <button onClick={() => setOpen((o) => !o)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 12px', borderRadius: 12, border: btb.borderSoft, background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>
+        <span style={{ color: btb.green, fontSize: 13, fontWeight: 800 }}>{open ? 'Hide' : 'Show'} {Math.min(lps.length, 6)} LP{lps.length === 1 ? '' : 's'} beating holding</span>
+        <span style={{ color: btb.textDim, fontSize: 11.5, fontWeight: 650 }}>they use about {median.toFixed(0)}% wide, the plan {ours.toFixed(0)}%</span>
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+          {lps.slice(0, 6).map(({ p, x, r }) => (
+            <div key={`${p.pair}:${x.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 11px', borderRadius: 12, background: 'rgba(var(--fg-rgb), 0.04)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: btb.text, fontSize: 13, fontWeight: 750 }}>
+                  {pct(r.lowerPct)} to {pct(r.upperPct)} <span style={{ color: btb.textDim, fontWeight: 600, fontSize: 11 }}>· {d.symbol} / {p.quote} · {Math.round(x.days)}d{x.inRangePct != null ? ` · ${x.inRangePct}% in range` : ''}</span>
+                </div>
+                <div style={{ color: btb.textMuted, fontSize: 11, marginTop: 2 }}>
+                  fees {x.feeApr.toFixed(0)}% APR · vs hold <span style={{ color: x.netPct >= 0 ? btb.green : btb.loss, fontWeight: 750 }}>{x.netPct >= 0 ? '+' : ''}{x.netPct.toFixed(2)}%</span>{x.valueUsd != null ? ` · ${usd(x.valueUsd)}` : ''}
+                </div>
+              </div>
+              <Button fullWidth={false} size="sm" variant="ghost" onClick={() => onUse(p.pair, r)} style={{ height: 30, padding: '0 12px', fontSize: 12 }}>Use</Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

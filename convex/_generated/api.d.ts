@@ -31,6 +31,7 @@ import type * as discoverRefresh from "../discoverRefresh.js";
 import type * as discoverStore from "../discoverStore.js";
 import type * as http from "../http.js";
 import type * as liveRpcs from "../liveRpcs.js";
+import type * as lpGate from "../lpGate.js";
 import type * as poolFacts from "../poolFacts.js";
 import type * as prices from "../prices.js";
 import type * as profiles from "../profiles.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   discoverStore: typeof discoverStore;
   http: typeof http;
   liveRpcs: typeof liveRpcs;
+  lpGate: typeof lpGate;
   poolFacts: typeof poolFacts;
   prices: typeof prices;
   profiles: typeof profiles;

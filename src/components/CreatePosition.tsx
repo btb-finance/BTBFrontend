@@ -487,7 +487,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
     let live = true;
     setHistory(null);
     if (!pool || !pool.exists) return;
-    const seededUsd = { ...(tokenPricesUsd ?? {}) };
+    const seededUsd = { ...tokenPricesUsd };
     setUsd(seededUsd);
     if (chainId === 1 && hasGraphKey && !isV4) { // Robinhood has no Uniswap subgraph history yet
       getPoolHistory(dex === 'pancakeswap' ? PANCAKE_V3_SUBGRAPH_ID : V3_SUBGRAPH_ID, pool.address)
@@ -1199,15 +1199,15 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
 
     setSwapFit(false); // single-sided and shifted fits deposit exact amounts, no swap
     const fit = fitRangeToBalances(pool.sqrtPriceX96, pool.tick, width, spacing, fitBal0, fitBal1);
-    if (!fit) { setSmartNote('Nothing to fit — your wallet holds neither pool token.'); return; }
+    if (!fit) { setSmartNote('Nothing to fit: your wallet holds neither pool token.'); return; }
     setRangeMode({ tickLower: fit.tickLower, tickUpper: fit.tickUpper });
     const bal = fit.side === 0 ? fitBal0 : fitBal1;
     setAmt({ side: fit.side, str: formatUnits(bal, fit.side === 0 ? pool.decimals0 : pool.decimals1) });
     const sym = fit.side === 0 ? sym0 : sym1;
     const other = fit.side === 0 ? sym1 : sym0;
     setSmartNote(fit.single
-      ? `Single-sided: deposits ${sym} only. As price enters the range it converts to ${other} — you'd finish holding ${other}, not ${sym}. Directional, not a balanced LP.`
-      : 'Range shifted to match your balances — both tokens deposit in full, same width.');
+      ? `Single-sided: deposits ${sym} only. As price enters the range it converts to ${other}, so you'd finish holding ${other}, not ${sym}. Directional, not a balanced LP.`
+      : 'Range shifted to match your balances. Both tokens deposit in full, same width.');
   }
 
   const inputStyle = (disabled: boolean): CSSProperties => ({
@@ -1513,7 +1513,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
         border: `1px solid ${severe ? 'rgba(var(--loss-rgb), 0.3)' : 'rgba(var(--amber-rgb), 0.3)'}`,
         borderRadius: 12, padding: '10px 12px',
       }}>
-        This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s — on a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
+        This pool&apos;s price is <b>{pct < 1 ? '<1' : pct.toFixed(1)}% {dir}</b> the market price ({pool ? `${sym0} vs ${sym1}` : ''}). Your liquidity is added at the <b>pool&apos;s</b> price, not the market&apos;s. On a thin, stale, or manipulated pool this means depositing at an off-market rate, and the position can be sandwiched. Double-check the pool and amounts before continuing.
       </div>
     );
   }
@@ -1786,7 +1786,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           <div style={{ color: btb.textDim, fontSize: 13, padding: '8px 0' }}>Checking pool…</div>
         ) : poolErr ? (
           <div style={{ padding: '8px 0' }}>
-            <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool — {poolErr}</div>
+            <div style={{ color: btb.loss, fontSize: 13 }}>Couldn&apos;t load the pool: {poolErr}</div>
             <button onClick={() => setRetryNonce((n) => n + 1)} style={{
               marginTop: 10, height: 36, padding: '0 18px', borderRadius: 12, cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 13, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.08)', border: '1px solid rgba(var(--fg-rgb), 0.16)', color: btb.text,
@@ -1794,7 +1794,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
           </div>
         ) : !pool?.exists ? (
           <div style={{ color: 'var(--btb-amber)', fontSize: 13, padding: '8px 0' }}>
-            {isV4 ? 'This pool can’t be minted in-app yet — manage it on Uniswap.' : 'No pool at this fee tier — try another.'}
+            {isV4 ? 'This pool can’t be minted in-app yet. Manage it on Uniswap.' : 'No pool at this fee tier. Try another.'}
           </div>
         ) : (
           <>
@@ -1977,7 +1977,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                       <span style={{ width: 20, height: 12, borderRadius: 999, padding: 2, boxSizing: 'border-box', background: splitRange ? btb.green : 'rgba(var(--fg-rgb), 0.2)' }}><span style={{ display: 'block', width: 8, height: 8, borderRadius: '50%', background: '#fff', transform: `translateX(${splitRange ? 8 : 0}px)`, transition: 'transform 0.18s' }} /></span>
                       Use uneven amounts
                     </button>
-                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : 'var(--btb-amber)', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} ↓ · ${sym0} ↑` : 'Widen range slightly'}</span>}
+                    {splitRange && <span style={{ color: splitTicks?.below && splitTicks?.above ? btb.green : 'var(--btb-amber)', fontSize: 10.5, textAlign: 'right' }}>{splitTicks?.below && splitTicks?.above ? `${sym1} below · ${sym0} above` : 'Widen range slightly'}</span>}
                   </div>
                 )}
 
@@ -1987,7 +1987,7 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                 {!splitRange && !swapFit && renderNeedWarning()}
                 {!swapFit && (short0 || short1) && (
                   <div style={{ color: btb.loss, fontSize: 11, margin: '-2px 2px 10px' }}>
-                    Insufficient {short0 ? sym0 : sym1} — you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}.
+                    Insufficient {short0 ? sym0 : sym1}: you hold {short0 ? fmtAmt(effBal0, pool.decimals0) : fmtAmt(effBal1, pool.decimals1)}.
                   </div>
                 )}
               </>
@@ -2016,14 +2016,14 @@ export function CreatePosition({ tokenA, tokenB, initialFee, initialPool, initia
                   <Button variant="success" size="md" onClick={switchToAdd} style={{ marginTop: 18, fontWeight: 800 }}>Add this LP</Button>
                 )}
                 <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 10, lineHeight: 1.5 }}>
-                  Free LP earnings simulator — no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
+                  Free LP earnings simulator, no wallet needed. Estimates use recent pool fees and your share of in-range liquidity.
                 </div>
               </>
             ) : (
               <div style={{ color: btb.textDim, fontSize: 11, textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
                 {swapPreview
-                  ? `Two transactions: swap ~${swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}% to balance, then add — each slippage-protected (${slippageBps / 100}%).`
-                  : <>Slippage-protected ({slippageBps / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH — unused ETH is refunded.' : ''}</>}
+                  ? `Two transactions: swap ~${swapPreview.pct < 1 ? '<1' : Math.round(swapPreview.pct)}% to balance, then add. Each is slippage-protected (${slippageBps / 100}%).`
+                  : <>Slippage-protected ({slippageBps / 100}%). Approvals included.{wethSide !== null ? ' Pay with ETH or WETH.' : isV4 && nativeSide === 0 ? ' Paid in native ETH; unused ETH is refunded.' : ''}</>}
               </div>
             )}
             </div>

@@ -4,7 +4,8 @@
  * Every check-in records where it came from (checkInSignals): a salted hash of the IP and of its network, a random id
  * kept in the browser, and a hash of browser traits. At settlement:
  *  - Wallets linked by the same browser id, or by the same browser traits AND the same IP, are one cluster. A cluster
- *    is paid like one person: it counts the XP of its best wallet, split among its wallets by their own XP.
+ *    is paid like one person: it counts the XP of its best wallet, split among its wallets by their own XP. A wallet
+ *    the agent rebalanced for, or that earned the BTB holding bonus, that week is a real user and keeps its full XP.
  *  - Sharing an IP alone (a home, an office, a mobile network) is only shown on the admin page, never acted on.
  *  - A wallet with no on-chain history anywhere (checked by rewardsActions.settle) does not share the pot until it has
  *    made one transaction, so each extra wallet costs its maker gas.
@@ -63,14 +64,17 @@ export function sharedIpOnly(signals: Signal[], clusters: Cluster[]): { ipHash: 
 
 /**
  * XP each wallet counts in the split. A cluster counts as one person: the XP of its best wallet, shared among its
- * wallets in proportion to their own XP. A wallet that is not eligible (no on-chain history) counts 0.
+ * wallets in proportion to their own XP. A wallet with a `fullShare` reason (rebalance, holds BTB) keeps all of its XP;
+ * the others in its cluster are cut exactly as if it were not exempt. A wallet that is not eligible (no on-chain
+ * history) counts 0.
  */
 export function countedPoints(
-  earners: { walletAddress: string; points: number }[],
+  earners: { walletAddress: string; points: number; fullShare?: string }[],
   clusters: Cluster[],
   eligible: (wallet: string) => boolean,
 ): Map<string, { points: number; note?: string }> {
   const out = new Map<string, { points: number; note?: string }>();
+  const fullShareOf = new Map(earners.filter((e) => e.fullShare).map((e) => [e.walletAddress, e.fullShare!]));
   for (const e of earners) out.set(e.walletAddress, eligible(e.walletAddress) ? { points: e.points } : { points: 0, note: "no on-chain history yet" });
   for (const c of clusters) {
     const members = c.wallets.filter((w) => (out.get(w)?.points ?? 0) > 0);
@@ -80,7 +84,10 @@ export function countedPoints(
     const best = Math.max(...pts);
     for (const w of members) {
       const p = out.get(w)!.points;
-      out.set(w, { points: (p / sum) * best, note: `one of ${members.length} wallets that look like one person (${c.links.join(", ")})` });
+      const why = fullShareOf.get(w);
+      out.set(w, why
+        ? { points: p, note: `paid in full (${why}), one of ${members.length} wallets that look like one person` }
+        : { points: (p / sum) * best, note: `one of ${members.length} wallets that look like one person (${c.links.join(", ")})` });
     }
   }
   return out;
@@ -109,7 +116,7 @@ export const epochSignals = internalQuery({
 export const epochEarners = internalQuery({
   args: { epochId: v.float64() },
   handler: async (ctx, { epochId }) => (await ctx.db.query("epochPoints").withIndex("by_epoch", (q) => q.eq("epochId", epochId)).collect())
-    .filter((r) => r.points > 0).map((r) => ({ walletAddress: r.walletAddress, points: r.points })),
+    .filter((r) => r.points > 0).map((r) => ({ walletAddress: r.walletAddress, points: r.points, fullShare: r.fullShare })),
 });
 
 // ── Admin page ──────────────────────────────────────────────────────────────

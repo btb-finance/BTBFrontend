@@ -24,7 +24,7 @@ export async function fetchOwnedNftTokenIds(chainId: number, owner: string, cont
   let params: Record<string, string> | null = null;
   for (let page = 0; ; page++) {
     if (page >= MAX_PAGES) throw new Error('Blockscout NFT index truncated');
-    const qs = new URLSearchParams({ type: 'ERC-721', ...(params ?? {}) });
+    const qs = new URLSearchParams({ type: 'ERC-721', ...params });
     const res = await fetch(`${host}/api/v2/addresses/${owner}/nft?${qs}`, { signal: AbortSignal.timeout(12_000) });
     if (!res.ok) throw new Error(`Blockscout NFT index ${res.status}`);
     const json = await res.json() as { items?: { id?: string; token?: { address_hash?: string } }[]; next_page_params?: Record<string, string | number> | null };

@@ -16,7 +16,11 @@ export { epochIdAt, epochWindow } from "./xpRules";
  * `reason` ("Swap", "Daily check-in, day 4") also puts a "+N XP" line in the
  * wallet's notifications; it is never pushed, only shown in the bell.
  */
-export async function addEpochPoints(ctx: MutationCtx, walletAddress: string, amount: number, fromReferral = false, reason?: string) {
+/**
+ * `fullShare`: the XP came from something only a real user does (an agent rebalance, holding BTB), so the wallet keeps
+ * its full share this week even if it sits in a multi-wallet cluster. Recorded on this wallet only, never the inviter.
+ */
+export async function addEpochPoints(ctx: MutationCtx, walletAddress: string, amount: number, fromReferral = false, reason?: string, fullShare?: string) {
   if (!(amount > 0)) return;
   const addr = walletAddress.toLowerCase();
   // Every point source passes through here, so the referral share is paid in one place. One level only: a referrer's
@@ -38,8 +42,9 @@ export async function addEpochPoints(ctx: MutationCtx, walletAddress: string, am
     .withIndex("by_epoch_wallet", (q) => q.eq("epochId", epochId).eq("walletAddress", addr))
     .unique();
   const now = Date.now();
-  if (row) await ctx.db.patch(row._id, { points: row.points + amount, updatedAt: now });
-  else await ctx.db.insert("epochPoints", { epochId, walletAddress: addr, points: amount, updatedAt: now });
+  const full = fullShare && !fromReferral ? { fullShare: row?.fullShare ?? fullShare } : {};
+  if (row) await ctx.db.patch(row._id, { points: row.points + amount, updatedAt: now, ...full });
+  else await ctx.db.insert("epochPoints", { epochId, walletAddress: addr, points: amount, updatedAt: now, ...full });
   if (reason) {
     const shown = Number.isInteger(amount) ? amount.toLocaleString("en-US") : amount.toFixed(1);
     await ctx.db.insert("alertEvents", { address: addr, kind: "xp", label: `+${shown} XP`, message: reason, createdAt: now });

@@ -500,7 +500,7 @@ function StakeTab({ address }: { address?: string }) {
                   </div>
                   <div style={{ color: btb.textMuted, fontSize: 11 }}>
                     {myBalance > STAKE_BATCH
-                      ? `Up to ${STAKE_BATCH} per tx — ${myBalance} in wallet. Stake the rest in another tx.`
+                      ? `Up to ${STAKE_BATCH} per tx, ${myBalance} in wallet. Stake the rest in another tx.`
                       : `${myBalance} NFT${myBalance > 1 ? 's' : ''} in wallet · tap − / + or type a number`}
                   </div>
                 </>

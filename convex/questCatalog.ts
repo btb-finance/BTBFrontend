@@ -175,5 +175,3 @@ export const CATEGORY_LABELS: Record<Quest["category"], string> = {
   community: "Community",
 };
 
-/** Daily check-in XP, mirrored from users.ts so the UI can advertise the ramp. */
-export const CHECK_IN_XP = { start: 10, step: 2, cap: 50, weeklyMilestone: 50 };

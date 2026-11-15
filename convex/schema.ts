@@ -337,6 +337,9 @@ export default defineSchema({
     epochId: v.float64(),
     walletAddress: v.string(),         // lowercase
     points: v.float64(),
+    // Why this wallet keeps its full share this week even inside a multi-wallet cluster (convex/sybil.ts):
+    // "rebalance" (the agent rebalanced its position) or "holds BTB" (it earned the holding bonus).
+    fullShare: v.optional(v.string()),
     updatedAt: v.float64(),
   }).index("by_epoch_wallet", ["epochId", "walletAddress"])
     .index("by_epoch", ["epochId"])
@@ -377,11 +380,6 @@ export default defineSchema({
     .index("by_epoch", ["epochId"])
     .index("by_wallet", ["walletAddress"]),
 
-  // Durable BTB payout queue. Rows are only ever created by settlement, never
-  // by a client, and the worker sends at most one transfer at a time so the
-  // treasury EOA never races its own nonce.
-  // Public RPCs per chain, tested and ranked by convex/rpcHealth.ts (from chainlist.org plus our own list). The app
-  // and the agent read from these first; the hardcoded lists in src/lib are only the backup.
   // Retired with the vote page (2026-10-24): nothing reads or writes it. Kept so the deploy does not trip on the rows
   // already stored; clear it in the Convex dashboard, then delete this entry.
   aeroVotePools: defineTable({
@@ -391,6 +389,16 @@ export default defineSchema({
     updatedAt: v.float64(),
   }).index("by_chain", ["chainId"]),
 
+  // The $1 LP rule's last answer per wallet (convex/lpGate.ts), so check-in and Simulate do not re-read every time.
+  lpGateCache: defineTable({
+    walletAddress: v.string(),       // lowercase
+    ok: v.boolean(),
+    usd: v.float64(),
+    checkedAt: v.float64(),
+  }).index("by_wallet", ["walletAddress"]),
+
+  // Public RPCs per chain, tested and ranked by convex/rpcHealth.ts (from chainlist.org plus our own list). The app
+  // and the agent read from these first; the hardcoded lists in src/lib are only the backup.
   rpcEndpoints: defineTable({
     chainId: v.float64(),
     endpoints: v.array(v.object({
@@ -405,6 +413,9 @@ export default defineSchema({
     checkedAt: v.float64(),
   }).index("by_chain", ["chainId"]),
 
+  // Durable BTB payout queue. Rows are only ever created by settlement, never
+  // by a client, and the worker sends at most one transfer at a time so the
+  // treasury EOA never races its own nonce.
   rewardPayouts: defineTable({
     epochId: v.float64(),
     walletAddress: v.string(),         // lowercase
