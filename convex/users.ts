@@ -106,10 +106,12 @@ export const getUser = query({
  * - Same day → no-op
  * - Next day → streak +1
  * - Missed day → streak resets to 1, and the holder bonus waits a day
+ * - No LP worth $1 (`hasLp` false, convex/lpGate.ts) → the day and streak still count, but the daily and week-streak
+ *   XP are not paid. The holding bonus is, since holding BTB is not free.
  */
 export const recordCheckIn = internalMutation({
-  args: { walletAddress: v.string(), btbBalance: v.optional(v.float64()), btbSnapshot: v.optional(v.float64()) },
-  handler: async (ctx, { walletAddress, btbBalance, btbSnapshot }) => {
+  args: { walletAddress: v.string(), btbBalance: v.optional(v.float64()), btbSnapshot: v.optional(v.float64()), hasLp: v.optional(v.boolean()) },
+  handler: async (ctx, { walletAddress, btbBalance, btbSnapshot, hasLp = true }) => {
     const addr = walletAddress.toLowerCase();
     const user = await ctx.db
       .query("users")
@@ -130,9 +132,9 @@ export const recordCheckIn = internalMutation({
     const newLongest = Math.max(user.longestStreak, newStreak);
 
     // Escalating daily XP: day 1 = 10, +2 per consecutive day, capped at 50.
-    const dailyXp = dailyXpForStreak(newStreak);
+    const dailyXp = hasLp ? dailyXpForStreak(newStreak) : 0;
     // Weekly milestone: hitting a 7/14/21… day streak pays a growing bonus.
-    const weekMilestone = weekMilestoneXp(newStreak);
+    const weekMilestone = hasLp ? weekMilestoneXp(newStreak) : 0;
     // Holder bonus only across consecutive days: a gap means the balance in
     // between is unknown, so the count starts again from today.
     // ...and also no more than it held at a random block in the last 24 hours, so one balance passed between wallets
@@ -151,7 +153,8 @@ export const recordCheckIn = internalMutation({
       ...(btbBalance != null ? { btbAtCheckIn: btbBalance } : {}),
     });
     const extras = [weekMilestone ? `+${weekMilestone} week streak bonus` : "", holdBonus ? `+${holdBonus.toLocaleString("en-US")} for holding BTB` : ""].filter(Boolean);
-    await addEpochPoints(ctx, addr, earned, false, `Daily check-in, day ${newStreak}${extras.length ? ` (${extras.join(", ")})` : ""}`);
+    // Earning the holding bonus marks a real holder: it keeps its full share even inside a cluster (convex/sybil.ts).
+    await addEpochPoints(ctx, addr, earned, false, `Daily check-in, day ${newStreak}${extras.length ? ` (${extras.join(", ")})` : ""}`, holdBonus > 0 ? "holds BTB" : undefined);
 
     return { alreadyCheckedIn: false as const, dailyXp, weekMilestone, holdBonus, newStreak, newPoints };
   },
@@ -192,7 +195,8 @@ export const creditTxXp = internalMutation({
  * day, and SIMULATE_XP per chain used in cross-chain research, each chain once
  * a day, up to SIMULATE_DAILY_CAP XP a day for all of it together. */
 
-export const awardSimulateXp = mutation({
+/** Called by xpActions.awardSimulateXp after the $1 LP rule (convex/lpGate.ts) passed; never by a client. */
+export const creditSimulateXp = internalMutation({
   args: {
     walletAddress: v.string(),
     kind: v.union(v.literal("pool"), v.literal("chain")),

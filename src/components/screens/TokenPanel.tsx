@@ -15,7 +15,7 @@ import { btb } from '../design-tokens';
 import { CONTRACTS } from '../../lib/wagmi';
 import { readableError } from '../../lib/errorText';
 import { useSidebar } from '../../lib/SidebarContext';
-import { useXpToast } from '../../lib/XpToast';
+import { useXpToast, useNeedsLpNote } from '../../lib/XpToast';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
@@ -190,6 +190,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   const [error, setError] = useState<string | null>(null);
   const { isMobile } = useSidebar();
   const showXp = useXpToast();
+  const needsLpNote = useNeedsLpNote();
 
   // Live per-wallet state: this week's points, opt-in flag, live denominator.
   const status = useQuery(api.rewards.getStatus, address ? { walletAddress: address } : 'skip');
@@ -279,6 +280,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     setBusy('checkin'); setError(null);
     try {
       const r = await checkInNow(address);
+      if (r.needsLp) needsLpNote();
       if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`);
     } catch (e) {
       setError(readableError(e, 'Could not check in; try again'));

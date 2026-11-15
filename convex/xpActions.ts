@@ -6,6 +6,7 @@ import { getChainClient } from "../src/lib/chainClient";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { SWAP_XP, MINT_XP } from "./xpRules";
 import { loadLiveRpcs } from "./liveRpcs";
+import { lpGate } from "./lpGate";
 
 const BEAR_NFT = CONTRACTS.BEAR_NFT;
 /** A transaction older than this earns nothing; the app asks right after it confirms. */
@@ -59,5 +60,22 @@ export const awardTxXp = action({
     }
     if (xp <= 0) return { ok: false, awarded: 0, reason: "nothing to award" };
     return ctx.runMutation(internal.users.creditTxXp, { walletAddress: wallet, key: `tx:${chainId}:${txHash.toLowerCase()}`, xp, capped: kind !== "mint", reason: kind === "mint" ? "Minted a BTB Bear" : kind === "bridge" ? "Bridge" : "Swap" });
+  },
+});
+
+/**
+ * Simulate XP: the first pool a wallet checks each day, and each chain used in cross-chain research once a day, up to
+ * the daily cap (convex/users.ts). Paid only to a wallet with an open LP position worth $1 (convex/lpGate.ts), so a
+ * farm of empty wallets earns nothing; `needsLp` tells the app to say so.
+ */
+export const awardSimulateXp = action({
+  args: { walletAddress: v.string(), kind: v.union(v.literal("pool"), v.literal("chain")), chainId: v.optional(v.float64()) },
+  handler: async (ctx, a): Promise<{ ok: boolean; awarded: number; needsLp?: boolean }> => {
+    if (!isAddress(a.walletAddress)) return { ok: false, awarded: 0 };
+    await loadLiveRpcs(ctx);
+    const gate = await lpGate(ctx, a.walletAddress);
+    if (!gate.ok) return { ok: false, awarded: 0, needsLp: true };
+    const r = await ctx.runMutation(internal.users.creditSimulateXp, a);
+    return { ok: r.ok, awarded: r.awarded };
   },
 });

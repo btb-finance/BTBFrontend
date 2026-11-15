@@ -6,6 +6,7 @@ import { mainnet } from "viem/chains";
 import { rpcUrls } from "../src/lib/chainRpc";
 import { CONTRACTS } from "../src/lib/contractAddresses";
 import { loadLiveRpcs } from "./liveRpcs";
+import { lpGate } from "./lpGate";
 
 
 /**
@@ -85,20 +86,22 @@ export async function humanCheck(token: string | undefined, remoteip?: string): 
  * the chain, never on a number the client sends. A failed read still checks
  * in; it just earns no bonus today.
  */
-export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number };
+/** `needsLp`: the check-in counted (streak kept) but paid no daily XP, because the wallet has no LP worth $1 (convex/lpGate.ts). */
+export type CheckInResult = { alreadyCheckedIn: boolean; dailyXp?: number; weekMilestone?: number; holdBonus?: number; newStreak?: number; needsLp?: boolean };
 
 /** The check-in itself, after the caller has checked the address and the human proof. Shared by the action and /checkin. */
 export async function runCheckIn(ctx: ActionCtx, walletAddress: string): Promise<CheckInResult> {
     await loadLiveRpcs(ctx);
-    const [raw, snap] = await Promise.all([
+    const [raw, snap, gate] = await Promise.all([
       btbBalanceOf(walletAddress as `0x${string}`),
       btbBalanceAtRandomBlock(walletAddress as `0x${string}`),
+      lpGate(ctx, walletAddress),
     ]);
     const btbBalance = raw == null ? undefined : Number(formatUnits(raw, 18));
     const btbSnapshot = snap == null ? undefined : Number(formatUnits(snap, 18));
-    const r = await ctx.runMutation(internal.users.recordCheckIn, { walletAddress, btbBalance, btbSnapshot });
+    const r = await ctx.runMutation(internal.users.recordCheckIn, { walletAddress, btbBalance, btbSnapshot, hasLp: gate.ok });
     if (r.alreadyCheckedIn) return { alreadyCheckedIn: true };
-    return { alreadyCheckedIn: false, dailyXp: r.dailyXp, weekMilestone: r.weekMilestone, holdBonus: r.holdBonus, newStreak: r.newStreak };
+    return { alreadyCheckedIn: false, dailyXp: r.dailyXp, weekMilestone: r.weekMilestone, holdBonus: r.holdBonus, newStreak: r.newStreak, needsLp: !gate.ok };
 }
 
 /**

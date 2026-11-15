@@ -1,5 +1,5 @@
 'use client';
-import { useXpToast } from './XpToast';
+import { useXpToast, useNeedsLpNote } from './XpToast';
 import { usePolledQuery } from './polledQuery';
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef, ReactNode } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
@@ -105,6 +105,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
   const registerOrGet     = useMutation(api.users.registerOrGet);
   const { address: connected } = useConnection();
   const showXp            = useXpToast();
+  const needsLpNote       = useNeedsLpNote();
   const seedIfEmpty       = useAction(api.tokens.seedIfEmpty);
   const seedPricesIfEmpty = useAction(api.prices.seedPricesIfEmpty);
   // Server-side multicall + snapshot save. Manual trigger only.
@@ -222,8 +223,8 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
     // Protocol tokens win — their balance comes from a fresh on-chain read.
     for (const p of protocolTokens) {
       const key = p.address.toLowerCase();
-      m.set(key, { ...(m.get(key) ?? {}), ...p });
-      m.set(p.symbol.toUpperCase(), { ...(m.get(p.symbol.toUpperCase()) ?? {}), ...p });
+      m.set(key, { ...m.get(key), ...p });
+      m.set(p.symbol.toUpperCase(), { ...m.get(p.symbol.toUpperCase()), ...p });
     }
     return m;
   }, [convexTokenList, priceMap, positions, protocolTokens]);
@@ -268,7 +269,7 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
         ? registerOrGet({ walletAddress, ref: pendingReferral(walletAddress) })
           .then(() => checkInNow(walletAddress))
         : Promise.resolve(null))
-        .then(r => { if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
+        .then(r => { if (r?.needsLp) needsLpNote(); if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
         .catch(() => {}),
       seedIfEmpty().catch(() => {}),
       seedPricesIfEmpty().catch(() => {}),

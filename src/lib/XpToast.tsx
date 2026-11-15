@@ -7,10 +7,14 @@ import { btb } from '../components/design-tokens';
 type XpToast = { id: number; amount: number; reason: string; sub: string };
 
 const Ctx = createContext<(amount: number, reason: string, sub?: string) => void>(() => {});
+const NeedsLpCtx = createContext<() => void>(() => {});
 
 /** Show a small "+N XP" pill; `amount <= 0` is ignored so award sites can pass
  * the server's result straight through (a once-a-day repeat awards 0). */
 export function useXpToast() { return useContext(Ctx); }
+
+/** Say once per visit that check-in and Simulate XP need an open LP worth $1 (convex/lpGate.ts). */
+export function useNeedsLpNote() { return useContext(NeedsLpCtx); }
 
 const DEFAULT_SUB = "Counts toward Friday's BTB split";
 
@@ -18,15 +22,24 @@ export function XpToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<XpToast[]>([]);
   const nextId = useRef(0);
 
-  const show = useCallback((amount: number, reason: string, sub: string = DEFAULT_SUB) => {
-    if (!(amount > 0)) return;
+  const push = useCallback((toast: Omit<XpToast, 'id'>) => {
     const id = ++nextId.current;
-    setToasts(t => [...t.slice(-2), { id, amount, reason, sub }]);
+    setToasts(t => [...t.slice(-2), { id, ...toast }]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4200);
   }, []);
+  const show = useCallback((amount: number, reason: string, sub: string = DEFAULT_SUB) => {
+    if (amount > 0) push({ amount, reason, sub });
+  }, [push]);
+  const noted = useRef(false);
+  const needsLp = useCallback(() => {
+    if (noted.current) return;
+    noted.current = true;
+    push({ amount: 0, reason: 'Open an LP worth $1 or more to earn XP', sub: 'Check-in and Simulate XP go to LPs only' });
+  }, [push]);
 
   return (
     <Ctx.Provider value={show}>
+    <NeedsLpCtx.Provider value={needsLp}>
       {children}
       {toasts.length > 0 && (
         <Portal>
@@ -35,6 +48,7 @@ export function XpToastProvider({ children }: { children: ReactNode }) {
           </div>
         </Portal>
       )}
+    </NeedsLpCtx.Provider>
     </Ctx.Provider>
   );
 }
@@ -50,11 +64,11 @@ function Pill({ toast }: { toast: XpToast }) {
       transform: shown ? 'translateY(0)' : 'translateY(-12px)', opacity: shown ? 1 : 0, transition: 'transform .25s ease, opacity .25s ease',
     }}>
       <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(var(--green-rgb), 0.18)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon name="star" size={14} color={btb.green}/>
+        <Icon name={toast.amount > 0 ? 'star' : 'info'} size={14} color={toast.amount > 0 ? btb.green : btb.textMuted}/>
       </span>
       <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
         <span style={{ color: btb.text, fontSize: 13, fontWeight: 800 }}>
-          <b style={{ color: btb.green }}>+{toast.amount} XP</b> · {toast.reason}
+          {toast.amount > 0 && <><b style={{ color: btb.green }}>+{toast.amount} XP</b> · </>}{toast.reason}
         </span>
         <span style={{ color: btb.textMuted, fontSize: 10.5, marginTop: 2 }}>{toast.sub}</span>
       </span>
