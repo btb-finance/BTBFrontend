@@ -359,6 +359,8 @@ export const settleEpoch = internalMutation({
 // transfer that is merely slow is never reclaimed and broadcast a second time.
 const ACTIVE_LEASE_MS = 360_000;
 const MAX_ATTEMPTS = 6;
+// RPC outages get far more tries (backoff caps at 5 minutes, so about 4 hours) before a payout is given up.
+const MAX_TRANSIENT_ATTEMPTS = 50;
 
 /**
  * Hand out at most one payout at a time. The treasury is a single EOA, so a
@@ -423,12 +425,12 @@ export const completePayout = internalMutation({
 });
 
 export const releasePayout = internalMutation({
-  args: { payoutId: v.id("rewardPayouts"), workerId: v.string(), error: v.string(), terminal: v.boolean() },
-  handler: async (ctx, { payoutId, workerId, error, terminal }) => {
+  args: { payoutId: v.id("rewardPayouts"), workerId: v.string(), error: v.string(), terminal: v.boolean(), transient: v.optional(v.boolean()) },
+  handler: async (ctx, { payoutId, workerId, error, terminal, transient }) => {
     const payout = await ctx.db.get(payoutId);
     if (!payout || payout.workerId !== workerId) return;
     const now = Date.now();
-    const dead = terminal || payout.attempts >= MAX_ATTEMPTS;
+    const dead = terminal || payout.attempts >= (transient ? MAX_TRANSIENT_ATTEMPTS : MAX_ATTEMPTS);
     await ctx.db.patch(payoutId, {
       state: dead ? "failed" : "queued",
       error: error.slice(0, 600), updatedAt: now,
