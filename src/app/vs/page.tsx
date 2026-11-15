@@ -17,7 +17,7 @@ export default function VsIndex() {
       <p style={styles.eyebrow}>Compare</p>
       <h1 style={styles.h1}>Every LP tool that charges you, next to the one that pays you.</h1>
       <p style={styles.lead}>
-        The going rate for an LP simulator and position tracker is $500 to $800 a year, or a percentage of your position on every rebalance. BTB Finance ships the same tools free, adds one-tap management on eight DEXes, and pays out its revenue to users every Friday.
+        The going rate for an LP simulator and position tracker is $500 to $800 a year, or a percentage of your position on every rebalance. BTB Finance ships the same tools free, adds one-tap management on eight DEXes, and sends 100% of its trading fees back to users every Friday.
       </p>
       <div style={styles.tableWrap}>
         <table style={styles.table}>

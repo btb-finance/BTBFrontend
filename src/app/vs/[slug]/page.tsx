@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!c) return {};
   const title = c.automation ? `${c.name} alternative: LP auto-rebalance without the cut` : `${c.name} alternative: free LP simulator that pays you`;
   const description = c.automation
-    ? `${c.name} takes ${c.automation.cut}. BTB Finance auto-rebalances LPs from your own wallet for a flat $0.10 per rebalance on Base ($0.50 on Robinhood Chain), never a share of your earnings, and pays its revenue back every Friday.`
+    ? `${c.name} takes ${c.automation.cut}. BTB Finance auto-rebalances LPs from your own wallet for a flat $0.10 per rebalance on Base ($0.50 on Robinhood Chain), never a share of your earnings, and sends 100% of its trading fees back to users every Friday.`
     : `${c.name} charges ${c.pricing.find((p) => p.price !== '$0')?.price ?? 'for its tools'}. BTB Finance gives you the LP simulator, pool discovery and full position management free, and shares its revenue with users every Friday.`;
   return buildMetadata({
     title, description, path: `/${c.slug}-alternative`,
@@ -35,7 +35,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
   const faq = [
     c.automation
       ? { q: `Is BTB Finance a cheaper alternative to ${c.name}?`, a: `Yes. ${c.name} takes ${c.automation.cut}. BTB auto-rebalances for a flat $0.10 per rebalance on Base and $0.50 on Robinhood Chain, whatever the position size, plus 1 BTB per check, and never takes a share of your fees. Your first 10 rebalances or compounds are free.` }
-      : { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB shares 100% of its revenue, the token fees, back to users every Friday.` },
+      : { q: `Is BTB Finance a free alternative to ${c.name}?`, a: `Yes. The LP simulator, pool discovery and position management (add, rebalance, stake, remove) are free with no plan, no wallet limit and no feature gate. BTB sends 100% of its token trading fees back to users every Friday.` },
     { q: `How much does ${c.name} cost?`, a: `${c.name} lists ${paid.map((p) => `${p.plan} at ${p.price}`).join(', ')} (checked ${c.checkedOn}).` },
     ...(c.automation ? [
       { q: 'Who holds my funds with BTB auto-rebalance?', a: 'You do. Each position moves into your own auto wallet, a smart contract only you control. The BTB agent can rebalance, compound and stake it inside the rules you set, but it can never withdraw anything; only you can, and everything goes back to your own address.' },
@@ -43,7 +43,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
     ] : []),
     { q: `Which DEXes does BTB Finance support for LP management?`, a: `Uniswap V3 and V4, PancakeSwap V3, SushiSwap V3, Aerodrome Slipstream, Giga, Ramses and UP, across Ethereum, Base, BNB Chain and Robinhood Chain, including gauge and MasterChef staking where the DEX offers it.` },
     { q: `What is the best free alternative to ${c.name}?`, a: `For simulating a concentrated range and then opening it, BTB Finance: it is free, covers Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome and the Robinhood Chain DEXes, and adds the position from the same screen. Revert Finance is a good free choice for analytics on existing Uniswap V3 positions; DefiLlama is the widest free yield table but does not simulate ranges.` },
-    { q: `How does the revenue share work?`, a: `Every simulation, check-in, swap and position earns points during the week. On Friday the week's revenue is split across everyone's points and paid out in BTB. There is nothing to buy and nothing to stake.` },
+    { q: `How does the revenue share work?`, a: `Every simulation, check-in, swap and position earns points during the week. On Friday the week's trading fees are split across everyone's points and paid out in BTB. There is nothing to buy and nothing to stake.` },
   ];
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -75,7 +75,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
         <>
           <h1 style={styles.h1}>Why pay {c.name} {c.yearlyUsd > 0 ? `$${c.yearlyUsd} a year` : 'a cut of your position'} for LP tools? BTB is free and pays you.</h1>
           <p style={styles.lead}>
-            {c.name} is {c.what.charAt(0).toLowerCase() + c.what.slice(1)} BTB Finance does the same job, adds one-tap position management on every supported DEX, charges nothing for any of it, and pays its revenue back to the people who use it every Friday.
+            {c.name} is {c.what.charAt(0).toLowerCase() + c.what.slice(1)} BTB Finance does the same job, adds one-tap position management on every supported DEX, charges nothing for any of it, and sends its trading fees back to the people who use it every Friday.
           </p>
         </>
       )}
@@ -156,7 +156,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
 
       <h2 style={styles.h2}>{c.automation ? 'How BTB keeps automation cheap' : 'How BTB makes money without charging you'}</h2>
       <p style={styles.body}>
-        BTB&apos;s revenue is the 1% fee on every BTB trade, and 100% of it goes back to users. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
+        BTB earns a 1% fee on trades through its token pools, and 100% of that fee goes back to users. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
       </p>
 
       <h2 style={styles.h2}>Questions</h2>
