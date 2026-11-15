@@ -237,9 +237,11 @@ export function ConnectScreen({ onConnect, onImport, onClose }: { onConnect: () 
 
       <div style={{ textAlign: 'center', color: btb.textDim, fontSize: 12, lineHeight: 1.5 }}>
         By continuing you agree to BTB&apos;s<br/>
-        <span style={{ color: btb.textMuted, textDecoration: 'underline' }}>Terms</span>
+        <a href="/terms" target="_blank" rel="noopener" style={{ color: btb.textMuted, textDecoration: 'underline' }}>Terms</a>
+        {', '}
+        <a href="/risk" target="_blank" rel="noopener" style={{ color: btb.textMuted, textDecoration: 'underline' }}>Risks</a>
         {' '}and{' '}
-        <span style={{ color: btb.textMuted, textDecoration: 'underline' }}>Privacy Policy</span>
+        <a href="/privacy" target="_blank" rel="noopener" style={{ color: btb.textMuted, textDecoration: 'underline' }}>Privacy Policy</a>
       </div>
     </Screen>
     </div>

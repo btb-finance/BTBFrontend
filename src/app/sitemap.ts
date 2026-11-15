@@ -12,6 +12,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: s.priority,
     })),
     { url: `${SITE.url}/vs`, lastModified, changeFrequency: 'weekly' as const, priority: 0.8 },
+    { url: `${SITE.url}/terms`, lastModified, changeFrequency: 'monthly' as const, priority: 0.3 },
+    { url: `${SITE.url}/risk`, lastModified, changeFrequency: 'monthly' as const, priority: 0.3 },
+    { url: `${SITE.url}/privacy`, lastModified, changeFrequency: 'monthly' as const, priority: 0.3 },
     ...COMPETITORS.map((c) => ({ url: `${SITE.url}/${c.slug}-alternative`, lastModified, changeFrequency: 'weekly' as const, priority: 0.8 })),
   ];
 }
