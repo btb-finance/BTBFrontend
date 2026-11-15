@@ -156,7 +156,7 @@ export default async function VsPage({ params }: { params: Promise<{ slug: strin
 
       <h2 style={styles.h2}>{c.automation ? 'How BTB keeps automation cheap' : 'How BTB makes money without charging you'}</h2>
       <p style={styles.body}>
-        BTB&apos;s revenue is its token fees (the OPOS transfer tax), and 100% of it goes back to users. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
+        BTB&apos;s revenue is the 1% fee on every BTB trade, and 100% of it goes back to users. Every week it is split across everyone who checked in, simulated, swapped or held a position through the app, in proportion to the points they earned, and paid out in BTB on Friday. Simulating, discovering pools and managing positions never cost anything{c.automation ? '; auto-rebalance charges only a flat fee that covers the agent\'s gas, never a share of your position or its earnings' : ''}.
       </p>
 
       <h2 style={styles.h2}>Questions</h2>

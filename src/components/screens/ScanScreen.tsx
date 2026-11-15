@@ -482,12 +482,13 @@ function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare =
 }) {
   const { isMobile } = useSidebar();
   const [focused, setFocused] = useState(false);
-  const [active, setActive] = useState(0);
-  useEffect(() => setActive(0), [input]);
+  const [rawActive, setActive] = useState(0);
+  // Typing resets the highlight (see onChange); clamping covers a list that shrinks under it.
+  const active = Math.min(rawActive, Math.max(0, suggestions.length - 1));
   const showList = focused && input.trim().length > 0 && suggestions.length > 0 && !!onPick;
   const onKey = (e: React.KeyboardEvent) => {
-    if (showList && e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, suggestions.length - 1)); return; }
-    if (showList && e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); return; }
+    if (showList && e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(active + 1, suggestions.length - 1)); return; }
+    if (showList && e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(active - 1, 0)); return; }
     if (e.key === 'Escape') { setFocused(false); return; }
     if (e.key === 'Enter') {
       const typedAddress = /^0x[0-9a-fA-F]{40}$/.test(input.trim());
@@ -505,7 +506,7 @@ function SearchBar({ chainId, setChainId, input, setInput, onSubmit, err, bare =
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" style={{ position: 'absolute', left: 14, top: H / 2 - 8, color: btb.textDim }}>
             <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
           </svg>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={onKey}
+          <input value={input} onChange={(e) => { setInput(e.target.value); setActive(0); }} onKeyDown={onKey}
             onFocus={() => setFocused(true)} onBlur={() => setTimeout(() => setFocused(false), 150)}
             placeholder="Search a token: name, symbol or 0x address" spellCheck={false} autoComplete="off"
             role="combobox" aria-expanded={showList} aria-autocomplete="list"

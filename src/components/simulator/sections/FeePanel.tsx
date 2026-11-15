@@ -102,12 +102,12 @@ export function FeePanel({ sim, isMobile }: { sim: Sim; isMobile: boolean }) {
       )}
 
       {/* Very high turnover pools attract just-in-time LP bots that mint/burn
-          around the largest swaps — research puts their take at up to ~40% of
+          around the largest swaps, and research puts their take at up to ~40% of
           fee income in affected pools. Passive LPs eat that dilution. */}
       {/* A measured rate already lost those fees to the bots, so the warning is only for volume estimates. */}
       {sim.feeSource === 'volume' && sim.volumeToTvl7d != null && sim.volumeToTvl7d / 7 > 1 && (
         <div style={{ color: btb.amber, fontSize: 12, background: 'rgba(var(--amber-rgb), 0.08)', border: '1px solid rgba(var(--amber-rgb), 0.3)', borderRadius: 12, padding: '10px 12px', marginTop: 10 }}>
-          This pool turns over roughly {(sim.volumeToTvl7d / 7).toFixed(0)}× its TVL per day. Heavy-turnover pools attract just-in-time LP bots that compete for the biggest swaps&apos; fees — treat these estimates as optimistic.
+          This pool turns over roughly {(sim.volumeToTvl7d / 7).toFixed(0)}× its TVL per day. Heavy-turnover pools attract just-in-time LP bots that compete for the biggest swaps&apos; fees, so treat these estimates as optimistic.
         </div>
       )}
 

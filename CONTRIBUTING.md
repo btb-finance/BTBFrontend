@@ -35,27 +35,28 @@ Every meaningful contribution matters:
    cd BTBFrontend
    ```
 
-2. **Install dependencies** (we use [Bun](https://bun.sh), but npm works too):
+2. **Install dependencies** with yarn (`yarn.lock` is the only lockfile, and it is what Netlify installs from):
 
    ```bash
-   bun install
+   yarn install
    ```
 
 3. **Run the dev server**:
 
    ```bash
-   bun run dev
+   yarn dev
    ```
 
    Open [http://localhost:3000](http://localhost:3000).
 
 4. **Create a branch**, make your changes, and **submit a pull request** against `main`.
 
-5. Before pushing, make sure lint and build pass:
+5. Before pushing, make sure lint, typecheck and build pass:
 
    ```bash
-   bun run lint
-   bun run build
+   yarn lint
+   yarn typecheck
+   yarn build
    ```
 
 ## Project structure: the most important rule
@@ -77,7 +78,7 @@ src/
     MobileNav.tsx      mobile navigation
     CreatePosition.tsx add liquidity sheet
     LpPositions.tsx    position list and actions
-    screens/           one file per app screen (Home, Discover, Simulate, Swap, Portfolio, Docs)
+    screens/           one file per app screen (Home, Discover, Simulate, Smart LPs, Swap, Portfolio, Scan, Docs, ...)
   protocols/           One folder per protocol; on-chain adapters only
     dexs/              Uniswap V3 and V4, PancakeSwap, SushiSwap, Aerodrome, Robinhood forks
     staking.ts         gauge and MasterChef staking
@@ -103,14 +104,14 @@ Pull requests that duplicate existing shared code (custom buttons, ad-hoc styles
 - [Tailwind CSS v4](https://tailwindcss.com)
 - [wagmi](https://wagmi.sh) + [viem](https://viem.sh) for wallets & onchain reads/writes
 - [Convex](https://convex.dev) for backend data
-- [Bun](https://bun.sh) as the package manager
+- [Yarn](https://classic.yarnpkg.com) 1 as the package manager
 
 ## Pull request guidelines
 
 - Keep PRs **focused**: one fix or feature per PR.
 - Describe **what** you changed and **why** in the PR description (screenshots for UI changes help a lot).
 - Follow the existing folder structure and shared-component rules above.
-- Make sure `bun run lint` and `bun run build` pass.
+- Make sure `yarn lint`, `yarn typecheck` and `yarn build` pass.
 - Be responsive to review feedback: we review regularly and recognize contributors weekly.
 
 ## Questions or ideas?

@@ -67,7 +67,6 @@ export const LOG_SOURCES: Record<number, LogSource> = {
 export function logClientFor(chainId: number): PublicClient {
   return createPublicClient({ ...(chainId === 8453 ? { chain: base } : {}), transport: http(LOG_SOURCES[chainId].url, { timeout: 30_000 }) }) as PublicClient;
 }
-export const baseLogClient = () => logClientFor(8453);
 
 /** Seconds per block, measured over the last 10,000 blocks (Arbitrum and Robinhood run off their nominal pace). */
 async function blockSecOf(c: PublicClient): Promise<number> {

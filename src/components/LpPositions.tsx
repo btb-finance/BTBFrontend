@@ -1524,7 +1524,7 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         {alertNote && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
             <span style={{ color: alertNote.startsWith('Alert on') ? btb.textMuted : btb.amber, fontSize: 11.5, lineHeight: 1.5, flex: 1, minWidth: 200 }}>{alertNote}</span>
-            {/^Alerts need/.test(alertNote) && (
+            {alertNote.startsWith('Alerts need') && (
               <a href={`/swap?chain=1&from=ETH&to=${CONTRACTS.BTB}`} style={{ color: btb.green, fontSize: 11.5, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap' }}>Get BTB</a>
             )}
           </div>

@@ -233,15 +233,6 @@ export async function readMetricLayout(client: PublicClient, chainId: number, po
   };
 }
 
-/** Bins from the current one outwards until each side spans `pct` percent of price (at least the current bin). */
-export function binsForWidth(layout: MetricPoolLayout, pct: number): number[] {
-  const cur = layout.bins.find((b) => b.idx === layout.curBin);
-  if (!cur) return [];
-  const mid = cur.lower + (cur.upper - cur.lower) * layout.curPos;
-  const span = pct / 100;
-  return layout.bins.filter((b) => b.upper > mid - span && b.lower < mid + span).map((b) => b.idx);
-}
-
 /** The price range a set of bins covers, as fractions of the reference price. */
 export function rangeOf(layout: MetricPoolLayout, bins: number[]): { lower: number; upper: number } | null {
   const sel = layout.bins.filter((b) => bins.includes(b.idx));

@@ -423,7 +423,7 @@ export function SimulatorPage({ tokenA, tokenB, selected, siblings, chainId, cha
                     return (
                       <span
                         key={addr}
-                        title={`Top 10 holders${s.top10Share != null ? ` hold ${(s.top10Share * 100).toFixed(0)}% of supply` : ''}${s.holders != null ? `, ${s.holders.toLocaleString('en-US')} holders total` : ''}${flags.length ? ` — ${flags.join(', ')}` : ''}. Source: explorer + GoPlus.`}
+                        title={`Top 10 holders${s.top10Share != null ? ` hold ${(s.top10Share * 100).toFixed(0)}% of supply` : ''}${s.holders != null ? `, ${s.holders.toLocaleString('en-US')} holders total` : ''}${flags.length ? `; ${flags.join(', ')}` : ''}. Source: explorer + GoPlus.`}
                         style={{
                           color: risky ? btb.loss : warm ? btb.amber : btb.textMuted,
                           fontSize: 10.5, fontWeight: 700,

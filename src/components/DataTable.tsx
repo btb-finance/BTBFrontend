@@ -137,7 +137,7 @@ export function DataTable<T>({
               >
                 {col.label}
                 {col.sortable && sortKey === col.key && (
-                  <span style={{ marginLeft: 4, color: btb.text }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
+                  <span style={{ marginLeft: 4, display: 'inline-flex', verticalAlign: 'middle' }}><Icon name={sortDir === 'asc' ? 'up' : 'down'} size={11} color={btb.text}/></span>
                 )}
               </th>
             ))}

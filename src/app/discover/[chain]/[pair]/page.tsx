@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: { params: Promise<{ chain: st
   const chainName = CHAIN_NAMES[chain.toLowerCase()] ?? decodeURIComponent(chain).replace(/(^|\s)\S/g, (c) => c.toUpperCase());
   return buildMetadata({
     title: `Add liquidity to ${pretty}`,
-    description: `Open a managed ${pretty} liquidity position on ${chainName} with BTB Finance — automated rebalancing, non-custodial.`,
+    description: `Open a managed ${pretty} liquidity position on ${chainName} with BTB Finance: automated rebalancing, non-custodial.`,
     path: `/discover/${chain}/${pair}`,
   });
 }

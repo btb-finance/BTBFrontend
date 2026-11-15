@@ -219,7 +219,7 @@ function findPools(pools: Pool[], a: Record<string, unknown>): string {
   const minTvl = typeof a.minTvlUsd === "number" ? a.minTvlUsd : 50_000;
   const sort = a.sort === "tvl" || a.sort === "volume" ? a.sort : "apr";
   const limit = Math.min(25, Math.max(1, typeof a.limit === "number" ? a.limit : 10));
-  const syms = (p: Pool) => p.pair.split(/[-\/]/).map((s) => s.trim());
+  const syms = (p: Pool) => p.pair.split(/[-/]/).map((s) => s.trim());
   let rows = pools.filter((p) => p.tvlUsd >= minTvl);
   if (chain) rows = rows.filter((p) => p.chain.toLowerCase().includes(chain) || (chain.includes("bnb") && /bnb|bsc/i.test(p.chain)) || (chain.includes("robinhood") && /robinhood/i.test(p.chain)));
   if (dex) rows = rows.filter((p) => p.dex.toLowerCase().includes(dex) || (p.project ?? "").toLowerCase().includes(dex));

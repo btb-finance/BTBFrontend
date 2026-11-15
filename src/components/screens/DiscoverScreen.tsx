@@ -987,7 +987,7 @@ export function DiscoverScreen() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search a token or pair — eth, eth/usdc, ethusdc"
+            placeholder="Search a token or pair: eth, eth/usdc, ethusdc"
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
           />
         </div>

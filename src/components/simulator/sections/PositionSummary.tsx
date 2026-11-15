@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { btb } from '../../design-tokens';
 import { TokenIcon } from '../../TokenIcon';
+import { Icon } from '../../Icon';
 import { Glass } from '../../Glass';
 import { fmtApr, fmtCompactUsd } from '../../../lib/pools';
 import { fmtFeeTier } from '@/protocols/dexs/uniswap';
@@ -121,10 +122,11 @@ export function PositionSummary({ sim, logos, onToggleFlip, onRange, isMobile, d
             <span style={{ color: btb.text, fontSize: isMobile ? 14 : 17, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>
               {sim.dispBase} / {sim.dispQuote}
             </span>
-            <button onClick={onToggleFlip} title="Flip which token prices are quoted in" style={{
+            <button onClick={onToggleFlip} title="Flip which token prices are quoted in" aria-label="Flip price direction" style={{
+              display: 'inline-grid', placeItems: 'center',
               height: isMobile ? 20 : 22, padding: isMobile ? '0 5px' : '0 7px', borderRadius: 7, cursor: 'pointer', fontFamily: 'inherit',
               fontSize: 10, fontWeight: 700, background: 'rgba(var(--fg-rgb), 0.07)', border: btb.borderSoft, color: btb.textMuted,
-            }}>⇄</button>
+            }}><Icon name="swap" size={isMobile ? 11 : 12} color={btb.textMuted}/></button>
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ color: btb.textDim, fontSize: isMobile ? 9 : 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Price now</div>
@@ -145,11 +147,11 @@ export function PositionSummary({ sim, logos, onToggleFlip, onRange, isMobile, d
             { label: 'Vol / TVL', value: sim.volumeToTvl7d != null ? `${(sim.volumeToTvl7d * 100).toFixed(0)}%` : '—', note: '7 day turnover' },
             { label: 'Pool fees / day', value: sim.poolDailyFeesUsd > 0 ? fmtUsd(sim.poolDailyFeesUsd) : '—', note: sim.hasFeeData ? '7 day average' : 'no data' },
             { label: 'Your liquidity share', value: sim.liquidityShare > 0 ? `${(sim.liquidityShare * 100).toPrecision(2)}%` : '0%', note: 'of in range liquidity' },
-            { label: 'Pair volatility', value: `${(sim.sigmaDaily * 100).toFixed(1)}% / day`, note: sim.sigmaAssumed ? 'assumed floor — thin history' : sim.usingFallbackHistory ? 'approx history' : 'from 30 day history' },
+            { label: 'Pair volatility', value: `${(sim.sigmaDaily * 100).toFixed(1)}% / day`, note: sim.sigmaAssumed ? 'assumed floor, thin history' : sim.usingFallbackHistory ? 'approx history' : 'from 30 day history' },
             {
               label: 'Pool age',
               value: sim.poolAgeDays != null ? (sim.poolAgeDays < 1 ? 'new' : sim.poolAgeDays < 90 ? `${sim.poolAgeDays}d` : `${Math.round(sim.poolAgeDays / 30)}mo`) : '—',
-              note: sim.poolAgeDays != null && sim.poolAgeDays < 14 ? 'new pool — early APR is often inflated' : 'since creation',
+              note: sim.poolAgeDays != null && sim.poolAgeDays < 14 ? 'new pool, early APR is often inflated' : 'since creation',
             },
           ] as { label: string; value: string; note: string }[]).filter((s) => s.value !== '—').map((s) => (
             <div key={s.label} style={{ background: 'rgba(var(--fg-rgb), 0.04)', borderRadius: 12, padding: '8px 11px', minWidth: 0 }}>
