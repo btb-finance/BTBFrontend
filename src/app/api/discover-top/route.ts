@@ -22,7 +22,7 @@ export async function GET() {
       headers: {
         // Browsers re-ask after a minute; Netlify's edges hold it longer and refresh in the background.
         'cache-control': 'public, max-age=60',
-        'netlify-cdn-cache-control': 'public, s-maxage=300, stale-while-revalidate=1800, durable',
+        'netlify-cdn-cache-control': 'public, s-maxage=900, stale-while-revalidate=3600, durable',
       },
     });
   } catch {

@@ -1,5 +1,6 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
+import { BATCH_CHECKS } from "./autoRebalanceConfig";
 
 const crons = cronJobs();
 
@@ -11,8 +12,9 @@ if (process.env.DISABLE_CRONS !== "1") {
   // refresh only writes what changed, so once a week is plenty.
   crons.weekly("refresh token list", { dayOfWeek: "monday", hourUTC: 3, minuteUTC: 0 }, internal.tokens.fetchTokenLists);
 
-  // Refresh USD prices every 5 minutes via DexScreener
-  crons.interval("refresh token prices", { minutes: 5 }, internal.prices.fetchPrices);
+  // Refresh USD prices via DexScreener. Every 15 minutes: quotes and balances never come from this table, and the
+  // free plan's function and compute limits are shared with everything else here.
+  crons.interval("refresh token prices", { minutes: 15 }, internal.prices.fetchPrices);
 
   // ── Shared 30-minute snapshots ──────────────────────────────────────────
   // Everything below is identical for every visitor, so it is computed once
@@ -60,8 +62,12 @@ if (process.env.DISABLE_CRONS !== "1") {
   // sign-ins, and everything about wallets with no check-in and no XP for 90 days.
   crons.daily("daily cleanup", { hourUTC: 4, minuteUTC: 17 }, internal.cleanup.daily);
 
-  // Batched auto-rebalance checks (convex/autoRebalanceBatch.ts): compares in shadow mode, does the checks when live.
-  crons.interval("batched auto-rebalance checks", { minutes: 1 }, internal.autoRebalanceBatch.sweepChecks);
+  // Batched auto-rebalance checks (convex/autoRebalanceBatch.ts). Registered only when live: in shadow mode it only
+  // compared answers, reading every auto-rebalance row and writing a log row 1,440 times a day, which is what took the
+  // deployment over the free plan (2026-11-17). The per-position checks do the real work either way.
+  if (BATCH_CHECKS === "live") {
+    crons.interval("batched auto-rebalance checks", { minutes: 1 }, internal.autoRebalanceBatch.sweepChecks);
+  }
 
   // Settle the weekly rewards epoch: unwrap the OPOS tax the treasury collected
   // into BTB and queue a pro-rata payout per requester. Epochs end Friday 00:00
@@ -71,7 +77,8 @@ if (process.env.DISABLE_CRONS !== "1") {
 
   // Safety net for the payout queue — the worker chains itself, but a Convex
   // restart mid-drain would otherwise leave leased rows waiting for next Friday.
-  crons.interval("drain reward payouts", { minutes: 5 }, internal.rewardsActions.drain);
+  // A claim starts the drain itself, so this is only the backup: hourly is enough.
+  crons.interval("drain reward payouts", { hours: 1 }, internal.rewardsActions.drain);
 }
 
 export default crons;

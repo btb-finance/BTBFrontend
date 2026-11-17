@@ -88,10 +88,10 @@ async function positionBurned(chainId: number, protocol: string, tokenId: string
 export const check = internalAction({
   args: {},
   handler: async (ctx) => {
-    await loadLiveRpcs(ctx);
     if (process.env.DISABLE_CRONS) return;
     const alerts = await ctx.runQuery(internal.alerts.activeAlerts, {});
     if (alerts.length === 0) return;
+    await loadLiveRpcs(ctx);
     const balanceCache = new Map<string, number>();
     // Every read is paid, hourly or fast; track what is left inside this run so a
     // wallet with many positions cannot spend past its balance.

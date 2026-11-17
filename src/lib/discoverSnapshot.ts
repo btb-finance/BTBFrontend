@@ -62,9 +62,13 @@ export function fetchDiscoverSource(): Promise<DiscoverSource> {
   return p ?? query();
 }
 
-/** One chain's full pool list: a gzip file in Convex storage. */
+/**
+ * One chain's full pool list: a gzip file in Convex storage, fetched through our CDN (src/app/api/discover-chain) so
+ * Convex serves each file once per edge instead of once per visitor. Falls back to Convex directly.
+ */
 export async function fetchChainPools<T>(url: string): Promise<T[]> {
-  const res = await fetch(url);
+  let res = await fetch(`/api/discover-chain?u=${encodeURIComponent(url)}`).catch(() => null);
+  if (!res || !res.ok) res = await fetch(url);
   if (!res.ok) throw new Error(`chain file ${res.status}`);
   const body = res.body;
   if (!body) throw new Error('empty chain file');
