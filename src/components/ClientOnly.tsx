@@ -2,10 +2,19 @@
 import dynamic from 'next/dynamic';
 import { AppSkeleton } from './AppSkeleton';
 import { startDiscoverSnapshot } from '@/lib/discoverSnapshot';
+import { parsePath } from '@/lib/routes';
+import { warmScreen } from './screenLoaders';
 
 // The pool snapshot does not need a wallet, so its request leaves as soon as
 // this small entry chunk runs, in parallel with the app shell download.
 startDiscoverSnapshot();
+
+// Same for the first screen's own chunk: without this its download only started once the shell had downloaded and
+// mounted, one more round trip in a row before anything real showed.
+if (typeof window !== 'undefined') {
+  const { screen, overlay } = parsePath(window.location.pathname);
+  warmScreen(overlay ?? screen);
+}
 
 // One client-only boundary for the whole app (wallet connectors touch
 // indexedDB, which the server does not have). The skeleton is its SSR output,
