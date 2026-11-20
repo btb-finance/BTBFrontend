@@ -7,6 +7,7 @@ import {
 import { defineChain, fallback, http } from 'viem';
 import { injected, coinbaseWallet, walletConnect, metaMask, safe } from 'wagmi/connectors';
 import { chainTransport } from './chainRpc';
+import { lazyWalletSdk } from './lazyWalletSdk';
 import { ROBINHOOD_RPC_UPSTREAMS } from './robinhoodRpc';
 
 export const robinhoodChain = defineChain({
@@ -74,9 +75,10 @@ export function makeConfig() {
   // time, which crashes Node.js serverless (Netlify). Only create them in the
   // browser. See: https://github.com/vercel/next.js/discussions/82963
   const connectors = typeof window === 'undefined' ? [] : [
-      metaMask({ dapp: { name: DAPP_METADATA.name, url: DAPP_METADATA.url } }),
-      walletConnect({ projectId, showQrModal: true, metadata: DAPP_METADATA }),
-      coinbaseWallet({ appName: DAPP_METADATA.name }),
+      // The three SDK connectors load their SDK only once this browser uses them (see ./lazyWalletSdk).
+      lazyWalletSdk(metaMask({ dapp: { name: DAPP_METADATA.name, url: DAPP_METADATA.url } })),
+      lazyWalletSdk(walletConnect({ projectId, showQrModal: true, metadata: DAPP_METADATA })),
+      lazyWalletSdk(coinbaseWallet({ appName: DAPP_METADATA.name })),
       injected({ shimDisconnect: true }),
       // Safe{Wallet}: when BTB is opened as a Safe App (inside the Safe
       // iframe) this connector talks to the Safe through the Apps SDK and
