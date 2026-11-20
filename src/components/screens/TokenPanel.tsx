@@ -22,8 +22,10 @@ import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
 import { inviteLink } from '../../lib/referral';
 import { checkInNow } from '../../lib/checkin';
+import { LABEL_STYLE, StatTile, heroCardStyle, BigApr } from '../home/heroParts';
+import { EpochTimer } from '../home/EpochTimer';
 import { getChainClient } from '../../lib/chainClient';
-import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt, epochWindow } from '../../../convex/xpRules';
+import { dailyXpForStreak, weekMilestoneXp, holdBonusXp, BTB_PER_BONUS_XP, HOLD_BONUS_CAP, SWAP_XP, TX_XP_DAILY_CAP, SIMULATE_XP, SIMULATE_DAILY_CAP, MINT_XP, REBALANCE_XP, REFERRAL_SHARE, MIN_CLAIM_BTB, epochIdAt } from '../../../convex/xpRules';
 
 const BTB_ADDRESS = CONTRACTS.BTB;
 const OPOS_ADDRESS = CONTRACTS.OPOS;
@@ -52,50 +54,6 @@ function formatBtb(raw: string | null | undefined) {
 }
 
 
-/**
- * The next epoch flip, ticking every second: when this week's points are counted and the pot is shared out
- * (Friday 00:00 UTC). It keeps its own clock, so the rest of the dashboard does not re-render every second.
- */
-function EpochTimer({ epochId, bare = false }: { epochId: number; bare?: boolean }) {
-  const { isMobile } = useSidebar();
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(t);
-  }, []);
-  // Past the flip the next week's window takes over straight away, so the timer never sits at zero.
-  const { startsAt, endsAt } = epochWindow(epochIdAt(now));
-  const left = Math.max(0, endsAt - now);
-  const parts = [
-    [Math.floor(left / MS_PER_DAY), 'd'],
-    [Math.floor((left % MS_PER_DAY) / 3_600_000), 'h'],
-    [Math.floor((left % 3_600_000) / 60_000), 'm'],
-    [Math.floor((left % 60_000) / 1_000), 's'],
-  ] as const;
-  const done = Math.min(1, Math.max(0, (now - startsAt) / (endsAt - startsAt)));
-  return (
-    <div style={bare ? { display: 'flex', flexDirection: 'column', gap: 10 } : { borderRadius: 18, padding: '14px 16px', border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.04)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: btb.textMuted, fontSize: 12, fontWeight: 700 }}>Next epoch flips in</div>
-          <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>Week {epochIdAt(now) || epochId} · pays out Friday 00:00 UTC</div>
-        </div>
-        {/* On a phone the four boxes take their own full-width row, evenly split, instead of wrapping beside the label. */}
-        <div style={{ display: 'flex', gap: 6, ...(isMobile ? { width: '100%' } : {}) }}>
-          {parts.map(([v, unit]) => (
-            <div key={unit} style={{ flex: isMobile ? 1 : undefined, minWidth: isMobile ? 0 : 48, padding: isMobile ? '8px 0' : '6px 8px', borderRadius: 10, background: 'rgba(var(--fg-rgb), 0.06)', textAlign: 'center' }}>
-              <span style={{ color: btb.text, fontSize: isMobile ? 22 : 20, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{String(v).padStart(2, '0')}</span>
-              <span style={{ color: btb.textDim, fontSize: 11, fontWeight: 700, marginLeft: 2 }}>{unit}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ height: 6, borderRadius: 999, background: 'rgba(var(--fg-rgb), 0.07)', overflow: 'hidden' }}>
-        <div style={{ width: `${done * 100}%`, height: '100%', background: btb.green, borderRadius: 999 }}/>
-      </div>
-    </div>
-  );
-}
 
 /**
  * After today's check-in: a live countdown to the next one (the UTC day turns over at 00:00), hours, minutes and
@@ -151,29 +109,7 @@ type EarnAction = 'swap' | 'simulate' | 'nft' | 'portfolio';
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const LABEL_STYLE = { color: btb.textDim, fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.5 };
-const CARD_STYLE = { background: 'rgba(var(--fg-rgb), 0.05)', border: btb.borderSoft, borderRadius: 14, padding: '11px 13px', minWidth: 0 };
 
-/** Small stat tile used across the hero and proof grids. `row`: label left, value right, for a phone, where three
- * tiles side by side leave each about 70px and the labels ran into each other. */
-function StatTile({ label, value, sub, color, row = false }: { label: string; value: string; sub?: string; color?: string; row?: boolean }) {
-  if (row) return (
-    <div style={{ ...CARD_STYLE, padding: '10px 13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-      <div style={LABEL_STYLE}>{label}</div>
-      <div style={{ textAlign: 'right', minWidth: 0 }}>
-        <div style={{ color: color ?? btb.text, fontSize: 16, fontWeight: 800, letterSpacing: -0.3, whiteSpace: 'nowrap' }}>{value}</div>
-        {sub && <div style={{ color: btb.textDim, fontSize: 11, marginTop: 1 }}>{sub}</div>}
-      </div>
-    </div>
-  );
-  return (
-    <div style={CARD_STYLE}>
-      <div style={{ ...LABEL_STYLE, lineHeight: 1.3 }}>{label}</div>
-      <div style={{ color: color ?? btb.text, fontSize: 17, fontWeight: 800, marginTop: 3, letterSpacing: -0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
-      {sub && <div style={{ color: btb.textDim, fontSize: 11, marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
-}
 
 /**
  * The Earn/rewards block. Lives at the top of Home rather than on its own tab —
@@ -457,22 +393,9 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
   earnRows.sort((a, b) => b.dayXp - a.dayXp);
   const btbOrXp = (xp: number) => { const v = xpBtb(xp); return v != null ? `≈ ${fmtBtb(v)} BTB` : `${xp.toLocaleString('en-US')} XP`; };
 
-  const heroStyle = {
-    position: 'relative' as const,
-    overflow: 'hidden' as const,
-    borderRadius: 22,
-    padding: isMobile ? 16 : 20,
-    border: '1px solid rgba(var(--green-rgb), 0.3)',
-    background: 'radial-gradient(120% 150% at 88% -30%, rgba(var(--green-rgb), 0.22), transparent 55%), radial-gradient(90% 120% at 0% 115%, rgba(125,211,252,0.10), transparent 55%), linear-gradient(165deg, rgba(var(--fg-rgb), 0.06), rgba(var(--fg-rgb), 0.015))',
-    display: 'flex', flexDirection: 'column' as const, gap: 14,
-  };
+  const heroStyle = heroCardStyle(isMobile);
   const panelStyle = { borderRadius: 20, padding: isMobile ? 14 : 18, border: btb.borderSoft, background: 'rgba(var(--fg-rgb), 0.04)', display: 'flex', flexDirection: 'column' as const, gap: 12 };
-  const bigApr = (n: number | null) => (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-      <span style={{ color: btb.green, fontSize: isMobile ? 40 : 52, fontWeight: 800, letterSpacing: -1.6, lineHeight: 1 }}>{n != null ? aprText(n) : '...'}</span>
-      <span style={{ color: btb.text, fontSize: isMobile ? 17 : 20, fontWeight: 800 }}>APR</span>
-    </div>
-  );
+  const bigApr = (n: number | null) => <BigApr text={n != null ? aprText(n) : '...'} mobile={isMobile}/>;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -501,7 +424,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             <StatTile label="Streak" value={`${streak} day${streak === 1 ? '' : 's'}`} sub={streak > 0 ? `best ${user?.longestStreak ?? streak}` : 'check in daily'}/>
           </div>
 
-          <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare/>
+          <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare mobile={isMobile}/>
 
           {!checkedIn ? (
             <Button size="md" variant="success" icon="fire" loading={busy === 'checkin'} disabled={busy != null || !user} onClick={doCheckIn}>
@@ -533,7 +456,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
             <StatTile row={isMobile} label="This week's pot" value={epochs ? `${livePot != null ? '≈ ' : ''}${formatBtb(currentPot.toString()).split('.')[0]} BTB` : '...'} sub={unclaimedNote}/>
             <StatTile row={isMobile} label="Paid last week" value={epochs ? `${epochs.find(e => e.epochId === currentEpochId - 1)?.requesterCount ?? 0}${isMobile ? ' wallets' : ''}` : '...'} sub={isMobile ? undefined : 'wallets'}/>
           </div>
-          <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare/>
+          <EpochTimer epochId={status?.epochId ?? epochIdAt(now)} bare mobile={isMobile}/>
           <Button size="md" variant="success" icon="wallet" onClick={onConnect}>Connect and check in</Button>
         </div>
       )}

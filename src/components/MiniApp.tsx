@@ -9,6 +9,7 @@ import { prefetchDiscoverPools } from '../lib/discoverPools';
 import { pathFor, parsePath, type Overlay } from '../lib/routes';
 import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
+import { useRoutePreview } from './RoutePreview';
 import { loadScreen, shouldSaveData, type ScreenKey } from './screenLoaders';
 import { TopNav } from './TopNav';
 import { MobileNav } from './MobileNav';
@@ -19,14 +20,21 @@ import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
 
-const ScreenLoading = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-    <Spinner size={32} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>
-  </div>
-);
+function ScreenLoadingFor({ screen }: { screen?: string }) {
+  // The visit's first screen keeps showing its server-rendered preview while its chunk loads (./RoutePreview).
+  const preview = useRoutePreview(screen);
+  if (screen && preview) return <>{preview}</>;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+      <Spinner size={32} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>
+    </div>
+  );
+}
+const ScreenLoading = () => <ScreenLoadingFor/>;
+const loadingFor = (screen: string) => function Loading() { return <ScreenLoadingFor screen={screen}/>; };
 
-const HomeScreen      = dynamic(() => loadScreen('home').then(m => m.HomeScreen), { ssr: false, loading: ScreenLoading });
-const DiscoverScreen  = dynamic(() => loadScreen('discover').then(m => m.DiscoverScreen), { ssr: false, loading: ScreenLoading });
+const HomeScreen      = dynamic(() => loadScreen('home').then(m => m.HomeScreen), { ssr: false, loading: loadingFor('home') });
+const DiscoverScreen  = dynamic(() => loadScreen('discover').then(m => m.DiscoverScreen), { ssr: false, loading: loadingFor('discover') });
 const SimulateScreen  = dynamic(() => loadScreen('simulate').then(m => m.SimulateScreen), { ssr: false, loading: ScreenLoading });
 const SwapScreen      = dynamic(() => loadScreen('swap').then(m => m.SwapScreen), { ssr: false, loading: ScreenLoading });
 const PortfolioScreen = dynamic(() => loadScreen('portfolio').then(m => m.PortfolioScreen), { ssr: false, loading: ScreenLoading });

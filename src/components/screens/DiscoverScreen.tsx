@@ -4,7 +4,7 @@ import { useGrowingList } from '../../lib/useGrowingList';
 import { getAddress, isAddress } from 'viem';
 import { useConfig } from 'wagmi';
 import { getPublicClient } from 'wagmi/actions';
-import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, fmtFeeTier, EarnPool } from '../../lib/pools';
+import { mintTarget, poolLink, lpAddressesForToken, fmtApr, fmtCompactUsd, EarnPool } from '../../lib/pools';
 import { useTokenStore } from '../../lib/TokenStore';
 import { useDiscoverPools } from '../../lib/discoverPools';
 import { enrichMarketPools, searchMarketPools, type MarketPool } from '../../lib/dexSearch';
@@ -13,10 +13,7 @@ import { poolPath, parsePoolPath, parseDiscoverChainPath, poolMatchesLink, chain
 
 const WETH_ADDR = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 import { DataTable, Column } from '../DataTable';
-import { TokenIcon } from '../TokenIcon';
 import { DexLogo } from '../DexLogo';
-import { Badge } from '../Badge';
-import { isOldAero } from '@/lib/aeroPools';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 import { PickerSheet } from '../PickerSheet';
@@ -36,179 +33,12 @@ import { useSidebar } from '../../lib/SidebarContext';
 import { CHAIN_META, type SupportedChainId } from '../../lib/wagmi';
 import { CHAIN_DATA_NETWORKS } from '../../lib/chainDataNetworks';
 import { useChainTheme } from '../../lib/ChainThemeContext';
-import { KYBER_CHAINS } from '../../lib/kyberswap';
 import { focusOnOpen } from '../../lib/focusOnOpen';
-
-/** Fee-based estimate used when the indexer doesn't report real 24h fees (DeFiLlama-sourced rows). */
-function estFees24h(p: EarnPool): number {
-  return p.fees24hUsd ?? (p.tvlUsd * p.apyBase) / 100 / 365;
-}
-
-function headlineApr(p: EarnPool): number {
-  return p.aprRange ?? p.apy;
-}
-
-/** Hover text for the APR cell when no gauge route explains it. */
-function rangeAprTitle(p: EarnPool): string {
-  return rangeAprText(p) + (p.lpCutPct ? ` After the DEX's ${p.lpCutPct}% cut of swap fees.` : '');
-}
-
-function rangeAprText(p: EarnPool): string {
-  const y = p.rangeYield;
-  if (y && p.aprRange != null) {
-    const days = Math.max(1, Math.round(y.days));
-    const span = `${days} ${days === 1 ? 'day' : 'days'}`;
-    const inRange = y.inRangePct != null ? ` In range ${y.inRangePct}% of the time.` : '';
-    const scaled = y.scaled ? ' Measured on the nearest liquidity edges and scaled to ±5%, so it assumes the price stayed within ±5%.' : '';
-    const net = `${y.netPct >= 0 ? '+' : ''}${y.netPct.toFixed(2)}%`;
-    return `What a ±5% range, reset once a day, really earned in fees over the last ${span}, read from the pool's fee counters.${inRange}${scaled} With each day's price move counted, against just holding: ${net} over the ${span}.`;
-  }
-  return p.aprRange != null ? '±5% range APR estimated from 24h volume' : 'Whole pool fees over TVL. No range data for this pool yet.';
-}
-
-/** Short tag under the APR: how the number was made. */
-function rangeAprTag(p: EarnPool): string | null {
-  const y = p.rangeYield;
-  if (!y) return null;
-  return `±5% · ${Math.max(1, Math.round(y.days))}d${y.scaled ? ' · scaled' : ''}`;
-}
-
-function aprContext(p: EarnPool): { label: string; title: string } | null {
-  const reward = p.rewardTokenSymbols?.join(' + ') || 'gauge';
-  if (p.yieldMode === 'stake-or-fees') {
-    const route = p.requiresStaking ? `Stake LP · ${reward}` : 'Unstaked fee yield';
-    return {
-      label: route,
-      title: `${route}. Gauge rewards: ${fmtApr(p.apyReward)}; unstaked fee APR: ${fmtApr(p.apyBase)}. These alternatives are not added together.`,
-    };
-  }
-  if (p.yieldMode === 'staked-rewards') {
-    return {
-      label: `Stake LP · ${reward}`,
-      title: `Gauge reward APR paid to staked LP positions in ${reward}: ${fmtApr(p.apyReward)}. Fee APR is shown separately and is not added to this staked route.`,
-    };
-  }
-  return null;
-}
-
-type DiscoverChain = { name: string; chainId?: number; logo?: string };
-
-/** Quote-side tokens: a pool is scanned by its other token. */
-const SCAN_SKIP = new Set(['USDC', 'USDT', 'DAI', 'WETH', 'ETH', 'WBTC', 'CBBTC', 'USDBC', 'USDS', 'USDE', 'BTC', 'WBNB', 'BNB', 'USDC.E']);
-
-/** The token a Scan of this pool looks at: the side that is not a stablecoin or wrapped major, else the first. */
-function scanTokenOf(p: EarnPool): string | null {
-  const tokens = p.underlyingTokens ?? [];
-  if (tokens.length < 2) return null;
-  const [s0, s1] = p.pair.split(/[-/]/).map((s) => s.trim().toUpperCase());
-  const i = SCAN_SKIP.has(s0) && !SCAN_SKIP.has(s1 ?? '') ? 1 : 0;
-  const t = tokens[i]?.toLowerCase() ?? '';
-  return /^0x[0-9a-f]{40}$/.test(t) ? t : null;
-}
-
-function discoverChainId(name: string, explicitId?: number): number | undefined {
-  if (explicitId && CHAIN_META[explicitId]) return explicitId;
-  const normalized = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const aliases: Record<string, number> = {
-    ethereum: 1, ethereummainnet: 1, bsc: 56, bnbchain: 56, bnbsmartchain: 56,
-    polygon: 137, polygonmainnet: 137, arbitrum: 42161, arbitrumone: 42161,
-    optimism: 10, opmainnet: 10, base: 8453, avalanche: 43114,
-    avalanchecchain: 43114, robinhoodchain: 4663, arc: 5042, zksync: 324, zksyncera: 324,
-    hyperevm: 999, hyperliquidl1: 999,
-  };
-  const direct = aliases[normalized];
-  if (direct) return direct;
-  return Number(Object.entries(CHAIN_META).find(([, meta]) =>
-    meta.name.toLowerCase().replace(/[^a-z0-9]/g, '') === normalized
-  )?.[0]) || undefined;
-}
-
-/** DEX filter key. Venues that run several generations side by side get one
- * chip per generation ("Uniswap V3", "Uniswap V4"), since they are different
- * products with different pools, ranges and fees. */
-function dexKey(p: EarnPool): string {
-  // Pools from before Aero get their own chip, so "Aero" and the old Aerodrome and Velodrome pools never mix.
-  if (isOldAero(p)) return `${p.dex} (old)`;
-  return p.version && /uniswap|pancakeswap|sushiswap|orvex|swaphood/i.test(p.dex) ? `${p.dex} ${p.version}` : p.dex;
-}
-
-/** Marks a pool from before Aero: its gauge stopped paying at Aero's launch. */
-function OldBadge() {
-  return (
-    <span title="From before Aero. Its gauge stopped paying rewards at Aero's launch on Oct 22, 2026; Aero's new pools are listed as Aero.">
-      <Badge size="sm" color={btb.amber} bg="rgba(var(--amber-rgb), 0.14)" border="none" style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>Old</Badge>
-    </span>
-  );
-}
-
-const isMetricPool = (pool: EarnPool) => pool.project === 'metric';
-
-/** One pair on one chain, whichever way round its tokens are listed; symbols when a row has no addresses. */
-function pairKey(p: EarnPool): string {
-  const tokens = (p.underlyingTokens ?? []).slice(0, 2).map((t) => t.toLowerCase());
-  const ids = tokens.length === 2 ? tokens : p.pair.toUpperCase().split(/[-/]/);
-  return `${p.chainId ?? p.chain}:${[...ids].sort().join('|')}`;
-}
-
-/** Pools grouped by pair, in the order given: the first pool of each pair leads it. */
-function groupByPair(pools: EarnPool[]): EarnPool[][] {
-  const at = new Map<string, number>();
-  const out: EarnPool[][] = [];
-  for (const p of pools) {
-    const k = pairKey(p);
-    const i = at.get(k);
-    if (i == null) { at.set(k, out.length); out.push([p]); } else out[i].push(p);
-  }
-  return out;
-}
-
-function canSimulatePool(pool: EarnPool): boolean {
-  // The simulator models a concentrated range; Metric's oracle priced bins do not have one.
-  if (isMetricPool(pool)) return false;
-  const chainId = discoverChainId(pool.chain, pool.chainId);
-  const pair = pool.underlyingTokens;
-  return !!chainId && !!KYBER_CHAINS[chainId] && !!pair?.[0] && !!pair[1]
-    && isAddress(pair[0]) && isAddress(pair[1]);
-}
-
-function ChainMark({ name, chainId, size, src }: { name: string; chainId?: number; size: number; src?: string }) {
-  if (chainId) return <ChainLogo chainId={chainId} size={size} src={src}/>;
-  const nonEvmAsset = {
-    solana: '/chains/solana.webp',
-    sui: '/chains/sui.webp',
-  }[name.toLowerCase()];
-  if (nonEvmAsset) {
-    return (
-      <img
-        src={nonEvmAsset}
-        alt=""
-        aria-hidden="true"
-        width={size}
-        height={size}
-        loading="lazy"
-        decoding="async"
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)' }}
-      />
-    );
-  }
-  return (
-    <span style={{ width: size, height: size, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(var(--fg-rgb), .1)', boxShadow: '0 0 0 1px rgba(var(--fg-rgb), .12)', flexShrink: 0 }}>
-      <Icon name="globe" size={Math.max(10, size - 7)} color={btb.textMuted}/>
-    </span>
-  );
-}
-
-function ChainBadge({ name, chainId, logo }: DiscoverChain) {
-  return (
-    <span
-      title={name}
-      aria-label={name}
-      style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}
-    >
-      <ChainMark name={name} chainId={chainId} size={17} src={logo}/>
-    </span>
-  );
-}
+import {
+  estFees24h, headlineApr, scanTokenOf, discoverChainId, dexKey, isMetricPool, pairKey, groupByPair, canSimulatePool,
+  ChainMark, PoolNameCell, ChangeCell, AprCell, FeesCell, feesToTvlText, PoolCard, MorePoolsToggle, SearchBox,
+  SEARCH_PLACEHOLDER, SEARCH_INPUT_STYLE, type DiscoverChain,
+} from '../discover/poolParts';
 
 function DiscoverChainSelect({ chains, value, onChange, mobile }: {
   chains: DiscoverChain[];
@@ -737,7 +567,13 @@ export function DiscoverScreen() {
     if (selectedDex !== 'all' && !dexes.includes(selectedDex)) setSelectedDex('all');
   }, [dexes, selectedDex]);
 
-  const splitPair = (p: EarnPool) => p.pair.split('-') as [string, string];
+  const logosFor = (p: EarnPool) => {
+    const [addr0, addr1] = p.underlyingTokens ?? [];
+    return [
+      p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined),
+      p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined),
+    ];
+  };
   const sheetProps = sheet ? mintTarget(sheet.pool, sheet.simulate) : null;
   const hasVolumeData = pools.some(p => p.volume24hUsd != null);
   const openSimulator = (pool: EarnPool) => {
@@ -758,68 +594,16 @@ export function DiscoverScreen() {
   const allColumns: (Column<EarnPool> & { key: string })[] = [
     {
       key: 'pair', label: 'Pool', sortable: true, sortValue: p => p.pair,
-      render: p => {
-        const [s0, s1] = splitPair(p);
-        const mine = heldSyms(p);
-        const [addr0, addr1] = p.underlyingTokens ?? [];
-        const logo0 = p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined);
-        const logo1 = p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined);
-        return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ display: 'flex' }}>
-              <TokenIcon symbol={s0} size={26} logoUrl={logo0} />
-              <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={logo1} /></div>
-            </div>
-            <div>
-              <div style={{ fontWeight: 700 }}>{p.pair.replace('-', '/')}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
-                  <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
-                    <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
-                    {p.version ?? (p.liquidityModel === 'CLMM' ? 'CL' : '')}
-                  </Badge>
-                </span>
-                <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
-                {isOldAero(p) && <OldBadge/>}
-                {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
-                {mine.length > 0 && (
-                  <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="1px solid rgba(var(--green-rgb), 0.38)" style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>
-                    {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      },
+      render: p => <PoolNameCell p={p} mine={heldSyms(p)} logos={logosFor(p)}/>,
     },
     {
       key: 'change24h', label: '24h', align: 'right', sortable: true,
       sortValue: p => p.apyChange1d ?? priceChange[p.id] ?? 0,
-      render: p => {
-        const pct = p.apyChange1d ?? priceChange[p.id];
-        if (pct == null) return <span style={{ color: btb.textDim }}>—</span>;
-        const title = p.apyChange1d != null ? 'APY change (24h, pts)' : 'Price change (24h)';
-        return <span title={title} style={{ color: pct >= 0 ? btb.green : btb.loss, fontWeight: 600 }}>{pct >= 0 ? '+' : ''}{pct.toFixed(2)}%</span>;
-      },
+      render: p => <ChangeCell p={p} priceChange={priceChange[p.id]}/>,
     },
     {
       key: 'apr', label: 'APR', align: 'right', sortable: true, sortValue: headlineApr,
-      render: p => p.source === 'dexscreener' && p.feeTier == null ? <span title="Fee tier data is not available from this source" style={{ color: btb.textDim }}>—</span> : (
-        <div title={aprContext(p)?.title ?? rangeAprTitle(p)}>
-          <div style={{ color: btb.green, fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
-            {fmtApr(headlineApr(p))}
-          </div>
-          {aprContext(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2 }}>{aprContext(p)!.label}</div>}
-          {!aprContext(p) && rangeAprTag(p) && <div style={{ color: btb.textDim, fontSize: 9.5, fontWeight: 650, marginTop: 2, whiteSpace: 'nowrap' }}>{rangeAprTag(p)}</div>}
-          {p.merkl && p.merkl.apr > 0 && (
-            <div title={`Merkl reward campaign paying ${p.merkl.rewardSymbols.join(', ') || 'rewards'} to LPs in this pool, on top of fees. Claim from Portfolio.`} style={{ display: 'inline-block', color: btb.reward, background: 'rgba(var(--reward-rgb, 196, 181, 253), 0.14)', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 800, marginTop: 3, whiteSpace: 'nowrap' }}>
-              +{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}
-            </div>
-          )}
-        </div>
-      ),
+      render: p => <AprCell p={p}/>,
     },
     {
       key: 'tvl', label: 'TVL', align: 'right', sortable: true, sortValue: p => p.tvlUsd,
@@ -835,16 +619,12 @@ export function DiscoverScreen() {
     },
     {
       key: 'fees', label: 'Fees (24h)', align: 'right', sortable: true, sortValue: p => estFees24h(p),
-      render: p => {
-        if (p.source === 'dexscreener' && p.feeTier == null) return <span style={{ color: btb.textDim }}>n/a</span>;
-        const est = p.fees24hUsd == null;
-        return <span title={est ? 'Estimated from pool APR' : undefined}>{est && '≈ '}{fmtCompactUsd(estFees24h(p))}</span>;
-      },
+      render: p => <FeesCell p={p}/>,
     },
     {
       key: 'feesToTvl', label: 'Fees / TVL', align: 'right', sortable: true,
       sortValue: p => (p.tvlUsd > 0 ? estFees24h(p) / p.tvlUsd : 0),
-      render: p => (p.source !== 'dexscreener' || p.feeTier != null) && p.tvlUsd > 0 ? `${((estFees24h(p) / p.tvlUsd) * 100).toFixed(3)}%` : '—',
+      render: feesToTvlText,
     },
     {
       key: 'actions', label: '', align: 'right', width: '270px',
@@ -881,13 +661,7 @@ export function DiscoverScreen() {
       <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {renderMobileCard(group[0])}
         {more > 0 && (
-          <button type="button" onClick={() => setOpenPairs(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })}
-            style={{ alignSelf: 'flex-start', marginLeft: 12, height: 28, padding: '0 12px', borderRadius: 999, cursor: 'pointer', fontFamily: 'inherit', fontSize: 11.5, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 5,
-              border: isOpen ? '1px solid rgba(var(--green-rgb), 0.45)' : '1px solid rgba(var(--fg-rgb), 0.12)',
-              background: isOpen ? 'rgba(var(--green-rgb), 0.15)' : 'rgba(var(--fg-rgb), 0.05)', color: isOpen ? btb.text : btb.textMuted }}>
-            {isOpen ? 'Hide other pools' : `${more} more pool${more === 1 ? '' : 's'} for this pair`}
-            <Icon name={isOpen ? 'up' : 'down'} size={10} color={btb.textMuted}/>
-          </button>
+          <MorePoolsToggle more={more} open={isOpen} onClick={() => setOpenPairs(prev => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; })}/>
         )}
         {isOpen && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 12, borderLeft: '2px solid rgba(var(--green-rgb), 0.25)', marginLeft: 6 }}>
@@ -899,98 +673,42 @@ export function DiscoverScreen() {
   };
 
   const renderMobileCard = (p: EarnPool) => {
-            const [s0, s1] = splitPair(p);
-            const mine = heldSyms(p);
-            const [addr0, addr1] = p.underlyingTokens ?? [];
-            const pct = p.apyChange1d ?? priceChange[p.id];
-            const mintable = mintTarget(p) !== null || isMetricPool(p);
-            const simulatable = canSimulatePool(p) || isMetricPool(p);
-            return (
-              <Glass key={`${p.chain}-${p.id}`} padding={14} radius={18} onClick={() => mintable ? addLp(p) : simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ display: 'flex', flexShrink: 0 }}>
-                    <TokenIcon symbol={s0} size={26} logoUrl={p.tokenLogos?.[0] ?? (addr0 ? logoByAddress.get(addr0.toLowerCase()) : undefined)} />
-                    <div style={{ marginLeft: -8 }}><TokenIcon symbol={s1} size={26} logoUrl={p.tokenLogos?.[1] ?? (addr1 ? logoByAddress.get(addr1.toLowerCase()) : undefined)} /></div>
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, color: btb.text, fontSize: 14 }}>{p.pair.replace('-', '/')}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, flexWrap: 'wrap' }}>
-                      <span title={[p.dex, p.liquidityModel === 'CLMM' ? 'Concentrated liquidity' : p.version, p.poolMeta].filter(Boolean).join(' · ')} aria-label={`${p.dex}${p.version ? ` ${p.version}` : ''}`}>
-                        <Badge size="sm" bg={btb.surfaceSoft} color={btb.textMuted} border="none" style={{ fontSize: 10, padding: p.version || p.liquidityModel === 'CLMM' ? '1px 6px' : 2 }}>
-                          <DexLogo name={p.dex} size={13} src={p.dexLogo}/>
-                          {p.version ?? (p.liquidityModel === 'CLMM' ? 'CL' : '')}
-                        </Badge>
-                      </span>
-                      <ChainBadge name={p.chain} chainId={discoverChainId(p.chain, p.chainId)}/>
-                {isOldAero(p) && <OldBadge/>}
-                      {p.feeTier != null && <span style={{ color: btb.textDim, fontSize: 11 }}>{fmtFeeTier(p.feeTier)}</span>}
-                      {p.stablecoin && <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="none" style={{ fontSize: 10, padding: '1px 6px' }}>Stable</Badge>}
-                      {mine.length > 0 && (
-                        <Badge size="sm" color={btb.green} bg="rgba(var(--green-rgb), 0.14)" border="1px solid rgba(var(--green-rgb), 0.38)" style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px' }}>
-                          {mine.length === 2 ? 'You hold both' : `You hold ${mine.join(' and ')}`}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.green, fontSize: 15, fontWeight: 800 }}>{p.source === 'dexscreener' && p.feeTier == null ? '—' : fmtApr(headlineApr(p))}</div>
-                    {p.merkl && p.merkl.apr > 0 && <div style={{ display: 'inline-block', color: btb.reward, background: 'rgba(var(--reward-rgb, 196, 181, 253), 0.14)', borderRadius: 6, padding: '1px 6px', fontSize: 10, fontWeight: 800 }}>+{fmtApr(p.merkl.apr)} {p.merkl.rewardSymbols[0] ?? 'rewards'}</div>}
-                    <div title={aprContext(p)?.title} style={{ color: btb.textDim, fontSize: 10.5 }}>{aprContext(p)?.label ?? 'APR'}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10 }}>
-                  <div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>TVL</div>
-                    <div style={{ color: btb.text, fontSize: 12.5, fontWeight: 600 }}>{fmtCompactUsd(p.tvlUsd)}</div>
-                  </div>
-                  <div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>24h</div>
-                    <div style={{ color: pct == null ? btb.textDim : pct >= 0 ? btb.green : btb.loss, fontSize: 12.5, fontWeight: 600 }}>
-                      {pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ color: btb.textDim, fontSize: 10.5 }}>Fees (24h)</div>
-                    <div style={{ color: p.source === 'dexscreener' && p.feeTier == null ? btb.textDim : btb.text, fontSize: 12.5, fontWeight: 600 }}>{p.source === 'dexscreener' && p.feeTier == null ? 'n/a' : <>{p.fees24hUsd == null && '≈ '}{fmtCompactUsd(estFees24h(p))}</>}</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }} onClick={e => e.stopPropagation()}>
-                  {mintable && (
-                    <Button variant="success" size="sm" onClick={() => addLp(p)}
-                      style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
-                      Add LP
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="sm" onClick={() => simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
-                    style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
-                    {simulatable ? 'Simulate' : 'View'}
-                  </Button>
-                  {scanButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
-                  {smartButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
-                </div>
-              </Glass>
-            );
-          };
+    const mintable = mintTarget(p) !== null || isMetricPool(p);
+    const simulatable = canSimulatePool(p) || isMetricPool(p);
+    return (
+      <PoolCard key={`${p.chain}-${p.id}`} p={p} priceChange={priceChange[p.id]} mine={heldSyms(p)} logos={logosFor(p)}
+        onClick={() => mintable ? addLp(p) : simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+        actions={
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }} onClick={e => e.stopPropagation()}>
+            {mintable && (
+              <Button variant="success" size="sm" onClick={() => addLp(p)}
+                style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, boxShadow: 'none' }}>
+                Add LP
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => simulatable ? simulatePool(p) : window.open(poolLink(p), '_blank', 'noopener,noreferrer')}
+              style={{ height: 36, flex: 1, gap: 5, fontSize: 12.5, border: btb.borderSoft }}>
+              {simulatable ? 'Simulate' : 'View'}
+            </Button>
+            {scanButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
+            {smartButton(p, { height: 36, padding: '0 14px', fontSize: 12.5 })}
+          </div>
+        }/>
+    );
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <DiscoverStatusBanner isMobile={isMobile} />
       <div style={{ display: 'flex', gap: 10, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
-        <div style={{
-          flex: 1, minWidth: isMobile ? '100%' : 220, display: 'flex', alignItems: 'center', gap: 8,
-          padding: '0 14px', height: 42, borderRadius: 12,
-          background: btb.surfaceSoft, border: btb.borderSoft,
-        }}>
-          <Icon name="search" size={15} color={btb.textMuted} />
+        <SearchBox mobile={isMobile}>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search a token or pair: eth, eth/usdc, ethusdc"
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: btb.text, fontSize: 13.5, fontFamily: 'inherit' }}
+            placeholder={SEARCH_PLACEHOLDER}
+            style={SEARCH_INPUT_STYLE}
           />
-        </div>
+        </SearchBox>
         <DiscoverChainSelect chains={chains} value={selectedChain} onChange={(chainName) => {
           setSelectedChain(chainName);
           setSelectedDex(current => current === 'all' || pools.some(pool =>

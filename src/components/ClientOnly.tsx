@@ -1,6 +1,7 @@
 'use client';
 import dynamic from 'next/dynamic';
 import { AppSkeleton } from './AppSkeleton';
+import { RoutePreviewProvider, type RoutePreviewValue } from './RoutePreview';
 import { startDiscoverSnapshot } from '@/lib/discoverSnapshot';
 import { parsePath } from '@/lib/routes';
 import { warmScreen } from './screenLoaders';
@@ -21,6 +22,7 @@ if (typeof window !== 'undefined') {
 // so the HTML already paints the app frame.
 const AppShell = dynamic(() => import('./AppShell').then(m => m.AppShell), { ssr: false, loading: AppSkeleton });
 
-export function ClientApp() {
-  return <AppShell/>;
+/** `preview`: the server-rendered first view of the route's screen, shown until the real one is up (./RoutePreview). */
+export function ClientApp({ preview }: { preview?: RoutePreviewValue }) {
+  return <RoutePreviewProvider value={preview ?? null}><AppShell/></RoutePreviewProvider>;
 }

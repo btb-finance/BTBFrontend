@@ -1,3 +1,4 @@
+'use client';
 // Static stand-in for the app shell, rendered into the HTML so a visitor sees
 // the app's frame on first paint instead of a blank page while the wallet stack
 // and the shell download. No hooks and no wallet imports: it must render on the
@@ -5,6 +6,8 @@
 // (the switch lives in globals.css, same 768px breakpoint as SidebarContext).
 // The first block is a small ad that cycles through these lines in CSS alone, so
 // server and client render the same markup.
+import { useRoutePreview } from './RoutePreview';
+
 const AD_LINES: [string, string][] = [
   ['Getting paid daily', 'Your liquidity earns fees around the clock.'],
   ['BTB is your friend', 'Pools, swaps and rewards in one place.'],
@@ -22,6 +25,22 @@ const STEPS: [string, number][] = [
 ];
 
 export function AppSkeleton() {
+  // With a server-rendered preview of the screen, it fills the body instead of the loading status and placeholders.
+  const preview = useRoutePreview();
+  if (preview) return (
+    <div className="btb-skeleton btb-skeleton-with-preview">
+      <div className="btb-skeleton-top">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/btblogo.jpg" alt="" width={30} height={30}/>
+        <div className="btb-skeleton-pill" style={{ width: 'min(520px, 50vw)' }}/>
+        <div className="btb-skeleton-pill" style={{ width: 132 }}/>
+      </div>
+      <div className="btb-skeleton-body btb-skeleton-body-preview">{preview}</div>
+      <div className="btb-skeleton-bottom">
+        <div className="btb-skeleton-pill" style={{ width: '100%' }}/>
+      </div>
+    </div>
+  );
   return (
     <div className="btb-skeleton" aria-busy="true" aria-label="Loading BTB Finance">
       <div className="btb-skeleton-top">
