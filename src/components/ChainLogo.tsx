@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { CHAIN_META } from '../lib/wagmi';
+import { CHAIN_META } from '../lib/chainMeta';
 
 /**
  * `src` is the provider supplied chain icon from the pool row. Two chains have

@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { ClientApp } from '@/components/ClientOnly';
 import { buildMetadata } from '@/lib/seo/metadata';
+import type { RoutePreviewValue } from '@/components/RoutePreview';
+import { DiscoverPreview } from '@/components/previews/DiscoverPreview';
+import { getDiscoverPreviewData } from '@/components/previews/discoverPreviewData';
+import { HomePreview } from '@/components/previews/HomePreview';
 
 // Every tab/overlay of the app shell is deep-linkable. The shell (MiniApp)
 // reads the path on load to open the right view; navigation inside the app
@@ -35,6 +39,17 @@ export async function generateMetadata({ params }: { params: Promise<{ tab: stri
   return buildMetadata({ title: meta.title, description: meta.description, path: `/${tab}` });
 }
 
-export default function TabPage() {
-  return <ClientApp/>;
+// The Discover preview carries the busiest pools; rebuilt every 5 minutes (the index itself refreshes hourly).
+export const revalidate = 300;
+
+/** The server-rendered first view for tabs that have one (src/components/RoutePreview.tsx). */
+async function previewFor(tab: string): Promise<RoutePreviewValue | undefined> {
+  if (tab === 'discover') return { screen: 'discover', node: <DiscoverPreview data={await getDiscoverPreviewData()}/> };
+  if (tab === 'dashboard') return { screen: 'home', node: <HomePreview/> };
+  return undefined;
+}
+
+export default async function TabPage({ params }: { params: Promise<{ tab: string }> }) {
+  const { tab } = await params;
+  return <ClientApp preview={await previewFor(tab)}/>;
 }

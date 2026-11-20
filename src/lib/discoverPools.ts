@@ -135,7 +135,12 @@ export function waitForDiscoverPools(timeoutMs = 3_000): Promise<EarnPool[]> {
   });
 }
 
-const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+// A screen reading the list starts its download (a no-op when fresh or in flight); the shell only warms it once idle.
+const subscribe = (fn: () => void) => {
+  listeners.add(fn);
+  queueMicrotask(() => prefetchDiscoverPools());
+  return () => { listeners.delete(fn); };
+};
 const getSnapshot = () => state;
 
 export function useDiscoverPools(): DiscoverData {

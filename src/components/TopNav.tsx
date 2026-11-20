@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { btb } from './design-tokens';
 import { Tab } from './types';
+import { warmOn } from './screenLoaders';
 import { useChainTheme } from '../lib/ChainThemeContext';
 import { WalletSwitcher } from './WalletSwitcher';
 import { AlertsBell } from './AlertsBell';
@@ -96,12 +97,12 @@ export function TopNav({
         {PRIMARY.map(item => {
           const active = !scanActive && tab === item.id;
           return (
-            <div key={item.id} onClick={() => setTab(item.id)} style={itemStyle(active)}>
+            <div key={item.id} onClick={() => setTab(item.id)} {...warmOn(item.id)} style={itemStyle(active)}>
               <span>{item.label}</span>
             </div>
           );
         })}
-        <div onClick={onScan} style={itemStyle(scanActive)}>
+        <div onClick={onScan} {...warmOn('scan')} style={itemStyle(scanActive)}>
           <span>Scan</span>
         </div>
         <div ref={moreRef} style={{ position: 'relative' }}>
@@ -120,13 +121,13 @@ export function TopNav({
               {MORE.map(item => {
                 const active = tab === item.id;
                 return (
-                  <div key={item.id} onClick={() => { setTab(item.id); setMoreOpen(false); }} style={{ ...itemStyle(active), height: 38, borderRadius: 10 }}>
+                  <div key={item.id} onClick={() => { setTab(item.id); setMoreOpen(false); }} {...warmOn(item.id)} style={{ ...itemStyle(active), height: 38, borderRadius: 10 }}>
                     <span>{item.label}</span>
                   </div>
                 );
               })}
               <div style={{ height: 1, background: 'rgba(var(--fg-rgb), 0.07)', margin: '4px 6px' }} />
-              <div onClick={() => { onDocs(); setMoreOpen(false); }} style={{ ...itemStyle(false), height: 38, borderRadius: 10 }}>
+              <div onClick={() => { onDocs(); setMoreOpen(false); }} {...warmOn('docs')} style={{ ...itemStyle(false), height: 38, borderRadius: 10 }}>
                 <span>Docs</span>
               </div>
             </div>
@@ -182,7 +183,7 @@ export function TopNav({
           )}
         </div>
       ) : (
-        <div onClick={onConnect} style={{
+        <div onClick={onConnect} {...warmOn('connect')} style={{
           height: 32, padding: '0 14px', borderRadius: 999, cursor: 'pointer', flexShrink: 0,
           background: btb.gradGreen, color: '#fff', fontSize: 13, fontWeight: 700,
           display: 'flex', alignItems: 'center', gap: 7,
