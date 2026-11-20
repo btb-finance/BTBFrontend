@@ -6,6 +6,7 @@ import { Icon } from './Icon';
 import { Button } from './Button';
 import { btb } from './design-tokens';
 import { Tab } from './types';
+import { warmOn } from './screenLoaders';
 import { useChainTheme } from '../lib/ChainThemeContext';
 import { WalletSwitcher } from './WalletSwitcher';
 
@@ -49,8 +50,8 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onScan, sc
   const moreActive = scanActive || MORE_TABS.some(i => i.id === tab);
 
   // Glass pill like the desktop bar; icon over label since mobile is narrow.
-  const item = (active: boolean, icon: string, label: string, onClick: () => void) => (
-    <div key={label} onClick={onClick} style={{
+  const item = (active: boolean, icon: string, label: string, onClick: () => void, warmKey?: string) => (
+    <div key={label} onClick={onClick} {...(warmKey ? warmOn(warmKey) : {})} style={{
       flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3,
       height: 50, borderRadius: 999, cursor: 'pointer',
       background: active ? btb.surfaceStrong : 'transparent',
@@ -85,7 +86,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onScan, sc
                 { id: 'scan', label: 'Scan', icon: 'shield', onClick: () => { onScan(); setSheet(false); }, active: scanActive },
                 { id: 'docs', label: 'Docs', icon: 'doc', onClick: () => { onDocs(); setSheet(false); }, active: false },
               ].map(i => (
-                <div key={i.id} onClick={i.onClick} style={{
+                <div key={i.id} onClick={i.onClick} {...warmOn(i.id)} style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                   padding: '14px 0 12px', borderRadius: 16, cursor: 'pointer',
                   background: i.active ? btb.surfaceStrong : 'rgba(var(--fg-rgb), 0.05)',
@@ -136,7 +137,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onScan, sc
         display: 'flex', alignItems: 'stretch', gap: 2,
       }}>
         <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(var(--fg-rgb), 0.45), transparent)', pointerEvents: 'none' }} />
-        {PRIMARY.map(i => item(tab === i.id && !sheet, i.icon, i.label, () => { setSheet(false); setTab(i.id); }))}
+        {PRIMARY.map(i => item(tab === i.id && !sheet, i.icon, i.label, () => { setSheet(false); setTab(i.id); }, i.id))}
         {item(sheet || moreActive, 'menu', 'More', () => setSheet(s => !s))}
       </div>
     </>

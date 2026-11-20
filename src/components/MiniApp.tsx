@@ -9,6 +9,7 @@ import { prefetchDiscoverPools } from '../lib/discoverPools';
 import { pathFor, parsePath, type Overlay } from '../lib/routes';
 import { CONTRACTS } from '../lib/wagmi';
 import { Spinner } from './Spinner';
+import { loadScreen, shouldSaveData, type ScreenKey } from './screenLoaders';
 import { TopNav } from './TopNav';
 import { MobileNav } from './MobileNav';
 import { Tab } from './types';
@@ -18,66 +19,61 @@ import { TokenStoreProvider, Token } from '../lib/TokenStore';
 import { usePreloadBear } from '../lib/preloadBear';
 import { SidebarProvider, useSidebar } from '../lib/SidebarContext';
 
-// Each screen, overlay and modal is its own chunk. Bundled together they were
-// ~900 KB that every visitor downloaded before the first paint, whatever tab
-// they opened. The loaders are kept so the idle warmup below can reuse them.
-const screenLoader = {
-  home:      () => import('./screens/HomeScreen'),
-  discover:  () => import('./screens/DiscoverScreen'),
-  simulate:  () => import('./screens/SimulateScreen'),
-  swap:      () => import('./screens/SwapScreen'),
-  portfolio: () => import('./screens/PortfolioScreen'),
-  nft:       () => import('./screens/NFTScreen'),
-  stake:     () => import('./screens/StakeScreen'),
-  docs:      () => import('./screens/DocsScreen'),
-  connect:   () => import('./screens/ConnectScreen'),
-  agentDock: () => import('./AgentDock'),
-  send:      () => import('./SendModal'),
-  receive:   () => import('./ReceiveModal'),
-};
-
 const ScreenLoading = () => (
   <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
     <Spinner size={32} color="var(--btb-text)" track="rgba(var(--fg-rgb), 0.18)"/>
   </div>
 );
 
-const HomeScreen      = dynamic(() => screenLoader.home().then(m => m.HomeScreen), { ssr: false, loading: ScreenLoading });
-const DiscoverScreen  = dynamic(() => screenLoader.discover().then(m => m.DiscoverScreen), { ssr: false, loading: ScreenLoading });
-const SimulateScreen  = dynamic(() => screenLoader.simulate().then(m => m.SimulateScreen), { ssr: false, loading: ScreenLoading });
-const SwapScreen      = dynamic(() => screenLoader.swap().then(m => m.SwapScreen), { ssr: false, loading: ScreenLoading });
-const PortfolioScreen = dynamic(() => screenLoader.portfolio().then(m => m.PortfolioScreen), { ssr: false, loading: ScreenLoading });
-const NFTScreen       = dynamic(() => screenLoader.nft().then(m => m.NFTScreen), { ssr: false, loading: ScreenLoading });
-const StakeScreen     = dynamic(() => screenLoader.stake().then(m => m.StakeScreen), { ssr: false, loading: ScreenLoading });
-const DocsScreen      = dynamic(() => screenLoader.docs().then(m => m.DocsScreen), { ssr: false, loading: ScreenLoading });
-// Treasury only tool: never warmed, fetched only when someone opens it.
+const HomeScreen      = dynamic(() => loadScreen('home').then(m => m.HomeScreen), { ssr: false, loading: ScreenLoading });
+const DiscoverScreen  = dynamic(() => loadScreen('discover').then(m => m.DiscoverScreen), { ssr: false, loading: ScreenLoading });
+const SimulateScreen  = dynamic(() => loadScreen('simulate').then(m => m.SimulateScreen), { ssr: false, loading: ScreenLoading });
+const SwapScreen      = dynamic(() => loadScreen('swap').then(m => m.SwapScreen), { ssr: false, loading: ScreenLoading });
+const PortfolioScreen = dynamic(() => loadScreen('portfolio').then(m => m.PortfolioScreen), { ssr: false, loading: ScreenLoading });
+const NFTScreen       = dynamic(() => loadScreen('nft').then(m => m.NFTScreen), { ssr: false, loading: ScreenLoading });
+const StakeScreen     = dynamic(() => loadScreen('stake').then(m => m.StakeScreen), { ssr: false, loading: ScreenLoading });
+const DocsScreen      = dynamic(() => loadScreen('docs').then(m => m.DocsScreen), { ssr: false, loading: ScreenLoading });
+const AllocateScreen  = dynamic(() => loadScreen('allocate').then(m => m.AllocateScreen), { ssr: false, loading: ScreenLoading });
+const SmartLpsScreen  = dynamic(() => loadScreen('smartlps').then(m => m.SmartLpsScreen), { ssr: false, loading: ScreenLoading });
+const ScanScreen      = dynamic(() => loadScreen('scan').then(m => m.ScanScreen), { ssr: false, loading: ScreenLoading });
+const ConnectScreen   = dynamic(() => loadScreen('connect').then(m => m.ConnectScreen), { ssr: false });
+const AgentDock       = dynamic(() => loadScreen('agentDock').then(m => m.AgentDock), { ssr: false });
+const SendModal       = dynamic(() => loadScreen('send').then(m => m.SendModal), { ssr: false });
+const ReceiveModal    = dynamic(() => loadScreen('receive').then(m => m.ReceiveModal), { ssr: false });
+// Treasury/admin tools: never warmed, fetched only when someone opens them.
 const OposSeedScreen  = dynamic(() => import('./screens/OposSeedScreen').then(m => m.OposSeedScreen), { ssr: false, loading: ScreenLoading });
-const AeroNudge = dynamic(() => import('./AeroNudge').then(m => m.AeroNudge), { ssr: false });
-const AllocateScreen = dynamic(() => import('./screens/AllocateScreen').then(m => m.AllocateScreen), { ssr: false, loading: ScreenLoading });
-const CheckinsScreen = dynamic(() => import('./screens/CheckinsScreen').then(m => m.CheckinsScreen), { ssr: false, loading: ScreenLoading });
+const CheckinsScreen  = dynamic(() => import('./screens/CheckinsScreen').then(m => m.CheckinsScreen), { ssr: false, loading: ScreenLoading });
 const OposPairsScreen = dynamic(() => import('./screens/OposPairsScreen').then(m => m.OposPairsScreen), { ssr: false, loading: ScreenLoading });
-const SmartLpsScreen = dynamic(() => import('./screens/SmartLpsScreen').then(m => m.SmartLpsScreen), { ssr: false, loading: ScreenLoading });
-const ScanScreen = dynamic(() => import('./screens/ScanScreen').then(m => m.ScanScreen), { ssr: false, loading: ScreenLoading });
-const ConnectScreen   = dynamic(() => screenLoader.connect().then(m => m.ConnectScreen), { ssr: false });
-const AgentDock       = dynamic(() => screenLoader.agentDock().then(m => m.AgentDock), { ssr: false });
-const SendModal       = dynamic(() => screenLoader.send().then(m => m.SendModal), { ssr: false });
-const ReceiveModal    = dynamic(() => screenLoader.receive().then(m => m.ReceiveModal), { ssr: false });
+const AeroNudge       = dynamic(() => import('./AeroNudge').then(m => m.AeroNudge), { ssr: false });
 
-// Once the first screen is up, fetch the rest one at a time while the browser
-// is idle, so later tab switches and the connect sheet still open instantly.
-function useWarmScreens() {
+/** What most visitors open next from anywhere: warmed in the background. Everything else waits for a hover or tap. */
+const LIKELY_NEXT: ScreenKey[] = ['connect', 'discover', 'swap', 'portfolio', 'home'];
+
+// Run fn once the page has finished loading and the browser is idle.
+function afterLoadIdle(fn: () => void) {
+  const idle = () => typeof window.requestIdleCallback === 'function'
+    ? window.requestIdleCallback(fn, { timeout: 5000 }) : window.setTimeout(fn, 2000);
+  if (document.readyState === 'complete') idle();
+  else window.addEventListener('load', idle, { once: true });
+}
+
+// The old warmup fetched all 12 screens one after another as soon as the shell mounted, competing on a phone with
+// the data the open screen was waiting for. Now: nothing until the page has loaded and gone idle (plus a short
+// pause for the open screen's own requests), then only the likely next screens; on data saver or 2G, nothing.
+function useWarmScreens(current: Tab) {
   useEffect(() => {
+    if (shouldSaveData()) return;
     let cancelled = false;
-    const idle = (fn: () => void) =>
-      typeof window.requestIdleCallback === 'function' ? window.requestIdleCallback(fn, { timeout: 4000 }) : setTimeout(fn, 1500);
-    const queue = Object.values(screenLoader);
+    const queue = LIKELY_NEXT.filter(k => k !== current);
     const next = () => {
-      const load = queue.shift();
-      if (cancelled || !load) return;
-      load().catch(() => {}).finally(() => idle(next));
+      const key = queue.shift();
+      if (cancelled || !key) return;
+      loadScreen(key).catch(() => {}).finally(() => afterLoadIdle(next));
     };
-    idle(next);
-    return () => { cancelled = true; };
+    const t = window.setTimeout(() => afterLoadIdle(next), 2500);
+    return () => { cancelled = true; window.clearTimeout(t); };
+    // Only the screen the visit started on matters; later tabs are warmed by the nav on hover/touch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -105,17 +101,17 @@ function AppShell({ effectiveAddress, isReadOnly, onImportAddress, onLeave, onVi
   // Warm the BearNFT/BearStaking reads while the user is anywhere in the app so
   // the NFT/Agent tab is instant when they open it.
   usePreloadBear(effectiveAddress);
-  useWarmScreens();
+  useWarmScreens(initialRoute.screen);
 
   const { isMobile } = useSidebar();
   const config = useConfig();
 
-  // Warm the Discover pool list in the background right after the shell
-  // mounts, so the tab opens instantly instead of starting its fetch on first
-  // visit. The prefetcher no-ops when the snapshot is already fresh or in
-  // flight.
+  // Warm the full Discover pool list (every chain, ~800 KB) once the page is loaded and idle, so the tab opens
+  // instantly later without competing with the open screen. Screens that show pools start the fetch themselves on
+  // first use (useDiscoverPools); the prefetcher no-ops when the list is fresh or already in flight.
   useEffect(() => {
-    prefetchDiscoverPools(getPublicClient(config));
+    if (shouldSaveData()) return;
+    afterLoadIdle(() => prefetchDiscoverPools(getPublicClient(config)));
   }, [config]);
 
   // Push a history entry whenever navigation changes the visible view, and
