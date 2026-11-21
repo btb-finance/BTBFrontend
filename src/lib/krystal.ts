@@ -83,9 +83,15 @@ async function readJson<T>(url: string): Promise<T> {
  */
 export async function fetchKrystalLp(address: string): Promise<KrystalLpResponse> {
   assertAddress(address);
+  // Krystal answers browsers directly (CORS open) but refuses our server's datacenter IPs (seen 2026-11-21), so the
+  // browser read goes first and the proxy is only the fallback.
   try {
-    return await readJson<KrystalLpResponse>(`/api/krystal/lp?address=${encodeURIComponent(address)}`);
-  } catch { /* use public read-only fallback below */ }
+    return await readKrystalLpDirect(address);
+  } catch { /* fall back to the proxy below */ }
+  return readJson<KrystalLpResponse>(`/api/krystal/lp?address=${encodeURIComponent(address)}`);
+}
+
+async function readKrystalLpDirect(address: string): Promise<KrystalLpResponse> {
 
   const loadPage = (positionStatus: 'open' | 'closed', offset: number) => {
     const query = new URLSearchParams({

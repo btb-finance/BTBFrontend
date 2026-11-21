@@ -320,7 +320,9 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
 
   // Positions in the owner's V6 auto wallet: read from the wallet, shown in the
   // same list as every other position, with auto controls instead of actions.
-  const autoJobs = useAutoJobs(connectedAddress)?.jobs;
+  // The wallet being shown, not the connected one: viewing someone else's
+  // portfolio used to drop all their auto positions and show yours instead.
+  const autoJobs = useAutoJobs(address)?.jobs;
   // Auto-rebalance pauses a position when the BTB balance cannot pay for its next move ("short"): say so up top.
   const [topUpOpen, setTopUpOpen] = useState(false);
   const credit = useAlertCredit(connectedAddress, { withTreasury: topUpOpen });
@@ -1452,8 +1454,8 @@ export function LpPositions({ showEmpty = false, onSummary }: { showEmpty?: bool
         {!autoByKey.has(posKey(p)) && orphanWallet.current.has(posKey(p)) && connectedAddress ? (
           <OrphanControls pos={p} wallet={orphanWallet.current.get(posKey(p))!} owner={connectedAddress as `0x${string}`}
             onChanged={async () => { setOrphanNonce((n) => n + 1); setAutoNonce((n) => n + 1); await load(); }}/>
-        ) : autoByKey.has(posKey(p)) && connectedAddress ? (
-          <AutoJobControls job={autoByKey.get(posKey(p))!} pos={p} address={connectedAddress} canTransact={canTransact} onChanged={async () => { setAutoNonce((n) => n + 1); await load(); }}
+        ) : autoByKey.has(posKey(p)) ? (
+          <AutoJobControls job={autoByKey.get(posKey(p))!} pos={p} address={(connectedAddress ?? address)!} canTransact={canTransact} onChanged={async () => { setAutoNonce((n) => n + 1); await load(); }}
             onAdd={() => setManage({ pos: p, mode: 'add', auto: autoByKey.get(posKey(p))! })}/>
         ) : (() => {
           // Two actions the position needs right now, then More for the rest.
