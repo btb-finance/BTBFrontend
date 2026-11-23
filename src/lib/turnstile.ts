@@ -22,7 +22,7 @@ const FAILED_MSG = 'Could not confirm this browser. Refresh the page and try aga
 const SLOW_MSG = 'The human check took too long. Check your connection, then refresh and try again.';
 
 let loading: Promise<Turnstile> | null = null;
-function loadTurnstile(): Promise<Turnstile> {
+export function loadTurnstile(): Promise<Turnstile> {
   if (window.turnstile) return Promise.resolve(window.turnstile);
   loading ??= new Promise<Turnstile>((resolve, reject) => {
     const fail = () => { loading = null; reject(new Error(BLOCKED_MSG)); };
@@ -101,7 +101,19 @@ export function turnstileToken(action = 'checkin', label = 'Daily check-in'): Pr
   return run;
 }
 
+/** True while the site gate covers the page (set before first paint by the script in src/app/layout.tsx). */
+export const gateIsUp = () => typeof document !== 'undefined' && document.documentElement.classList.contains('btb-gate');
+let openGateNow: () => void = () => {};
+const gateOpen = new Promise<void>(r => { openGateNow = r; });
+/** Called by the gate once the visitor passed; any check waiting behind it then runs. */
+export function openGate() {
+  document.documentElement.classList.remove('btb-gate');
+  openGateNow();
+}
+
 async function oneToken(action: string, label: string): Promise<string> {
+  // A check-in or XP claim waits until the site gate is passed, so two checks never show at once.
+  if (gateIsUp()) await gateOpen;
   const card = statusCard();
   card.say(`${label}: loading the human check...`);
   let ts: Turnstile;

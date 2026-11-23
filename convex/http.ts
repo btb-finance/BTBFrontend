@@ -64,4 +64,20 @@ http.route({
   }),
 });
 
+/**
+ * The site gate (src/components/HumanGate.tsx): every visitor passes Cloudflare's check once a day before the site
+ * shows. This confirms the token on the server, so a pass is only granted for a real check.
+ */
+http.route({ path: "/human", method: "OPTIONS", handler: httpAction(async (_ctx, req) => new Response(null, { status: 204, headers: cors(req) })) });
+http.route({
+  path: "/human",
+  method: "POST",
+  handler: httpAction(async (_ctx, req) => {
+    const body = (await req.json().catch(() => ({}))) as { turnstileToken?: string };
+    const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
+    const ok = await humanCheck(body.turnstileToken, ip || undefined, "gate");
+    return json(req, ok ? { ok: true } : { ok: false, error: "Could not confirm this browser. Try again." }, ok ? 200 : 403);
+  }),
+});
+
 export default http;
