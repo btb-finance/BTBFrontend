@@ -11,6 +11,7 @@ import { XpToastProvider } from '@/lib/XpToast';
 import { SafeAutoConnect } from '@/lib/SafeAutoConnect';
 import { setLiveRpcs, type LiveRpc } from '@/lib/chainRpc';
 import { api } from '../../convex/_generated/api';
+import { ConnectionNotice } from '@/components/ConnectionNotice';
 
 /** The tested RPC lists (convex/rpcHealth.ts) as this browser last saw them; used for up to a week. */
 const RPC_KEY = 'btb.rpcs';
@@ -70,6 +71,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <ConvexProvider client={convex}>
+      <ConnectionNotice/>
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <ChainThemeProvider>
