@@ -20,7 +20,7 @@ import { useTokenStore } from '../../lib/TokenStore';
 import { useAlertCredit } from '../../lib/alerts';
 import { TopUpModal, fmtBtb } from '../FastAlerts';
 import { useWalletSession } from '../../lib/session';
-import { inviteLink } from '../../lib/referral';
+import { inviteLink, pendingReferral } from '../../lib/referral';
 import { checkInNow } from '../../lib/checkin';
 import { LABEL_STYLE, StatTile, heroCardStyle, BigApr } from '../home/heroParts';
 import { EpochTimer } from '../home/EpochTimer';
@@ -215,7 +215,7 @@ export function TokenPanel({ onSwap, address, onConnect, goto }: {
     if (!isOwnWallet) { setError('Connect this wallet to check in for it.'); return; }
     setBusy('checkin'); setError(null);
     try {
-      const r = await checkInNow(address);
+      const r = await checkInNow(address, pendingReferral(address));
       if (r.needsLp) needsLpNote();
       if (!r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`);
     } catch (e) {

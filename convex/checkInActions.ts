@@ -63,7 +63,7 @@ const TURNSTILE_HOSTS = new Set(["btb.finance", "www.btb.finance"]);
  * Cloudflare Turnstile: true when `token` came from a real browser on our site, just now (a token works once).
  * Without TURNSTILE_SECRET (a local deployment) every check-in passes.
  */
-export async function humanCheck(token: string | undefined, remoteip?: string): Promise<boolean> {
+export async function humanCheck(token: string | undefined, remoteip?: string, action = "checkin"): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET;
   if (!secret) return true;
   if (!token) return false;
@@ -75,7 +75,7 @@ export async function humanCheck(token: string | undefined, remoteip?: string): 
       signal: AbortSignal.timeout(10_000),
     });
     const r = (await res.json()) as { success?: boolean; hostname?: string; action?: string };
-    return !!r.success && (!r.hostname || TURNSTILE_HOSTS.has(r.hostname)) && (!r.action || r.action === "checkin");
+    return !!r.success && (!r.hostname || TURNSTILE_HOSTS.has(r.hostname)) && (!r.action || r.action === action);
   } catch {
     return false;
   }

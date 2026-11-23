@@ -13,9 +13,10 @@ const MS_PER_DAY = 86_400_000;
  * Returns existing profile if already registered.
  */
 export const registerOrGet = mutation({
-  // `ref`: the invite code this browser arrived with, if any. It only counts when this call creates the wallet.
+  // `ref` is ignored: an invite now links in the human-checked check-in (linkInvite), so a script cannot farm it here.
+  // The argument stays so pages still open from before keep working.
   args: { walletAddress: v.string(), ref: v.optional(v.string()) },
-  handler: async (ctx, { walletAddress, ref }) => {
+  handler: async (ctx, { walletAddress }) => {
     const addr = walletAddress.toLowerCase();
     const existing = await ctx.db
       .query("users")
@@ -23,9 +24,6 @@ export const registerOrGet = mutation({
       .unique();
     if (existing) return existing;
 
-    // A wallet is linked to its inviter once, when it first connects, so no click or signature is needed and an
-    // existing wallet can never be moved to another inviter.
-    const inviter = ref ? await walletForCode(ctx, ref) : null;
     const id = await ctx.db.insert("users", {
       walletAddress: addr,
       joinedAt: Date.now(),
@@ -33,7 +31,6 @@ export const registerOrGet = mutation({
       longestStreak: 0,
       totalCheckIns: 0,
       points: 0,
-      ...(inviter && inviter !== addr ? { referredBy: inviter } : {}),
     });
     return ctx.db.get(id);
   },
@@ -188,6 +185,21 @@ export const creditTxXp = internalMutation({
     await ctx.db.patch(user._id, { points: user.points + xp });
     await addEpochPoints(ctx, addr, xp, false, reason ?? "Transaction");
     return { ok: true as const, awarded: xp };
+  },
+});
+
+/**
+ * Links a new wallet to the invite code it arrived with. Called only from /checkin after the human check passed.
+ * Only before the wallet's first check-in, and never moves a wallet that already has an inviter.
+ */
+export const linkInvite = internalMutation({
+  args: { walletAddress: v.string(), ref: v.string() },
+  handler: async (ctx, { walletAddress, ref }) => {
+    const addr = walletAddress.toLowerCase();
+    const user = await ctx.db.query("users").withIndex("by_wallet", (q) => q.eq("walletAddress", addr)).unique();
+    if (!user || user.referredBy || user.totalCheckIns > 0) return;
+    const inviter = await walletForCode(ctx, ref);
+    if (inviter && inviter !== addr) await ctx.db.patch(user._id, { referredBy: inviter });
   },
 });
 

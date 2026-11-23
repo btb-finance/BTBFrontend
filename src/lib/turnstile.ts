@@ -63,13 +63,37 @@ function statusCard() {
   };
 }
 
+/** XP for an action (Simulate, swap, bridge, mint): a fresh token for the server's "xp" check. */
+export const xpToken = (label: string) => turnstileToken('xp', label);
+
+/**
+ * Simulate XP is once a day per key, so after the server has answered for a key today the app skips asking again
+ * and no human check pops up for nothing. Browser storage only; when it is unavailable the app just asks.
+ */
+const dayKey = (key: string) => `btb-xp:${Math.floor(Date.now() / 86_400_000)}:${key}`;
+export function xpDoneToday(key: string): boolean {
+  try { return localStorage.getItem(dayKey(key)) === '1'; } catch { return false; }
+}
+export function markXpDone(key: string) {
+  try { localStorage.setItem(dayKey(key), '1'); } catch { /* storage blocked */ }
+}
+
+// One check at a time, so several XP claims at once show one card after another, not a stack.
+let queue: Promise<unknown> = Promise.resolve();
+
 /**
  * A fresh one-time token. Each call renders its own widget and removes it after, since a token works once.
  * Rejects with a message the user can act on, and leaves that message on screen for a few seconds.
  */
-export async function turnstileToken(action = 'checkin'): Promise<string> {
+export function turnstileToken(action = 'checkin', label = 'Daily check-in'): Promise<string> {
+  const run = queue.then(() => oneToken(action, label));
+  queue = run.catch(() => undefined);
+  return run;
+}
+
+async function oneToken(action: string, label: string): Promise<string> {
   const card = statusCard();
-  card.say('Daily check-in: loading the human check...');
+  card.say(`${label}: loading the human check...`);
   let ts: Turnstile;
   try {
     ts = await loadTurnstile();
@@ -77,7 +101,7 @@ export async function turnstileToken(action = 'checkin'): Promise<string> {
     card.say(BLOCKED_MSG, 'error'); card.widget.remove(); card.close(8000);
     throw e;
   }
-  card.say('Daily check-in: confirming you are human...');
+  card.say(`${label}: confirming you are human...`);
   return new Promise<string>((resolve, reject) => {
     let id = '';
     let settled = false;
@@ -97,7 +121,7 @@ export async function turnstileToken(action = 'checkin'): Promise<string> {
       execution: 'execute',
       appearance: 'always',
       theme: 'dark',
-      callback: (token: string) => { end(true, 'Confirmed. Checking you in...', 1500); resolve(token); },
+      callback: (token: string) => { end(true, 'Confirmed.', 1200); resolve(token); },
       'error-callback': () => { end(false, FAILED_MSG, 8000); reject(new Error(FAILED_MSG)); return true; },
       'unsupported-callback': () => { end(false, 'This browser is not supported by the human check. Try another browser.', 8000); reject(new Error(FAILED_MSG)); },
     });

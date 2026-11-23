@@ -39,7 +39,7 @@ http.route({
   path: "/checkin",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
-    const body = (await req.json().catch(() => ({}))) as { walletAddress?: string; turnstileToken?: string; deviceId?: string; fpHash?: string };
+    const body = (await req.json().catch(() => ({}))) as { walletAddress?: string; turnstileToken?: string; deviceId?: string; fpHash?: string; ref?: string };
     const wallet = body.walletAddress ?? "";
     if (!isAddress(wallet)) return json(req, { error: "Invalid wallet address" }, 400);
     const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
@@ -47,6 +47,8 @@ http.route({
       return json(req, { error: "Could not confirm this browser. Refresh the page and check in again." }, 403);
     }
     try {
+      // An invite link counts only here, behind the human check, so a script cannot register addresses under a code.
+      if (body.ref) await ctx.runMutation(internal.users.linkInvite, { walletAddress: wallet, ref: String(body.ref).slice(0, 64) });
       const result = await runCheckIn(ctx, wallet);
       await ctx.runMutation(internal.sybil.recordSignal, {
         walletAddress: wallet,

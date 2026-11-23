@@ -1,4 +1,5 @@
 'use client';
+import { xpToken, xpDoneToday, markXpDone } from '../../lib/turnstile';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfig, useConnection } from 'wagmi';
 import { useAction } from 'convex/react';
@@ -1008,8 +1009,10 @@ function CrossChainResearch({ chains, isMobile }: {
     if (address) {
       for (const selectedChainId of new Set(tasks.map(task => task.chainId))) {
         const chainName = chains.find(chain => chain.id === selectedChainId)?.name ?? 'chain';
-        awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId })
-          .then(r => { if (r.needsLp) needsLpNote(); showXp(r.awarded, `${chainName} research`); }).catch(() => {});
+        const key = `${address.toLowerCase()}:chain:${selectedChainId}`;
+        if (xpDoneToday(key)) continue;
+        xpToken('Simulate XP').then(turnstileToken => awardSimulateXp({ walletAddress: address, kind: 'chain', chainId: selectedChainId, turnstileToken }))
+          .then(r => { if (r.ok || r.needsLp) markXpDone(key); if (r.needsLp) needsLpNote(); showXp(r.awarded, `${chainName} research`); }).catch(() => {});
       }
     }
 
@@ -1516,7 +1519,9 @@ export function SimulateScreen() {
   // First pool checked each day pays 100 XP; the server ignores repeats.
   useEffect(() => {
     if (!sheetFee || !address) return;
-    awardSimulateXp({ walletAddress: address, kind: 'pool' }).then(r => { if (r.needsLp) needsLpNote(); showXp(r.awarded, 'Pool simulated'); }).catch(() => {});
+    const key = `${address.toLowerCase()}:pool`;
+    if (xpDoneToday(key)) return;
+    xpToken('Simulate XP').then(turnstileToken => awardSimulateXp({ walletAddress: address, kind: 'pool', turnstileToken })).then(r => { if (r.ok || r.needsLp) markXpDone(key); if (r.needsLp) needsLpNote(); showXp(r.awarded, 'Pool simulated'); }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheetFee != null, address]);
   const appliedPair = useRef(false);

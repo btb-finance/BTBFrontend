@@ -38,12 +38,13 @@ async function traitsHash(): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 
-export async function checkInNow(walletAddress: string): Promise<CheckInResult> {
+/** `ref`: the invite code this browser arrived with; the server links it only before the wallet's first check-in. */
+export async function checkInNow(walletAddress: string, ref?: string | null): Promise<CheckInResult> {
   const [token, fpHash] = await Promise.all([turnstileToken('checkin'), traitsHash().catch(() => undefined)]);
   const res = await fetch(`${SITE_URL}/checkin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ walletAddress, turnstileToken: token, deviceId: deviceId(), fpHash }),
+    body: JSON.stringify({ walletAddress, turnstileToken: token, deviceId: deviceId(), fpHash, ...(ref ? { ref } : {}) }),
     signal: AbortSignal.timeout(20_000),
   });
   const body = (await res.json().catch(() => ({}))) as CheckInResult & { error?: string };

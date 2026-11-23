@@ -1,4 +1,5 @@
 'use client';
+import { xpToken } from '../../lib/turnstile';
 import { useXpToast } from '../../lib/XpToast';
 import { useState } from 'react';
 import { useConnection, useReadContracts, useWriteContract, useConfig } from 'wagmi';
@@ -123,7 +124,7 @@ function MintTab({ address }: { address?: string }) {
         label: `Mint ${n} BTB Bear NFT${n > 1 ? 's' : ''}`,
         onConfirmed: () => {
           // XP is counted server-side from the Bears this transaction minted to the wallet.
-          if (address) awardTxXp({ walletAddress: address, chainId: 1, txHash: hash, kind: 'mint' }).then(r => showXp(r.awarded, `Minted ${n} Bear${n === 1 ? '' : 's'}`)).catch(() => {}).catch(() => {});
+          if (address) xpToken('Bear XP').then(turnstileToken => awardTxXp({ walletAddress: address, chainId: 1, txHash: hash, kind: 'mint', turnstileToken })).then(r => showXp(r.awarded, `Minted ${n} Bear${n === 1 ? '' : 's'}`)).catch(() => {}).catch(() => {});
           setMintedQty(n);
           void refetch();
         },
