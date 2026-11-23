@@ -95,7 +95,24 @@ let queue: Promise<unknown> = Promise.resolve();
  * A fresh one-time token. Each call renders its own widget and removes it after, since a token works once.
  * Rejects with a message the user can act on, and leaves that message on screen for a few seconds.
  */
+/** The gate's signed pass (src/components/HumanGate.tsx), kept for 24 hours. */
+export const GATE_PASS_TOKEN_KEY = 'btb-human-pass';
+function storedPass(): string | null {
+  try {
+    const pass = localStorage.getItem(GATE_PASS_TOKEN_KEY);
+    const exp = Number(pass?.split('.')[1]);
+    return pass && pass.startsWith('p1.') && exp > Date.now() + 60_000 ? pass : null;
+  } catch { return null; }
+}
+
+/**
+ * Proof of a real browser for a check-in or XP claim. Normally the pass the site gate already earned, so nobody sees
+ * a second check; only without one (storage blocked, or it expired while the page stayed open) does the visible
+ * Cloudflare check run again.
+ */
 export function turnstileToken(action = 'checkin', label = 'Daily check-in'): Promise<string> {
+  const pass = storedPass();
+  if (pass) return Promise.resolve(pass);
   const run = queue.then(() => oneToken(action, label));
   queue = run.catch(() => undefined);
   return run;

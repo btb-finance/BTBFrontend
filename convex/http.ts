@@ -7,7 +7,7 @@ import { httpRouter } from "convex/server";
 import { isAddress } from "viem";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { humanCheck, runCheckIn } from "./checkInActions";
+import { humanCheck, issuePass, runCheckIn } from "./checkInActions";
 
 const ORIGINS = new Set(["https://btb.finance", "https://www.btb.finance", "http://localhost:3000"]);
 const cors = (req: Request): Record<string, string> => {
@@ -76,7 +76,7 @@ http.route({
     const body = (await req.json().catch(() => ({}))) as { turnstileToken?: string };
     const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "";
     const ok = await humanCheck(body.turnstileToken, ip || undefined, "gate");
-    return json(req, ok ? { ok: true } : { ok: false, error: "Could not confirm this browser. Try again." }, ok ? 200 : 403);
+    return json(req, ok ? { ok: true, pass: await issuePass() } : { ok: false, error: "Could not confirm this browser. Try again." }, ok ? 200 : 403);
   }),
 });
 

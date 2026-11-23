@@ -60,13 +60,41 @@ async function btbBalanceAtRandomBlock(wallet: `0x${string}`): Promise<bigint | 
 const TURNSTILE_HOSTS = new Set(["btb.finance", "www.btb.finance"]);
 
 /**
- * Cloudflare Turnstile: true when `token` came from a real browser on our site, just now (a token works once).
- * Without TURNSTILE_SECRET (a local deployment) every check-in passes.
+ * The site gate's pass (src/components/HumanGate.tsx): after a visitor passes Cloudflare's check at the gate, /human
+ * hands back `p1.<expiry>.<signature>`, signed with the Turnstile secret, good for 24 hours. Check-ins and XP claims
+ * send it instead of running a second visible check; only this server can make one.
+ */
+const PASS_MS = 24 * 60 * 60 * 1000;
+async function passSignature(secret: string, exp: number): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`btb-human-pass:${exp}`)));
+  return btoa(String.fromCharCode(...sig)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+export async function issuePass(): Promise<string> {
+  const exp = Date.now() + PASS_MS;
+  return `p1.${exp}.${await passSignature(process.env.TURNSTILE_SECRET ?? "local", exp)}`;
+}
+async function passValid(secret: string, pass: string): Promise<boolean> {
+  const [, expStr, sig] = pass.split(".");
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Date.now() || exp > Date.now() + PASS_MS + 60_000 || !sig) return false;
+  return sig === (await passSignature(secret, exp));
+}
+
+/**
+ * True when `token` proves a real browser: a fresh Cloudflare Turnstile token from our site (works once), or a
+ * gate pass from /human. Without TURNSTILE_SECRET (a local deployment) everything passes.
  */
 export async function humanCheck(token: string | undefined, _remoteip?: string, action = "checkin"): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET;
   if (!secret) return true;
   if (!token) return false;
+  if (token.startsWith("p1.")) {
+    if (action === "gate") return false; // a pass cannot buy another pass
+    const ok = await passValid(secret, token);
+    if (!ok) console.warn("human pass refused", JSON.stringify({ want: action }));
+    return ok;
+  }
   try {
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",

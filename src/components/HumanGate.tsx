@@ -6,7 +6,7 @@
  * this screen. The token is confirmed on the server (/human in convex/http.ts) before the pass is kept.
  */
 import { useEffect, useRef, useState } from 'react';
-import { TURNSTILE_SITE_KEY, gateIsUp, loadTurnstile, openGate } from '../lib/turnstile';
+import { GATE_PASS_TOKEN_KEY, TURNSTILE_SITE_KEY, gateIsUp, loadTurnstile, openGate } from '../lib/turnstile';
 
 export const GATE_PASS_KEY = 'btb-human-until';
 const PASS_MS = 24 * 60 * 60 * 1000;
@@ -55,7 +55,12 @@ export function HumanGate() {
               throw new Error('rejected');
             }
             clearTimeout(slow);
-            try { localStorage.setItem(GATE_PASS_KEY, String(Date.now() + PASS_MS)); } catch { /* storage blocked: ask again next visit */ }
+            const { pass } = (await res.json().catch(() => ({}))) as { pass?: string };
+            try {
+              localStorage.setItem(GATE_PASS_KEY, String(Date.now() + PASS_MS));
+              // Check-ins and XP claims send this instead of running a second check (src/lib/turnstile.ts).
+              if (pass) localStorage.setItem(GATE_PASS_TOKEN_KEY, pass);
+            } catch { /* storage blocked: ask again next visit */ }
             if (!gone) { setUp(false); openGate(); }
           } catch {
             if (!retried.current && !gone) { retried.current = true; setAttempt(a => a + 1); return; }

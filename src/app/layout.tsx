@@ -16,7 +16,7 @@ const MODE_SCRIPT = `try{if(localStorage.getItem("btb-color-mode")==="light")doc
 // The site gate (src/components/HumanGate.tsx), decided before the first paint: up unless this browser passed in the
 // last 24 hours, or is a search engine or link preview bot (so search results and shared link cards keep working).
 const GATE_BOTS = "googlebot|google-inspectiontool|googleother|adsbot-google|mediapartners-google|storebot-google|bingbot|bingpreview|duckduckbot|yandex|baiduspider|applebot|slurp|facebookexternalhit|facebot|twitterbot|telegrambot|discordbot|slackbot|whatsapp|linkedinbot|redditbot|embedly|skypeuripreview|pinterest|ia_archiver";
-const GATE_SCRIPT = `(function(){var d=document.documentElement;if(new RegExp("${GATE_BOTS}","i").test(navigator.userAgent))return;var u=0;try{u=+localStorage.getItem("btb-human-until")||0}catch(e){}if(u<Date.now())d.classList.add("btb-gate")})()`;
+const GATE_SCRIPT = `(function(){var d=document.documentElement;if(new RegExp("${GATE_BOTS}","i").test(navigator.userAgent))return;var u=0;try{u=localStorage.getItem("btb-human-pass")?+localStorage.getItem("btb-human-until")||0:0}catch(e){}if(u<Date.now())d.classList.add("btb-gate")})()`;
 const GATE_CSS = `#btb-gate{display:none}html.btb-gate{overflow:hidden}html.btb-gate body>*:not(#btb-gate){visibility:hidden}`
   + `html.btb-gate #btb-gate{display:flex;position:fixed;inset:0;z-index:2147483600;align-items:center;justify-content:center;padding:16px;background:#0b0b0d;color:#fff;font:400 15px/1.5 system-ui,sans-serif}`
   + `.btb-gate-card{width:min(400px,100%);text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}`
