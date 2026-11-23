@@ -267,7 +267,11 @@ export function TokenStoreProvider({ children, walletAddress }: { children: Reac
       // invite or checked in, or anyone could farm check-ins by pasting addresses.
       (isOwn
         ? registerOrGet({ walletAddress, ref: pendingReferral(walletAddress) })
-          .then(() => checkInNow(walletAddress))
+          // Already counted today (UTC day, as the server counts it): skip, so the visible human check only shows
+          // when it is actually needed.
+          .then(u => (u?.lastCheckIn != null && u.lastCheckIn >= Date.now() - (Date.now() % 86_400_000)
+            ? null
+            : checkInNow(walletAddress)))
         : Promise.resolve(null))
         .then(r => { if (r?.needsLp) needsLpNote(); if (r && !r.alreadyCheckedIn) showXp((r.dailyXp ?? 0) + (r.weekMilestone ?? 0) + (r.holdBonus ?? 0), r.holdBonus ? `Day ${r.newStreak} check-in, +${r.holdBonus} for holding BTB` : `Day ${r.newStreak} check-in`); })
         .catch(() => {}),

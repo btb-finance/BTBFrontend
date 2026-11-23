@@ -44,6 +44,7 @@ export async function checkInNow(walletAddress: string): Promise<CheckInResult> 
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ walletAddress, turnstileToken: token, deviceId: deviceId(), fpHash }),
+    signal: AbortSignal.timeout(20_000),
   });
   const body = (await res.json().catch(() => ({}))) as CheckInResult & { error?: string };
   if (!res.ok) throw new Error(body.error ?? 'Could not check in; try again');
