@@ -25,6 +25,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* The Discover snapshot read starts on first JS run; warming the
             connection here saves its DNS and TLS round trips. */}
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_CONVEX_URL ?? 'https://grateful-oyster-780.convex.cloud'} crossOrigin="anonymous"/>
+        {/* Cloudflare's human check (src/lib/turnstile.ts): connect early so the check starts without a handshake. */}
+        <link rel="preconnect" href="https://challenges.cloudflare.com"/>
         <JsonLd />
       </head>
       <body>

@@ -37,6 +37,16 @@ function loadTurnstile(): Promise<Turnstile> {
   return loading;
 }
 
+/**
+ * Loads Cloudflare's script in the background before anyone needs it, so a check-in or XP claim starts the check at
+ * once instead of first waiting for the download. Harmless to call more than once; failures are left for the real
+ * call to report.
+ */
+export function warmTurnstile() {
+  if (typeof window === 'undefined') return;
+  loadTurnstile().catch(() => {});
+}
+
 /** The visible card: a status line over Cloudflare's widget. Returns setters and a close. */
 function statusCard() {
   const card = document.createElement('div');
