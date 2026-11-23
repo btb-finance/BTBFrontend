@@ -63,7 +63,7 @@ const TURNSTILE_HOSTS = new Set(["btb.finance", "www.btb.finance"]);
  * Cloudflare Turnstile: true when `token` came from a real browser on our site, just now (a token works once).
  * Without TURNSTILE_SECRET (a local deployment) every check-in passes.
  */
-export async function humanCheck(token: string | undefined, remoteip?: string, action = "checkin"): Promise<boolean> {
+export async function humanCheck(token: string | undefined, _remoteip?: string, action = "checkin"): Promise<boolean> {
   const secret = process.env.TURNSTILE_SECRET;
   if (!secret) return true;
   if (!token) return false;
@@ -71,12 +71,17 @@ export async function humanCheck(token: string | undefined, remoteip?: string, a
     const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ secret, response: token, ...(remoteip ? { remoteip } : {}) }),
+      // No remoteip: a browser can reach Cloudflare and Convex from different addresses (IPv6 and IPv4, VPNs,
+      // iCloud Private Relay), and a mismatch made real people fail. The token alone proves the check.
+      body: new URLSearchParams({ secret, response: token }),
       signal: AbortSignal.timeout(10_000),
     });
-    const r = (await res.json()) as { success?: boolean; hostname?: string; action?: string };
-    return !!r.success && (!r.hostname || TURNSTILE_HOSTS.has(r.hostname)) && (!r.action || r.action === action);
-  } catch {
+    const r = (await res.json()) as { success?: boolean; hostname?: string; action?: string; "error-codes"?: string[] };
+    const ok = !!r.success && (!r.hostname || TURNSTILE_HOSTS.has(r.hostname)) && (!r.action || r.action === action);
+    if (!ok) console.warn("human check failed", JSON.stringify({ want: action, success: r.success, hostname: r.hostname, action: r.action, errors: r["error-codes"] }));
+    return ok;
+  } catch (e) {
+    console.warn("human check error", (e as Error).message);
     return false;
   }
 }

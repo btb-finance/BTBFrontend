@@ -21,6 +21,7 @@ export function HumanGate() {
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
   const [up, setUp] = useState(false);
+  const retried = useRef(false);
 
   useEffect(() => { setUp(gateIsUp()); }, []);
 
@@ -48,11 +49,16 @@ export function HumanGate() {
               body: JSON.stringify({ turnstileToken: token }),
               signal: AbortSignal.timeout(20_000),
             });
-            if (!res.ok) throw new Error('rejected');
+            if (!res.ok) {
+              // One fresh try on its own before bothering the visitor: a token can expire or be refused once.
+              if (!retried.current) { retried.current = true; setAttempt(a => a + 1); return; }
+              throw new Error('rejected');
+            }
             clearTimeout(slow);
             try { localStorage.setItem(GATE_PASS_KEY, String(Date.now() + PASS_MS)); } catch { /* storage blocked: ask again next visit */ }
             if (!gone) { setUp(false); openGate(); }
           } catch {
+            if (!retried.current && !gone) { retried.current = true; setAttempt(a => a + 1); return; }
             fail('Could not confirm this browser. Try again.');
           }
         },
@@ -78,7 +84,7 @@ export function HumanGate() {
           {state === 'loading' ? 'Loading the check...' : state === 'checking' ? 'Confirming you are human...' : error}
         </p>
         {state === 'error' && (
-          <button type="button" className="btb-gate-retry" onClick={() => setAttempt(a => a + 1)}>Try again</button>
+          <button type="button" className="btb-gate-retry" onClick={() => { retried.current = false; setAttempt(a => a + 1); }}>Try again</button>
         )}
       </div>
     </div>
