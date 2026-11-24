@@ -248,6 +248,15 @@ export default defineSchema({
   // pair) — too many combinations to precompute, but identical across everyone
   // who asks for the same key. Filled lazily by convex/cacheFill.ts and read
   // straight from the table on every later hit until `expiresAt`.
+  // Contract ABIs for the MCP connector (convex/abis.ts): one row per chain + address, kept until expiresAt.
+  abis: defineTable({
+    key: v.string(),          // "<chainId>:<address lowercase>"
+    json: v.string(),         // ResolvedAbi (src/lib/abi/resolve.ts)
+    source: v.string(),       // "sourcify" | "bytecode"
+    updatedAt: v.float64(),
+    expiresAt: v.float64(),
+  }).index("by_key", ["key"]),
+
   cacheEntries: defineTable({
     key: v.string(),
     json: v.string(),

@@ -10,6 +10,7 @@ import {
 } from './data';
 import { walletPositions } from './positions';
 import { buildAddLiquidity, buildSwap } from './build';
+import { abiSummary, buildTx, readContract } from './contracts';
 
 // The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). No tool signs or
 // moves money. Agents with their own wallet get unsigned transactions from build_swap and build_add_liquidity and
@@ -21,6 +22,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
 - To see what a wallet already holds, use wallet_positions (every LP position, with value, range and fees) and auto_manage_status.
 - This server never signs. If you control a wallet, build_swap and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
+- Any other contract: get_abi lists what it can do (verified source or decoded bytecode, proxies followed), read_contract calls a read function, build_tx turns any function into an unsigned transaction with a dry run. Integers are in base units. Heed the warnings and flags.
 - If you do not control a wallet, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign on btb.finance.
 - None of this is financial advice; say so when recommending.`;
 
@@ -381,6 +383,51 @@ export function buildServer(): McpServer {
     const p = await poolOr(a.chain, a.pool);
     if (!p) return fail('Pool not found. Use search_pools or top_pools to get its key.');
     try { return text(await buildAddLiquidity(p, { wallet: a.wallet as `0x${string}`, token: a.token, amount: a.amount, rangePct: a.rangePct, slippageBps: a.slippageBps })); }
+    catch (e) { return failWith(e); }
+  });
+
+  const chainReq = z.string().describe('Chain name or id, e.g. "ethereum", "base", "arbitrum", "bnb", 8453.');
+  const fnArg = z.string().describe('Function name (e.g. "balanceOf"), full signature for overloads ("supply(address,uint256,address,uint16)") or 4-byte selector.');
+  const argsArg = z.array(z.any()).default([]).describe('Arguments in order. Integers as strings in base units ("5000000000" for 5,000 USDC), addresses as 0x strings, tuples as objects or arrays, "max" for the largest uint.');
+
+  server.registerTool('get_abi', {
+    title: 'Contract functions (ABI)',
+    description: 'What any contract can do: its functions with signatures, inputs, outputs, read or write, and warning flags (admin-likely, arbitrary-call). From verified source on Sourcify, or decoded from the deployed bytecode when unverified; proxies are followed to their implementation. Works on any chain BTB has an RPC for.',
+    inputSchema: z.object({
+      chain: chainReq,
+      address: z.string().describe('The contract address.'),
+      kind: z.enum(['read', 'write', 'all']).optional().describe('Only read or only write functions. Default all.'),
+      search: z.string().optional().describe('Only functions whose signature contains this text, e.g. "borrow".'),
+      full: z.boolean().optional().describe('Also return the raw ABI JSON. Default false.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await abiSummary(a.chain, a.address, a)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('read_contract', {
+    title: 'Read a contract',
+    description: 'Call a read (view/pure) function on any contract and get the decoded result: balances, prices, positions, settings. Free, nothing is sent.',
+    inputSchema: z.object({ chain: chainReq, address: z.string().describe('The contract address.'), function: fnArg, args: argsArg }),
+    annotations: READ,
+  }, async (a) => {
+    try { return text(await readContract(a.chain, a.address, a.function, a.args)); } catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('build_tx', {
+    title: 'Build any contract call (unsigned)',
+    description: 'For agents with their own wallet: encode any write function of any contract into an unsigned transaction, with a dry run from the wallet, a gas estimate and warnings (unverified ABI, admin-only, arbitrary calls, proxies, unlimited approvals). Prefer build_swap and build_add_liquidity where they apply: they add the protocol math and approvals. Nothing is signed or sent.',
+    inputSchema: z.object({
+      chain: chainReq,
+      address: z.string().describe('The contract to call.'),
+      function: fnArg,
+      args: argsArg,
+      wallet: addr.describe('The wallet that will sign and send.'),
+      valueEth: z.string().regex(/^\d+(\.\d+)?$/).optional().describe('Native coin to send with the call, in whole units (payable functions only).'),
+    }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try { return text(await buildTx({ chain: a.chain, address: a.address, fn: a.function, args: a.args, wallet: a.wallet, valueEth: a.valueEth })); }
     catch (e) { return failWith(e); }
   });
 

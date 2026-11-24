@@ -29,17 +29,22 @@ const CHAIN_IDS: Record<string, number> = {
   etherlink: 42793, monad: 143, megaeth: 4326,
 };
 
+/** A chain name, slug or id → chain id, for any chain BTB has an RPC for. */
+export function chainIdFor(input: string): number | null {
+  const n = Number(input);
+  const id = Number.isInteger(n) && n > 0 ? n : CHAIN_IDS[chainKey(input)];
+  return id && getChainClient(id) ? id : null;
+}
+
 /** A chain name, slug or id → chain id, for the chains KyberSwap routes on. */
 export function swapChainId(input: string): number | null {
-  const n = Number(input);
-  if (Number.isInteger(n) && KYBER_CHAINS[n]) return n;
-  const id = CHAIN_IDS[chainKey(input)];
+  const id = chainIdFor(input);
   return id && KYBER_CHAINS[id] ? id : null;
 }
 
 export interface TxOut { step: number; label: string; chainId: number; from: Addr; to: Addr; data: `0x${string}`; value: `0x${string}`; gas?: string }
 
-const txOut = (calls: (Call & { label: string })[], chainId: number, from: Addr): TxOut[] =>
+export const txOut = (calls: (Call & { label: string })[], chainId: number, from: Addr): TxOut[] =>
   calls.map((c, i) => ({
     step: i + 1, label: c.label, chainId, from, to: c.to, data: c.data ?? '0x', value: toHex(c.value ?? 0n),
     ...(c.gas ? { gas: c.gas.toString() } : {}),
@@ -56,7 +61,7 @@ async function tokenInfo(client: PublicClient, token: Addr, owner: Addr, spender
 }
 
 /** Dry-run the final transaction from the wallet. Only meaningful once every approval it needs is already on-chain. */
-async function simulate(client: PublicClient, from: Addr, tx: Call, blockedBy: string | null) {
+export async function simulate(client: PublicClient, from: Addr, tx: Call, blockedBy: string | null) {
   if (blockedBy) return { status: 'skipped' as const, reason: blockedBy };
   try {
     await client.call({ account: from, to: tx.to, data: tx.data, value: tx.value });

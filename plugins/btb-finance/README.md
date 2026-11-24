@@ -12,7 +12,7 @@ or `claude plugin marketplace add btb-finance/BTBFrontend` then `claude plugin i
 
 ## What you get
 
-- **Connector** `btb` (https://btb.finance/api/mcp): `top_pools`, `search_pools`, `pool_details`, `compare_pools`, `best_pools_for`, `chain_summary`, `estimate_lp_earnings`, `token_safety`, `lp_plan`, `add_liquidity_link`, `wallet_positions`, `auto_manage_status`, `auto_manage_setup`, and for agents with their own wallet `build_swap` and `build_add_liquidity` (unsigned transactions with a dry run).
+- **Connector** `btb` (https://btb.finance/api/mcp): `top_pools`, `search_pools`, `pool_details`, `compare_pools`, `best_pools_for`, `chain_summary`, `estimate_lp_earnings`, `token_safety`, `lp_plan`, `add_liquidity_link`, `wallet_positions`, `auto_manage_status`, `auto_manage_setup`, for agents with their own wallet `build_swap` and `build_add_liquidity` (unsigned transactions with a dry run), and for any contract on any chain `get_abi`, `read_contract` and `build_tx`.
 - **Skills**: `compare-pools`, `add-liquidity`, `manage-lps`.
 - **Agent** `lp-manager`: researches pools, builds an LP plan for an amount, reviews every LP position a wallet holds (and its auto-managed ones) and prepares the links you sign.
 
