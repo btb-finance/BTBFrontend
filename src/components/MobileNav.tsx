@@ -85,6 +85,7 @@ export function MobileNav({ tab, setTab, address, isReadOnly, onDocs, onScan, sc
                 ...MORE_TABS.map(i => ({ ...i, onClick: () => { setTab(i.id); setSheet(false); }, active: !scanActive && tab === i.id })),
                 { id: 'scan', label: 'Scan', icon: 'shield', onClick: () => { onScan(); setSheet(false); }, active: scanActive },
                 { id: 'docs', label: 'Docs', icon: 'doc', onClick: () => { onDocs(); setSheet(false); }, active: false },
+                { id: 'agents', label: 'For agents', icon: 'bolt', onClick: () => { setSheet(false); window.location.assign('/agents'); }, active: false },
               ].map(i => (
                 <div key={i.id} onClick={i.onClick} {...warmOn(i.id)} style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
