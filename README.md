@@ -90,3 +90,8 @@ Developers, designers and testers are welcome. Contributors earn BTB rewards and
 - Docs: https://btb.finance/docs
 - X: https://x.com/BTB_Finance
 - Discord: https://discord.gg/bqFEPA56Tc
+
+## BTB for Claude
+
+- **Connector** (claude.ai, Claude Code, any MCP client): `https://btb.finance/api/mcp`. Read-only: pools, risk grades, LP plans, earnings estimates, auto-management status, and links the user signs on btb.finance. Code: `src/app/api/mcp`, `src/lib/mcp`.
+- **Claude Code plugin** (connector, skills and the `lp-manager` agent): `/plugin install btb-finance --marketplace btb-finance/BTBFrontend`. Code: `plugins/btb-finance`.

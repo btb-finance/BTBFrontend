@@ -1,0 +1,9 @@
+{
+  "name": "btb-finance",
+  "version": "1.0.0",
+  "description": "BTB Finance for Claude: live liquidity pools across Base, Ethereum, BNB Chain, Robinhood Chain and more, with risk grades, LP plans, earnings estimates and auto-management. Read-only: Claude never holds keys; you sign on btb.finance.",
+  "author": { "name": "BTB Finance", "url": "https://btb.finance" },
+  "homepage": "https://btb.finance",
+  "repository": "https://github.com/btb-finance/BTBFrontend",
+  "keywords": ["defi", "liquidity", "lp", "yield", "uniswap", "aerodrome", "base"]
+}
