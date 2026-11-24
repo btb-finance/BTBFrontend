@@ -49,7 +49,7 @@ export async function getKyberQuote(
   amountIn: string,
   decimalsOut: number,
   chainId = 1,
-  options: { chargeBtbFee?: boolean; decimalsIn?: number } = {},
+  options: { chargeBtbFee?: boolean; decimalsIn?: number; /** Fee in bps; defaults to BTB_SWAP_FEE_BPS. */ feeBps?: number } = {},
 ): Promise<KyberQuote> {
   const nativeAddr = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
   const inAddr  = tokenIn  === 'ETH' ? nativeAddr : tokenIn;
@@ -59,7 +59,7 @@ export async function getKyberQuote(
   if (options.chargeBtbFee) {
     params.set('chargeFeeBy', 'currency_out');
     params.set('isInBps', 'true');
-    params.set('feeAmount', String(BTB_SWAP_FEE_BPS));
+    params.set('feeAmount', String(options.feeBps ?? BTB_SWAP_FEE_BPS));
     params.set('feeReceiver', BTB_SWAP_FEE_RECEIVER);
   }
   const url = `${base(chainId)}/routes?${params.toString()}`;

@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as abis from "../abis.js";
+import type * as abisActions from "../abisActions.js";
 import type * as adminCredit from "../adminCredit.js";
 import type * as aeroAllocator from "../aeroAllocator.js";
 import type * as agent from "../agent.js";
@@ -68,6 +70,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  abis: typeof abis;
+  abisActions: typeof abisActions;
   adminCredit: typeof adminCredit;
   aeroAllocator: typeof aeroAllocator;
   agent: typeof agent;
