@@ -9,17 +9,19 @@ import {
   poolRisk, portfolioLink, round2, scanLink, searchPools, snapshot, tokenGrade, type Letter,
 } from './data';
 import { walletPositions } from './positions';
+import { buildAddLiquidity, buildSwap } from './build';
 
-// The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). Every tool reads;
-// none signs or moves money. Adding liquidity and turning on auto-management happen on btb.finance, in the user's
-// own wallet, from the links these tools return.
+// The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). No tool signs or
+// moves money. Agents with their own wallet get unsigned transactions from build_swap and build_add_liquidity and
+// send them themselves; people get links to btb.finance, where their own wallet signs.
 
 const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, BNB Chain, Robinhood Chain and more, with a risk grade (A best .. E worst) per pool.
 - Find pools with top_pools, search_pools or best_pools_for; compare them with compare_pools; read one with pool_details.
 - APRs are yearly percentages. "measured ±5% range APR" is what a ±5 % concentrated position really earned over the last days; prefer it over base APR.
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
 - To see what a wallet already holds, use wallet_positions (every LP position, with value, range and fees) and auto_manage_status.
-- You cannot sign transactions. To add liquidity or turn on auto-management, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign in their own wallet on btb.finance.
+- This server never signs. If you control a wallet, build_swap and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
+- If you do not control a wallet, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign on btb.finance.
 - None of this is financial advice; say so when recommending.`;
 
 const text = (value: unknown) => ({ content: [{ type: 'text' as const, text: JSON.stringify(value, null, 1) }] });
@@ -336,6 +338,50 @@ export function buildServer(): McpServer {
       steps: ['Open the link and connect your wallet.', 'Pick a position (or add one first with add_liquidity_link) and choose Auto-manage.', 'Pick the check interval and whether to compound fees, then sign the wallet setup in your wallet.', 'Check on it any time with auto_manage_status.'],
       link: portfolioLink(),
     });
+  });
+
+  const addr = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+  const WRITE_PREP = { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true } as const;
+  const failWith = (e: unknown) => {
+    const err = e as Error & { link?: string };
+    return fail(err.link ? `${err.message} Link: ${err.link}` : err.message ?? String(e));
+  };
+
+  server.registerTool('build_swap', {
+    title: 'Build a swap (unsigned)',
+    description: 'For agents with their own wallet: the unsigned transactions to swap one token for another at the best KyberSwap price on that chain (an exact-amount approval if needed, then the swap), with the quote, price impact, BTB fee, a safety grade for the token bought and a dry run. Nothing is signed or sent: sign and send them in order yourself.',
+    inputSchema: z.object({
+      chain: z.string().describe('Chain name or id, e.g. "base", "ethereum", "bnb", "arbitrum", 8453.'),
+      tokenIn: z.string().describe('Token to sell: its address, or "ETH" for the chain\'s native coin.'),
+      tokenOut: z.string().describe('Token to buy: its address, or "ETH" for the native coin.'),
+      amount: z.string().regex(/^\d+(\.\d+)?$/).describe('Amount of tokenIn in whole units, e.g. "250" or "0.5".'),
+      wallet: addr.describe('The wallet that signs and pays.'),
+      recipient: addr.optional().describe('Who receives tokenOut. Default: wallet.'),
+      slippageBps: z.number().int().min(1).max(3000).optional().describe('Slippage tolerance in bps. Default 50 (0.5%).'),
+    }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    try { return text(await buildSwap({ ...a, wallet: a.wallet as `0x${string}`, recipient: a.recipient as `0x${string}` | undefined })); }
+    catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('build_add_liquidity', {
+    title: 'Build an LP deposit (unsigned)',
+    description: 'For agents with their own wallet: the unsigned transactions to open a concentrated-liquidity position in a pool (exact-amount approvals if needed, then the mint), sized from an amount of one of its tokens, with the matching amount of the other token, the range, wallet balances and a dry run. Works for Uniswap V3, PancakeSwap V3, Aerodrome Slipstream and the V3 forks btb.finance supports; other pools return a link. Nothing is signed or sent.',
+    inputSchema: z.object({
+      ...poolArgs,
+      wallet: addr.describe('The wallet that signs, pays and receives the position.'),
+      token: z.string().describe('Which of the pool\'s two tokens `amount` is in: its address or symbol (wrapped symbol for ETH, e.g. WETH).'),
+      amount: z.string().regex(/^\d+(\.\d+)?$/).describe('Amount of that token in whole units. The other token\'s amount is computed for the range.'),
+      rangePct: z.number().positive().max(500).nullable().optional().describe('Half-width of the range around the price in %, e.g. 5 for ±5 %. null = full range. Default 5.'),
+      slippageBps: z.number().int().min(1).max(3000).optional().describe('Slippage tolerance in bps. Default 50 (500 on Robinhood Chain).'),
+    }),
+    annotations: WRITE_PREP,
+  }, async (a) => {
+    const p = await poolOr(a.chain, a.pool);
+    if (!p) return fail('Pool not found. Use search_pools or top_pools to get its key.');
+    try { return text(await buildAddLiquidity(p, { wallet: a.wallet as `0x${string}`, token: a.token, amount: a.amount, rangePct: a.rangePct, slippageBps: a.slippageBps })); }
+    catch (e) { return failWith(e); }
   });
 
   return server;
