@@ -65,6 +65,7 @@ Copy `.env.example` to `.env.local`. The app runs with an empty file; each varia
 | `NEXT_PUBLIC_ALCHEMY_KEY` | Alchemy key for balances on other chains. Without it that fallback is skipped. |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Web Push public key for LP range alerts. |
 | `LIFI_INTEGRATOR`, `LIFI_FEE` | LI.FI integrator id and optional bridge fee. |
+| `KYBER_PROXY_SECRET` | Key for `/api/kyber`, the KyberSwap relay used by the MCP server on hosts KyberSwap refuses. Unset = relay off. |
 | `BTB_MCP_SWAP_FEE_BPS` | Swap fee on swaps the MCP connector builds for agents, in bps (0–1000). Defaults to the app's fee. |
 
 Convex-side secrets (rewards payout key, agent key, cron switches) are set on the Convex dashboard, not in `.env.local`.
