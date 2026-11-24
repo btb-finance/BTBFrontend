@@ -39,7 +39,8 @@ export function target(chain: string, address: string) {
   const chainId = chainIdFor(chain);
   if (!chainId) throw new Error(`BTB has no RPC for chain "${chain}". Use a chain id or a name such as ethereum, base, arbitrum, bnb.`);
   if (!isAddr(address)) throw new Error('address must be a 0x contract address.');
-  return { chainId, address: address as Addr };
+  // Lowercase: viem rejects a mixed-case address whose checksum is wrong, and agents often paste those.
+  return { chainId, address: address.toLowerCase() as Addr };
 }
 
 // ---- get_abi ----
