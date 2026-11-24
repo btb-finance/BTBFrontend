@@ -31,6 +31,25 @@ function base(chainId: number) {
   return `https://aggregator-api.kyberswap.com/${slug}/api/v1`;
 }
 
+/**
+ * fetch() to KyberSwap's aggregator. KyberSwap refuses some server IPs (datacenter or region blocks, seen on Flux
+ * nodes as HTTP 403). On the server, when KYBER_PROXY_URL and KYBER_PROXY_SECRET are set, a refused request is sent
+ * again through btb.finance's /api/kyber relay, which KyberSwap accepts. Browsers always call KyberSwap directly.
+ */
+async function kyberFetch(url: string, init: RequestInit): Promise<Response> {
+  const res = await fetch(url, init);
+  const relay = typeof window === 'undefined' ? process.env.KYBER_PROXY_URL : undefined;
+  const key = typeof window === 'undefined' ? process.env.KYBER_PROXY_SECRET : undefined;
+  if (res.ok || !relay || !key || (res.status !== 403 && res.status !== 451)) return res;
+  const u = new URL(url);
+  const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+  return fetch(relay, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-btb-relay-key': key },
+    body: JSON.stringify({ path: u.pathname.replace(/^\//, ''), query: u.search.replace(/^\?/, ''), body }),
+  });
+}
+
 export interface KyberQuote {
   amountOut: string;
   amountOutFormatted: string;
@@ -63,7 +82,7 @@ export async function getKyberQuote(
     params.set('feeReceiver', BTB_SWAP_FEE_RECEIVER);
   }
   const url = `${base(chainId)}/routes?${params.toString()}`;
-  const res = await fetch(url, { headers: { 'x-client-id': 'btb-finance' } });
+  const res = await kyberFetch(url, { headers: { 'x-client-id': 'btb-finance' } });
   if (!res.ok) throw new Error(`KyberSwap routes ${res.status}`);
   const json = await res.json();
   if (json.code !== 0) throw new Error(json.message ?? 'KyberSwap error');
@@ -105,7 +124,7 @@ export async function buildKyberTx(
   slippageBps = 50,
   chainId = 1,
 ) {
-  const res = await fetch(`${base(chainId)}/route/build`, {
+  const res = await kyberFetch(`${base(chainId)}/route/build`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-client-id': 'btb-finance' },
     body: JSON.stringify({ routeSummary, sender, recipient, slippageTolerance: slippageBps }),
