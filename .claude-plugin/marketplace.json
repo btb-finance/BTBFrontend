@@ -1,0 +1,13 @@
+{
+  "name": "btb-finance",
+  "owner": { "name": "BTB Finance", "url": "https://btb.finance" },
+  "metadata": { "description": "BTB Finance plugins for Claude Code." },
+  "plugins": [
+    {
+      "name": "btb-finance",
+      "source": "./plugins/btb-finance",
+      "description": "Find, compare and plan liquidity pools across chains with risk grades; add liquidity and turn on auto-management through links you sign in your own wallet.",
+      "category": "finance"
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import webpush from "web-push";
+import * as webpush from "web-push";
 
 /** Push one message to every device the wallet registered. Dead subscriptions are dropped. */
 export const sendPush = internalAction({

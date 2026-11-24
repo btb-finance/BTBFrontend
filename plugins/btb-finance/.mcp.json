@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "btb": { "type": "http", "url": "https://btb.finance/api/mcp" }
+  }
+}
