@@ -1,0 +1,4128 @@
+{
+  "slug": "circle",
+  "name": "Circle",
+  "category": "Stablecoin Issuer",
+  "description": "Issuer of USDC and EURC. Agents can transfer/approve USDC and EURC on each supported chain (including gasless permit and EIP-3009 transferWithAuthorization on EVM) and move native USDC between chains by burning and minting through CCTP, using Circle's attestation (Iris) API.",
+  "website": "https://www.circle.com",
+  "docs": "https://developers.circle.com",
+  "defillama": "https://defillama.com/protocol/circle",
+  "chains": [
+    "ethereum",
+    "arbitrum",
+    "arc",
+    "avalanche",
+    "base",
+    "codex",
+    "celo",
+    "cronos",
+    "edge",
+    "hyperevm",
+    "injective",
+    "ink",
+    "linea",
+    "monad",
+    "morph",
+    "optimism",
+    "pharos",
+    "plasma",
+    "plume",
+    "polygon",
+    "sei",
+    "sonic",
+    "unichain",
+    "worldchain",
+    "xlayer",
+    "xdc",
+    "zksync",
+    "solana",
+    "algorand",
+    "aptos",
+    "hedera",
+    "near",
+    "noble",
+    "polkadot-assethub",
+    "starknet",
+    "stellar",
+    "sui",
+    "xrpl"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": null,
+      "address": "0x3600000000000000000000000000000000000000",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "codex",
+      "chainId": null,
+      "address": "0xd996633a415985DBd7D6D12f4A4343E31f5037cf",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "celo",
+      "chainId": 42220,
+      "address": "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "cronos",
+      "chainId": 25,
+      "address": "0x3D7F2C478aAfdB65542BCB44bCeeC05849999d2D",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "edge",
+      "chainId": null,
+      "address": "0x98d2919b9A214E6Fa5384AC81E6864bA686Ad74c",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0xb88339CB7199b77E23DB6E890353E22632Ba630f",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "injective",
+      "chainId": 1776,
+      "address": "0xa00C59fF5a080D2b954d0c75e46E22a0c371235a",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "ink",
+      "chainId": 57073,
+      "address": "0x2D270e6886d130D724215A266106e6832161EAEd",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "morph",
+      "chainId": 2818,
+      "address": "0xCfb1186F4e93D60E60a8bDd997427D1F33bc372B",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "pharos",
+      "chainId": null,
+      "address": "0xC879C018dB60520F4355C26eD1a6D572cdAC1815",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x2d661C89D812261039AF9764eceaAee884f5F67F",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "plume",
+      "chainId": 98866,
+      "address": "0x222365EF19F7947e5484218551B56bb3965Aa7aF",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "sei",
+      "chainId": 1329,
+      "address": "0xe15fC38F6D8c56aF07bbCBe3BAf5708A2Bf42392",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x29219dd400f2Bf60E5a23d13Be72B486D4038894",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x078D782b760474a361dDA0AF3839290b0EF57AD6",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "worldchain",
+      "chainId": 480,
+      "address": "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0xB6CEceAB302E2E4948951eE7843FC24E92933061",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "xdc",
+      "chainId": 50,
+      "address": "0xfA2958CB79b0491CC627c1557F441eF849Ca8eb1",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "zksync",
+      "chainId": 324,
+      "address": "0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4",
+      "name": "USDC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "name": "USDC (SPL mint)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "algorand",
+      "chainId": null,
+      "address": "31566704",
+      "name": "USDC (ASA ID)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "aptos",
+      "chainId": null,
+      "address": "0xbae207659db88bea0cbead6da0ed00aac12edcdda169e591cd41c94180b46f3b",
+      "name": "USDC (Fungible Asset metadata address)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "hedera",
+      "chainId": null,
+      "address": "0.0.456858",
+      "name": "USDC (HTS token ID)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "near",
+      "chainId": null,
+      "address": "17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "name": "USDC (NEP-141 account)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "noble",
+      "chainId": null,
+      "address": "uusdc",
+      "name": "USDC (Noble native denom)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polkadot-assethub",
+      "chainId": null,
+      "address": "1337",
+      "name": "USDC (AssetHub asset ID)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "starknet",
+      "chainId": null,
+      "address": "0x033068F6539f8e6e6b131e6B2B814e6c34A5224bC66947c47DaB9dFeE93b35fb",
+      "name": "USDC (Starknet token contract)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "stellar",
+      "chainId": null,
+      "address": "USDC-GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "name": "USDC (Stellar asset code-issuer)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "sui",
+      "chainId": null,
+      "address": "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+      "name": "USDC (Sui coin type)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "xrpl",
+      "chainId": null,
+      "address": "5553444300000000000000000000000000000000.rGm7WCVp9gb4jZHWTEtGUr4dd74z2XuWhE",
+      "name": "USDC (XRPL currency.issuer)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "arc",
+      "chainId": null,
+      "address": "0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0xC891EB4cbdEFf6e073e859e987815Ed1505c2ACD",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "cronos",
+      "chainId": 25,
+      "address": "0xA6dE01a2d62C6B5f3525d768f34d276652C554c8",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x3EE196E78d4d4248b849B8E1C7F44C5457FAFD2C",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "worldchain",
+      "chainId": 480,
+      "address": "0x1C60ba0A0eD1019e8Eb035E6daF4155A5cE2380B",
+      "name": "EURC",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send EURC (6 decimals). Returns bool. Reverts if sender or recipient is blacklisted or the contract is paused."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Returns bool."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals (6)."
+        },
+        {
+          "signature": "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-2612 gasless approval: owner, spender, value, deadline, v, r, s."
+        },
+        {
+          "signature": "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,uint8,bytes32,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "EIP-3009 signed transfer: from, to, value, validAfter, validBefore, nonce, v, r, s (anyone can submit the signed authorization)."
+        },
+        {
+          "signature": "isBlacklisted(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Circle has blacklisted the address (cannot send or receive)."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the token is paused (all transfers, mints and burns blocked)."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "HzwqbKZw8HxMN6bF2yFZNrht3c2iXXzpKcFu7uBEDKtr",
+      "name": "EURC (SPL mint)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "stellar",
+      "chainId": null,
+      "address": "EURC-GDHU6WRG4IEQXM5NZ4BMPKOXHW76MZM4Y2IEMFDVXBSDP6SJY4ITNPP2",
+      "name": "EURC (Stellar asset code-issuer)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 0)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 0)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 1)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 1)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 2)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 2)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 3)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 3)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 6)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 6)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 7)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 7)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 10)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 10)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 11)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "linea",
+      "chainId": 59144,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 11)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "codex",
+      "chainId": null,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 12)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "codex",
+      "chainId": null,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 12)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 13)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "sonic",
+      "chainId": 146,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 13)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "worldchain",
+      "chainId": 480,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 14)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "worldchain",
+      "chainId": 480,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 14)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 15)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "monad",
+      "chainId": 143,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 15)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "sei",
+      "chainId": 1329,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 16)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "sei",
+      "chainId": 1329,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 16)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "xdc",
+      "chainId": 50,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 18)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "xdc",
+      "chainId": 50,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 18)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 19)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 19)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "ink",
+      "chainId": 57073,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 21)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "ink",
+      "chainId": 57073,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 21)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "plume",
+      "chainId": 98866,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 22)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "plume",
+      "chainId": 98866,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 22)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": null,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 26)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "arc",
+      "chainId": null,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 26)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "edge",
+      "chainId": null,
+      "address": "0x98706A006bc632Df31CAdFCBD43F38887ce2ca5c",
+      "name": "CCTP V2 TokenMessengerV2 (domain 28)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "edge",
+      "chainId": null,
+      "address": "0x5b61381Fc9e58E70EfC13a4A97516997019198ee",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 28)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "injective",
+      "chainId": 1776,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 29)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "injective",
+      "chainId": 1776,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 29)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "morph",
+      "chainId": 2818,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 30)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "morph",
+      "chainId": 2818,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 30)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "pharos",
+      "chainId": null,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 31)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "pharos",
+      "chainId": null,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 31)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "cronos",
+      "chainId": 25,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 32)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "cronos",
+      "chainId": 25,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 32)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 33)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "plasma",
+      "chainId": 9745,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 33)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d",
+      "name": "CCTP V2 TokenMessengerV2 (domain 37)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address,bytes32,uint256,uint32)",
+          "kind": "write",
+          "payable": false,
+          "description": "Burn USDC to mint on another chain. Args: amount, destinationDomain (CCTP domain ID, not chain ID), mintRecipient (address left-padded to bytes32), burnToken (USDC address on this chain), destinationCaller (bytes32(0) = anyone may call receiveMessage), maxFee (in USDC base units), minFinalityThreshold (1000 = Fast Transfer, 2000 = Standard). Approve USDC to TokenMessengerV2 first. Max $10M per burn."
+        },
+        {
+          "signature": "depositForBurnWithHook(uint256,uint32,bytes32,address,bytes32,uint256,uint32,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Same as depositForBurn plus hookData bytes delivered with the message for custom logic on the destination chain."
+        },
+        {
+          "signature": "getMinFeeAmount(uint256)",
+          "kind": "read",
+          "payable": false,
+          "description": "Minimum fee for a burn amount; maxFee must be at least this when a standard fee applies."
+        }
+      ]
+    },
+    {
+      "chain": "xlayer",
+      "chainId": 196,
+      "address": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "name": "CCTP V2 MessageTransmitterV2 (domain 37)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/contract-addresses",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "On the destination chain: submit the message bytes and Circle attestation (both from the Iris API /v2/messages) to mint USDC to mintRecipient. Each nonce can be used once."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "CCTPV2vPZJS2u2BBsUoscuikbYjnpFmbFsvVuJdgUMQe",
+      "name": "CCTP V2 TokenMessengerMinterV2 program (domain 5)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/solana-programs",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: burn USDC for minting on another domain. Args: amount, destination domain, mint recipient, destination caller, max fee, min finality threshold. MessageSent is stored in a client-generated account reclaimable after 5 days."
+        },
+        {
+          "signature": "depositForBurnWithHook",
+          "kind": "write",
+          "payable": false,
+          "description": "As depositForBurn plus hookData."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "CCTPV2Sm4AdWt5296sk4P66VBZ7bEhcARwFaaS9YPbeC",
+      "name": "CCTP V2 MessageTransmitterV2 program (domain 5)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/references/solana-programs",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage",
+          "kind": "write",
+          "payable": false,
+          "description": "Solana instruction: submit message + attestation to mint on Solana; burn messages need extra remaining accounts for TokenMessengerMinterV2."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xBd3fa81B58Ba92a82136038B25aDec7066af3155",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 0)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x0a992d191DEeC32aFe36203Ad87D7d289a738F81",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 0)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x6B25532e1060CE10cc3B0A99e5683b91BFDe6982",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 1)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x8186359aF5F57FbB40c6b14A588d2A59C0C29880",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 1)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x2B4069517957735bE00ceE0fadAE88a26365528f",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 2)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "optimism",
+      "chainId": 10,
+      "address": "0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 2)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x19330d10D9Cc8751218eaf51E8885D058642E08A",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 3)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 3)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0x1682Ae6375C4E4A97e4B583BC394c861A46D8962",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 6)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "base",
+      "chainId": 8453,
+      "address": "0xAD09780d193884d503182aD4588450C416D6F9D4",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 6)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0x9daF8c91AEFAE50b9c0E69629D3F6Ca40cA3B3FE",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 7)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "polygon",
+      "chainId": 137,
+      "address": "0xF3be9355363857F3e001be68856A2f96b4C39Ba9",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 7)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x4e744b28E787c3aD0e810eD65A24461D4ac5a762",
+      "name": "CCTP V1 (Legacy, deprecating) TokenMessenger (domain 10)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "depositForBurn(uint256,uint32,bytes32,address)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Burn USDC: amount, destinationDomain, mintRecipient (bytes32), burnToken. Circle says V1 deprecation runs Oct 31 - Dec 1, 2026; new burns will be blocked. Use V2."
+        },
+        {
+          "signature": "depositForBurnWithCaller(uint256,uint32,bytes32,address,bytes32)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. As depositForBurn with a destinationCaller restriction."
+        }
+      ]
+    },
+    {
+      "chain": "unichain",
+      "chainId": 130,
+      "address": "0x353bE9E2E38AB1D19104534e4edC21c643Df86f4",
+      "name": "CCTP V1 (Legacy, deprecating) MessageTransmitter (domain 10)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+      "keyFunctions": [
+        {
+          "signature": "receiveMessage(bytes,bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "LEGACY. Complete a pending V1 transfer: message bytes + attestation (from /v1/messages or /v1/attestations). Circle keeps pending V1 redemptions available during the phase-out."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "CCTP attestation API (Iris) - mainnet",
+      "url": "https://iris-api.circle.com",
+      "auth": "none",
+      "use": "GET /v2/messages/{sourceDomainId}?transactionHash=0x... returns the message and attestation for a burn (poll until status complete), then pass both to MessageTransmitterV2.receiveMessage on the destination. Also GET /v2/burn/USDC/fees/{sourceDomainId}/{destDomainId} (fees for maxFee), GET /v2/fastBurn/USDC/allowance (Fast Transfer allowance), POST /v2/quote/burn/usdc/{sourceDomainId}/{destDomainId} (fee quote), POST /v2/reattest/{nonce}, GET /v2/publicKeys; legacy GET /v1/attestations/{messageHash} and /v1/messages/{sourceDomainId}/{transactionHash}. Rate limit 40 requests/second; exceeding it blocks all requests for 5 minutes (HTTP 429).",
+      "source": "https://developers.circle.com/openapi/cctp.yaml"
+    },
+    {
+      "name": "CCTP attestation API (Iris) - testnet",
+      "url": "https://iris-api-sandbox.circle.com",
+      "auth": "none",
+      "use": "Same endpoints for testnets.",
+      "source": "https://developers.circle.com/openapi/cctp.yaml"
+    }
+  ],
+  "actions": [
+    {
+      "name": "transfer",
+      "description": "Send USDC or EURC",
+      "how": "contract USDC.transfer(to, amount) (6 decimals)"
+    },
+    {
+      "name": "gasless-approve",
+      "description": "Approve with a signature",
+      "how": "sign EIP-2612 permit, then anyone calls USDC.permit(owner, spender, value, deadline, v, r, s)"
+    },
+    {
+      "name": "bridge-usdc",
+      "description": "Move native USDC to another chain with CCTP V2",
+      "how": "1) USDC.approve(TokenMessengerV2, amount); 2) TokenMessengerV2.depositForBurn(amount, destDomain, bytes32(recipient), USDC, bytes32(0), maxFee, 1000 fast | 2000 standard) with maxFee from GET /v2/burn/USDC/fees/{src}/{dst}; 3) poll GET https://iris-api.circle.com/v2/messages/{srcDomain}?transactionHash=<burn tx> until attestation is ready; 4) on destination call MessageTransmitterV2.receiveMessage(message, attestation)"
+    },
+    {
+      "name": "check-blacklist",
+      "description": "Check whether Circle has frozen an address",
+      "how": "contract USDC.isBlacklisted(address) on EVM chains"
+    }
+  ],
+  "risks": [
+    "Centralised issuer: the FiatToken blacklister role can blacklist any address; a blacklisted address cannot call transfer/transferFrom and cannot receive tokens (stablecoin-evm token design doc).",
+    "The pauser role can pause the whole token, blocking all transfers, mints and burns.",
+    "EVM USDC/EURC are upgradeable (FiatTokenProxy, unstructured-storage proxy delegating to FiatToken); the admin role can switch the implementation.",
+    "CCTP: destinationDomain is Circle's domain ID (e.g. Ethereum 0, Avalanche 1, OP 2, Arbitrum 3, Solana 5, Base 6, Polygon 7, Unichain 10), not the EVM chain ID. A wrong mintRecipient encoding loses funds. $10M max per burn; Fast Transfers are limited by a global allowance and carry a fee.",
+    "CCTP V1 (Legacy) deprecation began October 31, 2026 and completes December 1, 2026; message limits tighten until no new burns are possible and contracts are paused. Use V2 for new transfers.",
+    "Bridged USDC (e.g. USDC.e) on some chains is not issued by Circle; only addresses on Circle's page are native USDC."
+  ],
+  "notes": "Token addresses are copied from Circle's USDC and EURC contract-address pages (EVM addresses checksummed). CCTP V2 EVM addresses are identical on most chains (TokenMessengerV2 0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d, MessageTransmitterV2 0x81D40F21F12A8F0E3252Bccb954D722d4c464B64) except EDGE. Also on the CCTP V2 page but not listed as contracts here: TokenMinterV2 (0xfd78EE919681417d192449715b2594ab58f5D002 on most chains), MessageV2 (0xec546b6B005471ECf012e5aF77FBeC07e0FD8f78) and TokenMessengerWithFees (0x71f54F818671cD0D7ea140Da213e5C8b5C92a408 on 18 chains) - see https://developers.circle.com/cctp/references/contract-addresses. CCTP on Starknet, Stellar, Sui, Aptos and Noble: see Circle's non-EVM references (not included). BNB Smart Chain is CCTP domain 17 for USYC only. EVM keyFunctions follow Circle's FiatToken (stablecoin-evm) design; verify with get_abi. chainId is null where Circle's page does not give it and it was not confirmed (Arc, Codex, EDGE, Pharos). proxy is null because per-address proxy status was not confirmed from Circle's pages, though FiatToken is designed to sit behind FiatTokenProxy.",
+  "sources": [
+    "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+    "https://developers.circle.com/stablecoins/eurc-contract-addresses",
+    "https://developers.circle.com/cctp/references/contract-addresses",
+    "https://developers.circle.com/cctp/v1/evm-smart-contracts",
+    "https://developers.circle.com/cctp/references/solana-programs",
+    "https://developers.circle.com/cctp/references/contract-interfaces",
+    "https://developers.circle.com/openapi/cctp.yaml",
+    "https://developers.circle.com/cctp/references/technical-guide",
+    "https://developers.circle.com/cctp/concepts/supported-chains-and-domains",
+    "https://developers.circle.com/cctp/migration-from-v1-to-v2",
+    "https://github.com/circlefin/stablecoin-evm/blob/master/doc/tokendesign.md"
+  ],
+  "researchedAt": "2026-11-24"
+}

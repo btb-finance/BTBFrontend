@@ -11,6 +11,7 @@ import {
 import { walletPositions } from './positions';
 import { buildAddLiquidity, buildSwap } from './build';
 import { abiSummary, buildTx, readContract } from './contracts';
+import { listProtocols, protocolDetail } from './registry';
 
 // The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). No tool signs or
 // moves money. Agents with their own wallet get unsigned transactions from build_swap and build_add_liquidity and
@@ -22,6 +23,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
 - To see what a wallet already holds, use wallet_positions (every LP position, with value, range and fees) and auto_manage_status.
 - This server never signs. If you control a wallet, build_swap and build_add_liquidity return unsigned transactions (approvals first, then the action) with a simulation: check it, then sign and send them in step order yourself.
+- Named protocols (Lido, Uniswap, Circle, Tether, Polymarket, Hyperliquid…): list_protocols and get_protocol give their official contracts per chain, the functions to call, APIs and risks.
 - Any other contract: get_abi lists what it can do (verified source or decoded bytecode, proxies followed), read_contract calls a read function, build_tx turns any function into an unsigned transaction with a dry run. Integers are in base units. Heed the warnings and flags.
 - If you do not control a wallet, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign on btb.finance.
 - None of this is financial advice; say so when recommending.`;
@@ -429,6 +431,30 @@ export function buildServer(): McpServer {
   }, async (a) => {
     try { return text(await buildTx({ chain: a.chain, address: a.address, fn: a.function, args: a.args, wallet: a.wallet, valueEth: a.valueEth })); }
     catch (e) { return failWith(e); }
+  });
+
+  server.registerTool('list_protocols', {
+    title: 'Protocols in the BTB registry',
+    description: 'DeFi protocols BTB has researched for agents (stablecoin issuers, DEXes, lending, staking, prediction markets, perps…), filterable by category, chain or text: name, category, chains, how agents access it (on-chain or API) and how many contracts and APIs are recorded.',
+    inputSchema: z.object({
+      category: z.string().optional().describe('e.g. "Liquid Staking", "Dexs", "Lending", "Stablecoin".'),
+      chain: z.string().optional().describe('Only protocols on this chain, e.g. "base", "ethereum", "solana".'),
+      search: z.string().optional().describe('Text in the name or description.'),
+    }),
+    annotations: READ,
+  }, async (a) => text(listProtocols(a)));
+
+  server.registerTool('get_protocol', {
+    title: 'Protocol contracts, functions and APIs',
+    description: 'One protocol from the BTB registry: its official contract addresses per chain (each with the official page it came from), the functions an agent would call, off-chain APIs, supported actions and risks. Then use get_abi / read_contract / build_tx on its contracts.',
+    inputSchema: z.object({
+      protocol: z.string().describe('Name or slug, e.g. "lido", "uniswap", "maple-finance".'),
+      chain: z.string().optional().describe('Only contracts on this chain.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    const d = protocolDetail(a.protocol, a.chain);
+    return d ? text(d) : fail(`"${a.protocol}" is not in the BTB registry yet. Use list_protocols to see what is, or get_abi on a contract address directly.`);
   });
 
   return server;

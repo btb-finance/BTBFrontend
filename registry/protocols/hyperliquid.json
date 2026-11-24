@@ -1,0 +1,217 @@
+{
+  "slug": "hyperliquid",
+  "name": "Hyperliquid",
+  "category": "Derivatives",
+  "description": "Perpetuals and spot order-book exchange running on its own L1 (HyperCore). Agents trade, cancel, transfer and withdraw by POSTing EIP-712-signed actions to the official HTTP API, read positions/orders from the public info endpoint, deposit USDC from Arbitrum via the bridge contract, and can reach HyperCore from HyperEVM (chainId 999) contracts via the CoreWriter system contract.",
+  "website": "https://hyperliquid.xyz",
+  "docs": "https://hyperliquid.gitbook.io/hyperliquid-docs",
+  "defillama": "https://defillama.com/protocol/hyperliquid",
+  "chains": [
+    "hyperliquid",
+    "hyperevm",
+    "arbitrum"
+  ],
+  "vm": "mixed",
+  "agentAccess": "both",
+  "contracts": [
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7",
+      "name": "Hyperliquid Bridge2 (legacy USDC bridge)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/usdc",
+      "keyFunctions": [
+        {
+          "signature": "batchedDepositWithPermit((address,uint64,uint64,(uint256,uint256,uint8))[])",
+          "kind": "write",
+          "payable": false,
+          "description": "Deposit native Arbitrum USDC on behalf of users. Each entry is DepositWithPermit{user, usd (6 decimals), deadline, Signature{r,s,v}} where the signature is the user's EIP-2612 Permit on Arbitrum USDC (domain name 'USD Coin', version '2', chainId 42161, verifyingContract 0xaf88d065e77c8cC2239327C5EDb3A432268e5831) with spender = this bridge. Anyone can submit."
+        },
+        {
+          "signature": "usdcToken()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address of the USDC token the bridge accepts."
+        },
+        {
+          "signature": "paused()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if the bridge is paused (deposits via permit and withdrawals halt)."
+        },
+        {
+          "signature": "disputePeriodSeconds()",
+          "kind": "read",
+          "payable": false,
+          "description": "Dispute period applied to withdrawals before validators finalize them."
+        }
+      ]
+    },
+    {
+      "chain": "arbitrum",
+      "chainId": 42161,
+      "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      "name": "USDC (native, Arbitrum) - deposit asset",
+      "role": "token",
+      "proxy": null,
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/usdc",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Simplest deposit: transfer native USDC (6 decimals) to the Bridge2 address; credited to the sending address on Hyperliquid in under 1 minute. Minimum 5 USDC - smaller amounts are lost forever."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDC balance on Arbitrum."
+        },
+        {
+          "signature": "nonces(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "EIP-2612 permit nonce, needed to sign the permit for batchedDepositWithPermit."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x3333333333333333333333333333333333333333",
+      "name": "CoreWriter (system contract)",
+      "role": "other",
+      "proxy": null,
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/interacting-with-hypercore",
+      "keyFunctions": [
+        {
+          "signature": "sendRawAction(bytes)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send a HyperCore action from HyperEVM (msg.sender is the HyperCore account). Encoding: byte 1 = version (1), bytes 2-4 = big-endian action ID, rest = abi.encode of the action's fields. IDs: 1 limit order (uint32 asset, bool isBuy, uint64 limitPx, uint64 sz, bool reduceOnly, uint8 tif, uint128 cloid); 2 vault transfer; 3 token delegate; 4 staking deposit; 5 staking withdraw; 6 spot send; 7 USD class transfer; 8 finalize EVM contract; 9 add API wallet; 10 cancel by oid; 11 cancel by cloid; 12 approve builder fee; 13 send asset; 15 borrow/lend; 16 set abstraction; 17 outcome operation."
+        }
+      ]
+    },
+    {
+      "chain": "hyperevm",
+      "chainId": 999,
+      "address": "0x2222222222222222222222222222222222222222",
+      "name": "HYPE system address (HyperCore <> HyperEVM HYPE transfers)",
+      "role": "bridge",
+      "proxy": null,
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/hypercore-less-than-greater-than-hyperevm-transfers",
+      "keyFunctions": [
+        {
+          "signature": "receive()",
+          "kind": "write",
+          "payable": true,
+          "description": "On HyperEVM, send native HYPE as tx value to this address to move it to HyperCore (emits Received(address indexed user, uint256 amount), credited to msg.sender). On HyperCore, sending HYPE to this address (spotSend/sendAsset) moves it to HyperEVM as native gas token."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [
+    {
+      "name": "Exchange endpoint (trading and transfers)",
+      "url": "https://api.hyperliquid.xyz/exchange",
+      "auth": "signature",
+      "use": "POST JSON {action, nonce, signature, vaultAddress?, expiresAfter?}. Actions: order, cancel, cancelByCloid, scheduleCancel, modify, batchModify, updateLeverage, updateIsolatedMargin, usdSend, spotSend, sendAsset, withdraw3, usdClassTransfer, vaultTransfer, cDeposit/cWithdraw, tokenDelegate, approveAgent, approveBuilderFee, twapOrder, twapCancel. Order fields: a (asset index: perp = index in meta.universe, spot = 10000 + spotMeta index), b (isBuy), p (price string), s (size string), r (reduceOnly), t ({limit:{tif:Alo|Ioc|Gtc}} or {trigger:{isMarket,triggerPx,tpsl:tp|sl}}), c (optional 128-bit hex cloid); grouping na|normalTpsl|positionTpsl. Nonce = current ms timestamp. Signing: two schemes. (1) L1 actions (order, cancel, modify, leverage...): keccak256(msgpack(action) || nonce as 8-byte BE || 0x00 or 0x01+vaultAddress || optional 0x00+expiresAfter 8-byte BE) = connectionId; sign EIP-712 'Agent' {source: 'a' mainnet / 'b' testnet, connectionId: bytes32} with domain {name:'Exchange', version:'1', chainId:1337, verifyingContract:0x0000000000000000000000000000000000000000}. (2) User-signed actions (usdSend, spotSend, withdraw3, usdClassTransfer, approveAgent, approveBuilderFee...): EIP-712 over the action itself with domain {name:'HyperliquidSignTransaction', version:'1', chainId: action.signatureChainId (SDK uses 0x66eee), verifyingContract: zero address} and hyperliquidChain 'Mainnet'|'Testnet'. Official docs strongly recommend using an SDK (msgpack field order, trailing zeros and lowercase addresses all break signatures). Testnet: https://api.hyperliquid-testnet.xyz/exchange.",
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint"
+    },
+    {
+      "name": "Info endpoint (read state)",
+      "url": "https://api.hyperliquid.xyz/info",
+      "auth": "none",
+      "use": "POST JSON {type, ...}. Positions/margin: clearinghouseState {user}; spot balances: spotClearinghouseState {user}; open orders: openOrders / frontendOpenOrders {user}; orderStatus {user, oid}; fills: userFills / userFillsByTime; markets: meta, metaAndAssetCtxs, spotMeta, allMids, l2Book {coin}, candleSnapshot; funding: fundingHistory, userFunding; also userFees, userRateLimit, subAccounts, vaultDetails, delegations, portfolio. Query with the master/sub-account address, not the API-wallet address (agent address returns empty results). Testnet: https://api.hyperliquid-testnet.xyz/info.",
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint"
+    },
+    {
+      "name": "WebSocket API",
+      "url": "wss://api.hyperliquid.xyz/ws",
+      "auth": "none",
+      "use": "Subscriptions to market data and user events; can also carry signed exchange 'post' requests. Testnet: wss://api.hyperliquid-testnet.xyz/ws.",
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket"
+    },
+    {
+      "name": "HyperEVM JSON-RPC",
+      "url": "https://rpc.hyperliquid.xyz/evm",
+      "auth": "none",
+      "use": "EVM RPC for HyperEVM mainnet (chainId 999, gas token HYPE, 18 decimals). Testnet: https://rpc.hyperliquid-testnet.xyz/evm (chainId 998).",
+      "source": "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm"
+    }
+  ],
+  "actions": [
+    {
+      "name": "place order",
+      "description": "Place a perp or spot limit/IOC/post-only/trigger order",
+      "how": "POST https://api.hyperliquid.xyz/exchange with action {type:'order', orders:[{a,b,p,s,r,t,c?}], grouping:'na'}, nonce = ms timestamp, signed as an L1 action (phantom Agent EIP-712, chainId 1337). Market orders are IOC limit orders with an aggressive price. From HyperEVM: CoreWriter.sendRawAction with action ID 1."
+    },
+    {
+      "name": "cancel order",
+      "description": "Cancel by order id or client order id",
+      "how": "POST /exchange with action {type:'cancel', cancels:[{a, o: oid}]} or {type:'cancelByCloid', cancels:[{asset, cloid}]}, L1-signed. scheduleCancel sets a dead-man's switch. From HyperEVM: CoreWriter action IDs 10/11."
+    },
+    {
+      "name": "deposit",
+      "description": "Deposit USDC from Arbitrum to Hyperliquid",
+      "how": "Transfer native Arbitrum USDC (min 5 USDC) to Bridge2 0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7; credited to the same address in <1 minute. Or Bridge2.batchedDepositWithPermit with a user's USDC permit. Docs call this bridge legacy/deprecated and prefer Circle CCTP for native USDC."
+    },
+    {
+      "name": "withdraw",
+      "description": "Withdraw USDC to Arbitrum",
+      "how": "POST /exchange with user-signed action {type:'withdraw3', hyperliquidChain, signatureChainId, destination, amount, time} where time == nonce. No Arbitrum tx needed; validators send funds in about 3-5 minutes; $1 fee at time of writing."
+    },
+    {
+      "name": "read positions",
+      "description": "Read open perp positions, margin and balances",
+      "how": "POST https://api.hyperliquid.xyz/info {type:'clearinghouseState', user:<address>} for perps (assetPositions, marginSummary); {type:'spotClearinghouseState', user} for spot balances; {type:'openOrders', user} for resting orders. No auth."
+    },
+    {
+      "name": "set leverage",
+      "description": "Change cross/isolated leverage for an asset",
+      "how": "POST /exchange {type:'updateLeverage', asset, isCross, leverage}, L1-signed."
+    },
+    {
+      "name": "approve API (agent) wallet",
+      "description": "Let a separate key sign trades for the account",
+      "how": "POST /exchange user-signed action approveAgent {agentAddress, agentName?}. Agent wallets only sign; query state with the master address."
+    },
+    {
+      "name": "move HYPE / tokens between HyperCore and HyperEVM",
+      "description": "Bridge assets between the L1 order book and HyperEVM",
+      "how": "EVM->Core: send HYPE to 0x2222222222222222222222222222222222222222, or ERC20 transfer a linked token to its system address (0x20 followed by zeros and the token index big-endian). Core->EVM: spotSend/sendAsset to the token's system address."
+    }
+  ],
+  "risks": [
+    "Trading is not done through EVM contracts: orders are off-chain-signed API actions processed by HyperCore validators; a wrong signature yields errors like 'User or API Wallet ... does not exist'.",
+    "Bridge deposits below 5 USDC are not credited and are lost forever.",
+    "Bridge2 is documented as legacy/deprecated; Circle CCTP is the preferred way to get native USDC onto Hyperliquid.",
+    "Nonces: each signer keeps its 100 highest nonces; a nonce must exceed the smallest of them, be unused, and be within (T - 2 days, T + 1 day) of block time.",
+    "API wallets can be pruned when deregistered/expired or when the account has no funds; after pruning old signed actions can be replayed, so never reuse an agent wallet address.",
+    "Leveraged perpetuals can be liquidated; HIP-3 builder-deployed perp DEXs carry deployer risk.",
+    "HyperCore<>HyperEVM system-address transfers have no checks on supply or that the linked contract is a valid ERC20 - verify the token link before sending."
+  ],
+  "notes": "Mainnet API base https://api.hyperliquid.xyz, testnet https://api.hyperliquid-testnet.xyz. Testnet bridge: 0x08cfc1B6b2dCF36A1480b99353A354AA8AC56f89 (testnet USDC permit domain name 'USDC2', version '1', chainId 421614). HyperEVM read precompiles (perp positions, spot balances, vault equity, delegations, oracle prices, L1 block number) start at 0x0000000000000000000000000000000000000800; L1Read.sol in the docs defines them. Wrapped HYPE (WHYPE) is documented as an immutable WETH9 clone at '0x555...5' but the docs abbreviate the address, so it is not listed here. Circle's HyperEVM contracts (CCTP / CoreDepositWallet) live at https://github.com/circlefin/hyperevm-circle-contracts but no addresses were confirmed. Official SDK: https://github.com/hyperliquid-dex/hyperliquid-python-sdk (signing in hyperliquid/utils/signing.py). Bridge contract source: https://github.com/hyperliquid-dex/contracts.",
+  "sources": [
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/exchange-endpoint",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/perpetuals",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/websocket",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/signing",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/nonces-and-api-wallets",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/usdc",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/interacting-with-hypercore",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/hypercore-less-than-greater-than-hyperevm-transfers",
+    "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/wrapped-hype",
+    "https://raw.githubusercontent.com/hyperliquid-dex/hyperliquid-python-sdk/master/hyperliquid/utils/signing.py",
+    "https://raw.githubusercontent.com/hyperliquid-dex/contracts/master/Bridge2.sol",
+    "https://raw.githubusercontent.com/hyperliquid-dex/contracts/master/Signature.sol",
+    "https://github.com/circlefin/hyperevm-circle-contracts"
+  ],
+  "researchedAt": "2026-11-24"
+}

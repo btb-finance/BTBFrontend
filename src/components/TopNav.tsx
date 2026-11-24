@@ -130,6 +130,9 @@ export function TopNav({
               <div onClick={() => { onDocs(); setMoreOpen(false); }} {...warmOn('docs')} style={{ ...itemStyle(false), height: 38, borderRadius: 10 }}>
                 <span>Docs</span>
               </div>
+              <a href="/agents" onClick={() => setMoreOpen(false)} style={{ ...itemStyle(false), height: 38, borderRadius: 10, textDecoration: 'none' }}>
+                <span>For AI agents</span>
+              </a>
             </div>
           )}
         </div>

@@ -1,0 +1,601 @@
+{
+  "slug": "tether",
+  "name": "Tether",
+  "category": "Stablecoin Issuer",
+  "description": "Issuer of USDT (USD₮), the largest US-dollar stablecoin, plus XAU₮ (Tether Gold) and MXN₮. Agents use it by reading balances and transferring/approving the token contracts on each officially supported chain; minting and redemption are done off-chain with Tether by verified customers.",
+  "website": "https://tether.to",
+  "docs": "https://tether.to/en/supported-protocols/",
+  "defillama": "https://defillama.com/protocol/tether",
+  "chains": [
+    "ethereum",
+    "avalanche",
+    "bsc",
+    "kava",
+    "celo",
+    "kaia",
+    "tron",
+    "solana",
+    "ton",
+    "aptos",
+    "near",
+    "tezos",
+    "polkadot-assethub",
+    "liquid"
+  ],
+  "vm": "mixed",
+  "agentAccess": "onchain",
+  "contracts": [
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "name": "USDT (USD₮)",
+      "role": "token",
+      "proxy": false,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDT (6 decimals). Returns NOTHING (no bool) per the verified ABI: use a SafeERC20-style call that tolerates empty return data. Reverts if sender is blacklisted."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set allowance. Returns nothing (no bool). Reverts if changing a non-zero allowance to another non-zero value: source has require(!((_value != 0) && (allowed[msg.sender][_spender] != 0))). Approve 0 first, then the new amount."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount. Returns nothing (no bool)."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "USDT balance in base units (6 decimals)."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Returns uint256 6 (note: uint256, not uint8)."
+        },
+        {
+          "signature": "isBlackListed(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "True if Tether has blacklisted the address (it cannot transfer; its funds can be destroyed)."
+        },
+        {
+          "signature": "getBlackListStatus(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Same check as isBlackListed."
+        },
+        {
+          "signature": "deprecated()",
+          "kind": "read",
+          "payable": false,
+          "description": "True if this contract has been deprecated; calls are then forwarded to upgradedAddress()."
+        },
+        {
+          "signature": "upgradedAddress()",
+          "kind": "read",
+          "payable": false,
+          "description": "Address calls are forwarded to when deprecated."
+        },
+        {
+          "signature": "totalSupply()",
+          "kind": "read",
+          "payable": false,
+          "description": "Total USDT supply on Ethereum."
+        }
+      ]
+    },
+    {
+      "chain": "avalanche",
+      "chainId": 43114,
+      "address": "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7",
+      "name": "USDT (USD₮)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDT. Args: recipient, amount in base units (6)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "kava",
+      "chainId": 2222,
+      "address": "0x919C1c267BC06a7039e03fcc2eF738525769109c",
+      "name": "USDT (USD₮, Cosmos via Kava EVM)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDT. Args: recipient, amount in base units (6)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "celo",
+      "chainId": 42220,
+      "address": "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e",
+      "name": "USDT (USD₮)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDT. Args: recipient, amount in base units (6)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "kaia",
+      "chainId": 8217,
+      "address": "0xd077A400968890Eacc75cdc901F0356c943e4fDb",
+      "name": "USDT (USD₮)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDT. Args: recipient, amount in base units (6)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "tron",
+      "chainId": null,
+      "address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+      "name": "USDT (USD₮ TRC20)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send USDT. Args: recipient, amount in base units (6)."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "solana",
+      "chainId": null,
+      "address": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+      "name": "USDT (USD₮ SPL mint)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ton",
+      "chainId": null,
+      "address": "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs",
+      "name": "USDT (USD₮ Jetton master)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "aptos",
+      "chainId": null,
+      "address": "0xf73e887a8754f540ee6e1a93bdc6dde2af69fc7ca5de32013e89dd44244473cb",
+      "name": "USDT (USD₮ Fungible Asset)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "aptos",
+      "chainId": null,
+      "address": "0x357b0b74bc833e95a115ad22604854d6b0fca151cecd94111770e5d6ffc9dc2b",
+      "name": "USDT (USD₮ Object Asset ID)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "near",
+      "chainId": null,
+      "address": "usdt.tether-token.near",
+      "name": "USDT (USD₮ NEP-141)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "tezos",
+      "chainId": null,
+      "address": "KT1XnTn74bUtxHfDtBmm2bGZAQfhPbvKWR8o",
+      "name": "USDT (USD₮ Tezos token, token ID 0)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "polkadot-assethub",
+      "chainId": null,
+      "address": "1984",
+      "name": "USDT (USD₮ AssetHub asset ID)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "liquid",
+      "chainId": null,
+      "address": "ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2",
+      "name": "USDT (USD₮ Liquid asset ID)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": []
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0x68749665FF8D2d112Fa859AA293F07A622782F38",
+      "name": "XAUt (XAU₮, Tether Gold)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send XAU₮. Args: recipient, amount in base units (6; read decimals())."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "bsc",
+      "chainId": 56,
+      "address": "0x21cAef8A43163Eea865baeE23b9C2E327696A3bf",
+      "name": "XAUt (XAU₮, Tether Gold)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send XAU₮. Args: recipient, amount in base units (read decimals())."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    },
+    {
+      "chain": "ethereum",
+      "chainId": 1,
+      "address": "0xed03Ed872159e199065401b6d0D487d78d9464AA",
+      "name": "MXNt (MXN₮)",
+      "role": "token",
+      "proxy": null,
+      "source": "https://tether.to/en/supported-protocols/",
+      "keyFunctions": [
+        {
+          "signature": "transfer(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Send MXN₮. Args: recipient, amount in base units (read decimals())."
+        },
+        {
+          "signature": "approve(address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Set a spender allowance. Args: spender, amount in base units."
+        },
+        {
+          "signature": "transferFrom(address,address,uint256)",
+          "kind": "write",
+          "payable": false,
+          "description": "Spend an allowance: from, to, amount."
+        },
+        {
+          "signature": "balanceOf(address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Token balance of an address, in base units."
+        },
+        {
+          "signature": "allowance(address,address)",
+          "kind": "read",
+          "payable": false,
+          "description": "Allowance an owner gave a spender: owner, spender."
+        },
+        {
+          "signature": "decimals()",
+          "kind": "read",
+          "payable": false,
+          "description": "Token decimals; read it rather than assume."
+        }
+      ]
+    }
+  ],
+  "offchainApis": [],
+  "actions": [
+    {
+      "name": "transfer",
+      "description": "Send USDT on a chain",
+      "how": "contract USDT.transfer(to, amount) on that chain; on Ethereum, do not require a bool return value"
+    },
+    {
+      "name": "approve",
+      "description": "Let a protocol spend USDT",
+      "how": "On Ethereum: if allowance(owner, spender) > 0, call USDT.approve(spender, 0) first, then USDT.approve(spender, amount)"
+    },
+    {
+      "name": "check-blacklist",
+      "description": "Check whether an address is frozen by Tether (Ethereum)",
+      "how": "contract USDT.isBlackListed(address) on Ethereum"
+    },
+    {
+      "name": "balance",
+      "description": "Read a USDT balance",
+      "how": "contract USDT.balanceOf(address); 6 decimals on Ethereum"
+    }
+  ],
+  "risks": [
+    "Centralised issuer: Tether's Terms of Service reserve the right to freeze Tether Tokens, blacklist any address holding them, bar transactions to or from addresses, and seize or recover tokens (tether.to/en/legal).",
+    "USDT on Ethereum: owner can addBlackList(address); a blacklisted address cannot transfer, and destroyBlackFunds(address) zeroes its balance and burns it from supply (verified source).",
+    "USDT on Ethereum does not return bool from transfer/transferFrom/approve; strict ERC-20 callers that require a bool will revert.",
+    "USDT on Ethereum approve reverts when changing a non-zero allowance to another non-zero value; reset to 0 first.",
+    "USDT on Ethereum can be deprecated by the owner, after which calls are forwarded to upgradedAddress(); owner can also pause transfers.",
+    "Only chains listed on tether.to/en/supported-protocols are issued/redeemed by Tether. Tether lists Algorand, Vaulta/EOS, Kusama, Omni, Bitcoin Cash SLP as deprecated (no longer issued or redeemable obligation), EUR₮ as wound down, and CNH₮ redemption ending February 20, 2027."
+  ],
+  "notes": "Addresses are exactly as listed on https://tether.to/en/supported-protocols/ (EVM ones checksummed here). USDT on Kava is listed by Tether as \"Cosmos (via Kava)\". Not included: USDT0 / XAUt0 (the LayerZero OFT omnichain versions developed by Everdawn Labs) because tether.to's supported-protocols page does not list them; USDT on chains such as Arbitrum, Polygon, Optimism or BNB Chain is not on Tether's official list (bridged or USDT0 versions exist there) and is omitted. The no-bool / approve-reset behaviour and blacklist functions are confirmed only for the Ethereum USDT contract (verified source); other chains' USDT contracts are different deployments, so read their ABI (get_abi) before relying on return values. Deprecated tokens with addresses on the official page (historical only): EUR₮ Ethereum 0xC581b735A1688071A1746c968e0798D642EDE491, CNH₮ Ethereum 0x6e109e9dd7fa1a58bc3eff667e8e41fc3cc07aef, CNH₮ Tron TCfCGjekyqmdYt1yxfUM5v5SDtaY6tuWik, MXN₮ Tron TDp7Kbp6ajeWeQN9J57Vnw4WyQdKpuARDF, USD₮ Algorand asset 312769, Kusama AssetHub 1984, Omni property #31. Minting/redemption is via tether.to accounts (KYC), not an on-chain contract call.",
+  "sources": [
+    "https://tether.to/en/supported-protocols/",
+    "https://tether.to/en/legal/",
+    "https://etherscan.io/address/0xdac17f958d2ee523a2206206994597c13d831ec7#code",
+    "https://eth.blockscout.com/api/v2/smart-contracts/0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  ],
+  "researchedAt": "2026-11-24"
+}
