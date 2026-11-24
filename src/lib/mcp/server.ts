@@ -8,6 +8,7 @@ import {
   LETTERS, SITE, addable, brief, chainIdOf, chainKey, convex, feePct, findPool, headlineApr, median, poolKey, poolLink,
   poolRisk, portfolioLink, round2, scanLink, searchPools, snapshot, tokenGrade, type Letter,
 } from './data';
+import { walletPositions } from './positions';
 
 // The BTB connector: Discover's pools for any MCP client (claude.ai, Claude Code, other agents). Every tool reads;
 // none signs or moves money. Adding liquidity and turning on auto-management happen on btb.finance, in the user's
@@ -17,6 +18,7 @@ const INSTRUCTIONS = `BTB Finance: live liquidity pools across Base, Ethereum, B
 - Find pools with top_pools, search_pools or best_pools_for; compare them with compare_pools; read one with pool_details.
 - APRs are yearly percentages. "measured ±5% range APR" is what a ±5 % concentrated position really earned over the last days; prefer it over base APR.
 - Before suggesting a pool, check its risk grade and reasons. Treat APRs above 200 % as unlikely to last.
+- To see what a wallet already holds, use wallet_positions (every LP position, with value, range and fees) and auto_manage_status.
 - You cannot sign transactions. To add liquidity or turn on auto-management, give the user the link from add_liquidity_link or auto_manage_setup; they review and sign in their own wallet on btb.finance.
 - None of this is financial advice; say so when recommending.`;
 
@@ -277,6 +279,19 @@ export function buildServer(): McpServer {
       estimate: a.amountUsd ? estimate(p, a.amountUsd, 30) : undefined,
       safety: 'Nothing is signed or sent by this tool. Check the pool, the tokens and the amounts in your wallet before signing.',
     });
+  });
+
+  server.registerTool('wallet_positions', {
+    title: 'Wallet LP positions',
+    description: 'Every LP position a wallet holds on Ethereum, Base, BNB Chain, Robinhood Chain and Arc (Uniswap V3/V4, PancakeSwap, Aerodrome, Aero, Giga, Ramses, UP, SushiSwap, Alandale), including the ones in its BTB smart wallets: pair, amounts, USD value, in range or not, price range, uncollected fees, staking, auto-management, and PnL when available. Public on-chain data, read-only. Takes up to about 20 seconds.',
+    inputSchema: z.object({
+      address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('The wallet address.'),
+      chain: z.string().optional().describe('Only this chain (faster). Omit for all five.'),
+    }),
+    annotations: READ,
+  }, async (a) => {
+    const r = await walletPositions(a.address as `0x${string}`, a.chain);
+    return text({ ...r, manageLink: portfolioLink(), note: 'Collect fees, add, remove or rebalance on btb.finance (Portfolio) with the wallet; nothing here can change a position.' });
   });
 
   server.registerTool('auto_manage_status', {

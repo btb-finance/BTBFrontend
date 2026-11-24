@@ -12,11 +12,11 @@ or `claude plugin marketplace add btb-finance/BTBFrontend` then `claude plugin i
 
 ## What you get
 
-- **Connector** `btb` (https://btb.finance/api/mcp): `top_pools`, `search_pools`, `pool_details`, `compare_pools`, `best_pools_for`, `chain_summary`, `estimate_lp_earnings`, `token_safety`, `lp_plan`, `add_liquidity_link`, `auto_manage_status`, `auto_manage_setup`.
+- **Connector** `btb` (https://btb.finance/api/mcp): `top_pools`, `search_pools`, `pool_details`, `compare_pools`, `best_pools_for`, `chain_summary`, `estimate_lp_earnings`, `token_safety`, `lp_plan`, `add_liquidity_link`, `wallet_positions`, `auto_manage_status`, `auto_manage_setup`.
 - **Skills**: `compare-pools`, `add-liquidity`, `manage-lps`.
-- **Agent** `lp-manager`: researches pools, builds an LP plan for an amount, reviews a wallet's auto-managed positions and prepares the links you sign.
+- **Agent** `lp-manager`: researches pools, builds an LP plan for an amount, reviews every LP position a wallet holds (and its auto-managed ones) and prepares the links you sign.
 
-Try: "Compare the best ETH/USDC pools on Base", "Plan $10k across 3 low-risk pools", "How are the auto-managed LPs of 0x… doing?"
+Try: "Compare the best ETH/USDC pools on Base", "Plan $10k across 3 low-risk pools", "Show every LP position of 0x… and which are out of range"
 
 ## claude.ai
 
