@@ -11,40 +11,40 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@coinbase/wallet-sdk": "^4.3.7",
+    "@coinbase/wallet-sdk": "^4.4.0",
     "@metamask/connect-evm": "^2.1.1",
-    "@metric.xyz/metric-omm-sdk-v1": "0.6.7",
+    "@metric.xyz/metric-omm-sdk-v1": "0.7.4",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@tanstack/react-query": "^5.102.8",
-    "@walletconnect/ethereum-provider": "^2.24.0",
-    "convex": "^1.45.0",
+    "@tanstack/react-query": "^5.108.4",
+    "@walletconnect/ethereum-provider": "^2.26.0",
+    "convex": "^1.51.0",
     "fflate": "^0.8.3",
     "next": "16.4.6",
     "qrcode.react": "^4.2.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "viem": "^2.56.3",
-    "wagmi": "^3.7.7",
-    "web-push": "3.6.7"
+    "viem": "^2.58.6",
+    "wagmi": "^3.7.11",
+    "web-push": "4.0.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
-    "@types/node": "^25.9.2",
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/web-push": "^3.6.4",
-    "oxlint": "1.86.0",
-    "oxlint-tsgolint": "7.0.2003",
-    "tailwindcss": "^4.3.3",
+    "oxlint": "1.95.0",
+    "oxlint-tsgolint": "7.0.2008",
+    "tailwindcss": "^4.3.5",
     "typescript": "7.0.2"
   },
   "resolutions": {
-    "axios": "^1.18.0",
-    "browserslist": "^4.28.7",
-    "baseline-browser-mapping": "^2.11.0",
-    "uuid": "^11.1.1",
+    "axios": "^1.21.1",
+    "browserslist": "^4.29.6",
+    "baseline-browser-mapping": "^2.11.39",
+    "uuid": "^14.0.3",
     "follow-redirects": "^1.16.2",
-    "source-map-js": "^1.2.2",
+    "source-map-js": "^1.2.4",
     "zod": "^4.6.6"
   }
 }

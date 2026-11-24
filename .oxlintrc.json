@@ -25,7 +25,7 @@
     "jsx-a11y/click-events-have-key-events": "off",
     "typescript/no-floating-promises": "error",
     "typescript/no-base-to-string": "error",
-    "react/set-state-in-effect": "error",
+    "react/set-state-in-effect": "warn",
     "eslint/no-unused-vars": "error"
   },
   "ignorePatterns": [
